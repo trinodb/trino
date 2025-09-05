@@ -26,6 +26,7 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.LanguageFunctionManager.RunAsIdentityLoader;
 import io.trino.security.AccessControl;
@@ -38,7 +39,6 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.BeginTableExecuteResult;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
@@ -1207,10 +1207,17 @@ public final class MetadataManager
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalogHandle);
 
         List<ConnectorTableHandle> sourceConnectorHandles = sourceTableHandles.stream()
+                .filter(handle -> handle.catalogHandle().equals(catalogHandle))
                 .map(TableHandle::connectorHandle)
                 .collect(Collectors.toList());
 
-        ConnectorInsertTableHandle handle = metadata.beginRefreshMaterializedView(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), sourceConnectorHandles, getRetryPolicy(session).getRetryMode(), refreshType);
+        ConnectorInsertTableHandle handle = metadata.beginRefreshMaterializedView(
+                session.toConnectorSession(catalogHandle),
+                tableHandle.connectorHandle(),
+                sourceConnectorHandles,
+                sourceConnectorHandles.size() < sourceTableHandles.size(),
+                getRetryPolicy(session).getRetryMode(),
+                refreshType);
 
         return new InsertTableHandle(tableHandle.catalogHandle(), transactionHandle, handle);
     }
@@ -1229,8 +1236,10 @@ public final class MetadataManager
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
 
         List<ConnectorTableHandle> sourceConnectorHandles = sourceTableHandles.stream()
+                .filter(handle -> handle.catalogHandle().equals(catalogHandle))
                 .map(TableHandle::connectorHandle)
                 .collect(toImmutableList());
+
         return metadata.finishRefreshMaterializedView(
                 session.toConnectorSession(catalogHandle),
                 tableHandle.connectorHandle(),
@@ -1238,7 +1247,8 @@ public final class MetadataManager
                 fragments,
                 computedStatistics,
                 sourceConnectorHandles,
-                sourceTableFunctions);
+                sourceConnectorHandles.size() < sourceTableHandles.size(),
+                !sourceTableFunctions.isEmpty());
     }
 
     @Override

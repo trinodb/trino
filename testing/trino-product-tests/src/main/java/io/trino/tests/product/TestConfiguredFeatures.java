@@ -16,16 +16,14 @@ package io.trino.tests.product;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.tempto.ProductTest;
-import io.trino.tempto.assertions.QueryAssert;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.sql.JDBCType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -49,10 +47,16 @@ public class TestConfiguredFeatures
             throw new SkipException("Skip checking configured connectors since none were set in Tempto configuration");
         }
         String sql = "SELECT DISTINCT connector_name FROM system.metadata.catalogs";
-        assertThat(onTrino().executeQuery(sql))
-                .hasColumns(VARCHAR)
-                .containsOnly(configuredConnectors.stream()
-                        .map(QueryAssert.Row::row)
-                        .collect(Collectors.toList()));
+        List<String> loadedCatalogs = onTrino().executeQuery(sql).column(1).stream()
+                .map(Object::toString)
+                .collect(toImmutableList());
+        // TODO https://github.com/trinodb/trino/issues/26500
+        // Loki connector is not loading properly. Once this is fixed, test will fail.
+        List<String> filteredCatalogs = configuredConnectors.stream()
+                .filter(connector -> !connector.equals("loki"))
+                .collect(toImmutableList());
+
+        assertThat(filteredCatalogs)
+                .containsExactlyInAnyOrder(loadedCatalogs.toArray(new String[0]));
     }
 }

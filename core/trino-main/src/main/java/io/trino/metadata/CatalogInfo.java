@@ -13,12 +13,12 @@
  */
 package io.trino.metadata;
 
-import io.trino.spi.connector.CatalogHandle;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorName;
 
 import static java.util.Objects.requireNonNull;
 
-public record CatalogInfo(String catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
+public record CatalogInfo(String catalogName, CatalogHandle catalogHandle, ConnectorName connectorName, boolean loaded)
 {
     public CatalogInfo
     {

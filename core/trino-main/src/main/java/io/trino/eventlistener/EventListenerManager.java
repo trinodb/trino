@@ -27,7 +27,6 @@ import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
-import io.trino.spi.eventlistener.SplitCompletedEvent;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -68,7 +67,6 @@ public class EventListenerManager
 
     private final TimeStat queryCreatedTime = new TimeStat(MILLISECONDS);
     private final TimeStat queryCompletedTime = new TimeStat(MILLISECONDS);
-    private final TimeStat splitCompletedTime = new TimeStat(MILLISECONDS);
     private final SecretsResolver secretsResolver;
     private final EventListenerContextInstance context;
 
@@ -192,25 +190,6 @@ public class EventListenerManager
         }
     }
 
-    public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
-    {
-        try (TimeStat.BlockTimer _ = splitCompletedTime.time()) {
-            doSplitCompleted(splitCompletedEvent);
-        }
-    }
-
-    private void doSplitCompleted(SplitCompletedEvent splitCompletedEvent)
-    {
-        for (EventListener listener : configuredEventListeners.get()) {
-            try {
-                listener.splitCompleted(splitCompletedEvent);
-            }
-            catch (Throwable e) {
-                log.warn(e, "Failed to publish SplitCompletedEvent for query %s", splitCompletedEvent.getQueryId());
-            }
-        }
-    }
-
     @Managed
     @Nested
     public TimeStat getQueryCreatedTime()
@@ -223,13 +202,6 @@ public class EventListenerManager
     public TimeStat getQueryCompletedTime()
     {
         return queryCompletedTime;
-    }
-
-    @Managed
-    @Nested
-    public TimeStat getSplitCompletedTime()
-    {
-        return splitCompletedTime;
     }
 
     @Managed

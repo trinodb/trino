@@ -71,7 +71,6 @@ import static io.trino.execution.TaskState.FINISHED;
 import static io.trino.execution.TaskState.FLUSHING;
 import static io.trino.execution.TaskState.RUNNING;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
-import static io.trino.execution.TaskTestUtils.createTestSplitMonitor;
 import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
@@ -137,7 +136,6 @@ public class TestSqlTaskExecution
                     outputBuffer,
                     localExecutionPlan,
                     taskExecutor,
-                    createTestSplitMonitor(),
                     noopTracer(),
                     taskNotificationExecutor);
             sqlTaskExecution.start();

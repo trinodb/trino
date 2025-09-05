@@ -680,6 +680,130 @@
                                     <old>method io.trino.spi.Page io.trino.spi.connector.RecordPageSource::getNextPage()</old>
                                     <justification>Deprecated</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method long io.trino.spi.resourcegroups.ResourceGroup::getHardPhysicalDataScanLimitBytes()</new>
+                                    <justification>Add physical data scan tracking to resource groups</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method void io.trino.spi.resourcegroups.ResourceGroup::setHardPhysicalDataScanLimitBytes(long)</new>
+                                    <justification>Add physical data scan tracking to resource groups</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method long io.trino.spi.resourcegroups.ResourceGroup::getPhysicalDataScanQuotaGenerationBytesPerSecond()</new>
+                                    <justification>Add physical data scan tracking to resource groups</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method void io.trino.spi.resourcegroups.ResourceGroup::setPhysicalDataScanQuotaGenerationBytesPerSecond(long)</new>
+                                    <justification>Add physical data scan tracking to resource groups</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method void io.trino.spi.type.Int128Math::multiply(long, long, long, long, long[], int)</old>
+                                    <new>method void io.trino.spi.type.Int128Math::multiply(long, long, long, long, long[], int)</new>
+                                    <oldVisibility>private</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method long io.trino.spi.type.Int128Math::signExtension(long)</old>
+                                    <new>method long io.trino.spi.type.Int128Math::signExtension(long)</new>
+                                    <oldVisibility>private</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method io.trino.spi.connector.ConnectorInsertTableHandle io.trino.spi.connector.ConnectorMetadata::beginRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, io.trino.spi.connector.RetryMode, io.trino.spi.RefreshType)</old>
+                                    <new>method io.trino.spi.connector.ConnectorInsertTableHandle io.trino.spi.connector.ConnectorMetadata::beginRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, boolean, io.trino.spi.connector.RetryMode, io.trino.spi.RefreshType)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.util.Optional&lt;io.trino.spi.connector.ConnectorOutputMetadata&gt; io.trino.spi.connector.ConnectorMetadata::finishRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.ConnectorInsertTableHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, java.util.List&lt;java.lang.String&gt;)</old>
+                                    <new>method java.util.Optional&lt;io.trino.spi.connector.ConnectorOutputMetadata&gt; io.trino.spi.connector.ConnectorMetadata::finishRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.ConnectorInsertTableHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, boolean, boolean)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferUtilization&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferMetrics&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageTaskStatistics&gt;, java.util.List&lt;io.trino.spi.eventlistener.DynamicFilterDomainStatistics&gt;, java.util.function.Supplier&lt;java.util.List&lt;java.lang.String&gt;&gt;, java.util.List&lt;io.trino.spi.eventlistener.QueryPlanOptimizerStatistics&gt;, java.util.Optional&lt;java.lang.String&gt;)</old>
+                                    <new>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferUtilization&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferMetrics&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageTaskStatistics&gt;, java.util.List&lt;io.trino.spi.eventlistener.DynamicFilterDomainStatistics&gt;, java.util.function.Supplier&lt;java.util.List&lt;java.lang.String&gt;&gt;, java.util.List&lt;io.trino.spi.eventlistener.QueryPlanOptimizerStatistics&gt;, java.util.Optional&lt;java.lang.String&gt;)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.eventlistener.QueryStatistics::getTotalRows()</old>
+                                    <justification>Redundant with QueryStatistics::getProcessedInputRows()</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.eventlistener.QueryStatistics::getTotalBytes()</old>
+                                    <justification>Redundant with QueryStatistics::getInternalNetworkBytes() + QueryStatistics::getPhysicalInputBytes()</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.connector.CatalogHandle io.trino.spi.connector.ConnectorContext::getCatalogHandle()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter io.trino.spi.connector.CatalogHandle io.trino.spi.connector.CatalogHandle::createRootCatalogHandle(io.trino.spi.catalog.CatalogName, ===io.trino.spi.connector.CatalogHandle.CatalogVersion===)</old>
+                                    <new>parameter io.trino.spi.connector.CatalogHandle io.trino.spi.connector.CatalogHandle::createRootCatalogHandle(io.trino.spi.catalog.CatalogName, ===io.trino.spi.connector.CatalogVersion===)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method io.trino.spi.connector.CatalogHandle.CatalogVersion io.trino.spi.connector.CatalogHandle::getVersion()</old>
+                                    <new>method io.trino.spi.connector.CatalogVersion io.trino.spi.connector.CatalogHandle::getVersion()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.eventlistener.QueryInputMetadata::&lt;init&gt;(java.util.Optional&lt;java.lang.String&gt;, java.lang.String, ===io.trino.spi.connector.CatalogHandle.CatalogVersion===, java.lang.String, java.lang.String, java.util.List&lt;io.trino.spi.eventlistener.QueryInputMetadata.Column&gt;, java.util.Optional&lt;java.lang.Object&gt;, io.trino.spi.metrics.Metrics, java.util.OptionalLong, java.util.OptionalLong)</old>
+                                    <new>parameter void io.trino.spi.eventlistener.QueryInputMetadata::&lt;init&gt;(java.util.Optional&lt;java.lang.String&gt;, java.lang.String, ===io.trino.spi.connector.CatalogVersion===, java.lang.String, java.lang.String, java.util.List&lt;io.trino.spi.eventlistener.QueryInputMetadata.Column&gt;, java.util.Optional&lt;java.lang.Object&gt;, io.trino.spi.metrics.Metrics, java.util.OptionalLong, java.util.OptionalLong)</new>
+                                    <parameterIndex>2</parameterIndex>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method io.trino.spi.connector.CatalogHandle.CatalogVersion io.trino.spi.eventlistener.QueryInputMetadata::getCatalogVersion()</old>
+                                    <new>method io.trino.spi.connector.CatalogVersion io.trino.spi.eventlistener.QueryInputMetadata::getCatalogVersion()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.eventlistener.QueryOutputMetadata::&lt;init&gt;(java.lang.String, ===io.trino.spi.connector.CatalogHandle.CatalogVersion===, java.lang.String, java.lang.String, java.util.Optional&lt;java.util.List&lt;io.trino.spi.eventlistener.OutputColumnMetadata&gt;&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.Boolean&gt;)</old>
+                                    <new>parameter void io.trino.spi.eventlistener.QueryOutputMetadata::&lt;init&gt;(java.lang.String, ===io.trino.spi.connector.CatalogVersion===, java.lang.String, java.lang.String, java.util.Optional&lt;java.util.List&lt;io.trino.spi.eventlistener.OutputColumnMetadata&gt;&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.Boolean&gt;)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method io.trino.spi.connector.CatalogHandle.CatalogVersion io.trino.spi.eventlistener.QueryOutputMetadata::getCatalogVersion()</old>
+                                    <new>method io.trino.spi.connector.CatalogVersion io.trino.spi.eventlistener.QueryOutputMetadata::getCatalogVersion()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.catalog.CatalogProperties::&lt;init&gt;(io.trino.spi.connector.CatalogHandle, io.trino.spi.connector.ConnectorName, java.util.Map&lt;java.lang.String, java.lang.String&gt;)</old>
+                                    <new>method void io.trino.spi.catalog.CatalogProperties::&lt;init&gt;(io.trino.spi.catalog.CatalogName, io.trino.spi.connector.CatalogVersion, io.trino.spi.connector.ConnectorName, java.util.Map&lt;java.lang.String, java.lang.String&gt;)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.connector.CatalogHandle io.trino.spi.catalog.CatalogProperties::catalogHandle()</old>
+                                </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>io.trino.spi.connector.CatalogHandle</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.connector.CatalogHandle io.trino.spi.catalog.CatalogProperties::catalogHandle()</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

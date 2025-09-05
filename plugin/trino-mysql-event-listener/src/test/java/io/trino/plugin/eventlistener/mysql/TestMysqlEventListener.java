@@ -18,7 +18,7 @@ import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.plugin.base.evenlistener.TestingEventListenerContext;
 import io.trino.spi.TrinoWarning;
-import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.connector.StandardWarningCode;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.EventListener;
@@ -114,8 +114,6 @@ final class TestMysqlEventListener
             1192L,
             120L,
             121L,
-            122L,
-            123L,
             124L,
             125L,
             126L,
@@ -282,8 +280,6 @@ final class TestMysqlEventListener
             1192L,
             120L,
             121L,
-            122L,
-            123L,
             124L,
             125L,
             126L,
@@ -458,8 +454,8 @@ final class TestMysqlEventListener
                     assertThat(resultSet.getLong("physical_input_rows")).isEqualTo(119);
                     assertThat(resultSet.getLong("internal_network_bytes")).isEqualTo(120);
                     assertThat(resultSet.getLong("internal_network_rows")).isEqualTo(121);
-                    assertThat(resultSet.getLong("total_bytes")).isEqualTo(122);
-                    assertThat(resultSet.getLong("total_rows")).isEqualTo(123);
+                    assertThat(resultSet.getLong("total_bytes")).isEqualTo(238);
+                    assertThat(resultSet.getLong("total_rows")).isEqualTo(1192);
                     assertThat(resultSet.getLong("output_bytes")).isEqualTo(124);
                     assertThat(resultSet.getLong("output_rows")).isEqualTo(125);
                     assertThat(resultSet.getLong("written_bytes")).isEqualTo(126);
@@ -541,8 +537,8 @@ final class TestMysqlEventListener
                     assertThat(resultSet.getLong("physical_input_rows")).isEqualTo(119);
                     assertThat(resultSet.getLong("internal_network_bytes")).isEqualTo(120);
                     assertThat(resultSet.getLong("internal_network_rows")).isEqualTo(121);
-                    assertThat(resultSet.getLong("total_bytes")).isEqualTo(122);
-                    assertThat(resultSet.getLong("total_rows")).isEqualTo(123);
+                    assertThat(resultSet.getLong("total_bytes")).isEqualTo(238);
+                    assertThat(resultSet.getLong("total_rows")).isEqualTo(1192);
                     assertThat(resultSet.getLong("output_bytes")).isEqualTo(124);
                     assertThat(resultSet.getLong("output_rows")).isEqualTo(125);
                     assertThat(resultSet.getLong("written_bytes")).isEqualTo(126);

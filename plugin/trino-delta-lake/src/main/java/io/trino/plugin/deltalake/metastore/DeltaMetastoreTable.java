@@ -15,16 +15,21 @@ package io.trino.plugin.deltalake.metastore;
 
 import io.trino.spi.connector.SchemaTableName;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public record DeltaMetastoreTable(
         SchemaTableName schemaTableName,
         boolean managed,
-        String location)
+        String location,
+        boolean catalogOwned,
+        Optional<VendedCredentials> vendedCredentials)
 {
     public DeltaMetastoreTable
     {
         requireNonNull(schemaTableName, "schemaTableName is null");
         requireNonNull(location, "location is null");
+        requireNonNull(vendedCredentials, "vendedCredentials is null");
     }
 }

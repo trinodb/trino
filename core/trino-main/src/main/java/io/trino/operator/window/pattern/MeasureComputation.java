@@ -13,8 +13,6 @@
  */
 package io.trino.operator.window.pattern;
 
-import io.trino.operator.DriverYieldSignal;
-import io.trino.operator.Work;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.window.matcher.ArrayView;
 import io.trino.spi.Page;
@@ -108,12 +106,7 @@ public class MeasureComputation
         SourcePage page = SourcePage.create(new Page(1, blocks));
 
         // evaluate expression
-        Work<Block> work = projection.project(session, new DriverYieldSignal(), projection.getInputChannels().getInputChannels(page), positionsRange(0, 1));
-        boolean done = false;
-        while (!done) {
-            done = work.process();
-        }
-        return work.getResult();
+        return projection.project(session, projection.getInputChannels().getInputChannels(page), positionsRange(0, 1));
     }
 
     // TODO This method allocates an intermediate block and passes it as the input to the pre-compiled expression.
@@ -178,12 +171,7 @@ public class MeasureComputation
         SourcePage page = SourcePage.create(new Page(1, blocks));
 
         // evaluate expression
-        Work<Block> work = projection.project(session, new DriverYieldSignal(), projection.getInputChannels().getInputChannels(page), positionsRange(0, 1));
-        boolean done = false;
-        while (!done) {
-            done = work.process();
-        }
-        return work.getResult();
+        return projection.project(session, projection.getInputChannels().getInputChannels(page), positionsRange(0, 1));
     }
 
     public static Block[] precomputeNulls(List<PhysicalValueAccessor> expectedLayout)

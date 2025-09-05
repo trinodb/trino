@@ -30,7 +30,6 @@ import io.confluent.kafka.schemaregistry.avro.AvroSchemaProvider;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.entities.Schema;
-import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaReference;
 import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchemaProvider;
 import io.trino.decoder.DispatchingRowDecoderFactory;
 import io.trino.decoder.RowDecoderFactory;
@@ -60,7 +59,6 @@ import io.trino.spi.type.TypeManager;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -96,7 +94,7 @@ public class ConfluentModule
         configBinder(binder).bindConfig(ConfluentSchemaRegistryConfig.class);
         install(new ConfluentDecoderModule());
         install(new ConfluentEncoderModule());
-        binder.bind(ContentSchemaProvider.class).to(AvroConfluentContentSchemaProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ContentSchemaProvider.class).to(ConfluentContentSchemaProvider.class).in(Scopes.SINGLETON);
         newSetBinder(binder, SchemaRegistryClientPropertiesProvider.class);
         newSetBinder(binder, SchemaProvider.class).addBinding().to(AvroSchemaProvider.class).in(Scopes.SINGLETON);
         // Each SchemaRegistry object should have a new instance of SchemaProvider
@@ -193,40 +191,10 @@ public class ConfluentModule
         }
 
         @Override
-        public Optional<ParsedSchema> parseSchema(Schema schema, boolean isNew)
-        {
-            return SchemaProvider.super.parseSchema(schema, isNew);
-        }
-
-        @Override
-        public Optional<ParsedSchema> parseSchema(Schema schema, boolean isNew, boolean normalize)
-        {
-            return SchemaProvider.super.parseSchema(schema, isNew, normalize);
-        }
-
-        @Override
         public void configure(Map<String, ?> configuration)
         {
             Map<String, ?> oldConfiguration = this.configuration.getAndSet(ImmutableMap.copyOf(configuration));
             checkState(oldConfiguration == null, "ProtobufSchemaProvider is already configured");
-        }
-
-        @Override
-        public Optional<ParsedSchema> parseSchema(String schema, List<SchemaReference> references, boolean isNew)
-        {
-            return delegate.get().parseSchema(schema, references, isNew);
-        }
-
-        @Override
-        public Optional<ParsedSchema> parseSchema(String schemaString, List<SchemaReference> references, boolean isNew, boolean normalize)
-        {
-            return SchemaProvider.super.parseSchema(schemaString, references, isNew, normalize);
-        }
-
-        @Override
-        public Optional<ParsedSchema> parseSchema(String schemaString, List<SchemaReference> references)
-        {
-            return SchemaProvider.super.parseSchema(schemaString, references);
         }
 
         @Override

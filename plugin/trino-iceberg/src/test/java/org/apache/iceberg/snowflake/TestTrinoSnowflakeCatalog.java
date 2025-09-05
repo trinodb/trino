@@ -34,7 +34,6 @@ import io.trino.plugin.iceberg.catalog.snowflake.SnowflakeIcebergTableOperations
 import io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer;
 import io.trino.plugin.iceberg.catalog.snowflake.TrinoSnowflakeCatalog;
 import io.trino.spi.catalog.CatalogName;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
@@ -108,14 +107,14 @@ public class TestTrinoSnowflakeCatalog
                         server,
                         """
                         CREATE OR REPLACE ICEBERG TABLE %s (
-                        	NATIONKEY NUMBER(38,0),
-                        	NAME STRING,
-                        	REGIONKEY NUMBER(38,0),
-                        	COMMENT STRING
+                            NATIONKEY NUMBER(38,0),
+                            NAME STRING,
+                            REGIONKEY NUMBER(38,0),
+                            COMMENT STRING
                         )
-                         EXTERNAL_VOLUME = '%s'
-                         CATALOG = 'SNOWFLAKE'
-                         BASE_LOCATION = '%s/'""".formatted(TpchTable.NATION.getTableName(), SNOWFLAKE_S3_EXTERNAL_VOLUME, TpchTable.NATION.getTableName()));
+                        EXTERNAL_VOLUME = '%s'
+                        CATALOG = 'SNOWFLAKE'
+                        BASE_LOCATION = '%s/'""".formatted(TpchTable.NATION.getTableName(), SNOWFLAKE_S3_EXTERNAL_VOLUME, TpchTable.NATION.getTableName()));
 
                 executeOnSnowflake(server, "INSERT INTO %s(NATIONKEY, NAME, REGIONKEY, COMMENT) SELECT N_NATIONKEY, N_NAME, N_REGIONKEY, N_COMMENT FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.%s"
                         .formatted(TpchTable.NATION.getTableName(), TpchTable.NATION.getTableName()));
@@ -125,13 +124,13 @@ public class TestTrinoSnowflakeCatalog
                         server,
                         """
                         CREATE OR REPLACE ICEBERG TABLE %s (
-                        	REGIONKEY NUMBER(38,0),
-                        	NAME STRING,
-                        	COMMENT STRING
+                            REGIONKEY NUMBER(38,0),
+                            NAME STRING,
+                            COMMENT STRING
                         )
-                         EXTERNAL_VOLUME = '%s'
-                         CATALOG = 'SNOWFLAKE'
-                         BASE_LOCATION = '%s/'""".formatted(TpchTable.REGION.getTableName(), SNOWFLAKE_S3_EXTERNAL_VOLUME, TpchTable.REGION.getTableName()));
+                        EXTERNAL_VOLUME = '%s'
+                        CATALOG = 'SNOWFLAKE'
+                        BASE_LOCATION = '%s/'""".formatted(TpchTable.REGION.getTableName(), SNOWFLAKE_S3_EXTERNAL_VOLUME, TpchTable.REGION.getTableName()));
 
                 executeOnSnowflake(server, "INSERT INTO %s(REGIONKEY, NAME, COMMENT) SELECT R_REGIONKEY, R_NAME, R_COMMENT FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.%s"
                         .formatted(TpchTable.REGION.getTableName(), TpchTable.REGION.getTableName()));
@@ -217,7 +216,6 @@ public class TestTrinoSnowflakeCatalog
         // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
         ConnectorMetadata icebergMetadata = new IcebergMetadata(
                 PLANNER_CONTEXT.getTypeManager(),
-                CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                 jsonCodec(CommitTaskData.class),
                 catalog,
                 (connectorIdentity, fileIOProperties) -> {

@@ -15,6 +15,7 @@ package io.trino.filesystem.azure;
 
 import com.azure.core.http.HttpClient;
 import com.azure.core.http.netty.NettyAsyncHttpClientBuilder;
+import com.azure.core.http.policy.HttpPipelinePolicy;
 import com.azure.core.tracing.opentelemetry.OpenTelemetryTracingOptions;
 import com.azure.core.util.HttpClientOptions;
 import com.azure.core.util.TracingOptions;
@@ -54,6 +55,7 @@ public class AzureFileSystemFactory
     private final ConnectionProvider connectionProvider;
     private final EventLoopGroup eventLoopGroup;
     private final boolean multipart;
+    private final HttpPipelinePolicy concurrencyPolicy;
 
     @Inject
     public AzureFileSystemFactory(OpenTelemetry openTelemetry, AzureAuth azureAuth, AzureFileSystemConfig config)
@@ -91,12 +93,13 @@ public class AzureFileSystemFactory
         this.maxSingleUploadSize = requireNonNull(maxSingleUploadSize, "maxSingleUploadSize is null");
         this.tracingOptions = new OpenTelemetryTracingOptions().setOpenTelemetry(openTelemetry);
         this.connectionProvider = ConnectionProvider.create(applicationId, maxHttpRequests);
-        this.eventLoopGroup = new MultiThreadIoEventLoopGroup(maxHttpRequests, NioIoHandler.newFactory());
+        this.eventLoopGroup = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
         HttpClientOptions clientOptions = new HttpClientOptions();
         clientOptions.setTracingOptions(tracingOptions);
         clientOptions.setApplicationId(applicationId);
         httpClient = createAzureHttpClient(connectionProvider, eventLoopGroup, clientOptions);
         this.multipart = multipart;
+        this.concurrencyPolicy = new ConcurrencyLimitHttpPipelinePolicy(maxHttpRequests);
     }
 
     @PreDestroy
@@ -124,7 +127,7 @@ public class AzureFileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        return new AzureFileSystem(httpClient, uploadExecutor, tracingOptions, auth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart);
+        return new AzureFileSystem(httpClient, concurrencyPolicy, uploadExecutor, tracingOptions, auth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart);
     }
 
     public static HttpClient createAzureHttpClient(ConnectionProvider connectionProvider, EventLoopGroup eventLoopGroup, HttpClientOptions clientOptions)

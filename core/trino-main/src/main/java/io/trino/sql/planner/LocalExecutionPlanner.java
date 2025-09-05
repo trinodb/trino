@@ -131,7 +131,6 @@ import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputFacto
 import io.trino.operator.output.PositionsAppenderFactory;
 import io.trino.operator.output.SkewedPartitionRebalancer;
 import io.trino.operator.output.TaskOutputOperator.TaskOutputFactory;
-import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.unnest.UnnestOperator;
@@ -2140,14 +2139,11 @@ public class LocalExecutionPlanner
                         OptionalInt.empty());
 
                 if (columns != null) {
-                    Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(translatedFilter, translatedProjections, sourceNode.getId());
-
                     SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
                             planNodeId,
                             sourceNode.getId(),
                             pageSourceManager,
-                            cursorProcessor,
                             pageProcessor,
                             table,
                             columns,

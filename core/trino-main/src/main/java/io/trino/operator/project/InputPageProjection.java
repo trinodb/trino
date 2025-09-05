@@ -13,32 +13,20 @@
  */
 package io.trino.operator.project;
 
-import io.trino.operator.CompletedWork;
-import io.trino.operator.DriverYieldSignal;
-import io.trino.operator.Work;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
-import io.trino.spi.type.Type;
 
 import static java.util.Objects.requireNonNull;
 
 public class InputPageProjection
         implements PageProjection
 {
-    private final Type type;
     private final InputChannels inputChannels;
 
-    public InputPageProjection(int inputChannel, Type type)
+    public InputPageProjection(int inputChannel)
     {
-        this.type = type;
         this.inputChannels = new InputChannels(inputChannel);
-    }
-
-    @Override
-    public Type getType()
-    {
-        return type;
     }
 
     @Override
@@ -54,7 +42,7 @@ public class InputPageProjection
     }
 
     @Override
-    public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
+    public Block project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
     {
         Block block = page.getBlock(0);
         requireNonNull(selectedPositions, "selectedPositions is null");
@@ -63,11 +51,11 @@ public class InputPageProjection
             block = block.copyPositions(selectedPositions.getPositions(), selectedPositions.getOffset(), selectedPositions.size());
         }
         else if (selectedPositions.size() == block.getPositionCount()) {
-            return new CompletedWork<>(block);
+            return block;
         }
         else {
             block = block.getRegion(selectedPositions.getOffset(), selectedPositions.size());
         }
-        return new CompletedWork<>(block);
+        return block;
     }
 }

@@ -29,6 +29,8 @@ public class MysqlEventListenerConfig
     private String url;
     private Optional<String> user = Optional.empty();
     private Optional<String> password = Optional.empty();
+    private boolean terminateOnInitializationFailure = true;
+
 
     @NotNull
     public String getUrl()
@@ -100,8 +102,22 @@ public class MysqlEventListenerConfig
         }
     }
 
+
     private ConnectionUrlParser getConnectionUrl()
     {
         return ConnectionUrlParser.parseConnectionString(url);
+    }
+  
+    public boolean getTerminateOnInitializationFailure()
+    {
+        return terminateOnInitializationFailure;
+    }
+
+    @Config("mysql-event-listener.terminate-on-initialization-failure")
+    @ConfigDescription("The MySQL event listener initialization may fail if the database is unavailable. This flag determines whether an exception should be thrown in such cases.")
+    public MysqlEventListenerConfig setTerminateOnInitializationFailure(boolean terminateOnInitializationFailure)
+    {
+        this.terminateOnInitializationFailure = terminateOnInitializationFailure;
+        return this;
     }
 }

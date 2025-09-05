@@ -1048,7 +1048,7 @@ public class TestDeltaLakeConnectorTest
 
             // test simple delete correctness
             assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$path\" = 'not exist'", 0);
-            assertQuery("SELECT x FROM " + table.getName(),  "VALUES 'first', 'second'");
+            assertQuery("SELECT x FROM " + table.getName(), "VALUES 'first', 'second'");
             assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$path\" = '" + firstFilePath + "'", 1);
             assertQuery("SELECT x FROM " + table.getName(), "VALUES 'second'");
 
@@ -5235,7 +5235,6 @@ public class TestDeltaLakeConnectorTest
         }
     }
 
-
     @Test
     public void testInsertFromMultipleVersionedSameTable()
     {
@@ -5381,12 +5380,12 @@ public class TestDeltaLakeConnectorTest
 
         assertUpdate("CREATE TABLE " + tableName + " WITH (location = '" + tableLocation + "', checkpoint_interval = 1) AS SELECT 1 id", 1);
         MILLISECONDS.sleep(10);
-        Instant InstantAfterCreateTable = Instant.ofEpochMilli(System.currentTimeMillis());
-        String timeAfterCreateTable = ZonedDateTime.ofInstant(InstantAfterCreateTable, ZoneId.of("UTC")).format(timestampWithTimeZoneFormatter);
+        Instant instantAfterCreateTable = Instant.ofEpochMilli(System.currentTimeMillis());
+        String timeAfterCreateTable = ZonedDateTime.ofInstant(instantAfterCreateTable, ZoneId.of("UTC")).format(timestampWithTimeZoneFormatter);
 
         assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
-        Instant InstantAfterInsert = Instant.ofEpochMilli(System.currentTimeMillis());
-        String timeAfterInsert = ZonedDateTime.ofInstant(InstantAfterInsert, ZoneId.of("UTC")).format(timestampWithTimeZoneFormatter);
+        Instant instantAfterInsert = Instant.ofEpochMilli(System.currentTimeMillis());
+        String timeAfterInsert = ZonedDateTime.ofInstant(instantAfterInsert, ZoneId.of("UTC")).format(timestampWithTimeZoneFormatter);
 
         assertUpdate("INSERT INTO " + tableName + " VALUES 3", 1);
 
@@ -5399,8 +5398,8 @@ public class TestDeltaLakeConnectorTest
 
         assertQuery("SELECT * FROM " + tableName, "VALUES 1, 2, 3");
 
-        assertQueryFails("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'", "No temporal version history at or before " + InstantAfterCreateTable);
-        assertQueryFails("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert + "'", "No temporal version history at or before " + InstantAfterInsert);
+        assertQueryFails("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'", "No temporal version history at or before " + instantAfterCreateTable);
+        assertQueryFails("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert + "'", "No temporal version history at or before " + instantAfterInsert);
 
         assertQuery("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + ZonedDateTime.now().format(timestampWithTimeZoneFormatter) + "'", "VALUES 1, 2, 3");
     }

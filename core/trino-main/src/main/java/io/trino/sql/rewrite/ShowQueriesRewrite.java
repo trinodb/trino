@@ -20,6 +20,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CatalogInfo;
@@ -38,7 +39,6 @@ import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.ViewDefinition;
 import io.trino.metadata.ViewPropertyManager;
 import io.trino.security.AccessControl;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -100,6 +100,7 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.TableElement;
 import io.trino.sql.tree.Values;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -839,16 +840,21 @@ public final class ShowQueriesRewrite
                 throw semanticException(TABLE_NOT_FOUND, showBranches, "Table '%s' does not exist", tableName);
             }
 
-            ImmutableList.Builder<Expression> rows = ImmutableList.builder();
+            String columnName = "Branch";
+            List<Expression> rows = new ArrayList<>();
             for (String branch : metadata.listBranches(session, tableName)) {
                 rows.add(row(new StringLiteral(branch)));
+            }
+
+            if (rows.isEmpty()) {
+                return emptyQuery(ImmutableList.of(columnName), ImmutableList.of(VARCHAR));
             }
 
             return simpleQuery(
                     selectList(
                             aliasedName("branch_name", "Branch")),
                     aliased(
-                            new Values(rows.build()),
+                            new Values(ImmutableList.copyOf(rows)),
                             "branches",
                             ImmutableList.of("branch_name")));
         }

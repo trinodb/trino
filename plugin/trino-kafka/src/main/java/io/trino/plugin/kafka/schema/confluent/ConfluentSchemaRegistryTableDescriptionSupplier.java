@@ -35,7 +35,6 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -165,7 +164,7 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
                     topic,
                     getKeySubjectFromTopic(topic, entry.getValue()),
                     getValueSubjectFromTopic(topic, entry.getValue()));
-            topicSubjectsCacheBuilder.put(topicAndSubjects.getTableName(), topicAndSubjects);
+            topicSubjectsCacheBuilder.put(topicAndSubjects.tableName(), topicAndSubjects);
         }
         return topicSubjectsCacheBuilder.build();
     }
@@ -176,7 +175,7 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
         requireNonNull(schemaTableName, "schemaTableName is null");
         TopicAndSubjects topicAndSubjects = parseTopicAndSubjects(schemaTableName);
 
-        String tableName = topicAndSubjects.getTableName();
+        String tableName = topicAndSubjects.tableName();
         if (topicAndSubjectsSupplier.get().containsKey(tableName)) {
             // Use the topic from cache, if present, in case the topic is mixed case
             Collection<TopicAndSubjects> topicAndSubjectsCollection = topicAndSubjectsSupplier.get().get(tableName);
@@ -186,21 +185,21 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
                         format(
                                 "Unable to access '%s' table. Subject is ambiguous, and may refer to one of the following: %s",
                                 schemaTableName.getTableName(),
-                                topicAndSubjectsCollection.stream().map(TopicAndSubjects::getTopic).collect(joining(", "))));
+                                topicAndSubjectsCollection.stream().map(TopicAndSubjects::topic).collect(joining(", "))));
             }
             TopicAndSubjects topicAndSubjectsFromCache = getOnlyElement(topicAndSubjectsCollection);
             topicAndSubjects = new TopicAndSubjects(
-                    topicAndSubjectsFromCache.getTopic(),
-                    topicAndSubjects.getKeySubject().or(topicAndSubjectsFromCache::getKeySubject),
-                    topicAndSubjects.getValueSubject().or(topicAndSubjectsFromCache::getValueSubject));
+                    topicAndSubjectsFromCache.topic(),
+                    topicAndSubjects.keySubject().or(topicAndSubjectsFromCache::keySubject),
+                    topicAndSubjects.valueSubject().or(topicAndSubjectsFromCache::valueSubject));
         }
 
-        if (topicAndSubjects.getKeySubject().isEmpty() && topicAndSubjects.getValueSubject().isEmpty()) {
+        if (topicAndSubjects.keySubject().isEmpty() && topicAndSubjects.valueSubject().isEmpty()) {
             return Optional.empty();
         }
-        Optional<KafkaTopicFieldGroup> key = topicAndSubjects.getKeySubject().map(subject -> getFieldGroup(session, subject));
-        Optional<KafkaTopicFieldGroup> message = topicAndSubjects.getValueSubject().map(subject -> getFieldGroup(session, subject));
-        return Optional.of(new KafkaTopicDescription(tableName, Optional.of(schemaTableName.getSchemaName()), topicAndSubjects.getTopic(), key, message));
+        Optional<KafkaTopicFieldGroup> key = topicAndSubjects.keySubject().map(subject -> getFieldGroup(session, subject));
+        Optional<KafkaTopicFieldGroup> message = topicAndSubjects.valueSubject().map(subject -> getFieldGroup(session, subject));
+        return Optional.of(new KafkaTopicDescription(tableName, Optional.of(schemaTableName.getSchemaName()), topicAndSubjects.topic(), key, message));
     }
 
     private KafkaTopicFieldGroup getFieldGroup(ConnectorSession session, String subject)
@@ -307,57 +306,18 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
         return Optional.empty();
     }
 
-    private static class TopicAndSubjects
+    private record TopicAndSubjects(String topic, Optional<String> keySubject, Optional<String> valueSubject)
     {
-        private final Optional<String> keySubject;
-        private final Optional<String> valueSubject;
-        private final String topic;
-
-        public TopicAndSubjects(String topic, Optional<String> keySubject, Optional<String> valueSubject)
+        private TopicAndSubjects
         {
-            this.topic = requireNonNull(topic, "topic is null");
-            this.keySubject = requireNonNull(keySubject, "keySubject is null");
-            this.valueSubject = requireNonNull(valueSubject, "valueSubject is null");
+            requireNonNull(topic, "topic is null");
+            requireNonNull(keySubject, "keySubject is null");
+            requireNonNull(valueSubject, "valueSubject is null");
         }
 
-        public String getTableName()
+        public String tableName()
         {
             return topic.toLowerCase(ENGLISH);
-        }
-
-        public String getTopic()
-        {
-            return topic;
-        }
-
-        public Optional<String> getKeySubject()
-        {
-            return keySubject;
-        }
-
-        public Optional<String> getValueSubject()
-        {
-            return valueSubject;
-        }
-
-        @Override
-        public boolean equals(Object other)
-        {
-            if (this == other) {
-                return true;
-            }
-            if (!(other instanceof TopicAndSubjects that)) {
-                return false;
-            }
-            return topic.equals(that.topic) &&
-                    keySubject.equals(that.keySubject) &&
-                    valueSubject.equals(that.valueSubject);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(topic, keySubject, valueSubject);
         }
     }
 }

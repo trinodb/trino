@@ -53,7 +53,7 @@ final class TestOpenLineageListener
         assertThat(result)
                 .extracting(RunEvent::getRun)
                 .extracting(Run::getRunId)
-                 // random UUID part may differ, but prefix is timestamp based
+                // random UUID part may differ, but prefix is timestamp based
                 .matches(uuid -> uuid.toString().startsWith("01967c23-ae78-7"));
 
         assertThat(result)
@@ -61,8 +61,12 @@ final class TestOpenLineageListener
                 .extracting(Job::getNamespace)
                 .isEqualTo("trino://testhost");
 
-        Map<String, Object> trinoQueryMetadata =
-                result
+        assertThat(result)
+                .extracting(RunEvent::getJob)
+                .extracting(Job::getName)
+                .isEqualTo("queryId");
+
+        Map<String, Object> trinoQueryMetadata = result
                 .getRun()
                 .getFacets()
                 .getAdditionalProperties()
@@ -77,11 +81,11 @@ final class TestOpenLineageListener
 
         Map<String, Object> trinoQueryContext =
                 result
-                .getRun()
-                .getFacets()
-                .getAdditionalProperties()
-                .get("trino_query_context")
-                .getAdditionalProperties();
+                        .getRun()
+                        .getFacets()
+                        .getAdditionalProperties()
+                        .get("trino_query_context")
+                        .getAdditionalProperties();
 
         assertThat(trinoQueryContext)
                 .containsOnly(
@@ -119,7 +123,7 @@ final class TestOpenLineageListener
         assertThat(result)
                 .extracting(RunEvent::getRun)
                 .extracting(Run::getRunId)
-                 // random UUID part may differ, but prefix is timestamp based
+                // random UUID part may differ, but prefix is timestamp based
                 .matches(uuid -> uuid.toString().startsWith("01967c23-ae78-7"));
 
         assertThat(result)
@@ -127,8 +131,12 @@ final class TestOpenLineageListener
                 .extracting(Job::getNamespace)
                 .isEqualTo("trino://testhost:8080");
 
-        Map<String, Object> trinoQueryMetadata =
-                result
+        assertThat(result)
+                .extracting(RunEvent::getJob)
+                .extracting(Job::getName)
+                .isEqualTo("queryId");
+
+        Map<String, Object> trinoQueryMetadata = result
                 .getRun()
                 .getFacets()
                 .getAdditionalProperties()
@@ -141,8 +149,7 @@ final class TestOpenLineageListener
                         entry("transaction_id", "transactionId"),
                         entry("query_plan", "queryPlan"));
 
-        Map<String, Object> trinoQueryContext =
-                result
+        Map<String, Object> trinoQueryContext = result
                 .getRun()
                 .getFacets()
                 .getAdditionalProperties()
@@ -162,6 +169,27 @@ final class TestOpenLineageListener
                         entry("remote_client_address", "127.0.0.1"),
                         entry("user_agent", "Some-User-Agent"),
                         entry("trace_token", "traceToken"));
+    }
+
+    @Test
+    void testJobNameFormatting()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost:8080",
+                "openlineage-event-listener.job.name-format", "$QUERY_ID-$USER-$SOURCE-$CLIENT_IP-abc123"));
+
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEvent);
+
+        assertThat(result)
+                .extracting(RunEvent::getJob)
+                .extracting(Job::getNamespace)
+                .isEqualTo("trino://testhost:8080");
+
+        assertThat(result)
+                .extracting(RunEvent::getJob)
+                .extracting(Job::getName)
+                .isEqualTo("queryId-user-some-trino-client-127.0.0.1-abc123");
     }
 
     private static EventListener createEventListener(Map<String, String> config)

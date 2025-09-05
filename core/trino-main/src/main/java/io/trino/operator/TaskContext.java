@@ -474,9 +474,6 @@ public class TaskContext
         long internalNetworkInputDataSize = 0;
         long internalNetworkInputPositions = 0;
 
-        long rawInputDataSize = 0;
-        long rawInputPositions = 0;
-
         long processedInputDataSize = 0;
         long processedInputPositions = 0;
 
@@ -527,9 +524,6 @@ public class TaskContext
 
                 internalNetworkInputDataSize += pipeline.getInternalNetworkInputDataSize().toBytes();
                 internalNetworkInputPositions += pipeline.getInternalNetworkInputPositions();
-
-                rawInputDataSize += pipeline.getRawInputDataSize().toBytes();
-                rawInputPositions += pipeline.getRawInputPositions();
 
                 processedInputDataSize += pipeline.getProcessedInputDataSize().toBytes();
                 processedInputPositions += pipeline.getProcessedInputPositions();
@@ -615,8 +609,6 @@ public class TaskContext
                 new Duration(physicalInputReadTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
-                succinctBytes(rawInputDataSize),
-                rawInputPositions,
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,
                 new Duration(inputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),

@@ -36,18 +36,18 @@ import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandl
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.opentelemetry.api.trace.StatusCode.ERROR;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_OPENAI_RESPONSE_SERVICE_TIER;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_OPENAI_RESPONSE_SYSTEM_FINGERPRINT;
 import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_OPERATION_NAME;
+import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_PROVIDER_NAME;
 import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_REQUEST_MODEL;
 import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_REQUEST_SEED;
 import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_RESPONSE_ID;
 import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_RESPONSE_MODEL;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_SYSTEM;
 import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_USAGE_INPUT_TOKENS;
 import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_USAGE_OUTPUT_TOKENS;
 import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GenAiOperationNameIncubatingValues.CHAT;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GenAiSystemIncubatingValues.OPENAI;
+import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GenAiProviderNameIncubatingValues.OPENAI;
+import static io.opentelemetry.semconv.incubating.OpenaiIncubatingAttributes.OPENAI_RESPONSE_SERVICE_TIER;
+import static io.opentelemetry.semconv.incubating.OpenaiIncubatingAttributes.OPENAI_RESPONSE_SYSTEM_FINGERPRINT;
 import static io.trino.plugin.ai.functions.AiErrorCode.AI_ERROR;
 import static java.util.Objects.requireNonNull;
 
@@ -91,7 +91,7 @@ public class OpenAiClient
 
         Span span = tracer.spanBuilder(CHAT + " " + model)
                 .setAttribute(GEN_AI_OPERATION_NAME, CHAT)
-                .setAttribute(GEN_AI_SYSTEM, OPENAI)
+                .setAttribute(GEN_AI_PROVIDER_NAME, OPENAI)
                 .setAttribute(GEN_AI_REQUEST_MODEL, model)
                 .setAttribute(GEN_AI_REQUEST_SEED, body.seed())
                 .setSpanKind(SpanKind.CLIENT)
@@ -102,8 +102,8 @@ public class OpenAiClient
             response = httpClient.execute(request, createJsonResponseHandler(CHAT_RESPONSE_CODEC));
             span.setAttribute(GEN_AI_RESPONSE_ID, response.id());
             span.setAttribute(GEN_AI_RESPONSE_MODEL, response.model());
-            span.setAttribute(GEN_AI_OPENAI_RESPONSE_SERVICE_TIER, response.serviceTier());
-            span.setAttribute(GEN_AI_OPENAI_RESPONSE_SYSTEM_FINGERPRINT, response.systemFingerprint());
+            span.setAttribute(OPENAI_RESPONSE_SERVICE_TIER, response.serviceTier());
+            span.setAttribute(OPENAI_RESPONSE_SYSTEM_FINGERPRINT, response.systemFingerprint());
             span.setAttribute(GEN_AI_USAGE_INPUT_TOKENS, response.usage().promptTokens());
             span.setAttribute(GEN_AI_USAGE_OUTPUT_TOKENS, response.usage().completionTokens());
         }

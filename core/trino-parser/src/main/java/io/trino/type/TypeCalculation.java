@@ -121,6 +121,29 @@ public final class TypeCalculation
         }
 
         @Override
+        public BigInteger visitIfExpression(TypeCalculationParser.IfExpressionContext ctx)
+        {
+            BigInteger left = visit(ctx.left);
+            BigInteger right = visit(ctx.right);
+
+            boolean condition = switch (ctx.operator.getText()) {
+                case ">" -> left.compareTo(right) > 0;
+                case "<" -> left.compareTo(right) < 0;
+                case ">=" -> left.compareTo(right) >= 0;
+                case "<=" -> left.compareTo(right) <= 0;
+                case "=" -> left.equals(right);
+                case "!=" -> !left.equals(right);
+                default -> throw new IllegalStateException("Unsupported if operator " + ctx.operator.getText());
+            };
+
+            if (condition) {
+                return visit(ctx.ifTrue);
+            }
+
+            return visit(ctx.ifFalse);
+        }
+
+        @Override
         public BigInteger visitArithmeticBinary(ArithmeticBinaryContext ctx)
         {
             BigInteger left = visit(ctx.left);

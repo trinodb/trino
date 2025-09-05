@@ -43,15 +43,11 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
-import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.RecordCursor;
-import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
-import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
@@ -62,7 +58,6 @@ import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlVarbinary;
-import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.TestingConnectorSession;
@@ -87,10 +82,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -114,7 +105,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.parquet.ParquetUtil.createPageSource;
-import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -131,9 +121,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.Varchars.truncateToLength;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.stream;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
@@ -482,12 +470,7 @@ class ParquetTester
                 dataFile,
                 columnNames,
                 columnTypes)) {
-            if (pageSource instanceof RecordPageSource recordPageSource) {
-                assertRecordCursor(columnTypes, expectedValues, recordPageSource.getCursor());
-            }
-            else {
-                assertPageSource(columnTypes, expectedValues, pageSource);
-            }
+            assertPageSource(columnTypes, expectedValues, pageSource);
             assertThat(stream(expectedValues).allMatch(Iterator::hasNext)).isFalse();
         }
     }
@@ -518,131 +501,6 @@ class ParquetTester
                 }
             }
         }
-    }
-
-    private static void assertRecordCursor(List<Type> types, Iterator<?>[] valuesByField, RecordCursor cursor)
-    {
-        while (cursor.advanceNextPosition()) {
-            for (int field = 0; field < types.size(); field++) {
-                assertThat(valuesByField[field].hasNext()).isTrue();
-                Object expected = valuesByField[field].next();
-                Object actual = getActualCursorValue(cursor, types.get(field), field);
-                assertThat(actual).isEqualTo(expected);
-            }
-        }
-    }
-
-    private static Object getActualCursorValue(RecordCursor cursor, Type type, int field)
-    {
-        Object fieldFromCursor = getFieldFromCursor(cursor, type, field);
-        if (fieldFromCursor == null) {
-            return null;
-        }
-        if (isStructuralType(type)) {
-            if (type instanceof ArrayType arrayType) {
-                return toArrayValue((Block) fieldFromCursor, arrayType.getElementType());
-            }
-            if (type instanceof MapType mapType) {
-                return toMapValue((SqlMap) fieldFromCursor, mapType.getKeyType(), mapType.getValueType());
-            }
-            if (type instanceof RowType) {
-                return toRowValue((Block) fieldFromCursor, type.getTypeParameters());
-            }
-        }
-        if (type instanceof DecimalType decimalType) {
-            return new SqlDecimal((BigInteger) fieldFromCursor, decimalType.getPrecision(), decimalType.getScale());
-        }
-        if (type instanceof VarcharType) {
-            return new String(((Slice) fieldFromCursor).getBytes(), UTF_8);
-        }
-        if (VARBINARY.equals(type)) {
-            return new SqlVarbinary(((Slice) fieldFromCursor).getBytes());
-        }
-        if (DATE.equals(type)) {
-            return new SqlDate(((Long) fieldFromCursor).intValue());
-        }
-        if (TIMESTAMP_MILLIS.equals(type)) {
-            return SqlTimestamp.fromMillis(3, (long) fieldFromCursor);
-        }
-        return fieldFromCursor;
-    }
-
-    private static Object getFieldFromCursor(RecordCursor cursor, Type type, int field)
-    {
-        if (cursor.isNull(field)) {
-            return null;
-        }
-        if (BOOLEAN.equals(type)) {
-            return cursor.getBoolean(field);
-        }
-        if (TINYINT.equals(type)) {
-            return cursor.getLong(field);
-        }
-        if (SMALLINT.equals(type)) {
-            return cursor.getLong(field);
-        }
-        if (INTEGER.equals(type)) {
-            return (int) cursor.getLong(field);
-        }
-        if (BIGINT.equals(type)) {
-            return cursor.getLong(field);
-        }
-        if (REAL.equals(type)) {
-            return intBitsToFloat((int) cursor.getLong(field));
-        }
-        if (DOUBLE.equals(type)) {
-            return cursor.getDouble(field);
-        }
-        if (type instanceof VarcharType || type instanceof CharType || VARBINARY.equals(type)) {
-            return cursor.getSlice(field);
-        }
-        if (DateType.DATE.equals(type)) {
-            return cursor.getLong(field);
-        }
-        if (TimestampType.TIMESTAMP_MILLIS.equals(type)) {
-            return cursor.getLong(field);
-        }
-        if (isStructuralType(type)) {
-            return cursor.getObject(field);
-        }
-        if (type instanceof DecimalType decimalType) {
-            if (decimalType.isShort()) {
-                return BigInteger.valueOf(cursor.getLong(field));
-            }
-            return ((Int128) cursor.getObject(field)).toBigInteger();
-        }
-        throw new RuntimeException("unknown type");
-    }
-
-    private static Map<?, ?> toMapValue(SqlMap sqlMap, Type keyType, Type valueType)
-    {
-        int rawOffset = sqlMap.getRawOffset();
-        Block rawKeyBlock = sqlMap.getRawKeyBlock();
-        Block rawValueBlock = sqlMap.getRawValueBlock();
-
-        Map<Object, Object> map = new HashMap<>(sqlMap.getSize());
-        for (int i = 0; i < sqlMap.getSize(); i++) {
-            map.put(keyType.getObjectValue(rawKeyBlock, rawOffset + i), valueType.getObjectValue(rawValueBlock, rawOffset + i));
-        }
-        return Collections.unmodifiableMap(map);
-    }
-
-    private static List<?> toArrayValue(Block arrayBlock, Type elementType)
-    {
-        List<Object> values = new ArrayList<>();
-        for (int position = 0; position < arrayBlock.getPositionCount(); position++) {
-            values.add(elementType.getObjectValue(arrayBlock, position));
-        }
-        return Collections.unmodifiableList(values);
-    }
-
-    private static List<?> toRowValue(Block rowBlock, List<Type> fieldTypes)
-    {
-        List<Object> values = new ArrayList<>(rowBlock.getPositionCount());
-        for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-            values.add(fieldTypes.get(i).getObjectValue(rowBlock, i));
-        }
-        return Collections.unmodifiableList(values);
     }
 
     private static HiveConfig createHiveConfig(boolean useParquetColumnNames)

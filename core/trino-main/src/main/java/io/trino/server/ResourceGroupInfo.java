@@ -37,9 +37,11 @@ public record ResourceGroupInfo(
         DataSize softMemoryLimit,
         int softConcurrencyLimit,
         int hardConcurrencyLimit,
+        DataSize hardPhysicalDataScanLimit,
         int maxQueuedQueries,
         DataSize memoryUsage,
         Duration cpuUsage,
+        DataSize physicalInputDataUsage,
         int numQueuedQueries,
         int numRunningQueries,
         int numEligibleSubGroups,
@@ -54,7 +56,8 @@ public record ResourceGroupInfo(
         requireNonNull(softMemoryLimit, "softMemoryLimit is null");
         requireNonNull(memoryUsage, "memoryUsage is null");
         requireNonNull(cpuUsage, "cpuUsage is null");
-
+        requireNonNull(hardPhysicalDataScanLimit, "hardPhysicalDataScanLimit is null");
+        requireNonNull(physicalInputDataUsage, "physicalInputDataUsage is null");
         subGroups = subGroups.map(ImmutableList::copyOf);
         runningQueries = runningQueries.map(ImmutableList::copyOf);
     }

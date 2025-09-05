@@ -113,8 +113,6 @@ export interface QueryStats {
     progressPercentage: number
     queuedDrivers: number
     queuedTime: string
-    rawInputDataSize: string
-    rawInputPositions: number
     processedInputPositions: number
     failedProcessedInputPositions: number
     processedInputDataSize: string
@@ -206,6 +204,59 @@ export interface Session {
     catalogProperties: { [key: string]: string | number | boolean }
 }
 
+export interface QueryTable {
+    catalog: string
+    schema: string
+    table: string
+    authorization: string
+    directlyReferenced: boolean
+}
+
+export interface QueryRoutine {
+    routine: string
+    authorization: string
+}
+
+export interface QueryStagePlan {
+    id: string
+    jsonRepresentation: string
+    root: {
+        id: string
+    }
+}
+
+export interface QueryStageStats {
+    completedDrivers: number
+    fullyBlocked: boolean
+    totalCpuTime: string
+    totalScheduledTime: string
+    userMemoryReservation: string
+    queuedDrivers: number
+    runningDrivers: number
+    blockedDrivers: number
+    runningTasks: number
+    completedTasks: number
+    totalTasks: number
+    processedInputDataSize: string
+    processedInputPositions: number
+    bufferedDataSize: string
+    outputDataSize: string
+    outputPositions: number
+}
+
+export interface QueryStage {
+    coordinatorOnly: boolean
+    plan: QueryStagePlan
+    stageId: string
+    state: string
+    stageStats: QueryStageStats
+}
+
+export interface QueryStages {
+    outputStageId: string
+    stages: QueryStage[]
+}
+
 export interface QueryStatusInfo extends QueryInfoBase {
     session: Session
     query: string
@@ -214,6 +265,9 @@ export interface QueryStatusInfo extends QueryInfoBase {
     retryPolicy: string
     pruned: boolean
     finalQueryInfo: boolean
+    referencedTables: QueryTable[]
+    routines: QueryRoutine[]
+    stages: QueryStages
 }
 
 export async function statsApi(): Promise<ApiResponse<Stats>> {
@@ -232,6 +286,6 @@ export async function queryApi(): Promise<ApiResponse<QueryInfo[]>> {
     return await api.get<QueryInfo[]>('/ui/api/query')
 }
 
-export async function queryStatusApi(queryId: string): Promise<ApiResponse<QueryStatusInfo>> {
-    return await api.get<QueryStatusInfo>(`/ui/api/query/${queryId}`)
+export async function queryStatusApi(queryId: string, pruned: boolean = false): Promise<ApiResponse<QueryStatusInfo>> {
+    return await api.get<QueryStatusInfo>(`/ui/api/query/${queryId}${pruned ? '?pruned=true' : ''}`)
 }

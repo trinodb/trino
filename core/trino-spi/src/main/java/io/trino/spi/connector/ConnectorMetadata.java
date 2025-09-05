@@ -787,6 +787,7 @@ public interface ConnectorMetadata
     /**
      * Returns true if materialized view refresh should be delegated to connector using {@link ConnectorMetadata#refreshMaterializedView}
      */
+    @Deprecated(since = "477", forRemoval = true)
     default boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
@@ -795,6 +796,7 @@ public interface ConnectorMetadata
     /**
      * Refresh materialized view
      */
+    @Deprecated(since = "477", forRemoval = true)
     default CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
@@ -812,7 +814,13 @@ public interface ConnectorMetadata
      * {@code refreshType} is a signal from the engine to the connector whether the MV refresh could be done incrementally or only fully, based on the plan.
      * The connector is not obligated to perform the refresh in the fashion prescribed by {@code refreshType}, this is merely a hint from the engine that the refresh could be append-only.
      */
-    default ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, RetryMode retryMode, RefreshType refreshType)
+    default ConnectorInsertTableHandle beginRefreshMaterializedView(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            boolean hasForeignSourceTables,
+            RetryMode retryMode,
+            RefreshType refreshType)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
     }
@@ -827,7 +835,8 @@ public interface ConnectorMetadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<ConnectorTableHandle> sourceTableHandles,
-            List<String> sourceTableFunctions)
+            boolean hasForeignSourceTables,
+            boolean hasSourceTableFunctions)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginRefreshMaterializedView() is implemented without finishRefreshMaterializedView()");
     }

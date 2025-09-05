@@ -41,7 +41,6 @@ public class TestLakehouseIcebergConnectorSmokeTest
                    format = 'PARQUET',
                    format_version = 2,
                    location = \\E's3://test-bucket-.*/tpch/region-.*'\\Q,
-                   max_commit_retry = 4,
                    type = 'ICEBERG'
                 )\\E""");
     }

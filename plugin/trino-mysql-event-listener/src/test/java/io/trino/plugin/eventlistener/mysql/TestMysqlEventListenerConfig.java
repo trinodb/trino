@@ -31,6 +31,7 @@ final class TestMysqlEventListenerConfig
                 .setUrl(null)
                 .setUser(null)
                 .setPassword(null));
+                .setTerminateOnInitializationFailure(true));
     }
 
     @Test
@@ -39,12 +40,14 @@ final class TestMysqlEventListenerConfig
         Map<String, String> properties = Map.of(
                 "mysql-event-listener.db.url", "jdbc:mysql://example.net:3306",
                 "mysql-event-listener.db.user", "user",
-                "mysql-event-listener.db.password", "password");
+                "mysql-event-listener.db.password", "password"
+                "mysql-event-listener.terminate-on-initialization-failure", "false");
 
         MysqlEventListenerConfig expected = new MysqlEventListenerConfig()
                 .setUrl("jdbc:mysql://example.net:3306")
                 .setUser("user")
-                .setPassword("password");
+                .setPassword("password")
+                .setTerminateOnInitializationFailure(false);
 
         assertFullMapping(properties, expected);
     }

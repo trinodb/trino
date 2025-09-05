@@ -242,6 +242,51 @@ public class TestDeterminePartitionCount
     }
 
     @Test
+    public void testDoesNotSetPartitionCountWhenNodeCountIsCloseToMinPartitionCount()
+    {
+        @Language("SQL") String query =
+                """
+                SELECT count(column_a) FROM table_with_stats_a group by column_b
+                """;
+
+        // DeterminePartitionCount shouldn't put partition count when 2 * MIN_HASH_PARTITION_COUNT
+        // is greater or equal to number of workers.
+        assertDistributedPlan(
+                query,
+                Session.builder(getPlanTester().getDefaultSession())
+                        .setSystemProperty(MAX_HASH_PARTITION_COUNT, "8")
+                        .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
+                        .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
+                        .setSystemProperty(MIN_INPUT_ROWS_PER_TASK, "400")
+                        .build(),
+                output(
+                        project(
+                                node(AggregationNode.class,
+                                        exchange(LOCAL,
+                                                exchange(REMOTE, REPARTITION, Optional.empty(),
+                                                        node(AggregationNode.class,
+                                                                node(TableScanNode.class))))))));
+
+        // DeterminePartitionCount should still put partition count for FTE
+        assertDistributedPlan(
+                query,
+                Session.builder(getPlanTester().getDefaultSession())
+                        .setSystemProperty(RETRY_POLICY, "task")
+                        .setSystemProperty(MAX_HASH_PARTITION_COUNT, "8")
+                        .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
+                        .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
+                        .setSystemProperty(MIN_INPUT_ROWS_PER_TASK, "400")
+                        .build(),
+                output(
+                        project(
+                                node(AggregationNode.class,
+                                        exchange(LOCAL,
+                                                exchange(REMOTE, REPARTITION, Optional.of(10),
+                                                        node(AggregationNode.class,
+                                                                node(TableScanNode.class))))))));
+    }
+
+    @Test
     public void testPlanWhenTableStatisticsAreAbsent()
     {
         @Language("SQL") String query =
@@ -539,7 +584,7 @@ public class TestDeterminePartitionCount
                 Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(RETRY_POLICY, "task")
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, "21")
-                        .setSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, "11")
+                        .setSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, "10")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
                         .setSystemProperty(MIN_INPUT_ROWS_PER_TASK, "400")
                         .build(),
@@ -547,7 +592,7 @@ public class TestDeterminePartitionCount
                         project(
                                 node(AggregationNode.class,
                                         exchange(LOCAL,
-                                                exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION, Optional.of(11),
+                                                exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION, Optional.of(10),
                                                         node(AggregationNode.class,
                                                                 node(TableScanNode.class))))))));
     }
@@ -563,7 +608,7 @@ public class TestDeterminePartitionCount
                 query,
                 Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(RETRY_POLICY, "task")
-                        .setSystemProperty(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, "8")
+                        .setSystemProperty(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, "9")
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, "4")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
                         .setSystemProperty(MIN_INPUT_ROWS_PER_TASK, "400")

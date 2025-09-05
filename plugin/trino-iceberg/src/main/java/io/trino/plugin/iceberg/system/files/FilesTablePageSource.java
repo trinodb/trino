@@ -16,10 +16,10 @@ package io.trino.plugin.iceberg.system.files;
 import com.google.common.io.Closer;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.plugin.iceberg.IcebergPartitionColumn;
 import io.trino.plugin.iceberg.IcebergUtil;
-import io.trino.plugin.iceberg.PartitionsTable;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
+import io.trino.plugin.iceberg.system.FilesTable;
+import io.trino.plugin.iceberg.system.IcebergPartitionColumn;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.ArrayBlockBuilder;
@@ -41,6 +41,7 @@ import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.transforms.Transforms;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
+import org.apache.iceberg.types.Type.PrimitiveType;
 import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
@@ -60,28 +61,31 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Streams.mapWithIndex;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
-import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumnType;
-import static io.trino.plugin.iceberg.IcebergUtil.partitionTypes;
+import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.IcebergUtil.readerForManifest;
-import static io.trino.plugin.iceberg.system.files.FilesTable.COLUMN_SIZES_COLUMN_NAME;
-import static io.trino.plugin.iceberg.system.files.FilesTable.CONTENT_COLUMN_NAME;
-import static io.trino.plugin.iceberg.system.files.FilesTable.EQUALITY_IDS_COLUMN_NAME;
-import static io.trino.plugin.iceberg.system.files.FilesTable.FILE_FORMAT_COLUMN_NAME;
-import static io.trino.plugin.iceberg.system.files.FilesTable.FILE_PATH_COLUMN_NAME;
-import static io.trino.plugin.iceberg.system.files.FilesTable.FILE_SIZE_IN_BYTES_COLUMN_NAME;
-import static io.trino.plugin.iceberg.system.files.FilesTable.KEY_METADATA_COLUMN_NAME;
-import static io.trino.plugin.iceberg.system.files.FilesTable.LOWER_BOUNDS_COLUMN_NAME;
-import static io.trino.plugin.iceberg.system.files.FilesTable.NAN_VALUE_COUNTS_COLUMN_NAME;
-import static io.trino.plugin.iceberg.system.files.FilesTable.NULL_VALUE_COUNTS_COLUMN_NAME;
-import static io.trino.plugin.iceberg.system.files.FilesTable.PARTITION_COLUMN_NAME;
-import static io.trino.plugin.iceberg.system.files.FilesTable.READABLE_METRICS_COLUMN_NAME;
-import static io.trino.plugin.iceberg.system.files.FilesTable.RECORD_COUNT_COLUMN_NAME;
-import static io.trino.plugin.iceberg.system.files.FilesTable.SORT_ORDER_ID_COLUMN_NAME;
-import static io.trino.plugin.iceberg.system.files.FilesTable.SPEC_ID_COLUMN_NAME;
-import static io.trino.plugin.iceberg.system.files.FilesTable.SPLIT_OFFSETS_COLUMN_NAME;
-import static io.trino.plugin.iceberg.system.files.FilesTable.UPPER_BOUNDS_COLUMN_NAME;
-import static io.trino.plugin.iceberg.system.files.FilesTable.VALUE_COUNTS_COLUMN_NAME;
-import static io.trino.plugin.iceberg.system.files.FilesTable.getColumnType;
+import static io.trino.plugin.iceberg.system.FilesTable.COLUMN_SIZES_COLUMN_NAME;
+import static io.trino.plugin.iceberg.system.FilesTable.CONTENT_COLUMN_NAME;
+import static io.trino.plugin.iceberg.system.FilesTable.EQUALITY_IDS_COLUMN_NAME;
+import static io.trino.plugin.iceberg.system.FilesTable.FILE_FORMAT_COLUMN_NAME;
+import static io.trino.plugin.iceberg.system.FilesTable.FILE_PATH_COLUMN_NAME;
+import static io.trino.plugin.iceberg.system.FilesTable.FILE_SIZE_IN_BYTES_COLUMN_NAME;
+import static io.trino.plugin.iceberg.system.FilesTable.KEY_METADATA_COLUMN_NAME;
+import static io.trino.plugin.iceberg.system.FilesTable.LOWER_BOUNDS_COLUMN_NAME;
+import static io.trino.plugin.iceberg.system.FilesTable.NAN_VALUE_COUNTS_COLUMN_NAME;
+import static io.trino.plugin.iceberg.system.FilesTable.NULL_VALUE_COUNTS_COLUMN_NAME;
+import static io.trino.plugin.iceberg.system.FilesTable.PARTITION_COLUMN_NAME;
+import static io.trino.plugin.iceberg.system.FilesTable.READABLE_METRICS_COLUMN_NAME;
+import static io.trino.plugin.iceberg.system.FilesTable.RECORD_COUNT_COLUMN_NAME;
+import static io.trino.plugin.iceberg.system.FilesTable.SORT_ORDER_ID_COLUMN_NAME;
+import static io.trino.plugin.iceberg.system.FilesTable.SPEC_ID_COLUMN_NAME;
+import static io.trino.plugin.iceberg.system.FilesTable.SPLIT_OFFSETS_COLUMN_NAME;
+import static io.trino.plugin.iceberg.system.FilesTable.UPPER_BOUNDS_COLUMN_NAME;
+import static io.trino.plugin.iceberg.system.FilesTable.VALUE_COUNTS_COLUMN_NAME;
+import static io.trino.plugin.iceberg.system.FilesTable.getColumnType;
+import static io.trino.plugin.iceberg.util.SystemTableUtil.getAllPartitionFields;
+import static io.trino.plugin.iceberg.util.SystemTableUtil.getPartitionColumnType;
+import static io.trino.plugin.iceberg.util.SystemTableUtil.partitionTypes;
+import static io.trino.plugin.iceberg.util.SystemTableUtil.readableMetricsToJson;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -96,10 +100,9 @@ public final class FilesTablePageSource
     private final Closer closer;
     private final Schema schema;
     private final Schema metadataSchema;
-    private final Map<Integer, Type> idToTypeMapping;
+    private final Map<Integer, PrimitiveType> idToTypeMapping;
     private final List<PartitionField> partitionFields;
     private final Optional<IcebergPartitionColumn> partitionColumnType;
-    private final Map<Integer, Type.PrimitiveType> idToPrimitiveTypeMapping;
     private final List<Types.NestedField> primitiveFields;
     private final Iterator<? extends ContentFile<?>> contentIterator;
     private final Map<String, Integer> columnNameToIndex;
@@ -119,13 +122,12 @@ public final class FilesTablePageSource
         this.closer = Closer.create();
         this.schema = SchemaParser.fromJson(requireNonNull(split.schemaJson(), "schema is null"));
         this.metadataSchema = SchemaParser.fromJson(requireNonNull(split.metadataTableJson(), "metadataSchema is null"));
-        this.idToTypeMapping = FilesTable.getIcebergIdToTypeMapping(schema);
+        this.idToTypeMapping = primitiveFieldTypes(schema);
         Map<Integer, PartitionSpec> specs = split.partitionSpecsByIdJson().entrySet().stream().collect(toImmutableMap(
                 Map.Entry::getKey,
                 entry -> PartitionSpecParser.fromJson(SchemaParser.fromJson(split.schemaJson()), entry.getValue())));
-        this.partitionFields = PartitionsTable.getAllPartitionFields(schema, specs);
-        this.partitionColumnType = getPartitionColumnType(partitionFields, schema, typeManager);
-        this.idToPrimitiveTypeMapping = IcebergUtil.primitiveFieldTypes(schema);
+        this.partitionFields = getAllPartitionFields(schema, specs);
+        this.partitionColumnType = getPartitionColumnType(typeManager, partitionFields, schema);
         this.primitiveFields = IcebergUtil.primitiveFields(schema).stream()
                 .sorted(Comparator.comparing(Types.NestedField::name))
                 .collect(toImmutableList());
@@ -193,7 +195,7 @@ public final class FilesTablePageSource
             writeValueOrNull(pageBuilder, SPEC_ID_COLUMN_NAME, contentFile::specId, INTEGER::writeInt);
             // partitions
             if (partitionColumnType.isPresent() && columnNameToIndex.containsKey(FilesTable.PARTITION_COLUMN_NAME)) {
-                List<Type> partitionTypes = partitionTypes(partitionFields, idToPrimitiveTypeMapping);
+                List<Type> partitionTypes = partitionTypes(partitionFields, idToTypeMapping);
                 List<io.trino.spi.type.Type> partitionColumnTypes = partitionColumnType.orElseThrow().rowType().getFields().stream()
                         .map(RowType.Field::getType)
                         .collect(toImmutableList());
@@ -249,7 +251,7 @@ public final class FilesTablePageSource
                     (blkBldr, value) -> INTEGER.writeLong(blkBldr, value));
             // readable_metrics
             writeValueOrNull(pageBuilder, READABLE_METRICS_COLUMN_NAME, () -> metadataSchema.findField(MetricsUtil.READABLE_METRICS),
-                    (blkBldr, value) -> VARCHAR.writeString(blkBldr, FilesTable.toJson(readableMetricsStruct(schema, contentFile, value.type().asStructType()), primitiveFields)));
+                    (blkBldr, value) -> VARCHAR.writeString(blkBldr, readableMetricsToJson(readableMetricsStruct(schema, contentFile, value.type().asStructType()), primitiveFields)));
             readTimeNanos += System.nanoTime() - start;
         }
 

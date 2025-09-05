@@ -61,7 +61,7 @@ kafka-event-listener.broker-endpoints=kafka.example.com:9093
 kafka-event-listener.created-event.topic=query_create
 kafka-event-listener.completed-event.topic=query_complete
 kafka-event-listener.client-id=trino-example
-kafka.config.resources=/etc/kafka-configuration.properties
+kafka-event-listener.config.resources=/etc/kafka-configuration.properties
 ```
 
 The contents of `/etc/kafka-configuration.properties` can for example be:
@@ -109,13 +109,6 @@ Use the following properties for further configuration.
   - `true`
 * - `kafka-event-listener.created-event.topic`
   - Name of the Kafka topic for the query creation event data.
-  - 
-* - `kafka-event-listener.publish-split-completed-event`
-  - [Boolean](prop-type-boolean) switch to control publishing of
-    [split](trino-concept-splits) completion events.
-  - `false`
-* - `kafka-event-listener.split-completed-event.topic`
-  - Name of the Kafka topic for the split completion event data.
   - 
 * - `kafka-event-listener.publish-completed-event`
   - [Boolean](prop-type-boolean) switch to control publishing of query

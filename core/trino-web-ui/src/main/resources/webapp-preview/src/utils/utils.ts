@@ -122,6 +122,14 @@ export function precisionRound(n: number | null): string {
     return Math.round(n).toString()
 }
 
+export function formatRows(count: number): string {
+    if (count === 1) {
+        return '1 row'
+    }
+
+    return formatCount(count) + ' rows'
+}
+
 export function formatCount(count: number | null): string {
     if (count === null) {
         return ''

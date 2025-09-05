@@ -20,6 +20,7 @@ import io.trino.parquet.AbstractParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.spi.metrics.Metrics;
 
 import java.io.IOException;
 
@@ -64,5 +65,11 @@ public class TrinoParquetDataSource
         long readStart = System.nanoTime();
         input.readFully(position, buffer, bufferOffset, bufferLength);
         stats.readDataBytesPerSecond(bufferLength, System.nanoTime() - readStart);
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return input.getMetrics();
     }
 }

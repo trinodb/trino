@@ -22,13 +22,13 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.NotInTransactionException;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.CatalogMetadata;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
 
@@ -423,7 +423,7 @@ public class InMemoryTransactionManager
                     .distinct()
                     .map(key -> registeredCatalogs.getOrDefault(key, Optional.empty()))
                     .flatMap(Optional::stream)
-                    .map(catalog -> new CatalogInfo(catalog.getCatalogName().toString(), catalog.getCatalogHandle(), catalog.getConnectorName()))
+                    .map(catalog -> new CatalogInfo(catalog.getCatalogName().toString(), catalog.getCatalogHandle(), catalog.getConnectorName(), catalog.isLoaded()))
                     .collect(toImmutableList());
         }
 
@@ -436,7 +436,7 @@ public class InMemoryTransactionManager
             return registeredCatalogs.values().stream()
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .map(catalog -> new CatalogInfo(catalog.getCatalogName().toString(), catalog.getCatalogHandle(), catalog.getConnectorName()))
+                    .map(catalog -> new CatalogInfo(catalog.getCatalogName().toString(), catalog.getCatalogHandle(), catalog.getConnectorName(), catalog.isLoaded()))
                     .collect(toImmutableList());
         }
 

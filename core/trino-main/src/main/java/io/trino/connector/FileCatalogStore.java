@@ -25,8 +25,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.catalog.CatalogStore;
-import io.trino.spi.connector.CatalogHandle;
-import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.connector.ConnectorName;
 
 import java.io.File;
@@ -51,7 +50,6 @@ import static com.google.common.io.Files.getNameWithoutExtension;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.spi.StandardErrorCode.CATALOG_STORE_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.deleteIfExists;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
@@ -97,7 +95,8 @@ public final class FileCatalogStore
     {
         checkModifiable();
         return new CatalogProperties(
-                createRootCatalogHandle(catalogName, computeCatalogVersion(catalogName, connectorName, properties)),
+                catalogName,
+                computeCatalogVersion(catalogName, connectorName, properties),
                 connectorName,
                 ImmutableMap.copyOf(properties));
     }
@@ -106,7 +105,7 @@ public final class FileCatalogStore
     public void addOrReplaceCatalog(CatalogProperties catalogProperties)
     {
         checkModifiable();
-        CatalogName catalogName = catalogProperties.catalogHandle().getCatalogName();
+        CatalogName catalogName = catalogProperties.name();
         File file = toFile(catalogName);
         Properties properties = new Properties();
         properties.setProperty("connector.name", catalogProperties.connectorName().toString());
@@ -233,8 +232,7 @@ public final class FileCatalogStore
             }
             ConnectorName connectorName = new ConnectorName(connectorNameValue);
 
-            CatalogHandle catalogHandle = createRootCatalogHandle(name, computeCatalogVersion(name, connectorName, properties));
-            return new CatalogProperties(catalogHandle, connectorName, ImmutableMap.copyOf(properties));
+            return new CatalogProperties(name, computeCatalogVersion(name, connectorName, properties), connectorName, ImmutableMap.copyOf(properties));
         }
     }
 }

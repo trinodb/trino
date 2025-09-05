@@ -31,8 +31,8 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.cache.NonEvictableLoadingCache;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.ConnectorServicesProvider;
-import io.trino.event.SplitMonitor;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -52,8 +52,6 @@ import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
-import io.trino.spi.catalog.CatalogProperties;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
@@ -90,6 +88,7 @@ import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.resourceOvercommit;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.execution.SqlTask.createSqlTask;
 import static io.trino.execution.executor.timesharing.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static io.trino.operator.RetryPolicy.TASK;
@@ -149,7 +148,6 @@ public class SqlTaskManager
             LanguageFunctionProvider languageFunctionProvider,
             LocationFactory locationFactory,
             TaskExecutor taskExecutor,
-            SplitMonitor splitMonitor,
             NodeInfo nodeInfo,
             LocalMemoryManager localMemoryManager,
             TaskManagementExecutor taskManagementExecutor,
@@ -167,7 +165,6 @@ public class SqlTaskManager
                 languageFunctionProvider,
                 locationFactory,
                 taskExecutor,
-                splitMonitor,
                 nodeInfo,
                 localMemoryManager,
                 taskManagementExecutor,
@@ -189,7 +186,6 @@ public class SqlTaskManager
             LanguageFunctionProvider languageFunctionProvider,
             LocationFactory locationFactory,
             TaskExecutor taskExecutor,
-            SplitMonitor splitMonitor,
             NodeInfo nodeInfo,
             LocalMemoryManager localMemoryManager,
             TaskManagementExecutor taskManagementExecutor,
@@ -220,7 +216,7 @@ public class SqlTaskManager
         this.driverYieldExecutor = newScheduledThreadPool(config.getTaskYieldThreads(), threadsNamed("task-yield-%s"));
         this.driverTimeoutExecutor = newScheduledThreadPool(config.getDriverTimeoutThreads(), threadsNamed("task-driver-timeout-%s"));
 
-        SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, splitMonitor, tracer, config);
+        SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, tracer, config);
 
         DataSize maxQueryMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
@@ -552,7 +548,7 @@ public class SqlTaskManager
         fragment.map(PlanFragment::getActiveCatalogs)
                 .ifPresent(activeCatalogs -> {
                     Set<CatalogHandle> catalogHandles = activeCatalogs.stream()
-                            .map(CatalogProperties::catalogHandle)
+                            .map(catalogProperties -> createRootCatalogHandle(catalogProperties.name(), catalogProperties.version()))
                             .collect(toImmutableSet());
                     sqlTask.setCatalogs(catalogHandles);
                     if (!sqlTask.catalogsLoaded()) {

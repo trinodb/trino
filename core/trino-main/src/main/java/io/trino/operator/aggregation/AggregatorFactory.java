@@ -58,6 +58,12 @@ public class AggregatorFactory
         checkArgument(step.isInputRaw() || inputChannels.size() == 1, "expected 1 input channel for intermediate aggregation");
     }
 
+    public Type getOutputType()
+    {
+        // Note: this must match Aggregator#getType() and GroupedAggregator#getType()
+        return step.isOutputPartial() ? intermediateType : finalType;
+    }
+
     public Aggregator createAggregator(AggregationMetrics metrics)
     {
         Accumulator accumulator;

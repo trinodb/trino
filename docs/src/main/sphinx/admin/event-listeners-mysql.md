@@ -79,4 +79,7 @@ string, user, catalog, and others with information about the query processing.
     If a password is provided, the user property must also be set.
     An exception will be raised if credentials are included in the `URL` or
     if a password is set without a corresponding user.
-:::
+* - `mysql-event-listener.terminate-on-initialization-failure`
+  - MySQL event listener initialization can fail if the database is unavailable.
+    This [boolean](prop-type-boolean) switch controls whether to throw an 
+    exception in such cases. Defaults to `true`.

@@ -104,11 +104,6 @@ public class QueryStats
     private final long internalNetworkInputPositions;
     private final long failedInternalNetworkInputPositions;
 
-    private final DataSize rawInputDataSize;
-    private final DataSize failedRawInputDataSize;
-    private final long rawInputPositions;
-    private final long failedRawInputPositions;
-
     private final DataSize processedInputDataSize;
     private final DataSize failedProcessedInputDataSize;
     private final long processedInputPositions;
@@ -200,11 +195,6 @@ public class QueryStats
             @JsonProperty("failedInternalNetworkInputDataSize") DataSize failedInternalNetworkInputDataSize,
             @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
             @JsonProperty("failedInternalNetworkInputPositions") long failedInternalNetworkInputPositions,
-
-            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
-            @JsonProperty("failedRawInputDataSize") DataSize failedRawInputDataSize,
-            @JsonProperty("rawInputPositions") long rawInputPositions,
-            @JsonProperty("failedRawInputPositions") long failedRawInputPositions,
 
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
             @JsonProperty("failedProcessedInputDataSize") DataSize failedProcessedInputDataSize,
@@ -306,13 +296,6 @@ public class QueryStats
         this.internalNetworkInputPositions = internalNetworkInputPositions;
         checkArgument(failedInternalNetworkInputPositions >= 0, "failedInternalNetworkInputPositions is negative");
         this.failedInternalNetworkInputPositions = failedInternalNetworkInputPositions;
-
-        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
-        this.failedRawInputDataSize = requireNonNull(failedRawInputDataSize, "failedRawInputDataSize is null");
-        checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
-        this.rawInputPositions = rawInputPositions;
-        checkArgument(failedRawInputPositions >= 0, "failedRawInputPositions is negative");
-        this.failedRawInputPositions = failedRawInputPositions;
 
         this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
         this.failedProcessedInputDataSize = requireNonNull(failedProcessedInputDataSize, "failedProcessedInputDataSize is null");
@@ -670,30 +653,6 @@ public class QueryStats
     public long getFailedInternalNetworkInputPositions()
     {
         return failedInternalNetworkInputPositions;
-    }
-
-    @JsonProperty
-    public DataSize getRawInputDataSize()
-    {
-        return rawInputDataSize;
-    }
-
-    @JsonProperty
-    public DataSize getFailedRawInputDataSize()
-    {
-        return failedRawInputDataSize;
-    }
-
-    @JsonProperty
-    public long getRawInputPositions()
-    {
-        return rawInputPositions;
-    }
-
-    @JsonProperty
-    public long getFailedRawInputPositions()
-    {
-        return failedRawInputPositions;
     }
 
     @JsonProperty

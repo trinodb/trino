@@ -23,12 +23,12 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.trino.client.ProtocolHeaders;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.Identity;
@@ -548,7 +548,7 @@ public final class Session
                 identity.getUser(),
                 originalIdentity.getUser(),
                 originalIdentity.getEnabledRoles(),
-                originalIdentity.getGroups(),
+                identity.getGroups(),
                 originalIdentity.getGroups(),
                 identity.getPrincipal().map(Principal::toString),
                 identity.getEnabledRoles(),
