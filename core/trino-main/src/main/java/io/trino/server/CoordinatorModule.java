@@ -243,6 +243,9 @@ public class CoordinatorModule
 
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
 
+        // metrics used by Trino Gateway
+        jaxrsBinder(binder).bind(TrinoGatewayResource.class);
+
         // node partitioning manager
         binder.bind(NodePartitioningManager.class).in(Scopes.SINGLETON);
 
