@@ -82,6 +82,7 @@ public class TestIcebergInputInfo
             assertThat(tableInfo).isPresent();
             IcebergInputInfo icebergInputInfo = (IcebergInputInfo) tableInfo.get();
             assertThat(icebergInputInfo).isEqualTo(new IcebergInputInfo(
+                    2,
                     icebergInputInfo.snapshotId(),
                     partitionFields,
                     expectedFileFormat,

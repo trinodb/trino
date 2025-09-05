@@ -21,6 +21,7 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 public record IcebergInputInfo(
+        int formatVersion,
         Optional<Long> snapshotId,
         List<String> partitionFields,
         String tableDefaultFileFormat,
