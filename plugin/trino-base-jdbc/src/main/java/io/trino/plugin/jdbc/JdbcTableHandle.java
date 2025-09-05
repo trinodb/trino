@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorTableLocation;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.predicate.TupleDomain;
@@ -38,6 +39,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class JdbcTableHandle
         extends BaseJdbcConnectorTableHandle
+        implements ConnectorTableLocation
 {
     private final JdbcRelationHandle relationHandle;
 
@@ -63,8 +65,14 @@ public final class JdbcTableHandle
     private final int nextSyntheticColumnId;
     private final Optional<String> authorization;
     private final List<JdbcAssignmentItem> updateAssignments;
+    private final Optional<String> connectionUrl;
 
     public JdbcTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName, Optional<String> comment)
+    {
+        this(schemaTableName, remoteTableName, comment, Optional.empty());
+    }
+
+    public JdbcTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName, Optional<String> comment, Optional<String> connectionUrl)
     {
         this(
                 new JdbcNamedRelationHandle(schemaTableName, remoteTableName, comment),
@@ -76,7 +84,8 @@ public final class JdbcTableHandle
                 Optional.of(ImmutableSet.of()),
                 0,
                 Optional.empty(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                connectionUrl);
     }
 
     @JsonCreator
@@ -90,7 +99,8 @@ public final class JdbcTableHandle
             @JsonProperty("otherReferencedTables") Optional<Set<SchemaTableName>> otherReferencedTables,
             @JsonProperty("nextSyntheticColumnId") int nextSyntheticColumnId,
             @JsonProperty("authorization") Optional<String> authorization,
-            @JsonProperty("updateAssignments") List<JdbcAssignmentItem> updateAssignments)
+            @JsonProperty("updateAssignments") List<JdbcAssignmentItem> updateAssignments,
+            @JsonProperty("connectionUrl") Optional<String> connectionUrl)
     {
         this.relationHandle = requireNonNull(relationHandle, "relationHandle is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
@@ -103,6 +113,7 @@ public final class JdbcTableHandle
         this.nextSyntheticColumnId = nextSyntheticColumnId;
         this.authorization = requireNonNull(authorization, "authorization is null");
         this.updateAssignments = requireNonNull(updateAssignments, "updateAssignments is null");
+        this.connectionUrl = requireNonNull(connectionUrl, "connectionUrl is null");
     }
 
     public JdbcTableHandle intersectedWithConstraint(TupleDomain<ColumnHandle> newConstraint)
@@ -117,7 +128,8 @@ public final class JdbcTableHandle
                 otherReferencedTables,
                 nextSyntheticColumnId,
                 authorization,
-                updateAssignments);
+                updateAssignments,
+                connectionUrl);
     }
 
     public JdbcTableHandle withAssignments(Map<ColumnHandle, Constant> assignments)
@@ -137,7 +149,8 @@ public final class JdbcTableHandle
                         .map(e -> {
                             return new JdbcAssignmentItem((JdbcColumnHandle) e.getKey(), new QueryParameter(e.getValue().getType(), Optional.ofNullable(e.getValue().getValue())));
                         })
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()),
+                connectionUrl);
     }
 
     public JdbcNamedRelationHandle asPlainTable()
