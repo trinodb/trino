@@ -105,6 +105,29 @@ export function truncateString(inputString: string, length: number): string {
     return inputString
 }
 
+export function getStageNumber(stageId: string): number {
+    return Number.parseInt(stageId.slice(stageId.indexOf('.') + 1, stageId.length))
+}
+
+export function getTaskIdSuffix(taskId: string): string {
+    return taskId.slice(taskId.indexOf('.') + 1, taskId.length)
+}
+
+export function getHostname(url: string): string {
+    let hostname = new URL(url).hostname
+    if (hostname.charAt(0) === '[' && hostname.charAt(hostname.length - 1) === ']') {
+        hostname = hostname.substring(1, hostname.length - 1)
+    }
+    return hostname
+}
+
+export function computeRate(count: number, ms: number): number {
+    if (ms === 0) {
+        return 0
+    }
+    return (count / ms) * 1000.0
+}
+
 export function precisionRound(n: number | null): string {
     if (n === null) {
         return ''
@@ -120,6 +143,31 @@ export function precisionRound(n: number | null): string {
         return n.toFixed(1)
     }
     return Math.round(n).toString()
+}
+
+export function formatDuration(duration: number): string {
+    let unit = 'ms'
+    if (duration > 1000) {
+        duration /= 1000
+        unit = 's'
+    }
+    if (unit === 's' && duration > 60) {
+        duration /= 60
+        unit = 'm'
+    }
+    if (unit === 'm' && duration > 60) {
+        duration /= 60
+        unit = 'h'
+    }
+    if (unit === 'h' && duration > 24) {
+        duration /= 24
+        unit = 'd'
+    }
+    if (unit === 'd' && duration > 7) {
+        duration /= 7
+        unit = 'w'
+    }
+    return precisionRound(duration) + unit
 }
 
 export function formatRows(count: number): string {
