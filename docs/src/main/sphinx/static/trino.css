@@ -63,10 +63,6 @@ html {
     scroll-behavior: smooth;
 }
 
-div.highlight {
-    background-color: #f5f5f5;
-}
-
 .md-header, .md-hero, .md-tabs {
     background-color: #0B1367;
 }
@@ -104,16 +100,13 @@ div.highlight {
     height: 48px;
 }
 
-.md-typeset h1 {
-    color: rgba(0, 0, 0, .80);
-}
-
 .sig-name, .sig-paren {
     font-weight: bold;
 }
 
 .md-typeset code {
     padding: 0 0.3em;
+    border-radius: 0.3rem;
 }
 
 pre.literal-block {
@@ -132,15 +125,6 @@ pre.literal-block {
     font-size: unset;
 }
 
-@media only screen and (min-width: 88.25em) {
-    .md-grid {
-        max-width: 75rem;
-    }
-
-    .md-sidebar--secondary {
-        margin-left: 75rem;
-    }
-}
 
 .copybtn:hover {
     cursor: copy;
@@ -155,4 +139,9 @@ button.copybtn {
     float: right;
     position: relative;
     top: -5.5rem;
+}
+
+.toctree-wrapper ul {
+    list-style-type: none;
+    padding-left: 0;
 }
