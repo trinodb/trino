@@ -646,6 +646,11 @@ public class MongoMetadata
     {
         MongoTableHandle handle = (MongoTableHandle) table;
 
+        // MongoDB doesn't support topN number greater than integer max
+        if (topNCount > Integer.MAX_VALUE) {
+            return Optional.empty();
+        }
+
         for (Map.Entry<String, ColumnHandle> columnHandleEntry : assignments.entrySet()) {
             MongoColumnHandle columnHandle = (MongoColumnHandle) columnHandleEntry.getValue();
             if (!columnHandleEntry.getKey().equals(columnHandle.baseName())) {
