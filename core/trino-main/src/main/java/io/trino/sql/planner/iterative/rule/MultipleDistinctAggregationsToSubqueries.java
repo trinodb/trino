@@ -170,10 +170,10 @@ public class MultipleDistinctAggregationsToSubqueries
                 context.getSymbolAllocator(),
                 context.getIdAllocator(),
                 context.getLookup());
-        AggregationNode subAggregationNode = (AggregationNode) copied.getNode();
+        AggregationNode subAggregationNode = (AggregationNode) copied.node();
         // add the mapping from the new output symbols to original ones
         for (int i = 0; i < originalAggregationOutputSymbols.size(); i++) {
-            assignments.put(originalAggregationOutputSymbols.get(i), copied.getFields().get(i).toSymbolReference());
+            assignments.put(originalAggregationOutputSymbols.get(i), copied.fields().get(i).toSymbolReference());
         }
         return subAggregationNode;
     }

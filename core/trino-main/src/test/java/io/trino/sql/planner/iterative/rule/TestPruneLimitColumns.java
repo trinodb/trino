@@ -72,7 +72,7 @@ public class TestPruneLimitColumns
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     return p.project(
-                            Assignments.of(),
+                            Assignments.empty(),
                             p.limit(1, ImmutableList.of(a), p.values(a, b)));
                 })
                 .matches(
@@ -95,7 +95,7 @@ public class TestPruneLimitColumns
                     Symbol b = p.symbol("b");
                     List<Symbol> orderBy = ImmutableList.of(a);
                     return p.project(
-                            Assignments.of(),
+                            Assignments.empty(),
                             p.limit(1, false, orderBy, p.values(a, b)));
                 })
                 .matches(
