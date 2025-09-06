@@ -534,7 +534,6 @@ The connector supports pushdown for a number of operations:
 
 - {ref}`join-pushdown`
 - {ref}`limit-pushdown`
-- {ref}`topn-pushdown`
 
 In addition, the connector supports {ref}`aggregation-pushdown` for the
 following functions:
