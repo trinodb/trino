@@ -747,7 +747,7 @@ WHERE system.bucket(custkey, 16) = 2;
 ### Data management
 
 The {ref}`sql-data-management` functionality includes support for `INSERT`,
-`UPDATE`, `DELETE`, and `MERGE` statements.
+`UPDATE`, `DELETE`, `TRUNCATE`, and `MERGE` statements.
 
 (iceberg-delete)=
 #### Deletion by partition
