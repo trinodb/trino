@@ -49,6 +49,7 @@ public class TestIcebergStatistics
     {
         return IcebergQueryRunner.builder()
                 .setInitialTables(NATION)
+                .addIcebergProperty("fs.hadoop.enabled", "false")
                 .build();
     }
 

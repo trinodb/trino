@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TempFile;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.filesystem.local.LocalInputFile;
 import io.trino.filesystem.local.LocalOutputFile;
 import io.trino.metadata.TableHandle;
@@ -60,6 +60,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -69,8 +70,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static io.trino.orc.metadata.CompressionKind.NONE;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
@@ -573,7 +572,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         IcebergPageSourceProviderFactory factory = new IcebergPageSourceProviderFactory(
-                new DefaultIcebergFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)),
+                new DefaultIcebergFileSystemFactory(new LocalFileSystemFactory(Path.of("/"))), // TODO
                 FILE_IO_FACTORY,
                 stats,
                 ORC_READER_CONFIG,

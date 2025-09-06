@@ -23,12 +23,18 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Optional;
 
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.REGION;
+import static java.lang.String.format;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -39,6 +45,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestIcebergConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
+    private Path warehouseLocation;
     private HiveMetastore metastore;
 
     public TestIcebergConnectorSmokeTest()
@@ -50,9 +57,15 @@ public class TestIcebergConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        warehouseLocation = Files.createTempDirectory(null);
+        closeAfterClass(() -> deleteRecursively(warehouseLocation, ALLOW_INSECURE));
+
         QueryRunner queryRunner = IcebergQueryRunner.builder()
+                .setBaseDataDir(Optional.of(warehouseLocation))
                 .setInitialTables(NATION, ORDERS, REGION)
                 .setIcebergProperties(ImmutableMap.of(
+                        "fs.native-local.enabled", "true",
+                        "hive.metastore.catalog.dir", warehouseLocation.toString(),
                         "iceberg.file-format", format.name(),
                         "iceberg.register-table-procedure.enabled", "true",
                         "iceberg.writer-sort-buffer-size", "1MB",
@@ -60,6 +73,12 @@ public class TestIcebergConnectorSmokeTest
                 .build();
         metastore = getHiveMetastore(queryRunner);
         return queryRunner;
+    }
+
+    @Override
+    protected String schemaPath()
+    {
+        return format("%s/%s", warehouseLocation, getSession().getSchema());
     }
 
     @Override
@@ -77,11 +96,11 @@ public class TestIcebergConnectorSmokeTest
                 .getParameters().get("metadata_location");
     }
 
-    @Override
-    protected String schemaPath()
-    {
-        return "local:///%s".formatted(getSession().getSchema().orElseThrow());
-    }
+//    @Override
+//    protected String schemaPath()
+//    {
+//        return "local:///%s".formatted(getSession().getSchema().orElseThrow());
+//    }
 
     @Override
     protected boolean locationExists(String location)
