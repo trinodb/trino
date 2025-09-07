@@ -24,7 +24,7 @@ import io.trino.plugin.jdbc.RetryingConnectionFactory;
 import io.trino.plugin.jdbc.credential.StaticCredentialProvider;
 import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import oracle.jdbc.OracleDriver;
-import org.testcontainers.containers.OracleContainer;
+import org.testcontainers.oracle.OracleContainer;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.Closeable;
@@ -73,11 +73,10 @@ public class TestingOracleServer
 
     private void createContainer()
     {
-        OracleContainer container = new OracleContainer("gvenzl/oracle-xe:11.2.0.2-full")
+        OracleContainer container = new OracleContainer("gvenzl/oracle-free:23.9-slim")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("init.sql"), "/container-entrypoint-initdb.d/01-init.sql")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("restart.sh"), "/container-entrypoint-initdb.d/02-restart.sh")
-                .withCopyFileToContainer(MountableFile.forHostPath(createConfigureScript()), "/container-entrypoint-initdb.d/03-create-users.sql")
-                .usingSid();
+                .withCopyFileToContainer(MountableFile.forHostPath(createConfigureScript()), "/container-entrypoint-initdb.d/03-create-users.sql");
         try {
             this.cleanup = startOrReuse(container);
             this.container = container;
@@ -95,6 +94,7 @@ public class TestingOracleServer
             File tempFile = File.createTempFile("init-", ".sql");
 
             Files.write(Joiner.on("\n").join(
+                    format("ALTER SESSION SET CONTAINER=FREEPDB1;"),
                     format("CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 100M ONLINE;", TEST_TABLESPACE),
                     format("CREATE USER %s IDENTIFIED BY %s DEFAULT TABLESPACE %s;", TEST_USER, TEST_PASS, TEST_TABLESPACE),
                     format("GRANT UNLIMITED TABLESPACE TO %s;", TEST_USER),
