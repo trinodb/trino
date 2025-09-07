@@ -43,14 +43,4 @@ public class BaseException
     {
         return statusCode;
     }
-
-    public String getBody()
-    {
-        return body;
-    }
-
-    public String getReason()
-    {
-        return reason;
-    }
 }
