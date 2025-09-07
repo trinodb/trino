@@ -137,7 +137,7 @@ public abstract class BaseOracleConnectorTest
     @Override
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
-        if (columnName.equals("a\"quote") && exception.getMessage().contains("ORA-03001: unimplemented feature")) {
+        if (columnName.equals("a\"quote") && exception.getMessage().contains("ORA-25716: The identifier contains a double quotation mark (\") character")) {
             return true;
         }
 
@@ -376,6 +376,14 @@ public abstract class BaseOracleConnectorTest
     }
 
     @Test
+    @Override // Override because Oracle allows SELECT query in execute procedure
+    public void testExecuteProcedureWithInvalidQuery()
+    {
+        assertUpdate("CALL system.execute('SELECT 1')");
+        assertQueryFails("CALL system.execute('invalid')", "(?s)Failed to execute query.*");
+    }
+
+    @Test
     @Override
     public void testNativeQuerySimple()
     {
@@ -444,37 +452,37 @@ public abstract class BaseOracleConnectorTest
     @Override
     protected OptionalInt maxSchemaNameLength()
     {
-        return OptionalInt.of(30);
+        return OptionalInt.of(128);
     }
 
     @Override
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("ORA-00972: identifier is too long");
+        assertThat(e).hasMessageContaining("ORA-00972");
     }
 
     @Override
     protected OptionalInt maxTableNameLength()
     {
-        return OptionalInt.of(30);
+        return OptionalInt.of(128);
     }
 
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("ORA-00972: identifier is too long");
+        assertThat(e).hasMessageContaining("ORA-00972");
     }
 
     @Override
     protected OptionalInt maxColumnNameLength()
     {
-        return OptionalInt.of(30);
+        return OptionalInt.of(128);
     }
 
     @Override
     protected void verifyColumnNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("ORA-00972: identifier is too long");
+        assertThat(e).hasMessageContaining("ORA-00972");
     }
 
     @Override
