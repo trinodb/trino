@@ -641,7 +641,7 @@ public interface AccessControl
      */
     void checkCanFastForwardBranch(SecurityContext context, QualifiedObjectName tableName, String sourceBranchName, String targetBranchName);
 
-    default List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
+    default List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName, List<ColumnSchema> columns)
     {
         return ImmutableList.of();
     }

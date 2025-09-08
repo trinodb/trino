@@ -594,6 +594,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName, List<ColumnSchema> columns)
+    {
+        return delegate().getRowFilters(context, tableName, columns);
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
     {
         return delegate().getRowFilters(context, tableName);

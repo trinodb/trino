@@ -397,7 +397,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanDropTable(userGroup1Group2, myTable);
         accessControl.checkCanSelectFromColumns(userGroup1Group2, myTable, ImmutableSet.of());
         assertThat(accessControl.getColumnMask(userGroup1Group2, myTable, "col_a", VARCHAR)).isEqualTo(Optional.empty());
-        assertThat(accessControl.getRowFilters(userGroup1Group2, myTable)).isEqualTo(ImmutableList.of());
+        assertThat(accessControl.getRowFilters(userGroup1Group2, myTable, ImmutableList.of())).isEqualTo(ImmutableList.of());
 
         assertDenied(() -> accessControl.checkCanCreateTable(userGroup2, myTable, Map.of()));
         assertDenied(() -> accessControl.checkCanInsertIntoTable(userGroup2, myTable));
@@ -411,7 +411,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
                         .schema("my_schema")
                         .expression("'mask_a'")
                         .build());
-        assertThat(accessControl.getRowFilters(userGroup2, myTable)).isEqualTo(ImmutableList.of());
+        assertThat(accessControl.getRowFilters(userGroup2, myTable, ImmutableList.of())).isEqualTo(ImmutableList.of());
 
         ConnectorSecurityContext userGroup1Group3 = user("user_1_3", ImmutableSet.of("group1", "group3"));
         ConnectorSecurityContext userGroup3 = user("user_3", ImmutableSet.of("group3"));
@@ -436,7 +436,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
                         .expression("'mask_a'")
                         .build());
 
-        List<ViewExpression> rowFilters = accessControl.getRowFilters(userGroup3, myTable);
+        List<ViewExpression> rowFilters = accessControl.getRowFilters(userGroup3, myTable, ImmutableList.of());
         assertThat(rowFilters).hasSize(1);
         assertViewExpressionEquals(
                 rowFilters.get(0),

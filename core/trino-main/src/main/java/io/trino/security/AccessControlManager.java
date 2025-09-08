@@ -1463,7 +1463,7 @@ public class AccessControlManager
     }
 
     @Override
-    public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
+    public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName, List<ColumnSchema> columns)
     {
         requireNonNull(context, "context is null");
         requireNonNull(tableName, "tableName is null");
@@ -1472,12 +1472,12 @@ public class AccessControlManager
         ConnectorAccessControl connectorAccessControl = getConnectorAccessControl(context.getTransactionId(), tableName.catalogName());
 
         if (connectorAccessControl != null) {
-            connectorAccessControl.getRowFilters(toConnectorSecurityContext(tableName.catalogName(), context), tableName.asSchemaTableName())
+            connectorAccessControl.getRowFilters(toConnectorSecurityContext(tableName.catalogName(), context), tableName.asSchemaTableName(), columns)
                     .forEach(filters::add);
         }
 
         for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
-            systemAccessControl.getRowFilters(context.toSystemSecurityContext(), tableName.asCatalogSchemaTableName())
+            systemAccessControl.getRowFilters(context.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), columns)
                     .forEach(filters::add);
         }
 

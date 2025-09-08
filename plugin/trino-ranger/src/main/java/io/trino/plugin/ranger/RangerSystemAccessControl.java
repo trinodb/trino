@@ -20,6 +20,7 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.connector.SchemaTableName;
@@ -815,7 +816,7 @@ public class RangerSystemAccessControl
     }
 
     @Override
-    public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
+    public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName, List<ColumnSchema> columns)
     {
         RangerAccessResult result = getRowFilterResult(createAccessRequest(createTableResource(tableName), context, SELECT, "getRowFilters"));
 

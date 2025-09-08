@@ -631,6 +631,14 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
+    public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnSchema> columns)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getRowFilters(context, tableName, columns);
+        }
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {

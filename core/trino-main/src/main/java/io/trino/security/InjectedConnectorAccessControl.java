@@ -565,13 +565,19 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
-    public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
+    public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnSchema> columns)
     {
         checkArgument(context == null, "context must be null");
-        if (accessControl.getRowFilters(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName())).isEmpty()) {
+        if (accessControl.getRowFilters(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), columns).isEmpty()) {
             return ImmutableList.of();
         }
         throw new TrinoException(NOT_SUPPORTED, "Row filtering not supported");
+    }
+
+    @Override
+    public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        throw new UnsupportedOperationException("getRowFilters should be called with columns");
     }
 
     @Override

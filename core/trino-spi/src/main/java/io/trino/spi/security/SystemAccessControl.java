@@ -1023,6 +1023,20 @@ public interface SystemAccessControl
      *
      * @return the list of filters, or empty list if not applicable
      */
+    default List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName, List<ColumnSchema> columns)
+    {
+        return getRowFilters(context, tableName);
+    }
+
+    /**
+     * Get row filters associated with the given table and identity.
+     * <p>
+     * Each filter must be a scalar SQL expression of boolean type over the columns in the table.
+     *
+     * @return the list of filters, or empty list if not applicable
+     * @deprecated use {@link #getRowFilters(SystemSecurityContext, CatalogSchemaTableName, List)}
+     */
+    @Deprecated
     default List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
     {
         return List.of();

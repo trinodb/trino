@@ -789,6 +789,20 @@ public interface ConnectorAccessControl
      *
      * @return the list of filters, or empty list if not applicable
      */
+    default List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnSchema> columns)
+    {
+        return getRowFilters(context, tableName);
+    }
+
+    /**
+     * Get row filters associated with the given table and identity.
+     * <p>
+     * Each filter must be a scalar SQL expression of boolean type over the columns in the table.
+     *
+     * @return the list of filters, or empty list if not applicable
+     * @deprecated use {@link #getRowFilters(ConnectorSecurityContext, SchemaTableName, List)}
+     */
+    @Deprecated
     default List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         return emptyList();
