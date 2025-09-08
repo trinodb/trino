@@ -524,7 +524,7 @@ public class MongoSession
         Set<MongoColumnHandle> projectedColumns = tableHandle.projectedColumns();
         checkArgument(projectedColumns.isEmpty() || projectedColumns.containsAll(columns), "projectedColumns must be empty or equal to columns");
 
-        Document projection = buildProjection(columns);
+        Document projection = buildProjection(columns, implicitPrefix);
 
         MongoCollection<Document> collection = getCollection(tableHandle.remoteTableName());
         Document filter = buildFilter(tableHandle);
@@ -540,7 +540,7 @@ public class MongoSession
     }
 
     @VisibleForTesting
-    static Document buildProjection(List<MongoColumnHandle> columns)
+    static Document buildProjection(List<MongoColumnHandle> columns, String implicitPrefix)
     {
         Document output = new Document();
 
@@ -552,7 +552,13 @@ public class MongoSession
         // Starting in MongoDB 4.4, it is illegal to project an embedded document with any of the embedded document's fields
         // (https://www.mongodb.com/docs/manual/reference/limits/#mongodb-limit-Projection-Restrictions). So, Project only sufficient columns.
         for (MongoColumnHandle column : projectSufficientColumns(columns)) {
-            output.append(column.getQualifiedName(), 1);
+            if (column.dereferenceNames().stream().anyMatch(columnName -> TypeUtils.isImplicitRowField(columnName, implicitPrefix))) {
+                // Add parent field for implicit column
+                output.append(column.baseName(), 1);
+            }
+            else {
+                output.append(column.getQualifiedName(), 1);
+            }
         }
 
         return output;
