@@ -369,6 +369,12 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName, List<ColumnSchema> columns)
+    {
+        return emptyList();
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
     {
         return emptyList();
