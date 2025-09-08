@@ -39,28 +39,29 @@ will create a catalog named `sales` using the configured connector.
 
 The following configuration properties are available:
 
-| Property name                            | Description                                                                |
-| ---------------------------------------- | -------------------------------------------------------------------------- |
-| `mongodb.connection-url`                 | The connection url that the driver uses to connect to a MongoDB deployment |
-| `mongodb.schema-collection`              | A collection which contains schema information                             |
-| `mongodb.case-insensitive-name-matching` | Match database and collection names case insensitively                     |
-| `mongodb.min-connections-per-host`       | The minimum size of the connection pool per host                           |
-| `mongodb.connections-per-host`           | The maximum size of the connection pool per host                           |
-| `mongodb.max-wait-time`                  | The maximum wait time                                                      |
-| `mongodb.max-connection-idle-time`       | The maximum idle time of a pooled connection                               |
-| `mongodb.connection-timeout`             | The socket connect timeout                                                 |
-| `mongodb.socket-timeout`                 | The socket timeout                                                         |
-| `mongodb.tls.enabled`                    | Use TLS/SSL for connections to mongod/mongos                               |
-| `mongodb.tls.keystore-path`              | Path to the  or JKS key store                                              |
-| `mongodb.tls.truststore-path`            | Path to the  or JKS trust store                                            |
-| `mongodb.tls.keystore-password`          | Password for the key store                                                 |
-| `mongodb.tls.truststore-password`        | Password for the trust store                                               |
-| `mongodb.read-preference`                | The read preference                                                        |
-| `mongodb.write-concern`                  | The write concern                                                          |
-| `mongodb.required-replica-set`           | The required replica set name                                              |
-| `mongodb.cursor-batch-size`              | The number of elements to return in a batch                                |
-| `mongodb.allow-local-scheduling`         | Assign MongoDB splits to a specific worker                                 |
-| `mongodb.dynamic-filtering.wait-timeout` | Duration to wait for completion of dynamic filters during split generation |
+| Property name                            | Description                                                                         |
+|------------------------------------------|-------------------------------------------------------------------------------------|
+| `mongodb.connection-url`                 | The connection url that the driver uses to connect to a MongoDB deployment          |
+| `mongodb.schema-collection`              | A collection which contains schema information                                      |
+| `mongodb.case-insensitive-name-matching` | Match database and collection names case insensitively                              |
+| `mongodb.min-connections-per-host`       | The minimum size of the connection pool per host                                    |
+| `mongodb.connections-per-host`           | The maximum size of the connection pool per host                                    |
+| `mongodb.max-wait-time`                  | The maximum wait time                                                               |
+| `mongodb.max-connection-idle-time`       | The maximum idle time of a pooled connection                                        |
+| `mongodb.connection-timeout`             | The socket connect timeout                                                          |
+| `mongodb.socket-timeout`                 | The socket timeout                                                                  |
+| `mongodb.tls.enabled`                    | Use TLS/SSL for connections to mongod/mongos                                        |
+| `mongodb.tls.keystore-path`              | Path to the  or JKS key store                                                       |
+| `mongodb.tls.truststore-path`            | Path to the  or JKS trust store                                                     |
+| `mongodb.tls.keystore-password`          | Password for the key store                                                          |
+| `mongodb.tls.truststore-password`        | Password for the trust store                                                        |
+| `mongodb.read-preference`                | The read preference                                                                 |
+| `mongodb.write-concern`                  | The write concern                                                                   |
+| `mongodb.required-replica-set`           | The required replica set name                                                       |
+| `mongodb.cursor-batch-size`              | The number of elements to return in a batch                                         |
+| `mongodb.allow-local-scheduling`         | Assign MongoDB splits to a specific worker                                          |
+| `mongodb.dynamic-filtering.wait-timeout` | Duration to wait for completion of dynamic filters during split generation          |
+| `mongodb.implicit-row-field-prefix`      | Prefix for auto-generated field names when mapping mixed-type arrays to `ROW` types |
 
 ### `mongodb.connection-url`
 
@@ -219,6 +220,32 @@ This property is optional, and defaults to false.
 Duration to wait for completion of dynamic filters during split generation.
 
 This property is optional; the default is `5s`.
+
+### `mongodb.implicit-row-field-prefix`
+
+When reading documents that contain arrays with different element types,
+the connector cannot represent the array as a single `ARRAY` because no
+single common element type exists. In this case, the connector maps the array
+to a `ROW` type, where each element of the array is represented as a separate
+field.
+
+Since `ROW` fields require names, the connector automatically generates names
+by combining this prefix with the element index. For example, with the default
+implicit row field prefix `_pos`:
+
+```json
+{
+  "data": [ {"a": 1}, 42, "foo" ]
+}
+```
+
+is mapped to the following Trino type:
+
+```sql
+ROW(_pos1 ROW(a BIGINT), _pos2 BIGINT, _pos3 VARCHAR)
+```
+
+This property is optional; the default is `_pos`.
 
 (table-definition-label)=
 ## Table definition
