@@ -294,9 +294,9 @@ public final class HttpPageBufferClient
             lastUpdate = Instant.now();
         }
 
-        if (future != null && !future.isDone()) {
-            future.cancel(true);
-        }
+//        if (future != null && !future.isDone()) {
+//            future.cancel(true);
+//        }
 
         // destroy task results on the remote node; response is ignored
         if (shouldDestroyTaskResults) {
