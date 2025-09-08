@@ -208,3 +208,16 @@ FROM
 
 ```{include} query-table-function-ordering.fragment
 ```
+
+## Performance
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+(exasol-pushdown)=
+### Pushdown
+
+The connector supports pushdown for a number of operations:
+
+- {ref}`limit-pushdown`
+- {ref}`topn-pushdown`
