@@ -38,6 +38,7 @@ import io.trino.plugin.deltalake.metastore.NoOpVendedCredentialsProvider;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsProvider;
 import io.trino.plugin.deltalake.metastore.file.DeltaLakeFileMetastoreModule;
 import io.trino.plugin.deltalake.metastore.glue.DeltaLakeGlueMetastoreModule;
+import io.trino.plugin.deltalake.metastore.polaris.DeltaLakePolarisMetastoreModule;
 import io.trino.plugin.deltalake.metastore.thrift.DeltaLakeThriftMetastoreModule;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess.ForCachingExtendedStatisticsAccess;
@@ -112,6 +113,7 @@ public class LakehouseDeltaModule
             case THRIFT -> new DeltaLakeThriftMetastoreModule();
             case FILE -> new DeltaLakeFileMetastoreModule();
             case GLUE -> new DeltaLakeGlueMetastoreModule();
+            case POLARIS -> new DeltaLakePolarisMetastoreModule();
         });
 
         binder.install(new DeltaLakeExecutorModule());
