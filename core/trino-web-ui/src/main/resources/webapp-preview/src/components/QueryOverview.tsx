@@ -29,7 +29,7 @@ import {
 } from '@mui/material'
 import { SparkLineChart } from '@mui/x-charts/SparkLineChart'
 import { Texts } from '../constant.ts'
-import { StackInfo, queryStatusApi, QueryStatusInfo, Session } from '../api/webapp/api.ts'
+import { StackInfo, queryStatusApi, QueryStatusInfo, QueryStage, QueryStages, Session } from '../api/webapp/api.ts'
 import { ApiResponse } from '../api/base.ts'
 import {
     addToHistory,
@@ -40,10 +40,12 @@ import {
     parseDataSize,
     parseDuration,
 } from '../utils/utils.ts'
+import { QueryStageCard } from './QueryStageCard'
 import { CodeBlock } from './CodeBlock.tsx'
 
 interface IQueryStatus {
     info: QueryStatusInfo | null
+    lastQueryStages: QueryStages | null
 
     lastScheduledTime: number
     lastCpuTime: number
@@ -66,6 +68,7 @@ export const QueryOverview = () => {
     const { queryId } = useParams()
     const initialQueryStatus: IQueryStatus = {
         info: null,
+        lastQueryStages: null,
 
         lastScheduledTime: 0,
         lastCpuTime: 0,
@@ -117,6 +120,7 @@ export const QueryOverview = () => {
                     const newQueryStatusInfo: QueryStatusInfo = apiResponse.data
                     setQueryStatus((prevQueryStatus) => {
                         let lastRefresh = prevQueryStatus.lastRefresh
+
                         const lastScheduledTime = prevQueryStatus.lastScheduledTime
                         const lastCpuTime = prevQueryStatus.lastCpuTime
                         const lastPhysicalInputReadTime = prevQueryStatus.lastPhysicalInputReadTime
@@ -205,6 +209,7 @@ export const QueryOverview = () => {
 
                         return {
                             info: newQueryStatusInfo,
+                            lastQueryStages: newQueryStatusInfo.stages,
 
                             lastScheduledTime: parseDuration(newQueryStats.totalScheduledTime) || 0,
                             lastCpuTime: parseDuration(newQueryStats.totalCpuTime) || 0,
@@ -414,6 +419,38 @@ export const QueryOverview = () => {
         } else {
             return null
         }
+    }
+
+    const renderStages = (taskRetriesEnabled: boolean) => {
+        const stages = queryStatus.lastQueryStages?.stages
+
+        return (
+            <Grid size={{ xs: 12 }}>
+                <Box sx={{ pt: 2 }}>
+                    <Typography variant="h6">Stages</Typography>
+                    <Divider />
+
+                    {stages ? (
+                        stages
+                            .slice()
+                            .sort((a, b) => a.stageId.localeCompare(b.stageId))
+                            .map((stage: QueryStage) => (
+                                <QueryStageCard
+                                    key={stage.stageId}
+                                    stage={stage}
+                                    taskRetriesEnabled={taskRetriesEnabled}
+                                />
+                            ))
+                    ) : (
+                        <>
+                            <Box sx={{ width: '100%', mt: 1 }}>
+                                <Alert severity="info">No stage information available.</Alert>
+                            </Box>
+                        </>
+                    )}
+                </Box>
+            </Grid>
+        )
     }
 
     const taskRetriesEnabled = queryStatus.info?.retryPolicy == 'TASK'
@@ -839,6 +876,7 @@ export const QueryOverview = () => {
                             </Box>
                         </Grid>
                         {renderPreparedQuery()}
+                        {renderStages(taskRetriesEnabled)}
                     </Grid>
                 </Grid>
             )}
