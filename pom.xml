@@ -543,7 +543,7 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
-                <version>10.4.2</version>
+                <version>10.5</version>
             </dependency>
 
             <dependency>
