@@ -76,7 +76,8 @@ public class TestingOracleServer
         OracleContainer container = new OracleContainer("gvenzl/oracle-free:23.9-slim")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("init.sql"), "/container-entrypoint-initdb.d/01-init.sql")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("restart.sh"), "/container-entrypoint-initdb.d/02-restart.sh")
-                .withCopyFileToContainer(MountableFile.forHostPath(createConfigureScript()), "/container-entrypoint-initdb.d/03-create-users.sql");
+                .withCopyFileToContainer(MountableFile.forHostPath(createConfigureScript()), "/container-entrypoint-initdb.d/03-create-users.sql")
+                .withStartupTimeoutSeconds(180);
         try {
             this.cleanup = startOrReuse(container);
             this.container = container;
