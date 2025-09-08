@@ -66,6 +66,7 @@ import static io.trino.plugin.mongodb.MongoSession.COLLECTION_NAME;
 import static io.trino.plugin.mongodb.MongoSession.DATABASE_NAME;
 import static io.trino.plugin.mongodb.MongoSession.ID;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
+import static io.trino.plugin.mongodb.TypeUtils.getImplicitRowFieldIndex;
 import static io.trino.plugin.mongodb.TypeUtils.isJsonType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -103,11 +104,13 @@ public class MongoPageSource
     private boolean finished;
 
     private final PageBuilder pageBuilder;
+    private final String implicitPrefix;
 
     public MongoPageSource(
             MongoSession mongoSession,
             MongoTableHandle tableHandle,
-            List<MongoColumnHandle> columns)
+            List<MongoColumnHandle> columns,
+            String implicitPrefix)
     {
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.columnTypes = columns.stream().map(MongoColumnHandle::type).collect(toList());
@@ -115,6 +118,7 @@ public class MongoPageSource
         currentDoc = null;
 
         pageBuilder = new PageBuilder(columnTypes);
+        this.implicitPrefix = requireNonNull(implicitPrefix, "implicitPrefix is null");
     }
 
     @Override
@@ -383,7 +387,7 @@ public class MongoPageSource
         output.appendNull();
     }
 
-    private static Object getColumnValue(Document document, MongoColumnHandle mongoColumnHandle)
+    private Object getColumnValue(Document document, MongoColumnHandle mongoColumnHandle)
     {
         Object value = document.get(mongoColumnHandle.baseName());
         if (mongoColumnHandle.isBaseColumn()) {
@@ -392,17 +396,27 @@ public class MongoPageSource
         if (value instanceof DBRef dbRefValue) {
             return getDbRefValue(dbRefValue, mongoColumnHandle);
         }
-        Document documentValue = (Document) value;
+
         for (String dereferenceName : mongoColumnHandle.dereferenceNames()) {
             // When parent field itself is null
-            if (documentValue == null) {
+            if (value == null) {
                 return null;
             }
-            value = documentValue.get(dereferenceName);
-            if (value instanceof Document nestedDocument) {
-                documentValue = nestedDocument;
+            if (value instanceof Document documentValue) {
+                value = documentValue.get(dereferenceName);
             }
-            else if (value instanceof DBRef dbRefValue) {
+            else {
+                checkArgument(value instanceof List<?>, "Unsupported dereference of %s in %s", value.getClass(), mongoColumnHandle);
+                List<?> arrayValue = (List<?>) value;
+                int arrayPosition = getImplicitRowFieldIndex(dereferenceName, implicitPrefix) - 1;
+                checkArgument(arrayPosition >= 0, "Invalid array position %s in %s", dereferenceName, mongoColumnHandle);
+                if (arrayPosition >= arrayValue.size()) {
+                    return null;
+                }
+                value = arrayValue.get(arrayPosition);
+            }
+
+            if (value instanceof DBRef dbRefValue) {
                 // Assuming DBRefField is the leaf field
                 return getDbRefValue(dbRefValue, mongoColumnHandle);
             }
