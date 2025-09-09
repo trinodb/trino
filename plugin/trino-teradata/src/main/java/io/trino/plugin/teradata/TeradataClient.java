@@ -205,6 +205,7 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
@@ -536,7 +537,7 @@ public class TeradataClient
      */
     private static SliceWriteFunction typedVarcharWriteFunction()
     {
-        String bindExpression = format("CAST(? AS %s)", "json".toUpperCase());
+        String bindExpression = format("CAST(? AS %s)", "JSON");
 
         return new SliceWriteFunction()
         {
@@ -689,7 +690,7 @@ public class TeradataClient
             TableStatistics.Builder tableStats = TableStatistics.builder().setRowCount(Estimate.of(rowCount));
 
             for (JdbcColumnHandle column : JdbcMetadata.getColumns(session, this, table)) {
-                String columnName = column.getColumnName().toLowerCase();
+                String columnName = column.getColumnName();
                 TeradataStatisticsDao.ColumnIndexStatistics stat = stats.get(columnName);
 
                 ColumnStatistics.Builder columnStats = ColumnStatistics.builder();
@@ -764,6 +765,7 @@ public class TeradataClient
         return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }
 
+    @Override
     protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
     {
         execute(session, format(
@@ -815,6 +817,7 @@ public class TeradataClient
         }
     }
 
+    @Override
     protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
             throws SQLException
     {
@@ -1076,7 +1079,7 @@ public class TeradataClient
 
         // switch by names as some types overlap other types going by jdbc type alone
         String jdbcTypeName = typeHandle.jdbcTypeName().orElse("VARCHAR");
-        switch (jdbcTypeName.toUpperCase()) {
+        switch (jdbcTypeName.toUpperCase(ENGLISH)) {
             case "TIMESTAMP WITH TIME ZONE":
                 return Optional.of(timestampWithTimeZoneColumnMapping(typeHandle.requiredDecimalDigits()));
             case "TIME WITH TIME ZONE":
@@ -1383,7 +1386,7 @@ public class TeradataClient
                         long distinct = rs.getLong("UniqueValueCount");
 
                         return new SimpleEntry<>(
-                                column.trim().toLowerCase(),
+                                column.trim(),
                                 new ColumnIndexStatistics(nullCount > 0, distinct, nullCount));
                     })
                     // Filter out nulls before collecting to map

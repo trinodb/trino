@@ -62,13 +62,13 @@ public class TeradataClientModule
      * Provides a singleton {@link ConnectionFactory} for Teradata JDBC connections.
      * <p>
      * This factory is configured with Teradata-specific JDBC properties:
+     * </p>
      * <ul>
      *   <li>{@code TMODE} - Teradata transaction mode</li>
      *   <li>{@code CHARSET} - Session character set</li>
      *   <li>{@code LOGMECH} - Logon mechanism</li>
      *   <li>{@code DATABASE} - Default database (optional)</li>
-     * </ul>
-     * </p>
+     * </ul>     *
      * <p>
      * Uses the {@link DriverConnectionFactory} builder to create the connection factory,
      * supplying the driver obtained from the JDBC connection URL and credentials via {@link CredentialProvider}.
