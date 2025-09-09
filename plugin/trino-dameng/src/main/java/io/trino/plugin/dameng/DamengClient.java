@@ -18,6 +18,7 @@ import com.google.inject.Inject;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.BooleanWriteFunction;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
@@ -66,7 +67,6 @@ import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.dateReadFunctionUsingLocalDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
@@ -274,9 +274,9 @@ public class DamengClient
                 return Optional.of(bigintColumnMapping());
 //                Optional.of(decimalColumnMapping(createDecimalType(20)));
             case "blob":
+                return Optional.of(ColumnMapping.sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), FULL_PUSHDOWN));
             case "clob":
             case "nclob":
-                return Optional.of(ColumnMapping.sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), FULL_PUSHDOWN));
             case "text":
                 return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
         }
@@ -386,7 +386,7 @@ public class DamengClient
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         if (type == BOOLEAN) {
-            return WriteMapping.booleanMapping("bit", booleanWriteFunction());
+            return damengBooleanWriteMapping();
         }
         if (type == TINYINT) {
             return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
@@ -471,6 +471,16 @@ public class DamengClient
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
+    private static WriteMapping damengBooleanWriteMapping()
+    {
+        return WriteMapping.booleanMapping("number(1)", damengBooleanWriteFunction());
+    }
+
+    private static BooleanWriteFunction damengBooleanWriteFunction()
+    {
+        return BooleanWriteFunction.of(Types.TINYINT, (statement, index, value) -> statement.setInt(index, value ? 1 : 0));
     }
 
     private LongWriteFunction dateWriteFunctionUsingLocalDate()
