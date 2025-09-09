@@ -73,15 +73,6 @@ public class TeradataJdbcConnectorTest
         requireNonNull(verifyResults, "verifyResults is null");
         requireNonNull(verifyFailure, "verifyFailure is null");
         QueryAssertions.QueryAssert queryAssert = Assertions.assertThat(queryAssertProvider);
-
-        try {
-            queryAssert.result();
-        }
-        catch (Throwable var5) {
-            verifyFailure.accept(queryAssert.failure());
-            return;
-        }
-
         verifyResults.accept(queryAssert);
     }
 
@@ -157,11 +148,13 @@ public class TeradataJdbcConnectorTest
         return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
     }
 
+    @Override
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessage(format("Schema name must be shorter than or equal to '%s' characters but got '%s'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
     }
 
+    @Override
     protected OptionalInt maxColumnNameLength()
     {
         return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
@@ -173,6 +166,7 @@ public class TeradataJdbcConnectorTest
         assertThat(e).hasMessageMatching(format("Column name must be shorter than or equal to '%s' characters but got '%s': '.*'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
     }
 
+    @Override
     @Test
     public void testDataMappingSmokeTest()
     {
@@ -180,16 +174,19 @@ public class TeradataJdbcConnectorTest
         skipTestUnless(false);
     }
 
+    @Override
     protected OptionalInt maxTableNameLength()
     {
         return OptionalInt.of(TERADATA_OBJECT_NAME_LIMIT);
     }
 
+    @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching(format("Table name must be shorter than or equal to '%s' characters but got '%s'", TERADATA_OBJECT_NAME_LIMIT, TERADATA_OBJECT_NAME_LIMIT + 1));
     }
 
+    @Override
     @Test
     public void testDistinctLimit()
     {
@@ -203,6 +200,7 @@ public class TeradataJdbcConnectorTest
 
     /* Overriding the method as Teradata avg calculations are slightly different than trino so Skipping the results check for avg
         Expecting actual: (111.660, 111728394.9938271616, 1.117283945E8, 111.6605) to contain exactly in any order: [(111.661, 111728394.9938271605, 1.117283945E8, 111.6605)] */
+    @Override
     @Test
     public void testNumericAggregationPushdown()
     {
@@ -236,6 +234,7 @@ public class TeradataJdbcConnectorTest
     }
 
     // Overriding this test case as Teradata defines varchar with a length.
+    @Override
     @Test
     public void testVarcharCastToDateInPredicate()
     {
@@ -302,6 +301,7 @@ public class TeradataJdbcConnectorTest
     }
 
     // Overriding this test case as Teradata raises different error message for division by zero.
+    @Override
     @Test
     public void testArithmeticPredicatePushdown()
     {
@@ -317,6 +317,7 @@ public class TeradataJdbcConnectorTest
         }
     }
 
+    @Override
     @Test
     public void testCreateTableAsSelect()
     {
@@ -381,6 +382,7 @@ public class TeradataJdbcConnectorTest
     }
 
     // Overriding this test case as Teradata does not support negative dates.
+    @Override
     @Test
     public void testDateYearOfEraPredicate()
     {
@@ -388,6 +390,7 @@ public class TeradataJdbcConnectorTest
     }
 
     // Override this test case as Teradata has different syntax for creating tables with AS SELECT statement.
+    @Override
     @Test
     public void verifySupportsRowLevelUpdateDeclaration()
     {
@@ -402,6 +405,7 @@ public class TeradataJdbcConnectorTest
 
     // Override this test case as Teradata has different syntax for creating tables with AS SELECT statement.
     // TODO Will handle this while Teradata connector supporting WRITE operations.
+    @Override
     @Test
     public void testJoinPushdown()
     {
@@ -449,6 +453,7 @@ public class TeradataJdbcConnectorTest
         }
     }
 
+    @Override
     @Test
     public void testCharVarcharComparison()
     {
@@ -562,6 +567,7 @@ public class TeradataJdbcConnectorTest
     }
 
     // Overriding this test case as Teradata doesn't have support to (k, v) AS VALUES in insert statement
+    @Override
     @Test
     public void testVarcharCharComparison()
     {
@@ -575,6 +581,7 @@ public class TeradataJdbcConnectorTest
     }
 
     // Overriding this test case as Teradata supports timezone in different way.
+    @Override
     @Test
     public void testTimestampWithTimeZoneCastToDatePredicate()
     {
@@ -612,6 +619,7 @@ public class TeradataJdbcConnectorTest
         table.close();
     }
 
+    @Override
     @Test
     public void testTimestampWithTimeZoneCastToTimestampPredicate()
     {
@@ -651,11 +659,11 @@ public class TeradataJdbcConnectorTest
         table.close();
     }
 
+    @Override
     @Test
     public void testJoinPushdownWithLongIdentifiers()
     {
         skipTestUnless(this.hasBehavior(TestingConnectorBehavior.SUPPORTS_CREATE_TABLE) && this.hasBehavior(TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN));
-        String baseColumnName = "col";
         int maxLength = this.maxColumnNameLength().orElse(65541);
         String validColumnName = "z".repeat(maxLength - 5);
 
@@ -678,96 +686,112 @@ public class TeradataJdbcConnectorTest
         };
     }
 
+    @Override
     @Test
     public void testRenameSchema()
     {
         Assumptions.abort("Skipping as connector does not support RENAME SCHEMA");
     }
 
+    @Override
     @Test
     public void testColumnName()
     {
         Assumptions.abort("Skipping as connector does not support column level write operations");
     }
 
+    @Override
     @Test
     public void testCreateTableAsSelectWithUnicode()
     {
         Assumptions.abort("Skipping as connector does not support creating table with UNICODE characters");
     }
 
+    @Override
     @Test
     public void testUpdateNotNullColumn()
     {
         Assumptions.abort("Skipping as connector does not support insert operations");
     }
 
+    @Override
     @Test
     public void testWriteBatchSizeSessionProperty()
     {
         Assumptions.abort("Skipping as connector does not support insert operations");
     }
 
+    @Override
     @Test
     public void testInsertWithoutTemporaryTable()
     {
         Assumptions.abort("Skipping as connector does not support insert operations");
     }
 
+    @Override
     @Test
     public void testWriteTaskParallelismSessionProperty()
     {
         Assumptions.abort("Skipping as connector does not support insert operations");
     }
 
+    @Override
     @Test
     public void testInsertIntoNotNullColumn()
     {
         Assumptions.abort("Skipping as connector does not support insert operations");
     }
 
+    @Override
     @Test
     public void testDropSchemaCascade()
     {
         Assumptions.abort("Skipping as connector does not support dropping schemas with CASCADE option");
     }
 
+    @Override
     @Test
     public void testAddColumn()
     {
         Assumptions.abort("Skipping as connector does not support column level write operations");
     }
 
+    @Override
     @Test
     public void testDropNonEmptySchemaWithTable()
     {
         Assumptions.abort("Skipping as connector does not support drop schemas");
     }
 
+    @Override
     @Test
     public void verifySupportsUpdateDeclaration()
     {
         Assumptions.abort("Skipping as connector does not support update operations");
     }
 
+    @Override
     @Test
     public void testDropNotNullConstraint()
     {
         Assumptions.abort("Skipping as connector does not support dropping a not null constraint");
     }
 
+    @Override
     @Test
     public void testExecuteProcedureWithInvalidQuery()
     {
         Assumptions.abort("Skipping as connector does not support execute procedure");
     }
 
+    @Override
     @Test
     public void testCreateTableAsSelectNegativeDate()
     {
         Assumptions.abort("Skipping as connector does not support creating table with negative date");
     }
 
+    @Override
     protected void assertCreateTableAsSelect(Session session, String query, String expectedQuery, String rowCountQuery)
     {
         String table = "test_ctas_" + TestingNames.randomNameSuffix();
@@ -786,6 +810,7 @@ public class TeradataJdbcConnectorTest
                 .build();
     }
 
+    @Override
     protected TestTable newTrinoTable(String namePrefix, @Language("SQL") String tableDefinition, List<String> rowsToInsert)
     {
         String tableName = "";
