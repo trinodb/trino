@@ -208,3 +208,16 @@ FROM
 
 ```{include} query-table-function-ordering.fragment
 ```
+
+(exasol-pushdown)=
+### Pushdown
+
+The connector supports pushdown for the following operations:
+
+- {ref}`join-pushdown`
+
+```{include} pushdown-correctness-behavior.fragment
+```
+
+```{include} join-pushdown-enabled-true.fragment
+```

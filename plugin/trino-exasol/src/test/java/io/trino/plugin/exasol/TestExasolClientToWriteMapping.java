@@ -13,14 +13,20 @@
  */
 package io.trino.plugin.exasol;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.plugin.base.mapping.DefaultIdentifierMapping;
-import io.trino.plugin.jdbc.*;
+import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.BooleanWriteFunction;
+import io.trino.plugin.jdbc.DefaultQueryBuilder;
+import io.trino.plugin.jdbc.DoubleWriteFunction;
+import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.ObjectWriteFunction;
+import io.trino.plugin.jdbc.SliceWriteFunction;
+import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorSession;
@@ -30,7 +36,6 @@ import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.util.Optional;
 
 import static com.google.common.reflect.Reflection.newProxy;
 import static io.trino.spi.type.BigintType.BIGINT;

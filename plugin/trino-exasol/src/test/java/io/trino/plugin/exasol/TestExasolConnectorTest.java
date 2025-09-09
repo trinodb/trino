@@ -23,6 +23,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 
@@ -59,9 +60,9 @@ final class TestExasolConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
+            case SUPPORTS_JOIN_PUSHDOWN -> true;
             // Tests requires write access which is not implemented
             case SUPPORTS_AGGREGATION_PUSHDOWN,
-                     SUPPORTS_JOIN_PUSHDOWN,
                      SUPPORTS_LIMIT_PUSHDOWN,
                      SUPPORTS_TOPN_PUSHDOWN -> false;
 
@@ -124,6 +125,20 @@ final class TestExasolConnectorTest
                 onRemoteDatabase(),
                 TEST_SCHEMA + ".test_unsupported_col",
                 "(one NUMBER(19), two GEOMETRY, three VARCHAR(10 CHAR))");
+    }
+
+    @Override
+    // Override, because read-only Exasol connector does not support CREATE TABLE and INSERT statements
+    protected TestTable newTrinoTable(String namePrefix, @Language("SQL") String tableDefinition, List<String> rowsToInsert)
+    {
+        return new TestTable(exasolServer.getSqlExecutor(), TEST_SCHEMA + "." + namePrefix,
+                normalizeTableDefinition(tableDefinition), rowsToInsert);
+    }
+
+    // Normalize to add test schema prefix to the name of the nation table
+    private String normalizeTableDefinition(String original)
+    {
+        return original.replaceAll("FROM nation", "FROM %s.nation".formatted(TEST_SCHEMA));
     }
 
     @Test

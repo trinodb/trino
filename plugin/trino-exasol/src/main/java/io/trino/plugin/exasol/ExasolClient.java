@@ -15,8 +15,8 @@ package io.trino.plugin.exasol;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
-import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.airlift.slice.Slices;
+import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -89,11 +89,11 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -250,8 +250,7 @@ public class ExasolClient
     @Override
     protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
-        // Deactivated because test 'testJoinPushdown()' requires write access which is not implemented for Exasol
-        return false;
+        return true;
     }
 
     @Override
