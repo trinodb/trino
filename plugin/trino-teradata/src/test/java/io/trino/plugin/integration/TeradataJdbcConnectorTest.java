@@ -739,6 +739,12 @@ public class TeradataJdbcConnectorTest
     }
 
     @Test
+    public void testDropNonEmptySchemaWithTable()
+    {
+        Assumptions.abort("Skipping as connector does not support drop schemas");
+    }
+
+    @Test
     public void verifySupportsUpdateDeclaration()
     {
         Assumptions.abort("Skipping as connector does not support update operations");
