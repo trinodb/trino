@@ -75,36 +75,35 @@ each direction.
 Trino supports selecting Exasol database types. This table shows the Exasol to
 Trino data type mapping:
 
-```{eval-rst}
-.. list-table:: Exasol to Trino type mapping
-  :widths: 25, 25, 50
-  :header-rows: 1
+:::{list-table} Exasol to Trino type mapping
+:widths: 25, 25, 50
+:header-rows: 1
 
-  * - Exasol database type
-    - Trino type
-    - Notes
-  * - ``BOOLEAN``
-    - ``BOOLEAN``
-    -
-  * - ``DOUBLE PRECISION``
-    - ``REAL``
-    -
-  * - ``DECIMAL(p, s)``
-    - ``DECIMAL(p, s)``
-    -  See :ref:`exasol-number-mapping`
-  * - ``CHAR(n)``
-    - ``CHAR(n)``
-    -
-  * - ``VARCHAR(n)``
-    - ``VARCHAR(n)``
-    -
-  * - ``DATE``
-    - ``DATE``
-    -       
-  * - ``HASHTYPE``
-    - ``VARBINARY``
-    -   
-```
+* - Exasol database type
+  - Trino type
+  - Notes
+* - `BOOLEAN`
+  - `BOOLEAN`
+  -
+* - `DOUBLE PRECISION`
+  - `REAL`
+  -
+* - `DECIMAL(p, s)`
+  - `DECIMAL(p, s)`
+  -  See {ref}`exasol-number-mapping`
+* - `CHAR(n)`
+  - `CHAR(n)`
+  -
+* - `VARCHAR(n)`
+  - `VARCHAR(n)`
+  -
+* - `DATE`
+  - `DATE`
+  -
+* - `HASHTYPE`
+  - `VARBINARY`
+  -
+:::
 
 No other types are supported.
 
