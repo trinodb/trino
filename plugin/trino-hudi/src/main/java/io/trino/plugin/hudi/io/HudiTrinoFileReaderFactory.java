@@ -16,6 +16,7 @@ package io.trino.plugin.hudi.io;
 import org.apache.avro.Schema;
 import org.apache.hudi.common.config.HoodieConfig;
 import org.apache.hudi.common.util.Option;
+import org.apache.hudi.io.storage.HFileReaderFactory;
 import org.apache.hudi.io.storage.HoodieAvroBootstrapFileReader;
 import org.apache.hudi.io.storage.HoodieFileReader;
 import org.apache.hudi.io.storage.HoodieFileReaderFactory;
@@ -45,7 +46,11 @@ public class HudiTrinoFileReaderFactory
             Option<Schema> schemaOption)
             throws IOException
     {
-        return new HoodieNativeAvroHFileReader(storage, path, schemaOption);
+        HFileReaderFactory readerFactory = HFileReaderFactory.builder()
+                .withStorage(storage).withProps(hoodieConfig.getProps())
+                .withPath(path).build();
+        return HoodieNativeAvroHFileReader.builder()
+                .readerFactory(readerFactory).path(path).schema(schemaOption).build();
     }
 
     @Override
@@ -56,7 +61,11 @@ public class HudiTrinoFileReaderFactory
             Option<Schema> schemaOption)
             throws IOException
     {
-        return new HoodieNativeAvroHFileReader(this.storage, content, schemaOption);
+        HFileReaderFactory readerFactory = HFileReaderFactory.builder()
+                .withStorage(storage).withProps(hoodieConfig.getProps())
+                .withContent(content).build();
+        return HoodieNativeAvroHFileReader.builder()
+                .readerFactory(readerFactory).path(path).schema(schemaOption).build();
     }
 
     @Override

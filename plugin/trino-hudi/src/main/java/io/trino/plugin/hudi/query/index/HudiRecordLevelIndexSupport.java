@@ -22,9 +22,11 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import org.apache.hudi.common.data.HoodieListData;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieRecordGlobalLocation;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.common.util.HoodieDataUtils;
 import org.apache.hudi.common.util.HoodieTimer;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.metadata.HoodieTableMetadata;
@@ -94,7 +96,7 @@ public class HudiRecordLevelIndexSupport
 
                 // Perform index lookup in metadataTable
                 // TODO: document here what this map is keyed by
-                Map<String, HoodieRecordGlobalLocation> recordIndex = lazyTableMetadata.get().readRecordIndex(recordKeys);
+                Map<String, HoodieRecordGlobalLocation> recordIndex = HoodieDataUtils.dedupeAndCollectAsMap(lazyTableMetadata.get().readRecordIndexLocationsWithKeys(HoodieListData.eager(recordKeys)));
                 if (recordIndex.isEmpty()) {
                     log.debug("Record level index lookup took %s ms but returned no locations for the given keys %s for table %s",
                             timer.endTimer(), recordKeys, schemaTableName);

@@ -58,7 +58,7 @@ public class HudiTrinoRecord
     }
 
     @Override
-    public Comparable<?> doGetOrderingValue(Schema schema, Properties properties)
+    protected Comparable<?> doGetOrderingValue(Schema recordSchema, Properties props, String[] orderingFields)
     {
         return null;
     }
@@ -93,9 +93,21 @@ public class HudiTrinoRecord
     }
 
     @Override
+    public Object convertColumnValueForLogicalType(Schema fieldSchema, Object fieldValue, boolean keepConsistentLogicalTimestamp)
+    {
+        return null;
+    }
+
+    @Override
     public Object[] getColumnValues(Schema schema, String[] strings, boolean b)
     {
         return new Object[0];
+    }
+
+    @Override
+    public Object getColumnValueAsJava(Schema recordSchema, String column, Properties props)
+    {
+        return null;
     }
 
     @Override
@@ -120,6 +132,12 @@ public class HudiTrinoRecord
 
     @Override
     public boolean isDelete(Schema schema, Properties properties)
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean checkIsDelete(Schema recordSchema, Properties props)
             throws IOException
     {
         return false;

@@ -21,10 +21,12 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import org.apache.hudi.avro.model.HoodieMetadataColumnStats;
+import org.apache.hudi.common.data.HoodieListData;
 import org.apache.hudi.common.model.HoodieIndexDefinition;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.util.HoodieTimer;
 import org.apache.hudi.common.util.hash.ColumnIndexID;
+import org.apache.hudi.metadata.ColumnStatsIndexPrefixRawKey;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
 import org.apache.hudi.util.Lazy;
@@ -66,15 +68,15 @@ public class HudiPartitionStatsIndexSupport
         List<String> regularColumns = new ArrayList<>(filteredRegularPredicates.getDomains().get().keySet());
 
         // Get columns to filter on
-        List<String> encodedTargetColumnNames = regularColumns.stream()
-                .map(col -> new ColumnIndexID(col).asBase64EncodedString()).toList();
+        List<ColumnStatsIndexPrefixRawKey> columnStatsIndexPrefixRawKeys = regularColumns.stream()
+                .map(ColumnStatsIndexPrefixRawKey::new).toList();
 
         Map<String, Type> columnTypes = regularColumnPredicates.getDomains().get().entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getType()));
 
         // Map of domains with partition stats keyed by partition name and column name
         Map<String, Map<String, Domain>> domainsWithStats = lazyMetadataTable.get().getRecordsByKeyPrefixes(
-                        encodedTargetColumnNames,
+                        HoodieListData.eager(columnStatsIndexPrefixRawKeys),
                         HoodieTableMetadataUtil.PARTITION_NAME_PARTITION_STATS, true)
                 .collectAsList()
                 .stream()

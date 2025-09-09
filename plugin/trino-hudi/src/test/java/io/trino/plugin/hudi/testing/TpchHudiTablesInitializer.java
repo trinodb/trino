@@ -169,7 +169,7 @@ public class TpchHudiTablesInitializer
                     .map(recordConverter::toRecord)
                     .collect(Collectors.toList());
             String timestamp = HoodieInstantTimeGenerator.formatDate(Date.from(Instant.now()));
-            writeClient.startCommitWithTime(timestamp);
+            writeClient.startCommit(timestamp);
             writeClient.insert(records, timestamp);
         }
     }

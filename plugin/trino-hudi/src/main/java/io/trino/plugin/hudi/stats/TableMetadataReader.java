@@ -31,6 +31,7 @@ import org.apache.hudi.metadata.HoodieTableMetadataUtil;
 import org.apache.hudi.metadata.MetadataPartitionType;
 import org.apache.hudi.storage.HoodieStorage;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -55,60 +56,29 @@ public class TableMetadataReader
      * @return a map from column name to their corresponding {@link HoodieColumnRangeMetadata}
      * @throws HoodieMetadataException if an error occurs while fetching the column statistics
      */
-    Map<String, HoodieColumnRangeMetadata> getColumnStats(List<Pair<String, String>> partitionNameFileNameList, List<String> columnNames)
+    public Map<String, HoodieColumnRangeMetadata> getColumnsRange(List<Pair<String, String>> partitionNameFileNameList, List<String> columnNames)
             throws HoodieMetadataException
     {
-        return computeFileToColumnStatsMap(computeColumnStatsLookupKeys(partitionNameFileNameList, columnNames));
-    }
-
-    /**
-     * @param partitionNameFileNameList a list of partition and file name pairs for which column stats need to be retrieved
-     * @param columnNames list of column names for which stats are needed
-     * @return a list of column stats keys to look up in the metadata table col_stats partition.
-     */
-    private List<String> computeColumnStatsLookupKeys(
-            final List<Pair<String, String>> partitionNameFileNameList,
-            final List<String> columnNames)
-    {
-        return columnNames.stream()
-                .flatMap(columnName -> partitionNameFileNameList.stream()
-                        .map(partitionNameFileNamePair -> HoodieMetadataPayload.getColumnStatsIndexKey(
-                                new PartitionIndexID(HoodieTableMetadataUtil.getColumnStatsIndexPartitionIdentifier(partitionNameFileNamePair.getLeft())),
-                                new FileIndexID(partitionNameFileNamePair.getRight()),
-                                new ColumnIndexID(columnName))))
-                .toList();
-    }
-
-    /**
-     * @param columnStatsLookupKeys a map from column stats key to partition and file name pair
-     * @return a map from column name to merged HoodieMetadataColumnStats
-     */
-    private Map<String, HoodieColumnRangeMetadata> computeFileToColumnStatsMap(List<String> columnStatsLookupKeys)
-    {
-        HoodieTimer timer = HoodieTimer.start();
-        Map<String, HoodieRecord<HoodieMetadataPayload>> hoodieRecords =
-                getRecordsByKeys(columnStatsLookupKeys, MetadataPartitionType.COLUMN_STATS.getPartitionPath());
-        metrics.ifPresent(m -> m.updateMetrics(HoodieMetadataMetrics.LOOKUP_COLUMN_STATS_METADATA_STR, timer.endTimer()));
-        return hoodieRecords.values().stream()
-                .collect(Collectors.groupingBy(
-                        r -> r.getData().getColumnStatMetadata().get().getColumnName(),
-                        Collectors.mapping(r -> r.getData().getColumnStatMetadata().get(), Collectors.toList())))
+        Map<Pair<String, String>, List<HoodieMetadataColumnStats>> columnStatsMap = getColumnStats(partitionNameFileNameList, columnNames);
+        return columnStatsMap.values().stream().flatMap(Collection::stream).collect(Collectors.groupingBy(
+                HoodieMetadataColumnStats::getColumnName,
+                Collectors.mapping(colStats -> colStats, Collectors.toList())))
                 .entrySet().stream()
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        e -> {
-                            long valueCount = 0L;
-                            long nullCount = 0L;
-                            long totalSize = 0L;
-                            long totalUncompressedSize = 0L;
-                            for (HoodieMetadataColumnStats stats : e.getValue()) {
-                                valueCount += stats.getValueCount();
-                                nullCount += stats.getNullCount();
-                                totalSize += stats.getTotalSize();
-                                totalUncompressedSize += stats.getTotalUncompressedSize();
-                            }
-                            return HoodieColumnRangeMetadata.create(
-                                    "", e.getKey(), null, null, nullCount, valueCount, totalSize, totalUncompressedSize);
-                        }));
+            .collect(Collectors.toMap(
+                    Map.Entry::getKey,
+                    e -> {
+                        long valueCount = 0L;
+                        long nullCount = 0L;
+                        long totalSize = 0L;
+                        long totalUncompressedSize = 0L;
+                        for (HoodieMetadataColumnStats stats : e.getValue()) {
+                            valueCount += stats.getValueCount();
+                            nullCount += stats.getNullCount();
+                            totalSize += stats.getTotalSize();
+                            totalUncompressedSize += stats.getTotalUncompressedSize();
+                        }
+                        return HoodieColumnRangeMetadata.create(
+                                "", e.getKey(), null, null, nullCount, valueCount, totalSize, totalUncompressedSize);
+                    }));
     }
 }

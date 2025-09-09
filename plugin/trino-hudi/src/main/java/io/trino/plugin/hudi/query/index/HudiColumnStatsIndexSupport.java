@@ -30,6 +30,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hudi.avro.model.HoodieMetadataColumnStats;
+import org.apache.hudi.common.data.HoodieListData;
 import org.apache.hudi.common.model.BaseFile;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieIndexDefinition;
@@ -37,6 +38,7 @@ import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.HoodieTableVersion;
 import org.apache.hudi.common.util.HoodieTimer;
 import org.apache.hudi.common.util.hash.ColumnIndexID;
+import org.apache.hudi.metadata.ColumnStatsIndexPrefixRawKey;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
 import org.apache.hudi.util.Lazy;
@@ -92,9 +94,9 @@ public class HudiColumnStatsIndexSupport
         }
         else {
             // Get filter columns
-            List<String> encodedTargetColumnNames = regularColumns
+            List<ColumnStatsIndexPrefixRawKey> rawKeys = regularColumns
                     .stream()
-                    .map(col -> new ColumnIndexID(col).asBase64EncodedString()).collect(Collectors.toList());
+                    .map(ColumnStatsIndexPrefixRawKey::new).toList();
 
             Map<String, Type> columnTypes = regularColumnPredicates.getDomains().get().entrySet().stream()
                     .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getType()));
@@ -107,7 +109,8 @@ public class HudiColumnStatsIndexSupport
                 }
 
                 Map<String, Map<String, Domain>> domainsWithStats =
-                        lazyTableMetadata.get().getRecordsByKeyPrefixes(encodedTargetColumnNames,
+                        lazyTableMetadata.get().getRecordsByKeyPrefixes(
+                                        HoodieListData.lazy(rawKeys),
                                         HoodieTableMetadataUtil.PARTITION_NAME_COLUMN_STATS, true)
                                 .collectAsList()
                                 .stream()

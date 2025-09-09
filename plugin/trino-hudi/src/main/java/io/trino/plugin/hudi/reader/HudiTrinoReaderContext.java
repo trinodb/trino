@@ -19,29 +19,23 @@ import io.trino.plugin.hudi.util.SynthesizedColumnHandler;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericData.Record;
-import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.hudi.common.config.RecordMergeMode;
 import org.apache.hudi.common.engine.HoodieReaderContext;
-import org.apache.hudi.common.model.HoodieAvroIndexedRecord;
 import org.apache.hudi.common.model.HoodieAvroRecordMerger;
-import org.apache.hudi.common.model.HoodieEmptyRecord;
-import org.apache.hudi.common.model.HoodieKey;
-import org.apache.hudi.common.model.HoodieRecord;
 import org.apache.hudi.common.model.HoodieRecordMerger;
-import org.apache.hudi.common.table.read.BufferedRecord;
+import org.apache.hudi.common.table.HoodieTableConfig;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.common.util.collection.ClosableIterator;
+import org.apache.hudi.common.util.collection.Pair;
 import org.apache.hudi.storage.HoodieStorage;
+import org.apache.hudi.storage.StorageConfiguration;
 import org.apache.hudi.storage.StoragePath;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.UnaryOperator;
 
 public class HudiTrinoReaderContext
         extends HoodieReaderContext<IndexedRecord>
@@ -53,11 +47,14 @@ public class HudiTrinoReaderContext
     List<HiveColumnHandle> columnHandles;
 
     public HudiTrinoReaderContext(
+            StorageConfiguration storageConfiguration,
+            HoodieTableConfig tableConfig,
             ConnectorPageSource pageSource,
             List<HiveColumnHandle> dataHandles,
             List<HiveColumnHandle> columnHandles,
             SynthesizedColumnHandler synthesizedColumnHandler)
     {
+        super(storageConfiguration, tableConfig, Option.empty(), Option.empty(), new TrinoReaderContext(tableConfig));
         this.pageSource = pageSource;
         this.avroSerializer = new HudiAvroSerializer(columnHandles, synthesizedColumnHandler);
         this.dataHandles = dataHandles;
@@ -130,98 +127,14 @@ public class HudiTrinoReaderContext
     }
 
     @Override
-    public IndexedRecord convertAvroRecord(IndexedRecord record)
-    {
-        return record;
-    }
-
-    @Override
-    public GenericRecord convertToAvroRecord(IndexedRecord record, Schema schema)
-    {
-        GenericRecord ret = new GenericData.Record(schema);
-        for (Schema.Field field : schema.getFields()) {
-            ret.put(field.name(), record.get(field.pos()));
-        }
-        return ret;
-    }
-
-    @Override
-    public Option<HoodieRecordMerger> getRecordMerger(RecordMergeMode mergeMode, String mergeStrategyId, String mergeImplClasses)
+    protected Option<HoodieRecordMerger> getRecordMerger(RecordMergeMode mergeMode, String mergeStrategyId, String mergeImplClasses)
     {
         return Option.of(HoodieAvroRecordMerger.INSTANCE);
     }
 
     @Override
-    public Object getValue(IndexedRecord record, Schema schema, String fieldName)
-    {
-        if (colToPosMap.containsKey(fieldName)) {
-            return record.get(colToPosMap.get(fieldName));
-        }
-        else {
-            // record doesn't have the queried field, return null
-            return null;
-        }
-    }
-
-    @Override
-    public IndexedRecord seal(IndexedRecord record)
-    {
-        // TODO: this can rely on colToPos map directly instead of schema
-        Schema schema = record.getSchema();
-        IndexedRecord newRecord = new Record(schema);
-        List<Schema.Field> fields = schema.getFields();
-        for (Schema.Field field : fields) {
-            int pos = schema.getField(field.name()).pos();
-            newRecord.put(pos, record.get(pos));
-        }
-        return newRecord;
-    }
-
-    @Override
-    public IndexedRecord toBinaryRow(Schema schema, IndexedRecord record)
-    {
-        return record;
-    }
-
-    @Override
-    public ClosableIterator<IndexedRecord> mergeBootstrapReaders(
-            ClosableIterator closableIterator, Schema schema,
-            ClosableIterator closableIterator1, Schema schema1)
+    public ClosableIterator<IndexedRecord> mergeBootstrapReaders(ClosableIterator<IndexedRecord> skeletonFileIterator, Schema skeletonRequiredSchema, ClosableIterator<IndexedRecord> dataFileIterator, Schema dataRequiredSchema, List<Pair<String, Object>> requiredPartitionFieldAndValues)
     {
         return null;
-    }
-
-    @Override
-    public UnaryOperator<IndexedRecord> projectRecord(
-            Schema from,
-            Schema to,
-            Map<String, String> renamedColumns)
-    {
-        List<Schema.Field> toFields = to.getFields();
-        int[] projection = new int[toFields.size()];
-        for (int i = 0; i < projection.length; i++) {
-            projection[i] = from.getField(toFields.get(i).name()).pos();
-        }
-
-        return fromRecord -> {
-            IndexedRecord toRecord = new Record(to);
-            for (int i = 0; i < projection.length; i++) {
-                toRecord.put(i, fromRecord.get(projection[i]));
-            }
-            return toRecord;
-        };
-    }
-
-    @Override
-    public HoodieRecord<IndexedRecord> constructHoodieRecord(
-            BufferedRecord<IndexedRecord> bufferedRecord)
-    {
-        if (bufferedRecord.isDelete()) {
-            return new HoodieEmptyRecord<>(
-                    new HoodieKey(bufferedRecord.getRecordKey(), null),
-                    HoodieRecord.HoodieRecordType.AVRO);
-        }
-
-        return new HoodieAvroIndexedRecord(bufferedRecord.getRecord());
     }
 }

@@ -19,10 +19,12 @@ import io.trino.plugin.hudi.util.TupleDomainUtils;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
+import org.apache.hudi.common.data.HoodieListData;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieIndexDefinition;
 import org.apache.hudi.common.model.HoodieRecordGlobalLocation;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.common.util.HoodieDataUtils;
 import org.apache.hudi.common.util.HoodieTimer;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
@@ -85,7 +87,7 @@ public class HudiSecondaryIndexSupport
 
             // Perform index lookup in metadataTable
             // TODO: document here what this map is keyed by
-            Map<String, HoodieRecordGlobalLocation> recordKeyLocationsMap = lazyTableMetadata.get().readSecondaryIndex(secondaryKeys, indexName);
+            Map<String, HoodieRecordGlobalLocation> recordKeyLocationsMap = HoodieDataUtils.dedupeAndCollectAsMap(lazyTableMetadata.get().readSecondaryIndexLocationsWithKeys(HoodieListData.eager(secondaryKeys), indexName));
             if (recordKeyLocationsMap.isEmpty()) {
                 log.debug("Took %s ms, but secondary index lookup returned no locations for the given keys for table %s", timer.endTimer(), schemaTableName);
                 // Return all original fileSlices
