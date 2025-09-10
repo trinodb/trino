@@ -883,6 +883,7 @@ jobs:
             - suite-delta-lake-databricks143
             - suite-delta-lake-databricks154
             - suite-delta-lake-databricks164
+            - suite-exasol
             - suite-ranger
             - suite-gcs
             - suite-clients
