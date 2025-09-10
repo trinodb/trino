@@ -154,8 +154,8 @@ final class TestLokiIntegration
     void testSelectTimestampLogsQuery()
             throws Exception
     {
-        Instant start = Instant.now().truncatedTo(ChronoUnit.HOURS);
-        Instant end = start.plus(Duration.ofHours(1));
+        Instant start = Instant.now().truncatedTo(ChronoUnit.HOURS).minus(Duration.ofHours(4));
+        Instant end = start.plus(Duration.ofHours(3));
         Instant firstLineTimestamp = start.plus(Duration.ofMinutes(5)).truncatedTo(ChronoUnit.SECONDS);
 
         client.pushLogLine("line 1", firstLineTimestamp, ImmutableMap.of("test", "select_timestamp_query"));
