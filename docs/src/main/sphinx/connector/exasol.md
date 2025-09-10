@@ -16,7 +16,7 @@ The Exasol connector allows querying an [Exasol](https://www.exasol.com/) databa
 
 To connect to Exasol, you need:
 
-* Exasol database version 7.1 or higher.
+* Exasol database version 8.34.0 or higher.
 * Network access from the Trino coordinator and workers to Exasol.
   Port 8563 is the default port.
 
