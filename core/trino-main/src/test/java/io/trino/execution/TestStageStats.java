@@ -131,7 +131,7 @@ public class TestStageStats
     {
         assertThat(actual.getSchedulingComplete().toEpochMilli()).isEqualTo(0);
 
-        assertThat(actual.getGetSplitDistribution().get(new PlanNodeId("1")).getCount()).isEqualTo(1.0);
+        assertThat(actual.getGetSplitDistribution().get(new PlanNodeId("1")).count()).isEqualTo(1.0);
 
         assertThat(actual.getTotalTasks()).isEqualTo(4);
         assertThat(actual.getRunningTasks()).isEqualTo(5);
