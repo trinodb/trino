@@ -65,6 +65,10 @@ The following table lists the configuration properties for the OPA access contro
   - Optional HTTP client configurations for the connection from Trino to OPA,
     for example `opa.http-client.http-proxy` for configuring the HTTP proxy.
     Find more details in [](/admin/properties-http-client).
+* - `opa.context-file`
+  - Optional properties file, containing user defined properties
+    (e.g. tenant namespace, tier or cluster) to be included in
+    the OPA query context.
 :::
 
 ### Logging
