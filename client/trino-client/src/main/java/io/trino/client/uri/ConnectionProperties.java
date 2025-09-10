@@ -116,6 +116,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, Map<String, String>> RESOURCE_ESTIMATES = new ResourceEstimates();
     public static final ConnectionProperty<String, List<String>> SQL_PATH = new SqlPath();
     public static final ConnectionProperty<String, Boolean> VALIDATE_CONNECTION = new ValidateConnection();
+    public static final ConnectionProperty<String, Boolean> DISALLOW_LOCAL_REDIRECT = new LocalRedirectDisallowed();
 
     private static final Set<ConnectionProperty<?, ?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?, ?>>builder()
             // Keep sorted
@@ -128,6 +129,7 @@ final class ConnectionProperties
             .add(CLIENT_INFO)
             .add(CLIENT_TAGS)
             .add(DISABLE_COMPRESSION)
+            .add(DISALLOW_LOCAL_REDIRECT)
             .add(DNS_RESOLVER)
             .add(DNS_RESOLVER_CONTEXT)
             .add(ENCODING)
@@ -955,6 +957,15 @@ final class ConnectionProperties
         public AssumeNullCatalogMeansCurrentCatalog()
         {
             super(PropertyName.ASSUME_NULL_CATALOG_MEANS_CURRENT_CATALOG, NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class LocalRedirectDisallowed
+            extends AbstractConnectionProperty<String, Boolean>
+    {
+        public LocalRedirectDisallowed()
+        {
+            super(PropertyName.DISALLOW_LOCAL_REDIRECT, Optional.of(false), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 
