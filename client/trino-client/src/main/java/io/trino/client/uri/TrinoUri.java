@@ -98,6 +98,7 @@ import static io.trino.client.uri.ConnectionProperties.TIMEOUT;
 import static io.trino.client.uri.ConnectionProperties.TIMEZONE;
 import static io.trino.client.uri.ConnectionProperties.TRACE_TOKEN;
 import static io.trino.client.uri.ConnectionProperties.USER;
+import static io.trino.client.uri.ConnectionProperties.USE_SAFE_REDIRECT;
 import static io.trino.client.uri.ConnectionProperties.VALIDATE_CONNECTION;
 import static io.trino.client.uri.LoggingLevel.NONE;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
@@ -421,6 +422,11 @@ public class TrinoUri
     public boolean isCompressionDisabled()
     {
         return resolveWithDefault(DISABLE_COMPRESSION, false);
+    }
+
+    public boolean useSafeRedirect()
+    {
+        return resolveWithDefault(USE_SAFE_REDIRECT, false);
     }
 
     public Optional<String> getEncoding()
@@ -1056,6 +1062,11 @@ public class TrinoUri
         public Builder setValidateConnection(boolean value)
         {
             return setProperty(VALIDATE_CONNECTION, value);
+        }
+
+        public Builder setUseSafeRedirect(boolean value)
+        {
+            return setProperty(USE_SAFE_REDIRECT, value);
         }
 
         <V, T> Builder setProperty(ConnectionProperty<V, T> connectionProperty, T value)
