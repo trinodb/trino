@@ -77,11 +77,11 @@ class SplitProcessor
                     ListenableFuture<Void> blocked = split.processFor(SPLIT_RUN_QUANTA);
                     CpuTimer.CpuDuration elapsed = timer.elapsedTime();
 
-                    long scheduledNanos = elapsed.getWall().roundTo(NANOSECONDS);
+                    long scheduledNanos = elapsed.wall().roundTo(NANOSECONDS);
                     processSpan.setAttribute(TrinoAttributes.SPLIT_SCHEDULED_TIME_NANOS, scheduledNanos - previousScheduledNanos);
                     previousScheduledNanos = scheduledNanos;
 
-                    long cpuNanos = elapsed.getCpu().roundTo(NANOSECONDS);
+                    long cpuNanos = elapsed.cpu().roundTo(NANOSECONDS);
                     processSpan.setAttribute(TrinoAttributes.SPLIT_CPU_TIME_NANOS, cpuNanos - previousCpuNanos);
                     previousCpuNanos = cpuNanos;
 
@@ -115,7 +115,7 @@ class SplitProcessor
                 processSpan.end();
             }
 
-            splitSpan.setAttribute(TrinoAttributes.SPLIT_CPU_TIME_NANOS, timer.elapsedTime().getCpu().roundTo(NANOSECONDS));
+            splitSpan.setAttribute(TrinoAttributes.SPLIT_CPU_TIME_NANOS, timer.elapsedTime().cpu().roundTo(NANOSECONDS));
             splitSpan.setAttribute(TrinoAttributes.SPLIT_SCHEDULED_TIME_NANOS, context.getScheduledNanos());
             splitSpan.setAttribute(TrinoAttributes.SPLIT_BLOCK_TIME_NANOS, context.getBlockedNanos());
             splitSpan.setAttribute(TrinoAttributes.SPLIT_WAIT_TIME_NANOS, context.getWaitNanos());
