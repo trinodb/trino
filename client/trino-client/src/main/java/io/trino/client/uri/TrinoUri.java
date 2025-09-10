@@ -51,6 +51,7 @@ import static io.trino.client.uri.ConnectionProperties.CATALOG;
 import static io.trino.client.uri.ConnectionProperties.CLIENT_INFO;
 import static io.trino.client.uri.ConnectionProperties.CLIENT_TAGS;
 import static io.trino.client.uri.ConnectionProperties.DISABLE_COMPRESSION;
+import static io.trino.client.uri.ConnectionProperties.DISALLOW_LOCAL_REDIRECT;
 import static io.trino.client.uri.ConnectionProperties.DNS_RESOLVER;
 import static io.trino.client.uri.ConnectionProperties.DNS_RESOLVER_CONTEXT;
 import static io.trino.client.uri.ConnectionProperties.ENCODING;
@@ -421,6 +422,11 @@ public class TrinoUri
     public boolean isCompressionDisabled()
     {
         return resolveWithDefault(DISABLE_COMPRESSION, false);
+    }
+
+    public boolean isLocalRedirectDisallowed()
+    {
+        return resolveWithDefault(DISALLOW_LOCAL_REDIRECT, false);
     }
 
     public Optional<String> getEncoding()
@@ -1056,6 +1062,11 @@ public class TrinoUri
         public Builder setValidateConnection(boolean value)
         {
             return setProperty(VALIDATE_CONNECTION, value);
+        }
+
+        public Builder setDisallowLocalRedirect(boolean value)
+        {
+            return setProperty(DISALLOW_LOCAL_REDIRECT, value);
         }
 
         <V, T> Builder setProperty(ConnectionProperty<V, T> connectionProperty, T value)
