@@ -468,6 +468,7 @@ public class IcebergMetadata
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final TrinoCatalog catalog;
     private final IcebergFileSystemFactory fileSystemFactory;
+    private final TableStatisticsReader tableStatisticsReader;
     private final TableStatisticsWriter tableStatisticsWriter;
     private final Optional<HiveMetastoreFactory> metastoreFactory;
     private final boolean addFilesProcedureEnabled;
@@ -486,6 +487,7 @@ public class IcebergMetadata
             JsonCodec<CommitTaskData> commitTaskCodec,
             TrinoCatalog catalog,
             IcebergFileSystemFactory fileSystemFactory,
+            TableStatisticsReader tableStatisticsReader,
             TableStatisticsWriter tableStatisticsWriter,
             Optional<HiveMetastoreFactory> metastoreFactory,
             boolean addFilesProcedureEnabled,
@@ -499,6 +501,7 @@ public class IcebergMetadata
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.tableStatisticsReader = requireNonNull(tableStatisticsReader, "tableStatisticsReader is null");
         this.tableStatisticsWriter = requireNonNull(tableStatisticsWriter, "tableStatisticsWriter is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.addFilesProcedureEnabled = addFilesProcedureEnabled;
@@ -3677,14 +3680,11 @@ public class IcebergMetadata
                 currentStatistics -> currentStatistics.getColumnStatistics().keySet().containsAll(originalHandle.getProjectedColumns()),
                 projectedColumns -> {
                     Table icebergTable = catalog.loadTable(session, originalHandle.getSchemaTableName());
-                    return TableStatisticsReader.getTableStatistics(
-                            typeManager,
+                    return tableStatisticsReader.getTableStatistics(
                             session,
                             originalHandle,
                             projectedColumns,
-                            icebergTable,
-                            icebergPlanningExecutor,
-                            fileSystemFactory.create(session.getIdentity(), icebergTable.io().properties()));
+                            icebergTable);
                 },
                 originalHandle.getProjectedColumns());
     }

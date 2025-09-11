@@ -20,6 +20,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.cache.CachingHiveMetastore;
@@ -77,12 +78,15 @@ import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorS
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METADATA_JSON;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.fromFilePath;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.joda.time.DateTimeZone.UTC;
 
 public final class IcebergTestUtils
@@ -95,6 +99,11 @@ public final class IcebergTestUtils
                     new ParquetReaderConfig(),
                     new ParquetWriterConfig()).getSessionProperties())
             .build();
+
+    public static final TableStatisticsReader TABLE_STATISTICS_READER = new TableStatisticsReader(
+            TESTING_TYPE_MANAGER,
+            newDirectExecutorService(),
+            new DefaultIcebergFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)));
 
     public static final ForwardingFileIoFactory FILE_IO_FACTORY = new ForwardingFileIoFactory(newDirectExecutorService());
 

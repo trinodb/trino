@@ -55,6 +55,7 @@ import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
+import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -134,6 +135,7 @@ public class TestTrinoGlueCatalog
                     (connectorIdentity, fileIoProperties) -> {
                         throw new UnsupportedOperationException();
                     },
+                    TABLE_STATISTICS_READER,
                     new TableStatisticsWriter(new NodeVersion("test-version")),
                     Optional.empty(),
                     false,

@@ -38,6 +38,7 @@ public class IcebergMetadataFactory
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final TrinoCatalogFactory catalogFactory;
     private final IcebergFileSystemFactory fileSystemFactory;
+    private final TableStatisticsReader tableStatisticsReader;
     private final TableStatisticsWriter tableStatisticsWriter;
     private final Optional<HiveMetastoreFactory> metastoreFactory;
     private final boolean addFilesProcedureEnabled;
@@ -53,6 +54,7 @@ public class IcebergMetadataFactory
             JsonCodec<CommitTaskData> commitTaskCodec,
             TrinoCatalogFactory catalogFactory,
             IcebergFileSystemFactory fileSystemFactory,
+            TableStatisticsReader tableStatisticsReader,
             TableStatisticsWriter tableStatisticsWriter,
             @RawHiveMetastoreFactory Optional<HiveMetastoreFactory> metastoreFactory,
             @ForIcebergSplitManager ExecutorService icebergScanExecutor,
@@ -65,6 +67,7 @@ public class IcebergMetadataFactory
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.tableStatisticsReader = requireNonNull(tableStatisticsReader, "tableStatisticsReader is null");
         this.tableStatisticsWriter = requireNonNull(tableStatisticsWriter, "tableStatisticsWriter is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
@@ -93,6 +96,7 @@ public class IcebergMetadataFactory
                 commitTaskCodec,
                 catalogFactory.create(identity),
                 fileSystemFactory,
+                tableStatisticsReader,
                 tableStatisticsWriter,
                 metastoreFactory,
                 addFilesProcedureEnabled,

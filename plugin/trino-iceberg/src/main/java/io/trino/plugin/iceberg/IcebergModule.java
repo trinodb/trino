@@ -99,6 +99,7 @@ public class IcebergModule
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
 
         binder.bind(ForwardingFileIoFactory.class).in(Scopes.SINGLETON);
+        binder.bind(TableStatisticsReader.class).in(Scopes.SINGLETON);
         binder.bind(TableStatisticsWriter.class).in(Scopes.SINGLETON);
         binder.bind(IcebergMetadataFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, Key.get(HiveMetastoreFactory.class, RawHiveMetastoreFactory.class));
