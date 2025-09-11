@@ -66,7 +66,7 @@ final class TestIcebergOptimizeManifestsProcedure
             assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
 
             assertThat(manifestFiles(table.getName()))
-                    .hasSize(2)
+                    .hasSize(1)
                     .doesNotContainAnyElementsOf(manifestFiles);
 
             assertThat(query("SELECT * FROM " + table.getName()))
@@ -138,7 +138,7 @@ final class TestIcebergOptimizeManifestsProcedure
 
             assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
             assertThat(manifestFiles(table.getName()))
-                    .hasSize(2)
+                    .hasSize(1)
                     .doesNotContainAnyElementsOf(manifestFiles);
 
             assertThat(query("SELECT * FROM " + table.getName()))
@@ -147,24 +147,40 @@ final class TestIcebergOptimizeManifestsProcedure
     }
 
     @Test
-    void testFirstPartitionField()
+    void testMultiplePartitioningColumns()
     {
         try (TestTable table = newTrinoTable("test_partition", "(id int, part int, nested int) WITH (partitioning = ARRAY['part', 'nested'])")) {
-            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 10, 100)", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 10, 200)", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 20, 300)", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " VALUES (4, 20, 400)", 1);
+            for (int i = 0; i < 30; i++) {
+                assertUpdate("INSERT INTO " + table.getName() + " VALUES (%d, %d, %d)".formatted(i, i % 10, i % 3), 1);
+            }
 
             Set<String> manifestFiles = manifestFiles(table.getName());
-            assertThat(manifestFiles).hasSize(4);
+            assertThat(manifestFiles).hasSize(30);
 
             assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
-            assertThat(manifestFiles(table.getName()))
+            Set<String> currentManifestFiles = manifestFiles(table.getName());
+            assertThat(currentManifestFiles)
+                    .hasSize(1)
+                    .doesNotContainAnyElementsOf(manifestFiles);
+
+            assertThat(query("SELECT COUNT(*) FROM " + table.getName()))
+                    .matches("VALUES BIGINT '30'");
+
+            // Set small target size to force split
+            BaseTable icebergTable = loadTable(table.getName());
+            icebergTable.updateProperties()
+                    .set("commit.manifest.target-size-bytes", "8000")
+                    .commit();
+            manifestFiles = currentManifestFiles;
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
+
+            currentManifestFiles = manifestFiles(table.getName());
+            assertThat(currentManifestFiles)
                     .hasSize(2)
                     .doesNotContainAnyElementsOf(manifestFiles);
 
-            assertThat(query("SELECT * FROM " + table.getName()))
-                    .matches("VALUES (1, 10, 100), (2, 10, 200), (3, 20, 300), (4, 20, 400)");
+            assertThat(query("SELECT COUNT(*) FROM " + table.getName()))
+                    .matches("VALUES BIGINT '30'");
         }
     }
 
