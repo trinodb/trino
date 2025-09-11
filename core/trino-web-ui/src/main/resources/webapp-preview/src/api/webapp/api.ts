@@ -217,12 +217,42 @@ export interface QueryRoutine {
     authorization: string
 }
 
+export interface QueryStageNodeInfo {
+    '@type': string
+    id: string
+    source: QueryStageNodeInfo
+    sources: QueryStageNodeInfo[]
+    filteringSource: QueryStageNodeInfo
+    probeSource: QueryStageNodeInfo
+    indexSource: QueryStageNodeInfo
+    left: QueryStageNodeInfo
+    right: QueryStageNodeInfo
+}
+
 export interface QueryStagePlan {
     id: string
     jsonRepresentation: string
-    root: {
-        id: string
-    }
+    root: QueryStageNodeInfo
+}
+
+export interface QueryStageOperatorSummary {
+    pipelineId: number
+    planNodeId: string
+    operatorId: number
+    operatorType: string
+    child: QueryStageOperatorSummary
+    outputPositions: number
+    outputDataSize: string
+    totalDrivers: number
+    addInputCpu: string
+    getOutputCpu: string
+    finishCpu: string
+    addInputWall: string
+    getOutputWall: string
+    finishWall: string
+    blockedWall: string
+    inputDataSize: string
+    inputPositions: number
 }
 
 export interface QueryStageStats {
@@ -249,6 +279,7 @@ export interface QueryStageStats {
     totalBufferedBytes: number
     failedCumulativeUserMemory: number
     peakUserMemoryReservation: string
+    operatorSummaries: QueryStageOperatorSummary[]
 }
 
 export interface QueryTask {

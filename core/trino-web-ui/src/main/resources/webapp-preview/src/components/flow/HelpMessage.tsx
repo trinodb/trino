@@ -18,9 +18,10 @@ import { LayoutDirectionType } from './types'
 interface IHelpMessageProps {
     layoutDirection: LayoutDirectionType
     onLayoutDirectionChange: (layoutDirection: LayoutDirectionType) => void
+    additionalContent?: React.ReactNode
 }
 
-export const HelpMessage = ({ layoutDirection, onLayoutDirectionChange }: IHelpMessageProps) => {
+export const HelpMessage = ({ layoutDirection, onLayoutDirectionChange, additionalContent }: IHelpMessageProps) => {
     const handleLayoutChange = (_event: React.MouseEvent<HTMLElement>, newDirection: LayoutDirectionType | null) => {
         if (newDirection !== null) {
             onLayoutDirectionChange(newDirection)
@@ -64,6 +65,8 @@ export const HelpMessage = ({ layoutDirection, onLayoutDirectionChange }: IHelpM
                     <Typography variant="caption">Horizontal</Typography>
                 </ToggleButton>
             </ToggleButtonGroup>
+
+            {additionalContent}
         </Box>
     )
 }
