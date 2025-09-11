@@ -213,27 +213,27 @@ final class TestLokiIntegration
     {
         assertQueryFails(
                 """
-                SELECT to_iso8601(timestamp), value FROM
-                TABLE(system.query_range(
-                 'count_over_time({test="timestamp_metrics_query"}[5m])',
-                 TIMESTAMP '2012-08-08',
-                 TIMESTAMP '2012-08-09',
-                 -300
-                ))
-                LIMIT 1
-                """,
+                        SELECT to_iso8601(timestamp), value FROM
+                        TABLE(system.query_range(
+                         'count_over_time({test="timestamp_metrics_query"}[5m])',
+                         TIMESTAMP '2012-08-08',
+                         TIMESTAMP '2012-08-09',
+                         -300
+                        ))
+                        LIMIT 1
+                        """,
                 "step must be positive");
         assertQueryFails(
                 """
-                SELECT to_iso8601(timestamp), value FROM
-                TABLE(system.query_range(
-                 'count_over_time({test="timestamp_metrics_query"}[5m])',
-                 TIMESTAMP '2012-08-08',
-                 TIMESTAMP '2012-08-09',
-                 NULL
-                ))
-                LIMIT 1
-                """,
+                        SELECT to_iso8601(timestamp), value FROM
+                        TABLE(system.query_range(
+                         'count_over_time({test="timestamp_metrics_query"}[5m])',
+                         TIMESTAMP '2012-08-08',
+                         TIMESTAMP '2012-08-09',
+                         NULL
+                        ))
+                        LIMIT 1
+                        """,
                 "step must be positive");
     }
 }
