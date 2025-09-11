@@ -268,7 +268,7 @@ public final class TestHiveFileFormats
     }
 
     @Test(dataProvider = "validRowAndFileSizePadding")
-    public void testSequenceFile(int rowCount, long fileSizePadding)
+    public void testTextSequenceFile(int rowCount, long fileSizePadding)
             throws Exception
     {
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
