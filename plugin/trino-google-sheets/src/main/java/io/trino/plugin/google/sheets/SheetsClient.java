@@ -296,7 +296,6 @@ public class SheetsClient
     {
         GoogleCredential credential = GoogleCredential.fromStream(inputStream).createScoped(SCOPES);
         return delegatedUserEmail.map(credential::createDelegated).orElse(credential);
-        return credential;
     }
 
     private List<List<Object>> readAllValuesFromSheetExpression(String sheetExpression)
