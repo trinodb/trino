@@ -11,12 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.catalog.rest;
+package io.trino.plugin.iceberg;
 
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Map;
