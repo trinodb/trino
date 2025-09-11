@@ -18,6 +18,7 @@ import { QueryJson } from './QueryJson'
 import { QueryReferences } from './QueryReferences'
 import { QueryLivePlan } from './QueryLivePlan'
 import { QueryOverview } from './QueryOverview'
+import { QueryStagePerformance } from './QueryStagePerformance'
 import { Texts } from '../constant.ts'
 
 const tabValues = ['overview', 'livePlan', 'stagePerformance', 'splits', 'json', 'references'] as const
@@ -25,7 +26,7 @@ type TabValue = (typeof tabValues)[number]
 const tabComponentMap: Record<TabValue, ReactNode> = {
     overview: <QueryOverview />,
     livePlan: <QueryLivePlan />,
-    stagePerformance: <Alert severity="error">{Texts.Error.NotImplemented}</Alert>,
+    stagePerformance: <QueryStagePerformance />,
     splits: <Alert severity="error">{Texts.Error.NotImplemented}</Alert>,
     json: <QueryJson />,
     references: <QueryReferences />,
@@ -59,7 +60,7 @@ export const QueryDetails = () => {
                             <Tabs value={tabValue} onChange={handleTabChange}>
                                 <Tab value="overview" label="Overview" />
                                 <Tab value="livePlan" label="Live plan" />
-                                <Tab value="stagePerformance" label="Stage performance" disabled />
+                                <Tab value="stagePerformance" label="Stage performance" />
                                 <Tab value="splits" label="Splits" disabled />
                                 <Tab value="json" label="JSON" />
                                 <Tab value="references" label="References" />

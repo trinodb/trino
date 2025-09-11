@@ -18,9 +18,9 @@ import { ReactFlow, type Edge, type Node, useNodesState, useEdgesState } from '@
 import '@xyflow/react/dist/style.css'
 import { queryStatusApi, QueryStatusInfo } from '../api/webapp/api.ts'
 import { QueryProgressBar } from './QueryProgressBar'
-import { nodeTypes, getLayoutedElements } from './flow/layout'
+import { nodeTypes, getLayoutedPlanFlowElements } from './flow/layout'
 import { HelpMessage } from './flow/HelpMessage'
-import { getFlowElements } from './flow/flowUtils'
+import { getPlanFlowElements } from './flow/flowUtils'
 import { IQueryStatus, LayoutDirectionType } from './flow/types'
 import { ApiResponse } from '../api/base.ts'
 import { Texts } from '../constant.ts'
@@ -48,8 +48,8 @@ export const QueryLivePlan = () => {
 
     useEffect(() => {
         if (queryStatus.info?.stages) {
-            const flowElements = getFlowElements(queryStatus.info.stages, layoutDirection)
-            const layoutedElements = getLayoutedElements(flowElements.nodes, flowElements.edges, {
+            const flowElements = getPlanFlowElements(queryStatus.info.stages, layoutDirection)
+            const layoutedElements = getLayoutedPlanFlowElements(flowElements.nodes, flowElements.edges, {
                 direction: layoutDirection,
             })
 
