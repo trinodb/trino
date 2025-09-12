@@ -706,8 +706,14 @@ class AggregationAnalyzer
         @Override
         protected Boolean visitRow(Row node, Void context)
         {
-            return node.getItems().stream()
+            return node.getFields().stream()
                     .allMatch(item -> process(item, context));
+        }
+
+        @Override
+        protected Boolean visitRowField(Row.Field node, Void context)
+        {
+            return process(node.getExpression(), context);
         }
 
         @Override

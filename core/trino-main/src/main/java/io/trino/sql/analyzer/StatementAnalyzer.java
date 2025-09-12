@@ -4069,7 +4069,7 @@ class StatementAnalyzer
                     // TODO coerce the whole Row and add an Optimizer rule that converts CAST(ROW(...) AS ...) into ROW(CAST(...), CAST(...), ...).
                     //  The rule would also handle Row-type expressions that were specified as CAST(ROW). It should support multiple casts over a ROW.
                     for (int i = 0; i < actualType.getTypeParameters().size(); i++) {
-                        Expression item = value.getItems().get(i);
+                        Expression item = value.getFields().get(i).getExpression();
                         Type actualItemType = actualType.getTypeParameters().get(i);
                         Type expectedItemType = commonSuperType.getTypeParameters().get(i);
                         if (!actualItemType.equals(expectedItemType)) {

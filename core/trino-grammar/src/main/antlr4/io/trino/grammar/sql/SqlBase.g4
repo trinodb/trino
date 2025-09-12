@@ -586,7 +586,7 @@ primaryExpression
     | QUESTION_MARK                                                                       #parameter
     | POSITION '(' valueExpression IN valueExpression ')'                                 #position
     | '(' expression (',' expression)+ ')'                                                #rowConstructor
-    | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
+    | ROW '(' fieldConstructor (',' fieldConstructor)* ')'                                #rowConstructor
     | name=LISTAGG '(' setQuantifier? expression (',' string)?
         (ON OVERFLOW listAggOverflowBehavior)? ')'
         (WITHIN GROUP '(' orderBy ')')
@@ -668,6 +668,10 @@ literal
     | string                                                                              #stringLiteral
     | BINARY_LITERAL                                                                      #binaryLiteral
     | NULL                                                                                #nullLiteral
+    ;
+
+fieldConstructor
+    : expression (AS? identifier)?
     ;
 
 jsonPathInvocation

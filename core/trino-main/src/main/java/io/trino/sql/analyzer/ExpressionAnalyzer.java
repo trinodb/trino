@@ -694,11 +694,13 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitRow(Row node, Context context)
         {
-            List<Type> types = node.getItems().stream()
-                    .map(child -> process(child, context))
+            List<RowType.Field> fields = node.getFields().stream()
+                    .map(field -> new RowType.Field(
+                            field.getName().map(Identifier::getCanonicalValue),
+                            process(field.getExpression(), context)))
                     .collect(toImmutableList());
 
-            Type type = RowType.anonymous(types);
+            Type type = RowType.from(fields);
             return setExpressionType(node, type);
         }
 
