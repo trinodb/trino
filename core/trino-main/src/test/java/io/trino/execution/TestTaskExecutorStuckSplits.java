@@ -30,6 +30,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.ConnectorServices;
 import io.trino.connector.ConnectorServicesProvider;
+import io.trino.exchange.ExchangeManagerConfig;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.TaskHandle;
@@ -138,7 +139,7 @@ public class TestTaskExecutorStuckSplits
                 new NodeSpillConfig(),
                 new TestingGcMonitor(),
                 noopTracer(),
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
                 stuckSplitStackTracePredicate);
     }
 
