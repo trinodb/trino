@@ -15,6 +15,7 @@ package io.trino.orc.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -29,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -82,6 +84,8 @@ public class OrcType
         STRUCT,
         UNION,
     }
+
+    public static final Set<OrcTypeKind> TEMPORAL_TYPES = ImmutableSet.of(OrcTypeKind.DATE, OrcTypeKind.TIMESTAMP, OrcTypeKind.TIMESTAMP_INSTANT);
 
     private final OrcTypeKind orcTypeKind;
     private final List<OrcColumnId> fieldTypeIndexes;
