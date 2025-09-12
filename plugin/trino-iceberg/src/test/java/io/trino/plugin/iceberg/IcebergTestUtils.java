@@ -267,7 +267,7 @@ public final class IcebergTestUtils
     public static ParquetMetadata getParquetFileMetadata(TrinoInputFile inputFile)
     {
         try (TrinoParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats())) {
-            return MetadataReader.readFooter(dataSource);
+            return MetadataReader.readFooter(dataSource, Optional.empty());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
