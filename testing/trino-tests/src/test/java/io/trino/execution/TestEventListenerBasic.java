@@ -41,6 +41,7 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
+import io.trino.spi.eventlistener.ColumnLineageInfo;
 import io.trino.spi.eventlistener.OutputColumnMetadata;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
@@ -1515,6 +1516,34 @@ public class TestEventListenerBasic
         for (int i = 0; i < queryCount; i++) {
             assertFailedQuery(immediatelyFailingQuery.formatted(i), expectedFailure.formatted(i));
         }
+    }
+
+    @Test
+    public void testSelectColumnsLineageInfo()
+            throws Exception
+    {
+        String sql = "SELECT nationkey AS test_nationkey, name AS test_name, 'anonymous_literal', 'named_literal' AS named FROM nation";
+        QueryEvents queryEvents = runQueryAndWaitForEvents(sql).getQueryEvents();
+        QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
+        assertThat(event.getSelectColumnsLineageInfo()).isPresent();
+        List<ColumnLineageInfo> selectColumnsLineageInfo = event.getSelectColumnsLineageInfo().get();
+        assertThat(selectColumnsLineageInfo).hasSize(4);
+
+        assertThat(selectColumnsLineageInfo.getFirst().name()).isEqualTo("test_nationkey");
+        assertThat(selectColumnsLineageInfo.getFirst().index()).isEqualTo(0);
+        assertThat(selectColumnsLineageInfo.getFirst().sourceColumns()).containsExactly(new ColumnDetail("tpch", "tiny", "nation", "nationkey"));
+
+        assertThat(selectColumnsLineageInfo.get(1).name()).isEqualTo("test_name");
+        assertThat(selectColumnsLineageInfo.get(1).index()).isEqualTo(1);
+        assertThat(selectColumnsLineageInfo.get(1).sourceColumns()).containsExactly(new ColumnDetail("tpch", "tiny", "nation", "name"));
+
+        assertThat(selectColumnsLineageInfo.get(2).name()).isEqualTo("");
+        assertThat(selectColumnsLineageInfo.get(2).index()).isEqualTo(2);
+        assertThat(selectColumnsLineageInfo.get(2).sourceColumns()).isEmpty();
+
+        assertThat(selectColumnsLineageInfo.get(3).name()).isEqualTo("named");
+        assertThat(selectColumnsLineageInfo.get(3).index()).isEqualTo(3);
+        assertThat(selectColumnsLineageInfo.get(3).sourceColumns()).isEmpty();
     }
 
     private void assertLineage(String baseQuery, Set<String> inputTables, OutputColumnMetadata... outputColumnMetadata)
