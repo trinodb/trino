@@ -126,6 +126,10 @@ public class TestHivePageSink
                 // ESRI format is readonly
                 continue;
             }
+            if (format == HiveStorageFormat.SEQUENCEFILE_PROTOBUF) {
+                // SEQUENCEFILE_PROTOBUF format is readonly
+                continue;
+            }
             config.setHiveStorageFormat(format);
             config.setHiveCompressionCodec(NONE);
             long uncompressedLength = writeTestFile(fileSystemFactory, config, sortingFileWriterConfig, metastore, makeFileName(config));

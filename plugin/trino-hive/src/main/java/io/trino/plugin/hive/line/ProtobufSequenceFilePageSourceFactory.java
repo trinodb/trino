@@ -15,23 +15,20 @@ package io.trino.plugin.hive.line;
 
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.hive.formats.line.sequence.SequenceFileWriterFactory;
-import io.trino.hive.formats.line.simple.SimpleSerializerFactory;
-import io.trino.plugin.hive.NodeVersion;
-import io.trino.spi.type.TypeManager;
+import io.trino.hive.formats.line.protobuf.ProtobufDeserializerFactory;
+import io.trino.hive.formats.line.sequence.SequenceFileReaderFactory;
+import io.trino.plugin.hive.HiveConfig;
 
-import static io.trino.hive.formats.line.sequence.ValueType.TEXT;
+import static java.lang.Math.toIntExact;
 
-public class SimpleSequenceFileWriterFactory
-        extends LineFileWriterFactory
+public class ProtobufSequenceFilePageSourceFactory
+        extends LinePageSourceFactory
 {
     @Inject
-    public SimpleSequenceFileWriterFactory(TrinoFileSystemFactory trinoFileSystemFactory, TypeManager typeManager, NodeVersion nodeVersion)
+    public ProtobufSequenceFilePageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, HiveConfig config)
     {
         super(trinoFileSystemFactory,
-                typeManager,
-                new SimpleSerializerFactory(),
-                new SequenceFileWriterFactory(nodeVersion.toString(), TEXT),
-                false);
+                new ProtobufDeserializerFactory(config.getProtobufDescriptorsLocation(), config.getProtobufDescriptorsCacheRefreshInterval(), config.getProtobufDescriptorsCacheMaxSize()),
+                new SequenceFileReaderFactory(1024, toIntExact(config.getTextMaxLineLength().toBytes())));
     }
 }
