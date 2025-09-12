@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
@@ -81,6 +82,27 @@ public class TestingExasolServer
         try (Connection connection = DriverManager.getConnection(getJdbcUrl(), getProperties(user, password));
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException("Failed to execute statement '" + sql + "'", e);
+        }
+    }
+
+    public <T> T getSingleResult(@Language("SQL") String sql, Class<T> resultClass)
+    {
+        return getSingleResult(sql, container.getUsername(), container.getPassword(), resultClass);
+    }
+
+    public <T> T getSingleResult(@Language("SQL") String sql, String user, String password, Class<T> resultClass)
+    {
+        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), getProperties(user, password));
+                Statement statement = connection.createStatement()) {
+            ResultSet rs = statement.executeQuery(sql);
+            if (rs.next()) {
+                T value = rs.getObject(1, resultClass);
+                return value;
+            }
+            return null;
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute statement '" + sql + "'", e);

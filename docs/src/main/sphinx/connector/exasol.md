@@ -103,6 +103,12 @@ Trino data type mapping:
 * - `HASHTYPE`
   - `VARBINARY`
   -
+* - `TIMESTAMP(n)`
+  - `TIMESTAMP(n)`
+  -
+* - `TIMESTAMP(n) WITH LOCAL TIME ZONE`
+  - `TIMESTAMP(n) WITH TIME ZONE`
+  -
 :::
 
 No other types are supported.

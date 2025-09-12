@@ -40,12 +40,15 @@ import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Isolated
@@ -278,6 +281,239 @@ final class TestExasolTypeMapping
                 .execute(getQueryRunner(), session, exasolCreateAndInsert(TEST_SCHEMA + "." + "test_date"));
     }
 
+    // See for more details: https://docs.exasol.com/db/latest/sql_references/data_types/datatypedetails.htm
+    @Test
+    void testTimestamp()
+    {
+        testTimestamp(UTC);
+        testTimestamp(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Exasol system zone is
+        testTimestamp(vilnius);
+        testTimestamp(kathmandu);
+        testTimestamp(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestamp(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp", "NULL", createTimestampType(3), "CAST(NULL AS TIMESTAMP)")
+                .addRoundTrip("timestamp", "TIMESTAMP '2019-03-18 10:01:17.987'", createTimestampType(3), "TIMESTAMP '2019-03-18 10:01:17.987'")
+                .addRoundTrip("timestamp", "TIMESTAMP '2013-03-11 17:30:15.123'", createTimestampType(3), "TIMESTAMP '2013-03-11 17:30:15.123'")
+                .addRoundTrip("timestamp", "TIMESTAMP '2018-10-28 01:33:17.456'", createTimestampType(3), "TIMESTAMP '2018-10-28 01:33:17.456'")
+                .addRoundTrip("timestamp", "TIMESTAMP '2018-10-28 03:33:33.333'", createTimestampType(3), "TIMESTAMP '2018-10-28 03:33:33.333'")
+                .addRoundTrip("timestamp", "TIMESTAMP '1970-01-01 00:13:42.000'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:13:42.000'")
+                .addRoundTrip("timestamp", "TIMESTAMP '2018-04-01 03:13:55.123'", createTimestampType(3), "TIMESTAMP '2018-04-01 03:13:55.123'")
+                .addRoundTrip("timestamp", "TIMESTAMP '2020-09-27 12:34:56.999'", createTimestampType(3), "TIMESTAMP '2020-09-27 12:34:56.999'")
+                .addRoundTrip("timestamp", "TIMESTAMP '2018-03-25 03:17:17.000'", createTimestampType(3), "TIMESTAMP '2018-03-25 03:17:17.000'")
+                .addRoundTrip("timestamp", "TIMESTAMP '1986-01-01 00:13:07.000'", createTimestampType(3), "TIMESTAMP '1986-01-01 00:13:07.000'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '2013-03-11 17:30:15.123456'", createTimestampType(6), "TIMESTAMP '2013-03-11 17:30:15.123456'")
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '2013-03-11 17:30:15.123456789'", createTimestampType(9), "TIMESTAMP '2013-03-11 17:30:15.123456789'")
+                .addRoundTrip("timestamp(1)", "TIMESTAMP '2016-08-19 19:28:05.0'", createTimestampType(1), "TIMESTAMP '2016-08-19 19:28:05.0'")
+                .addRoundTrip("timestamp(2)", "TIMESTAMP '2016-08-19 19:28:05.01'", createTimestampType(2), "TIMESTAMP '2016-08-19 19:28:05.01'")
+                .addRoundTrip("timestamp", "TIMESTAMP '3030-03-03 12:34:56.123'", createTimestampType(3), "TIMESTAMP '3030-03-03 12:34:56.123'")
+                .addRoundTrip("timestamp(5)", "TIMESTAMP '3030-03-03 12:34:56.12345'", createTimestampType(5), "TIMESTAMP '3030-03-03 12:34:56.12345'")
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '3030-03-03 12:34:56.123456789'", createTimestampType(9), "TIMESTAMP '3030-03-03 12:34:56.123456789'")
+                .addRoundTrip("timestamp", "TIMESTAMP '3030-03-03 12:34:56.123'", createTimestampType(3), "TIMESTAMP '3030-03-03 12:34:56.123'")
+                .addRoundTrip("timestamp(5)", "TIMESTAMP '3030-03-03 12:34:56.12345'", createTimestampType(5), "TIMESTAMP '3030-03-03 12:34:56.12345'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '3030-03-03 12:34:56.123456'", createTimestampType(6), "TIMESTAMP '3030-03-03 12:34:56.123456'")
+                .addRoundTrip("timestamp(7)", "TIMESTAMP '3030-03-03 12:34:56.1234567'", createTimestampType(7), "TIMESTAMP '3030-03-03 12:34:56.1234567'")
+                .addRoundTrip("timestamp(8)", "TIMESTAMP '3030-03-03 12:34:56.12345678'", createTimestampType(8), "TIMESTAMP '3030-03-03 12:34:56.12345678'")
+                .addRoundTrip("timestamp(9)", "TIMESTAMP '3030-03-03 12:34:56.123456789'", createTimestampType(9), "TIMESTAMP '3030-03-03 12:34:56.123456789'")
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '2017-07-01'", createTimestampType(0), "TIMESTAMP '2017-07-01'") // summer on northern hemisphere (possible DST)
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '2017-01-01'", createTimestampType(0), "TIMESTAMP '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '1970-01-01'", createTimestampType(0), "TIMESTAMP '1970-01-01'") // change forward at midnight in JVM
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '1983-04-01'", createTimestampType(0), "TIMESTAMP '1983-04-01'") // change forward at midnight in Vilnius
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '1983-10-01'", createTimestampType(0), "TIMESTAMP '1983-10-01'") // change backward at midnight in Vilnius
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '9999-12-31'", createTimestampType(0), "TIMESTAMP '9999-12-31'") // max value in Exasol
+                //test cases for timestamp with zero precision and with non-zero seconds
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '2017-07-01 00:00:01'", createTimestampType(0), "TIMESTAMP '2017-07-01 00:00:01'") // summer on northern hemisphere (possible DST)
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '2017-01-01 00:00:02'", createTimestampType(0), "TIMESTAMP '2017-01-01 00:00:02'") // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '1970-01-01 00:00:03'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:03'") // change forward at midnight in JVM
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '1983-04-01 00:00:04'", createTimestampType(0), "TIMESTAMP '1983-04-01 00:00:04'") // change forward at midnight in Vilnius
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '1983-10-01 00:00:05'", createTimestampType(0), "TIMESTAMP '1983-10-01 00:00:05'") // change backward at midnight in Vilnius
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '9999-12-31 00:00:59'", createTimestampType(0), "TIMESTAMP '9999-12-31 00:00:59'") // max value in Exasol
+                .execute(getQueryRunner(), session, exasolCreateAndInsert(TEST_SCHEMA + "." + "test_timestamp"));
+    }
+
+    @Test
+    void testTimestampWithTimeZone()
+    {
+        testTimestampWithTimeZone(UTC);
+        testTimestampWithTimeZone(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Exasol system zone is
+        testTimestampWithTimeZone(vilnius);
+        testTimestampWithTimeZone(kathmandu);
+        testTimestampWithTimeZone(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    /**
+     * <p>
+     * Exasol {@code TIMESTAMP WITH LOCAL TIME ZONE} does <b>not</b> store any time zone information in the database.
+     * In Trino, it is mapped to {@code TIMESTAMP WITH TIME ZONE} with the hardcoded JVM time zone
+     * </p>
+     *
+     * <p>
+     * This limitation imposes some rules and restrictions on the tests:
+     * <ul>
+     *   <li>Both {@code inputLiteral} and {@code expectedLiteral} are interpreted as JVM time zone strings.</li>
+     *   <li>In the Trino testing environment, the JVM time zone is hardcoded to {@code America/Bahia_Banderas}.</li>
+     *   <li>When saved {@code inputLiteral} is read by Trino, it must be equal to the {@code expectedLiteral}, interpreted as JVM time zone value</li>
+     * </ul>
+     * </p>
+     * <p>
+     * <b>See for more details:</b> https://docs.exasol.com/db/latest/sql_references/data_types/datatypedetails.htm
+     * <p>
+     */
+    private void testTimestampWithTimeZone(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp with local time zone", "NULL", createTimestampWithTimeZoneType(3), "CAST(NULL AS TIMESTAMP WITH TIME ZONE)")
+
+                // timestamp with precision 3 examples
+                .addRoundTrip("timestamp with local time zone", timestampWithTimeZoneInput("2019-03-18 10:01:17.123"), createTimestampWithTimeZoneType(3), timestampWithTimeZoneExpected("2019-03-18 10:01:17.123"))
+                .addRoundTrip("timestamp(3) with local time zone", timestampWithTimeZoneInput("2018-10-27 19:33:17.456"), createTimestampWithTimeZoneType(3), timestampWithTimeZoneExpected("2018-10-27 19:33:17.456"))
+                .addRoundTrip("timestamp(3) with local time zone", timestampWithTimeZoneInput("2018-10-28 03:33:33.333"), createTimestampWithTimeZoneType(3), timestampWithTimeZoneExpected("2018-10-28 03:33:33.333"))
+                .addRoundTrip("timestamp(3) with local time zone", timestampWithTimeZoneInput("1970-01-01 00:13:42.000"), createTimestampWithTimeZoneType(3), timestampWithTimeZoneExpected("1970-01-01 00:13:42.000"))
+
+                .addRoundTrip("timestamp(3) with local time zone", timestampWithTimeZoneInput("2018-04-01 03:13:55.123"), createTimestampWithTimeZoneType(3), timestampWithTimeZoneExpected("2018-04-01 03:13:55.123"))
+                .addRoundTrip("timestamp(3) with local time zone", timestampWithTimeZoneInput("2020-09-27 12:34:56.999"), createTimestampWithTimeZoneType(3), timestampWithTimeZoneExpected("2020-09-27 12:34:56.999"))
+                .addRoundTrip("timestamp(3) with local time zone", timestampWithTimeZoneInput("2018-03-25 03:17:17.000"), createTimestampWithTimeZoneType(3), timestampWithTimeZoneExpected("2018-03-25 03:17:17.000"))
+                .addRoundTrip("timestamp(3) with local time zone", timestampWithTimeZoneInput("1986-01-01 00:13:07.000"), createTimestampWithTimeZoneType(3), timestampWithTimeZoneExpected("1986-01-01 00:13:07.000"))
+
+                // timestamp with precision 6-9 examples
+                .addRoundTrip("timestamp(6) with local time zone", timestampWithTimeZoneInput("2019-03-18 10:01:17.987654"), createTimestampWithTimeZoneType(6), timestampWithTimeZoneExpected("2019-03-18 10:01:17.987654"))
+                .addRoundTrip("timestamp(6) with local time zone", timestampWithTimeZoneInput("2018-10-28 01:33:17.456789"), createTimestampWithTimeZoneType(6), timestampWithTimeZoneExpected("2018-10-28 01:33:17.456789"))
+                .addRoundTrip("timestamp(6) with local time zone", timestampWithTimeZoneInput("2018-10-28 03:33:33.333333"), createTimestampWithTimeZoneType(6), timestampWithTimeZoneExpected("2018-10-28 03:33:33.333333"))
+                .addRoundTrip("timestamp(6) with local time zone", timestampWithTimeZoneInput("1970-01-01 00:13:42.000000"), createTimestampWithTimeZoneType(6), timestampWithTimeZoneExpected("1970-01-01 00:13:42.000000"))
+                .addRoundTrip("timestamp(6) with local time zone", timestampWithTimeZoneInput("2018-04-01 03:13:55.123456"), createTimestampWithTimeZoneType(6), timestampWithTimeZoneExpected("2018-04-01 03:13:55.123456"))
+                .addRoundTrip("timestamp(6) with local time zone", timestampWithTimeZoneInput("2018-03-25 03:17:17.000000"), createTimestampWithTimeZoneType(6), timestampWithTimeZoneExpected("2018-03-25 03:17:17.000000"))
+                .addRoundTrip("timestamp(6) with local time zone", timestampWithTimeZoneInput("1986-01-01 00:13:07.000000"), createTimestampWithTimeZoneType(6), timestampWithTimeZoneExpected("1986-01-01 00:13:07.000000"))
+                .addRoundTrip("timestamp(7) with local time zone", timestampWithTimeZoneInput("1986-01-01 00:13:07.1234567"), createTimestampWithTimeZoneType(7), timestampWithTimeZoneExpected("1986-01-01 00:13:07.1234567"))
+                .addRoundTrip("timestamp(8) with local time zone", timestampWithTimeZoneInput("1986-01-01 00:13:07.12345678"), createTimestampWithTimeZoneType(8), timestampWithTimeZoneExpected("1986-01-01 00:13:07.12345678"))
+                .addRoundTrip("timestamp(9) with local time zone", timestampWithTimeZoneInput("1986-01-01 00:13:07.123456789"), createTimestampWithTimeZoneType(9), timestampWithTimeZoneExpected("1986-01-01 00:13:07.123456789"))
+
+                // tests for other precisions (0-5 and some 1's)
+                .addRoundTrip("timestamp(0) with local time zone", timestampWithTimeZoneInput("1970-01-01 00:00:01"), createTimestampWithTimeZoneType(0), timestampWithTimeZoneExpected("1970-01-01 00:00:01"))
+                .addRoundTrip("timestamp(1) with local time zone", timestampWithTimeZoneInput("1970-01-01 00:00:01.1"), createTimestampWithTimeZoneType(1), timestampWithTimeZoneExpected("1970-01-01 00:00:01.1"))
+                .addRoundTrip("timestamp(1) with local time zone", timestampWithTimeZoneInput("1970-01-01 00:00:01.9"), createTimestampWithTimeZoneType(1), timestampWithTimeZoneExpected("1970-01-01 00:00:01.9"))
+                .addRoundTrip("timestamp(2) with local time zone", timestampWithTimeZoneInput("1970-01-01 00:00:01.12"), createTimestampWithTimeZoneType(2), timestampWithTimeZoneExpected("1970-01-01 00:00:01.12"))
+                .addRoundTrip("timestamp(3) with local time zone", timestampWithTimeZoneInput("1970-01-01 00:00:01.123"), createTimestampWithTimeZoneType(3), timestampWithTimeZoneExpected("1970-01-01 00:00:01.123"))
+                .addRoundTrip("timestamp(3) with local time zone", timestampWithTimeZoneInput("1970-01-01 00:00:01.999"), createTimestampWithTimeZoneType(3), timestampWithTimeZoneExpected("1970-01-01 00:00:01.999"))
+                .addRoundTrip("timestamp(4) with local time zone", timestampWithTimeZoneInput("1970-01-01 00:00:01.1234"), createTimestampWithTimeZoneType(4), timestampWithTimeZoneExpected("1970-01-01 00:00:01.1234"))
+                .addRoundTrip("timestamp(5) with local time zone", timestampWithTimeZoneInput("1970-01-01 00:00:01.12345"), createTimestampWithTimeZoneType(5), timestampWithTimeZoneExpected("1970-01-01 00:00:01.12345"))
+                .addRoundTrip("timestamp(1) with local time zone", timestampWithTimeZoneInput("2020-09-27 12:34:56.1"), createTimestampWithTimeZoneType(1), timestampWithTimeZoneExpected("2020-09-27 12:34:56.1"))
+                .addRoundTrip("timestamp(1) with local time zone", timestampWithTimeZoneInput("2020-09-27 12:34:56.9"), createTimestampWithTimeZoneType(1), timestampWithTimeZoneExpected("2020-09-27 12:34:56.9"))
+                .addRoundTrip("timestamp(3) with local time zone", timestampWithTimeZoneInput("2020-09-27 12:34:56.123"), createTimestampWithTimeZoneType(3), timestampWithTimeZoneExpected("2020-09-27 12:34:56.123"))
+                .addRoundTrip("timestamp(3) with local time zone", timestampWithTimeZoneInput("2020-09-27 12:34:56.999"), createTimestampWithTimeZoneType(3), timestampWithTimeZoneExpected("2020-09-27 12:34:56.999"))
+                .addRoundTrip("timestamp(6) with local time zone", timestampWithTimeZoneInput("2020-09-27 12:34:56.123456"), createTimestampWithTimeZoneType(6), timestampWithTimeZoneExpected("2020-09-27 12:34:56.123456"))
+
+                //test cases for timestamp with zero precision and with non-zero seconds
+                .addRoundTrip("timestamp(0) with local time zone", timestampWithTimeZoneInput("2017-07-01 00:00:01"), createTimestampWithTimeZoneType(0), timestampWithTimeZoneExpected("2017-07-01 00:00:01")) // summer on northern hemisphere (possible DST)
+                .addRoundTrip("timestamp(0) with local time zone", timestampWithTimeZoneInput("2017-01-01 00:00:02"), createTimestampWithTimeZoneType(0), timestampWithTimeZoneExpected("2017-01-01 00:00:02")) // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip("timestamp(0) with local time zone", timestampWithTimeZoneInput("1970-01-01 00:00:03"), createTimestampWithTimeZoneType(0), timestampWithTimeZoneExpected("1970-01-01 00:00:03")) // change forward at midnight in JVM
+                .addRoundTrip("timestamp(0) with local time zone", timestampWithTimeZoneInput("1983-04-01 00:00:04"), createTimestampWithTimeZoneType(0), timestampWithTimeZoneExpected("1983-04-01 00:00:04")) // change forward at midnight in Vilnius
+                .addRoundTrip("timestamp(0) with local time zone", timestampWithTimeZoneInput("1983-10-01 00:00:05"), createTimestampWithTimeZoneType(0), timestampWithTimeZoneExpected("1983-10-01 00:00:05")) // change backward at midnight in Vilnius
+                .addRoundTrip("timestamp(0) with local time zone", timestampWithTimeZoneInput("9999-12-31 00:00:59"), createTimestampWithTimeZoneType(0), timestampWithTimeZoneExpected("9999-12-31 00:00:59")) // max value in Exasol
+
+                .execute(getQueryRunner(), session, exasolCreateAndInsert(TEST_SCHEMA + "." + "test_timestamp"));
+    }
+
+    private String timestampWithTimeZoneInput(String jvmTimeZoneString)
+    {
+        return "TIMESTAMP '%s'".formatted(jvmTimeZoneString);
+    }
+
+    private String timestampWithTimeZoneExpected(String jvmTimeZoneString)
+    {
+        return "TIMESTAMP '%s %s'".formatted(jvmTimeZoneString, jvmZone.getId());
+    }
+
+    @Test
+    // See for more details: https://docs.exasol.com/db/latest/sql_references/data_types/datatypedetails.htm
+    void testUnsupportedTimestampValues()
+    {
+        // Below minimum supported TIMESTAMP value (must be >= 0001-01-01)
+        testUnsupportedInsertValue(
+                "TIMESTAMP",
+                "TIMESTAMP '10000-01-01 00:00:00.000000'",
+                "data exception - invalid character value for cast; Value: '10000-01-01 00:00:00.000000'");
+
+        // Above maximum supported TIMESTAMP value (must be <= 9999-12-31)
+        testUnsupportedInsertValue(
+                "TIMESTAMP",
+                "TIMESTAMP '0000-12-31 23:59:59.999999'",
+                "data exception - invalid date value; Value: '0000-12-31 23:59:59.999999'");
+
+        // Exceeds TIMESTAMP maximum supported fractional seconds precision (9 digits)
+        testUnsupportedInsertValue(
+                "TIMESTAMP",
+                "TIMESTAMP '2024-01-01 12:34:56.1234567890'",
+                "data exception - invalid character value for cast; Value: '2024-01-01 12:34:56.1234567890'");
+
+        // Negative precisions are not supported
+        testUnsupportedDefinition(
+                "TIMESTAMP(-1)",
+                "syntax error, unexpected '-', expecting UNSIGNED_INTEGER");
+    }
+
+    @Test
+    // See for more details: https://docs.exasol.com/db/latest/sql_references/data_types/datatypedetails.htm
+    void testUnsupportedTimestampWithLocalTimeZoneValues()
+    {
+        testUnsupportedDstGapJvmTimeZoneValue("2018-04-01 02:13:55.123", 3);
+        testUnsupportedDstGapJvmTimeZoneValue("2018-04-01 02:13:55.123456", 6);
+
+        // Below minimum supported TIMESTAMP WITH LOCAL TIME ZONE value (must be >= 0001-01-01)
+        testUnsupportedInsertValue(
+                "TIMESTAMP WITH LOCAL TIME ZONE",
+                "TIMESTAMP '10000-01-01 00:00:00.000000'",
+                "data exception - invalid character value for cast; Value: '10000-01-01 00:00:00.000000'");
+
+        // Above maximum supported TIMESTAMP WITH LOCAL TIME ZONE value (must be <= 9999-12-31)
+        testUnsupportedInsertValue(
+                "TIMESTAMP WITH LOCAL TIME ZONE",
+                "TIMESTAMP '0000-12-31 23:59:59.999999'",
+                "data exception - invalid date value; Value: '0000-12-31 23:59:59.999999'");
+
+        // Exceeds TIMESTAMP WITH LOCAL TIME ZONE maximum supported fractional seconds precision (9 digits)
+        testUnsupportedInsertValue(
+                "TIMESTAMP WITH LOCAL TIME ZONE",
+                "TIMESTAMP '2024-01-01 12:34:56.1234567890'",
+                "data exception - invalid character value for cast; Value: '2024-01-01 12:34:56.1234567890'");
+
+        // Negative precisions are not supported
+        testUnsupportedDefinition(
+                "TIMESTAMP(-1) WITH LOCAL TIME ZONE",
+                "syntax error, unexpected '-', expecting UNSIGNED_INTEGER");
+    }
+
+    private void testUnsupportedDstGapJvmTimeZoneValue(String dstGapJvmTimeZoneString, int precision)
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), TestingExasolServer.TEST_SCHEMA + ".timestamp_dst_gap",
+                "(col TIMESTAMP(%d) WITH LOCAL TIME ZONE)".formatted(precision))) {
+            // Exasol successfully resolves dst gap value and saves it to database
+            onRemoteDatabase().execute(format("INSERT INTO %s (col) VALUES (%s)", table.getName(),
+                    "TO_TIMESTAMP('%s', 'YYYY-MM-DD HH24:MI:SS.FF%d')".formatted(dstGapJvmTimeZoneString, precision)));
+            assertThat(exasolServer.getSingleResult(
+                    "SELECT count(*) FROM %s WHERE col = TO_TIMESTAMP('%s', 'YYYY-MM-DD HH24:MI:SS.FF%d')".formatted(table.getName(), dstGapJvmTimeZoneString, precision),
+                    String.class))
+                    .matches("1");
+
+            //Trino query throws exception, because dst gap value is not valid for 'America/Bahia_Banderas' time zone
+            assertThat(query(
+                    "SELECT count(*) FROM %s WHERE col = TIMESTAMP '%s %s'".formatted(table.getName(), dstGapJvmTimeZoneString, jvmZone.getId())))
+                    .failure().hasMessageEndingWith("America/Bahia_Banderas' is not a valid TIMESTAMP literal");
+        }
+    }
+
     // See for more details: https://docs.exasol.com/saas/microcontent/Resources/MicroContent/general/hash-data-type.htm
     @Test
     void testHashtype()
@@ -312,36 +548,36 @@ final class TestExasolTypeMapping
     void testUnsupportedHashTypeDefinitions()
     {
         // Too few bytes (< 1)
-        testUnsupportedHashTypeDefinition(
+        testUnsupportedDefinition(
                 "HASHTYPE(0 BYTE)",
                 "the given size of HASHTYPE is too small. A minimum of 1 bytes are required");
 
         // Too many bytes (> 1024)
-        testUnsupportedHashTypeDefinition(
+        testUnsupportedDefinition(
                 "HASHTYPE(1025 BYTE)",
                 "the given size of HASHTYPE is too large. At most 1024 bytes are allowed");
 
         // Too few bits (< 8)
-        testUnsupportedHashTypeDefinition(
+        testUnsupportedDefinition(
                 "HASHTYPE(7 BIT)",
                 "the given size of HASHTYPE is too small. A minimum of 8 bits are required");
 
         // Too many bits (> 8192)
-        testUnsupportedHashTypeDefinition(
+        testUnsupportedDefinition(
                 "HASHTYPE(8193 BIT)",
                 "the given size of HASHTYPE is too large. At most 8192 bits are allowed");
 
         // Bits not divisible by 8
-        testUnsupportedHashTypeDefinition(
+        testUnsupportedDefinition(
                 "HASHTYPE(9 BIT)",
                 "Bit size of HASHTYPE has to be a multiple of 8");
     }
 
-    private void testUnsupportedHashTypeDefinition(
+    private void testUnsupportedDefinition(
             String exasolType,
             String expectedException)
     {
-        String tableName = "test_unsupported_hashtype_" + randomNameSuffix();
+        String tableName = "test_unsupported_definition_" + randomNameSuffix();
         assertExasolSqlQueryFails(
                 "CREATE TABLE %s.%s (col %s)".formatted(TEST_SCHEMA, tableName, exasolType),
                 expectedException);
@@ -352,43 +588,43 @@ final class TestExasolTypeMapping
     void testUnsupportedHashTypeInsertValues()
     {
         // Invalid hex character
-        testUnsupportedHashTypeInsertValue(
+        testUnsupportedInsertValue(
                 "HASHTYPE(4 BYTE)",
                 "'GGGGGGGG'",
                 "data exception - Invalid hash format");
 
         // Too short for declared size (expecting 4 bytes = 8 hex chars, got 6)
-        testUnsupportedHashTypeInsertValue(
+        testUnsupportedInsertValue(
                 "HASHTYPE(4 BYTE)",
                 "'AABBCC'",
                 "data exception - Invalid hash format");
 
         // Too short for declared size (expecting 16 bytes = 32 hex chars, got 31)
-        testUnsupportedHashTypeInsertValue(
+        testUnsupportedInsertValue(
                 "HASHTYPE(16 BYTE)",
                 "'550e8400-e29b-11d4-a716-44665544000'",
                 "data exception - Invalid hash format");
 
         // Too long for declared size (expecting 4 bytes = 8 hex chars, got 10)
-        testUnsupportedHashTypeInsertValue(
+        testUnsupportedInsertValue(
                 "HASHTYPE(4 BYTE)",
                 "'AABBCCDDEE'",
                 "data exception - Invalid hash format");
 
         // Unexpected symbol inside
-        testUnsupportedHashTypeInsertValue(
+        testUnsupportedInsertValue(
                 "HASHTYPE(4 BYTE)",
                 "'AABB-CCZZ'",
                 "data exception - Invalid hash format");
 
         // Parentheses instead of curly brackets
-        testUnsupportedHashTypeInsertValue(
+        testUnsupportedInsertValue(
                 "HASHTYPE(4 BYTE)",
                 "'(AABB-CCCC)'",
                 "data exception - Invalid hash format");
     }
 
-    private void testUnsupportedHashTypeInsertValue(
+    private void testUnsupportedInsertValue(
             String exasolType,
             String inputLiteral,
             String expectedException)
