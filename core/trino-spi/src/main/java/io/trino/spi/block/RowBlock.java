@@ -234,6 +234,7 @@ public final class RowBlock
         if (rowIsNull != null) {
             consumer.accept(rowIsNull, sizeOf(rowIsNull));
         }
+        consumer.accept(fieldBlocks, sizeOf(fieldBlocks));
         consumer.accept(this, INSTANCE_SIZE);
     }
 
