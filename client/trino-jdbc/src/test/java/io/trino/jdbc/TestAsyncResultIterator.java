@@ -68,7 +68,7 @@ class TestAsyncResultIterator
                     return fromList(ImmutableList.of(ImmutableList.of(new Object())));
                 }), ignored -> {},
                 new WarningsManager(),
-                Optional.of(new ArrayBlockingQueue<>(100)));
+                new ArrayBlockingQueue<>(100));
 
         while (thread.get() == null || thread.get().getState() != Thread.State.TIMED_WAITING) {
             // wait for thread being waiting
@@ -97,7 +97,7 @@ class TestAsyncResultIterator
                     return fromList(ImmutableList.of(ImmutableList.of(new Object())));
                 }), ignored -> {},
                 new WarningsManager(),
-                Optional.of(queue));
+                queue);
 
         while (thread.get() == null || thread.get().getState() != Thread.State.WAITING) {
             // wait for thread being waiting (for queue being not full)
