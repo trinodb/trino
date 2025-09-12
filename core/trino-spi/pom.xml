@@ -804,6 +804,20 @@
                                     <code>java.method.removed</code>
                                     <old>method io.trino.spi.connector.CatalogHandle io.trino.spi.catalog.CatalogProperties::catalogHandle()</old>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method io.trino.spi.block.Block[] io.trino.spi.block.RowBlock::getRawFieldBlocks()</old>
+                                    <new>method io.trino.spi.block.Block[] io.trino.spi.block.RowBlock::getRawFieldBlocks()</new>
+                                    <oldVisibility>package</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                    <justification>getRawFieldBlocks need to be accessed from trino-main</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.RowBlock::getFieldBlock(int)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
