@@ -171,8 +171,6 @@ public class DeltaSharingRestClient {
         try {
             StringResponseHandler.StringResponse stringResponse = httpClient.execute(request, StringResponseHandler.createStringResponseHandler());
             String json = stringResponse.getBody();
-
-            // Parse JSON manually to add share and schema names to each table
             JsonNode rootNode = mapper.readTree(json);
             JsonNode itemsNode = rootNode.get("items");
             ImmutableList.Builder<Table> tables = ImmutableList.builder();
@@ -182,7 +180,6 @@ public class DeltaSharingRestClient {
                     tables.add(new Table(tableName, shareName, schemaName));
                 }
             }
-
             String nextPageToken = rootNode.has("nextPageToken") ? rootNode.get("nextPageToken").asText() : null;
             return new TablesResponse(tables.build(), nextPageToken);
         }
