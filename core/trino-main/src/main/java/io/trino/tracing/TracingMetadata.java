@@ -85,6 +85,7 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.connector.UpdateKind;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -185,7 +186,34 @@ public class TracingMetadata
     {
         Span span = startSpan("getTableHandle", tableName);
         try (var _ = scopedSpan(span)) {
-            return delegate.getTableHandle(session, tableName);
+            return delegate.getTableHandle(session, tableName, Optional.empty());
+        }
+    }
+
+    @Override
+    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    {
+        Span span = startSpan("getTableHandle", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableHandle(session, tableName, startVersion, endVersion);
+        }
+    }
+
+    @Override
+    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<UpdateKind> updateKind)
+    {
+        Span span = startSpan("getTableHandle", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableHandle(session, tableName, updateKind);
+        }
+    }
+
+    @Override
+    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, Optional<UpdateKind> updateKind)
+    {
+        Span span = startSpan("getTableHandle", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableHandle(session, tableName, startVersion, endVersion, updateKind);
         }
     }
 
@@ -1548,6 +1576,15 @@ public class TracingMetadata
     }
 
     @Override
+    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<UpdateKind> updateKind)
+    {
+        Span span = startSpan("getRedirectionAwareTableHandle", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getRedirectionAwareTableHandle(session, tableName, updateKind);
+        }
+    }
+
+    @Override
     public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName)
     {
         Span span = startSpan("getRedirectionAwareTableHandle", tableName);
@@ -1557,20 +1594,11 @@ public class TracingMetadata
     }
 
     @Override
-    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, Optional<UpdateKind> updateKind)
     {
         Span span = startSpan("getRedirectionAwareTableHandle", tableName);
         try (var _ = scopedSpan(span)) {
-            return delegate.getRedirectionAwareTableHandle(session, tableName, startVersion, endVersion);
-        }
-    }
-
-    @Override
-    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
-    {
-        Span span = startSpan("getTableHandle", tableName);
-        try (var _ = scopedSpan(span)) {
-            return delegate.getTableHandle(session, tableName, startVersion, endVersion);
+            return delegate.getRedirectionAwareTableHandle(session, tableName, startVersion, endVersion, updateKind);
         }
     }
 

@@ -29,7 +29,8 @@ public record CommitTaskData(
         Optional<String> partitionDataJson,
         FileContent content,
         Optional<String> referencedDataFile,
-        Optional<List<Long>> fileSplitOffsets)
+        Optional<List<Long>> fileSplitOffsets,
+        boolean copyOnWriteDelete)
 {
     public CommitTaskData
     {

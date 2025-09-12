@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
+import static io.trino.plugin.iceberg.WriteChangeMode.MOR;
 import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestIcebergAvroConnectorTest
@@ -23,7 +24,7 @@ public class TestIcebergAvroConnectorTest
 {
     public TestIcebergAvroConnectorTest()
     {
-        super(AVRO);
+        super(AVRO, MOR);
     }
 
     @Override
