@@ -802,6 +802,15 @@ public class TracingMetadata
     }
 
     @Override
+    public Optional<List<ColumnHandle>> getColumnHandlesForExecute(Session session, TableExecuteHandle executeHandle, TableHandle tableHandle)
+    {
+        Span span = startSpan("getColumnHandlesForExecute", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getColumnHandlesForExecute(session, executeHandle, tableHandle);
+        }
+    }
+
+    @Override
     public Optional<PartitioningHandle> getUpdateLayout(Session session, TableHandle tableHandle)
     {
         Span span = startSpan("getUpdateLayout", tableHandle);
