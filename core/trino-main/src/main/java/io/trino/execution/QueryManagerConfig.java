@@ -109,6 +109,7 @@ public class QueryManagerConfig
 
     private RetryPolicy retryPolicy = RetryPolicy.NONE;
     private Set<RetryPolicy> allowedRetryPolicies = EnumSet.allOf(RetryPolicy.class);
+    private boolean useOfExchangeForQueryRetryPolicyAllowed = true;
 
     private int queryRetryAttempts = 4;
     private int taskRetryAttemptsPerTask = 4;
@@ -635,6 +636,19 @@ public class QueryManagerConfig
     public boolean isRetryPolicyAllowed()
     {
         return allowedRetryPolicies.contains(retryPolicy);
+    }
+
+    public boolean isUseOfExchangeForQueryRetryPolicyAllowed()
+    {
+        return useOfExchangeForQueryRetryPolicyAllowed;
+    }
+
+    @Config("use-of-exchange-for-query-retry-policy-allowed")
+    @ConfigDescription("Can exchange manager be used for query retries if retry-policy is set to QUERY")
+    public QueryManagerConfig setUseOfExchangeForQueryRetryPolicyAllowed(boolean useOfExchangeForQueryRetryPolicyAllowed)
+    {
+        this.useOfExchangeForQueryRetryPolicyAllowed = useOfExchangeForQueryRetryPolicyAllowed;
+        return this;
     }
 
     @Min(0)

@@ -41,6 +41,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -449,7 +450,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                 directExecutor(),
                 DataSize.of(100, BYTE),
                 RetryPolicy.QUERY,
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())),
+                Optional.of(new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()))),
                 new QueryId("query"),
                 Span.getInvalid(),
                 createRandomExchangeId())) {
@@ -473,7 +474,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                 directExecutor(),
                 DataSize.of(100, BYTE),
                 RetryPolicy.QUERY,
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())),
+                Optional.of(new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()))),
                 new QueryId("query"),
                 Span.getInvalid(),
                 createRandomExchangeId())) {
@@ -694,7 +695,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                 directExecutor(),
                 bufferCapacity,
                 retryPolicy,
-                exchangeManagerRegistry,
+                Optional.of(exchangeManagerRegistry),
                 new QueryId("query"),
                 Span.getInvalid(),
                 createRandomExchangeId());
