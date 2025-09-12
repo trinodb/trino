@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
-import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
@@ -36,7 +35,6 @@ public record IcebergWritableTableHandle(
         String outputPath,
         IcebergFileFormat fileFormat,
         Map<String, String> storageProperties,
-        RetryMode retryMode,
         Map<String, String> fileIoProperties)
         implements ConnectorInsertTableHandle, ConnectorOutputTableHandle
 {
@@ -50,7 +48,6 @@ public record IcebergWritableTableHandle(
         requireNonNull(outputPath, "outputPath is null");
         requireNonNull(fileFormat, "fileFormat is null");
         storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
-        requireNonNull(retryMode, "retryMode is null");
         checkArgument(partitionsSpecsAsJson.containsKey(partitionSpecId), "partitionSpecId missing from partitionSpecs");
         fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
     }
