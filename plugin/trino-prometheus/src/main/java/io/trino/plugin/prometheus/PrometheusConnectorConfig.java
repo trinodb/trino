@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.prometheus;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HttpHeaders;
 import io.airlift.configuration.Config;
@@ -29,6 +30,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 import static java.lang.String.format;
 
@@ -199,7 +201,7 @@ public class PrometheusConnectorConfig
             String kvDelim = "(?<!\\\\):";
             Map<String, String> temp = new HashMap<>();
             if (httpHeaders != null) {
-                for (String kv : httpHeaders.split(headersDelim)) {
+                for (String kv : Splitter.on(Pattern.compile(headersDelim)).split(httpHeaders)) {
                     String key = kv.split(kvDelim, 2)[0].trim();
                     String val = kv.split(kvDelim, 2)[1].trim();
                     temp.put(key, val);
