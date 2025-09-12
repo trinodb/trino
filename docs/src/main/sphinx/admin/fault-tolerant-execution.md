@@ -397,6 +397,11 @@ all worker nodes. In this file, set the `exchange-manager.name` configuration
 property to `filesystem` or `hdfs`, and set additional configuration properties as needed
 for your storage solution.
 
+You can also specify the location of the exchange manager configuration file
+in `config.properties` with the `exchange-manager.config-file` property.
+When this property is set, Trino loads the exchange manager configuration
+from the specified path instead of the default `etc/exchange-manager.properties`.
+
 The following table lists the available configuration properties for
 `exchange-manager.properties`, their default values, and which file systems
 the property may be configured for:
