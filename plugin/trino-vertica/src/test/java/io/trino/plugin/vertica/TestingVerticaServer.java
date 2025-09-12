@@ -39,7 +39,7 @@ public class TestingVerticaServer
         extends JdbcDatabaseContainer<TestingVerticaServer>
 {
     public static final String LATEST_VERSION = "25.3.0-0";
-    public static final String DEFAULT_VERSION = "25.3.0-0";
+    public static final String DEFAULT_VERSION = "11.0.0-0";
 
     public static final Integer PORT = 5433;
 
