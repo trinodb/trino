@@ -13,6 +13,7 @@
  */
 package io.trino.execution;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
@@ -22,12 +23,15 @@ import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import io.trino.operator.RetryPolicy;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
+import java.util.EnumSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -104,6 +108,8 @@ public class QueryManagerConfig
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
 
     private RetryPolicy retryPolicy = RetryPolicy.NONE;
+    private Set<RetryPolicy> allowedRetryPolicies = EnumSet.allOf(RetryPolicy.class);
+
     private int queryRetryAttempts = 4;
     private int taskRetryAttemptsPerTask = 4;
     private Duration retryInitialDelay = new Duration(10, SECONDS);
@@ -611,6 +617,25 @@ public class QueryManagerConfig
     {
         this.retryPolicy = retryPolicy;
         return this;
+    }
+
+    public Set<RetryPolicy> getAllowedRetryPolicies()
+    {
+        return allowedRetryPolicies;
+    }
+
+    @Config("retry-policy.allowed")
+    @ConfigDescription("Retry policies that are allowed to be used")
+    public QueryManagerConfig setAllowedRetryPolicies(Set<RetryPolicy> allowedRetryPolicies)
+    {
+        this.allowedRetryPolicies = ImmutableSet.copyOf(allowedRetryPolicies);
+        return this;
+    }
+
+    @AssertTrue(message = "Selected retry policy not present in retry-policy.allowed list")
+    public boolean isRetryPolicyAllowed()
+    {
+        return allowedRetryPolicies.contains(retryPolicy);
     }
 
     @Min(0)

@@ -794,6 +794,11 @@ public final class SystemSessionProperties
                         "Retry policy",
                         RetryPolicy.class,
                         queryManagerConfig.getRetryPolicy(),
+                        value -> {
+                            if (!queryManagerConfig.getAllowedRetryPolicies().contains(value)) {
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("Retry policy %s not allowed. Must be one of %s", value, queryManagerConfig.getAllowedRetryPolicies()));
+                            }
+                        },
                         true),
                 integerProperty(
                         QUERY_RETRY_ATTEMPTS,
