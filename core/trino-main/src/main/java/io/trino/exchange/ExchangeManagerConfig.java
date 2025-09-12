@@ -13,19 +13,23 @@
  */
 package io.trino.exchange;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
+import io.airlift.configuration.Config;
 
-import static io.airlift.configuration.ConfigBinder.configBinder;
+import java.io.File;
 
-public class ExchangeManagerModule
-        implements Module
+public class ExchangeManagerConfig
 {
-    @Override
-    public void configure(Binder binder)
+    private File exchangeManagerConfigFile = new File("etc/exchange-manager.properties");
+
+    public File getExchangeManagerConfigFile()
     {
-        configBinder(binder).bindConfig(ExchangeManagerConfig.class);
-        binder.bind(ExchangeManagerRegistry.class).in(Scopes.SINGLETON);
+        return exchangeManagerConfigFile;
+    }
+
+    @Config("exchange-manager.config-file")
+    public ExchangeManagerConfig setExchangeManagerConfigFile(String exchangeManagerConfigFile)
+    {
+        this.exchangeManagerConfigFile = new File(exchangeManagerConfigFile);
+        return this;
     }
 }
