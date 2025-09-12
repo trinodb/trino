@@ -273,7 +273,7 @@ public class LocalFileSystem
 
     private static void validateLocalLocation(Location location)
     {
-        checkArgument(location.scheme().equals(Optional.of("local")) || location.scheme().equals(Optional.of("file")), "Only 'local' and 'file' scheme is supported: %s", location);
+        checkArgument(location.scheme().isEmpty() || location.scheme().equals(Optional.of("local")) || location.scheme().equals(Optional.of("file")), "Only 'local' and 'file' scheme is supported: %s", location);
         checkArgument(location.userInfo().isEmpty(), "Local location cannot contain user info: %s", location);
         checkArgument(location.host().isEmpty(), "Local location cannot contain a host: %s", location);
     }
@@ -281,7 +281,7 @@ public class LocalFileSystem
     private Path toPath(Location location)
     {
         // ensure path isn't something like '../../data'
-        Path localPath = rootPath.resolve(location.path()).normalize();
+        Path localPath = Path.of("/").resolve(location.path()).normalize();
         checkArgument(localPath.startsWith(rootPath), "Location references data outside of the root: %s", location);
         return localPath;
     }

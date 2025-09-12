@@ -15,8 +15,14 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import io.minio.messages.Event;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
+import io.trino.filesystem.local.LocalFileSystemFactory;
+import io.trino.filesystem.s3.S3FileSystemConfig;
+import io.trino.filesystem.s3.S3FileSystemFactory;
+import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveType;
@@ -31,6 +37,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -332,7 +339,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     protected void dropTableFromMetastore(String tableName)
     {
         HiveMetastore metastore = new BridgingHiveMetastore(
-                testingThriftHiveMetastoreBuilder()
+                testingThriftHiveMetastoreBuilder(new LocalFileSystemFactory(Path.of("/")))
                         .metastoreClient(hiveMinioDataLake.getHiveMetastoreEndpoint())
                         .build(this::closeAfterClass));
         metastore.dropTable(schemaName, tableName, false);
@@ -343,12 +350,24 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     protected String getMetadataLocation(String tableName)
     {
         HiveMetastore metastore = new BridgingHiveMetastore(
-                testingThriftHiveMetastoreBuilder()
+                testingThriftHiveMetastoreBuilder(createS3FileSystemFactory())
                         .metastoreClient(hiveMinioDataLake.getHiveMetastoreEndpoint())
                         .build(this::closeAfterClass));
         return metastore
                 .getTable(schemaName, tableName).orElseThrow()
                 .getParameters().get("metadata_location");
+    }
+
+    private S3FileSystemFactory createS3FileSystemFactory()
+    {
+        return new S3FileSystemFactory(OpenTelemetry.noop(), new S3FileSystemConfig()
+                .setEndpoint(hiveMinioDataLake.getMinio().getMinioAddress())
+                .setRegion(MINIO_REGION)
+                .setPathStyleAccess(true)
+                .setAwsAccessKey(MINIO_ACCESS_KEY)
+                .setAwsSecretKey(MINIO_SECRET_KEY)
+                .setSupportsExclusiveCreate(true)
+                .setStreamingPartSize(DataSize.valueOf("5.5MB")), new S3FileSystemStats());
     }
 
     @Override

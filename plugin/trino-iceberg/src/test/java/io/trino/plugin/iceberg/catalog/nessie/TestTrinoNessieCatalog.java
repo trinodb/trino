@@ -15,7 +15,7 @@ package io.trino.plugin.iceberg.catalog.nessie;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergMetadata;
@@ -48,8 +48,6 @@ import java.util.Optional;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -94,7 +92,7 @@ public class TestTrinoNessieCatalog
         catch (IOException e) {
             fail(e.getMessage());
         }
-        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS);
+        TrinoFileSystemFactory fileSystemFactory = new LocalFileSystemFactory(Path.of("/"));
         IcebergNessieCatalogConfig icebergNessieCatalogConfig = new IcebergNessieCatalogConfig()
                 .setServerUri(URI.create(nessieContainer.getRestApiUri()));
         NessieApiV2 nessieApi = NessieClientBuilder.createClientBuilderFromSystemSettings()
@@ -118,7 +116,7 @@ public class TestTrinoNessieCatalog
     {
         Path tmpDirectory = createTempDirectory("test_nessie_catalog_default_location_");
         tmpDirectory.toFile().deleteOnExit();
-        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS);
+        TrinoFileSystemFactory fileSystemFactory = new LocalFileSystemFactory(Path.of("/"));
         IcebergNessieCatalogConfig icebergNessieCatalogConfig = new IcebergNessieCatalogConfig()
                 .setDefaultWarehouseDir(tmpDirectory.toAbsolutePath().toString())
                 .setServerUri(URI.create(nessieContainer.getRestApiUri()));

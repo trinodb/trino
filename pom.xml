@@ -1086,6 +1086,13 @@
                 <groupId>io.trino</groupId>
                 <artifactId>trino-filesystem-gcs</artifactId>
                 <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-filesystem-gcs</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>

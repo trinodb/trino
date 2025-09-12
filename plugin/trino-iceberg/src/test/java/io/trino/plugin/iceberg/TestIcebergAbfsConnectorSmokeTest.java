@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
@@ -121,7 +122,7 @@ public class TestIcebergAbfsConnectorSmokeTest
     protected void dropTableFromMetastore(String tableName)
     {
         HiveMetastore metastore = new BridgingHiveMetastore(
-                testingThriftHiveMetastoreBuilder()
+                testingThriftHiveMetastoreBuilder(new LocalFileSystemFactory(Path.of("/")))
                         .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint())
                         .build(this::closeAfterClass));
         metastore.dropTable(schemaName, tableName, false);
@@ -132,7 +133,7 @@ public class TestIcebergAbfsConnectorSmokeTest
     protected String getMetadataLocation(String tableName)
     {
         HiveMetastore metastore = new BridgingHiveMetastore(
-                testingThriftHiveMetastoreBuilder()
+                testingThriftHiveMetastoreBuilder(new LocalFileSystemFactory(Path.of("/")))
                         .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint())
                         .build(this::closeAfterClass));
         return metastore
