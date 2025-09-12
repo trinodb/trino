@@ -113,6 +113,7 @@ public class TeradataClientModule
             case "JWT":
                 String token = teradataConfig.getOidcJwtToken();
                 if (token != null && !token.trim().isEmpty()) {
+                    token = "token=" + token;
                     connectionProperties.put("LOGDATA", token);
                 }
                 break;
