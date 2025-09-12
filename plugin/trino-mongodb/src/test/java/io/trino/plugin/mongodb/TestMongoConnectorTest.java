@@ -1593,7 +1593,7 @@ public class TestMongoConnectorTest
 
         assertThat(query("SELECT parent.child, creator.databaseName, creator.collectionName, creator.id FROM test." + tableName))
                 .matches("SELECT " + expectedValue + ", varchar 'test', varchar 'creators', " + expectedValue)
-                .isNotFullyPushedDown(ProjectNode.class);
+                .isFullyPushedDown();
         assertQuery(
                 "SELECT typeof(creator) FROM test." + tableName,
                 "SELECT 'row(databaseName varchar, collectionName varchar, id " + expectedType + ")'");
@@ -1630,7 +1630,7 @@ public class TestMongoConnectorTest
 
         assertThat(query("SELECT parent.child, parent.creator.databaseName, parent.creator.collectionName, parent.creator.id FROM test." + tableName))
                 .matches("SELECT " + expectedValue + ", varchar 'test', varchar 'creators', " + expectedValue)
-                .isNotFullyPushedDown(ProjectNode.class);
+                .isFullyPushedDown();
         assertQuery(
                 "SELECT typeof(parent.creator) FROM test." + tableName,
                 "SELECT 'row(databaseName varchar, collectionName varchar, id " + expectedType + ")'");
@@ -1666,7 +1666,7 @@ public class TestMongoConnectorTest
         assertThat(query("SELECT parent.id, parent.id.id FROM test." + tableName))
                 .skippingTypesCheck()
                 .matches("SELECT row('test', 'creators', %1$s), %1$s".formatted(expectedValue))
-                .isNotFullyPushedDown(ProjectNode.class);
+                .isFullyPushedDown();
         assertQuery(
                 "SELECT typeof(parent.id), typeof(parent.id.id) FROM test." + tableName,
                 "SELECT 'row(databaseName varchar, collectionName varchar, id %1$s)', '%1$s'".formatted(expectedType));
@@ -1736,12 +1736,12 @@ public class TestMongoConnectorTest
         assertThat(query("SELECT creator.id FROM test." + tableName))
                 .skippingTypesCheck()
                 .matches("VALUES (%1$s), (%1$s)".formatted(expectedValue))
-                .isNotFullyPushedDown(ProjectNode.class);
+                .isFullyPushedDown();
 
         assertThat(query("SELECT creator.databasename, creator.collectionname, creator.id FROM test." + tableName))
                 .skippingTypesCheck()
                 .matches("VALUES ('doc_test', 'doc_creators', %1$s), ('dbref_test', 'dbref_creators', %1$s)".formatted(expectedValue))
-                .isNotFullyPushedDown(ProjectNode.class);
+                .isFullyPushedDown();
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1750,14 +1750,14 @@ public class TestMongoConnectorTest
     {
         return new Document()
                 .append("_id", new ObjectId("5126bbf64aed4daf9e2ab771"))
-                .append("creator", new Document().append("collectionName", "doc_creators").append("id", objectId).append("databaseName", "doc_test"));
+                .append("creator", new Document().append("$ref", "doc_creators").append("$id", objectId).append("$db", "doc_test"));
     }
 
     private static Document documentWithSameDbRefFieldOrder(Object objectId)
     {
         return new Document()
                 .append("_id", new ObjectId("5126bbf64aed4daf9e2ab771"))
-                .append("creator", new Document().append("databaseName", "doc_test").append("collectionName", "doc_creators").append("id", objectId));
+                .append("creator", new Document().append("$db", "doc_test").append("$ref", "doc_creators").append("$id", objectId));
     }
 
     private static Document dbRefDocument(Object objectId)
@@ -1774,9 +1774,9 @@ public class TestMongoConnectorTest
         Document documentWithDifferentDbRefFieldOrder = new Document()
                 .append("_id", new ObjectId("5126bbf64aed4daf9e2ab771"))
                 .append("creator", new Document()
-                        .append("databaseName", "doc_test")
-                        .append("collectionName", "doc_creators")
-                        .append("id", objectId));
+                        .append("$db", "doc_test")
+                        .append("$ref", "doc_creators")
+                        .append("$id", objectId));
         Document dbRefDocument = new Document()
                 .append("_id", new ObjectId("5126bbf64aed4daf9e2ab772"))
                 .append("creator", new DBRef("dbref_test", "dbref_creators", objectId));
@@ -1796,6 +1796,38 @@ public class TestMongoConnectorTest
         assertThat(query("SELECT creator.databasename, creator.collectionname, creator.id FROM test." + tableName))
                 .skippingTypesCheck()
                 .matches("VALUES " + "('doc_test', 'doc_creators', %1$s), ('dbref_test', 'dbref_creators', %1$s)".formatted(expectedValue));
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testDBRefLikeDocumentWithTrinoLikeFieldNames()
+    {
+        String objectId = "test_id";
+        String expectedValue = "varchar 'test_id'";
+        String tableName = "test_dbref_like_document_" + randomNameSuffix();
+
+        // DbRef-like document but with field names as they're used in Trino
+        Document dbRefLikeDocument = new Document()
+                .append("_id", new ObjectId("5126bbf64aed4daf9e2ab771"))
+                .append("creator", new Document()
+                        .append("collectionName", "doc_creators")
+                        .append("id", objectId)
+                        .append("databaseName", "doc_test"));
+        client.getDatabase("test").getCollection(tableName).insertOne(dbRefLikeDocument);
+
+        assertThat(query("SELECT * FROM test." + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES "
+                        + " row(row('doc_creators', " + expectedValue + ", 'doc_test'))");
+
+        assertThat(query("SELECT creator.id FROM test." + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES " + "(%1$s)".formatted(expectedValue));
+
+        assertThat(query("SELECT creator.collectionname, creator.id, creator.databasename FROM test." + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES " + "('doc_creators', %1$s, 'doc_test')".formatted(expectedValue));
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1823,12 +1855,12 @@ public class TestMongoConnectorTest
         assertThat(query("SELECT * FROM test." + tableName + " WHERE creator.id = " + expectedValue))
                 .skippingTypesCheck()
                 .matches("SELECT ROW(varchar 'test', varchar 'creators', " + expectedValue + ")")
-                .isNotFullyPushedDown(FilterNode.class);
+                .isFullyPushedDown();
 
         assertThat(query("SELECT creator.id FROM test." + tableName + " WHERE creator.id = " + expectedValue))
                 .skippingTypesCheck()
                 .matches("SELECT " + expectedValue)
-                .isNotFullyPushedDown(FilterNode.class);
+                .isFullyPushedDown();
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1850,21 +1882,21 @@ public class TestMongoConnectorTest
         Document document = new Document()
                 .append("_id", new ObjectId("5126bbf64aed4daf9e2ab771"))
                 .append("creator", new Document()
-                        .append("databaseName", "test")
-                        .append("collectionName", "creators")
-                        .append("id", objectId));
+                        .append("$db", "test")
+                        .append("$ref", "creators")
+                        .append("$id", objectId));
 
         client.getDatabase("test").getCollection(tableName).insertOne(document);
 
         assertThat(query("SELECT * FROM test." + tableName + " WHERE creator.id = " + expectedValue))
                 .skippingTypesCheck()
                 .matches("SELECT ROW(varchar 'test', varchar 'creators', " + expectedValue + ")")
-                .isNotFullyPushedDown(FilterNode.class);
+                .isFullyPushedDown();
 
         assertThat(query("SELECT creator.id FROM test." + tableName + " WHERE creator.id = " + expectedValue))
                 .skippingTypesCheck()
                 .matches("SELECT " + expectedValue)
-                .isNotFullyPushedDown(FilterNode.class);
+                .isFullyPushedDown();
 
         assertUpdate("DROP TABLE test." + tableName);
     }
