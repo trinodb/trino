@@ -92,7 +92,7 @@ public class RevokeTask
             throw semanticException(NOT_SUPPORTED, statement, "Revoking on branch is not supported");
         }
 
-        CatalogSchemaName schemaName = createCatalogSchemaName(session, statement, Optional.of(statement.getGrantObject().getName()));
+        CatalogSchemaName schemaName = createCatalogSchemaName(session, statement, Optional.of(statement.getGrantObject().getName()), metadata);
 
         if (!metadata.schemaExists(session, schemaName)) {
             throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", schemaName);
@@ -108,7 +108,7 @@ public class RevokeTask
 
     private void executeRevokeOnTable(Session session, Revoke statement)
     {
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getGrantObject().getName());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getGrantObject().getName(), metadata);
         Optional<Identifier> branch = statement.getGrantObject().getBranch();
 
         if (!metadata.isMaterializedView(session, tableName) && !metadata.isView(session, tableName)) {
