@@ -133,7 +133,8 @@ public class JdbcPageSourceProvider
                 tableHandle.getOtherReferencedTables(),
                 tableHandle.getNextSyntheticColumnId(),
                 tableHandle.getAuthorization(),
-                tableHandle.getUpdateAssignments());
+                tableHandle.getUpdateAssignments(),
+                tableHandle.getTableLocation());
         return new MergeJdbcPageSource(
                 createPageSource(session, jdbcSplit, newTableHandle, scanColumns),
                 columnAdaptationsBuilder.build());

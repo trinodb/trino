@@ -219,7 +219,8 @@ public class TestJdbcPageSourceProvider
                 jdbcTableHandle.getOtherReferencedTables(),
                 jdbcTableHandle.getNextSyntheticColumnId(),
                 Optional.empty(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                jdbcTableHandle.getTableLocation());
 
         ConnectorSplitSource splits = jdbcClient.getSplits(SESSION, jdbcTableHandle);
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(1000)).getSplits());

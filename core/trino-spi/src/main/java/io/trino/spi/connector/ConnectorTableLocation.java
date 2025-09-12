@@ -11,30 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc;
+package io.trino.spi.connector;
 
-import io.trino.spi.connector.ConnectorSession;
-import jakarta.annotation.PreDestroy;
-
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.Optional;
 
-@FunctionalInterface
-public interface ConnectionFactory
-        extends AutoCloseable
+/**
+ * Represents a physical table location (i.e. database coordinates or storage location), if applicable.
+ * This is used for lineage tracking and other features that need to know the physical location of the dataset.
+ */
+public interface ConnectorTableLocation
 {
-    Connection openConnection(ConnectorSession session)
-            throws SQLException;
-
-    default Optional<String> getConnectionUrl()
+    default Optional<String> getTableLocation()
     {
         return Optional.empty();
     }
-
-    @Override
-    @PreDestroy
-    default void close()
-            throws SQLException
-    {}
 }
