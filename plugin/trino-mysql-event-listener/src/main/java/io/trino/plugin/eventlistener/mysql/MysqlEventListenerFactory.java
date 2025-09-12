@@ -90,7 +90,12 @@ public class MysqlEventListenerFactory
         @Provides
         public ConnectionFactory createConnectionFactory(MysqlEventListenerConfig config)
         {
-            return () -> new Driver().connect(config.getUrl(), new Properties());
+            return () -> {
+                Properties properties = new Properties();
+                config.getUser().ifPresent(user -> properties.setProperty("user", user));
+                config.getPassword().ifPresent(password -> properties.setProperty("password", password));
+                return new Driver().connect(config.getUrl(), properties);
+            };
         }
 
         @Singleton
