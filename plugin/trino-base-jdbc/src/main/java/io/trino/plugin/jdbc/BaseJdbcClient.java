@@ -1285,7 +1285,7 @@ public abstract class BaseJdbcClient
             }
 
             List<ColumnMetadata> columnMetadata = updatedColumnHandles.build().stream()
-                    .map(JdbcColumnHandle::getColumnMetadata)
+                    .map(column -> toColumnMetadata(column))
                     .collect(toImmutableList());
 
             JdbcOutputTableHandle temporaryTableHandle = createTable(

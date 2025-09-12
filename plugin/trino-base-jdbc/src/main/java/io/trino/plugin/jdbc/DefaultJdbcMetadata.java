@@ -1056,7 +1056,7 @@ public class DefaultJdbcMetadata
         return new ConnectorTableMetadata(
                 schemaTableName,
                 jdbcClient.getColumns(session, schemaTableName, remoteTableName).stream()
-                        .map(JdbcColumnHandle::getColumnMetadata)
+                        .map(column -> jdbcClient.toColumnMetadata(column))
                         .collect(toImmutableList()),
                 jdbcClient.getTableProperties(session, handle),
                 getTableComment(handle));
@@ -1078,11 +1078,11 @@ public class DefaultJdbcMetadata
     {
         if (tableHandle instanceof JdbcProcedureHandle procedureHandle) {
             return procedureHandle.getColumns().orElseThrow().stream()
-                    .collect(toImmutableMap(columnHandle -> columnHandle.getColumnMetadata().getName(), identity()));
+                    .collect(toImmutableMap(columnHandle -> jdbcClient.toColumnMetadata(columnHandle).getName(), identity()));
         }
 
         return getColumns(session, jdbcClient, (JdbcTableHandle) tableHandle).stream()
-                .collect(toImmutableMap(columnHandle -> columnHandle.getColumnMetadata().getName(), identity()));
+                .collect(toImmutableMap(columnHandle -> jdbcClient.toColumnMetadata(columnHandle).getName(), identity()));
     }
 
     @Override
@@ -1110,7 +1110,7 @@ public class DefaultJdbcMetadata
         return getColumnHandles(session, tableHandle).values()
                 .stream()
                 .map(JdbcColumnHandle.class::cast)
-                .map(JdbcColumnHandle::getColumnMetadata)
+                .map(column -> jdbcClient.toColumnMetadata(column))
                 .collect(toImmutableList());
     }
 
@@ -1140,7 +1140,7 @@ public class DefaultJdbcMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        return ((JdbcColumnHandle) columnHandle).getColumnMetadata();
+        return jdbcClient.toColumnMetadata((JdbcColumnHandle) columnHandle);
     }
 
     @Override

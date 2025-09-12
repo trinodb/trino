@@ -1096,7 +1096,7 @@ public class TestCachingJdbcClient
         client.addColumn(SESSION, tableHandle, columnMetadata, new ColumnPosition.Last());
         return getColumns(SESSION, client, tableHandle)
                 .stream()
-                .filter(jdbcColumnHandle -> jdbcColumnHandle.getColumnMetadata().equals(columnMetadata))
+                .filter(jdbcColumnHandle -> jdbcClient.toColumnMetadata(jdbcColumnHandle).equals(columnMetadata))
                 .collect(onlyElement());
     }
 
