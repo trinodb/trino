@@ -124,7 +124,7 @@ class TestIncrementalRefreshVisitor
         return new ProjectNode(
                 new PlanNodeId("projectNode"),
                 filterNode,
-                Assignments.of());
+                Assignments.empty());
     }
 
     private TableScanNode getTableScanNode()

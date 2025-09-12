@@ -178,7 +178,7 @@ public class PushProjectionThroughExchange
 
     private static boolean isSymbolToSymbolProjection(ProjectNode project)
     {
-        return project.getAssignments().getExpressions().stream().allMatch(Reference.class::isInstance);
+        return project.getAssignments().expressions().stream().allMatch(Reference.class::isInstance);
     }
 
     private static Map<Symbol, Symbol> mapExchangeOutputToInput(ExchangeNode exchange, int sourceIndex)
