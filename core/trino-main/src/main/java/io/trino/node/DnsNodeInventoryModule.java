@@ -30,7 +30,6 @@ public class DnsNodeInventoryModule
         boolean coordinator = buildConfigObject(ServerConfig.class).isCoordinator();
         if (coordinator) {
             jaxrsBinder(binder).bind(AnnounceNodeResource.class);
-
             configBinder(binder).bindConfig(DnsNodeInventoryConfig.class);
             binder.bind(DnsNodeInventory.class).in(Scopes.SINGLETON);
             binder.bind(NodeInventory.class).to(DnsNodeInventory.class).in(Scopes.SINGLETON);
