@@ -259,6 +259,32 @@ public abstract class BaseSharedMetastoreTest
         assertUpdate("DROP TABLE " + icebergTableName);
     }
 
+    @Test
+    public void testCreateTableIfNotExists()
+    {
+        String tableName = "test_shared_metastore_create_table";
+
+        assertQuerySucceeds(format("CREATE TABLE iceberg.%s.%s (v bigint)", testSchema, tableName));
+        assertQuerySucceeds(format("CREATE TABLE IF NOT EXISTS iceberg.%s.%s (v bigint)", testSchema, tableName));
+        assertQuerySucceeds(format("CREATE TABLE IF NOT EXISTS hive_with_redirections.%s.%s (v bigint)", testSchema, tableName));
+
+        assertQuerySucceeds(format("DROP TABLE IF EXISTS iceberg.%s.%s", testSchema, tableName));
+    }
+
+    @Test
+    public void testRedirectTruncateTable()
+    {
+        String tableName = "test_shared_metastore_truncate_table";
+
+        assertQuerySucceeds(format("CREATE TABLE iceberg.%s.%s AS select 1 as v", testSchema, tableName));
+
+        assertQuery(format("SELECT * FROM %s.%s", testSchema, tableName), "SELECT 1");
+        assertQuerySucceeds(format("TRUNCATE TABLE hive_with_redirections.%s.%s", testSchema, tableName));
+        assertQueryReturnsEmptyResult(format("SELECT * FROM iceberg.%s.%s", testSchema, tableName));
+
+        assertQuerySucceeds(format("DROP TABLE IF EXISTS iceberg.%s.%s", testSchema, tableName));
+    }
+
     private long getLatestSnapshotId(String schema)
     {
         return (long) computeScalar(format("SELECT snapshot_id FROM iceberg.%s.\"nation_test$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", schema));

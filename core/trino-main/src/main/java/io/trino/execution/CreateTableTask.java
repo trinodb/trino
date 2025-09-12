@@ -137,7 +137,7 @@ public class CreateTableTask
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
         Optional<TableHandle> tableHandle;
         try {
-            tableHandle = plannerContext.getMetadata().getTableHandle(session, tableName);
+            tableHandle = plannerContext.getMetadata().getRedirectionAwareTableHandle(session, tableName).tableHandle();
         }
         catch (TrinoException e) {
             if (e.getErrorCode().equals(UNSUPPORTED_TABLE_TYPE.toErrorCode())) {

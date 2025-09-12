@@ -70,7 +70,8 @@ public class TruncateTableTask
             throw semanticException(NOT_SUPPORTED, statement, "Cannot truncate a view");
         }
 
-        TableHandle tableHandle = metadata.getTableHandle(session, tableName)
+        TableHandle tableHandle = metadata.getRedirectionAwareTableHandle(session, tableName)
+                .tableHandle()
                 .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName));
 
         accessControl.checkCanTruncateTable(session.toSecurityContext(), tableName);
