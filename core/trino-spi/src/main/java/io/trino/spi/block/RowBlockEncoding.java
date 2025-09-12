@@ -17,6 +17,7 @@ package io.trino.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
+import java.util.List;
 import java.util.Optional;
 
 public class RowBlockEncoding
@@ -43,13 +44,13 @@ public class RowBlockEncoding
 
         sliceOutput.appendInt(rowBlock.getPositionCount());
 
-        Block[] rawFieldBlocks = rowBlock.getRawFieldBlocks();
-        sliceOutput.appendInt(rawFieldBlocks.length);
-        for (Block rawFieldBlock : rawFieldBlocks) {
-            blockEncodingSerde.writeBlock(sliceOutput, rawFieldBlock);
+        List<Block> fieldBlocks = rowBlock.getFieldBlocks();
+        sliceOutput.appendInt(fieldBlocks.size());
+        for (Block fieldBlock : fieldBlocks) {
+            blockEncodingSerde.writeBlock(sliceOutput, fieldBlock);
         }
 
-        EncoderUtil.encodeNullsAsBits(sliceOutput, rowBlock.getRawRowIsNull(), 0, rowBlock.getPositionCount());
+        EncoderUtil.encodeNullsAsBits(sliceOutput, rowBlock.getRawRowIsNull(), rowBlock.getOffsetBase(), rowBlock.getPositionCount());
     }
 
     @Override
