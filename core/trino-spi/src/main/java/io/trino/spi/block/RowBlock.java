@@ -249,13 +249,13 @@ public final class RowBlock
     {
         boolean[] newRowIsNull;
         if (rowIsNull != null) {
-            newRowIsNull = Arrays.copyOf(rowIsNull, positionCount + 1);
+            newRowIsNull = Arrays.copyOf(rowIsNull, startOffset + positionCount + 1);
         }
         else {
-            newRowIsNull = new boolean[positionCount + 1];
+            newRowIsNull = new boolean[startOffset + positionCount + 1];
         }
         // mark the (new) last element as null
-        newRowIsNull[positionCount] = true;
+        newRowIsNull[startOffset + positionCount] = true;
 
         Block[] newBlocks = new Block[fieldBlocks.length];
         for (int i = 0; i < fieldBlocks.length; i++) {
