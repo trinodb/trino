@@ -269,6 +269,12 @@ public class AllowAllAccessControl
     public void checkCanRevokeTableBranchPrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, String branchName, TrinoPrincipal revokee, boolean grantOption) {}
 
     @Override
+    public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnSchema> columns)
+    {
+        return ImmutableList.of();
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         return ImmutableList.of();

@@ -1275,12 +1275,14 @@ class StatementAnalyzer
                     tableName,
                     procedureName);
 
-            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
+            List<ColumnSchema> columns = tableMetadata.columns().stream().map(ColumnMetadata::getColumnSchema).collect(toImmutableList());
+
+            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName, columns).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, node, "ALTER TABLE EXECUTE is not supported for table with row filter");
             }
 
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-            if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableMetadata.columns().stream().map(ColumnMetadata::getColumnSchema).collect(toImmutableList())).isEmpty()) {
+            if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, columns).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, node, "ALTER TABLE EXECUTE is not supported for table with column masks");
             }
 
@@ -2421,7 +2423,7 @@ class StatementAnalyzer
                 });
             }
 
-            accessControl.getRowFilters(session.toSecurityContext(), name)
+            accessControl.getRowFilters(session.toSecurityContext(), name, columnSchemas)
                     .forEach(filter -> analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter));
         }
 
@@ -3512,7 +3514,7 @@ class StatementAnalyzer
                     .collect(toImmutableSet());
             accessControl.checkCanUpdateTableColumns(session.toSecurityContext(), tableName, assignmentTargets);
 
-            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
+            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName, tableSchema.columns()).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, update, "Updating a table with a row filter is not supported");
             }
 
@@ -3665,7 +3667,7 @@ class StatementAnalyzer
                 accessControl.checkCanUpdateTableColumns(session.toSecurityContext(), tableName, allUpdateColumnNames);
             }
 
-            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
+            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName, tableSchema.columns()).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, merge, "Cannot merge into a table with row filters");
             }
             Scope mergeScope = createScope(scope);
