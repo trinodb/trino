@@ -55,6 +55,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -77,6 +78,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.execution.scheduler.Exchanges.getAllSourceHandles;
 import static io.trino.operator.RetryPolicy.QUERY;
+import static io.trino.spi.StandardErrorCode.EXCHANGE_MANAGER_NOT_CONFIGURED;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.lang.Math.max;
@@ -124,7 +126,7 @@ public class DeduplicatingDirectExchangeBuffer
             Executor executor,
             DataSize bufferCapacity,
             RetryPolicy retryPolicy,
-            ExchangeManagerRegistry exchangeManagerRegistry,
+            Optional<ExchangeManagerRegistry> exchangeManagerRegistry,
             QueryId queryId,
             Span parentSpan,
             ExchangeId exchangeId)
@@ -431,7 +433,7 @@ public class DeduplicatingDirectExchangeBuffer
     private static class PageBuffer
             implements Closeable
     {
-        private final ExchangeManagerRegistry exchangeManagerRegistry;
+        private final Optional<ExchangeManagerRegistry> exchangeManagerRegistry;
         private final QueryId queryId;
         private final Span parentSpan;
         private final ExchangeId exchangeId;
@@ -467,7 +469,7 @@ public class DeduplicatingDirectExchangeBuffer
         private boolean closed;
 
         private PageBuffer(
-                ExchangeManagerRegistry exchangeManagerRegistry,
+                Optional<ExchangeManagerRegistry> exchangeManagerRegistry,
                 QueryId queryId,
                 Span parentSpan,
                 ExchangeId exchangeId,
@@ -502,12 +504,16 @@ public class DeduplicatingDirectExchangeBuffer
             }
 
             if (exchangeSink == null) {
+                if (exchangeManagerRegistry.isEmpty()) {
+                    throw new TrinoException(EXCHANGE_MANAGER_NOT_CONFIGURED, "Use of exchange manager for QUERY retry-policy is not allowed");
+                }
+
                 verify(exchangeManager == null, "exchangeManager is not expected to be initialized");
                 verify(exchange == null, "exchange is not expected to be initialized");
                 verify(sinkHandle == null, "sinkHandle is not expected to be initialized");
                 verify(writeBuffer == null, "writeBuffer is not expected to be initialized");
 
-                exchangeManager = exchangeManagerRegistry.getExchangeManager();
+                exchangeManager = exchangeManagerRegistry.get().getExchangeManager();
                 exchange = exchangeManager.createExchange(new ExchangeContextInstance(queryId, exchangeId, parentSpan), 1, true);
 
                 sinkHandle = exchange.addSink(0);

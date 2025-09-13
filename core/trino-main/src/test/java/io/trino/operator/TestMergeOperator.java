@@ -28,6 +28,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.trino.FeaturesConfig;
 import io.trino.exchange.DirectExchangeInput;
 import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerdeFactory;
@@ -98,6 +99,7 @@ public class TestMergeOperator
                 new NodeInfo("test"),
                 new FeaturesConfig(),
                 new DirectExchangeClientConfig(),
+                new QueryManagerConfig(),
                 httpClient,
                 new HttpClientConfig(),
                 executor,

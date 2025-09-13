@@ -24,6 +24,7 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.FeaturesConfig;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskFailureListener;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.QueryId;
@@ -32,6 +33,7 @@ import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -55,6 +57,7 @@ public class DirectExchangeClientFactory
     private final boolean acknowledgePages;
     private final ScheduledExecutorService scheduler;
     private final ThreadPoolExecutorMBean executorMBean;
+    private final boolean useOfExchangeForQueryRetryPolicyAllowed;
     private final ExecutorService pageBufferClientCallbackExecutor;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
 
@@ -63,6 +66,7 @@ public class DirectExchangeClientFactory
             NodeInfo nodeInfo,
             FeaturesConfig featuresConfig,
             DirectExchangeClientConfig config,
+            QueryManagerConfig queryManagerConfig,
             @ForExchange HttpClient httpClient,
             @ForExchange HttpClientConfig httpClientConfig,
             @ForExchange ScheduledExecutorService scheduler,
@@ -79,6 +83,7 @@ public class DirectExchangeClientFactory
                 config.getMaxErrorDuration(),
                 config.isAcknowledgePages(),
                 config.getPageBufferClientMaxCallbackThreads(),
+                queryManagerConfig.isUseOfExchangeForQueryRetryPolicyAllowed(),
                 httpClient,
                 scheduler,
                 exchangeManagerRegistry);
@@ -95,6 +100,7 @@ public class DirectExchangeClientFactory
             Duration maxErrorDuration,
             boolean acknowledgePages,
             int pageBufferClientMaxCallbackThreads,
+            boolean useOfExchangeForQueryRetryPolicyAllowed,
             HttpClient httpClient,
             ScheduledExecutorService scheduler,
             ExchangeManagerRegistry exchangeManagerRegistry)
@@ -118,6 +124,7 @@ public class DirectExchangeClientFactory
 
         this.pageBufferClientCallbackExecutor = newFixedThreadPool(pageBufferClientMaxCallbackThreads, daemonThreadsNamed("page-buffer-client-callback-%s"));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) pageBufferClientCallbackExecutor);
+        this.useOfExchangeForQueryRetryPolicyAllowed = useOfExchangeForQueryRetryPolicyAllowed;
 
         checkArgument(maxBufferedBytes.toBytes() > 0, "maxBufferSize must be at least 1 byte: %s", maxBufferedBytes);
         checkArgument(maxResponseSize.toBytes() > 0, "maxResponseSize must be at least 1 byte: %s", maxResponseSize);
@@ -150,7 +157,14 @@ public class DirectExchangeClientFactory
         @SuppressWarnings("resource")
         DirectExchangeBuffer buffer = switch (retryPolicy) {
             case TASK -> throw new UnsupportedOperationException();
-            case QUERY -> new DeduplicatingDirectExchangeBuffer(scheduler, deduplicationBufferSize, retryPolicy, exchangeManagerRegistry, queryId, parentSpan, exchangeId);
+            case QUERY -> new DeduplicatingDirectExchangeBuffer(
+                    scheduler,
+                    deduplicationBufferSize,
+                    retryPolicy,
+                    useOfExchangeForQueryRetryPolicyAllowed ? Optional.of(exchangeManagerRegistry) : Optional.empty(),
+                    queryId,
+                    parentSpan,
+                    exchangeId);
             case NONE -> new StreamingDirectExchangeBuffer(scheduler, maxBufferedBytes);
         };
 
