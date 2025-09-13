@@ -256,7 +256,7 @@
 
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>oracle-xe</artifactId>
+            <artifactId>oracle-free</artifactId>
             <scope>test</scope>
         </dependency>
 

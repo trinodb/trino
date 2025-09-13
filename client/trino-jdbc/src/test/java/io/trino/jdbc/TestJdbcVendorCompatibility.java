@@ -24,8 +24,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
-import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.oracle.OracleContainer;
 
 import java.io.Closeable;
 import java.sql.Connection;
@@ -539,7 +539,7 @@ public class TestJdbcVendorCompatibility
 
         OracleReferenceDriver()
         {
-            oracleServer = new OracleContainer("gvenzl/oracle-xe:11.2.0.2-full")
+            oracleServer = new OracleContainer("gvenzl/oracle-free:23.9-slim")
                     .usingSid();
             oracleServer.start();
         }

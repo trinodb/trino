@@ -18,7 +18,7 @@ like Oracle and Hive, or different Oracle database instances.
 
 To connect to Oracle, you need:
 
-- Oracle 19 or higher.
+- Oracle 23 or higher.
 - Network access from the Trino coordinator and workers to Oracle.
   Port 1521 is the default port.
 
