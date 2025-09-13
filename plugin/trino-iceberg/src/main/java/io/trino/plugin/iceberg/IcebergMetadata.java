@@ -176,7 +176,6 @@ import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.SortField;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StatisticsFile;
-import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
@@ -200,6 +199,7 @@ import org.apache.iceberg.types.Types.IntegerType;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.types.Types.StructType;
+import org.apache.iceberg.util.StructLikeWrapper;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -217,6 +217,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -2010,17 +2011,23 @@ public class IcebergMetadata
         if (manifests.isEmpty()) {
             return;
         }
-        if (manifests.size() == 1 && manifests.getFirst().length() < icebergTable.operations().current().propertyAsLong(MANIFEST_TARGET_SIZE_BYTES, MANIFEST_TARGET_SIZE_BYTES_DEFAULT)) {
+        long manifestTargetSizeBytes = icebergTable.operations().current().propertyAsLong(MANIFEST_TARGET_SIZE_BYTES, MANIFEST_TARGET_SIZE_BYTES_DEFAULT);
+        if (manifests.size() == 1 && manifests.getFirst().length() < manifestTargetSizeBytes) {
             return;
         }
+        long totalManifestsSize = manifests.stream().mapToLong(ManifestFile::length).sum();
+        // Having too many open manifest writers can potentially cause OOM on the coordinator
+        long targetManifestClusters = Math.min(((totalManifestsSize + manifestTargetSizeBytes - 1) / manifestTargetSizeBytes), 100);
 
         beginTransaction(icebergTable);
         RewriteManifests rewriteManifests = transaction.rewriteManifests();
+        Types.StructType structType = icebergTable.spec().partitionType();
         rewriteManifests
                 .clusterBy(file -> {
-                    // Use the first partition field as the clustering key
-                    StructLike partition = file.partition();
-                    return partition.size() > 1 ? Optional.ofNullable(partition.get(0, Object.class)) : partition;
+                    // Cluster by partitions for better locality when reading data files
+                    StructLikeWrapper partitionWrapper = StructLikeWrapper.forType(structType).set(file.partition());
+                    // Limit the number of clustering buckets to avoid creating too many small manifest files
+                    return Objects.hash(partitionWrapper) % targetManifestClusters;
                 })
                 .scanManifestsWith(icebergScanExecutor)
                 .commit();
