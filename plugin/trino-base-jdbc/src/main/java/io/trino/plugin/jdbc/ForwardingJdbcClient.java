@@ -535,4 +535,10 @@ public abstract class ForwardingJdbcClient
     {
         return delegate().getPrimaryKeys(session, remoteTableName);
     }
+
+    @Override
+    public ColumnMetadata toColumnMetadata(JdbcColumnHandle columnHandle)
+    {
+        return delegate().toColumnMetadata(columnHandle);
+    }
 }

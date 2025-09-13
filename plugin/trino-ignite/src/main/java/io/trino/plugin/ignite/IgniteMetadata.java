@@ -199,7 +199,7 @@ public class IgniteMetadata
     {
         return getColumns(session, igniteClient, handle).stream()
                 .filter(column -> !IGNITE_DUMMY_ID.equalsIgnoreCase(column.getColumnName()))
-                .map(JdbcColumnHandle::getColumnMetadata)
+                .map(column -> igniteClient.toColumnMetadata(column))
                 .collect(toImmutableList());
     }
 
