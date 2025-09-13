@@ -126,11 +126,9 @@ public class RowBlockBuilder
             return;
         }
 
-        Block[] rawFieldBlocks = rowBlock.getRawFieldBlocks();
-        int startOffset = rowBlock.getOffsetBase();
-
+        List<Block> fieldBlocks = rowBlock.getFieldBlocks();
         for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
-            appendToField(rawFieldBlocks[fieldId], startOffset + position, fieldBlockBuilders[fieldId]);
+            appendToField(fieldBlocks.get(fieldId), position, fieldBlockBuilders[fieldId]);
         }
         entryAdded(false);
     }
@@ -164,17 +162,15 @@ public class RowBlockBuilder
         RowBlock rowBlock = (RowBlock) block;
         ensureCapacity(positionCount + length);
 
-        Block[] rawFieldBlocks = rowBlock.getRawFieldBlocks();
-        int startOffset = rowBlock.getOffsetBase();
-
+        List<Block> fieldBlocks = rowBlock.getFieldBlocks();
         for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
-            appendRangeToField(rawFieldBlocks[fieldId], startOffset + offset, length, fieldBlockBuilders[fieldId]);
+            appendRangeToField(fieldBlocks.get(fieldId), offset, length, fieldBlockBuilders[fieldId]);
         }
 
         boolean[] rawRowIsNull = rowBlock.getRawRowIsNull();
         if (rawRowIsNull != null) {
             for (int i = 0; i < length; i++) {
-                if (rawRowIsNull[startOffset + offset + i]) {
+                if (rawRowIsNull[offset + i]) {
                     rowIsNull[positionCount + i] = true;
                     hasNullRow = true;
                 }
@@ -220,11 +216,9 @@ public class RowBlockBuilder
         RowBlock rowBlock = (RowBlock) block;
         ensureCapacity(positionCount + count);
 
-        Block[] rawFieldBlocks = rowBlock.getRawFieldBlocks();
-        int startOffset = rowBlock.getOffsetBase();
-
+        List<Block> fieldBlocks = rowBlock.getFieldBlocks();
         for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
-            appendRepeatedToField(rawFieldBlocks[fieldId], startOffset + position, count, fieldBlockBuilders[fieldId]);
+            appendRepeatedToField(fieldBlocks.get(fieldId), position, count, fieldBlockBuilders[fieldId]);
         }
 
         if (rowBlock.isNull(position)) {
@@ -271,29 +265,15 @@ public class RowBlockBuilder
         RowBlock rowBlock = (RowBlock) block;
         ensureCapacity(positionCount + length);
 
-        Block[] rawFieldBlocks = rowBlock.getRawFieldBlocks();
-        int startOffset = rowBlock.getOffsetBase();
-
-        if (startOffset == 0) {
-            for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
-                appendPositionsToField(rawFieldBlocks[fieldId], positions, 0, length, fieldBlockBuilders[fieldId]);
-            }
-        }
-        else {
-            int[] adjustedPositions = new int[length];
-            for (int i = offset; i < offset + length; i++) {
-                adjustedPositions[i - offset] = startOffset + positions[i];
-            }
-
-            for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
-                appendPositionsToField(rawFieldBlocks[fieldId], adjustedPositions, 0, length, fieldBlockBuilders[fieldId]);
-            }
+        List<Block> fieldBlocks = rowBlock.getFieldBlocks();
+        for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
+            appendPositionsToField(fieldBlocks.get(fieldId), positions, offset, length, fieldBlockBuilders[fieldId]);
         }
 
         boolean[] rawRowIsNull = rowBlock.getRawRowIsNull();
         if (rawRowIsNull != null) {
             for (int i = 0; i < length; i++) {
-                if (rawRowIsNull[startOffset + positions[offset + i]]) {
+                if (rawRowIsNull[positions[offset + i]]) {
                     rowIsNull[positionCount + i] = true;
                     hasNullRow = true;
                 }
@@ -397,7 +377,7 @@ public class RowBlockBuilder
         for (int i = 0; i < fieldBlockBuilders.length; i++) {
             fieldBlocks[i] = fieldBlockBuilders[i].build();
         }
-        return createRowBlockInternal(0, positionCount, hasNullRow ? rowIsNull : null, fieldBlocks);
+        return createRowBlockInternal(positionCount, hasNullRow ? rowIsNull : null, fieldBlocks);
     }
 
     private void ensureCapacity(int capacity)
@@ -433,7 +413,7 @@ public class RowBlockBuilder
             fieldBlocks[i] = fieldBlockBuilders[i].newBlockBuilderLike(null).appendNull().build();
         }
 
-        RowBlock nullRowBlock = createRowBlockInternal(0, 1, new boolean[] {true}, fieldBlocks);
+        RowBlock nullRowBlock = createRowBlockInternal(1, new boolean[] {true}, fieldBlocks);
         return RunLengthEncodedBlock.create(nullRowBlock, length);
     }
 }
