@@ -295,8 +295,7 @@ public class SheetsClient
             throws IOException
     {
         GoogleCredential credential = GoogleCredential.fromStream(inputStream).createScoped(SCOPES);
-        delegatedUserEmail.ifPresent(credential::createDelegated);
-        return credential;
+        return delegatedUserEmail.map(credential::createDelegated).orElse(credential);
     }
 
     private List<List<Object>> readAllValuesFromSheetExpression(String sheetExpression)
