@@ -43,7 +43,6 @@ public class ExchangeManagerRegistry
 {
     private static final Logger log = Logger.get(ExchangeManagerRegistry.class);
 
-    private static final File CONFIG_FILE = new File("etc/exchange-manager.properties");
     private static final String EXCHANGE_MANAGER_NAME_PROPERTY = "exchange-manager.name";
 
     private final OpenTelemetry openTelemetry;
@@ -52,16 +51,19 @@ public class ExchangeManagerRegistry
 
     private volatile ExchangeManager exchangeManager;
     private final SecretsResolver secretsResolver;
+    private final ExchangeManagerConfig config;
 
     @Inject
     public ExchangeManagerRegistry(
             OpenTelemetry openTelemetry,
             Tracer tracer,
-            SecretsResolver secretsResolver)
+            SecretsResolver secretsResolver,
+            ExchangeManagerConfig config)
     {
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
+        this.config = requireNonNull(config, "config is null");
     }
 
     public void addExchangeManagerFactory(ExchangeManagerFactory factory)
@@ -74,13 +76,14 @@ public class ExchangeManagerRegistry
 
     public void loadExchangeManager()
     {
-        if (!CONFIG_FILE.exists()) {
+        File configFile = config.getExchangeManagerConfigFile();
+        if (!configFile.exists()) {
             return;
         }
 
-        Map<String, String> properties = loadProperties(CONFIG_FILE);
+        Map<String, String> properties = loadProperties(configFile);
         String name = properties.remove(EXCHANGE_MANAGER_NAME_PROPERTY);
-        checkArgument(!isNullOrEmpty(name), "Exchange manager configuration %s does not contain %s", CONFIG_FILE, EXCHANGE_MANAGER_NAME_PROPERTY);
+        checkArgument(!isNullOrEmpty(name), "Exchange manager configuration %s does not contain %s", configFile, EXCHANGE_MANAGER_NAME_PROPERTY);
 
         loadExchangeManager(name, properties);
     }
