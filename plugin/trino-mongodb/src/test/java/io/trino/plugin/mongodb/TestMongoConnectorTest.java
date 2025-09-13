@@ -1876,13 +1876,13 @@ public class TestMongoConnectorTest
     @Override
     protected OptionalInt maxTableNameLength()
     {
-        return OptionalInt.of(120 - "tpch.".length());
+        return OptionalInt.of(255 - "tpch.".length());
     }
 
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching(".*fully qualified namespace .* is too long.*|Qualified identifier name must be shorter than or equal to '120'.*");
+        assertThat(e).hasMessageMatching("(?i).*fully qualified namespace .* is too long.*|Qualified identifier name must be shorter than or equal to '120'.*");
     }
 
     @Override

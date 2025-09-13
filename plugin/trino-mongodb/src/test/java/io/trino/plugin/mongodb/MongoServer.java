@@ -25,7 +25,7 @@ public class MongoServer
 
     public MongoServer()
     {
-        this("4.2.0");
+        this("6.0.14");
     }
 
     public MongoServer(String mongoVersion)
@@ -33,13 +33,66 @@ public class MongoServer
         this.dockerContainer = new MongoDBContainer("mongo:" + mongoVersion)
                 .withStartupAttempts(3)
                 .withEnv("MONGO_INITDB_DATABASE", "tpch")
-                .withCommand("--bind_ip 0.0.0.0");
+                .withCommand("--bind_ip 0.0.0.0 --replSet rs0");
         this.dockerContainer.start();
+
+        // MongoDB 8.x requires manual replica set initialization
+        if (mongoVersion.startsWith("8.")) {
+            initializeReplicaSet();
+        }
     }
 
     public ConnectionString getConnectionString()
     {
         return new ConnectionString(dockerContainer.getReplicaSetUrl());
+    }
+
+    private void initializeReplicaSet()
+    {
+        try {
+            // Wait for MongoDB to be ready
+            waitForMongoToBeReady();
+
+            // Initialize replica set
+            try {
+                this.dockerContainer.execInContainer("mongosh", "--eval", "rs.initiate()");
+            }
+            catch (Exception e) {
+                this.dockerContainer.execInContainer("mongo", "--eval", "rs.initiate()");
+            }
+
+            // Wait a bit more for replica set to be ready
+            Thread.sleep(2000);
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to initialize MongoDB replica set", e);
+        }
+    }
+
+    private void waitForMongoToBeReady()
+    {
+        int maxAttempts = 30;
+        int attempt = 0;
+
+        while (attempt < maxAttempts) {
+            try {
+                this.dockerContainer.execInContainer("mongosh", "--eval", "db.runCommand('ping')");
+                return; // MongoDB is ready
+            }
+            catch (Exception e) {
+                attempt++;
+                if (attempt >= maxAttempts) {
+                    throw new RuntimeException("MongoDB did not become ready after " + maxAttempts + " attempts", e);
+                }
+                try {
+                    Thread.sleep(1000);
+                }
+                catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted while waiting for MongoDB", ie);
+                }
+            }
+        }
     }
 
     @Override

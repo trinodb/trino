@@ -15,14 +15,14 @@ package io.trino.plugin.mongodb;
 
 import io.trino.testing.QueryRunner;
 
-public class TestMongo4LatestConnectorSmokeTest
+public class TestMongoLatestConnectorSmokeTest
         extends BaseMongoConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        MongoServer server = closeAfterClass(new MongoServer("4.4.1"));
+        MongoServer server = closeAfterClass(new MongoServer("8.0.4"));
         return MongoQueryRunner.builder(server)
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
