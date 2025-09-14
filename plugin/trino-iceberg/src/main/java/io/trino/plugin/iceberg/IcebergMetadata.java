@@ -1846,9 +1846,14 @@ public class IcebergMetadata
 
         beginTransaction(icebergTable);
 
+        // Get table partitioning for partition-aware fan-out during OPTIMIZE
+        Optional<IcebergTablePartitioning> tablePartitioning = getTablePartitioning(session, icebergTable)
+                .map(IcebergTablePartitioning::activate); // Activate partitioning for OPTIMIZE
+
         return new BeginTableExecuteResult<>(
                 executeHandle,
-                table.forOptimize(true, optimizeHandle.maxScannedFileSize()));
+                table.forOptimize(true, optimizeHandle.maxScannedFileSize())
+                        .withTablePartitioning(tablePartitioning));
     }
 
     @Override
