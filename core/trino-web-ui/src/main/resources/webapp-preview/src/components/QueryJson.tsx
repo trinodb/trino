@@ -13,7 +13,7 @@
  */
 import { useParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { Alert, Box, CircularProgress, Grid2 as Grid } from '@mui/material'
+import { Alert, Box, CircularProgress, Grid } from '@mui/material'
 import { Texts } from '../constant.ts'
 import { queryStatusApi, QueryStatusInfo } from '../api/webapp/api.ts'
 import { ApiResponse } from '../api/base.ts'

@@ -35,7 +35,7 @@ $ npm install
 ```
 $ npm run dev
 
-VITE v6.0.11  ready in 100 ms
+VITE v7.1.7  ready in 100 ms
 
 ➜  Local:   http://localhost:5173/ui/preview
 ➜  Network: use --host to expose

@@ -13,7 +13,7 @@
  */
 import { useParams } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Box, CircularProgress, Grid2 as Grid } from '@mui/material'
+import { Alert, Box, CircularProgress, Grid } from '@mui/material'
 import { ReactFlow, type Edge, type Node, useNodesState, useEdgesState } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { queryStatusApi, QueryStatusInfo } from '../api/webapp/api.ts'

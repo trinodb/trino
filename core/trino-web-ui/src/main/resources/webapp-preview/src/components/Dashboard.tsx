@@ -13,7 +13,7 @@
  */
 import { useEffect, useState } from 'react'
 import Typography from '@mui/material/Typography'
-import { Box, Divider, Grid2 as Grid } from '@mui/material'
+import { Box, Divider, Grid } from '@mui/material'
 import { MetricCard } from './MetricCard.tsx'
 import { QueryList } from './QueryList.tsx'
 import { useSnackbar } from './SnackbarContext.ts'
