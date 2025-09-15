@@ -146,6 +146,7 @@ import static io.trino.plugin.hive.HiveStorageFormat.ESRI;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveStorageFormat.REGEX;
+import static io.trino.plugin.hive.HiveStorageFormat.SEQUENCEFILE_PROTOBUF;
 import static io.trino.plugin.hive.HiveTableProperties.AUTO_PURGE;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
@@ -5687,6 +5688,7 @@ public abstract class BaseHiveConnectorTest
             case RCBINARY -> false;
             case RCTEXT -> false;
             case SEQUENCEFILE -> false;
+            case SEQUENCEFILE_PROTOBUF -> false;
             case OPENX_JSON -> false;
             case TEXTFILE -> false;
             case CSV -> false;
@@ -9501,6 +9503,10 @@ public abstract class BaseHiveConnectorTest
             }
             if (hiveStorageFormat == ESRI) {
                 // ESRI format is read-only
+                continue;
+            }
+            if (hiveStorageFormat == SEQUENCEFILE_PROTOBUF) {
+                // SEQUENCEFILE_PROTOBUF format is read-only
                 continue;
             }
 
