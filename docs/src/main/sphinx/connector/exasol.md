@@ -221,3 +221,10 @@ The connector supports pushdown for a number of operations:
 
 - {ref}`limit-pushdown`
 - {ref}`topn-pushdown`
+- {ref}`join-pushdown`
+
+```{include} pushdown-correctness-behavior.fragment
+```
+
+```{include} join-pushdown-enabled-true.fragment
+```
