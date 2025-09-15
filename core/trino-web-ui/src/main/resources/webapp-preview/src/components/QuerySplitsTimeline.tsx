@@ -13,7 +13,7 @@
  */
 import { useParams } from 'react-router-dom'
 import { useEffect, useRef, useState, type ComponentProps, type HTMLAttributes, type Ref } from 'react'
-import { Alert, Box, CircularProgress, Divider, Grid2 as Grid, Tooltip, Typography } from '@mui/material'
+import { Alert, Box, CircularProgress, Divider, Grid, Tooltip, Typography } from '@mui/material'
 import { blue, green, purple, teal } from '@mui/material/colors'
 import { darken, useTheme } from '@mui/material/styles'
 import Timeline, { type TimelineGroupBase, type TimelineItemBase } from 'react-calendar-timeline'

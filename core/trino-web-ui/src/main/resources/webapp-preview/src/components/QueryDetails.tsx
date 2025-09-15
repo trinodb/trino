@@ -13,7 +13,7 @@
  */
 import React, { ReactNode, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
-import { Box, Divider, Grid2 as Grid, Tabs, Tab, Typography } from '@mui/material'
+import { Box, Divider, Grid, Tab, Tabs, Typography } from '@mui/material'
 import { QueryJson } from './QueryJson'
 import { QueryReferences } from './QueryReferences'
 import { QueryLivePlan } from './QueryLivePlan'
