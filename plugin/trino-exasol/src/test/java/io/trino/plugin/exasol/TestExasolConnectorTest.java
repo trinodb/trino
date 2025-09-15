@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.exasol;
 
+import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.plugin.jdbc.JoinOperator;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.MaterializedResult;
@@ -26,6 +28,8 @@ import io.trino.testing.sql.TestView;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,12 +37,15 @@ import java.util.Optional;
 import static io.trino.plugin.exasol.TestingExasolServer.TEST_SCHEMA;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 @Isolated
 final class TestExasolConnectorTest
@@ -391,6 +398,50 @@ final class TestExasolConnectorTest
         }
         finally {
             assertUpdate("CALL system.execute('DROP TABLE IF EXISTS " + schemaTableName + "')");
+        }
+    }
+
+    @Test
+    @Override
+    // Temporarily disabled
+    // Will be re-enabled in the next PR, when JOIN_PUSHDOWN feature is implemented
+    public void testJoinPushdown()
+    {
+        abort("Temporarily disabled. Will be re-enabled in the next PR, when JOIN_PUSHDOWN feature is implemented");
+    }
+
+    @Test
+    @Override
+    // Temporarily disabled
+    // Will be re-enabled in the next PR, when JOIN_PUSHDOWN feature is implemented
+    public void testLimitPushdown()
+    {
+        abort("Temporarily disabled. Will be re-enabled in the next PR, when JOIN_PUSHDOWN feature is implemented");
+    }
+
+    @ParameterizedTest
+    @CsvSource(textBlock = """
+            16, 6, 123456.123456
+            36, 12, 123456789012345612345678.901234567890
+            19, 0, 1
+            19, 0, 1234567890123456789
+            """)
+    // These tests trigger "toWriteMapping" in ExasolClient for DECIMAL types
+    // These tests also trigger "convertPredicate" in ExasolClient for EQUAL predicate
+    // Basic implementations of "toWriteMapping" and "convertPredicate" are prerequisites for enabling the upcoming JOIN_PUSHDOWN feature.
+    // These tests provide integration tests coverage for basic implementations of "toWriteMapping" and "convertPredicate"
+    void testToWriteMappingForDecimalType(int precision, int scale, String decimalValue)
+    {
+        String tableDefinition = "(d_col decimal(%d, %d))".formatted(precision, scale);
+        try (TestTable testTable = new TestTable(
+                exasolServer::execute,
+                "tpch.test_to_write_mapping_decimal",
+                tableDefinition,
+                asList(decimalValue))) {
+            Session session = joinPushdownEnabled(getSession());
+            assertJoinConditionallyPushedDown(session,
+                    "SELECT n.d_col FROM %s n LEFT JOIN (SELECT * FROM orders WHERE orderkey = 1) o ON n.d_col = %s".formatted(testTable.getName(), decimalValue),
+                    expectJoinPushdownOnEmptyProjection(JoinOperator.LEFT_JOIN));
         }
     }
 
