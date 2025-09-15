@@ -202,6 +202,7 @@
         <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>4.1.0</dep.kafka-clients.version>
+        <dep.launcher.version>306</dep.launcher.version>
         <dep.okhttp.version>5.1.0</dep.okhttp.version>
         <dep.okio.version>3.16.0</dep.okio.version>
         <dep.parquet.version>1.16.0</dep.parquet.version>
