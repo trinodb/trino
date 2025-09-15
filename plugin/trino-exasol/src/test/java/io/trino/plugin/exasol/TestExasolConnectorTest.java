@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.exasol;
 
+import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.plugin.jdbc.JoinOperator;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.MaterializedResult;
@@ -35,6 +37,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,6 +63,8 @@ final class TestExasolConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
+            case SUPPORTS_JOIN_PUSHDOWN -> true;
+
             // Parallel writing is not supported due to restrictions of the Exasol JDBC driver.
             case SUPPORTS_ADD_COLUMN,
                  SUPPORTS_ARRAY,
@@ -87,7 +92,16 @@ final class TestExasolConnectorTest
     protected TestTable newTrinoTable(String namePrefix, @Language("SQL") String tableDefinition, List<String> rowsToInsert)
     {
         // Use Exasol executor because the connector does not support creating tables
-        return new TestTable(exasolServer.getSqlExecutor(), TEST_SCHEMA + "." + namePrefix, tableDefinition, rowsToInsert);
+        return new TestTable(exasolServer.getSqlExecutor(), TEST_SCHEMA + "." + namePrefix,
+                normalizeTableDefinition(tableDefinition), rowsToInsert);
+    }
+
+    // Normalize to add test schema prefix to the possible name of the nation table in table definition sql
+    // Workaround to fix `testJoinpushdown` in `BaseJdbcConnectorTest`
+    // Exasol table definition sql for `nation` table is prefixed with test schema name to fix the test
+    private String normalizeTableDefinition(String original)
+    {
+        return original.replaceAll("FROM nation", "FROM %s.nation".formatted(TEST_SCHEMA));
     }
 
     @Override
@@ -390,6 +404,35 @@ final class TestExasolConnectorTest
         }
         finally {
             assertUpdate("CALL system.execute('DROP TABLE IF EXISTS " + schemaTableName + "')");
+        }
+    }
+
+    @Test
+    // These integration tests trigger "toWriteMapping" in ExasolClient for DECIMAL types
+    // These integration tests also trigger "convertPredicate" in ExasolClient for EQUAL predicate
+    // Basic implementations of "toWriteMapping" and "convertPredicate" are prerequisites for enabling JOIN pushdown support.
+    // These integration tests cover basic implementations of "toWriteMapping" and "convertPredicate"
+    // "testJoinPushdown" integration test cases additionally cover basic implementations of "toWriteMapping" and "convertPredicate"
+    void testToWriteMappingForDecimalType()
+    {
+        testToWriteMappingForDecimalType(16, 6, "123456.123456");
+        testToWriteMappingForDecimalType(36, 12, "123456789012345612345678.901234567890");
+        testToWriteMappingForDecimalType(19, 0, "1");
+        testToWriteMappingForDecimalType(19, 0, "1234567890123456789");
+    }
+
+    private void testToWriteMappingForDecimalType(int precision, int scale, String decimalValue)
+    {
+        String tableDefinition = "(d_col decimal(%d, %d))".formatted(precision, scale);
+        try (TestTable testTable = new TestTable(
+                exasolServer::execute,
+                "tpch.test_to_write_mapping_decimal",
+                tableDefinition,
+                asList(decimalValue))) {
+            Session session = joinPushdownEnabled(getSession());
+            assertJoinConditionallyPushedDown(session,
+                    "SELECT n.d_col FROM %s n LEFT JOIN (SELECT * FROM orders WHERE orderkey = 1) o ON n.d_col = %s".formatted(testTable.getName(), decimalValue),
+                    expectJoinPushdownOnEmptyProjection(JoinOperator.LEFT_JOIN));
         }
     }
 
