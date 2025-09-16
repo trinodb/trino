@@ -379,6 +379,32 @@ Complex grouping operations are often equivalent to a `UNION ALL` of simple
 does not apply, however, when the source of data for the aggregation
 is non-deterministic.
 
+### AUTO
+
+When `AUTO` is specified, the Trino engine automatically determines the grouping
+columns instead of requiring them to be listed explicitly. In this mode, any
+column in the `SELECT` list that is not part of an aggregate function is
+implicitly treated as a grouping column.
+
+This example query calculates the total account balance per market segment.
+The `AUTO` clause derives `mktsegment` as the grouping key, since it is not used
+in any aggregate function (i.e., `sum`).
+
+```sql
+SELECT mktsegment, sum(acctbal) FROM shipping GROUP BY AUTO;
+```
+
+```text
+ mktsegment |       _col1
+------------+--------------------
+ BUILDING   |          1444587.8
+ MACHINERY  |         1296958.61
+ HOUSEHOLD  |         1279340.66
+ FURNITURE  |          1265282.8
+ AUTOMOBILE | 1395695.7200000004
+(5 rows)
+```
+
 ### GROUPING SETS
 
 Grouping sets allow users to specify multiple lists of columns to group on.
