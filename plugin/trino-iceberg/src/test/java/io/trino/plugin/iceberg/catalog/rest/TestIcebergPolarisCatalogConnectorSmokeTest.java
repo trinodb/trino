@@ -224,7 +224,7 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     public void testDropTableWithMissingMetadataFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingMetadataFile)
-                .hasMessageMatching(".* Table '.*' does not exist");
+                .hasMessageMatching("Failed to load table: (.*)");
     }
 
     @Test
@@ -248,7 +248,7 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     public void testDropTableWithNonExistentTableLocation()
     {
         assertThatThrownBy(super::testDropTableWithNonExistentTableLocation)
-                .hasMessageMatching(".* Table '.*' does not exist");
+                .hasMessageMatching("Failed to load table: (.*)");
     }
 
     @Test
