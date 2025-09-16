@@ -200,7 +200,6 @@ public class CoordinatorModule
 
         // query manager
         jaxrsBinder(binder).bind(QueryResource.class);
-        jaxrsBinder(binder).bind(QueryStateInfoResource.class);
         jaxrsBinder(binder).bind(ResourceGroupStateInfoResource.class);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(SqlQueryManager.class).in(Scopes.SINGLETON);
