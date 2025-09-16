@@ -38,6 +38,7 @@ import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
+import io.trino.plugin.jdbc.expression.RewriteIn;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -101,10 +102,24 @@ public class ExasolClient
             RemoteQueryModifier queryModifier)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
-        // Required for basic implementation of "convertPredicate"
+        // Basic implementation required to enable JOIN pushdown support
+        // It is covered by "testJoinpushdown" integration tests.
+        // More detailed test case scenarios are covered by Unit tests in "TestConvertPredicate"
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
+                .add(new RewriteIn())
                 .map("$equal(left, right)").to("left = right")
+                .map("$not_equal(left, right)").to("left <> right")
+                // Exasol doesn't support "IS NOT DISTINCT FROM" expression,
+                // so "$identical(left, right)" is rewritten with equivalent "(left = right OR (left IS NULL AND right IS NULL))" expression
+                .map("$identical(left, right)").to("(left = right OR (left IS NULL AND right IS NULL))")
+                .map("$less_than(left, right)").to("left < right")
+                .map("$less_than_or_equal(left, right)").to("left <= right")
+                .map("$greater_than(left, right)").to("left > right")
+                .map("$greater_than_or_equal(left, right)").to("left >= right")
+                .map("$not($is_null(value))").to("value IS NOT NULL")
+                .map("$not(value: boolean)").to("NOT value")
+                .map("$is_null(value)").to("value IS NULL")
                 .build();
     }
 
@@ -208,8 +223,6 @@ public class ExasolClient
     }
 
     @Override
-    // Basic implementation of "convertPredicate" is required for basic implementation of "toWriteMapping"
-    // Basic implementation of "convertPredicate" is a prerequisite for enabling the upcoming JOIN_PUSHDOWN feature
     public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return connectorExpressionRewriter.rewrite(session, expression, assignments);
@@ -218,7 +231,6 @@ public class ExasolClient
     @Override
     protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
-        // Enabled for basic implementation of "toWriteMapping" for decimal type
         return true;
     }
 
@@ -329,7 +341,6 @@ public class ExasolClient
     }
 
     @Override
-    // Basic implementation of "toWriteMapping" is a prerequisite for enabling the upcoming JOIN_PUSHDOWN feature
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         if (type instanceof DecimalType decimalType) {

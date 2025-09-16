@@ -28,8 +28,6 @@ import io.trino.testing.sql.TestView;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.List;
 import java.util.Optional;
@@ -37,7 +35,6 @@ import java.util.Optional;
 import static io.trino.plugin.exasol.TestingExasolServer.TEST_SCHEMA;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -45,7 +42,6 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assumptions.abort;
 
 @Isolated
 final class TestExasolConnectorTest
@@ -67,9 +63,9 @@ final class TestExasolConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
+            case SUPPORTS_JOIN_PUSHDOWN -> true;
             // Tests requires write access which is not implemented
-            case SUPPORTS_AGGREGATION_PUSHDOWN,
-                    SUPPORTS_JOIN_PUSHDOWN -> false;
+            case SUPPORTS_AGGREGATION_PUSHDOWN -> false;
 
             // Parallel writing is not supported due to restrictions of the Exasol JDBC driver.
             case SUPPORTS_ADD_COLUMN,
@@ -95,7 +91,16 @@ final class TestExasolConnectorTest
     protected TestTable newTrinoTable(String namePrefix, @Language("SQL") String tableDefinition, List<String> rowsToInsert)
     {
         // Use Exasol executor because the connector does not support creating tables
-        return new TestTable(exasolServer.getSqlExecutor(), TEST_SCHEMA + "." + namePrefix, tableDefinition, rowsToInsert);
+        return new TestTable(exasolServer.getSqlExecutor(), TEST_SCHEMA + "." + namePrefix,
+                normalizeTableDefinition(tableDefinition), rowsToInsert);
+    }
+
+    // Normalize to add test schema prefix to the possible name of the nation table in table definition sql
+    // Workaround to fix `testJoinpushdown` in `BaseJdbcConnectorTest`
+    // Exasol table definition sql for `nation` table is prefixed with test schema name to fix the test
+    private String normalizeTableDefinition(String original)
+    {
+        return original.replaceAll("FROM nation", "FROM %s.nation".formatted(TEST_SCHEMA));
     }
 
     @Override
@@ -402,35 +407,20 @@ final class TestExasolConnectorTest
     }
 
     @Test
-    @Override
-    // Temporarily disabled
-    // Will be re-enabled in the next PR, when JOIN_PUSHDOWN feature is implemented
-    public void testJoinPushdown()
+    // These integration tests trigger "toWriteMapping" in ExasolClient for DECIMAL types
+    // These integration tests also trigger "convertPredicate" in ExasolClient for EQUAL predicate
+    // Basic implementations of "toWriteMapping" and "convertPredicate" are prerequisites for enabling JOIN pushdown support.
+    // These integration tests cover basic implementations of "toWriteMapping" and "convertPredicate"
+    // "testJoinPushdown" integration test cases additionally cover basic implementations of "toWriteMapping" and "convertPredicate"
+    void testToWriteMappingForDecimalType()
     {
-        abort("Temporarily disabled. Will be re-enabled in the next PR, when JOIN_PUSHDOWN feature is implemented");
+        testToWriteMappingForDecimalType(16, 6, "123456.123456");
+        testToWriteMappingForDecimalType(36, 12, "123456789012345612345678.901234567890");
+        testToWriteMappingForDecimalType(19, 0, "1");
+        testToWriteMappingForDecimalType(19, 0, "1234567890123456789");
     }
 
-    @Test
-    @Override
-    // Temporarily disabled
-    // Will be re-enabled in the next PR, when JOIN_PUSHDOWN feature is implemented
-    public void testLimitPushdown()
-    {
-        abort("Temporarily disabled. Will be re-enabled in the next PR, when JOIN_PUSHDOWN feature is implemented");
-    }
-
-    @ParameterizedTest
-    @CsvSource(textBlock = """
-            16, 6, 123456.123456
-            36, 12, 123456789012345612345678.901234567890
-            19, 0, 1
-            19, 0, 1234567890123456789
-            """)
-    // These tests trigger "toWriteMapping" in ExasolClient for DECIMAL types
-    // These tests also trigger "convertPredicate" in ExasolClient for EQUAL predicate
-    // Basic implementations of "toWriteMapping" and "convertPredicate" are prerequisites for enabling the upcoming JOIN_PUSHDOWN feature.
-    // These tests provide integration tests coverage for basic implementations of "toWriteMapping" and "convertPredicate"
-    void testToWriteMappingForDecimalType(int precision, int scale, String decimalValue)
+    private void testToWriteMappingForDecimalType(int precision, int scale, String decimalValue)
     {
         String tableDefinition = "(d_col decimal(%d, %d))".formatted(precision, scale);
         try (TestTable testTable = new TestTable(
