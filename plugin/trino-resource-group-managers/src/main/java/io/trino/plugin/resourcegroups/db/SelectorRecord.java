@@ -39,7 +39,7 @@ public class SelectorRecord
     private final Optional<Pattern> authenticatedUserRegex;
     private final Optional<Pattern> sourceRegex;
     private final Optional<String> queryType;
-    private final Optional<List<String>> clientTags;
+    private final Optional<List<Pattern>> clientTags;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
 
     public SelectorRecord(
@@ -51,7 +51,7 @@ public class SelectorRecord
             Optional<Pattern> authenticatedUserRegex,
             Optional<Pattern> sourceRegex,
             Optional<String> queryType,
-            Optional<List<String>> clientTags,
+            Optional<List<Pattern>> clientTags,
             Optional<SelectorResourceEstimate> selectorResourceEstimate)
     {
         this.resourceGroupId = resourceGroupId;
@@ -106,7 +106,7 @@ public class SelectorRecord
         return queryType;
     }
 
-    public Optional<List<String>> getClientTags()
+    public Optional<List<Pattern>> getClientTags()
     {
         return clientTags;
     }
@@ -119,7 +119,7 @@ public class SelectorRecord
     public static class Mapper
             implements RowMapper<SelectorRecord>
     {
-        private static final JsonCodec<List<String>> LIST_STRING_CODEC = listJsonCodec(String.class);
+        private static final JsonCodec<List<Pattern>> LIST_PATTERN_CODEC = listJsonCodec(Pattern.class);
         private static final JsonCodec<SelectorResourceEstimate> SELECTOR_RESOURCE_ESTIMATE_JSON_CODEC = jsonCodec(SelectorResourceEstimate.class);
 
         @Override
@@ -135,7 +135,7 @@ public class SelectorRecord
                     Optional.ofNullable(resultSet.getString("authenticated_user_regex")).map(Pattern::compile),
                     Optional.ofNullable(resultSet.getString("source_regex")).map(Pattern::compile),
                     Optional.ofNullable(resultSet.getString("query_type")),
-                    Optional.ofNullable(resultSet.getString("client_tags")).map(LIST_STRING_CODEC::fromJson),
+                    Optional.ofNullable(resultSet.getString("client_tags")).map(LIST_PATTERN_CODEC::fromJson),
                     Optional.ofNullable(resultSet.getString("selector_resource_estimate")).map(SELECTOR_RESOURCE_ESTIMATE_JSON_CODEC::fromJson));
         }
     }
