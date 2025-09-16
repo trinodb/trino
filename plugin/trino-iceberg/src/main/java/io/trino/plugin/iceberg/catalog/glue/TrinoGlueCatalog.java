@@ -819,7 +819,7 @@ public class TrinoGlueCatalog
             if (metadataLocation == null) {
                 throw new TrinoException(ICEBERG_INVALID_METADATA, format("Table %s is missing [%s] property", from, METADATA_LOCATION_PROP));
             }
-            TableMetadata metadata = TableMetadataParser.read(io, io.newInputFile(metadataLocation));
+            TableMetadata metadata = TableMetadataParser.read(io.newInputFile(metadataLocation));
             TableInput tableInput = getTableInput(
                     typeManager,
                     to.getTableName(),
