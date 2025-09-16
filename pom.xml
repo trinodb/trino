@@ -202,7 +202,7 @@
         <dep.frontend-node.version>v24.12.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.7.0</dep.frontend-npm.version>
         <dep.httpcore5.version>5.4</dep.httpcore5.version>
-        <dep.iceberg.version>1.10.1</dep.iceberg.version>
+        <dep.iceberg.version>1.11.0-SNAPSHOT</dep.iceberg.version>
         <dep.jna.version>5.18.1</dep.jna.version>
         <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
@@ -1950,6 +1950,11 @@
                 <version>${dep.iceberg.version}</version>
                 <exclusions>
                     <exclusion>
+                        <!-- TODO https://github.com/trinodb/trino/issues/27991 Bump RoaringBitmap to the latest version -->
+                        <groupId>com.github.RoaringBitmap.RoaringBitmap</groupId>
+                        <artifactId>roaringbitmap</artifactId>
+                    </exclusion>
+                    <exclusion>
                         <groupId>org.apache.avro</groupId>
                         <artifactId>avro</artifactId>
                     </exclusion>
@@ -1966,6 +1971,11 @@
                 <version>${dep.iceberg.version}</version>
                 <classifier>tests</classifier>
                 <exclusions>
+                    <exclusion>
+                        <!-- TODO https://github.com/trinodb/trino/issues/27991 Bump RoaringBitmap to the latest version -->
+                        <groupId>com.github.RoaringBitmap.RoaringBitmap</groupId>
+                        <artifactId>roaringbitmap</artifactId>
+                    </exclusion>
                     <exclusion>
                         <groupId>org.apache.avro</groupId>
                         <artifactId>avro</artifactId>
@@ -2383,6 +2393,13 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <repositories>
+        <repository>
+            <id>apache-snapshots</id>
+            <url>https://repository.apache.org/content/repositories/snapshots</url>
+        </repository>
+    </repositories>
 
     <build>
         <pluginManagement>
