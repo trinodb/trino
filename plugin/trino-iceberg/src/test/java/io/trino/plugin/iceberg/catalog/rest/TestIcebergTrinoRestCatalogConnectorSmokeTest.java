@@ -230,7 +230,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
         assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
                 .isInstanceOf(QueryFailedException.class)
                 .cause()
-                .hasMessageContaining("Failed to drop table")
+                .hasMessageMatching("Failed to open input stream for file: .*avro")
                 .hasNoCause();
     }
 

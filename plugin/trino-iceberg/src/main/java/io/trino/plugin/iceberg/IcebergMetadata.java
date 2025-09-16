@@ -3630,7 +3630,7 @@ public class IcebergMetadata
             switch (task.content()) {
                 case DATA -> dataTasks.add(task);
                 case POSITION_DELETES -> deleteTasks.add(task);
-                case EQUALITY_DELETES -> throw new UnsupportedOperationException("Unsupported task content: " + task.content());
+                case EQUALITY_DELETES, DATA_MANIFEST, DELETE_MANIFEST -> throw new UnsupportedOperationException("Unsupported task content: " + task.content());
             }
         }
 
