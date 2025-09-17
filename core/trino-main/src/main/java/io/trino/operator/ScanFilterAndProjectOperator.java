@@ -324,19 +324,19 @@ public class ScanFilterAndProjectOperator
             SourcePage page = pageSource.getNextSourcePage();
             pageSourceMemoryContext.setBytes(pageSource.getMemoryUsage());
 
+            // update operator stats
+            processedPositions += page == null ? 0 : page.getPositionCount();
+            physicalBytes = pageSource.getCompletedBytes();
+            physicalPositions = pageSource.getCompletedPositions().orElse(processedPositions);
+            readTimeNanos = pageSource.getReadTimeNanos();
+            metrics = pageSource.getMetrics();
+
             if (page == null) {
                 if (pageSource.isFinished()) {
                     return ProcessState.finished();
                 }
                 return ProcessState.yielded();
             }
-
-            // update operator stats
-            processedPositions += page.getPositionCount();
-            physicalBytes = pageSource.getCompletedBytes();
-            physicalPositions = pageSource.getCompletedPositions().orElse(processedPositions);
-            readTimeNanos = pageSource.getReadTimeNanos();
-            metrics = pageSource.getMetrics();
 
             return ProcessState.ofResult(page);
         }

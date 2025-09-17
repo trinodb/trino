@@ -87,7 +87,7 @@ public final class DescribeInputRewrite
     private static final class Visitor
             extends AstVisitor<Node, Void>
     {
-        private static final Query EMPTY_INPUT = createDesctibeInputQuery(
+        private static final Query EMPTY_INPUT = createDescribeInputQuery(
                 new Row[] {row(
                         new Cast(new NullLiteral(), toSqlType(BIGINT)),
                         new Cast(new NullLiteral(), toSqlType(VARCHAR)))},
@@ -144,10 +144,10 @@ public final class DescribeInputRewrite
                 return EMPTY_INPUT;
             }
 
-            return createDesctibeInputQuery(rows, limit);
+            return createDescribeInputQuery(rows, limit);
         }
 
-        private static Query createDesctibeInputQuery(Row[] rows, Optional<Node> limit)
+        private static Query createDescribeInputQuery(Row[] rows, Optional<Node> limit)
         {
             return simpleQuery(
                     selectList(identifier("Position"), identifier("Type")),

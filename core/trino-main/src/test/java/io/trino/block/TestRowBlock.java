@@ -108,6 +108,42 @@ public class TestRowBlock
                 new ByteArrayBlock(6, Optional.of(rowIsNull), createExpectedValue(6).getBytes())}));
     }
 
+    @Test
+    public void testCopyWithAppendedNull()
+    {
+        List<Type> fieldTypes = ImmutableList.of(VARCHAR, BIGINT);
+
+        // Test without startOffset
+        List<Object>[] testRows = generateTestRows(fieldTypes, 3);
+        RowBlock rowBlock = (RowBlock) createBlockBuilderWithValues(fieldTypes, testRows).build();
+
+        RowBlock appendedBlock = rowBlock.copyWithAppendedNull();
+        assertThat(appendedBlock.getPositionCount()).isEqualTo(testRows.length + 1);
+        for (int i = 0; i < testRows.length; i++) {
+            assertPositionValue(appendedBlock, i, testRows[i]);
+        }
+        assertThat(appendedBlock.isNull(appendedBlock.getPositionCount() - 1)).isTrue();
+
+        // Test with startOffset
+        RowBlock offsetBlock = rowBlock.getRegion(1, 2);
+        RowBlock offsetAppendedBlock = offsetBlock.copyWithAppendedNull();
+        assertThat(offsetAppendedBlock.getPositionCount()).isEqualTo(3);
+        for (int i = 0; i < 2; i++) {
+            assertPositionValue(offsetAppendedBlock, i, testRows[i + 1]);
+        }
+        assertThat(offsetAppendedBlock.isNull(2)).isTrue();
+
+        // Test startOffset + positionCount < fieldBlock[0].length
+        List<Object>[] largerTestRows = generateTestRows(fieldTypes, 10);
+        RowBlock partialBlock = (RowBlock) createBlockBuilderWithValues(fieldTypes, largerTestRows).build().getRegion(2, 5);
+        RowBlock partialAppendedBlock = partialBlock.copyWithAppendedNull();
+        assertThat(partialAppendedBlock.getPositionCount()).isEqualTo(6);
+        for (int i = 0; i < 5; i++) {
+            assertPositionValue(partialAppendedBlock, i, largerTestRows[i + 2]);
+        }
+        assertThat(partialAppendedBlock.isNull(5)).isTrue();
+    }
+
     private void testWith(List<Type> fieldTypes, List<Object>[] expectedValues)
     {
         Block block = createBlockBuilderWithValues(fieldTypes, expectedValues).build();
