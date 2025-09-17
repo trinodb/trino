@@ -43,10 +43,8 @@ import static java.util.Objects.requireNonNull;
 public class TrinoHiveCatalog
         implements Catalog
 {
-    private static final String INPUT_FORMAT_CLASS_NAME =
-            "org.apache.paimon.hive.mapred.PaimonInputFormat";
-    private static final String OUTPUT_FORMAT_CLASS_NAME =
-            "org.apache.paimon.hive.mapred.PaimonOutputFormat";
+    private static final String INPUT_FORMAT_CLASS_NAME = "org.apache.paimon.hive.mapred.PaimonInputFormat";
+    private static final String OUTPUT_FORMAT_CLASS_NAME = "org.apache.paimon.hive.mapred.PaimonOutputFormat";
     private static final String SERDE_CLASS_NAME = "org.apache.paimon.hive.PaimonSerDe";
 
     public static final StorageFormat PAIMON_METASTORE_STORAGE_FORMAT = StorageFormat.create(

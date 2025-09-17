@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.paimon;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
@@ -23,51 +21,27 @@ import org.apache.paimon.table.source.Split;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Trino {@link ConnectorSplit}.
- */
-public class PaimonSplit
+import static io.trino.plugin.paimon.EncodingUtils.decodeStringToObject;
+import static io.trino.plugin.paimon.EncodingUtils.encodeObjectToString;
+import static java.util.Objects.requireNonNull;
+
+public record PaimonSplit(String splitSerialized, Double weight)
         implements ConnectorSplit
 {
-    private final String splitSerialized;
-
-    private final Double weight;
-
-    @JsonCreator
-    public PaimonSplit(
-            @JsonProperty("splitSerialized") String splitSerialized,
-            @JsonProperty("weight") Double weight)
+    public PaimonSplit
     {
-        this.splitSerialized = splitSerialized;
-        this.weight = weight;
+        requireNonNull(splitSerialized, "splitSerialized is null");
+        requireNonNull(weight, "weight is null");
     }
 
     public static PaimonSplit fromSplit(Split split, Double weight)
     {
-        return new PaimonSplit(EncodingUtils.encodeObjectToString(split), weight);
+        return new PaimonSplit(encodeObjectToString(split), weight);
     }
 
     public Split decodeSplit()
     {
-        return EncodingUtils.decodeStringToObject(splitSerialized);
-    }
-
-    @JsonProperty
-    public String getSplitSerialized()
-    {
-        return splitSerialized;
-    }
-
-    @JsonProperty
-    public Double getWeight()
-    {
-        return weight;
-    }
-
-    @Override
-    public boolean isRemotelyAccessible()
-    {
-        return true;
+        return decodeStringToObject(splitSerialized);
     }
 
     @Override

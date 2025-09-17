@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.paimon;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.plugin.paimon.catalog.PaimonTrinoCatalog;
 import io.trino.spi.TrinoException;
@@ -33,6 +34,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampType;
@@ -41,6 +43,8 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.paimon.CoreOptions;
 import org.apache.paimon.catalog.Catalog;
+import org.apache.paimon.catalog.Catalog.DatabaseNotExistException;
+import org.apache.paimon.catalog.Catalog.TableNotExistException;
 import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.data.BinaryString;
 import org.apache.paimon.data.Timestamp;
@@ -68,21 +72,21 @@ import java.util.stream.Collectors;
 
 import static io.trino.plugin.paimon.PaimonErrorCode.PAIMON_METADATA_FETCH_FAILED;
 import static io.trino.plugin.paimon.PaimonSessionProperties.isProjectionPushdownEnabled;
+import static io.trino.plugin.paimon.PaimonTypeUtils.toPaimonType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.paimon.CoreOptions.SCAN_SNAPSHOT_ID;
+import static org.apache.paimon.CoreOptions.SCAN_TAG_NAME;
 
-/**
- * Trino {@link ConnectorMetadata}.
- */
 public class PaimonMetadata
         implements ConnectorMetadata
 {
-    public static final int MAX_SCHEMA_LENGTH = 128;
     private static final int MAX_TABLE_LENGTH = 128;
     private static final String TAG_PREFIX = "tag-";
 
@@ -90,7 +94,7 @@ public class PaimonMetadata
 
     public PaimonMetadata(PaimonTrinoCatalog catalog)
     {
-        this.catalog = catalog;
+        this.catalog = requireNonNull(catalog, "catalog is null");
     }
 
     public PaimonTrinoCatalog catalog()
@@ -105,7 +109,7 @@ public class PaimonMetadata
             catalog.getDatabase(session, schemaName);
             return true;
         }
-        catch (Catalog.DatabaseNotExistException e) {
+        catch (DatabaseNotExistException e) {
             return false;
         }
     }
@@ -124,16 +128,16 @@ public class PaimonMetadata
             Optional<ConnectorTableVersion> endVersion)
     {
         if (startVersion.isPresent()) {
-            throw new TrinoException(
-                    NOT_SUPPORTED, "Read paimon table with start version is not supported");
+            throw new TrinoException(NOT_SUPPORTED, "Read paimon table with start version is not supported");
         }
+        // TODO Remove support for time travel from the initial PR
 
         Map<String, String> dynamicOptions = new HashMap<>();
         if (endVersion.isPresent()) {
             ConnectorTableVersion version = endVersion.get();
             Type versionType = version.getVersionType();
             switch (version.getPointerType()) {
-                case TEMPORAL: {
+                case TEMPORAL -> {
                     if (versionType
                             instanceof TimestampWithTimeZoneType timeZonedVersionType) {
                         long epochMillis =
@@ -162,18 +166,12 @@ public class PaimonMetadata
                         break;
                     }
 
-                    throw new TrinoException(
-                            NOT_SUPPORTED,
-                            "Unsupported type for table version: "
-                                    + versionType.getDisplayName());
+                    throw new TrinoException(NOT_SUPPORTED, "Unsupported type for table version: " + versionType.getDisplayName());
                 }
-                case TARGET_ID: {
+                case TARGET_ID -> {
                     String tagOrVersion;
                     if (versionType instanceof VarcharType) {
-                        tagOrVersion =
-                                BinaryString.fromBytes(
-                                                ((Slice) version.getVersion()).getBytes())
-                                        .toString();
+                        tagOrVersion = BinaryString.fromBytes(((Slice) version.getVersion()).getBytes()).toString();
                     }
                     else {
                         tagOrVersion = version.getVersion().toString();
@@ -182,35 +180,22 @@ public class PaimonMetadata
                     // if value is not number, set tag option
                     boolean isNumber = StringUtils.isNumeric(tagOrVersion);
                     if (!isNumber) {
-                        dynamicOptions.put(CoreOptions.SCAN_TAG_NAME.key(), tagOrVersion);
+                        dynamicOptions.put(SCAN_TAG_NAME.key(), tagOrVersion);
                     }
                     else {
                         try {
-                            String path =
-                                    catalog.getTable(
-                                                    session,
-                                                    new Identifier(
-                                                            tableName.getSchemaName(),
-                                                            tableName.getTableName()))
-                                            .options()
-                                            .get("path");
-
-                            if (catalog.exists(
-                                    session,
-                                    new Path(path + "/tag/" + TAG_PREFIX + tagOrVersion))) {
-                                dynamicOptions.put(
-                                        CoreOptions.SCAN_TAG_NAME.key(), tagOrVersion);
+                            String path = catalog.getTable(session, new Identifier(tableName.getSchemaName(), tableName.getTableName())).options().get("path");
+                            if (catalog.exists(session, new Path(path + "/tag/" + TAG_PREFIX + tagOrVersion))) {
+                                dynamicOptions.put(SCAN_TAG_NAME.key(), tagOrVersion);
                             }
                             else {
-                                dynamicOptions.put(
-                                        CoreOptions.SCAN_SNAPSHOT_ID.key(), tagOrVersion);
+                                dynamicOptions.put(SCAN_SNAPSHOT_ID.key(), tagOrVersion);
                             }
                         }
-                        catch (IOException | Catalog.TableNotExistException e) {
+                        catch (IOException | TableNotExistException e) {
                             throw new RuntimeException(e);
                         }
                     }
-                    break;
                 }
             }
         }
@@ -223,13 +208,10 @@ public class PaimonMetadata
             Map<String, String> dynamicOptions)
     {
         try {
-            catalog.getTable(
-                    session,
-                    Identifier.create(tableName.getSchemaName(), tableName.getTableName()));
-            return new PaimonTableHandle(
-                    tableName.getSchemaName(), tableName.getTableName(), dynamicOptions);
+            catalog.getTable(session, Identifier.create(tableName.getSchemaName(), tableName.getTableName()));
+            return new PaimonTableHandle(tableName.getSchemaName(), tableName.getTableName(), dynamicOptions, TupleDomain.all(), ImmutableSet.of(), OptionalLong.empty());
         }
-        catch (Catalog.TableNotExistException e) {
+        catch (TableNotExistException e) {
             return null;
         }
     }
@@ -250,8 +232,7 @@ public class PaimonMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         List<SchemaTableName> tables = new ArrayList<>();
-        schemaName
-                .map(Collections::singletonList)
+        schemaName.map(Collections::singletonList)
                 .orElseGet(() -> catalog.listDatabases(session))
                 .forEach(schema -> tables.addAll(listTables(session, schema)));
         return tables;
@@ -264,14 +245,13 @@ public class PaimonMetadata
                     .map(table -> new SchemaTableName(schema, table))
                     .collect(toList());
         }
-        catch (Catalog.DatabaseNotExistException e) {
+        catch (DatabaseNotExistException e) {
             throw new RuntimeException(e);
         }
     }
 
     // Do not support creating tables in trino yet, this method is only used for paimon connector testing.
-    public void createPaimonTable(
-            ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
+    public void createPaimonTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
     {
         SchemaTableName table = tableMetadata.getTable();
         Identifier identifier = Identifier.create(table.getSchemaName(), table.getTableName());
@@ -283,55 +263,42 @@ public class PaimonMetadata
         try {
             catalog.createTable(session, identifier, prepareSchema(tableMetadata), false);
         }
-        catch (Catalog.DatabaseNotExistException e) {
+        catch (DatabaseNotExistException e) {
             throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema %s not found", table.getSchemaName()));
         }
         catch (Catalog.TableAlreadyExistException e) {
             switch (saveMode) {
-                case IGNORE:
-                    return;
-                case REPLACE:
+                case IGNORE -> {}
+                case REPLACE -> {
                     try {
                         catalog.dropTable(session, identifier, false);
-                        catalog.createTable(
-                                session, identifier, prepareSchema(tableMetadata), true);
+                        catalog.createTable(session, identifier, prepareSchema(tableMetadata), true);
                     }
-                    catch (Catalog.DatabaseNotExistException ex) {
-                        throw new RuntimeException(
-                                format("database not existed: '%s'", table.getTableName()));
+                    catch (DatabaseNotExistException ex) {
+                        throw new RuntimeException(format("database not existed: '%s'", table.getTableName()));
                     }
                     catch (Catalog.TableAlreadyExistException ex) {
-                        throw new RuntimeException(
-                                format("table already exists: '%s'", table.getTableName()));
+                        throw new RuntimeException(format("table already exists: '%s'", table.getTableName()));
                     }
-                    catch (Catalog.TableNotExistException ex) {
-                        throw new RuntimeException(
-                                format("table not exists: '%s'", table.getTableName()));
+                    catch (TableNotExistException ex) {
+                        throw new RuntimeException(format("table not exists: '%s'", table.getTableName()));
                     }
-                    break;
-                case FAIL:
-                    throw new RuntimeException(
-                            format("table already existed: '%s'", table.getTableName()));
-                default:
-                    throw new IllegalArgumentException("Unsupported save mode: " + saveMode);
+                }
+                case FAIL -> throw new RuntimeException(format("table already existed: '%s'", table.getTableName()));
             }
         }
     }
 
-    private Schema prepareSchema(ConnectorTableMetadata tableMetadata)
+    private static Schema prepareSchema(ConnectorTableMetadata tableMetadata)
     {
         Map<String, Object> properties = new HashMap<>(tableMetadata.getProperties());
-        Schema.Builder builder =
-                Schema.newBuilder()
-                        .primaryKey(PaimonTableOptions.getPrimaryKeys(properties))
-                        .partitionKeys(PaimonTableOptions.getPartitionedKeys(properties))
-                        .comment(tableMetadata.getComment().orElse(null));
+        Schema.Builder builder = Schema.newBuilder()
+                .primaryKey(PaimonTableOptions.getPrimaryKeys(properties))
+                .partitionKeys(PaimonTableOptions.getPartitionedKeys(properties))
+                .comment(tableMetadata.getComment().orElse(null));
 
         for (ColumnMetadata column : tableMetadata.getColumns()) {
-            builder.column(
-                    column.getName(),
-                    PaimonTypeUtils.toPaimonType(column.getType()),
-                    column.getComment());
+            builder.column(column.getName(), toPaimonType(column.getType()), column.getComment());
         }
 
         PaimonTableOptionUtils.buildOptions(builder, properties);
@@ -342,44 +309,39 @@ public class PaimonMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        PaimonTableHandle paimonTableHandle = (PaimonTableHandle) tableHandle;
+        PaimonTableHandle table = (PaimonTableHandle) tableHandle;
         try {
-            catalog.dropTable(
-                    session,
-                    new Identifier(
-                            paimonTableHandle.getSchemaName(), paimonTableHandle.getTableName()),
-                    false);
+            catalog.dropTable(session, new Identifier(table.getSchemaName(), table.getTableName()), false);
         }
-        catch (Catalog.TableNotExistException e) {
-            throw new RuntimeException(
-                    format("table not exists: '%s'", paimonTableHandle.getTableName()));
+        catch (TableNotExistException e) {
+            throw new TrinoException(TABLE_NOT_FOUND, "Table '%s' does not exist".formatted(table.getTableName()));
         }
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(
-            ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         PaimonTableHandle table = (PaimonTableHandle) tableHandle;
-        Map<String, ColumnHandle> handleMap = new HashMap<>();
+        Map<String, ColumnHandle> columnHandles = new HashMap<>();
         for (ColumnMetadata column : table.columnMetadatas(session, catalog)) {
-            handleMap.put(column.getName(), table.columnHandle(session, catalog, column.getName()));
+            columnHandles.put(column.getName(), table.columnHandle(session, catalog, column.getName()));
         }
-        return handleMap;
+        return columnHandles;
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(
-            ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        return ((PaimonColumnHandle) columnHandle).getColumnMetadata();
+        PaimonColumnHandle column = (PaimonColumnHandle) columnHandle;
+        return new ColumnMetadata(column.columnName(), column.trinoType());
     }
 
+    // TODO Implement streamRelationColumns method
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(
-            ConnectorSession session, SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
+
         List<SchemaTableName> tableNames;
         if (prefix.getTable().isPresent()) {
             tableNames = Collections.singletonList(prefix.toSchemaTableName());
@@ -403,31 +365,24 @@ public class PaimonMetadata
 
                     return Pair.of(table, columnMetadata);
                 }).filter(p -> p.getRight() != null)
-                .collect(
-                        toMap(
-                                Pair::getLeft,
-                                Pair::getRight));
+                .collect(toMap(Pair::getLeft, Pair::getRight));
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(
-            ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
         PaimonTableHandle paimonTableHandle = (PaimonTableHandle) handle;
-        Optional<PaimonFilterExtractor.TrinoFilter> extract =
-                PaimonFilterExtractor.extract(session, catalog, paimonTableHandle, constraint);
+        Optional<PaimonFilterExtractor.TrinoFilter> extract = PaimonFilterExtractor.extract(session, catalog, paimonTableHandle, constraint);
         if (extract.isPresent()) {
             PaimonFilterExtractor.TrinoFilter trinoFilter = extract.get();
             return Optional.of(
                     new ConstraintApplicationResult<>(
-                            paimonTableHandle.copy(trinoFilter.getFilter()),
-                            trinoFilter.getRemainFilter().transformKeys(columnHandle -> columnHandle),
+                            paimonTableHandle.withFilter(trinoFilter.filter()),
+                            trinoFilter.remainFilter().transformKeys(columnHandle -> columnHandle),
                             constraint.getExpression(),
                             false));
         }
-        else {
-            return Optional.empty();
-        }
+        return Optional.empty();
     }
 
     @Override
@@ -441,33 +396,23 @@ public class PaimonMetadata
             return Optional.empty();
         }
 
-        PaimonTableHandle paimonTableHandle = (PaimonTableHandle) handle;
-        Set<PaimonColumnHandle> newColumns =
-                assignments.values().stream()
-                        .map(PaimonColumnHandle.class::cast)
-                        .collect(Collectors.toSet());
+        PaimonTableHandle table = (PaimonTableHandle) handle;
+        Set<PaimonColumnHandle> newColumns = assignments.values().stream()
+                .map(PaimonColumnHandle.class::cast)
+                .collect(Collectors.toSet());
 
-        if (paimonTableHandle.getProjectedColumns().equals(newColumns)) {
+        if (table.getProjectedColumns().equals(newColumns)) {
             return Optional.empty();
         }
 
         List<Assignment> assignmentList = new ArrayList<>();
-        assignments.forEach(
-                (name, column) ->
-                        assignmentList.add(
-                                new Assignment(
-                                        name,
-                                        column,
-                                        ((PaimonColumnHandle) column).getTrinoType())));
+        assignments.forEach((name, column) -> assignmentList.add(new Assignment(name, column, ((PaimonColumnHandle) column).trinoType())));
 
-        return Optional.of(
-                new ProjectionApplicationResult<>(
-                        paimonTableHandle.copy(newColumns), projections, assignmentList, false));
+        return Optional.of(new ProjectionApplicationResult<>(table.withColumns(newColumns), projections, assignmentList, false));
     }
 
     @Override
-    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(
-            ConnectorSession session, ConnectorTableHandle handle, long limit)
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle handle, long limit)
     {
         PaimonTableHandle table = (PaimonTableHandle) handle;
 
@@ -481,17 +426,16 @@ public class PaimonMetadata
             LinkedHashMap<PaimonColumnHandle, Domain> unsupportedDomains = new LinkedHashMap<>();
             new PaimonFilterConverter(paimonTable.rowType())
                     .convert(table.getPredicate(), acceptedDomains, unsupportedDomains);
-            Set<String> acceptedFields =
-                    acceptedDomains.keySet().stream()
-                            .map(PaimonColumnHandle::getColumnName)
-                            .collect(Collectors.toSet());
+            Set<String> acceptedFields = acceptedDomains.keySet().stream()
+                    .map(PaimonColumnHandle::columnName)
+                    .collect(Collectors.toSet());
             if (!unsupportedDomains.isEmpty()
                     || !new HashSet<>(paimonTable.partitionKeys()).containsAll(acceptedFields)) {
                 return Optional.empty();
             }
         }
 
-        table = table.copy(OptionalLong.of(limit));
+        table = table.withLimit(OptionalLong.of(limit));
 
         return Optional.of(new LimitApplicationResult<>(table, false, false));
     }

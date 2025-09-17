@@ -37,51 +37,49 @@ import java.io.OutputStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.locks.ReentrantLock;
 
-/**
- * Trino file io for paimon.
- */
+import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
+
 public class PaimonFileIO
         implements FileIO
 {
     private static final ReentrantLock RENAME_LOCK = new ReentrantLock();
-    private final TrinoFileSystemFactory trinoFileSystemFactory;
+
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final boolean objectStore;
 
-    private TrinoFileSystem trinoFileSystem;
+    private TrinoFileSystem fileSystem;
     private ConnectorSession session;
 
     public PaimonFileIO(
-            TrinoFileSystemFactory trinoFileSystemFactory,
+            TrinoFileSystemFactory fileSystemFactory,
             ConnectorIdentity connectorIdentity,
             @Nullable Path path)
     {
-        this.trinoFileSystemFactory = trinoFileSystemFactory;
-        this.trinoFileSystem = trinoFileSystemFactory.create(connectorIdentity);
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.fileSystem = fileSystemFactory.create(requireNonNull(connectorIdentity, "connectorIdentity is null"));
         this.objectStore = path == null || checkObjectStore(path.toUri().getScheme());
     }
 
     private static boolean checkObjectStore(String scheme)
     {
-        scheme = scheme.toLowerCase(Locale.getDefault());
+        scheme = scheme.toLowerCase(ENGLISH);
         if (!scheme.startsWith("s3")
                 && !scheme.startsWith("emr")
                 && !scheme.startsWith("oss")
                 && !scheme.startsWith("wasb")) {
             return scheme.startsWith("http") || scheme.startsWith("ftp");
         }
-        else {
-            return true;
-        }
+        return true;
     }
 
     public void setConnectorSession(ConnectorSession session)
     {
         if (!session.equals(this.session)) {
             this.session = session;
-            trinoFileSystem = trinoFileSystemFactory.create(session);
+            fileSystem = fileSystemFactory.create(session);
         }
     }
 
@@ -98,24 +96,21 @@ public class PaimonFileIO
     public SeekableInputStream newInputStream(Path path)
             throws IOException
     {
-        return new PaimonInputStreamWrapper(
-                trinoFileSystem.newInputFile(Location.of(path.toString())).newStream());
+        return new PaimonInputStreamWrapper(fileSystem.newInputFile(Location.of(path.toString())).newStream());
     }
 
     @Override
     public PositionOutputStream newOutputStream(Path path, boolean overwrite)
             throws IOException
     {
-        TrinoOutputFile trinoOutputFile =
-                trinoFileSystem.newOutputFile(Location.of(path.toString()));
-
+        TrinoOutputFile outputFile = fileSystem.newOutputFile(Location.of(path.toString()));
         try {
-            return new PositionOutputStreamWrapper(trinoOutputFile.create());
+            return new PositionOutputStreamWrapper(outputFile.create(), 0);
         }
         catch (FileAlreadyExistsException e) {
             if (overwrite) {
-                trinoFileSystem.deleteFile(Location.of(path.toString()));
-                return new PositionOutputStreamWrapper(trinoOutputFile.create());
+                fileSystem.deleteFile(Location.of(path.toString()));
+                return new PositionOutputStreamWrapper(outputFile.create(), 0);
             }
             throw e;
         }
@@ -131,15 +126,11 @@ public class PaimonFileIO
     private FileStatus status(Path path)
             throws IOException
     {
-        if (trinoFileSystem.directoryExists(Location.of(path.toString())).orElse(false)) {
+        if (fileSystem.directoryExists(Location.of(path.toString())).orElse(false)) {
             return new PaimonDirectoryFileStatus(path);
         }
-        else {
-            TrinoInputFile trinoInputFile =
-                    trinoFileSystem.newInputFile(Location.of(path.toString()));
-            return new PaimonFileStatus(
-                    trinoInputFile.length(), path, trinoInputFile.lastModified().getEpochSecond());
-        }
+        TrinoInputFile trinoInputFile = fileSystem.newInputFile(Location.of(path.toString()));
+        return new PaimonFileStatus(trinoInputFile.length(), path, trinoInputFile.lastModified().getEpochSecond());
     }
 
     @Override
@@ -148,8 +139,8 @@ public class PaimonFileIO
     {
         List<FileStatus> fileStatusList = new ArrayList<>();
         Location location = Location.of(path.toString());
-        if (trinoFileSystem.directoryExists(location).orElse(false)) {
-            FileIterator fileIterator = trinoFileSystem.listFiles(location);
+        if (fileSystem.directoryExists(location).orElse(false)) {
+            FileIterator fileIterator = fileSystem.listFiles(location);
             while (fileIterator.hasNext()) {
                 FileEntry fileEntry = fileIterator.next();
                 fileStatusList.add(
@@ -158,12 +149,8 @@ public class PaimonFileIO
                                 new Path(fileEntry.location().toString()),
                                 fileEntry.lastModified().getEpochSecond()));
             }
-            trinoFileSystem
-                    .listDirectories(Location.of(path.toString()))
-                    .forEach(
-                            l ->
-                                    fileStatusList.add(
-                                            new PaimonDirectoryFileStatus(new Path(l.toString()))));
+            fileSystem.listDirectories(Location.of(path.toString()))
+                    .forEach(directory -> fileStatusList.add(new PaimonDirectoryFileStatus(new Path(directory.toString()))));
         }
         return fileStatusList.toArray(new FileStatus[0]);
     }
@@ -172,8 +159,8 @@ public class PaimonFileIO
     public FileStatus[] listDirectories(Path path)
             throws IOException
     {
-        return trinoFileSystem.listDirectories(Location.of(path.toString())).stream()
-                .map(l -> new PaimonDirectoryFileStatus(new Path(l.toString())))
+        return fileSystem.listDirectories(Location.of(path.toString())).stream()
+                .map(location -> new PaimonDirectoryFileStatus(new Path(location.toString())))
                 .toArray(FileStatus[]::new);
     }
 
@@ -181,7 +168,7 @@ public class PaimonFileIO
     public boolean exists(Path path)
             throws IOException
     {
-        return trinoFileSystem.directoryExists(Location.of(path.toString())).orElse(false)
+        return fileSystem.directoryExists(Location.of(path.toString())).orElse(false)
                 || existFile(Location.of(path.toString()));
     }
 
@@ -189,7 +176,7 @@ public class PaimonFileIO
             throws IOException
     {
         try {
-            return trinoFileSystem.newInputFile(location).exists();
+            return fileSystem.newInputFile(location).exists();
         }
         catch (IllegalArgumentException e) {
             return false;
@@ -201,17 +188,17 @@ public class PaimonFileIO
             throws IOException
     {
         Location location = Location.of(path.toString());
-        if (trinoFileSystem.directoryExists(location).orElse(false)) {
+        if (fileSystem.directoryExists(location).orElse(false)) {
             if (!recursive) {
-                if (trinoFileSystem.listFiles(location).hasNext()) {
+                if (fileSystem.listFiles(location).hasNext()) {
                     throw new IOException("Directory " + location + " is not empty");
                 }
             }
-            trinoFileSystem.deleteDirectory(location);
+            fileSystem.deleteDirectory(location);
             return true;
         }
         else if (existFile(location)) {
-            trinoFileSystem.deleteFile(location);
+            fileSystem.deleteFile(location);
             return true;
         }
 
@@ -222,7 +209,7 @@ public class PaimonFileIO
     public boolean mkdirs(Path path)
             throws IOException
     {
-        trinoFileSystem.createDirectory(Location.of(path.toString()));
+        fileSystem.createDirectory(Location.of(path.toString()));
         return true;
     }
 
@@ -237,8 +224,8 @@ public class PaimonFileIO
             }
             Location sourceLocation = Location.of(source.toString());
             Location targetLocation = Location.of(target.toString());
-            if (trinoFileSystem.directoryExists(sourceLocation).orElse(false)) {
-                trinoFileSystem.renameDirectory(sourceLocation, targetLocation);
+            if (fileSystem.directoryExists(sourceLocation).orElse(false)) {
+                fileSystem.renameDirectory(sourceLocation, targetLocation);
             }
             else {
                 renameFileAnyway(sourceLocation, targetLocation);
@@ -262,18 +249,18 @@ public class PaimonFileIO
             throws IOException
     {
         try {
-            trinoFileSystem.renameFile(source, target);
+            fileSystem.renameFile(source, target);
         }
         catch (IOException e) {
-            try (TrinoInputStream input = trinoFileSystem.newInputFile(source).newStream();
-                    OutputStream outputStream = trinoFileSystem.newOutputFile(target).create()) {
+            try (TrinoInputStream input = fileSystem.newInputFile(source).newStream();
+                    OutputStream outputStream = fileSystem.newOutputFile(target).create()) {
                 byte[] btyes = new byte[1024 * 8];
                 int len;
                 while ((len = input.read(btyes)) != -1) {
                     outputStream.write(btyes, 0, len);
                 }
             }
-            trinoFileSystem.deleteFile(source);
+            fileSystem.deleteFile(source);
         }
     }
 }

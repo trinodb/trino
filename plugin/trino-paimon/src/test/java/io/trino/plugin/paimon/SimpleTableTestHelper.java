@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.paimon;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.fs.Path;
 import org.apache.paimon.fs.local.LocalFileIO;
@@ -24,15 +26,10 @@ import org.apache.paimon.table.sink.InnerTableCommit;
 import org.apache.paimon.table.sink.InnerTableWrite;
 import org.apache.paimon.types.RowType;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-
-/**
- * A simple table test helper to write and commit.
- */
 final class SimpleTableTestHelper
 {
+    private static final String USER = "user";
+
     private final InnerTableWrite writer;
     private final InnerTableCommit commit;
     private final FileStoreTable table;
@@ -40,21 +37,11 @@ final class SimpleTableTestHelper
     public SimpleTableTestHelper(Path path, RowType rowType)
             throws Exception
     {
-        Map<String, String> map = new HashMap<>();
-        map.put("bucket", "1");
-        new SchemaManager(LocalFileIO.create(), path)
-                .createTable(
-                        new Schema(
-                                rowType.getFields(),
-                                Collections.emptyList(),
-                                Collections.singletonList("a"),
-                                map,
-                                ""));
-        FileStoreTable table = FileStoreTableFactory.create(LocalFileIO.create(), path);
-        this.table = table;
-        String user = "user";
-        this.writer = table.newWrite(user);
-        this.commit = table.newCommit(user);
+        Schema schema = new Schema(rowType.getFields(), ImmutableList.of(), ImmutableList.of("a"), ImmutableMap.of("bucket", "1"), "");
+        new SchemaManager(LocalFileIO.create(), path).createTable(schema);
+        table = FileStoreTableFactory.create(LocalFileIO.create(), path);
+        this.writer = table.newWrite(USER);
+        this.commit = table.newCommit(USER);
     }
 
     public void write(InternalRow row)
@@ -63,14 +50,14 @@ final class SimpleTableTestHelper
         writer.write(row);
     }
 
+    public void createTag(String name)
+    {
+        table.createTag(name);
+    }
+
     public void commit()
             throws Exception
     {
         commit.commit(0, writer.prepareCommit(true, 0));
-    }
-
-    public void createTag(String name)
-    {
-        table.createTag(name);
     }
 }

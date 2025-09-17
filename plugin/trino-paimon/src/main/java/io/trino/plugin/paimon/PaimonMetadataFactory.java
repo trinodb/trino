@@ -17,21 +17,20 @@ import com.google.inject.Inject;
 import io.trino.plugin.paimon.catalog.PaimonTrinoCatalogFactory;
 import io.trino.spi.security.ConnectorIdentity;
 
-/**
- * A factory to create {@link PaimonMetadata}.
- */
+import static java.util.Objects.requireNonNull;
+
 public class PaimonMetadataFactory
 {
-    private final PaimonTrinoCatalogFactory paimonTrinoCatalogFactory;
+    private final PaimonTrinoCatalogFactory catalogFactory;
 
     @Inject
-    public PaimonMetadataFactory(PaimonTrinoCatalogFactory paimonTrinoCatalogFactory)
+    public PaimonMetadataFactory(PaimonTrinoCatalogFactory catalogFactory)
     {
-        this.paimonTrinoCatalogFactory = paimonTrinoCatalogFactory;
+        this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
     }
 
     public PaimonMetadata create(ConnectorIdentity identity)
     {
-        return new PaimonMetadata(paimonTrinoCatalogFactory.create(identity));
+        return new PaimonMetadata(catalogFactory.create(identity));
     }
 }

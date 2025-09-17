@@ -16,7 +16,6 @@ package io.trino.plugin.paimon;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
-import org.apache.paimon.annotation.VisibleForTesting;
 import org.apache.paimon.deletionvectors.DeletionVector;
 
 import java.io.IOException;
@@ -24,27 +23,18 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 
-/**
- * Wrap {@link ConnectorPageSource} using deletion vector.
- */
+import static java.util.Objects.requireNonNull;
+
 public class PaimonPageSourceWrapper
         implements ConnectorPageSource
 {
     private final ConnectorPageSource source;
-
     private final Optional<DeletionVector> deletionVector;
 
-    public PaimonPageSourceWrapper(
-            ConnectorPageSource source, Optional<DeletionVector> deletionVector)
+    public PaimonPageSourceWrapper(ConnectorPageSource source, Optional<DeletionVector> deletionVector)
     {
-        this.source = source;
-        this.deletionVector = deletionVector;
-    }
-
-    public static ConnectorPageSource wrap(
-            ConnectorPageSource connectorPageSource, Optional<DeletionVector> deletionVector)
-    {
-        return new PaimonPageSourceWrapper(connectorPageSource, deletionVector);
+        this.source = requireNonNull(source, "source is null");
+        this.deletionVector = requireNonNull(deletionVector, "deletionVector is null");
     }
 
     @Override
@@ -83,15 +73,11 @@ public class PaimonPageSourceWrapper
         int pageCount = next.getPositionCount();
 
         return deletionVector
-                .map(
-                        deletionVector ->
-                                convertToRetained(next, deletionVector, startPosition, pageCount))
+                .map(deletionVector -> convertToRetained(next, deletionVector, startPosition, pageCount))
                 .orElse(next);
     }
 
-    @VisibleForTesting
-    SourcePage convertToRetained(
-            SourcePage page, DeletionVector deletionVector, int startPosition, int pageCount)
+    private static SourcePage convertToRetained(SourcePage page, DeletionVector deletionVector, int startPosition, int pageCount)
     {
         int[] retained = new int[pageCount];
         int retainedLength = 0;

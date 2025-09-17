@@ -18,9 +18,6 @@ import io.airlift.configuration.ConfigDescription;
 import jakarta.validation.constraints.NotNull;
 import org.apache.paimon.options.Options;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public class PaimonConfig
 {
     private String warehouse;
@@ -83,8 +80,8 @@ public class PaimonConfig
 
     public Options toOptions()
     {
-        Map<String, String> opMap = new HashMap<>();
-        opMap.put("warehouse", warehouse);
-        return new Options(opMap);
+        Options options = new Options();
+        options.set("warehouse", warehouse);
+        return options;
     }
 }

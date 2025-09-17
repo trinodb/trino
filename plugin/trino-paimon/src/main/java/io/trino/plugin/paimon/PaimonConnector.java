@@ -38,17 +38,14 @@ import static io.trino.spi.transaction.IsolationLevel.SERIALIZABLE;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Trino {@link Connector}.
- */
 public class PaimonConnector
         implements Connector
 {
     private final Injector injector;
     private final LifeCycleManager lifeCycleManager;
     private final PaimonTransactionManager transactionManager;
-    private final ConnectorSplitManager trinoSplitManager;
-    private final ConnectorPageSourceProvider trinoPageSourceProvider;
+    private final ConnectorSplitManager splitManager;
+    private final ConnectorPageSourceProvider pageSourceProvider;
     private final List<PropertyMetadata<?>> tableProperties;
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -57,17 +54,16 @@ public class PaimonConnector
             Injector injector,
             LifeCycleManager lifeCycleManager,
             PaimonTransactionManager transactionManager,
-            ConnectorSplitManager trinoSplitManager,
-            ConnectorPageSourceProvider trinoPageSourceProvider,
+            ConnectorSplitManager splitManager,
+            ConnectorPageSourceProvider pageSourceProvider,
             PaimonTableOptions paimonTableOptions,
             PaimonSessionProperties paimonSessionProperties)
     {
         this.injector = requireNonNull(injector, "injector is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.trinoSplitManager = requireNonNull(trinoSplitManager, "trinoSplitManager is null");
-        this.trinoPageSourceProvider =
-                requireNonNull(trinoPageSourceProvider, "trinoRecordSetProvider is null");
+        this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.tableProperties = paimonTableOptions.getTableProperties();
         this.sessionProperties = paimonSessionProperties.getSessionProperties();
     }
@@ -95,31 +91,28 @@ public class PaimonConnector
     }
 
     @Override
-    public ConnectorMetadata getMetadata(
-            ConnectorSession session, ConnectorTransactionHandle transactionHandle)
+    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
     {
-        ConnectorMetadata metadata =
-                transactionManager.get(transactionHandle, session.getIdentity());
+        ConnectorMetadata metadata = transactionManager.get(transactionHandle, session.getIdentity());
         return new ClassLoaderSafeConnectorMetadata(metadata, getClass().getClassLoader());
     }
 
     @Override
     public Set<ConnectorCapabilities> getCapabilities()
     {
-        return immutableEnumSet(
-                NOT_NULL_COLUMN_CONSTRAINT);
+        return immutableEnumSet(NOT_NULL_COLUMN_CONSTRAINT);
     }
 
     @Override
     public ConnectorSplitManager getSplitManager()
     {
-        return trinoSplitManager;
+        return splitManager;
     }
 
     @Override
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
-        return trinoPageSourceProvider;
+        return pageSourceProvider;
     }
 
     @Override

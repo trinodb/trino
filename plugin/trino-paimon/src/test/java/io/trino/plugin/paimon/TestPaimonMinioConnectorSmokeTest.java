@@ -14,14 +14,16 @@
 package io.trino.plugin.paimon;
 
 import io.trino.plugin.hive.containers.Hive3MinioDataLake;
-import io.trino.plugin.paimon.testing.TpchPaimonTablesInitializer;
+import io.trino.plugin.paimon.testing.PaimonTablesInitializer;
+import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 
-public class TestPaimonMinioConnectorSmokeTest
-        extends BasePaimonConnectorSmokeTest
+final class TestPaimonMinioConnectorSmokeTest
+        extends BaseConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
@@ -33,7 +35,30 @@ public class TestPaimonMinioConnectorSmokeTest
         hiveMinioDataLake.getMinioClient().ensureBucketExists(bucketName);
 
         return PaimonQueryRunner.builder(hiveMinioDataLake)
-                .setDataLoader(new TpchPaimonTablesInitializer(REQUIRED_TPCH_TABLES))
+                .setDataLoader(new PaimonTablesInitializer(REQUIRED_TPCH_TABLES))
                 .build();
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        return switch (connectorBehavior) {
+            case SUPPORTS_ADD_COLUMN,
+                 SUPPORTS_ARRAY,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_CREATE_SCHEMA,
+                 SUPPORTS_CREATE_TABLE,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_DELETE,
+                 SUPPORTS_INSERT,
+                 SUPPORTS_MAP_TYPE,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_RENAME_COLUMN,
+                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_ROW_TYPE,
+                 SUPPORTS_UPDATE -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 }

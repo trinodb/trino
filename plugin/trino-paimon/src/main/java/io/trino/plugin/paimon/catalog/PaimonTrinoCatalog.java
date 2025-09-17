@@ -23,12 +23,14 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.paimon.annotation.VisibleForTesting;
 import org.apache.paimon.catalog.Catalog;
+import org.apache.paimon.catalog.Catalog.DatabaseNotExistException;
+import org.apache.paimon.catalog.Catalog.TableAlreadyExistException;
+import org.apache.paimon.catalog.Catalog.TableNotExistException;
 import org.apache.paimon.catalog.Database;
 import org.apache.paimon.catalog.FileSystemCatalog;
 import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.fs.Path;
 import org.apache.paimon.schema.Schema;
-import org.apache.paimon.schema.SchemaChange;
 import org.apache.paimon.table.Table;
 
 import java.io.IOException;
@@ -36,45 +38,34 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
-/**
- * Trino catalog, use it after set session.
- */
 public class PaimonTrinoCatalog
 {
-    private final PaimonConfig config;
+    private final PaimonFileIO paimonFileIO;
 
-    private final HiveMetastoreFactory hiveMetastoreFactory;
-    private final TrinoFileSystemFactory trinoFileSystemFactory;
-
-    private Catalog current;
-
-    private PaimonFileIO paimonFileIO;
+    private Catalog catalog;
 
     public PaimonTrinoCatalog(
             PaimonConfig config,
-            TrinoFileSystemFactory trinoFileSystemFactory,
+            TrinoFileSystemFactory fileSystemFactory,
             Optional<HiveMetastoreFactory> hiveMetastoreFactory,
             ConnectorIdentity identity)
     {
-        this.config = config;
-        this.hiveMetastoreFactory = hiveMetastoreFactory.orElse(null);
-        this.trinoFileSystemFactory = trinoFileSystemFactory;
-        init(identity);
-    }
+        requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        requireNonNull(hiveMetastoreFactory, "hiveMetastoreFactory is null");
+        requireNonNull(identity, "identity is null");
 
-    public void init(ConnectorIdentity identity)
-    {
-        paimonFileIO = new PaimonFileIO(trinoFileSystemFactory, identity, null);
+        paimonFileIO = new PaimonFileIO(fileSystemFactory, identity, null);
         switch (config.getCatalogType()) {
-            case FILESYSTEM:
+            case FILESYSTEM -> {
                 checkArgument(config.getWarehouse() != null, "Warehouse is required for filesystem catalog");
-                current = new FileSystemCatalog(paimonFileIO, new Path(config.getWarehouse()), config.toOptions());
-                break;
-            case HIVE:
-                checkArgument(hiveMetastoreFactory != null, "Hive metastore factory is required for hive catalog");
+                catalog = new FileSystemCatalog(paimonFileIO, new Path(config.getWarehouse()), config.toOptions());
+            }
+            case HIVE -> {
+                checkArgument(hiveMetastoreFactory.isPresent(), "Hive metastore factory is required for hive catalog");
                 checkArgument(config.getWarehouse() != null, "Warehouse is required for hive catalog");
-                HiveMetastore metastore = hiveMetastoreFactory.createMetastore(Optional.of(identity));
+                HiveMetastore metastore = hiveMetastoreFactory.orElseThrow().createMetastore(Optional.of(identity));
                 FileSystemCatalog fileSystemCatalog = new FileSystemCatalog(paimonFileIO, new Path(config.getWarehouse()), config.toOptions())
                 {
                     @Override
@@ -85,10 +76,8 @@ public class PaimonTrinoCatalog
                         return Database.of(name);
                     }
                 };
-                current = new TrinoHiveCatalog(metastore, fileSystemCatalog);
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported catalog type: " + config.getCatalogType());
+                catalog = new TrinoHiveCatalog(metastore, fileSystemCatalog);
+            }
         }
     }
 
@@ -99,86 +88,65 @@ public class PaimonTrinoCatalog
         return paimonFileIO.exists(path);
     }
 
+    public void createDatabase(ConnectorSession session, String name, boolean ignoreIfExists)
+            throws Catalog.DatabaseAlreadyExistException
+    {
+        paimonFileIO.setConnectorSession(session);
+        catalog.createDatabase(name, ignoreIfExists);
+    }
+
     public List<String> listDatabases(ConnectorSession session)
     {
         paimonFileIO.setConnectorSession(session);
-        return current.listDatabases();
+        return catalog.listDatabases();
     }
 
     public Database getDatabase(ConnectorSession session, String name)
-            throws Catalog.DatabaseNotExistException
+            throws DatabaseNotExistException
     {
         paimonFileIO.setConnectorSession(session);
-        return current.getDatabase(name);
-    }
-
-    public void dropDatabase(ConnectorSession session, String s, boolean b, boolean b1)
-            throws Catalog.DatabaseNotExistException, Catalog.DatabaseNotEmptyException
-    {
-        paimonFileIO.setConnectorSession(session);
-        current.dropDatabase(s, b, b1);
+        return catalog.getDatabase(name);
     }
 
     public Table getTable(ConnectorSession session, Identifier identifier)
-            throws Catalog.TableNotExistException
+            throws TableNotExistException
     {
         paimonFileIO.setConnectorSession(session);
-        return current.getTable(identifier);
+        return catalog.getTable(identifier);
     }
 
     public List<String> listTables(ConnectorSession session, String s)
-            throws Catalog.DatabaseNotExistException
+            throws DatabaseNotExistException
     {
         paimonFileIO.setConnectorSession(session);
-        return current.listTables(s);
+        return catalog.listTables(s);
+    }
+
+    public void createTable(ConnectorSession session, Identifier identifier, Schema schema, boolean ignoreIfExists)
+            throws TableAlreadyExistException, DatabaseNotExistException
+    {
+        paimonFileIO.setConnectorSession(session);
+        catalog.createTable(identifier, schema, ignoreIfExists);
     }
 
     public void dropTable(ConnectorSession session, Identifier identifier, boolean b)
-            throws Catalog.TableNotExistException
+            throws TableNotExistException
     {
         paimonFileIO.setConnectorSession(session);
-        current.dropTable(identifier, b);
-    }
-
-    public void createTable(
-            ConnectorSession session, Identifier identifier, Schema schema, boolean ignoreIfExists)
-            throws Catalog.TableAlreadyExistException, Catalog.DatabaseNotExistException
-    {
-        paimonFileIO.setConnectorSession(session);
-        current.createTable(identifier, schema, ignoreIfExists);
-    }
-
-    public void alterTable(
-            ConnectorSession session,
-            Identifier identifier,
-            List<SchemaChange> list,
-            boolean ignoreIfExists)
-            throws Catalog.TableNotExistException,
-            Catalog.ColumnAlreadyExistException,
-            Catalog.ColumnNotExistException
-    {
-        paimonFileIO.setConnectorSession(session);
-        current.alterTable(identifier, list, ignoreIfExists);
+        catalog.dropTable(identifier, b);
     }
 
     public void close()
             throws Exception
     {
-        if (current != null) {
-            current.close();
+        if (catalog != null) {
+            catalog.close();
         }
-    }
-
-    public void createDatabase(ConnectorSession session, String name, boolean ignoreIfExists)
-            throws Catalog.DatabaseAlreadyExistException
-    {
-        paimonFileIO.setConnectorSession(session);
-        current.createDatabase(name, ignoreIfExists);
     }
 
     @VisibleForTesting
     public Catalog getCurrentCatalog()
     {
-        return current;
+        return catalog;
     }
 }

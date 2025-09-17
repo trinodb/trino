@@ -37,9 +37,6 @@ import java.util.UUID;
 
 import static org.apache.paimon.data.BinaryString.fromString;
 
-/**
- * presto test util.
- */
 final class PaimonTestUtils
 {
     private PaimonTestUtils() {}
@@ -47,20 +44,17 @@ final class PaimonTestUtils
     public static byte[] getSerializedTable()
             throws Exception
     {
-        String warehouse =
-                Files.createTempDirectory(UUID.randomUUID().toString()).toUri().toString();
+        String warehouse = Files.createTempDirectory(UUID.randomUUID().toString()).toUri().toString();
         Path tablePath = new Path(warehouse, "test.db/user");
         SimpleTableTestHelper testHelper = createTestHelper(tablePath);
         testHelper.write(GenericRow.of(1, 2L, fromString("1"), fromString("1")));
         testHelper.write(GenericRow.of(3, 4L, fromString("2"), fromString("2")));
         testHelper.write(GenericRow.of(5, 6L, fromString("3"), fromString("3")));
-        testHelper.write(
-                GenericRow.ofKind(RowKind.DELETE, 3, 4L, fromString("2"), fromString("2")));
+        testHelper.write(GenericRow.ofKind(RowKind.DELETE, 3, 4L, fromString("2"), fromString("2")));
         testHelper.commit();
         Map<String, String> config = new HashMap<>();
         config.put("warehouse", warehouse);
-        Catalog catalog =
-                CatalogFactory.createCatalog(CatalogContext.create(Options.fromMap(config)));
+        Catalog catalog = CatalogFactory.createCatalog(CatalogContext.create(Options.fromMap(config)));
         Identifier tablePath2 = new Identifier("test", "user");
         return InstantiationUtil.serializeObject(catalog.getTable(tablePath2));
     }
@@ -68,14 +62,13 @@ final class PaimonTestUtils
     private static SimpleTableTestHelper createTestHelper(Path tablePath)
             throws Exception
     {
-        RowType rowType =
-                new RowType(
-                        Arrays.asList(
-                                new DataField(0, "a", new IntType()),
-                                new DataField(1, "b", new BigIntType()),
-                                // test field name has upper case
-                                new DataField(2, "aCa", new VarCharType()),
-                                new DataField(3, "d", new CharType(1))));
+        RowType rowType = new RowType(
+                Arrays.asList(
+                        new DataField(0, "a", new IntType()),
+                        new DataField(1, "b", new BigIntType()),
+                        // test field name has upper case
+                        new DataField(2, "aCa", new VarCharType()),
+                        new DataField(3, "d", new CharType(1))));
         return new SimpleTableTestHelper(tablePath, rowType);
     }
 }

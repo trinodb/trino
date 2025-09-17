@@ -23,9 +23,8 @@ import java.util.OptionalLong;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 
-/**
- * Trino {@link ConnectorSplitSource}.
- */
+import static java.util.Objects.requireNonNull;
+
 public class PaimonSplitSource
         implements ConnectorSplitSource
 {
@@ -36,7 +35,7 @@ public class PaimonSplitSource
     public PaimonSplitSource(List<PaimonSplit> splits, OptionalLong limit)
     {
         this.splits = new LinkedList<>(splits);
-        this.limit = limit;
+        this.limit = requireNonNull(limit, "limit is null");
     }
 
     protected CompletableFuture<ConnectorSplitBatch> innerGetNextBatch(int maxSize)

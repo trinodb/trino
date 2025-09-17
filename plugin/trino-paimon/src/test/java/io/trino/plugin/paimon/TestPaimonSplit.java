@@ -20,9 +20,6 @@ import java.util.Arrays;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Test for {@link PaimonSplit}.
- */
 final class TestPaimonSplit
 {
     private final JsonCodec<PaimonSplit> codec = JsonCodec.jsonCodec(PaimonSplit.class);
@@ -35,6 +32,6 @@ final class TestPaimonSplit
         PaimonSplit expected = new PaimonSplit(Arrays.toString(serializedTable), 0.1);
         String json = codec.toJson(expected);
         PaimonSplit actual = codec.fromJson(json);
-        assertThat(actual.getSplitSerialized()).isEqualTo(expected.getSplitSerialized());
+        assertThat(actual.splitSerialized()).isEqualTo(expected.splitSerialized());
     }
 }

@@ -13,16 +13,7 @@
  */
 package io.trino.plugin.paimon;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.spi.Plugin;
-import io.trino.spi.connector.ConnectorFactory;
-
-public class PaimonPlugin
-        implements Plugin
+final class TestPaimonConfig
 {
-    @Override
-    public Iterable<ConnectorFactory> getConnectorFactories()
-    {
-        return ImmutableList.of(new PaimonConnectorFactory());
-    }
+    // TODO Add tests
 }

@@ -25,32 +25,24 @@ import org.junit.jupiter.api.Test;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Test for {@link PaimonColumnHandle}.
- */
 final class TestPaimonColumnHandle
 {
+    private final JsonCodec<PaimonColumnHandle> codec;
+
+    public TestPaimonColumnHandle()
+    {
+        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
+        codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(PaimonColumnHandle.class);
+    }
+
     @Test
     void testTrinoColumnHandle()
     {
         PaimonColumnHandle expected = PaimonColumnHandle.of("name", DataTypes.STRING(), 0);
-        testRoundTrip(expected);
-    }
-
-    private void testRoundTrip(PaimonColumnHandle expected)
-    {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(
-                ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
-        JsonCodec<PaimonColumnHandle> codec =
-                new JsonCodecFactory(objectMapperProvider).jsonCodec(PaimonColumnHandle.class);
-
         String json = codec.toJson(expected);
         PaimonColumnHandle actual = codec.fromJson(json);
 
         assertThat(actual).isEqualTo(expected);
-        assertThat(actual.getColumnName()).isEqualTo(expected.getColumnName());
-        assertThat(actual.getTypeString()).isEqualTo(expected.getTypeString());
-        assertThat(actual.getTrinoType()).isEqualTo(expected.getTrinoType());
     }
 }

@@ -27,9 +27,6 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * options utils.
- */
 public final class PaimonTableOptionUtils
 {
     private PaimonTableOptionUtils() {}
@@ -81,50 +78,31 @@ public final class PaimonTableOptionUtils
 
     private static boolean shouldSkip(String fieldName)
     {
-        switch (fieldName) {
-            case "PRIMARY_KEY":
-            case "PARTITION":
-            case "FILE_COMPRESSION_PER_LEVEL":
-            case "STREAMING_COMPACT":
-                return true;
-            default:
-                return false;
-        }
+        return switch (fieldName) {
+            case "PRIMARY_KEY", "PARTITION", "FILE_COMPRESSION_PER_LEVEL", "STREAMING_COMPACT" -> true;
+            default -> false;
+        };
     }
 
     private static boolean isEnum(String className)
     {
-        switch (className) {
-            case "StartupMode":
-            case "MergeEngine":
-            case "ChangelogProducer":
-            case "LogConsistency":
-            case "LogChangelogMode":
-            case "StreamingReadMode":
-                return true;
-            default:
-                return false;
-        }
+        return switch (className) {
+            case "StartupMode", "MergeEngine", "ChangelogProducer", "LogConsistency", "LogChangelogMode", "StreamingReadMode" -> true;
+            default -> false;
+        };
     }
 
     private static Class<?> buildClass(String className)
     {
-        switch (className) {
-            case "MergeEngine":
-                return CoreOptions.MergeEngine.class;
-            case "ChangelogProducer":
-                return CoreOptions.ChangelogProducer.class;
-            case "StartupMode":
-                return CoreOptions.StartupMode.class;
-            case "LogConsistency":
-                return CoreOptions.LogConsistency.class;
-            case "LogChangelogMode":
-                return CoreOptions.LogChangelogMode.class;
-            case "StreamingReadMode":
-                return CoreOptions.StreamingReadMode.class;
-            default:
-                return null;
-        }
+        return switch (className) {
+            case "MergeEngine" -> CoreOptions.MergeEngine.class;
+            case "ChangelogProducer" -> CoreOptions.ChangelogProducer.class;
+            case "StartupMode" -> CoreOptions.StartupMode.class;
+            case "LogConsistency" -> CoreOptions.LogConsistency.class;
+            case "LogChangelogMode" -> CoreOptions.LogChangelogMode.class;
+            case "StreamingReadMode" -> CoreOptions.StreamingReadMode.class;
+            default -> null;
+        };
     }
 
     private static String convertOptionKey(String key)
@@ -159,17 +137,7 @@ public final class PaimonTableOptionUtils
         return field.getType().equals(ConfigOption.class);
     }
 
-    static class OptionWithMetaInfo
-    {
-        final ConfigOption<?> option;
-        final Field field;
-
-        public OptionWithMetaInfo(ConfigOption<?> option, Field field)
-        {
-            this.option = option;
-            this.field = field;
-        }
-    }
+    private record OptionWithMetaInfo(ConfigOption<?> option, Field field) {}
 
     static class OptionInfo<T>
     {

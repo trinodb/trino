@@ -21,30 +21,26 @@ import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.UUID;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Test for {@link PaimonPlugin}.
- */
 final class TestPaimonPlugin
 {
     @Test
     void testCreatePaimonConnector()
             throws IOException
     {
-        String warehouse =
-                Files.createTempDirectory(UUID.randomUUID().toString()).toUri().toString();
+        String warehouse = createTempDirectory(UUID.randomUUID().toString()).toUri().toString();
         Plugin plugin = new PaimonPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        Connector connector =
-                factory.create(
-                        "paimon",
-                        ImmutableMap.of("paimon.warehouse", warehouse, "paimon.catalog.type", "filesystem"),
-                        new TestingConnectorContext());
+        Connector connector = factory.create(
+                "paimon",
+                ImmutableMap.of("paimon.warehouse", warehouse, "paimon.catalog.type", "filesystem"),
+                new TestingConnectorContext());
         assertThat(connector).isNotNull();
+        connector.shutdown();
     }
 }

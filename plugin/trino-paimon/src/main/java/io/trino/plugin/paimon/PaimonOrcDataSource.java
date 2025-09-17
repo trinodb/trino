@@ -18,7 +18,6 @@ import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.orc.AbstractOrcDataSource;
 import io.trino.orc.OrcDataSourceId;
-import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 
@@ -26,17 +25,13 @@ import java.io.IOException;
 
 import static java.util.Objects.requireNonNull;
 
-/**
- * Data source to construct {@link OrcReader}.
- */
 public class PaimonOrcDataSource
         extends AbstractOrcDataSource
 {
     private final FileFormatDataSourceStats stats;
     private final TrinoInput input;
 
-    public PaimonOrcDataSource(
-            TrinoInputFile file, OrcReaderOptions options, FileFormatDataSourceStats stats)
+    public PaimonOrcDataSource(TrinoInputFile file, OrcReaderOptions options, FileFormatDataSourceStats stats)
             throws IOException
     {
         super(new OrcDataSourceId(file.location().toString()), file.length(), options);

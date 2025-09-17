@@ -31,9 +31,6 @@ import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
-/**
- * Trino {@link ConnectorSplitManager}.
- */
 public class PaimonSplitManager
         implements ConnectorSplitManager
 {
@@ -68,19 +65,11 @@ public class PaimonSplitManager
 
             long maxRowCount = splits.stream().mapToLong(Split::rowCount).max().orElse(0L);
             double minimumSplitWeight = PaimonSessionProperties.getMinimumSplitWeight(session);
-            return new PaimonSplitSource(
-                    splits.stream()
-                            .map(
-                                    split ->
-                                            PaimonSplit.fromSplit(
-                                                    split,
-                                                    Math.min(
-                                                            Math.max(
-                                                                    (double) split.rowCount()
-                                                                            / maxRowCount,
-                                                                    minimumSplitWeight),
-                                                            1.0)))
-                            .collect(Collectors.toList()),
+            return new PaimonSplitSource(splits.stream()
+                    .map(split -> PaimonSplit.fromSplit(
+                            split,
+                            Math.min(Math.max((double) split.rowCount() / maxRowCount, minimumSplitWeight), 1.0)))
+                    .collect(Collectors.toList()),
                     tableHandle.getLimit());
         }
         catch (IllegalArgumentException e) {

@@ -18,9 +18,8 @@ import org.apache.paimon.fs.PositionOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
-/**
- * Wrapper of {@link OutputStream}.
- */
+import static java.util.Objects.requireNonNull;
+
 public class PositionOutputStreamWrapper
         extends PositionOutputStream
 {
@@ -28,14 +27,9 @@ public class PositionOutputStreamWrapper
 
     private long position;
 
-    public PositionOutputStreamWrapper(OutputStream outputStream)
-    {
-        this(outputStream, 0);
-    }
-
     public PositionOutputStreamWrapper(OutputStream outputStream, long startPosition)
     {
-        this.outputStream = outputStream;
+        this.outputStream = requireNonNull(outputStream, "outputStream is null");
         this.position = startPosition;
     }
 

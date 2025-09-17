@@ -35,14 +35,24 @@ import io.trino.spi.type.TypeManager;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Trino {@link ConnectorFactory}.
- */
 public class PaimonConnectorFactory
         implements ConnectorFactory
 {
+    @Override
+    public String getName()
+    {
+        return "paimon";
+    }
+
+    @Override
+    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
+    {
+        return createConnector(catalogName, config, context, Optional.empty());
+    }
+
     public static Connector createConnector(
             String catalogName,
             Map<String, String> config,
@@ -51,62 +61,29 @@ public class PaimonConnectorFactory
     {
         ClassLoader classLoader = PaimonConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            Bootstrap app =
-                    new Bootstrap(
-                            new JsonModule(),
-                            new PaimonCatalogModule(),
-                            new PaimonModule(),
-                            // bind the trino file system module
-                            new PaimonFileSystemModule(catalogName, context.getCurrentNode().isCoordinator(), context.getOpenTelemetry()),
-                            binder -> {
-                                binder.bind(ClassLoader.class)
-                                        .toInstance(PaimonConnectorFactory.class.getClassLoader());
-                                binder.bind(NodeVersion.class)
-                                        .toInstance(
-                                                new NodeVersion(
-                                                        context.getNodeManager()
-                                                                .getCurrentNode()
-                                                                .getVersion()));
-                                binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                                binder.bind(OpenTelemetry.class)
-                                        .toInstance(context.getOpenTelemetry());
-                                binder.bind(Node.class).toInstance(context.getCurrentNode());
-                                binder.bind(Tracer.class).toInstance(context.getTracer());
-                                binder.bind(CatalogName.class)
-                                        .toInstance(new CatalogName(catalogName));
-                            },
-                            module.orElse(new EmptyModule()));
+            Bootstrap app = new Bootstrap(
+                    new JsonModule(),
+                    new PaimonCatalogModule(),
+                    new PaimonModule(),
+                    // bind the trino file system module
+                    new PaimonFileSystemModule(catalogName, context.getCurrentNode().isCoordinator(), context.getOpenTelemetry()),
+                    binder -> {
+                        binder.bind(ClassLoader.class).toInstance(PaimonConnectorFactory.class.getClassLoader());
+                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getCurrentNode().getVersion()));
+                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                        binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
+                        binder.bind(Node.class).toInstance(context.getCurrentNode());
+                        binder.bind(Tracer.class).toInstance(context.getTracer());
+                        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
+                    },
+                    module.orElse(EMPTY_MODULE));
 
-            Injector injector =
-                    app.doNotInitializeLogging()
-                            .setRequiredConfigurationProperties(config)
-                            .initialize();
+            Injector injector = app.doNotInitializeLogging()
+                    .setRequiredConfigurationProperties(config)
+                    .initialize();
 
             return injector.getInstance(PaimonConnector.class);
         }
-    }
-
-    @Override
-    public String getName()
-    {
-        return "paimon";
-    }
-
-    @Override
-    public Connector create(
-            String catalogName, Map<String, String> config, ConnectorContext context)
-    {
-        return createConnector(catalogName, config, context, Optional.empty());
-    }
-
-    /**
-     * Empty module for paimon connector factory.
-     */
-    public static class EmptyModule
-            implements Module
-    {
-        @Override
-        public void configure(Binder binder) {}
     }
 
     private static class PaimonFileSystemModule
@@ -116,21 +93,18 @@ public class PaimonConnectorFactory
         private final boolean isCoordinator;
         private final OpenTelemetry openTelemetry;
 
-        public PaimonFileSystemModule(
-                String catalogName, boolean isCoordinator, OpenTelemetry openTelemetry1)
+        private PaimonFileSystemModule(String catalogName, boolean isCoordinator, OpenTelemetry openTelemetry)
         {
             this.catalogName = requireNonNull(catalogName, "catalogName is null");
             this.isCoordinator = isCoordinator;
-            this.openTelemetry = openTelemetry1;
+            this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         }
 
         @Override
         protected void setup(Binder binder)
         {
             boolean metadataCacheEnabled = buildConfigObject(PaimonConfig.class).isMetadataCacheEnabled();
-            install(
-                    new FileSystemModule(
-                            catalogName, isCoordinator, openTelemetry, metadataCacheEnabled));
+            install(new FileSystemModule(catalogName, isCoordinator, openTelemetry, metadataCacheEnabled));
         }
     }
 }

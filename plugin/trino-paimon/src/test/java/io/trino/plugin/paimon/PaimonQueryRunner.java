@@ -14,27 +14,28 @@
 package io.trino.plugin.paimon;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.paimon.testing.PaimonTablesInitializer;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
 
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 
-/**
- * The query runner of trino.
- */
 final class PaimonQueryRunner
 {
     private static final String PAIMON_CATALOG = "paimon";
-    private static final String SCHEMA_NAME = "paimon";
+    private static final String SCHEMA_NAME = "tpch";
 
     private PaimonQueryRunner() {}
 
@@ -47,14 +48,14 @@ final class PaimonQueryRunner
     {
         return new Builder()
                 .setWarehouse("s3://" + hiveMinioDataLake.getBucketName() + "/")
+                .addConnectorProperty("paimon.catalog.type", "hive")
+                .addConnectorProperty("hive.metastore", "file")
                 .addConnectorProperty("fs.native-s3.enabled", "true")
                 .addConnectorProperty("s3.aws-access-key", MINIO_ACCESS_KEY)
                 .addConnectorProperty("s3.aws-secret-key", MINIO_SECRET_KEY)
                 .addConnectorProperty("s3.region", MINIO_REGION)
                 .addConnectorProperty("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
-                .addConnectorProperty("s3.path-style-access", "true")
-                .addConnectorProperty("paimon.catalog.type", "hive")
-                .addConnectorProperty("hive.metastore", "file");
+                .addConnectorProperty("s3.path-style-access", "true");
     }
 
     public static class Builder
@@ -73,9 +74,9 @@ final class PaimonQueryRunner
         }
 
         @CanIgnoreReturnValue
-        public Builder setWarehouse(String warehosue)
+        public Builder setWarehouse(String warehouse)
         {
-            this.warehouse = warehosue;
+            this.warehouse = warehouse;
             return this;
         }
 
@@ -98,19 +99,37 @@ final class PaimonQueryRunner
                 throws Exception
         {
             Session session = testSessionBuilder().setCatalog(PAIMON_CATALOG).setSchema(SCHEMA_NAME).build();
-            DistributedQueryRunner queryRunner =
-                    DistributedQueryRunner.builder(session).build();
-            queryRunner.installPlugin(new TestingHivePaimonPlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("paimon_data")));
-            if (warehouse == null) {
-                Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("paimon_data");
-                Path catalogDir = dataDir.getParent().resolve("catalog");
-                warehouse = catalogDir.toFile().toURI().toString();
-            }
-            connectorProperties.put("paimon.warehouse", warehouse);
-            queryRunner.createCatalog(PAIMON_CATALOG, PAIMON_CATALOG, connectorProperties);
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new TestingPaimonPlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("paimon_data")));
+                if (warehouse == null) {
+                    Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("paimon_data");
+                    Path catalogDir = dataDir.getParent().resolve("catalog");
+                    warehouse = catalogDir.toFile().toURI().toString();
+                }
+                connectorProperties.put("paimon.warehouse", warehouse);
+                queryRunner.createCatalog(PAIMON_CATALOG, PAIMON_CATALOG, connectorProperties);
 
-            dataLoader.initializeTables(session, queryRunner, SCHEMA_NAME);
-            return queryRunner;
+                dataLoader.initializeTables(session, queryRunner, SCHEMA_NAME);
+                return queryRunner;
+            }
+            catch (Throwable e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
+            }
         }
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        //noinspection resource
+        QueryRunner queryRunner = builder()
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .setDataLoader(new PaimonTablesInitializer(TpchTable.getTables()))
+                .build();
+        Logger log = Logger.get(PaimonQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }

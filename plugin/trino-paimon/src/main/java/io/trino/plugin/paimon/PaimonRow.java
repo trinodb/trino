@@ -54,10 +54,8 @@ import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
-/**
- * TrinoRow {@link InternalRow}.
- */
 public class PaimonRow
         implements InternalRow, Serializable
 {
@@ -69,9 +67,9 @@ public class PaimonRow
     public PaimonRow(RowType rowType, Page singlePage, RowKind rowKind)
     {
         verify(singlePage.getPositionCount() == 1, "singlePage must have only one row");
-        this.rowType = rowType;
-        this.singlePage = singlePage;
-        this.rowKind = rowKind;
+        this.rowType = requireNonNull(rowType, "rowType is null");
+        this.singlePage = requireNonNull(singlePage, "singlePage is null");
+        this.rowKind = requireNonNull(rowKind, "rowKind is null");
         cacheTypes = new Type[singlePage.getChannelCount()];
     }
 

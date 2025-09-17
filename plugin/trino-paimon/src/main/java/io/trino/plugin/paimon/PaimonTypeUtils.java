@@ -53,29 +53,29 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-/**
- * Trino type from Paimon Type.
- */
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.type.CharType.createCharType;
+
 public final class PaimonTypeUtils
 {
     private PaimonTypeUtils() {}
-
-    public static Type fromPaimonType(DataType type)
-    {
-        return type.accept(PaimonToTrinoTypeVistor.INSTANCE);
-    }
 
     public static List<String> fieldNames(RowType rowType)
     {
         return rowType.getFields().stream()
                 .map(DataField::name)
                 .map(String::toLowerCase)
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
+    }
+
+    public static Type toTrinoType(DataType type)
+    {
+        return type.accept(PaimonToTrinoTypeVistor.INSTANCE);
     }
 
     public static DataType toPaimonType(Type trinoType)
     {
-        return TrinoToPaimonTypeVistor.INSTANCE.visit(trinoType);
+        return TrinoToPaimonTypeVisitor.INSTANCE.visit(trinoType);
     }
 
     private static class PaimonToTrinoTypeVistor
@@ -86,8 +86,7 @@ public final class PaimonTypeUtils
         @Override
         public Type visit(CharType charType)
         {
-            return io.trino.spi.type.CharType.createCharType(
-                    Math.min(io.trino.spi.type.CharType.MAX_LENGTH, charType.getLength()));
+            return createCharType(Math.min(io.trino.spi.type.CharType.MAX_LENGTH, charType.getLength()));
         }
 
         @Override
@@ -174,18 +173,16 @@ public final class PaimonTypeUtils
             if (precision == 0) {
                 return io.trino.spi.type.TimeType.TIME_SECONDS;
             }
-            else if (precision <= 3) {
+            if (precision <= 3) {
                 return io.trino.spi.type.TimeType.TIME_MILLIS;
             }
-            else if (precision <= 6) {
+            if (precision <= 6) {
                 return io.trino.spi.type.TimeType.TIME_MICROS;
             }
-            else if (precision <= 9) {
+            if (precision <= 9) {
                 return io.trino.spi.type.TimeType.TIME_NANOS;
             }
-            else {
-                return io.trino.spi.type.TimeType.TIME_PICOS;
-            }
+            return io.trino.spi.type.TimeType.TIME_PICOS;
         }
 
         @Override
@@ -195,18 +192,16 @@ public final class PaimonTypeUtils
             if (precision == 0) {
                 return io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
             }
-            else if (precision <= 3) {
+            if (precision <= 3) {
                 return io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
             }
-            else if (precision <= 6) {
+            if (precision <= 6) {
                 return io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
             }
-            else if (precision <= 9) {
+            if (precision <= 9) {
                 return io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
             }
-            else {
-                return io.trino.spi.type.TimestampType.TIMESTAMP_PICOS;
-            }
+            return io.trino.spi.type.TimestampType.TIMESTAMP_PICOS;
         }
 
         @Override
@@ -216,15 +211,13 @@ public final class PaimonTypeUtils
             if (precision <= 3) {
                 return TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
             }
-            else if (precision <= 6) {
+            if (precision <= 6) {
                 return TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
             }
-            else if (precision <= 9) {
+            if (precision <= 9) {
                 return TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
             }
-            else {
-                return TimestampWithTimeZoneType.TIMESTAMP_TZ_PICOS;
-            }
+            return TimestampWithTimeZoneType.TIMESTAMP_TZ_PICOS;
         }
 
         @Override
@@ -269,28 +262,22 @@ public final class PaimonTypeUtils
         }
     }
 
-    private static class TrinoToPaimonTypeVistor
+    private static class TrinoToPaimonTypeVisitor
     {
-        private static final TrinoToPaimonTypeVistor INSTANCE = new TrinoToPaimonTypeVistor();
+        private static final TrinoToPaimonTypeVisitor INSTANCE = new TrinoToPaimonTypeVisitor();
 
         private final AtomicInteger currentIndex = new AtomicInteger(0);
 
-        public DataType visit(Type trinoType)
+        private DataType visit(Type trinoType)
         {
             switch (trinoType) {
                 case io.trino.spi.type.CharType charType -> {
-                    return DataTypes.CHAR(
-                            Math.min(
-                                    io.trino.spi.type.CharType.MAX_LENGTH,
-                                    charType.getLength()));
+                    return DataTypes.CHAR(Math.min(io.trino.spi.type.CharType.MAX_LENGTH, charType.getLength()));
                 }
                 case VarcharType varcharType -> {
                     Optional<Integer> length = varcharType.getLength();
                     if (length.isPresent()) {
-                        return DataTypes.VARCHAR(
-                                Math.min(
-                                        VarcharType.MAX_LENGTH,
-                                        ((VarcharType) trinoType).getBoundedLength()));
+                        return DataTypes.VARCHAR(Math.min(VarcharType.MAX_LENGTH, ((VarcharType) trinoType).getBoundedLength()));
                     }
                     return DataTypes.VARCHAR(VarcharType.MAX_LENGTH);
                 }
@@ -301,9 +288,7 @@ public final class PaimonTypeUtils
                     return DataTypes.VARBINARY(Integer.MAX_VALUE);
                 }
                 case io.trino.spi.type.DecimalType decimalType -> {
-                    return DataTypes.DECIMAL(
-                            decimalType.getPrecision(),
-                            decimalType.getScale());
+                    return DataTypes.DECIMAL(decimalType.getPrecision(), decimalType.getScale());
                 }
                 case TinyintType _ -> {
                     return DataTypes.TINYINT();
@@ -350,15 +335,12 @@ public final class PaimonTypeUtils
                             visit(mapType.getValueType()));
                 }
                 case io.trino.spi.type.RowType rowType -> {
-                    List<DataField> dataFields =
-                            rowType.getFields().stream()
-                                    .map(
-                                            field ->
-                                                    new DataField(
-                                                            currentIndex.getAndIncrement(),
-                                                            field.getName().get(),
-                                                            visit(field.getType())))
-                                    .collect(Collectors.toList());
+                    List<DataField> dataFields = rowType.getFields().stream()
+                            .map(field -> new DataField(
+                                    currentIndex.getAndIncrement(),
+                                    field.getName().get(),
+                                    visit(field.getType())))
+                            .collect(Collectors.toList());
                     return new RowType(true, dataFields);
                 }
                 case null, default -> throw new UnsupportedOperationException("Unsupported type: " + trinoType);

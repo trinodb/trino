@@ -13,15 +13,12 @@
  */
 package io.trino.plugin.paimon;
 
-import org.apache.paimon.utils.InstantiationUtil;
-
 import java.util.Base64;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.paimon.utils.InstantiationUtil.deserializeObject;
+import static org.apache.paimon.utils.InstantiationUtil.serializeObject;
 
-/**
- * Utils for encoding.
- */
 public final class EncodingUtils
 {
     private static final Base64.Encoder BASE64_ENCODER = Base64.getUrlEncoder().withoutPadding();
@@ -29,10 +26,10 @@ public final class EncodingUtils
 
     private EncodingUtils() {}
 
-    public static <T> String encodeObjectToString(T t)
+    public static <T> String encodeObjectToString(T object)
     {
         try {
-            byte[] bytes = InstantiationUtil.serializeObject(t);
+            byte[] bytes = serializeObject(object);
             return new String(BASE64_ENCODER.encode(bytes), UTF_8);
         }
         catch (Exception e) {
@@ -44,7 +41,7 @@ public final class EncodingUtils
     {
         final byte[] bytes = BASE64_DECODER.decode(encodedStr.getBytes(UTF_8));
         try {
-            return InstantiationUtil.deserializeObject(bytes, EncodingUtils.class.getClassLoader());
+            return deserializeObject(bytes, EncodingUtils.class.getClassLoader());
         }
         catch (Exception e) {
             throw new RuntimeException(e);

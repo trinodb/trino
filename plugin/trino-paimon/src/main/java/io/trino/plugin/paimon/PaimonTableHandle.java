@@ -24,7 +24,6 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.paimon.CoreOptions;
 import org.apache.paimon.catalog.Catalog;
 import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.table.Table;
@@ -40,11 +39,11 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static io.trino.plugin.paimon.PaimonTypeUtils.fieldNames;
 import static java.lang.String.format;
+import static org.apache.paimon.CoreOptions.SCAN_SNAPSHOT_ID;
+import static org.apache.paimon.CoreOptions.SCAN_TIMESTAMP_MILLIS;
 
-/**
- * Trino {@link ConnectorTableHandle}.
- */
 public class PaimonTableHandle
         implements ConnectorTableHandle, ConnectorInsertTableHandle, ConnectorOutputTableHandle
 {
@@ -56,18 +55,6 @@ public class PaimonTableHandle
     private final Map<String, String> dynamicOptions;
 
     private transient Table table;
-
-    public PaimonTableHandle(
-            String schemaName, String tableName, Map<String, String> dynamicOptions)
-    {
-        this(
-                schemaName,
-                tableName,
-                dynamicOptions,
-                TupleDomain.all(),
-                Collections.emptySet(),
-                OptionalLong.empty());
-    }
 
     @JsonCreator
     public PaimonTableHandle(
@@ -125,16 +112,14 @@ public class PaimonTableHandle
     {
         Table paimonTable = table(session, catalog);
 
-        // see TrinoConnector.getSessionProperties
         Map<String, String> dynamicOptions = new HashMap<>();
         Long scanTimestampMills = PaimonSessionProperties.getScanTimestampMillis(session);
         if (scanTimestampMills != null) {
-            dynamicOptions.put(
-                    CoreOptions.SCAN_TIMESTAMP_MILLIS.key(), scanTimestampMills.toString());
+            dynamicOptions.put(SCAN_TIMESTAMP_MILLIS.key(), scanTimestampMills.toString());
         }
         Long scanSnapshotId = PaimonSessionProperties.getScanSnapshotId(session);
         if (scanSnapshotId != null) {
-            dynamicOptions.put(CoreOptions.SCAN_SNAPSHOT_ID.key(), scanSnapshotId.toString());
+            dynamicOptions.put(SCAN_SNAPSHOT_ID.key(), scanSnapshotId.toString());
         }
 
         return !dynamicOptions.isEmpty() ? paimonTable.copy(dynamicOptions) : paimonTable;
@@ -146,9 +131,7 @@ public class PaimonTableHandle
             return table;
         }
         try {
-            table =
-                    catalog.getTable(session, Identifier.create(schemaName, tableName))
-                            .copy(dynamicOptions);
+            table = catalog.getTable(session, Identifier.create(schemaName, tableName)).copy(dynamicOptions);
         }
         catch (Catalog.TableNotExistException e) {
             throw new RuntimeException(e);
@@ -168,48 +151,41 @@ public class PaimonTableHandle
     public List<ColumnMetadata> columnMetadatas(ConnectorSession session, PaimonTrinoCatalog catalog)
     {
         return table(session, catalog).rowType().getFields().stream()
-                .map(
-                        column ->
-                                ColumnMetadata.builder()
-                                        .setName(column.name())
-                                        .setType(PaimonTypeUtils.fromPaimonType(column.type()))
-                                        .setNullable(column.type().isNullable())
-                                        .setComment(Optional.ofNullable(column.description()))
-                                        .build())
+                .map(column -> ColumnMetadata.builder()
+                        .setName(column.name())
+                        .setType(PaimonTypeUtils.toTrinoType(column.type()))
+                        .setNullable(column.type().isNullable())
+                        .setComment(Optional.ofNullable(column.description()))
+                        .build())
                 .collect(Collectors.toList());
     }
 
-    public PaimonColumnHandle columnHandle(
-            ConnectorSession session, PaimonTrinoCatalog catalog, String field)
+    public PaimonColumnHandle columnHandle(ConnectorSession session, PaimonTrinoCatalog catalog, String field)
     {
         Table paimonTable = table(session, catalog);
-        List<String> lowerCaseFieldNames = PaimonTypeUtils.fieldNames(paimonTable.rowType());
+        List<String> lowerCaseFieldNames = fieldNames(paimonTable.rowType());
         List<String> originFieldNames = paimonTable.rowType().getFieldNames();
         int index = lowerCaseFieldNames.indexOf(field);
         if (index == -1) {
-            throw new RuntimeException(
-                    format("Cannot find field %s in schema %s", field, lowerCaseFieldNames));
+            throw new RuntimeException(format("Cannot find field %s in schema %s", field, lowerCaseFieldNames));
         }
         DataField dataField = paimonTable.rowType().getFields().get(index);
         return PaimonColumnHandle.of(originFieldNames.get(index), dataField.type(), dataField.id());
     }
 
-    public PaimonTableHandle copy(TupleDomain<PaimonColumnHandle> filter)
+    public PaimonTableHandle withFilter(TupleDomain<PaimonColumnHandle> filter)
     {
-        return new PaimonTableHandle(
-                schemaName, tableName, dynamicOptions, filter, projectedColumns, limit);
+        return new PaimonTableHandle(schemaName, tableName, dynamicOptions, filter, projectedColumns, limit);
     }
 
-    public PaimonTableHandle copy(Set<PaimonColumnHandle> projectedColumns)
+    public PaimonTableHandle withColumns(Set<PaimonColumnHandle> projectedColumns)
     {
-        return new PaimonTableHandle(
-                schemaName, tableName, dynamicOptions, predicate, projectedColumns, limit);
+        return new PaimonTableHandle(schemaName, tableName, dynamicOptions, predicate, projectedColumns, limit);
     }
 
-    public PaimonTableHandle copy(OptionalLong limit)
+    public PaimonTableHandle withLimit(OptionalLong limit)
     {
-        return new PaimonTableHandle(
-                schemaName, tableName, dynamicOptions, predicate, projectedColumns, limit);
+        return new PaimonTableHandle(schemaName, tableName, dynamicOptions, predicate, projectedColumns, limit);
     }
 
     @Override

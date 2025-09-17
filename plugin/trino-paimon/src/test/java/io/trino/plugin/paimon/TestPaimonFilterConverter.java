@@ -41,16 +41,12 @@ import static io.trino.spi.type.LongTimestampWithTimeZone.fromEpochMillisAndFrac
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Test for {@link PaimonFilterConverter}.
- */
-public class TestPaimonFilterConverter
+final class TestPaimonFilterConverter
 {
     @Test
-    public void testAll()
+    void testAll()
     {
-        RowType rowType =
-                new RowType(Collections.singletonList(new DataField(0, "id", new IntType())));
+        RowType rowType = new RowType(Collections.singletonList(new DataField(0, "id", new IntType())));
         PaimonFilterConverter converter = new PaimonFilterConverter(rowType);
         PredicateBuilder builder = new PredicateBuilder(rowType);
 
@@ -61,8 +57,7 @@ public class TestPaimonFilterConverter
         Predicate actualIsNull = converter.convert(isNull).get();
         assertThat(actualIsNull).isEqualTo(expectedIsNull);
 
-        TupleDomain<PaimonColumnHandle> isNotNull =
-                TupleDomain.withColumnDomains(ImmutableMap.of(idColumn, Domain.notNull(INTEGER)));
+        TupleDomain<PaimonColumnHandle> isNotNull = TupleDomain.withColumnDomains(ImmutableMap.of(idColumn, Domain.notNull(INTEGER)));
         Predicate expectedIsNotNull = builder.isNotNull(0);
         Predicate actualIsNotNull = converter.convert(isNotNull).get();
         assertThat(actualIsNotNull).isEqualTo(expectedIsNotNull);

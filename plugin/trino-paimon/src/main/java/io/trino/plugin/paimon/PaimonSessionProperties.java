@@ -16,6 +16,7 @@ package io.trino.plugin.paimon;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.ConnectorSession;
@@ -32,16 +33,12 @@ import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static org.apache.paimon.CoreOptions.SCAN_SNAPSHOT_ID;
 import static org.apache.paimon.CoreOptions.SCAN_TIMESTAMP_MILLIS;
 
-/**
- * Trino session properties.
- */
 public class PaimonSessionProperties
+        implements SessionPropertiesProvider
 {
     public static final String SCAN_TIMESTAMP = "scan_timestamp_millis";
     public static final String SCAN_SNAPSHOT = "scan_snapshot_id";
     public static final String MINIMUM_SPLIT_WEIGHT = "minimum_split_weight";
-    public static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR =
-            "insert_existing_partitions_behavior";
     private static final String PARQUET_SMALL_FILE_THRESHOLD = "parquet_small_file_threshold";
     private static final String ORC_TINY_STRIPE_THRESHOLD = "orc_tiny_stripe_threshold";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
@@ -54,40 +51,45 @@ public class PaimonSessionProperties
             ParquetReaderConfig parquetReaderConfig,
             PaimonConfig paimonConfig)
     {
-        sessionProperties =
-                ImmutableList.<PropertyMetadata<?>>builder()
-                        .add(
-                                longProperty(
-                                        SCAN_TIMESTAMP,
-                                        SCAN_TIMESTAMP_MILLIS.description().toString(),
-                                        null,
-                                        true))
-                        .add(
-                                longProperty(
-                                        SCAN_SNAPSHOT,
-                                        SCAN_SNAPSHOT_ID.description().toString(),
-                                        null,
-                                        true))
-                        .add(
-                                doubleProperty(
-                                        MINIMUM_SPLIT_WEIGHT, "Minimum split weight", 0.05, false))
-                        .add(dataSizeProperty(
-                                PARQUET_SMALL_FILE_THRESHOLD,
-                                "Parquet: Size below which a parquet file will be read entirely",
-                                parquetReaderConfig.getSmallFileThreshold(),
-                                value -> validateMaxDataSize(PARQUET_SMALL_FILE_THRESHOLD, value, DataSize.valueOf(PARQUET_READER_MAX_SMALL_FILE_THRESHOLD)),
-                                false))
-                        .add(dataSizeProperty(
-                                ORC_TINY_STRIPE_THRESHOLD,
-                                "ORC: Threshold below which an ORC stripe or file will read in its entirety",
-                                orcReaderConfig.getTinyStripeThreshold(),
-                                false))
-                        .add(booleanProperty(
-                                PROJECTION_PUSHDOWN_ENABLED,
-                                "Read only required fields from a row type",
-                                paimonConfig.isProjectionPushdownEnabled(),
-                                false))
-                        .build();
+        sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
+                .add(longProperty(
+                        SCAN_TIMESTAMP,
+                        SCAN_TIMESTAMP_MILLIS.description().toString(),
+                        null,
+                        true))
+                .add(longProperty(
+                        SCAN_SNAPSHOT,
+                        SCAN_SNAPSHOT_ID.description().toString(),
+                        null,
+                        true))
+                .add(doubleProperty(
+                        MINIMUM_SPLIT_WEIGHT,
+                        "Minimum split weight",
+                        0.05,
+                        false))
+                .add(dataSizeProperty(
+                        PARQUET_SMALL_FILE_THRESHOLD,
+                        "Parquet: Size below which a parquet file will be read entirely",
+                        parquetReaderConfig.getSmallFileThreshold(),
+                        value -> validateMaxDataSize(PARQUET_SMALL_FILE_THRESHOLD, value, DataSize.valueOf(PARQUET_READER_MAX_SMALL_FILE_THRESHOLD)),
+                        false))
+                .add(dataSizeProperty(
+                        ORC_TINY_STRIPE_THRESHOLD,
+                        "ORC: Threshold below which an ORC stripe or file will read in its entirety",
+                        orcReaderConfig.getTinyStripeThreshold(),
+                        false))
+                .add(booleanProperty(
+                        PROJECTION_PUSHDOWN_ENABLED,
+                        "Read only required fields from a row type",
+                        paimonConfig.isProjectionPushdownEnabled(),
+                        false))
+                .build();
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties;
     }
 
     public static Long getScanTimestampMillis(ConnectorSession session)
@@ -118,10 +120,5 @@ public class PaimonSessionProperties
     public static boolean isProjectionPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PROJECTION_PUSHDOWN_ENABLED, Boolean.class);
-    }
-
-    public List<PropertyMetadata<?>> getSessionProperties()
-    {
-        return sessionProperties;
     }
 }

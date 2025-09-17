@@ -22,9 +22,6 @@ import java.io.UncheckedIOException;
 import java.util.LinkedList;
 import java.util.OptionalLong;
 
-/**
- * Trino {@link ConnectorPageSource}.
- */
 public class DirectPaimonPageSource
         implements ConnectorPageSource
 {
@@ -34,8 +31,7 @@ public class DirectPaimonPageSource
     private long completedBytes;
     private long numReturn;
 
-    public DirectPaimonPageSource(
-            LinkedList<ConnectorPageSource> pageSourceQueue, OptionalLong limit)
+    public DirectPaimonPageSource(LinkedList<ConnectorPageSource> pageSourceQueue, OptionalLong limit)
     {
         this.pageSourceQueue = pageSourceQueue;
         this.current = pageSourceQueue.poll();
@@ -115,12 +111,6 @@ public class DirectPaimonPageSource
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    @Override
-    public String toString()
-    {
-        return current == null ? null : current.toString();
     }
 
     @Override

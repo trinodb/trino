@@ -21,126 +21,123 @@ import java.io.OutputStream;
 
 import static java.util.Objects.requireNonNull;
 
-/**
- * Trino input stream wrapper for paimon.
- */
 public class PaimonInputStreamWrapper
         extends SeekableInputStream
 {
-    private final TrinoInputStream trinoInputStream;
+    private final TrinoInputStream inputStream;
 
-    public PaimonInputStreamWrapper(TrinoInputStream trinoInputStream)
+    public PaimonInputStreamWrapper(TrinoInputStream inputStream)
     {
-        this.trinoInputStream = requireNonNull(trinoInputStream, "trino input stream is null");
+        this.inputStream = requireNonNull(inputStream, "inputStream is null");
     }
 
     @Override
     public void seek(long l)
             throws IOException
     {
-        trinoInputStream.seek(l);
+        inputStream.seek(l);
     }
 
     @Override
     public long getPos()
             throws IOException
     {
-        return trinoInputStream.getPosition();
+        return inputStream.getPosition();
     }
 
     @Override
     public int read()
             throws IOException
     {
-        return trinoInputStream.read();
+        return inputStream.read();
     }
 
     @Override
     public int read(byte[] bytes, int off, int len)
             throws IOException
     {
-        return trinoInputStream.read(bytes, off, len);
+        return inputStream.read(bytes, off, len);
     }
 
     @Override
     public void close()
             throws IOException
     {
-        trinoInputStream.close();
+        inputStream.close();
     }
 
     @Override
     public byte[] readNBytes(int len)
             throws IOException
     {
-        return trinoInputStream.readNBytes(len);
+        return inputStream.readNBytes(len);
     }
 
     @Override
     public int readNBytes(byte[] b, int off, int len)
             throws IOException
     {
-        return trinoInputStream.readNBytes(b, off, len);
+        return inputStream.readNBytes(b, off, len);
     }
 
     @Override
     public int read(byte[] b)
             throws IOException
     {
-        return trinoInputStream.read(b);
+        return inputStream.read(b);
     }
 
     @Override
     public long skip(long n)
             throws IOException
     {
-        return trinoInputStream.skip(n);
+        return inputStream.skip(n);
     }
 
     @Override
     public void skipNBytes(long n)
             throws IOException
     {
-        trinoInputStream.skipNBytes(n);
+        inputStream.skipNBytes(n);
     }
 
     @Override
     public byte[] readAllBytes()
             throws IOException
     {
-        return trinoInputStream.readAllBytes();
+        return inputStream.readAllBytes();
     }
 
     @Override
     public int available()
             throws IOException
     {
-        return trinoInputStream.available();
+        return inputStream.available();
     }
 
     @Override
     public void mark(int readlimit)
     {
-        trinoInputStream.mark(readlimit);
+        inputStream.mark(readlimit);
     }
 
     @Override
     public void reset()
             throws IOException
     {
-        trinoInputStream.reset();
+        inputStream.reset();
     }
 
     @Override
     public boolean markSupported()
     {
-        return trinoInputStream.markSupported();
+        return inputStream.markSupported();
     }
 
     @Override
     public long transferTo(OutputStream out)
             throws IOException
     {
-        return trinoInputStream.transferTo(out);
+        return inputStream.transferTo(out);
     }
 }

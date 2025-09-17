@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.paimon;
 
-import com.google.api.client.util.Maps;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.connector.ColumnHandle;
@@ -28,7 +28,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VarcharType;
 import org.apache.paimon.types.DataTypes;
 import org.junit.jupiter.api.Test;
 
@@ -36,51 +35,37 @@ import java.util.List;
 import java.util.Map;
 
 import static io.trino.plugin.paimon.PaimonFilterExtractor.TRINO_MAP_ELEMENT_AT_FUNCTION_NAME;
+import static io.trino.plugin.paimon.PaimonFilterExtractor.extractTrinoColumnHandleForExpressionFilter;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.apache.paimon.fileindex.FileIndexCommon.toMapKey;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * The test of TestTrinoFilterExtractor.
- */
 final class TestPaimonFilterExtractor
 {
     @Test
     void testExtractTrinoColumnHandleForExpressionFilter()
     {
-        TupleDomain<ColumnHandle> summary = TupleDomain.all();
         Type mapType = TESTING_TYPE_MANAGER.fromSqlType("map<varchar,varchar>");
         String columnName = "map";
         String mapKeyName = "key";
         String constantValue = "value";
         Slice value = Slices.utf8Slice(constantValue);
-        Call elemetAtFuntion =
-                new Call(
-                        BooleanType.BOOLEAN,
-                        new FunctionName(TRINO_MAP_ELEMENT_AT_FUNCTION_NAME),
-                        List.of(
-                                new Variable(columnName, mapType),
-                                new Constant(
-                                        Slices.utf8Slice(mapKeyName),
-                                        VarcharType.createUnboundedVarcharType())));
-        ConnectorExpression expression =
-                new Call(
-                        BooleanType.BOOLEAN,
-                        StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME,
-                        List.of(
-                                elemetAtFuntion,
-                                new Constant(value, VarcharType.createUnboundedVarcharType())));
-        Map<String, ColumnHandle> assignments = Maps.newHashMap();
-        assignments.put(
-                columnName,
-                PaimonColumnHandle.of(
-                        columnName, DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING()), 0));
-        Constraint constraint = new Constraint(summary, expression, assignments);
-        Map<PaimonColumnHandle, Domain> domainMap =
-                PaimonFilterExtractor.extractTrinoColumnHandleForExpressionFilter(constraint);
-        assertThat(domainMap.size()).isEqualTo(1);
+        Call elementAtFunction = new Call(BooleanType.BOOLEAN,
+                new FunctionName(TRINO_MAP_ELEMENT_AT_FUNCTION_NAME),
+                List.of(new Variable(columnName, mapType), new Constant(Slices.utf8Slice(mapKeyName), VARCHAR)));
+        ConnectorExpression expression = new Call(
+                BooleanType.BOOLEAN,
+                StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME,
+                List.of(elementAtFunction, new Constant(value, VARCHAR)));
+        Map<String, ColumnHandle> assignments = ImmutableMap.of(columnName, PaimonColumnHandle.of(columnName, DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING()), 0));
+        Constraint constraint = new Constraint(TupleDomain.all(), expression, assignments);
+
+        Map<PaimonColumnHandle, Domain> domainMap = extractTrinoColumnHandleForExpressionFilter(constraint);
+        assertThat(domainMap).hasSize(1);
+
         Map.Entry<PaimonColumnHandle, Domain> next = domainMap.entrySet().iterator().next();
-        assertThat(next.getKey().getColumnName()).isEqualTo(toMapKey(columnName, mapKeyName));
+        assertThat(next.getKey().columnName()).isEqualTo(toMapKey(columnName, mapKeyName));
         assertThat(
                 next.getValue()
                         .getValues()

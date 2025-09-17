@@ -24,23 +24,24 @@ import java.util.Optional;
 
 public class PaimonTrinoCatalogFactory
 {
+    // TODO Avoid putting mutable objects (config class has setter) in fields
     private final PaimonConfig config;
     private final Optional<HiveMetastoreFactory> metastoreFactory;
-    private final TrinoFileSystemFactory trinoFileSystemFactory;
+    private final TrinoFileSystemFactory fileSystemFactory;
 
     @Inject
     public PaimonTrinoCatalogFactory(
             PaimonConfig config,
-            TrinoFileSystemFactory trinoFileSystemFactory,
+            TrinoFileSystemFactory fileSystemFactory,
             @RawHiveMetastoreFactory Optional<HiveMetastoreFactory> metastoreFactory)
     {
         this.config = config;
         this.metastoreFactory = metastoreFactory;
-        this.trinoFileSystemFactory = trinoFileSystemFactory;
+        this.fileSystemFactory = fileSystemFactory;
     }
 
     public PaimonTrinoCatalog create(ConnectorIdentity identity)
     {
-        return new PaimonTrinoCatalog(config, trinoFileSystemFactory, metastoreFactory, identity);
+        return new PaimonTrinoCatalog(config, fileSystemFactory, metastoreFactory, identity);
     }
 }

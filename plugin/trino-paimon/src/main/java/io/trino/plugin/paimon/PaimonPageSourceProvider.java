@@ -89,8 +89,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.parquet.ParquetTypeUtils.getArrayElementColumn;
@@ -106,9 +107,6 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.joda.time.DateTimeZone.UTC;
 
-/**
- * Trino {@link ConnectorPageSourceProvider}.
- */
 public class PaimonPageSourceProvider
         implements ConnectorPageSourceProvider
 {
@@ -122,11 +120,9 @@ public class PaimonPageSourceProvider
             PaimonTrinoCatalogFactory paimonTrinoCatalogFactory,
             FileFormatDataSourceStats fileFormatDataSourceStats)
     {
-        this.paimonTrinoCatalogFactory =
-                requireNonNull(paimonTrinoCatalogFactory, "paimonTrinoCatalogFactory is null");
+        this.paimonTrinoCatalogFactory = requireNonNull(paimonTrinoCatalogFactory, "paimonTrinoCatalogFactory is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.fileFormatDataSourceStats =
-                requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
+        this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
     }
 
     static TupleDomain<ColumnDescriptor> getParquetTupleDomain(
@@ -152,8 +148,8 @@ public class PaimonPageSourceProvider
         for (PaimonColumnHandle column : columns) {
             if (predicates.getDomains().isPresent()) {
                 Domain domain = predicates.getDomains().get().get(column);
-                if (domain != null && columnDescriptorMap.containsKey(column.getColumnId())) {
-                    predicate.put(columnDescriptorMap.get(column.getColumnId()), domain);
+                if (domain != null && columnDescriptorMap.containsKey(column.columnId())) {
+                    predicate.put(columnDescriptorMap.get(column.columnId()), domain);
                 }
             }
         }
@@ -249,51 +245,44 @@ public class PaimonPageSourceProvider
         PaimonTrinoCatalog paimonTrinoCatalog = paimonTrinoCatalogFactory.create(session.getIdentity());
         PaimonTableHandle paimonTableHandle = (PaimonTableHandle) tableHandle;
         Table table = paimonTableHandle.tableWithDynamicOptions(paimonTrinoCatalog, session);
-        Optional<PaimonColumnHandle> rowId =
-                columns.stream()
-                        .map(PaimonColumnHandle.class::cast)
-                        .filter(PaimonColumnHandle::isRowId)
-                        .findFirst();
+        Optional<PaimonColumnHandle> rowId = columns.stream()
+                .map(PaimonColumnHandle.class::cast)
+                .filter(PaimonColumnHandle::isRowId)
+                .findFirst();
         if (rowId.isPresent()) {
-            List<ColumnHandle> dataColumns =
-                    columns.stream()
-                            .map(PaimonColumnHandle.class::cast)
-                            .filter(column -> !column.isRowId())
-                            .collect(Collectors.toList());
-            Set<String> rowIdFileds =
-                    ((io.trino.spi.type.RowType) rowId.get().getTrinoType())
-                            .getFields().stream()
-                            .map(io.trino.spi.type.RowType.Field::getName)
-                            .map(Optional::get)
-                            .collect(Collectors.toSet());
+            List<ColumnHandle> dataColumns = columns.stream()
+                    .map(PaimonColumnHandle.class::cast)
+                    .filter(column -> !column.isRowId())
+                    .collect(toImmutableList());
+            Set<String> rowIdFields = ((io.trino.spi.type.RowType) rowId.get().trinoType())
+                    .getFields().stream()
+                    .map(io.trino.spi.type.RowType.Field::getName)
+                    .map(Optional::get)
+                    .collect(toImmutableSet());
 
             HashMap<String, Integer> fieldToIndex = new HashMap<>();
             for (int i = 0; i < dataColumns.size(); i++) {
-                PaimonColumnHandle paimonColumnHandle =
-                        (PaimonColumnHandle) dataColumns.get(i);
-                if (rowIdFileds.contains(paimonColumnHandle.getColumnName())) {
-                    fieldToIndex.put(paimonColumnHandle.getColumnName(), i);
+                PaimonColumnHandle columnHandle = (PaimonColumnHandle) dataColumns.get(i);
+                if (rowIdFields.contains(columnHandle.columnName())) {
+                    fieldToIndex.put(columnHandle.columnName(), i);
                 }
             }
-            return PaimonMergePageSourceWrapper.wrap(
-                    createPageSource(
-                            session,
-                            table,
-                            paimonTableHandle.getPredicate(),
-                            (PaimonSplit) split,
-                            dataColumns,
-                            paimonTableHandle.getLimit()),
-                    fieldToIndex);
-        }
-        else {
-            return createPageSource(
+            return new PaimonMergePageSourceWrapper(createPageSource(
                     session,
                     table,
                     paimonTableHandle.getPredicate(),
                     (PaimonSplit) split,
-                    columns,
-                    paimonTableHandle.getLimit());
+                    dataColumns,
+                    paimonTableHandle.getLimit()),
+                    fieldToIndex);
         }
+        return createPageSource(
+                session,
+                table,
+                paimonTableHandle.getPredicate(),
+                (PaimonSplit) split,
+                columns,
+                paimonTableHandle.getLimit());
     }
 
     private ConnectorPageSource createPageSource(
@@ -306,14 +295,12 @@ public class PaimonPageSourceProvider
     {
         RowType rowType = table.rowType();
         List<String> fieldNames = rowType.getFieldNames();
-        List<String> projectedFields =
-                columns.stream()
-                        .map(PaimonColumnHandle.class::cast)
-                        .map(PaimonColumnHandle::getColumnName)
-                        .toList();
+        List<String> projectedFields = columns.stream()
+                .map(PaimonColumnHandle.class::cast)
+                .map(PaimonColumnHandle::columnName)
+                .toList();
 
-        List<PaimonColumnHandle> projectedColumns =
-                columns.stream().map(PaimonColumnHandle.class::cast).toList();
+        List<PaimonColumnHandle> projectedColumns = columns.stream().map(PaimonColumnHandle.class::cast).toList();
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         Optional<Predicate> paimonFilter = new PaimonFilterConverter(rowType).convert(filter);
@@ -327,8 +314,7 @@ public class PaimonPageSourceProvider
                 boolean readIndex = fileStoreTable.coreOptions().fileIndexReadEnabled();
 
                 Optional<List<DeletionFile>> deletionFiles = paimonSplit.deletionFiles();
-                Optional<List<IndexFile>> indexFiles =
-                        readIndex ? paimonSplit.indexFiles() : Optional.empty();
+                Optional<List<IndexFile>> indexFiles = readIndex ? paimonSplit.indexFiles() : Optional.empty();
 
                 try {
                     List<RawFile> files = optionalRawFiles.orElseThrow();
@@ -361,7 +347,7 @@ public class PaimonPageSourceProvider
 
                         if (deletionFiles.isPresent()) {
                             source =
-                                    PaimonPageSourceWrapper.wrap(
+                                    new PaimonPageSourceWrapper(
                                             source,
                                             Optional.ofNullable(deletionFiles.get().get(i))
                                                     .map(
@@ -476,18 +462,18 @@ public class PaimonPageSourceProvider
             List<Type> fileReadTypes = new ArrayList<>(columns.size());
 
             for (PaimonColumnHandle column : columns) {
-                OrcColumn orcColumn = fieldsMap.get(column.getColumnId());
+                OrcColumn orcColumn = fieldsMap.get(column.columnId());
                 if (orcColumn == null) {
-                    transforms.constantValue(column.getTrinoType().createNullBlock());
+                    transforms.constantValue(column.trinoType().createNullBlock());
                 }
                 else {
-                    Optional<TypeCoercer<? extends Type, ? extends Type>> coercer = createCoercer(orcColumn.getColumnType(), orcColumn.getNestedColumns(), column.getTrinoType());
+                    Optional<TypeCoercer<? extends Type, ? extends Type>> coercer = createCoercer(orcColumn.getColumnType(), orcColumn.getNestedColumns(), column.trinoType());
                     if (coercer.isPresent()) {
                         fileReadTypes.add(coercer.get().getFromType());
                         transforms.transform(fileReadColumns.size(), coercer.get());
                     }
                     else {
-                        fileReadTypes.add(column.getTrinoType());
+                        fileReadTypes.add(column.trinoType());
                         transforms.column(fileReadColumns.size());
                     }
                     fileReadColumns.add(orcColumn);
@@ -554,8 +540,8 @@ public class PaimonPageSourceProvider
             }
             List<org.apache.parquet.schema.Type> projectedTypes = new ArrayList<>();
             for (PaimonColumnHandle column : columns) {
-                if (fileSchemaMap.containsKey(column.getColumnId())) {
-                    projectedTypes.add(fileSchemaMap.get(column.getColumnId()));
+                if (fileSchemaMap.containsKey(column.columnId())) {
+                    projectedTypes.add(fileSchemaMap.get(column.columnId()));
                 }
             }
             MessageType projectedSchema = new MessageType(fileSchema.getName(), projectedTypes);
@@ -586,11 +572,11 @@ public class PaimonPageSourceProvider
             int parquetSourceChannel = 0;
             List<Column> returnColumns = new ArrayList<>();
             for (PaimonColumnHandle columnHandle : columns) {
-                if (fileSchemaMap.containsKey(columnHandle.getColumnId())) {
+                if (fileSchemaMap.containsKey(columnHandle.columnId())) {
                     org.apache.parquet.schema.Type type =
-                            fileSchemaMap.get(columnHandle.getColumnId());
+                            fileSchemaMap.get(columnHandle.columnId());
                     ColumnIO columnIO = messageColumnIO.getChild(type.getName());
-                    Type trinoType = columnHandle.getTrinoType();
+                    Type trinoType = columnHandle.trinoType();
                     Optional<TypeCoercer<? extends Type, ? extends Type>> coercer = Optional.empty();
                     if (type.isPrimitive()) {
                         coercer = ParquetTypeTranslator.createCoercer(type.asPrimitiveType().getPrimitiveTypeName(), type.getLogicalTypeAnnotation(), trinoType);
@@ -598,7 +584,7 @@ public class PaimonPageSourceProvider
                     if (coercer.isPresent()) {
                         returnColumns.add(
                                 new Column(
-                                        columnHandle.getColumnName(),
+                                        columnHandle.columnName(),
                                         constructField(coercer.get().getFromType(), columnIO)
                                                 .orElseThrow()));
                         transforms.transform(parquetSourceChannel++, coercer.get());
@@ -606,14 +592,14 @@ public class PaimonPageSourceProvider
                     else {
                         returnColumns.add(
                                 new Column(
-                                        columnHandle.getColumnName(),
-                                        constructField(columnHandle.getTrinoType(), columnIO)
+                                        columnHandle.columnName(),
+                                        constructField(columnHandle.trinoType(), columnIO)
                                                 .orElseThrow()));
                         transforms.column(parquetSourceChannel++);
                     }
                 }
                 else {
-                    transforms.constantValue(columnHandle.getTrinoType().createNullBlock());
+                    transforms.constantValue(columnHandle.trinoType().createNullBlock());
                 }
             }
 

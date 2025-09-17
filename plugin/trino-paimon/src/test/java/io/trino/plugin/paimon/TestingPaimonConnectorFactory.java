@@ -28,12 +28,12 @@ import java.util.Optional;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
-public class TestingHivePaimonConnectorFactory
+public class TestingPaimonConnectorFactory
         implements ConnectorFactory
 {
     private final Path localFileSystemRootPath;
 
-    public TestingHivePaimonConnectorFactory(Path localFileSystemRootPath)
+    public TestingPaimonConnectorFactory(Path localFileSystemRootPath)
     {
         localFileSystemRootPath.toFile().mkdirs();
         this.localFileSystemRootPath = localFileSystemRootPath;

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.paimon;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlock;
@@ -20,28 +21,20 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
 
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.Map;
 
-/**
- * Trino {@link ConnectorPageSource}.
- */
+import static java.util.Objects.requireNonNull;
+
 public class PaimonMergePageSourceWrapper
         implements ConnectorPageSource
 {
     private final ConnectorPageSource pageSource;
-    private final HashMap<String, Integer> fieldToIndex;
+    private final Map<String, Integer> fieldToIndex;
 
-    public PaimonMergePageSourceWrapper(
-            ConnectorPageSource pageSource, HashMap<String, Integer> fieldToIndex)
+    public PaimonMergePageSourceWrapper(ConnectorPageSource pageSource, Map<String, Integer> fieldToIndex)
     {
-        this.pageSource = pageSource;
-        this.fieldToIndex = fieldToIndex;
-    }
-
-    public static PaimonMergePageSourceWrapper wrap(
-            ConnectorPageSource pageSource, HashMap<String, Integer> fieldToIndex)
-    {
-        return new PaimonMergePageSourceWrapper(pageSource, fieldToIndex);
+        this.pageSource = requireNonNull(pageSource, " is null");
+        this.fieldToIndex = ImmutableMap.copyOf(fieldToIndex);
     }
 
     @Override
@@ -81,9 +74,7 @@ public class PaimonMergePageSourceWrapper
                 idx++;
             }
         }
-        newBlocks[nextPage.getChannelCount()] =
-                RowBlock.fromFieldBlocks(
-                        rowCount, rowIdBlocks);
+        newBlocks[nextPage.getChannelCount()] = RowBlock.fromFieldBlocks(rowCount, rowIdBlocks);
 
         return SourcePage.create(new Page(rowCount, newBlocks));
     }

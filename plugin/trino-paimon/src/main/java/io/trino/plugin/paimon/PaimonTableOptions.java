@@ -24,9 +24,6 @@ import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
-/**
- * Trino table options.
- */
 public class PaimonTableOptions
 {
     public static final String PRIMARY_KEY_IDENTIFIER = "primary_key";
@@ -41,9 +38,7 @@ public class PaimonTableOptions
         optionInfos.forEach(
                 item -> {
                     if (item.isEnum) {
-                        builder.add(
-                                enumProperty(
-                                        item.trinoOptionKey, "option", item.clazz, null, false));
+                        builder.add(enumProperty(item.trinoOptionKey, "option", item.clazz, null, false));
                     }
                     else {
                         builder.add(stringProperty(item.trinoOptionKey, "option", null, false));

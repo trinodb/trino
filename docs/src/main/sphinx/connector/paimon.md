@@ -81,7 +81,7 @@ support](file-system-legacy) is not recommended and will be removed.
 
 ## Paimon to Trino type mapping
 
-The connector maps Iceberg types to the corresponding Trino types according to
+The connector maps Paimon types to the corresponding Trino types according to
 the following table:
 
 :::{list-table} Paimon type to Trino type mapping

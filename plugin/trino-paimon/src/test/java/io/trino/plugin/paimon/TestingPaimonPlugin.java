@@ -22,12 +22,12 @@ import java.util.List;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
-public class TestingHivePaimonPlugin
+public class TestingPaimonPlugin
         extends PaimonPlugin
 {
     private final Path localFileSystemRootPath;
 
-    public TestingHivePaimonPlugin(Path localFileSystemRootPath)
+    public TestingPaimonPlugin(Path localFileSystemRootPath)
     {
         this.localFileSystemRootPath = requireNonNull(localFileSystemRootPath, "localFileSystemRootPath is null");
     }
@@ -38,6 +38,6 @@ public class TestingHivePaimonPlugin
         List<ConnectorFactory> connectorFactories = ImmutableList.copyOf(super.getConnectorFactories());
         verify(connectorFactories.size() == 1, "Unexpected connector factories: %s", connectorFactories);
 
-        return ImmutableList.of(new TestingHivePaimonConnectorFactory(localFileSystemRootPath));
+        return ImmutableList.of(new TestingPaimonConnectorFactory(localFileSystemRootPath));
     }
 }

@@ -16,9 +16,8 @@ package io.trino.plugin.paimon.fileio;
 import org.apache.paimon.fs.FileStatus;
 import org.apache.paimon.fs.Path;
 
-/**
- * File status for directory.
- */
+import static java.util.Objects.requireNonNull;
+
 public class PaimonDirectoryFileStatus
         implements FileStatus
 {
@@ -26,7 +25,7 @@ public class PaimonDirectoryFileStatus
 
     public PaimonDirectoryFileStatus(Path path)
     {
-        this.path = path;
+        this.path = requireNonNull(path, "path is null");
     }
 
     @Override

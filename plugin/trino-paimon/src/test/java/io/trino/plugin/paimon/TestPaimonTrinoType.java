@@ -31,7 +31,6 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarbinaryType;
-import io.trino.spi.type.VarcharType;
 import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.DataType;
 import org.apache.paimon.types.DataTypes;
@@ -42,187 +41,79 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
-import static java.util.Objects.requireNonNull;
+import static io.trino.plugin.paimon.PaimonTypeUtils.toPaimonType;
+import static io.trino.plugin.paimon.PaimonTypeUtils.toTrinoType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Test for {@link PaimonTypeUtils}.
- */
 final class TestPaimonTrinoType
 {
     @Test
-    void testFromPaimonType()
+    void testToTrinoType()
     {
-        Type charType = PaimonTypeUtils.fromPaimonType(DataTypes.CHAR(1));
-        assertThat(requireNonNull(charType).getDisplayName()).isEqualTo("char(1)");
-
-        Type varCharType = PaimonTypeUtils.fromPaimonType(DataTypes.VARCHAR(10));
-        assertThat(requireNonNull(varCharType).getDisplayName()).isEqualTo("varchar(10)");
-
-        Type booleanType = PaimonTypeUtils.fromPaimonType(DataTypes.BOOLEAN());
-        assertThat(requireNonNull(booleanType).getDisplayName()).isEqualTo("boolean");
-
-        Type binaryType = PaimonTypeUtils.fromPaimonType(DataTypes.BINARY(10));
-        assertThat(requireNonNull(binaryType).getDisplayName()).isEqualTo("varbinary");
-
-        Type varBinaryType = PaimonTypeUtils.fromPaimonType(DataTypes.VARBINARY(10));
-        assertThat(requireNonNull(varBinaryType).getDisplayName()).isEqualTo("varbinary");
-
-        assertThat(PaimonTypeUtils.fromPaimonType(DataTypes.DECIMAL(38, 0)).getDisplayName())
-                .isEqualTo("decimal(38,0)");
-
-        org.apache.paimon.types.DecimalType decimal = DataTypes.DECIMAL(2, 2);
-        assertThat(PaimonTypeUtils.fromPaimonType(decimal).getDisplayName())
-                .isEqualTo("decimal(2,2)");
-
-        Type tinyIntType = PaimonTypeUtils.fromPaimonType(DataTypes.TINYINT());
-        assertThat(requireNonNull(tinyIntType).getDisplayName()).isEqualTo("tinyint");
-
-        Type smallIntType = PaimonTypeUtils.fromPaimonType(DataTypes.SMALLINT());
-        assertThat(requireNonNull(smallIntType).getDisplayName()).isEqualTo("smallint");
-
-        Type intType = PaimonTypeUtils.fromPaimonType(DataTypes.INT());
-        assertThat(requireNonNull(intType).getDisplayName()).isEqualTo("integer");
-
-        Type bigIntType = PaimonTypeUtils.fromPaimonType(DataTypes.BIGINT());
-        assertThat(requireNonNull(bigIntType).getDisplayName()).isEqualTo("bigint");
-
-        Type floatType = PaimonTypeUtils.fromPaimonType(DataTypes.FLOAT());
-        assertThat(requireNonNull(floatType).getDisplayName()).isEqualTo("real");
-
-        Type doubleType = PaimonTypeUtils.fromPaimonType(DataTypes.DOUBLE());
-        assertThat(requireNonNull(doubleType).getDisplayName()).isEqualTo("double");
-
-        Type dateType = PaimonTypeUtils.fromPaimonType(DataTypes.DATE());
-        assertThat(requireNonNull(dateType).getDisplayName()).isEqualTo("date");
-
-        Type timeType0 = PaimonTypeUtils.fromPaimonType(new TimeType(0));
-        assertThat(requireNonNull(timeType0).getDisplayName()).isEqualTo("time(0)");
-
-        Type timeType3 = PaimonTypeUtils.fromPaimonType(new TimeType(3));
-        assertThat(requireNonNull(timeType3).getDisplayName()).isEqualTo("time(3)");
-
-        Type timeType6 = PaimonTypeUtils.fromPaimonType(new TimeType(6));
-        assertThat(requireNonNull(timeType6).getDisplayName()).isEqualTo("time(6)");
-
-        Type timeType9 = PaimonTypeUtils.fromPaimonType(new TimeType(9));
-        assertThat(requireNonNull(timeType9).getDisplayName()).isEqualTo("time(9)");
-
-        Type timestampType6 = PaimonTypeUtils.fromPaimonType(DataTypes.TIMESTAMP());
-        assertThat(requireNonNull(timestampType6).getDisplayName())
-                .isEqualTo("timestamp(6)");
-
-        Type timestampType0 =
-                PaimonTypeUtils.fromPaimonType(new org.apache.paimon.types.TimestampType(3));
-        assertThat(requireNonNull(timestampType0).getDisplayName())
-                .isEqualTo("timestamp(3)");
-
-        Type localZonedTimestampType =
-                PaimonTypeUtils.fromPaimonType(DataTypes.TIMESTAMP_WITH_LOCAL_TIME_ZONE());
-        assertThat(requireNonNull(localZonedTimestampType).getDisplayName())
-                .isEqualTo("timestamp(6) with time zone");
-
-        Type arrayType = PaimonTypeUtils.fromPaimonType(DataTypes.ARRAY(DataTypes.STRING()));
-        assertThat(requireNonNull(arrayType).getDisplayName()).isEqualTo("array(varchar)");
-
-        Type multisetType = PaimonTypeUtils.fromPaimonType(DataTypes.MULTISET(DataTypes.STRING()));
-        assertThat(requireNonNull(multisetType).getDisplayName())
-                .isEqualTo("map(varchar, integer)");
-
-        Type mapType =
-                PaimonTypeUtils.fromPaimonType(
-                        DataTypes.MAP(DataTypes.BIGINT(), DataTypes.STRING()));
-        assertThat(requireNonNull(mapType).getDisplayName())
-                .isEqualTo("map(bigint, varchar)");
-
-        Type row =
-                PaimonTypeUtils.fromPaimonType(
-                        DataTypes.ROW(
-                                new DataField(0, "id", new IntType()),
-                                new DataField(1, "name", new VarCharType(Integer.MAX_VALUE))));
-        assertThat(requireNonNull(row).getDisplayName())
+        assertThat(toTrinoType(DataTypes.CHAR(1)).getDisplayName()).isEqualTo("char(1)");
+        assertThat(toTrinoType(DataTypes.VARCHAR(10)).getDisplayName()).isEqualTo("varchar(10)");
+        assertThat(toTrinoType(DataTypes.BOOLEAN()).getDisplayName()).isEqualTo("boolean");
+        assertThat(toTrinoType(DataTypes.BINARY(10)).getDisplayName()).isEqualTo("varbinary");
+        assertThat(toTrinoType(DataTypes.VARBINARY(10)).getDisplayName()).isEqualTo("varbinary");
+        assertThat(toTrinoType(DataTypes.DECIMAL(38, 0)).getDisplayName()).isEqualTo("decimal(38,0)");
+        assertThat(toTrinoType(DataTypes.DECIMAL(2, 2)).getDisplayName()).isEqualTo("decimal(2,2)");
+        assertThat(toTrinoType(DataTypes.TINYINT()).getDisplayName()).isEqualTo("tinyint");
+        assertThat(toTrinoType(DataTypes.SMALLINT()).getDisplayName()).isEqualTo("smallint");
+        assertThat(toTrinoType(DataTypes.INT()).getDisplayName()).isEqualTo("integer");
+        assertThat(toTrinoType(DataTypes.BIGINT()).getDisplayName()).isEqualTo("bigint");
+        assertThat(toTrinoType(DataTypes.FLOAT()).getDisplayName()).isEqualTo("real");
+        assertThat(toTrinoType(DataTypes.DOUBLE()).getDisplayName()).isEqualTo("double");
+        assertThat(toTrinoType(DataTypes.DATE()).getDisplayName()).isEqualTo("date");
+        assertThat(toTrinoType(new TimeType(0)).getDisplayName()).isEqualTo("time(0)");
+        assertThat(toTrinoType(new TimeType(3)).getDisplayName()).isEqualTo("time(3)");
+        assertThat(toTrinoType(new TimeType(6)).getDisplayName()).isEqualTo("time(6)");
+        assertThat(toTrinoType(new TimeType(9)).getDisplayName()).isEqualTo("time(9)");
+        assertThat(toTrinoType(DataTypes.TIMESTAMP()).getDisplayName()).isEqualTo("timestamp(6)");
+        assertThat(toTrinoType(new org.apache.paimon.types.TimestampType(3)).getDisplayName()).isEqualTo("timestamp(3)");
+        assertThat(toTrinoType(DataTypes.TIMESTAMP_WITH_LOCAL_TIME_ZONE()).getDisplayName()).isEqualTo("timestamp(6) with time zone");
+        assertThat(toTrinoType(DataTypes.ARRAY(DataTypes.STRING())).getDisplayName()).isEqualTo("array(varchar)");
+        assertThat(toTrinoType(DataTypes.MULTISET(DataTypes.STRING())).getDisplayName()).isEqualTo("map(varchar, integer)");
+        assertThat(toTrinoType(DataTypes.MAP(DataTypes.BIGINT(), DataTypes.STRING())).getDisplayName()).isEqualTo("map(bigint, varchar)");
+        assertThat(toTrinoType(DataTypes.ROW(
+                new DataField(0, "id", new IntType()),
+                new DataField(1, "name", new VarCharType(Integer.MAX_VALUE)))).getDisplayName())
                 .isEqualTo("row(id integer, name varchar)");
     }
 
     @Test
     void testToPaimonType()
     {
-        DataType charType = PaimonTypeUtils.toPaimonType(CharType.createCharType(1));
-        assertThat(charType.asSQLString()).isEqualTo("CHAR(1)");
-
-        DataType varCharType =
-                PaimonTypeUtils.toPaimonType(VarcharType.createUnboundedVarcharType());
-        assertThat(varCharType.asSQLString()).isEqualTo("VARCHAR(2147483646)");
-
-        DataType booleanType = PaimonTypeUtils.toPaimonType(BooleanType.BOOLEAN);
-        assertThat(booleanType.asSQLString()).isEqualTo("BOOLEAN");
-
-        DataType varbinaryType = PaimonTypeUtils.toPaimonType(VarbinaryType.VARBINARY);
-        assertThat(varbinaryType.asSQLString()).isEqualTo("BYTES");
-
-        DataType decimalType = PaimonTypeUtils.toPaimonType(DecimalType.createDecimalType(2, 2));
-        assertThat(decimalType.asSQLString()).isEqualTo("DECIMAL(2, 2)");
-
-        DataType tinyintType = PaimonTypeUtils.toPaimonType(TinyintType.TINYINT);
-        assertThat(tinyintType.asSQLString()).isEqualTo("TINYINT");
-
-        DataType smallintType = PaimonTypeUtils.toPaimonType(SmallintType.SMALLINT);
-        assertThat(smallintType.asSQLString()).isEqualTo("SMALLINT");
-
-        DataType intType = PaimonTypeUtils.toPaimonType(IntegerType.INTEGER);
-        assertThat(intType.asSQLString()).isEqualTo("INT");
-
-        DataType bigintType = PaimonTypeUtils.toPaimonType(BigintType.BIGINT);
-        assertThat(bigintType.asSQLString()).isEqualTo("BIGINT");
-
-        DataType floatType = PaimonTypeUtils.toPaimonType(RealType.REAL);
-        assertThat(floatType.asSQLString()).isEqualTo("FLOAT");
-
-        DataType doubleType = PaimonTypeUtils.toPaimonType(DoubleType.DOUBLE);
-        assertThat(doubleType.asSQLString()).isEqualTo("DOUBLE");
-
-        DataType dateType = PaimonTypeUtils.toPaimonType(DateType.DATE);
-        assertThat(dateType.asSQLString()).isEqualTo("DATE");
-
-        DataType timeType0 = PaimonTypeUtils.toPaimonType(io.trino.spi.type.TimeType.TIME_SECONDS);
-        assertThat(timeType0.asSQLString()).isEqualTo("TIME(0)");
-
-        DataType timeType3 = PaimonTypeUtils.toPaimonType(io.trino.spi.type.TimeType.TIME_MILLIS);
-        assertThat(timeType3.asSQLString()).isEqualTo("TIME(3)");
-
-        DataType timestampType0 = PaimonTypeUtils.toPaimonType(TimestampType.TIMESTAMP_SECONDS);
-        assertThat(timestampType0.asSQLString()).isEqualTo("TIMESTAMP(0)");
-
-        DataType timestampType3 = PaimonTypeUtils.toPaimonType(TimestampType.TIMESTAMP_MILLIS);
-        assertThat(timestampType3.asSQLString()).isEqualTo("TIMESTAMP(3)");
-
-        DataType timestampType6 = PaimonTypeUtils.toPaimonType(TimestampType.TIMESTAMP_MICROS);
-        assertThat(timestampType6.asSQLString()).isEqualTo("TIMESTAMP(6)");
-
-        DataType timestampWithTimeZoneType =
-                PaimonTypeUtils.toPaimonType(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS);
-        assertThat(timestampWithTimeZoneType.asSQLString())
-                .isEqualTo("TIMESTAMP(3) WITH LOCAL TIME ZONE");
-
-        DataType arrayType = PaimonTypeUtils.toPaimonType(new ArrayType(IntegerType.INTEGER));
-        assertThat(arrayType.asSQLString()).isEqualTo("ARRAY<INT>");
-
-        DataType mapType =
-                PaimonTypeUtils.toPaimonType(
-                        new MapType(
-                                IntegerType.INTEGER,
-                                VarcharType.createUnboundedVarcharType(),
-                                new TypeOperators()));
-        assertThat(mapType.asSQLString()).isEqualTo("MAP<INT, VARCHAR(2147483646)>");
-
+        assertThat(toPaimonType(CharType.createCharType(1)).asSQLString()).isEqualTo("CHAR(1)");
+        assertThat(toPaimonType(VARCHAR).asSQLString()).isEqualTo("VARCHAR(2147483646)");
+        assertThat(toPaimonType(BooleanType.BOOLEAN).asSQLString()).isEqualTo("BOOLEAN");
+        assertThat(toPaimonType(VarbinaryType.VARBINARY).asSQLString()).isEqualTo("BYTES");
+        assertThat(toPaimonType(DecimalType.createDecimalType(2, 2)).asSQLString()).isEqualTo("DECIMAL(2, 2)");
+        assertThat(toPaimonType(TinyintType.TINYINT).asSQLString()).isEqualTo("TINYINT");
+        assertThat(toPaimonType(SmallintType.SMALLINT).asSQLString()).isEqualTo("SMALLINT");
+        assertThat(toPaimonType(IntegerType.INTEGER).asSQLString()).isEqualTo("INT");
+        assertThat(toPaimonType(BigintType.BIGINT).asSQLString()).isEqualTo("BIGINT");
+        assertThat(toPaimonType(RealType.REAL).asSQLString()).isEqualTo("FLOAT");
+        assertThat(toPaimonType(DoubleType.DOUBLE).asSQLString()).isEqualTo("DOUBLE");
+        assertThat(toPaimonType(DateType.DATE).asSQLString()).isEqualTo("DATE");
+        assertThat(toPaimonType(io.trino.spi.type.TimeType.TIME_SECONDS).asSQLString()).isEqualTo("TIME(0)");
+        assertThat(toPaimonType(io.trino.spi.type.TimeType.TIME_MILLIS).asSQLString()).isEqualTo("TIME(3)");
+        assertThat(toPaimonType(TimestampType.TIMESTAMP_SECONDS).asSQLString()).isEqualTo("TIMESTAMP(0)");
+        assertThat(toPaimonType(TimestampType.TIMESTAMP_MILLIS).asSQLString()).isEqualTo("TIMESTAMP(3)");
+        assertThat(toPaimonType(TimestampType.TIMESTAMP_MICROS).asSQLString()).isEqualTo("TIMESTAMP(6)");
+        assertThat(toPaimonType(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS).asSQLString()).isEqualTo("TIMESTAMP(3) WITH LOCAL TIME ZONE");
+        assertThat(toPaimonType(new ArrayType(IntegerType.INTEGER)).asSQLString()).isEqualTo("ARRAY<INT>");
+        assertThat(toPaimonType(new MapType(
+                IntegerType.INTEGER,
+                VARCHAR,
+                new TypeOperators())).asSQLString()).isEqualTo("MAP<INT, VARCHAR(2147483646)>");
         List<RowType.Field> fields = new ArrayList<>();
-        fields.add(new RowType.Field(java.util.Optional.of("id"), IntegerType.INTEGER));
-        fields.add(
-                new RowType.Field(
-                        java.util.Optional.of("name"), VarcharType.createUnboundedVarcharType()));
+        fields.add(new RowType.Field(Optional.of("id"), IntegerType.INTEGER));
+        fields.add(new RowType.Field(Optional.of("name"), VARCHAR));
         Type type = RowType.from(fields);
-        DataType rowType = PaimonTypeUtils.toPaimonType(type);
+        DataType rowType = toPaimonType(type);
         assertThat(rowType.asSQLString()).isEqualTo("ROW<`id` INT, `name` VARCHAR(2147483646)>");
     }
 }

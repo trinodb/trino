@@ -34,9 +34,6 @@ import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
-/**
- * Module for binding instance.
- */
 public class PaimonModule
         implements Module
 {
@@ -46,6 +43,7 @@ public class PaimonModule
         configBinder(binder).bindConfig(PaimonConfig.class);
         configBinder(binder).bindConfig(OrcReaderConfig.class);
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
+
         binder.bind(PaimonMetadataFactory.class).in(SINGLETON);
         binder.bind(PaimonSplitManager.class).in(SINGLETON);
         binder.bind(PaimonPageSourceProvider.class).in(SINGLETON);

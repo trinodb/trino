@@ -31,30 +31,22 @@ public class PaimonTransactionManager
 {
     private final PaimonMetadataFactory metadataFactory;
     private final ClassLoader classLoader;
-    private final ConcurrentMap<ConnectorTransactionHandle, MemoizedMetadata> transactions =
-            new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConnectorTransactionHandle, MemoizedMetadata> transactions = new ConcurrentHashMap<>();
 
     @Inject
     public PaimonTransactionManager(PaimonMetadataFactory metadataFactory)
     {
-        this(metadataFactory, Thread.currentThread().getContextClassLoader());
-    }
-
-    public PaimonTransactionManager(PaimonMetadataFactory metadataFactory, ClassLoader classLoader)
-    {
         this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
-        this.classLoader = requireNonNull(classLoader, "classLoader is null");
+        this.classLoader = Thread.currentThread().getContextClassLoader();
     }
 
     public void begin(ConnectorTransactionHandle transactionHandle)
     {
-        MemoizedMetadata previousValue =
-                transactions.putIfAbsent(transactionHandle, new MemoizedMetadata());
+        MemoizedMetadata previousValue = transactions.putIfAbsent(transactionHandle, new MemoizedMetadata());
         checkState(previousValue == null);
     }
 
-    public PaimonMetadata get(
-            ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity)
+    public PaimonMetadata get(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity)
     {
         return transactions.get(transactionHandle).get(identity);
     }
@@ -63,24 +55,19 @@ public class PaimonTransactionManager
     {
         MemoizedMetadata transactionalMetadata = transactions.remove(transaction);
         checkArgument(transactionalMetadata != null, "no such transaction: %s", transaction);
-        transactionalMetadata
-                .optionalGet()
-                .ifPresent(PaimonMetadata::close);
+        transactionalMetadata.optionalGet().ifPresent(PaimonMetadata::close);
     }
 
     public void rollback(ConnectorTransactionHandle transaction)
     {
         MemoizedMetadata transactionalMetadata = transactions.remove(transaction);
         checkArgument(transactionalMetadata != null, "no such transaction: %s", transaction);
-        transactionalMetadata
-                .optionalGet()
-                .ifPresent(
-                        metadata -> {
-                            try (ThreadContextClassLoader _ =
-                                    new ThreadContextClassLoader(classLoader)) {
-                                metadata.rollback();
-                            }
-                        });
+        transactionalMetadata.optionalGet()
+                .ifPresent(metadata -> {
+                    try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+                        metadata.rollback();
+                    }
+                });
     }
 
     private class MemoizedMetadata
@@ -88,12 +75,12 @@ public class PaimonTransactionManager
         @GuardedBy("this")
         private PaimonMetadata metadata;
 
-        public synchronized Optional<PaimonMetadata> optionalGet()
+        private synchronized Optional<PaimonMetadata> optionalGet()
         {
             return Optional.ofNullable(metadata);
         }
 
-        public synchronized PaimonMetadata get(ConnectorIdentity identity)
+        private synchronized PaimonMetadata get(ConnectorIdentity identity)
         {
             if (metadata == null) {
                 try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {

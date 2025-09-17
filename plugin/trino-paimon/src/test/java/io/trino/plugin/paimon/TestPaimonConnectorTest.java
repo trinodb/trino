@@ -13,17 +13,14 @@
  */
 package io.trino.plugin.paimon;
 
-import io.trino.plugin.paimon.testing.TpchPaimonTablesInitializer;
+import io.trino.plugin.paimon.testing.PaimonTablesInitializer;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * The test of TrinoDistributedQuery.
- */
-final class PaimonConnectorTest
+final class TestPaimonConnectorTest
         extends BaseConnectorTest
 {
     @Override
@@ -31,7 +28,7 @@ final class PaimonConnectorTest
             throws Exception
     {
         return PaimonQueryRunner.builder()
-                .setDataLoader(new TpchPaimonTablesInitializer(REQUIRED_TPCH_TABLES))
+                .setDataLoader(new PaimonTablesInitializer(REQUIRED_TPCH_TABLES))
                 .build();
     }
 
@@ -45,25 +42,25 @@ final class PaimonConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_INSERT,
-                 SUPPORTS_DELETE,
-                 SUPPORTS_UPDATE,
-                 SUPPORTS_CREATE_TABLE,
-                 SUPPORTS_CREATE_SCHEMA,
-                 SUPPORTS_MERGE,
+            case SUPPORTS_ADD_COLUMN,
                  SUPPORTS_ARRAY,
-                 SUPPORTS_MAP_TYPE,
-                 SUPPORTS_ROW_TYPE,
-                 SUPPORTS_ADD_COLUMN,
-                 SUPPORTS_RENAME_TABLE,
-                 SUPPORTS_RENAME_COLUMN,
                  SUPPORTS_COMMENT_ON_COLUMN,
-                 SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
-                 SUPPORTS_CREATE_VIEW,
-                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
                  SUPPORTS_COMMENT_ON_TABLE,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_CREATE_SCHEMA,
+                 SUPPORTS_CREATE_TABLE,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_DELETE,
+                 SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_INSERT,
+                 SUPPORTS_MAP_TYPE,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_RENAME_COLUMN,
+                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_ROW_TYPE,
                  SUPPORTS_TOPN_PUSHDOWN,
-                 SUPPORTS_RENAME_SCHEMA -> false;
+                 SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }

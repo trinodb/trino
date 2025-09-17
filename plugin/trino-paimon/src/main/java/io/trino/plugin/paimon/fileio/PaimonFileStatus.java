@@ -16,21 +16,20 @@ package io.trino.plugin.paimon.fileio;
 import org.apache.paimon.fs.FileStatus;
 import org.apache.paimon.fs.Path;
 
-/**
- * File status for trino file.
- */
+import static java.util.Objects.requireNonNull;
+
 public class PaimonFileStatus
         implements FileStatus
 {
     private final long len;
     private final Path path;
-    private final long modificationTmie;
+    private final long modificationTime;
 
-    public PaimonFileStatus(long len, Path path, long modificationTmie)
+    public PaimonFileStatus(long length, Path path, long modificationTime)
     {
-        this.len = len;
-        this.path = path;
-        this.modificationTmie = modificationTmie;
+        this.len = length;
+        this.path = requireNonNull(path, "path is null");
+        this.modificationTime = modificationTime;
     }
 
     @Override
@@ -54,6 +53,6 @@ public class PaimonFileStatus
     @Override
     public long getModificationTime()
     {
-        return modificationTmie;
+        return modificationTime;
     }
 }

@@ -48,6 +48,7 @@ import org.apache.paimon.types.DataType;
 import org.apache.paimon.types.DataTypeChecks;
 import org.apache.paimon.utils.CloseableIterator;
 import org.apache.paimon.utils.InternalRowUtils;
+import org.apache.paimon.utils.JsonSerdeUtil;
 
 import javax.annotation.Nullable;
 
@@ -80,9 +81,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Trino {@link ConnectorPageSource}.
- */
 public class PaimonPageSource
         implements ConnectorPageSource
 {
@@ -111,9 +109,9 @@ public class PaimonPageSource
         this.columnTypes = new ArrayList<>();
         this.logicalTypes = new ArrayList<>();
         for (ColumnHandle handle : projectedColumns) {
-            PaimonColumnHandle paimonColumnHandle = (PaimonColumnHandle) handle;
-            columnTypes.add(paimonColumnHandle.getTrinoType());
-            logicalTypes.add(paimonColumnHandle.logicalType());
+            PaimonColumnHandle columnHandle = (PaimonColumnHandle) handle;
+            columnTypes.add(columnHandle.trinoType());
+            logicalTypes.add(JsonSerdeUtil.fromJson(columnHandle.typeString(), DataType.class));
         }
 
         this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
@@ -141,9 +139,7 @@ public class PaimonPageSource
             type.writeObject(output, Decimals.encodeScaledValue(decimal, decimalType.getScale()));
         }
         else {
-            throw new TrinoException(
-                    GENERIC_INTERNAL_ERROR,
-                    "Unhandled type for Object: " + type.getTypeSignature());
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Object: " + type.getTypeSignature());
         }
     }
 

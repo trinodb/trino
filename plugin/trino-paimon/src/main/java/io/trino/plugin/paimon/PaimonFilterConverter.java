@@ -54,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.plugin.paimon.PaimonTypeUtils.fieldNames;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
@@ -64,9 +65,6 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.paimon.data.Decimal.fromBigDecimal;
 import static org.apache.paimon.predicate.PredicateBuilder.and;
 
-/**
- * Trino filter to flink predicate.
- */
 public class PaimonFilterConverter
 {
     private static final Logger LOG = LoggerFactory.getLogger(PaimonFilterConverter.class);
@@ -76,7 +74,7 @@ public class PaimonFilterConverter
 
     public PaimonFilterConverter(RowType rowType)
     {
-        this.rowType = rowType;
+        this.rowType = requireNonNull(rowType, "rowType is null");
         this.builder = new PredicateBuilder(rowType);
     }
 
@@ -87,8 +85,8 @@ public class PaimonFilterConverter
 
     public Optional<Predicate> convert(
             TupleDomain<PaimonColumnHandle> tupleDomain,
-            LinkedHashMap<PaimonColumnHandle, Domain> acceptedDomains,
-            LinkedHashMap<PaimonColumnHandle, Domain> unsupportedDomains)
+            Map<PaimonColumnHandle, Domain> acceptedDomains,
+            Map<PaimonColumnHandle, Domain> unsupportedDomains)
     {
         if (tupleDomain.isAll()) {
             // TODO alwaysTrue
@@ -102,11 +100,11 @@ public class PaimonFilterConverter
 
         Map<PaimonColumnHandle, Domain> domainMap = tupleDomain.getDomains().get();
         List<Predicate> conjuncts = new ArrayList<>();
-        List<String> fieldNames = PaimonTypeUtils.fieldNames(rowType);
+        List<String> fieldNames = fieldNames(rowType);
         for (Map.Entry<PaimonColumnHandle, Domain> entry : domainMap.entrySet()) {
             PaimonColumnHandle columnHandle = entry.getKey();
             Domain domain = entry.getValue();
-            String field = columnHandle.getColumnName();
+            String field = columnHandle.columnName();
             Optional<Integer> nestedColumn = FileIndexOptions.topLevelIndexOfNested(field);
             if (nestedColumn.isPresent()) {
                 int position = nestedColumn.get();
@@ -117,16 +115,14 @@ public class PaimonFilterConverter
                 try {
                     toPredicate(
                             index,
-                            columnHandle.getColumnName(),
-                            columnHandle.getTrinoType(),
+                            columnHandle.columnName(),
+                            columnHandle.trinoType(),
                             domain).ifPresent(conjuncts::add);
                     acceptedDomains.put(columnHandle, domain);
                     continue;
                 }
                 catch (UnsupportedOperationException exception) {
-                    LOG.warn(
-                            "Unsupported predicate, maybe the type of column is not supported yet.",
-                            exception);
+                    LOG.warn("Unsupported predicate, maybe the type of column is not supported yet", exception);
                 }
             }
             unsupportedDomains.put(columnHandle, domain);
@@ -254,7 +250,7 @@ public class PaimonFilterConverter
         return and(conjuncts);
     }
 
-    private Object getLiteralValue(Type type, Object trinoNativeValue)
+    private static Object getLiteralValue(Type type, Object trinoNativeValue)
     {
         requireNonNull(trinoNativeValue, "trinoNativeValue is null");
 
@@ -302,8 +298,7 @@ public class PaimonFilterConverter
             if (trinoNativeValue instanceof Long) {
                 return trinoNativeValue;
             }
-            return Timestamp.fromEpochMillis(
-                    ((LongTimestampWithTimeZone) trinoNativeValue).getEpochMillis());
+            return Timestamp.fromEpochMillis(((LongTimestampWithTimeZone) trinoNativeValue).getEpochMillis());
         }
 
         if (type instanceof VarcharType || type instanceof CharType) {
@@ -317,15 +312,10 @@ public class PaimonFilterConverter
         if (type instanceof DecimalType decimalType) {
             BigDecimal bigDecimal;
             if (trinoNativeValue instanceof Long) {
-                bigDecimal =
-                        BigDecimal.valueOf((long) trinoNativeValue)
-                                .movePointLeft(decimalType.getScale());
+                bigDecimal = BigDecimal.valueOf((long) trinoNativeValue).movePointLeft(decimalType.getScale());
             }
             else {
-                bigDecimal =
-                        new BigDecimal(
-                                ((Int128) trinoNativeValue).toBigInteger(),
-                                decimalType.getScale());
+                bigDecimal = new BigDecimal(((Int128) trinoNativeValue).toBigInteger(), decimalType.getScale());
             }
             return fromBigDecimal(
                     bigDecimal, decimalType.getPrecision(), decimalType.getScale());

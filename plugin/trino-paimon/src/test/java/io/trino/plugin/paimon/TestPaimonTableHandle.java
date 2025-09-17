@@ -22,36 +22,22 @@ import java.util.OptionalLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Test for {@link PaimonTableHandle}.
- */
 final class TestPaimonTableHandle
 {
     private final JsonCodec<PaimonTableHandle> codec = JsonCodec.jsonCodec(PaimonTableHandle.class);
 
     @Test
     void testPrestoTableHandle()
-            throws Exception
     {
-        PaimonTableHandle expected =
-                new PaimonTableHandle(
-                        "test",
-                        "user",
-                        Collections.emptyMap(),
-                        TupleDomain.all(),
-                        Collections.emptySet(),
-                        OptionalLong.empty());
-        testRoundTrip(expected);
-    }
-
-    private void testRoundTrip(PaimonTableHandle expected)
-    {
+        PaimonTableHandle expected = new PaimonTableHandle(
+                "test",
+                "user",
+                Collections.emptyMap(),
+                TupleDomain.all(),
+                Collections.emptySet(),
+                OptionalLong.empty());
         String json = codec.toJson(expected);
         PaimonTableHandle actual = codec.fromJson(json);
         assertThat(actual).isEqualTo(expected);
-        assertThat(actual.getSchemaName()).isEqualTo(expected.getSchemaName());
-        assertThat(actual.getTableName()).isEqualTo(expected.getTableName());
-        assertThat(actual.getPredicate()).isEqualTo(expected.getPredicate());
-        assertThat(actual.getProjectedColumns()).isEqualTo(expected.getProjectedColumns());
     }
 }
