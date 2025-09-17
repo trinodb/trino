@@ -228,7 +228,7 @@ final class TestFakerQueries
                     getSession(),
                     "SELECT name FROM " + table.getName() + " LIMIT 1",
                     h2QueryRunner,
-                    "VALUES ('Eugeniusz Szczepanik')",
+                    "VALUES ('Klementyna Szczepanik')",
                     false,
                     false);
         }
