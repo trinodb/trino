@@ -189,7 +189,7 @@
         <dep.aws-sdk.version>1.12.792</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.8.0</dep.confluent.version>
-        <dep.docker.images.version>119</dep.docker.images.version>
+        <dep.docker.images.version>121</dep.docker.images.version>
         <dep.drift.version>1.24</dep.drift.version>
         <dep.flyway.version>11.15.0</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.4</dep.frontend-maven-plugin.version>
