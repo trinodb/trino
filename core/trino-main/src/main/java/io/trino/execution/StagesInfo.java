@@ -92,13 +92,13 @@ public class StagesInfo
     }
 
     @JsonIgnore
-    public List<StageInfo> getSubStagesDeepPreOrder(StageId stageId)
+    public List<StageInfo> getSubStagesDeep(StageId stageId)
     {
-        return getSubStagesDeepPreOrder(stageId, false);
+        return getSubStagesDeep(stageId, false);
     }
 
     @JsonIgnore
-    public List<StageInfo> getSubStagesDeepPreOrder(StageId root, boolean includeRoot)
+    public List<StageInfo> getSubStagesDeep(StageId root, boolean includeRoot)
     {
         StageInfo stageInfo = stagesById.get(root);
         checkArgument(stageInfo != null, "stage %s not found", root);
