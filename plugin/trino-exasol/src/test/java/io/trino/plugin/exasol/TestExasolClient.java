@@ -14,71 +14,81 @@
 package io.trino.plugin.exasol;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.base.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcMetadataSessionProperties;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.QueryParameter;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Variable;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
+import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.testing.TestingConnectorSession;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.spi.function.OperatorType.ADD;
+import static io.trino.spi.function.OperatorType.DIVIDE;
+import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MULTIPLY;
+import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ir.IrExpressions.not;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
-final class TestExasolClient
+public class TestExasolClient
 {
-    private static final JdbcClient JDBC_CLIENT = new ExasolClient(
-            new BaseJdbcConfig(),
-            session -> {
-                throw new UnsupportedOperationException();
-            },
-            new DefaultQueryBuilder(RemoteQueryModifier.NONE),
-            new DefaultIdentifierMapping(),
-            RemoteQueryModifier.NONE);
-
-    private static final ConnectorSession SESSION = TestingConnectorSession
-            .builder()
-            .setPropertyMetadata(ImmutableList.<PropertyMetadata<?>>builder()
-                    .addAll(new JdbcMetadataSessionProperties(new JdbcMetadataConfig(), Optional.empty()).getSessionProperties())
-                    .build())
-            .build();
-
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
+    private static final ResolvedFunction NEGATION_BIGINT = FUNCTIONS.resolveOperator(OperatorType.NEGATION, ImmutableList.of(BIGINT));
 
     private static final JdbcColumnHandle BIGINT_COLUMN =
             JdbcColumnHandle.builder()
                     .setColumnName("c_bigint")
                     .setColumnType(BIGINT)
                     .setJdbcTypeHandle(new JdbcTypeHandle(Types.BIGINT, Optional.of("int8"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
+                    .build();
+
+    private static final JdbcColumnHandle DOUBLE_COLUMN =
+            JdbcColumnHandle.builder()
+                    .setColumnName("c_double")
+                    .setColumnType(DOUBLE)
+                    .setJdbcTypeHandle(new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                     .build();
 
     private static final JdbcColumnHandle VARCHAR_COLUMN =
@@ -95,8 +105,124 @@ final class TestExasolClient
                     .setJdbcTypeHandle(new JdbcTypeHandle(Types.VARCHAR, Optional.of("varchar"), Optional.of(10), Optional.empty(), Optional.empty(), Optional.empty()))
                     .build();
 
+    private static final JdbcClient JDBC_CLIENT = new ExasolClient(
+            new BaseJdbcConfig(),
+            session -> {
+                throw new UnsupportedOperationException();
+            },
+            new DefaultQueryBuilder(RemoteQueryModifier.NONE),
+            new DefaultIdentifierMapping(),
+            RemoteQueryModifier.NONE);
+
+    private static final ConnectorSession SESSION = TestingConnectorSession
+            .builder()
+            .setPropertyMetadata(ImmutableList.<PropertyMetadata<?>>builder()
+                    .addAll(new JdbcMetadataSessionProperties(new JdbcMetadataConfig(), Optional.empty()).getSessionProperties())
+                    .build())
+            .build();
+
     @Test
-    void testConvertOr()
+    public void testImplementCount()
+    {
+        Variable bigintVariable = new Variable("v_bigint", BIGINT);
+        Variable doubleVariable = new Variable("v_double", BIGINT);
+        Optional<ConnectorExpression> filter = Optional.of(new Variable("a_filter", BOOLEAN));
+
+        // count(*)
+        testImplementAggregation(
+                new AggregateFunction("count", BIGINT, List.of(), List.of(), false, Optional.empty()),
+                Map.of(),
+                Optional.of("count(*)"));
+
+        // count(bigint)
+        testImplementAggregation(
+                new AggregateFunction("count", BIGINT, List.of(bigintVariable), List.of(), false, Optional.empty()),
+                Map.of(bigintVariable.getName(), BIGINT_COLUMN),
+                Optional.of("count(\"c_bigint\")"));
+
+        // count(double)
+        testImplementAggregation(
+                new AggregateFunction("count", BIGINT, List.of(doubleVariable), List.of(), false, Optional.empty()),
+                Map.of(doubleVariable.getName(), DOUBLE_COLUMN),
+                Optional.of("count(\"c_double\")"));
+
+        // count(DISTINCT bigint)
+        testImplementAggregation(
+                new AggregateFunction("count", BIGINT, List.of(bigintVariable), List.of(), true, Optional.empty()),
+                Map.of(bigintVariable.getName(), BIGINT_COLUMN),
+                Optional.of("count(DISTINCT \"c_bigint\")"));
+
+        // count() FILTER (WHERE ...)
+
+        testImplementAggregation(
+                new AggregateFunction("count", BIGINT, List.of(), List.of(), false, filter),
+                Map.of(),
+                Optional.empty());
+
+        // count(bigint) FILTER (WHERE ...)
+        testImplementAggregation(
+                new AggregateFunction("count", BIGINT, List.of(bigintVariable), List.of(), false, filter),
+                Map.of(bigintVariable.getName(), BIGINT_COLUMN),
+                Optional.empty());
+    }
+
+    @Test
+    public void testImplementSum()
+    {
+        Variable bigintVariable = new Variable("v_bigint", BIGINT);
+        Variable doubleVariable = new Variable("v_double", DOUBLE);
+        Optional<ConnectorExpression> filter = Optional.of(new Variable("a_filter", BOOLEAN));
+
+        // sum(bigint)
+        testImplementAggregation(
+                new AggregateFunction("sum", BIGINT, List.of(bigintVariable), List.of(), false, Optional.empty()),
+                Map.of(bigintVariable.getName(), BIGINT_COLUMN),
+                Optional.of("sum(\"c_bigint\")"));
+
+        // sum(double)
+        testImplementAggregation(
+                new AggregateFunction("sum", DOUBLE, List.of(doubleVariable), List.of(), false, Optional.empty()),
+                Map.of(doubleVariable.getName(), DOUBLE_COLUMN),
+                Optional.of("sum(\"c_double\")"));
+
+        // sum(DISTINCT bigint)
+        testImplementAggregation(
+                new AggregateFunction("sum", BIGINT, List.of(bigintVariable), List.of(), true, Optional.empty()),
+                Map.of(bigintVariable.getName(), BIGINT_COLUMN),
+                Optional.of("sum(DISTINCT \"c_bigint\")"));
+
+        // sum(DISTINCT double)
+        testImplementAggregation(
+                new AggregateFunction("sum", DOUBLE, List.of(bigintVariable), List.of(), true, Optional.empty()),
+                Map.of(bigintVariable.getName(), DOUBLE_COLUMN),
+                Optional.of("sum(DISTINCT \"c_double\")"));
+
+        // sum(bigint) FILTER (WHERE ...)
+        testImplementAggregation(
+                new AggregateFunction("sum", BIGINT, List.of(bigintVariable), List.of(), false, filter),
+                Map.of(bigintVariable.getName(), BIGINT_COLUMN),
+                Optional.empty()); // filter not supported
+    }
+
+    private static void testImplementAggregation(AggregateFunction aggregateFunction, Map<String, ColumnHandle> assignments, Optional<String> expectedExpression)
+    {
+        Optional<JdbcExpression> result = JDBC_CLIENT.implementAggregation(SESSION, aggregateFunction, assignments);
+        if (expectedExpression.isEmpty()) {
+            assertThat(result).isEmpty();
+        }
+        else {
+            assertThat(result).isPresent();
+            assertThat(result.get().getExpression()).isEqualTo(expectedExpression.get());
+            Optional<ColumnMapping> columnMapping = JDBC_CLIENT.toColumnMapping(SESSION, null, result.get().getJdbcTypeHandle());
+            assertThat(columnMapping.isPresent())
+                    .describedAs("No mapping for: " + result.get().getJdbcTypeHandle())
+                    .isTrue();
+            assertThat(columnMapping.get().getType()).isEqualTo(aggregateFunction.getOutputType());
+        }
+    }
+
+    @Test
+    public void testConvertOr()
     {
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
                         SESSION,
@@ -117,7 +243,7 @@ final class TestExasolClient
     }
 
     @Test
-    void testConvertOrWithAnd()
+    public void testConvertOrWithAnd()
     {
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
                         SESSION,
@@ -174,7 +300,40 @@ final class TestExasolClient
     }
 
     @Test
-    void testConvertIsNull()
+    public void testConvertArithmeticBinary()
+    {
+        TestingFunctionResolution resolver = new TestingFunctionResolution();
+
+        for (OperatorType operator : EnumSet.of(ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULUS)) {
+            ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
+                            SESSION,
+                            translateToConnectorExpression(
+                                    new Call(resolver.resolveOperator(
+                                            operator,
+                                            ImmutableList.of(BIGINT, BIGINT)), ImmutableList.of(new Reference(BIGINT, "c_bigint_symbol"), new Constant(BIGINT, 42L)))),
+                            Map.of("c_bigint_symbol", BIGINT_COLUMN))
+                    .orElseThrow();
+
+            assertThat(converted.parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
+        }
+    }
+
+    @Test
+    public void testConvertArithmeticUnaryMinus()
+    {
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
+                        SESSION,
+                        translateToConnectorExpression(
+                                new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "c_bigint_symbol")))),
+                        Map.of("c_bigint_symbol", BIGINT_COLUMN))
+                .orElseThrow();
+
+        assertThat(converted.expression()).isEqualTo("-(\"c_bigint\")");
+        assertThat(converted.parameters()).isEqualTo(List.of());
+    }
+
+    @Test
+    public void testConvertIsNull()
     {
         // c_varchar IS NULL
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
@@ -188,7 +347,7 @@ final class TestExasolClient
     }
 
     @Test
-    void testConvertIsNotNull()
+    public void testConvertIsNotNull()
     {
         // c_varchar IS NOT NULL
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
@@ -201,7 +360,22 @@ final class TestExasolClient
     }
 
     @Test
-    void testConvertNotExpression()
+    public void testConvertNullIf()
+    {
+        // nullif(a_varchar, b_varchar)
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
+                        translateToConnectorExpression(
+                                new NullIf(
+                                        new Reference(VARCHAR, "a_varchar_symbol"),
+                                        new Reference(VARCHAR, "b_varchar_symbol"))),
+                        ImmutableMap.of("a_varchar_symbol", VARCHAR_COLUMN, "b_varchar_symbol", VARCHAR_COLUMN))
+                .orElseThrow();
+        assertThat(converted.expression()).isEqualTo("NULLIF((\"c_varchar\"), (\"c_varchar\"))");
+        assertThat(converted.parameters()).isEqualTo(List.of());
+    }
+
+    @Test
+    public void testConvertNotExpression()
     {
         // NOT(expression)
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
@@ -216,7 +390,7 @@ final class TestExasolClient
     }
 
     @Test
-    void testConvertIn()
+    public void testConvertIn()
     {
         ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
                         SESSION,
