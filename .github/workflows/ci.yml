@@ -885,6 +885,7 @@ jobs:
             - suite-delta-lake-databricks164
             - suite-ranger
             - suite-gcs
+            - suite-hive4
             - suite-clients
             - suite-functions
             - suite-tpch
