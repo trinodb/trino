@@ -56,7 +56,7 @@ public class TestMergeProjectWithValues
         tester().assertThat(new MergeProjectWithValues())
                 .on(p ->
                         p.project(
-                                Assignments.of(),
+                                Assignments.empty(),
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                         ImmutableList.of(new Cast(
@@ -72,7 +72,7 @@ public class TestMergeProjectWithValues
         tester().assertThat(new MergeProjectWithValues())
                 .on(p ->
                         p.project(
-                                Assignments.of(),
+                                Assignments.empty(),
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                         ImmutableList.of(
@@ -84,7 +84,7 @@ public class TestMergeProjectWithValues
         tester().assertThat(new MergeProjectWithValues())
                 .on(p ->
                         p.project(
-                                Assignments.of(),
+                                Assignments.empty(),
                                 p.values(
                                         ImmutableList.of(),
                                         ImmutableList.of(ImmutableList.of(), ImmutableList.of()))))
@@ -94,7 +94,7 @@ public class TestMergeProjectWithValues
         tester().assertThat(new MergeProjectWithValues())
                 .on(p ->
                         p.project(
-                                Assignments.of(),
+                                Assignments.empty(),
                                 p.values(
                                         ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                         ImmutableList.of())))
@@ -104,7 +104,7 @@ public class TestMergeProjectWithValues
         tester().assertThat(new MergeProjectWithValues())
                 .on(p ->
                         p.project(
-                                Assignments.of(),
+                                Assignments.empty(),
                                 p.values(
                                         ImmutableList.of(),
                                         ImmutableList.of())))

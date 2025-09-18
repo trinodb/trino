@@ -84,7 +84,7 @@ public class TestTransformExistsApplyToCorrelatedJoin
                                 ImmutableMap.of(p.symbol("b", BOOLEAN), new ApplyNode.Exists()),
                                 ImmutableList.of(p.symbol("corr")),
                                 p.values(p.symbol("corr")),
-                                p.project(Assignments.of(),
+                                p.project(Assignments.empty(),
                                         p.filter(
                                                 new Comparison(EQUAL, new Reference(BIGINT, "corr"), new Reference(BIGINT, "column")),
                                                 p.values(p.symbol("column"))))))

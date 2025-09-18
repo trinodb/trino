@@ -75,7 +75,7 @@ public class TestPruneValuesColumns
         tester().assertThat(new PruneValuesColumns())
                 .on(p ->
                         p.project(
-                                Assignments.of(),
+                                Assignments.empty(),
                                 p.values(5, p.symbol("x"))))
                 .matches(
                         project(
@@ -89,7 +89,7 @@ public class TestPruneValuesColumns
         tester().assertThat(new PruneValuesColumns())
                 .on(p ->
                         p.project(
-                                Assignments.of(),
+                                Assignments.empty(),
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("x")),
                                         ImmutableList.of(new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L))), anonymousRow(BIGINT))))))

@@ -39,7 +39,7 @@ public class TestPruneSortColumns
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.project(
-                            Assignments.of(),
+                            Assignments.empty(),
                             p.sort(ImmutableList.of(a), p.values(a)));
                 })
                 .doesNotFire();
