@@ -121,36 +121,6 @@ public class StagesInfo
         });
     }
 
-    @JsonIgnore
-    public List<StageInfo> getSubStagesDeepPostOrder(StageId stageId)
-    {
-        return getSubStagesDeepPostOrder(stageId, false);
-    }
-
-    @JsonIgnore
-    public List<StageInfo> getSubStagesDeepPostOrder(StageId root, boolean includeRoot)
-    {
-        StageInfo stageInfo = stagesById.get(root);
-        checkArgument(stageInfo != null, "stage %s not found", root);
-
-        ImmutableSet.Builder<StageId> subStagesIds = ImmutableSet.builder();
-        collectSubStageIdsPostOrder(stageInfo, subStagesIds);
-        if (includeRoot) {
-            subStagesIds.add(root);
-        }
-
-        return subStagesIds.build().stream().map(stagesById::get).collect(toImmutableList());
-    }
-
-    private void collectSubStageIdsPostOrder(StageInfo stageInfo, ImmutableSet.Builder collector)
-    {
-        stageInfo.getSubStages().stream().forEach(subStageId -> {
-            StageInfo subStage = stagesById.get(subStageId);
-            collectSubStageIdsPostOrder(subStage, collector);
-            collector.add(subStageId);
-        });
-    }
-
     public static List<StageInfo> getAllStages(Optional<StagesInfo> stages)
     {
         return stages.map(StagesInfo::getStages).orElse(ImmutableList.of());
