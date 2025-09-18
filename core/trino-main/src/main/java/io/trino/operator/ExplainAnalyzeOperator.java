@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textDistributedPlan;
 import static java.util.Objects.requireNonNull;
@@ -153,15 +152,14 @@ public class ExplainAnalyzeOperator
 
         QueryInfo queryInfo = queryPerformanceFetcher.getQueryInfo(operatorContext.getDriverContext().getTaskId().queryId());
         checkState(queryInfo.getStages().isPresent(), "Stages informations is missing");
-        checkState(queryInfo.getStages().get().getOutputStage().getSubStages().size() == 1, "Expected one sub stage of explain node");
+        StagesInfo stagesInfo = queryInfo.getStages().get();
+        checkState(stagesInfo.getOutputStage().getSubStages().size() == 1, "Expected one sub stage of explain node");
 
-        if (!hasFinalStageInfo(queryInfo.getStages().get())) {
+        if (!hasFinalStageInfo(stagesInfo)) {
             return null;
         }
 
-        List<StageInfo> stagesWithoutOutputStage = queryInfo.getStages().orElseThrow().getStages().stream()
-                .filter(stage -> !stage.getStageId().equals(queryInfo.getStages().orElseThrow().getOutputStageId()))
-                .collect(toImmutableList());
+        List<StageInfo> stagesWithoutOutputStage = stagesInfo.getSubStagesDeepTopological(stagesInfo.getOutputStageId(), false);
 
         String plan = textDistributedPlan(
                 stagesWithoutOutputStage,
