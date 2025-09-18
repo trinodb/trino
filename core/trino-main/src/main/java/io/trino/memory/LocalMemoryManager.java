@@ -61,7 +61,11 @@ public final class LocalMemoryManager
 
     public MemoryInfo getInfo()
     {
-        return new MemoryInfo(OPERATING_SYSTEM_MX_BEAN.getAvailableProcessors(), memoryPool.getInfo());
+        double systemCpuLoad = 0.0;
+        if (OPERATING_SYSTEM_MX_BEAN instanceof com.sun.management.OperatingSystemMXBean osBean) {
+            systemCpuLoad = osBean.getCpuLoad();
+        }
+        return new MemoryInfo(OPERATING_SYSTEM_MX_BEAN.getAvailableProcessors(), systemCpuLoad, memoryPool.getInfo());
     }
 
     public MemoryPool getMemoryPool()
