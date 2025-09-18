@@ -172,7 +172,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void executeTableExecute(Session session, TableExecuteHandle handle)
+    public Map<String, Long> executeTableExecute(Session session, TableExecuteHandle handle)
     {
         throw new UnsupportedOperationException();
     }
