@@ -112,7 +112,7 @@ public class StagesInfo
         return subStagesIds.build().stream().map(stagesById::get).collect(toImmutableList());
     }
 
-    private void collectSubStageIdsPreOrder(StageInfo stageInfo, ImmutableSet.Builder collector)
+    private void collectSubStageIdsPreOrder(StageInfo stageInfo, ImmutableSet.Builder<StageId> collector)
     {
         stageInfo.getSubStages().stream().forEach(subStageId -> {
             collector.add(subStageId);
