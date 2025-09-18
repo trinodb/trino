@@ -43,6 +43,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.eventlistener.BaseViewReferenceInfo;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
+import io.trino.spi.eventlistener.ColumnLineageInfo;
 import io.trino.spi.eventlistener.ColumnMaskReferenceInfo;
 import io.trino.spi.eventlistener.MaterializedViewReferenceInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
@@ -100,6 +101,7 @@ import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -274,6 +276,28 @@ public class Analysis
         this.root = root;
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
         this.queryType = requireNonNull(queryType, "queryType is null");
+    }
+
+    public List<ColumnLineageInfo> getSelectColumnLineageInfo()
+    {
+        Scope rootScope = getRootScope();
+
+        List<Field> outputFields = rootScope.getRelationType().getVisibleFields().stream().toList();
+        List<Integer> outputFieldIndices = outputFields.stream()
+                .map(rootScope.getRelationType()::indexOf)
+                .collect(toImmutableList());
+        List<ColumnLineageInfo> lineageInfo = new ArrayList<>();
+        for (int i = 0; i < outputFields.size(); i++) {
+            Field field = outputFields.get(i);
+            String outputColumnName = field.getName().orElse("");
+            ImmutableSet<ColumnDetail> sources = getSourceColumns(field).stream()
+                    .map(SourceColumn::getColumnDetail)
+                    .collect(toImmutableSet());
+            lineageInfo.add(new ColumnLineageInfo(outputColumnName, outputFieldIndices.get(i), sources));
+        }
+        // always sort lineageInfo by index to ensure consistent ordering
+        lineageInfo.sort(Comparator.comparingInt(ColumnLineageInfo::index));
+        return ImmutableList.copyOf(lineageInfo);
     }
 
     public Statement getStatement()
