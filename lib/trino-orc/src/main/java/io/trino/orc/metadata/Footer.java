@@ -37,6 +37,7 @@ public class Footer
     private final Optional<ColumnMetadata<ColumnStatistics>> fileStats;
     private final Map<String, Slice> userMetadata;
     private final Optional<Integer> writerId;
+    private final CalendarKind calendar;
 
     public Footer(
             long numberOfRows,
@@ -45,7 +46,8 @@ public class Footer
             ColumnMetadata<OrcType> types,
             Optional<ColumnMetadata<ColumnStatistics>> fileStats,
             Map<String, Slice> userMetadata,
-            Optional<Integer> writerId)
+            Optional<Integer> writerId,
+            CalendarKind calendar)
     {
         this.numberOfRows = numberOfRows;
         rowsInRowGroup.ifPresent(value -> checkArgument(value > 0, "rowsInRowGroup must be at least 1"));
@@ -56,6 +58,7 @@ public class Footer
         requireNonNull(userMetadata, "userMetadata is null");
         this.userMetadata = ImmutableMap.copyOf(transformValues(userMetadata, Slice::copy));
         this.writerId = requireNonNull(writerId, "writerId is null");
+        this.calendar = requireNonNull(calendar, "calendar is null");
     }
 
     public long getNumberOfRows()
@@ -93,6 +96,11 @@ public class Footer
         return writerId;
     }
 
+    public CalendarKind getCalendar()
+    {
+        return calendar;
+    }
+
     @Override
     public String toString()
     {
@@ -104,6 +112,7 @@ public class Footer
                 .add("columnStatistics", fileStats)
                 .add("userMetadata", userMetadata.keySet())
                 .add("writerId", writerId)
+                .add("calendar", calendar)
                 .toString();
     }
 }

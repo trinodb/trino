@@ -886,6 +886,7 @@ jobs:
             - suite-exasol
             - suite-ranger
             - suite-gcs
+            - suite-hive4
             - suite-clients
             - suite-functions
             - suite-tpch
