@@ -1,11 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-function list_installed_packages()
-{
-    apt list --installed "$1" 2>/dev/null | awk -F'/' 'NR>1{print $1}'
-}
-
 function free_up_disk_space_ubuntu()
 {
     local packages=(
@@ -13,22 +8,12 @@ function free_up_disk_space_ubuntu()
         'aspnetcore-*'
         'firefox*'
         'google-chrome-*'
-        'google-cloud-*'
         'libmono-*'
         'llvm-*'
         'mysql-server-core-*'
-        'powershell*'
-        'microsoft-edge*')
+        'powershell*')
 
-    for package in "${packages[@]}"; do
-        mapfile -t installed_packages < <(list_installed_packages "${package}")
-        if [ ${#installed_packages[@]} -eq 0 ]; then
-            echo "No packages matched by pattern ${package}"
-        else
-            echo "Removing packages by pattern ${package}: ${installed_packages[*]}"
-            sudo apt-get --auto-remove -y purge "${installed_packages[@]}"
-        fi
-    done
+    sudo apt-get --auto-remove -y purge "${packages[@]}"
 
     echo "Autoremoving packages"
     sudo apt-get autoremove -y
@@ -49,14 +34,12 @@ function free_up_disk_space_ubuntu()
       sudo docker system prune --all -f
 }
 
-
 echo "Disk space usage before cleaning:"
 df -k .
 
 echo "::group::Clearing up disk usage"
-free_up_disk_space_ubuntu
+time free_up_disk_space_ubuntu
 echo "::endgroup::"
 
 echo "Disk space usage after cleaning:"
 df -k .
-

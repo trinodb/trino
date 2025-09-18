@@ -42,6 +42,7 @@ final class TestOpenLineageEventListenerMarquezIntegration
         return OpenLineageListenerQueryRunner.builder()
                 .addListenerProperty("openlineage-event-listener.transport.type", "HTTP")
                 .addListenerProperty("openlineage-event-listener.transport.url", server.getMarquezUri().toString())
+                .addListenerProperty("openlineage-event-listener.transport.compression", "gzip")
                 .addListenerProperty("openlineage-event-listener.trino.uri", TRINO_URI)
                 .build();
     }

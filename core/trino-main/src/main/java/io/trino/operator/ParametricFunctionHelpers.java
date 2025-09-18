@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import io.trino.metadata.FunctionBinding;
 import io.trino.operator.annotations.ImplementationDependency;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.FunctionDependencies;
 
 import java.lang.invoke.MethodHandle;
@@ -31,8 +32,18 @@ public final class ParametricFunctionHelpers
             FunctionDependencies functionDependencies)
     {
         for (ImplementationDependency dependency : dependencies) {
-            handle = MethodHandles.insertArguments(handle, 0, dependency.resolve(functionBinding, functionDependencies));
+            int insertPosition = calculateInsertPosition(handle.type().parameterList());
+            handle = MethodHandles.insertArguments(handle, insertPosition, dependency.resolve(functionBinding, functionDependencies));
         }
         return handle;
+    }
+
+    public static int calculateInsertPosition(List<Class<?>> parameters)
+    {
+        if (parameters.size() > 1 && parameters.getFirst().equals(ConnectorSession.class)) {
+            // Shift the arguments 1 position, ConnectorSession will be injected later
+            return 1;
+        }
+        return 0;
     }
 }

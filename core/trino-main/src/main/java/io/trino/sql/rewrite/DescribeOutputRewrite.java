@@ -87,7 +87,7 @@ public final class DescribeOutputRewrite
     private static final class Visitor
             extends AstVisitor<Node, Void>
     {
-        private static final Query EMPTY_OUTPUT = createDesctibeOutputQuery(
+        private static final Query EMPTY_OUTPUT = createDescribeOutputQuery(
                 new Row[] {row(
                         new Cast(new NullLiteral(), toSqlType(VARCHAR)),
                         new Cast(new NullLiteral(), toSqlType(VARCHAR)),
@@ -138,10 +138,10 @@ public final class DescribeOutputRewrite
             if (rows.length == 0) {
                 return EMPTY_OUTPUT;
             }
-            return createDesctibeOutputQuery(rows, limit);
+            return createDescribeOutputQuery(rows, limit);
         }
 
-        private static Query createDesctibeOutputQuery(Row[] rows, Optional<Node> limit)
+        private static Query createDescribeOutputQuery(Row[] rows, Optional<Node> limit)
         {
             return simpleQuery(
                     selectList(

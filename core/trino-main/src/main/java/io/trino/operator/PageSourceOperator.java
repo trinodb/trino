@@ -92,17 +92,18 @@ public class PageSourceOperator
     public Page getOutput()
     {
         SourcePage sourcePage = pageSource.getNextSourcePage();
-        if (sourcePage == null) {
-            return null;
+        Page page = null;
+        if (sourcePage != null) {
+            page = sourcePage.getPage();
         }
-
-        Page page = sourcePage.getPage();
 
         // update operator stats
         long endCompletedBytes = pageSource.getCompletedBytes();
         long endReadTimeNanos = pageSource.getReadTimeNanos();
-        operatorContext.recordPhysicalInputWithTiming(endCompletedBytes - completedBytes, page.getPositionCount(), endReadTimeNanos - readTimeNanos);
-        operatorContext.recordProcessedInput(page.getSizeInBytes(), page.getPositionCount());
+        long positionCount = page == null ? 0 : page.getPositionCount();
+        long sizeInBytes = page == null ? 0 : page.getSizeInBytes();
+        operatorContext.recordPhysicalInputWithTiming(endCompletedBytes - completedBytes, positionCount, endReadTimeNanos - readTimeNanos);
+        operatorContext.recordProcessedInput(sizeInBytes, positionCount);
         completedBytes = endCompletedBytes;
         readTimeNanos = endReadTimeNanos;
 

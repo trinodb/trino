@@ -20,10 +20,13 @@ import io.airlift.slice.SliceOutput;
 import io.trino.FeaturesConfig;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.util.List;
 
+import static com.google.common.base.Throwables.getCausalChain;
 import static io.trino.execution.buffer.PagesSerdeUtil.NO_CHECKSUM;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
 
@@ -42,17 +45,24 @@ public class PagesInputStreamFactory
     public void write(OutputStream stream, List<Slice> serializedPages)
             throws IOException
     {
-        SliceOutput header = new OutputStreamSliceOutput(stream);
-        header.writeInt(SERIALIZED_PAGES_MAGIC);
-        header.writeLong(dataIntegrityVerificationEnabled ? calculateChecksum(serializedPages) : NO_CHECKSUM);
-        header.writeInt(serializedPages.size());
-        header.flush();
+        try (stream) {
+            SliceOutput header = new OutputStreamSliceOutput(stream);
+            header.writeInt(SERIALIZED_PAGES_MAGIC);
+            header.writeLong(dataIntegrityVerificationEnabled ? calculateChecksum(serializedPages) : NO_CHECKSUM);
+            header.writeInt(serializedPages.size());
+            header.flush();
 
-        for (Slice page : serializedPages) {
-            page.getInput().transferTo(stream);
-            stream.flush();
+            for (Slice page : serializedPages) {
+                page.getInput().transferTo(stream);
+                stream.flush();
+            }
         }
-
-        stream.close();
+        catch (IOException | UncheckedIOException e) {
+            // EOF exception occurs when the client disconnects while writing data
+            // This is not a "server" problem so we don't want to log this
+            if (getCausalChain(e).stream().noneMatch(EOFException.class::isInstance)) {
+                throw e;
+            }
+        }
     }
 }
