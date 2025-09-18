@@ -35,13 +35,15 @@ class TestSpoolingConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SpoolingConfig.class)
+                .setInliningEnabled(true)
+                .setInliningMaxRows(50_000)
+                .setInliningMaxSize(DataSize.of(3, MEGABYTE))
                 .setSharedSecretKey(null)
                 .setRetrievalMode(STORAGE)
                 .setInitialSegmentSize(DataSize.of(8, MEGABYTE))
                 .setMaximumSegmentSize(DataSize.of(16, MEGABYTE))
-                .setInliningMaxRows(50000)
-                .setInliningMaxSize(DataSize.of(3, MEGABYTE))
-                .setInliningEnabled(true));
+                .setMaxConcurrentSegmentSerialization(5)
+                .setArrowMaxAllocation(DataSize.of(200, MEGABYTE)));
     }
 
     @Test
@@ -57,6 +59,8 @@ class TestSpoolingConfig
                 .put("protocol.spooling.max-segment-size", "8kB")
                 .put("protocol.spooling.inlining.max-rows", "10000")
                 .put("protocol.spooling.inlining.max-size", "1MB")
+                .put("protocol.spooling.arrow.max-allocation", "512MB")
+                .put("protocol.spooling.arrow.max-concurrent-serialization", "10")
                 .buildOrThrow();
 
         SpoolingConfig expected = new SpoolingConfig()
@@ -66,7 +70,9 @@ class TestSpoolingConfig
                 .setMaximumSegmentSize(DataSize.of(8, KILOBYTE))
                 .setInliningMaxRows(10000)
                 .setInliningMaxSize(DataSize.of(1, MEGABYTE))
-                .setInliningEnabled(false);
+                .setInliningEnabled(false)
+                .setArrowMaxAllocation(DataSize.of(512, MEGABYTE))
+                .setMaxConcurrentSegmentSerialization(10);
 
         assertFullMapping(properties, expected);
     }

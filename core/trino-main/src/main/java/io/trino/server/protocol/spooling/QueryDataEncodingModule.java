@@ -14,10 +14,19 @@
 package io.trino.server.protocol.spooling;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
+import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.server.protocol.spooling.encoding.ArrowCompressionFactory;
+import io.trino.server.protocol.spooling.encoding.ArrowQueryDataEncoder;
 import io.trino.server.protocol.spooling.encoding.JsonQueryDataEncoder;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.compression.CompressionCodec;
+
+import java.util.concurrent.Semaphore;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 
@@ -39,6 +48,24 @@ public class QueryDataEncodingModule
         }
         if (config.isJsonLz4Enabled()) {
             encoderFactories.addBinding().to(JsonQueryDataEncoder.Lz4Factory.class).in(Scopes.SINGLETON);
+        }
+        if (config.isArrowIpcEnabled() || config.isArrowIpcZstdEnabled()) {
+            SpoolingConfig spoolingConfig = buildConfigObject(SpoolingConfig.class);
+            long maxAllocationBytes = spoolingConfig.getArrowMaxAllocation().toBytes();
+            binder.bind(BufferAllocator.class).toInstance(new RootAllocator(maxAllocationBytes));
+            binder.bind(CompressionCodec.Factory.class).to(ArrowCompressionFactory.class).in(Scopes.SINGLETON);
+
+            // Bind Arrow-specific semaphore for controlling off-heap memory usage
+            int maxConcurrentSegmentSerialization = spoolingConfig.getMaxConcurrentSegmentSerialization();
+            OptionalBinder<Semaphore> arrowSemaphoreBinder = OptionalBinder.newOptionalBinder(binder, Key.get(Semaphore.class, ForArrowEncoder.class));
+            arrowSemaphoreBinder.setBinding().toInstance(new Semaphore(maxConcurrentSegmentSerialization));
+
+            if (config.isArrowIpcEnabled()) {
+                encoderFactories.addBinding().to(ArrowQueryDataEncoder.Factory.class).in(Scopes.SINGLETON);
+            }
+            if (config.isArrowIpcZstdEnabled()) {
+                encoderFactories.addBinding().to(ArrowQueryDataEncoder.ZstdFactory.class).in(Scopes.SINGLETON);
+            }
         }
         binder.bind(QueryDataEncoders.class).in(Scopes.SINGLETON);
     }
