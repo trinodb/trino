@@ -1972,31 +1972,31 @@ public class IcebergMetadata
     }
 
     @Override
-    public void executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    public Map<String, Long> executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
         switch (executeHandle.procedureId()) {
             case OPTIMIZE_MANIFESTS:
                 executeOptimizeManifests(session, executeHandle);
-                return;
+                return ImmutableMap.of();
             case DROP_EXTENDED_STATS:
                 executeDropExtendedStats(session, executeHandle);
-                return;
+                return ImmutableMap.of();
             case ROLLBACK_TO_SNAPSHOT:
                 executeRollbackToSnapshot(session, executeHandle);
-                return;
+                return ImmutableMap.of();
             case EXPIRE_SNAPSHOTS:
                 executeExpireSnapshots(session, executeHandle);
-                return;
+                return ImmutableMap.of();
             case REMOVE_ORPHAN_FILES:
                 executeRemoveOrphanFiles(session, executeHandle);
-                return;
+                return ImmutableMap.of();
             case ADD_FILES:
                 executeAddFiles(session, executeHandle);
-                return;
+                return ImmutableMap.of();
             case ADD_FILES_FROM_TABLE:
                 executeAddFilesFromTable(session, executeHandle);
-                return;
+                return ImmutableMap.of();
             default:
                 throw new IllegalArgumentException("Unknown procedure '" + executeHandle.procedureId() + "'");
         }
