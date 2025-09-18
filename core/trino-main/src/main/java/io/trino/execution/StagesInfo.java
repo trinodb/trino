@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -119,6 +120,32 @@ public class StagesInfo
             StageInfo subStage = stagesById.get(subStageId);
             collectSubStageIdsPreOrder(subStage, collector);
         });
+    }
+
+    @JsonIgnore
+    public List<StageInfo> getSubStagesDeepTopological(StageId root, boolean includeRoot)
+    {
+        ImmutableList.Builder<StageInfo> builder = ImmutableList.builder();
+        getSubStagesDeepTopologicalInner(root, builder, new HashSet<>(), includeRoot);
+
+        return builder.build().reverse();
+    }
+
+    private void getSubStagesDeepTopologicalInner(StageId stageId, ImmutableList.Builder<StageInfo> builder, Set<StageId> visitedFragments, boolean includeRoot)
+    {
+        if (visitedFragments.contains(stageId)) {
+            return;
+        }
+
+        StageInfo stageInfo = stagesById.get(stageId);
+
+        for (StageId childId : stageInfo.getSubStages().reversed()) {
+            getSubStagesDeepTopologicalInner(childId, builder, visitedFragments, true);
+        }
+        if (includeRoot) {
+            builder.add(stageInfo);
+        }
+        visitedFragments.add(stageId);
     }
 
     public static List<StageInfo> getAllStages(Optional<StagesInfo> stages)
