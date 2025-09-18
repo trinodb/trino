@@ -14,66 +14,40 @@
 package io.trino.filesystem.gcs;
 
 import com.google.api.gax.retrying.RetrySettings;
-import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.spi.security.ConnectorIdentity;
 
-import java.io.ByteArrayInputStream;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.cloud.storage.StorageRetryStrategy.getUniformStorageRetryStrategy;
-import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 public class GcsStorageFactory
 {
     public static final String GCS_OAUTH_KEY = "gcs.oauth";
-    public static final List<String> DEFAULT_SCOPES = ImmutableList.of("https://www.googleapis.com/auth/cloud-platform");
     private final String projectId;
     private final Optional<String> endpoint;
-    private final boolean useGcsAccessToken;
-    private final Optional<GoogleCredentials> jsonGoogleCredential;
     private final int maxRetries;
     private final double backoffScaleFactor;
     private final Duration maxRetryTime;
     private final Duration minBackoffDelay;
     private final Duration maxBackoffDelay;
     private final String applicationId;
+    private final GcsAuth gcsAuth;
 
     @Inject
-    public GcsStorageFactory(GcsFileSystemConfig config)
-            throws IOException
+    public GcsStorageFactory(GcsFileSystemConfig config, GcsAuth gcsAuth)
     {
-        config.validate();
+        this.gcsAuth = requireNonNull(gcsAuth, "gcsAuth is null");
         projectId = config.getProjectId();
         endpoint = config.getEndpoint();
-        useGcsAccessToken = config.isUseGcsAccessToken();
-        String jsonKey = config.getJsonKey();
-        String jsonKeyFilePath = config.getJsonKeyFilePath();
-        if (jsonKey != null) {
-            try (InputStream inputStream = new ByteArrayInputStream(jsonKey.getBytes(UTF_8))) {
-                jsonGoogleCredential = Optional.of(GoogleCredentials.fromStream(inputStream).createScoped(DEFAULT_SCOPES));
-            }
-        }
-        else if (jsonKeyFilePath != null) {
-            try (FileInputStream inputStream = new FileInputStream(jsonKeyFilePath)) {
-                jsonGoogleCredential = Optional.of(GoogleCredentials.fromStream(inputStream).createScoped(DEFAULT_SCOPES));
-            }
-        }
-        else {
-            jsonGoogleCredential = Optional.empty();
-        }
         this.maxRetries = config.getMaxRetries();
         this.backoffScaleFactor = config.getBackoffScaleFactor();
         this.maxRetryTime = config.getMaxRetryTime().toJavaTime();
@@ -85,32 +59,12 @@ public class GcsStorageFactory
     public Storage create(ConnectorIdentity identity)
     {
         try {
-            GoogleCredentials credentials;
-            if (useGcsAccessToken) {
-                String accessToken = nullToEmpty(identity.getExtraCredentials().get(GCS_OAUTH_KEY));
-                try (ByteArrayInputStream inputStream = new ByteArrayInputStream(accessToken.getBytes(UTF_8))) {
-                    credentials = GoogleCredentials.fromStream(inputStream).createScoped(DEFAULT_SCOPES);
-                }
-            }
-            else {
-                credentials = jsonGoogleCredential.orElseGet(() -> {
-                    try {
-                        return GoogleCredentials.getApplicationDefault();
-                    }
-                    catch (IOException e) {
-                        // This is consistent with the GCP SDK when no credentials are available in the environment
-                        return null;
-                    }
-                });
-            }
             StorageOptions.Builder storageOptionsBuilder = StorageOptions.newBuilder();
             if (projectId != null) {
                 storageOptionsBuilder.setProjectId(projectId);
             }
 
-            if (credentials != null) {
-                storageOptionsBuilder.setCredentials(credentials);
-            }
+            gcsAuth.setAuth(storageOptionsBuilder, identity);
 
             endpoint.ifPresent(storageOptionsBuilder::setHost);
 
