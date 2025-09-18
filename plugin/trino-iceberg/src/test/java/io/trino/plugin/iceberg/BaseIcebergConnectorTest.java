@@ -6645,7 +6645,10 @@ public abstract class BaseIcebergConnectorTest
         List<String> initialDataFiles = getAllDataFilesFromTableDirectory(tableName);
         assertThat(initialDataFiles).contains(orphanFile);
 
-        assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
+        assertUpdate(
+                sessionWithShortRetentionUnlocked,
+                "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')",
+                "VALUES ('processed_manifests_count', 3), ('active_files_count', 16), ('scanned_files_count', 17), ('deleted_files_count', 1)");
         assertQuery("SELECT * FROM " + tableName, "VALUES ('one', 1), ('three', 3)");
 
         List<String> updatedDataFiles = getAllDataFilesFromTableDirectory(tableName);

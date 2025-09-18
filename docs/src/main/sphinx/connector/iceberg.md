@@ -916,11 +916,38 @@ time is recommended to keep size of a table's data directory under control.
 ALTER TABLE test_table EXECUTE remove_orphan_files(retention_threshold => '7d');
 ```
 
+```text
+        metric_name         | metric_value
+----------------------------+--------------
+ processed_manifests_count  |            2
+ active_files_count         |           98
+ scanned_files_count        |           97
+ deleted_files_count        |            0
+```
+
 The value for `retention_threshold` must be higher than or equal to
 `iceberg.remove-orphan-files.min-retention` in the catalog otherwise the
 procedure fails with a similar message: `Retention specified (1.00d) is shorter
 than the minimum retention configured in the system (7.00d)`. The default value
 for this property is `7d`.
+
+The output of the query has the following metrics:
+
+:::{list-table} Output
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `processed_manifests_count`
+  - The count of manifest files read by remove_orphan_files.
+* - `active_files_count`
+  - The count of files belonging to snapshots that have not been expired.
+* - `scanned_files_count`
+  - The count of files scanned from the file system.
+* - `deleted_files_count`
+  - The count of files deleted by remove_orphan_files.
+:::
 
 (drop-extended-stats)=
 ##### drop_extended_stats
