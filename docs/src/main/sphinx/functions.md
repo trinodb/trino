@@ -53,6 +53,7 @@ Map                 <functions/map>
 Math                <functions/math>
 Quantile digest     <functions/qdigest>
 Regular expression  <functions/regexp>
+Row                 <functions/row>
 Session             <functions/session>
 Set Digest          <functions/setdigest>
 String              <functions/string>
