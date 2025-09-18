@@ -14,20 +14,22 @@
 package io.trino.memory;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.OperatingSystemMXBean;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
 
 public final class LocalMemoryManager
 {
-    private static final OperatingSystemMXBean OPERATING_SYSTEM_MX_BEAN = ManagementFactory.getOperatingSystemMXBean();
-
     private final MemoryPool memoryPool;
+
+    private static final Supplier<Integer> AVAILABLE_PROCESSORS = Suppliers
+            .memoizeWithExpiration(Runtime.getRuntime()::availableProcessors, 30, TimeUnit.SECONDS);
 
     @Inject
     public LocalMemoryManager(NodeMemoryConfig config)
@@ -61,7 +63,7 @@ public final class LocalMemoryManager
 
     public MemoryInfo getInfo()
     {
-        return new MemoryInfo(OPERATING_SYSTEM_MX_BEAN.getAvailableProcessors(), memoryPool.getInfo());
+        return new MemoryInfo(AVAILABLE_PROCESSORS.get(), memoryPool.getInfo());
     }
 
     public MemoryPool getMemoryPool()
