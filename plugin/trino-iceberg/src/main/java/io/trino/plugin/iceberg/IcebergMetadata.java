@@ -1989,8 +1989,7 @@ public class IcebergMetadata
                 executeExpireSnapshots(session, executeHandle);
                 return ImmutableMap.of();
             case REMOVE_ORPHAN_FILES:
-                executeRemoveOrphanFiles(session, executeHandle);
-                return ImmutableMap.of();
+                return executeRemoveOrphanFiles(session, executeHandle);
             case ADD_FILES:
                 executeAddFiles(session, executeHandle);
                 return ImmutableMap.of();
@@ -2118,7 +2117,7 @@ public class IcebergMetadata
                 sessionMinRetentionParameterName);
     }
 
-    public void executeRemoveOrphanFiles(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
+    public Map<String, Long> executeRemoveOrphanFiles(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
     {
         IcebergRemoveOrphanFilesHandle removeOrphanFilesHandle = (IcebergRemoveOrphanFilesHandle) executeHandle.procedureHandle();
 
@@ -2135,14 +2134,14 @@ public class IcebergMetadata
 
         if (table.currentSnapshot() == null) {
             log.debug("Skipping remove_orphan_files procedure for empty table %s", table);
-            return;
+            return ImmutableMap.of();
         }
 
         Instant expiration = session.getStart().minusMillis(retention.toMillis());
-        removeOrphanFiles(table, session, executeHandle.schemaTableName(), expiration, executeHandle.fileIoProperties());
+        return removeOrphanFiles(table, session, executeHandle.schemaTableName(), expiration, executeHandle.fileIoProperties());
     }
 
-    private void removeOrphanFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, Instant expiration, Map<String, String> fileIoProperties)
+    private Map<String, Long> removeOrphanFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, Instant expiration, Map<String, String> fileIoProperties)
     {
         Set<String> processedManifestFilePaths = new HashSet<>();
         // Similarly to issues like https://github.com/trinodb/trino/issues/13759, equivalent paths may have different String
@@ -2205,7 +2204,18 @@ public class IcebergMetadata
             // Ensure any futures still running are canceled in case of failure
             manifestScanFutures.forEach(future -> future.cancel(true));
         }
-        scanAndDeleteInvalidFiles(table, session, schemaTableName, expiration, validFileNames, fileIoProperties);
+        ScanAndDeleteResult result = scanAndDeleteInvalidFiles(table, session, schemaTableName, expiration, validFileNames, fileIoProperties);
+        log.info("remove_orphan_files for table %s processed %d manifest files, found %d active files, scanned %d files, deleted %d files",
+                schemaTableName,
+                processedManifestFilePaths.size(),
+                validFileNames.size() - 1, // excluding version-hint.text
+                result.scannedFilesCount(),
+                result.deletedFilesCount());
+        return ImmutableMap.of(
+                "processed_manifests_count", (long) processedManifestFilePaths.size(),
+                "active_files_count", (long) validFileNames.size() - 1, // excluding version-hint.text
+                "scanned_files_count", result.scannedFilesCount(),
+                "deleted_files_count", result.deletedFilesCount());
     }
 
     public void executeAddFiles(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
@@ -2240,17 +2250,21 @@ public class IcebergMetadata
                 icebergScanExecutor);
     }
 
-    private void scanAndDeleteInvalidFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, Instant expiration, Set<String> validFiles, Map<String, String> fileIoProperties)
+    private ScanAndDeleteResult scanAndDeleteInvalidFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, Instant expiration, Set<String> validFiles, Map<String, String> fileIoProperties)
     {
         List<Future<?>> deleteFutures = new ArrayList<>();
+        long scannedFilesCount = 0;
+        long deletedFilesCount = 0;
         try {
             List<Location> filesToDelete = new ArrayList<>(DELETE_BATCH_SIZE);
             TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), fileIoProperties);
             FileIterator allFiles = fileSystem.listFiles(Location.of(table.location()));
             while (allFiles.hasNext()) {
                 FileEntry entry = allFiles.next();
+                scannedFilesCount++;
                 if (entry.lastModified().isBefore(expiration) && !validFiles.contains(entry.location().fileName())) {
                     filesToDelete.add(entry.location());
+                    deletedFilesCount++;
                     if (filesToDelete.size() >= DELETE_BATCH_SIZE) {
                         List<Location> finalFilesToDelete = filesToDelete;
                         deleteFutures.add(icebergFileDeleteExecutor.submit(() -> deleteFiles(finalFilesToDelete, schemaTableName, fileSystem)));
@@ -2277,7 +2291,10 @@ public class IcebergMetadata
             // Ensure any futures still running are canceled in case of failure
             deleteFutures.forEach(future -> future.cancel(true));
         }
+        return new ScanAndDeleteResult(scannedFilesCount, deletedFilesCount);
     }
+
+    private record ScanAndDeleteResult(long scannedFilesCount, long deletedFilesCount) {}
 
     private void deleteFiles(List<Location> files, SchemaTableName schemaTableName, TrinoFileSystem fileSystem)
     {

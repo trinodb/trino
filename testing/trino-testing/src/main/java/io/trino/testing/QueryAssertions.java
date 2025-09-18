@@ -336,7 +336,7 @@ public final class QueryAssertions
         List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
         List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
 
-        if (compareUpdate) {
+        if (compareUpdate && !actualResults.getUpdateType().equals(Optional.of("ALTER TABLE EXECUTE"))) {
             if (actualResults.getUpdateType().isEmpty()) {
                 fail("update type not present for query " + queryId + ": \n" + actual);
             }
