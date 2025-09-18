@@ -754,13 +754,13 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
+    public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName, List<ColumnSchema> columns)
     {
         List<ViewExpression> viewExpressions = rowFilters.get(new RowFilterKey(context.getIdentity().getUser(), tableName));
         if (viewExpressions != null) {
             return viewExpressions;
         }
-        return super.getRowFilters(context, tableName);
+        return super.getRowFilters(context, tableName, columns);
     }
 
     @Override
