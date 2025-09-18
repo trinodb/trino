@@ -367,11 +367,11 @@ public final class MetadataManager
     }
 
     @Override
-    public void executeTableExecute(Session session, TableExecuteHandle tableExecuteHandle)
+    public Map<String, Long> executeTableExecute(Session session, TableExecuteHandle tableExecuteHandle)
     {
         CatalogHandle catalogHandle = tableExecuteHandle.catalogHandle();
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
-        metadata.executeTableExecute(session.toConnectorSession(catalogHandle), tableExecuteHandle.connectorHandle());
+        return metadata.executeTableExecute(session.toConnectorSession(catalogHandle), tableExecuteHandle.connectorHandle());
     }
 
     @Override

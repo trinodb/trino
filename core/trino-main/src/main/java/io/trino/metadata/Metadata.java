@@ -123,7 +123,7 @@ public interface Metadata
 
     void finishTableExecute(Session session, TableExecuteHandle handle, Collection<Slice> fragments, List<Object> tableExecuteState);
 
-    void executeTableExecute(Session session, TableExecuteHandle handle);
+    Map<String, Long> executeTableExecute(Session session, TableExecuteHandle handle);
 
     TableProperties getTableProperties(Session session, TableHandle handle);
 
