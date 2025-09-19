@@ -379,6 +379,30 @@ Complex grouping operations are often equivalent to a `UNION ALL` of simple
 does not apply, however, when the source of data for the aggregation
 is non-deterministic.
 
+### AUTO
+
+`AUTO` syntax implicitly groups on every column not included in an aggregation 
+function.
+
+This query sums the account balance (`acctbal`) for each market segment 
+(`mktsegment`), with `AUTO` automatically determining the grouping 
+keys:
+
+```sql
+SELECT mktsegment, sum(acctbal) FROM shipping GROUP BY AUTO;
+```
+
+```text
+ mktsegment |       _col1
+------------+--------------------
+ BUILDING   |          1444587.8
+ MACHINERY  |         1296958.61
+ HOUSEHOLD  |         1279340.66
+ FURNITURE  |          1265282.8
+ AUTOMOBILE | 1395695.7200000004
+(5 rows)
+```
+
 ### GROUPING SETS
 
 Grouping sets allow users to specify multiple lists of columns to group on.
