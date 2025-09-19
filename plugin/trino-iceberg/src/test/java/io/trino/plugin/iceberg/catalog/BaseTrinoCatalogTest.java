@@ -174,7 +174,7 @@ public abstract class BaseTrinoCatalogTest
         TrinoCatalog catalog = createTrinoCatalog(false);
         String namespace = "test_create_table_" + randomNameSuffix();
         String table = "tableName";
-        SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
+        SchemaTableName schemaTableName = new SchemaTableName(namespace, table.toLowerCase(ENGLISH));
         Map<String, String> tableProperties = Map.of("test_key", "test_value");
         try {
             catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
@@ -220,7 +220,7 @@ public abstract class BaseTrinoCatalogTest
         TrinoCatalog catalog = createTrinoCatalog(false);
         String namespace = "test_create_sort_table_" + randomNameSuffix();
         String table = "tableName";
-        SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
+        SchemaTableName schemaTableName = new SchemaTableName(namespace, table.toLowerCase(ENGLISH));
         try {
             catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
             Schema tableSchema = new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get()),
@@ -290,7 +290,7 @@ public abstract class BaseTrinoCatalogTest
         String targetNamespace = "test_rename_table_" + randomNameSuffix();
 
         String table = "tableName";
-        SchemaTableName sourceSchemaTableName = new SchemaTableName(namespace, table);
+        SchemaTableName sourceSchemaTableName = new SchemaTableName(namespace, table.toLowerCase(ENGLISH));
         try {
             catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
             catalog.createNamespace(SESSION, targetNamespace, defaultNamespaceProperties(targetNamespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
@@ -306,7 +306,7 @@ public abstract class BaseTrinoCatalogTest
             assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(new TableInfo(sourceSchemaTableName, TABLE));
 
             // Rename within the same schema
-            SchemaTableName targetSchemaTableName = new SchemaTableName(sourceSchemaTableName.getSchemaName(), "newTableName");
+            SchemaTableName targetSchemaTableName = new SchemaTableName(sourceSchemaTableName.getSchemaName(), "newtablename");
             catalog.renameTable(SESSION, sourceSchemaTableName, targetSchemaTableName);
             assertThat(catalog.listTables(SESSION, Optional.empty()).stream().map(TableInfo::tableName).toList()).doesNotContain(sourceSchemaTableName);
             assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(new TableInfo(targetSchemaTableName, TABLE));
@@ -377,8 +377,8 @@ public abstract class BaseTrinoCatalogTest
         String namespace = "test_create_view_" + randomNameSuffix();
         String viewName = "viewName";
         String renamedViewName = "renamedViewName";
-        SchemaTableName schemaTableName = new SchemaTableName(namespace, viewName);
-        SchemaTableName renamedSchemaTableName = new SchemaTableName(namespace, renamedViewName);
+        SchemaTableName schemaTableName = new SchemaTableName(namespace, viewName.toLowerCase(ENGLISH));
+        SchemaTableName renamedSchemaTableName = new SchemaTableName(namespace, renamedViewName.toLowerCase(ENGLISH));
         ConnectorViewDefinition viewDefinition = new ConnectorViewDefinition(
                 "SELECT name FROM local.tiny.nation",
                 Optional.empty(),

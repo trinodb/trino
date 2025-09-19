@@ -89,7 +89,7 @@ public class CommentTask
 
     private void commentOnTable(Comment statement, Session session)
     {
-        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getName(), metadata);
         if (metadata.isMaterializedView(session, originalTableName)) {
             throw semanticException(
                     TABLE_NOT_FOUND,
@@ -116,7 +116,7 @@ public class CommentTask
 
     private void commentOnView(Comment statement, Session session)
     {
-        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName(), metadata);
         if (!metadata.isView(session, viewName)) {
             String additionalInformation;
             if (metadata.getMaterializedView(session, viewName).isPresent()) {
@@ -140,7 +140,7 @@ public class CommentTask
         QualifiedName prefix = statement.getName().getPrefix()
                 .orElseThrow(() -> semanticException(MISSING_TABLE, statement, "Table must be specified"));
 
-        QualifiedObjectName originalObjectName = createQualifiedObjectName(session, statement, prefix);
+        QualifiedObjectName originalObjectName = createQualifiedObjectName(session, statement, prefix, metadata);
         Optional<ViewDefinition> view = metadata.getView(session, originalObjectName);
         if (view.isPresent()) {
             ViewDefinition viewDefinition = view.get();

@@ -98,8 +98,11 @@ public class PrometheusMetadata
                 .orElseGet(() -> ImmutableSet.copyOf(ImmutableSet.of("default")));
 
         return schemaNames.stream()
+                .map(schemaName -> canonicalize(session, schemaName, true))
                 .flatMap(schemaName ->
-                        prometheusClient.getTableNames(schemaName).stream().map(tableName -> new SchemaTableName(schemaName, tableName)))
+                        prometheusClient.getTableNames(schemaName).stream()
+                                .map(tableName -> canonicalize(session, tableName, false))
+                                .map(tableName -> new SchemaTableName(schemaName, tableName)))
                 .collect(toImmutableList());
     }
 
