@@ -53,6 +53,7 @@ public enum PropertyName
     KERBEROS_SERVICE_PRINCIPAL_PATTERN("KerberosServicePrincipalPattern"),
     KERBEROS_USE_CANONICAL_HOSTNAME("KerberosUseCanonicalHostname"),
     LOCALE("locale"),
+    FETCH_SIZE("fetchSize"),
     PASSWORD("password"),
     SQL_PATH("path"),
     RESOURCE_ESTIMATES("resourceEstimates"),

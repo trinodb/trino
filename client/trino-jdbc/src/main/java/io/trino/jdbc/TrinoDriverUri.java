@@ -31,6 +31,8 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 public final class TrinoDriverUri
         extends TrinoUri
 {
+    static final int DEFAULT_FETCH_SIZE = 50_000;
+
     private static final String JDBC_URL_PREFIX = "jdbc:";
     private static final String JDBC_URL_START = JDBC_URL_PREFIX + "trino:";
 

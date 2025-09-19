@@ -89,6 +89,7 @@ import static io.trino.jdbc.ClientInfoProperty.APPLICATION_NAME;
 import static io.trino.jdbc.ClientInfoProperty.CLIENT_INFO;
 import static io.trino.jdbc.ClientInfoProperty.CLIENT_TAGS;
 import static io.trino.jdbc.ClientInfoProperty.TRACE_TOKEN;
+import static io.trino.jdbc.TrinoDriverUri.DEFAULT_FETCH_SIZE;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
 import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
@@ -143,6 +144,7 @@ public class TrinoConnection
     private final Call.Factory httpCallFactory;
     private final Call.Factory segmentHttpCallFactory;
     private final Set<TrinoStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
+    private final int fetchSize;
     private boolean useExplicitPrepare = true;
     private boolean assumeNullCatalogMeansCurrentCatalog;
     private final boolean validateConnection;
@@ -164,6 +166,7 @@ public class TrinoConnection
         this.compressionDisabled = uri.isCompressionDisabled();
         this.encoding = uri.getEncoding();
         this.assumeLiteralNamesInMetadataCallsForNonConformingClients = uri.isAssumeLiteralNamesInMetadataCallsForNonConformingClients();
+        this.fetchSize = uri.getFetchSize().orElse(DEFAULT_FETCH_SIZE);
 
         if (this.assumeLiteralNamesInMetadataCallsForNonConformingClients) {
             logger.log(Level.WARNING, "Connection config assumeLiteralNamesInMetadataCallsForNonConformingClients is deprecated, please use " +
@@ -1058,6 +1061,11 @@ public class TrinoConnection
             return true;
         }
         return e instanceof ProtocolException;
+    }
+
+    public int getFetchSize()
+    {
+        return fetchSize;
     }
 
     private static final class SqlExceptionHolder
