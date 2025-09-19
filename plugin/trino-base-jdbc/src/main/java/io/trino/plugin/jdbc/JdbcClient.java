@@ -294,4 +294,9 @@ public interface JdbcClient
     {
         return List.of();
     }
+
+    default ColumnMetadata toColumnMetadata(JdbcColumnHandle columnHandle)
+    {
+        return columnHandle.getColumnMetadata();
+    }
 }
