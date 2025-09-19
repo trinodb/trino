@@ -113,6 +113,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.trino.SystemSessionProperties.DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.MAX_WRITER_TASK_COUNT;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
@@ -6614,6 +6615,34 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testExplainOptimize()
+    {
+        Session sessionWithIgnoreStatsCalculatorFailuresFalse = withoutIgnoreStatsCalculatorFailures(getSession());
+
+        String tableName = "test_explain_optimize" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (partitioning = ARRAY['key'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
+
+        assertExplain(sessionWithIgnoreStatsCalculatorFailuresFalse, "EXPLAIN ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                ".*Output layout:.*");
+    }
+
+    @Test
+    public void testExplainAnalyzeOptimize()
+    {
+        Session sessionWithIgnoreStatsCalculatorFailuresFalse = withoutIgnoreStatsCalculatorFailures(getSession());
+
+        String tableName = "test_explain_analyze_optimize" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (partitioning = ARRAY['key'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
+
+        assertExplain(sessionWithIgnoreStatsCalculatorFailuresFalse, "EXPLAIN ANALYZE ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                ".*Output layout:.*");
+    }
+
+    @Test
     public void testRemoveOrphanFilesWithUnexpectedMissingManifest()
             throws Exception
     {
@@ -9321,6 +9350,13 @@ public abstract class BaseIcebergConnectorTest
         return Session.builder(session)
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "parquet_small_file_threshold", "0B")
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "orc_tiny_stripe_threshold", "0B")
+                .build();
+    }
+
+    private Session withoutIgnoreStatsCalculatorFailures(Session session)
+    {
+        return Session.builder(session)
+                .setSystemProperty(IGNORE_STATS_CALCULATOR_FAILURES, "false")
                 .build();
     }
 
