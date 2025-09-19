@@ -687,12 +687,11 @@ public class UnaliasSymbolReferences
         {
             Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
             SymbolMapper mapper = symbolMapper(mapping);
-            Symbol newOutput = mapper.map(node.getOutput());
 
             return new PlanAndMappings(
                     new SimpleTableExecuteNode(
                             node.getId(),
-                            newOutput,
+                            mapper.map(node.getOutputSymbols()),
                             node.getExecuteHandle()),
                     mapping);
         }
