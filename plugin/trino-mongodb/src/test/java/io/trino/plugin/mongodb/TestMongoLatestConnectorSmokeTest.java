@@ -18,7 +18,7 @@ import io.trino.testing.QueryRunner;
 public class TestMongoLatestConnectorSmokeTest
         extends BaseMongoConnectorSmokeTest
 {
-    private static final String MONGO_LATEST_IMAGE = "mongo:8.0";
+    private static final String MONGO_LATEST_IMAGE = "8.0";
 
     @Override
     protected QueryRunner createQueryRunner()

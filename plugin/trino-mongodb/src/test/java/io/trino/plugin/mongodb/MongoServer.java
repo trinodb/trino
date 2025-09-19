@@ -23,7 +23,7 @@ public class MongoServer
 {
     private final MongoDBContainer dockerContainer;
 
-    private static final String MONGO_VERSION = "6.0";
+    private static final String MONGO_VERSION = "8.0";
 
     public MongoServer()
     {
