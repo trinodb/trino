@@ -15,6 +15,7 @@ package io.trino.client.uri;
 
 import io.trino.client.ClientException;
 import io.trino.client.DnsResolver;
+import io.trino.client.SafeRedirector;
 import io.trino.client.auth.external.CompositeRedirectHandler;
 import io.trino.client.auth.external.ExternalAuthenticator;
 import io.trino.client.auth.external.HttpTokenPoller;
@@ -109,6 +110,9 @@ public class HttpClientFactory
             ExternalAuthenticator authenticator = new ExternalAuthenticator(
                     redirectHandler, poller, knownTokenCache.create(), timeout);
 
+            if (uri.useSafeRedirect()) {
+                builder.addNetworkInterceptor(new SafeRedirector());
+            }
             builder.authenticator(authenticator);
             builder.addNetworkInterceptor(authenticator);
         }

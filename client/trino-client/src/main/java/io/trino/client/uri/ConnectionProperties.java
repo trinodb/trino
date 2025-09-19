@@ -116,6 +116,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, Map<String, String>> RESOURCE_ESTIMATES = new ResourceEstimates();
     public static final ConnectionProperty<String, List<String>> SQL_PATH = new SqlPath();
     public static final ConnectionProperty<String, Boolean> VALIDATE_CONNECTION = new ValidateConnection();
+    public static final ConnectionProperty<String, Boolean> USE_SAFE_REDIRECT = new UseSafeRedirect();
 
     private static final Set<ConnectionProperty<?, ?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?, ?>>builder()
             // Keep sorted
@@ -173,6 +174,7 @@ final class ConnectionProperties
             .add(TIMEZONE)
             .add(TRACE_TOKEN)
             .add(USER)
+            .add(USE_SAFE_REDIRECT)
             .add(VALIDATE_CONNECTION)
             .build();
 
@@ -955,6 +957,15 @@ final class ConnectionProperties
         public AssumeNullCatalogMeansCurrentCatalog()
         {
             super(PropertyName.ASSUME_NULL_CATALOG_MEANS_CURRENT_CATALOG, NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class UseSafeRedirect
+            extends AbstractConnectionProperty<String, Boolean>
+    {
+        public UseSafeRedirect()
+        {
+            super(PropertyName.USE_SAFE_REDIRECT, Optional.of(false), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 

@@ -76,6 +76,7 @@ public enum PropertyName
     TIMEZONE("timezone"),
     TRACE_TOKEN("traceToken"),
     USER("user"),
+    USE_SAFE_REDIRECT("useSafeRedirect"),
     VALIDATE_CONNECTION("validateConnection");
 
     private final String key;
