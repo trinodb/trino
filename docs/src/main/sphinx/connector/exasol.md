@@ -99,7 +99,13 @@ Trino data type mapping:
   -
 * - `DATE`
   - `DATE`
+  - 
+* - `TIMESTAMP(n)`
+  - `TIMESTAMP(n)`
   -
+* - `TIMESTAMP(n) WITH LOCAL TIME ZONE`
+  - `TIMESTAMP(n)`
+  - 
 * - `HASHTYPE`
   - `VARBINARY`
   -
