@@ -13,13 +13,13 @@
  */
 import React, { ReactNode, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
-import { Alert, Box, Divider, Grid2 as Grid, Tabs, Tab, Typography } from '@mui/material'
+import { Box, Divider, Grid2 as Grid, Tabs, Tab, Typography } from '@mui/material'
 import { QueryJson } from './QueryJson'
 import { QueryReferences } from './QueryReferences'
 import { QueryLivePlan } from './QueryLivePlan'
 import { QueryOverview } from './QueryOverview'
 import { QueryStagePerformance } from './QueryStagePerformance'
-import { Texts } from '../constant.ts'
+import { QuerySplitsTimeline } from './QuerySplitsTimeline'
 
 const tabValues = ['overview', 'livePlan', 'stagePerformance', 'splits', 'json', 'references'] as const
 type TabValue = (typeof tabValues)[number]
@@ -27,7 +27,7 @@ const tabComponentMap: Record<TabValue, ReactNode> = {
     overview: <QueryOverview />,
     livePlan: <QueryLivePlan />,
     stagePerformance: <QueryStagePerformance />,
-    splits: <Alert severity="error">{Texts.Error.NotImplemented}</Alert>,
+    splits: <QuerySplitsTimeline />,
     json: <QueryJson />,
     references: <QueryReferences />,
 }
@@ -61,7 +61,7 @@ export const QueryDetails = () => {
                                 <Tab value="overview" label="Overview" />
                                 <Tab value="livePlan" label="Live plan" />
                                 <Tab value="stagePerformance" label="Stage performance" />
-                                <Tab value="splits" label="Splits" disabled />
+                                <Tab value="splits" label="Splits" />
                                 <Tab value="json" label="JSON" />
                                 <Tab value="references" label="References" />
                             </Tabs>

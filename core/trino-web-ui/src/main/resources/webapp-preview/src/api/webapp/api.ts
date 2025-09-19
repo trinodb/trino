@@ -303,6 +303,10 @@ export interface QueryTask {
         totalCpuTime: string
         totalScheduledTime: string
         userMemoryReservation: string
+        firstStartTime: string
+        lastStartTime: string
+        lastEndTime: string
+        endTime: string
     }
     taskStatus: {
         nodeId: string
