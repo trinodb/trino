@@ -270,7 +270,8 @@ class TestFileBasedConflictDetection
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
-                Optional.of(false));
+                Optional.of(false),
+                false);
     }
 
     private static Table createIcebergTable(PartitionSpec partitionSpec)
