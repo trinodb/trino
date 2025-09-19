@@ -60,9 +60,9 @@ public class ConsistentHashingHostAddressProvider
     }
 
     @Override
-    public List<HostAddress> getHosts(String splitPath, List<HostAddress> defaultAddresses)
+    public List<HostAddress> getHosts(String splitKey, List<HostAddress> defaultAddresses)
     {
-        return consistentHashRing.locate(splitPath, replicationFactor)
+        return consistentHashRing.locate(splitKey, replicationFactor)
                 .stream()
                 .map(TrinoNode::getHostAndPort)
                 .sorted(hostAddressComparator)
