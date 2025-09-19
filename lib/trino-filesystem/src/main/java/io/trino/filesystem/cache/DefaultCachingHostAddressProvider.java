@@ -21,7 +21,7 @@ public class DefaultCachingHostAddressProvider
         implements CachingHostAddressProvider
 {
     @Override
-    public List<HostAddress> getHosts(String splitPath, List<HostAddress> defaultAddresses)
+    public List<HostAddress> getHosts(String splitKey, List<HostAddress> defaultAddresses)
     {
         return defaultAddresses;
     }

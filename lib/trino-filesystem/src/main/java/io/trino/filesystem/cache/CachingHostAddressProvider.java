@@ -22,5 +22,12 @@ public interface CachingHostAddressProvider
     /**
      * Returns a lists of hosts which are preferred to cache the split with the given path.
      */
-    List<HostAddress> getHosts(String splitPath, List<HostAddress> defaultAddresses);
+    List<HostAddress> getHosts(String splitKey, List<HostAddress> defaultAddresses);
+
+    // Include offset and length in key to allow different splits belonging to the same file to be cached on different nodes
+    // This can help with avoiding hotspots when multiple splits are created from a file
+    static String getSplitKey(String splitPath, long offset, long length)
+    {
+        return splitPath + ":" + offset + ":" + length;
+    }
 }
