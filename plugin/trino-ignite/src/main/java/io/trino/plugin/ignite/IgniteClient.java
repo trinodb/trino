@@ -440,7 +440,7 @@ public class IgniteClient
             columnDefinitions.add(quoted(IGNITE_DUMMY_ID) + " VARCHAR NOT NULL");
             primaryKeys = ImmutableList.of(IGNITE_DUMMY_ID);
         }
-        columnDefinitions.add("PRIMARY KEY (" + join(", ", primaryKeys.stream().map(this::quoted).collect(joining(", "))) + ")");
+        columnDefinitions.add("PRIMARY KEY (" + primaryKeys.stream().map(this::quoted).collect(joining(", ")) + ")");
 
         String remoteTableName = quoted(null, schemaTableName.getSchemaName(), schemaTableName.getTableName());
         return format("CREATE TABLE %s (%s) ", remoteTableName, join(", ", columnDefinitions.build()));
