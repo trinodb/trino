@@ -1,6 +1,6 @@
 # Group mapping
 
-Group providers in Trino to map usernames onto groups for easier access control
+Group providers in Trino map usernames onto groups for easier access control
 and resource group management.
 
 Configure a group provider by creating an `etc/group-provider.properties` file
@@ -9,7 +9,8 @@ on the coordinator:
 ```properties
 group-provider.name=file
 ```
-_The configuration of the chosen group provider should be appended to this
+_group-provider.name should be either `file` or `ldap` and the configuration 
+of the chosen group provider should be appended to this
 file_
 
 :::{list-table} Group provider configuration
@@ -24,7 +25,7 @@ file_
     Supported values are:
 
       * `file`: [See configuration](file-group-provider)
-      * `ldap`
+      * `ldap`: [See configuration](ldap-group-provider)
 * - `group-provider.group-case`
   - Optional transformation of the case of the group name.
     Supported values are:
@@ -39,7 +40,7 @@ file_
 (file-group-provider)=
 ## File group provider
 
-Group file resolves group membership using a file on the coordinator.
+File group provider resolve group memberships using a file on the coordinator.
 
 ### Group file configuration
 
@@ -66,7 +67,7 @@ The following configuration properties are available:
   - [Duration](prop-type-duration) between refreshing the group mapping
     configuration from the file.
     Defaults to `5s`.
-  :::
+:::
 
 ### Group file format
 
@@ -77,3 +78,168 @@ separated by a colon. Users are separated by a comma.
 group_name:user_1,user_2,user_3
 ```
 
+(ldap-group-provider)=
+## LDAP group provider
+
+Resolves user group memberships from an LDAP server for system access control. 
+This allows access rules to be defined based on LDAP groups instead of 
+individual users.
+
+### Configuration
+
+Enable LDAP group provider by creating an `etc/group-provider.properties` file 
+on the coordinator:
+
+```properties
+group-provider.name=ldap
+```
+
+#### Generic LDAP properties
+
+:::{list-table} Generic LDAP properties
+:widths: 40, 40, 20
+:header-rows: 1
+* - Property name
+  - Description
+  - Example
+* - `ldap.url`                     
+  - LDAP server URI.                                                                                                       
+  - `ldap://host:389` or `ldaps://host:636`)                 
+* - `ldap.allow-insecure`          
+  - Allow insecure connection to the LDAP server
+  - 
+* - `ldap.ssl.keystore.path`       
+  - Path to the PEM or JKS key store
+  - 
+* - `ldap.ssl.keystore.password`   
+  - Password for the key store
+  - 
+* - `ldap.ssl.truststore.path`
+  - Path to the PEM or JKS trust store
+  - 
+* - `ldap.ssl.truststore.password` 
+  - Password for the trust store
+  - 
+* - `ldap.ignore-referrals`        
+  - Referrals allow finding entries across multiple LDAP servers. Ignore them
+    to only search within 1 LDAP server
+  -
+* - `ldap.timeout.connect`       
+  - Timeout for establishing a connection
+  - 
+* - `ldap.timeout.read`            
+  - Timeout for reading data from LDAP
+  - 
+* - `ldap.admin-user`              
+  - Bind distinguished name for admin user.                                                                                
+  - `CN=User Name,OU=City,OU=State,DC=domain,DC=domain_root`
+* - `ldap.admin-password`          
+  - Bind password used for admin user.                                                                                     
+  - `password1234`                                           
+* - `ldap.user-base-dn`            
+  - Base distinguished name for users.                                                                                    
+  - `dc=example,dc=com`
+* - `ldap.user-search-filter`      
+  - LDAP filter to find user entries; `{0}` is replaced with the Trino username.
+  - `(cn={0})`
+* - `ldap.group-name-attribute`    
+  - Attribute to extract group name from group entry.
+  - `cn`
+* - `ldap.use-group-filter`        
+  - Whether to use search-based group resolution. Defaults to `true`. 
+    If `false`, Trino uses the attribute-based method.
+  - 
+:::
+### Group resolution strategy
+
+Group resolution behavior is controlled by the `ldap.use-group-filter` property.
+
+:::{list-table}
+:widths: 40, 60
+:header-rows: 1
+* - Property name
+  - Description
+* - `ldap.use-group-filter`
+  - Whether to use search-based group resolution. Defaults to `true`. 
+    If `false`, Trino uses the attribute-based method.
+:::
+#### Search-based group resolution
+
+Trino searches for group entries that include the user DN. This requires the 
+following properties:
+
+:::{list-table}
+:widths: 40, 40, 20
+:header-rows: 1
+* - Property name
+  - Description
+  - Example
+* - `ldap.group-base-dn`                
+  - Base distinguished name for groups.
+  - `dc=example,dc=com`
+* - `ldap.group-search-filter`
+  - Search filter for group documents.
+  - `(cn=trino_*)`      
+* - `ldap.group-search-member-attribute`
+  - Attribute from group documents used for filtering by member.
+  - `cn`                
+:::
+#### attribute-based (single query) group resolution
+
+Trino reads the group list directly from a user attribute. This requires the 
+following property:
+
+:::{list-table}
+:widths: 40, 40, 40
+:header-rows: 1
+
+* - Property name
+  - Description
+  - Example
+* - `ldap.user-member-of-attribute`
+  - Group membership attribute in user documents.
+  - `memberOf`
+:::
+### Example configurations
+
+#### OpenLDAP (search-based)
+
+```properties
+group-provider.name=ldap
+group-provider.group-case=lower
+
+ldap.url=ldap://ldap.example.com:389
+ldap.admin-user=cn=admin,dc=example,dc=com
+ldap.admin-password=your_password
+ldap.group-name-attribute=cn
+ldap.user-base-dn=ou=users,dc=example,dc=com
+ldap.user-search-filter=(uid={0})
+ldap.use-group-filter=true
+
+ldap.group-base-dn=ou=groups,dc=example,dc=com
+ldap.group-search-filter=(cn=trino_*)
+ldap.group-search-member-attribute=member
+```
+
+#### Active Directory (single query, attribute-based)
+
+```properties
+group-provider.name=ldap
+group-provider.group-case=lower
+
+ldap.url=ldaps://ad.example.com:636
+ldap.admin-user=cn=admin,dc=example,dc=com
+ldap.admin-password=your_password
+ldap.group-name-attribute=cn
+ldap.user-base-dn=ou=users,dc=example,dc=com
+ldap.user-search-filter=(sAMAccountName={0})
+ldap.use-group-filter=false
+
+ldap.user-member-of-attribute=memberOf
+```
+
+### Integration with access control
+
+Groups resolved by the LDAP provider are passed to Trino’s system access 
+control engine. Access control rules can reference these group names to grant 
+or restrict permissions.
