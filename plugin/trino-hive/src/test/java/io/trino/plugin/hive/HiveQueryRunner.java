@@ -417,8 +417,7 @@ public final class HiveQueryRunner
                             .setSchema("tpch")
                             .build())
                     .addCoordinatorProperty("http-server.http.port", "8080")
-                    .addHiveProperty("hive.metastore", "glue")
-                    .addHiveProperty("hive.metastore.glue.default-warehouse-dir", "local:///glue")
+                    .addHiveProperty("hive.metastore.uri", "thrift://hive-metastore:9083")
                     .addHiveProperty("hive.security", "allow-all")
                     .setCreateTpchSchemas(false)
                     .build();
