@@ -37,7 +37,6 @@ public class GcsDefaultAuth
     {
         String jsonKey = config.getJsonKey();
         String jsonKeyFilePath = config.getJsonKeyFilePath();
-        config.validate();
 
         if (jsonKey != null) {
             try (InputStream inputStream = new ByteArrayInputStream(jsonKey.getBytes(UTF_8))) {

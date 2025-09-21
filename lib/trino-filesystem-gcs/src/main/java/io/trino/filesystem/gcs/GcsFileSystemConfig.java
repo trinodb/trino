@@ -29,7 +29,6 @@ import jakarta.validation.constraints.Size;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class GcsFileSystemConfig
@@ -269,14 +268,13 @@ public class GcsFileSystemConfig
         return minBackoffDelay.compareTo(maxBackoffDelay) <= 0;
     }
 
-    public void validate()
+    @AssertTrue(message = "Either gcs.use-access-token or gcs.json-key or gcs.json-key-file-path must be set")
+    public boolean isAuthMethodValid()
     {
-        // This cannot be normal validation, as it would make it impossible to write TestGcsFileSystemConfig.testExplicitPropertyMappings
-
         if (useGcsAccessToken) {
-            checkState(jsonKey == null, "Cannot specify 'gcs.json-key' when 'gcs.use-access-token' is set");
-            checkState(jsonKeyFilePath == null, "Cannot specify 'gcs.json-key-file-path' when 'gcs.use-access-token' is set");
+            return jsonKey == null && jsonKeyFilePath == null;
         }
-        checkState(jsonKey == null || jsonKeyFilePath == null, "'gcs.json-key' and 'gcs.json-key-file-path' cannot be both set");
+
+        return (jsonKey == null) ^ (jsonKeyFilePath == null);
     }
 }
