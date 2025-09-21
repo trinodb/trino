@@ -24,6 +24,7 @@ import io.trino.plugin.cassandra.CassandraPartition;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static com.datastax.oss.driver.internal.core.util.Strings.doubleQuote;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -111,6 +112,33 @@ public final class CassandraCqlUtils
             conditions.add(clusteringKeyPredicates);
         }
         return String.join(" AND ", conditions);
+    }
+
+    private static String getSetStatements(Map<String, String> assignments)
+    {
+        if (!assignments.isEmpty()) {
+            List<String> setStatements = new ArrayList<>();
+            for (Map.Entry<String, String> entry : assignments.entrySet()) {
+                setStatements.add(format("%s = %s", validColumnName(entry.getKey()), entry.getValue()));
+            }
+            return String.join(" AND ", setStatements);
+        }
+        return "";
+    }
+
+    private static String update(String schemaName, String tableName, CassandraPartition partition, String clusteringKeyPredicates, Map<String, String> assignments)
+    {
+        return format("UPDATE \"%s\".\"%s\" SET %s WHERE %s",
+                schemaName, tableName, getSetStatements(assignments), getWhereCondition(partition.getPartitionId(), clusteringKeyPredicates));
+    }
+
+    public static List<String> getUpdateQueries(CassandraNamedRelationHandle handle, Map<String, String> assignments)
+    {
+        ImmutableList.Builder<String> queries = ImmutableList.builder();
+        for (CassandraPartition partition : handle.getPartitions().orElse(ImmutableList.of())) {
+            queries.add(update(handle.getSchemaName(), handle.getTableName(), partition, handle.getClusteringKeyPredicates(), assignments));
+        }
+        return queries.build();
     }
 
     private static String deleteFrom(String schemaName, String tableName, CassandraPartition partition, String clusteringKeyPredicates)
