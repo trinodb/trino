@@ -19,11 +19,9 @@ import io.airlift.units.Duration;
 import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
@@ -32,7 +30,6 @@ import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestGcsFileSystemConfig
 {
@@ -59,10 +56,7 @@ public class TestGcsFileSystemConfig
 
     @Test
     void testExplicitPropertyMappings()
-            throws IOException
     {
-        Path jsonKeyFile = Files.createTempFile(null, null);
-
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("gcs.read-block-size", "51MB")
                 .put("gcs.write-block-size", "52MB")
@@ -71,8 +65,6 @@ public class TestGcsFileSystemConfig
                 .put("gcs.project-id", "project")
                 .put("gcs.endpoint", "http://custom.dns.org:8000")
                 .put("gcs.use-access-token", "true")
-                .put("gcs.json-key", "{}")
-                .put("gcs.json-key-file-path", jsonKeyFile.toString())
                 .put("gcs.client.max-retries", "10")
                 .put("gcs.client.backoff-scale-factor", "4.0")
                 .put("gcs.client.max-retry-time", "10s")
@@ -89,40 +81,41 @@ public class TestGcsFileSystemConfig
                 .setProjectId("project")
                 .setEndpoint(Optional.of("http://custom.dns.org:8000"))
                 .setUseGcsAccessToken(true)
-                .setJsonKey("{}")
-                .setJsonKeyFilePath(jsonKeyFile.toString())
                 .setMaxRetries(10)
                 .setBackoffScaleFactor(4.0)
                 .setMaxRetryTime(new Duration(10, SECONDS))
                 .setMinBackoffDelay(new Duration(20, MILLISECONDS))
                 .setMaxBackoffDelay(new Duration(20, MILLISECONDS))
                 .setApplicationId("application id");
-        assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected, Set.of("gcs.json-key", "gcs.json-key-file-path"));
     }
 
     @Test
     public void testValidation()
     {
-        assertThatThrownBy(
+        assertFailsValidation(
                 new GcsFileSystemConfig()
                         .setUseGcsAccessToken(true)
-                        .setJsonKey("{}}")::validate)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Cannot specify 'gcs.json-key' when 'gcs.use-access-token' is set");
+                        .setJsonKey("{}}"),
+                "authMethodValid",
+                "Either gcs.use-access-token or gcs.json-key or gcs.json-key-file-path must be set",
+                AssertTrue.class);
 
-        assertThatThrownBy(
+        assertFailsValidation(
                 new GcsFileSystemConfig()
                         .setUseGcsAccessToken(true)
-                        .setJsonKeyFilePath("/dev/null")::validate)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Cannot specify 'gcs.json-key-file-path' when 'gcs.use-access-token' is set");
+                        .setJsonKeyFilePath("/dev/null"),
+                "authMethodValid",
+                "Either gcs.use-access-token or gcs.json-key or gcs.json-key-file-path must be set",
+                AssertTrue.class);
 
-        assertThatThrownBy(
+        assertFailsValidation(
                 new GcsFileSystemConfig()
                         .setJsonKey("{}")
-                        .setJsonKeyFilePath("/dev/null")::validate)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("'gcs.json-key' and 'gcs.json-key-file-path' cannot be both set");
+                        .setJsonKeyFilePath("/dev/null"),
+                "authMethodValid",
+                "Either gcs.use-access-token or gcs.json-key or gcs.json-key-file-path must be set",
+                AssertTrue.class);
 
         assertFailsValidation(
                 new GcsFileSystemConfig()
