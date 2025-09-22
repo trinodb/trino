@@ -32,6 +32,7 @@ import io.trino.plugin.jdbc.DoubleWriteFunction;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
@@ -101,6 +102,7 @@ import java.util.Set;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.function.BiFunction;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -164,6 +166,7 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.stream.Collectors.joining;
 
 public class OracleClient
         extends BaseJdbcClient
@@ -625,6 +628,38 @@ public class OracleClient
 
     @Override
     public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        return true;
+    }
+
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
+    {
+        return true;
+    }
+
+    @Override
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.of((query, sortItems, limit) -> {
+            String orderBy = sortItems.stream()
+                    .flatMap(sortItem -> {
+                        String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
+                        String columnSorting = format("%s %s", quoted(sortItem.column().getColumnName()), ordering);
+
+                        return switch (sortItem.sortOrder()) {
+                            // In Oracle both ASC and DESC imply NULLS LAST, but we'll be explicit
+                            case ASC_NULLS_LAST, DESC_NULLS_LAST -> Stream.of(format("%s NULLS LAST", columnSorting));
+                            case ASC_NULLS_FIRST, DESC_NULLS_FIRST -> Stream.of(format("%s NULLS FIRST", columnSorting));
+                        };
+                    })
+                    .collect(joining(", "));
+            return format("SELECT * FROM (%s  ORDER BY %s) WHERE ROWNUM <= %s", query, orderBy, limit);
+        });
+    }
+
+    @Override
+    public boolean isTopNGuaranteed(ConnectorSession session)
     {
         return true;
     }
