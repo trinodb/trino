@@ -29,10 +29,17 @@ import jakarta.validation.constraints.Size;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class GcsFileSystemConfig
 {
+    public enum AuthType
+    {
+        ACCESS_TOKEN,
+        DEFAULT;
+    }
+
     private DataSize readBlockSize = DataSize.of(2, MEGABYTE);
     private DataSize writeBlockSize = DataSize.of(16, MEGABYTE);
     private int pageSize = 100;
@@ -41,7 +48,8 @@ public class GcsFileSystemConfig
     private String projectId;
     private Optional<String> endpoint = Optional.empty();
 
-    private boolean useGcsAccessToken;
+    private Optional<Boolean> useGcsAccessToken = Optional.empty();
+    private AuthType authType;
     private String jsonKey;
     private String jsonKeyFilePath;
     private int maxRetries = 20;
@@ -134,15 +142,38 @@ public class GcsFileSystemConfig
         return this;
     }
 
-    public boolean isUseGcsAccessToken()
+    @NotNull
+    public AuthType getAuthType()
     {
-        return useGcsAccessToken;
+        return Optional.ofNullable(authType).orElse(AuthType.DEFAULT);
     }
 
+    @Config("gcs.auth-type")
+    public GcsFileSystemConfig setAuthType(AuthType authType)
+    {
+        checkArgument(useGcsAccessToken.isEmpty(), "Cannot set both gcs.use-access-token and gcs.auth-type");
+        this.authType = authType;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isUseGcsAccessToken()
+    {
+        return useGcsAccessToken.orElse(false);
+    }
+
+    @Deprecated
     @Config("gcs.use-access-token")
     public GcsFileSystemConfig setUseGcsAccessToken(boolean useGcsAccessToken)
     {
-        this.useGcsAccessToken = useGcsAccessToken;
+        checkArgument(authType == null, "Cannot set both gcs.use-access-token and gcs.auth-type");
+        this.useGcsAccessToken = Optional.of(useGcsAccessToken);
+        if (useGcsAccessToken) {
+            this.authType = AuthType.ACCESS_TOKEN;
+        }
+        else {
+            this.authType = AuthType.DEFAULT;
+        }
         return this;
     }
 
@@ -268,10 +299,10 @@ public class GcsFileSystemConfig
         return minBackoffDelay.compareTo(maxBackoffDelay) <= 0;
     }
 
-    @AssertTrue(message = "Either gcs.use-access-token or gcs.json-key or gcs.json-key-file-path must be set")
+    @AssertTrue(message = "Either gcs.auth-type or gcs.json-key or gcs.json-key-file-path must be set")
     public boolean isAuthMethodValid()
     {
-        if (useGcsAccessToken) {
+        if (authType == AuthType.ACCESS_TOKEN) {
             return jsonKey == null && jsonKeyFilePath == null;
         }
 
