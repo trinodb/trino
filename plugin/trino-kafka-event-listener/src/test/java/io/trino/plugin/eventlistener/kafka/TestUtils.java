@@ -193,6 +193,7 @@ public final class TestUtils
                 queryStatistics,
                 queryContext,
                 queryIOMetadata,
+                Optional.empty(),
                 queryFailureInfo,
                 List.of(new TrinoWarning(new WarningCode(101, "TestCode"), "Test error message")),
                 Instant.now(),

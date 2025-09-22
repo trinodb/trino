@@ -231,6 +231,7 @@ final class TestMysqlEventListener
             FULL_QUERY_STATISTICS,
             FULL_QUERY_CONTEXT,
             FULL_QUERY_IO_METADATA,
+            Optional.empty(),
             Optional.of(FULL_FAILURE_INFO),
             List.of(new TrinoWarning(
                     StandardWarningCode.TOO_MANY_STAGES,
@@ -346,6 +347,7 @@ final class TestMysqlEventListener
             MINIMAL_QUERY_STATISTICS,
             MINIMAL_QUERY_CONTEXT,
             MINIMAL_QUERY_IO_METADATA,
+            Optional.empty(),
             Optional.empty(),
             List.of(),
             Instant.now(),
