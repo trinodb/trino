@@ -164,7 +164,7 @@ public final class ParquetUtil
         List<BlockMetadata> blocks = metadata.getBlocks();
         List<Long> splitOffsets = new ArrayList<>(blocks.size());
         for (BlockMetadata blockMetaData : blocks) {
-            splitOffsets.add(blockMetaData.getStartingPos());
+            splitOffsets.add(blockMetaData.columns().getFirst().getStartingPos());
         }
         Collections.sort(splitOffsets);
         return ImmutableList.copyOf(splitOffsets);
