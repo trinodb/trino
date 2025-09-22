@@ -58,8 +58,7 @@ public abstract class BaseOracleConnectorTest
                  SUPPORTS_MAP_TYPE,
                  SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
                  SUPPORTS_ROW_TYPE,
-                 SUPPORTS_SET_COLUMN_TYPE,
-                 SUPPORTS_TOPN_PUSHDOWN -> false;
+                 SUPPORTS_SET_COLUMN_TYPE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }

@@ -1119,7 +1119,7 @@ public abstract class BaseJdbcConnectorTest
         }
 
         try (TestTable testTable = newTrinoTable(
-                "test_null_sensitive_topn_pushdown",
+                "null_sensitive_topn",
                 "(name varchar(10), a bigint)",
                 List.of(
                         "'small', 42",
@@ -1183,7 +1183,7 @@ public abstract class BaseJdbcConnectorTest
         PlanMatchPattern topNOverTableScan = project(node(TopNNode.class, anyTree(node(TableScanNode.class))));
 
         try (TestTable testTable = newTrinoTable(
-                "test_case_sensitive_topn_pushdown",
+                "case_sensitive_topn",
                 "(a_string varchar(10), a_char char(10), a_bigint bigint)",
                 List.of(
                         "'A', 'A', 1",
