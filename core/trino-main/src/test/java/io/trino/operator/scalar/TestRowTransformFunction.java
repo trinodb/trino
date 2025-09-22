@@ -22,6 +22,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 import static io.trino.spi.type.ArrayType.arrayType;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
@@ -67,6 +71,20 @@ public class TestRowTransformFunction
                 .binding("a", "CAST(ROW('hello', 'world') as ROW(greeting varchar, planet varchar))"))
                 .hasType(rowType(field("greeting", VARCHAR), field("planet", VARCHAR)))
                 .isEqualTo(ImmutableList.of("hello or goodbye", "world"));
+    }
+
+
+    @Test
+    public void testNullReturn()
+    {
+        List<String> expected = new ArrayList<>();
+        expected.add(null);
+        expected.add("world");
+
+        assertThat(assertions.expression("transform(a, 'greeting', '', greeting -> NULL)")
+                .binding("a", "CAST(ROW('hello', 'world') as ROW(greeting varchar, planet varchar))"))
+                .hasType(rowType(field("greeting", VARCHAR), field("planet", VARCHAR)))
+                .isEqualTo(expected);
     }
 
     @Test
