@@ -410,7 +410,7 @@ public class TestParquetWriter
             RowGroup rowGroup = rowGroups.get(rowGroupIndex);
             assertThat(rowGroup.isSetFile_offset()).isTrue();
             BlockMetadata blockMetadata = blocks.get(rowGroupIndex);
-            assertThat(blockMetadata.getStartingPos()).isEqualTo(rowGroup.getFile_offset());
+            assertThat(blockMetadata.columns().getFirst().getStartingPos()).isEqualTo(rowGroup.getFile_offset());
             assertThat(blockMetadata.fileRowCountOffset()).isEqualTo(fileRowCountOffset);
             fileRowCountOffset += rowGroup.getNum_rows();
         }
