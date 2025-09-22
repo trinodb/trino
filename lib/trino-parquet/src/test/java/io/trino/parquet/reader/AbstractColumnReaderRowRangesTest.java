@@ -285,8 +285,8 @@ public abstract class AbstractColumnReaderRowRangesTest
     private static ColumnReaderInput[] getColumnReaderInputs(ColumnReaderProvider columnReaderProvider)
     {
         Object[][] definitionLevelsProviders = Arrays.stream(DefinitionLevelsProvider.ofDefinitionLevel(
-                columnReaderProvider.getField().getDefinitionLevel(),
-                columnReaderProvider.getField().isRequired()))
+                        columnReaderProvider.getField().getDefinitionLevel(),
+                        columnReaderProvider.getField().isRequired()))
                 .collect(toDataProvider());
         PrimitiveField field = columnReaderProvider.getField();
 
