@@ -77,6 +77,8 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.eventlistener.ColumnDetail;
+import io.trino.spi.eventlistener.ColumnLineageInfo;
 import io.trino.spi.security.Identity;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
@@ -7428,6 +7430,191 @@ public class TestAnalyzer
         assertFails("SELECT a FROM (VALUES (1), (2)) t(a), UNNEST(ARRAY[COUNT(t.a)])")
                 .hasErrorCode(EXPRESSION_NOT_SCALAR)
                 .hasMessage("line 1:46: UNNEST cannot contain aggregations, window functions or grouping operations: [COUNT(t.a)]");
+    }
+
+    @Test
+    public void testSelectColumnLineageInfo()
+    {
+        String sql = "SELECT a, b + 1 AS b1, 'C' as literal, a + b FROM (VALUES (1, 2)) t(a, b)";
+
+        Analysis analysis = analyze(sql);
+
+        Optional<List<ColumnLineageInfo>> maybeLineageInfo = analysis.getSelectColumnLineageInfo();
+        assertThat(maybeLineageInfo).isPresent();
+        List<ColumnLineageInfo> lineageInfo = maybeLineageInfo.get();
+        assertThat(lineageInfo.size()).isEqualTo(4);
+
+        // Check first column lineage
+        ColumnLineageInfo colA = lineageInfo.getFirst();
+        assertThat(colA.name()).isEqualTo("a");
+        assertThat(colA.sourceColumns()).isEmpty(); // 'a' is a direct value from the VALUES clause
+
+        // Check second column lineage
+        ColumnLineageInfo colB1 = lineageInfo.get(1);
+        assertThat(colB1.name()).isEqualTo("b1");
+        assertThat(colB1.sourceColumns()).isEmpty(); // 'b1' is derived from 'b + 1', which is a direct value from the VALUES clause
+
+        // Check third column lineage
+        ColumnLineageInfo colLiteral = lineageInfo.get(2);
+        assertThat(colLiteral.name()).isEqualTo("literal");
+        assertThat(colLiteral.sourceColumns()).isEmpty(); // 'literal' is a literal value
+
+        // Check fourth column lineage
+        ColumnLineageInfo colAB = lineageInfo.get(3);
+        assertThat(colAB.name()).isEmpty(); // anonymous
+        assertThat(colAB.sourceColumns()).isEmpty(); // 'a + b' is derived from the values in the VALUES clause
+    }
+
+    @Test
+    public void testSelectColumnLineageInfoAggregateFunction() {
+        String sql = "SELECT SUM(a) FROM t1 WHERE b > 1";
+
+        Analysis analysis = analyze(sql);
+
+        Optional<List<ColumnLineageInfo>> maybeLineageInfos = analysis.getSelectColumnLineageInfo();
+        assertThat(maybeLineageInfos).isPresent();
+        List<ColumnLineageInfo> lineageInfo = maybeLineageInfos.get();
+        assertThat(lineageInfo.size()).isEqualTo(1);
+
+        // Check the column lineage
+        ColumnLineageInfo colCount = lineageInfo.getFirst();
+        assertThat(colCount.name()).isEmpty(); // anonymous
+        assertThat(colCount.sourceColumns()).isNotEmpty();
+        assertThat(colCount.sourceColumns()).containsExactlyInAnyOrder(
+                new ColumnDetail("tpch", "s1", "t1", "a"));
+    }
+
+    @Test
+    public void testSelectColumnLineageInfoWithUnion()
+    {
+        String sql = "SELECT c AS unionized FROM t1 UNION SELECT b FROM t2 UNION SELECT a FROM t3";
+
+        Analysis analysis = analyze(sql);
+
+        Optional<List<ColumnLineageInfo>> maybeLineageInfos = analysis.getSelectColumnLineageInfo();
+        assertThat(maybeLineageInfos).isPresent();
+        List<ColumnLineageInfo> lineageInfo = maybeLineageInfos.get();
+        assertThat(lineageInfo.size()).isEqualTo(1);
+
+        // Check the column lineage
+        ColumnLineageInfo colA = lineageInfo.getFirst();
+        assertThat(colA.name()).isEqualTo("unionized");
+        assertThat(colA.sourceColumns()).hasSize(3);
+        assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
+                new ColumnDetail("tpch","s1","t1", "c"),
+                new ColumnDetail("tpch","s1","t2", "b"),
+                new ColumnDetail("tpch","s1","t3", "a"));
+    }
+
+    @Test
+    public void testSelectColumnLineageInfoWithClause()
+    {
+        String sql = "WITH cte AS (SELECT a FROM t1)\n" + "SELECT a FROM cte UNION SELECT b FROM t2";
+
+        Analysis analysis = analyze(sql);
+
+        Optional<List<ColumnLineageInfo>> maybeLineageInfo = analysis.getSelectColumnLineageInfo();
+        assertThat(maybeLineageInfo).isPresent();
+        List<ColumnLineageInfo> lineageInfo = maybeLineageInfo.get();
+        assertThat(lineageInfo.size()).isEqualTo(1);
+
+        // Check the column lineage
+        ColumnLineageInfo colA = lineageInfo.getFirst();
+        assertThat(colA.name()).isEqualTo("a");
+        assertThat(colA.sourceColumns()).hasSize(2);
+        // The source columns should include both 'a' from t1 and 'b' from t2
+        assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
+                new ColumnDetail("tpch","s1","t1", "a"),
+                new ColumnDetail("tpch","s1","t2", "b"));
+    }
+
+    @Test
+    public void testSelectColumnLineageInfoWithSubquery()
+    {
+    String sql = "SELECT (SELECT max(a)+min(b) FROM t2) AS min_max FROM t1 UNION SELECT max(a) FROM t3";
+
+        Analysis analysis = analyze(sql);
+
+        Optional<List<ColumnLineageInfo>> maybeLineageInfo = analysis.getSelectColumnLineageInfo();
+        assertThat(maybeLineageInfo).isPresent();
+        List<ColumnLineageInfo> lineageInfo = maybeLineageInfo.get();
+        assertThat(lineageInfo.size()).isEqualTo(1);
+
+        // Check the column lineage
+        ColumnLineageInfo colA = lineageInfo.getFirst();
+        assertThat(colA.name()).isEqualTo("min_max");
+        assertThat(colA.sourceColumns()).hasSize(3);
+        // The source columns should include both 'a' and 'b' from t2 in the subquery and t3.a from the union
+        assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
+                new ColumnDetail("tpch","s1","t2", "a"),
+                new ColumnDetail("tpch","s1","t2", "b"),
+                new ColumnDetail("tpch","s1","t3", "a"));
+    }
+
+    @Test
+    public void testSelectColumnLineageInfoNestedSet()
+    {
+        String sql = "SELECT a FROM t1 UNION (SELECT b FROM t2 INTERSECT SELECT b FROM t3)";
+
+        Analysis analysis = analyze(sql);
+
+        Optional<List<ColumnLineageInfo>> maybeLineageInfo = analysis.getSelectColumnLineageInfo();
+        assertThat(maybeLineageInfo).isPresent();
+        List<ColumnLineageInfo> lineageInfo = maybeLineageInfo.get();
+        assertThat(lineageInfo.size()).isEqualTo(1);
+
+        // Check the column lineage
+        ColumnLineageInfo colA = lineageInfo.getFirst();
+        assertThat(colA.name()).isEqualTo("a");
+        assertThat(colA.sourceColumns()).hasSize(3);
+        // The source columns should include both 'a' from the subquery and 'b' from t2
+        assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
+                new ColumnDetail("tpch","s1","t1", "a"),
+                new ColumnDetail("tpch","s1","t2", "b"),
+                new ColumnDetail("tpch","s1","t3", "b"));
+    }
+
+    @Test
+    public void testSelectColumnLineageInfoRecursive()
+    {
+        String sql = "WITH RECURSIVE a(x) AS (SELECT a FROM t1) SELECT * FROM a";
+
+        Analysis analysis = analyze(sql);
+
+        Optional<List<ColumnLineageInfo>> maybeLineageInfo = analysis.getSelectColumnLineageInfo();
+        assertThat(maybeLineageInfo).isPresent();
+        List<ColumnLineageInfo> lineageInfo = maybeLineageInfo.get();
+        assertThat(lineageInfo.size()).isEqualTo(1);
+
+        // Check the column lineage
+        ColumnLineageInfo colA = lineageInfo.getFirst();
+        assertThat(colA.name()).isEqualTo("x");
+        assertThat(colA.sourceColumns()).hasSize(1);
+        // The source column should include 'a' from t1
+        assertThat(colA.sourceColumns()).containsExactlyInAnyOrder(
+                new ColumnDetail("tpch", "s1", "t1", "a"));
+    }
+
+    @Test
+    public void testSelectColumnLineageInfoRowFromJoin()
+    {
+        String sql = "SELECT ROW(t1.a, t2.b) AS row_field FROM t1 JOIN t2 ON t1.a = t2.a";
+
+        Analysis analysis = analyze(sql);
+
+        Optional<List<ColumnLineageInfo>> maybeLineageInfo = analysis.getSelectColumnLineageInfo();
+        assertThat(maybeLineageInfo).isPresent();
+        List<ColumnLineageInfo> lineageInfo = maybeLineageInfo.get();
+        assertThat(lineageInfo.size()).isEqualTo(1);
+
+        // Check the column lineage for the ROW field
+        ColumnLineageInfo colRow = lineageInfo.getFirst();
+        assertThat(colRow.name()).isEqualTo("row_field");
+        assertThat(colRow.sourceColumns()).hasSize(2);
+        // The ROW constructor should track lineage from both tables in the JOIN
+        assertThat(colRow.sourceColumns()).containsExactlyInAnyOrder(
+                new ColumnDetail("tpch", "s1", "t1", "a"),
+                new ColumnDetail("tpch", "s1", "t2", "b"));
     }
 
     @BeforeAll
