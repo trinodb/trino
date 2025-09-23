@@ -78,8 +78,10 @@ import io.trino.sql.planner.plan.WindowNode;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -179,6 +181,9 @@ public class SplitSourceFactory
             // we are interested only in functional predicate here, so we set the summary to ALL.
             Constraint constraint = new Constraint(
                     TupleDomain.all(),
+                    ConnectorExpressionTranslator.translateConjuncts(session, nonDynamicFilter).connectorExpression(),
+                    assignments.entrySet().stream()
+                            .collect(toImmutableMap(entry -> entry.getKey().name(), Entry::getValue)),
                     evaluator::isCandidate,
                     evaluator.getArguments());
 
