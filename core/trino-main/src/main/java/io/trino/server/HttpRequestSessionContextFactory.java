@@ -292,7 +292,10 @@ public class HttpRequestSessionContextFactory
 
     private static List<String> splitHttpHeader(MultivaluedMap<String, String> headers, String name)
     {
-        List<String> values = firstNonNull(headers.get(name), ImmutableList.of());
+        List<String> values = headers.entrySet().stream()
+                .filter(entry -> entry.getKey().equalsIgnoreCase(name))
+                .flatMap(entry -> entry.getValue().stream())
+                .collect(toImmutableList());
         Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
         return values.stream()
                 .map(splitter::splitToList)

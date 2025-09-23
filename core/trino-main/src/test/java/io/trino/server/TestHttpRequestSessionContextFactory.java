@@ -37,6 +37,7 @@ import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.ProtocolHeaders.createProtocolHeaders;
 import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -71,7 +72,7 @@ public class TestHttpRequestSessionContextFactory
                 .put(protocolHeaders.requestRole(), "bar_connector=NONE")
                 .put(protocolHeaders.requestRole(), "foobar_connector=ROLE{catalog-role}")
                 .put(protocolHeaders.requestExtraCredential(), "test.token.foo=bar")
-                .put(protocolHeaders.requestExtraCredential(), "test.token.abc=xyz")
+                .put(protocolHeaders.requestExtraCredential().toLowerCase(ENGLISH), "test.token.abc=xyz")
                 .build());
 
         SessionContext context = sessionContextFactory(protocolHeaders).createSessionContext(
