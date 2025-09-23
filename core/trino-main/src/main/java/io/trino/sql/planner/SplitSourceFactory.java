@@ -81,8 +81,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
+import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrUtils.filterConjuncts;
 import static java.util.Objects.requireNonNull;
 
@@ -173,11 +173,14 @@ public class SplitSourceFactory
                 dynamicFilter = dynamicFilterService.createDynamicFilter(session.getQueryId(), dynamicFilters, assignments);
             }
 
-            Constraint constraint = filterPredicate
-                    .map(predicate -> filterConjuncts(predicate, expression -> !DynamicFilters.isDynamicFilter(expression)))
-                    .map(predicate -> new LayoutConstraintEvaluator(plannerContext, session, assignments, predicate))
-                    .map(evaluator -> new Constraint(TupleDomain.all(), evaluator::isCandidate, evaluator.getArguments())) // we are interested only in functional predicate here, so we set the summary to ALL.
-                    .orElse(alwaysTrue());
+            Expression nonDynamicFilter = filterConjuncts(filterPredicate.orElse(TRUE), expression -> !DynamicFilters.isDynamicFilter(expression));
+            LayoutConstraintEvaluator evaluator = new LayoutConstraintEvaluator(plannerContext, session, assignments, nonDynamicFilter);
+
+            // we are interested only in functional predicate here, so we set the summary to ALL.
+            Constraint constraint = new Constraint(
+                    TupleDomain.all(),
+                    evaluator::isCandidate,
+                    evaluator.getArguments());
 
             // get dataSource for table
             return splitManager.getSplits(
