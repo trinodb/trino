@@ -541,6 +541,7 @@ public class PlanTester
     {
         SystemSessionProperties sessionProperties = new SystemSessionProperties(
                 new QueryManagerConfig(),
+                new SpoolingEnabledConfig(),
                 taskManagerConfig,
                 new MemoryManagerConfig(),
                 new FeaturesConfig(),
