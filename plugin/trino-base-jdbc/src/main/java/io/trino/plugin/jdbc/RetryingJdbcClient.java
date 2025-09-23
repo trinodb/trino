@@ -563,4 +563,10 @@ public class RetryingJdbcClient
     {
         return retry(policy, () -> delegate.getPrimaryKeys(session, remoteTableName));
     }
+
+    @Override
+    public ColumnMetadata toColumnMetadata(JdbcColumnHandle columnHandle)
+    {
+        return delegate.toColumnMetadata(columnHandle);
+    }
 }

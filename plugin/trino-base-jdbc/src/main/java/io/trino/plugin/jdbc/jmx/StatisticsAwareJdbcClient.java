@@ -556,4 +556,10 @@ public final class StatisticsAwareJdbcClient
     {
         return stats.getGetPrimaryKeys().wrap(() -> delegate().getPrimaryKeys(session, remoteTableName));
     }
+
+    @Override
+    public ColumnMetadata toColumnMetadata(JdbcColumnHandle columnHandle)
+    {
+        return delegate().toColumnMetadata(columnHandle);
+    }
 }

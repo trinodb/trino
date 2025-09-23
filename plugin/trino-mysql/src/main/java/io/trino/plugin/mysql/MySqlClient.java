@@ -83,14 +83,18 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.type.BigintType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
@@ -114,6 +118,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -182,6 +187,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.mysql.MySqlColumnProperties.AUTO_INCREMENT;
 import static io.trino.plugin.mysql.MySqlTableProperties.PRIMARY_KEY_PROPERTY;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
@@ -487,15 +493,35 @@ public class MySqlClient
         columnDefinitions.addAll(columns);
 
         List<String> primaryKeys = MySqlTableProperties.getPrimaryKey(tableMetadata.getProperties());
+        verifyColumnMetadata(primaryKeys, tableMetadata.getColumns());
         if (!primaryKeys.isEmpty()) {
-            verifyPrimaryKey(primaryKeys, tableMetadata.getColumns());
             columnDefinitions.add("PRIMARY KEY (" + primaryKeys.stream().map(this::quoted).collect(joining(", ")) + ")");
         }
         return ImmutableList.of(format("CREATE TABLE %s (%s) COMMENT %s", quoted(remoteTableName), join(", ", columnDefinitions.build()), mysqlVarcharLiteral(tableMetadata.getComment().orElse(NO_COMMENT))));
     }
 
-    private static void verifyPrimaryKey(List<String> primaryKeys, List<ColumnMetadata> columns)
+    private static void verifyColumnMetadata(List<String> primaryKeys, List<ColumnMetadata> columns)
     {
+        Set<String> autoIncrementColumnNames = columns.stream()
+                .filter(column -> column.getProperties().containsKey(AUTO_INCREMENT))
+                .map(column -> {
+                    if (!(boolean) column.getProperties().get(AUTO_INCREMENT)) {
+                        throw new TrinoException(NOT_SUPPORTED, "Column property value for AUTO_INCREMENT must be true");
+                    }
+                    return column.getName();
+                })
+                .collect(toImmutableSet());
+
+        if (autoIncrementColumnNames.size() > 1) {
+            throw new TrinoException(NOT_SUPPORTED, "There can be only one auto increment column in MySQL");
+        }
+
+        if (autoIncrementColumnNames.size() == 1) {
+            if (primaryKeys.isEmpty() || !autoIncrementColumnNames.contains(primaryKeys.getFirst())) {
+                throw new TrinoException(NOT_SUPPORTED, "Auto increment column must be defined as the first key in MySQL");
+            }
+        }
+
         Set<String> columnNames = columns.stream()
                 .map(column -> {
                     String columnName = column.getName();
@@ -521,10 +547,23 @@ public class MySqlClient
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
         }
 
-        return "%s %s %s".formatted(
+        return "%s %s %s %s".formatted(
                 quoted(columnName),
                 toWriteMapping(session, column.getType()).getDataType(),
-                column.isNullable() ? "NULL" : "NOT NULL");
+                column.isNullable() ? "NULL" : "NOT NULL",
+                isAutoIncrement(column) ? "AUTO_INCREMENT" : "");
+    }
+
+    private static boolean isAutoIncrement(ColumnMetadata column)
+    {
+        boolean isAutoIncrement = (boolean) column.getProperties().getOrDefault(AUTO_INCREMENT, false);
+        if (isAutoIncrement) {
+            Type type = column.getType();
+            if (!(type instanceof TinyintType || type instanceof SmallintType || type instanceof IntegerType || type instanceof BigintType)) {
+                throw new TrinoException(NOT_SUPPORTED, "Unsupported column type for AUTO_INCREMENT: " + type);
+            }
+        }
+        return isAutoIncrement;
     }
 
     private static String mysqlVarcharLiteral(String value)
@@ -642,6 +681,18 @@ public class MySqlClient
             return mapToUnboundedVarchar(typeHandle);
         }
         return Optional.empty();
+    }
+
+    @Override
+    public Map<String, Object> getColumnProperties(ResultSet resultSet)
+            throws SQLException
+    {
+        ImmutableMap.Builder<String, Object> columnPropertiesBuilder = ImmutableMap.builder();
+        boolean autoIncrement = "YES".equals(resultSet.getString("IS_AUTOINCREMENT"));
+        if (autoIncrement) {
+            columnPropertiesBuilder.put(AUTO_INCREMENT, autoIncrement);
+        }
+        return columnPropertiesBuilder.buildOrThrow();
     }
 
     private static ColumnMapping mySqlDefaultVarcharColumnMapping(int columnSize, Optional<CaseSensitivity> caseSensitivity)
@@ -961,6 +1012,10 @@ public class MySqlClient
     {
         if (column.getComment() != null) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
+        }
+
+        if (!column.getProperties().isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with column properties");
         }
 
         try (Connection connection = connectionFactory.openConnection(session)) {
@@ -1318,6 +1373,36 @@ public class MySqlClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    @Override
+    public ColumnMetadata toColumnMetadata(JdbcColumnHandle handle)
+    {
+        ColumnMetadata columnMetadata = handle.getColumnMetadata();
+        ColumnMetadata.Builder columnMetadataBuilder = ColumnMetadata.builderFrom(columnMetadata);
+
+        Map<String, Object> properties = new LinkedHashMap<>(columnMetadata.getProperties());
+
+        StringBuilder extraBuilder = new StringBuilder();
+        String extraInfo = columnMetadata.getExtraInfo();
+        if (extraInfo != null && !extraInfo.isEmpty()) {
+            extraBuilder.append(extraInfo);
+        }
+
+        if ((boolean) handle.getColumnProperties().getOrDefault(AUTO_INCREMENT, false)) {
+            properties.put(AUTO_INCREMENT, true);
+            if (!extraBuilder.isEmpty()) {
+                extraBuilder.append(", ");
+            }
+            extraBuilder.append(AUTO_INCREMENT).append("=true");
+        }
+
+        columnMetadataBuilder.setProperties(properties);
+
+        if (!extraBuilder.isEmpty()) {
+            columnMetadataBuilder.setExtraInfo(Optional.of(extraBuilder.toString()));
+        }
+        return columnMetadataBuilder.build();
     }
 
     private static Optional<ColumnHistogram> getColumnHistogram(Map<String, String> columnHistograms, String columnName)
