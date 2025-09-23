@@ -46,6 +46,7 @@ import io.trino.server.ResultQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.TrinoWarning;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.eventlistener.TableInfo;
@@ -92,6 +93,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isSpoolingEnabled;
+import static io.trino.SystemSessionProperties.isSpoolingUnsupportedWarningEnabled;
 import static io.trino.execution.BasicStageStats.EMPTY_STAGE_STATS;
 import static io.trino.execution.QueryState.DISPATCHING;
 import static io.trino.execution.QueryState.FAILED;
@@ -108,6 +110,7 @@ import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
+import static io.trino.spi.connector.StandardWarningCode.SPOOLING_NOT_SUPPORTED;
 import static io.trino.spi.resourcegroups.QueryType.SELECT;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static io.trino.util.Ciphers.serializeAesEncryptionKey;
@@ -317,13 +320,20 @@ public class QueryStateMachine
             session = session.withExchangeEncryption(serializeAesEncryptionKey(createRandomAesEncryptionKey()));
         }
 
-        if (!queryType.map(SELECT::equals).orElse(false) || !isSpoolingEnabled(session)) {
+        boolean isSelectQuery = queryType.map(SELECT::equals).orElse(false);
+
+        if (!isSelectQuery || !isSpoolingEnabled(session)) {
             session = session.withoutSpooling();
         }
 
         // Apply WITH SESSION properties which require transaction to be started to resolve catalog handles
         if (sessionPropertiesApplier.isPresent()) {
             session = sessionPropertiesApplier.orElseThrow().apply(session);
+        }
+
+        // This needs to be applied after the WITH SESSION properties are applied
+        if (isSelectQuery && isSpoolingEnabled(session) && isSpoolingUnsupportedWarningEnabled(session) && session.getQueryDataEncoding().isEmpty()) {
+            warningCollector.add(new TrinoWarning(SPOOLING_NOT_SUPPORTED, "The server supports the spooling protocol but the current client connection is not using it. Switch to the spooling protocol and/or upgrade your client library for improved performance."));
         }
 
         Span querySpan = session.getQuerySpan();
