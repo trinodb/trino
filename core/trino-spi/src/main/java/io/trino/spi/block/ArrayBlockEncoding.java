@@ -19,6 +19,7 @@ import io.airlift.slice.SliceOutput;
 import static io.trino.spi.block.ArrayBlock.createArrayBlockInternal;
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
+import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
 
 public class ArrayBlockEncoding
         implements BlockEncoding
@@ -67,7 +68,12 @@ public class ArrayBlockEncoding
         int positionCount = sliceInput.readInt();
         int[] offsets = new int[positionCount + 1];
         sliceInput.readInts(offsets);
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
+        byte[] valueIsNullPacked = retrieveNullBits(sliceInput, positionCount);
+        if (valueIsNullPacked == null) {
+            return createArrayBlockInternal(0, positionCount, null, offsets, values);
+        }
+
+        boolean[] valueIsNull = decodeNullBits(valueIsNullPacked, positionCount);
         return createArrayBlockInternal(0, positionCount, valueIsNull, offsets, values);
     }
 }
