@@ -1613,6 +1613,9 @@ public class TestDeltaLakeBasic
         assertQueryFails("INSERT INTO variant VALUES (2, null, null, null, null, 'new data')", "Unsupported writer features: .*");
     }
 
+    /**
+     * @see databricks154.test_variant_null
+     */
     @Test
     public void testVariantReadNull()
             throws Exception
@@ -1626,11 +1629,22 @@ public class TestDeltaLakeBasic
                 .matches("VALUES 3");
 
         assertThat(query("SELECT * FROM " + tableName + " WHERE id = 3"))
-                .matches("VALUES (3, JSON 'null')");
+                .skippingTypesCheck()
+                .matches("VALUES (3, JSON 'null', NULL)");
         assertThat(query("SELECT * FROM " + tableName + " WHERE id = 4"))
-                .matches("VALUES (4, CAST(NULL AS JSON))");
+                .skippingTypesCheck()
+                .matches("VALUES (4, NULL, NULL)");
         assertThat(query("SELECT id FROM " + tableName + " WHERE x IS NULL"))
                 .matches("VALUES 4");
+
+        assertThat(query("TABLE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "(1, JSON '{\"a\":1}', MAP(ARRAY['key1'], ARRAY[NULL]))," +
+                        "(2, JSON '{\"a\":2}', MAP(ARRAY['key1'], ARRAY[JSON '{\"key\":\"value\"}']))," +
+                        "(3, JSON 'null', NULL)," +
+                        "(4, NULL, NULL)," +
+                         "(5, JSON '{\"a\":5}', NULL)");
     }
 
     /**
