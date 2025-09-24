@@ -36,19 +36,21 @@ public class ClusterResource
     private final NodeVersion version;
     private final String environment;
     private final long startTime = System.nanoTime();
+    private final boolean previewUiEnabled;
 
     @Inject
-    public ClusterResource(NodeVersion nodeVersion, NodeInfo nodeInfo)
+    public ClusterResource(NodeVersion nodeVersion, NodeInfo nodeInfo, WebUiConfig webUiConfig)
     {
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = nodeInfo.getEnvironment();
+        this.previewUiEnabled = webUiConfig.isPreviewEnabled();
     }
 
     @GET
     @Produces(APPLICATION_JSON)
     public ClusterInfo getInfo()
     {
-        return new ClusterInfo(version, environment, nanosSince(startTime));
+        return new ClusterInfo(version, environment, nanosSince(startTime), previewUiEnabled);
     }
 
     @Immutable
@@ -57,12 +59,14 @@ public class ClusterResource
         private final NodeVersion nodeVersion;
         private final String environment;
         private final Duration uptime;
+        private final boolean previewUiEnabled;
 
-        public ClusterInfo(NodeVersion nodeVersion, String environment, Duration uptime)
+        public ClusterInfo(NodeVersion nodeVersion, String environment, Duration uptime, boolean previewUiEnabled)
         {
             this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
             this.environment = requireNonNull(environment, "environment is null");
             this.uptime = requireNonNull(uptime, "uptime is null");
+            this.previewUiEnabled = previewUiEnabled;
         }
 
         @JsonProperty
@@ -81,6 +85,12 @@ public class ClusterResource
         public Duration getUptime()
         {
             return uptime;
+        }
+
+        @JsonProperty
+        public boolean isPreviewUiEnabled()
+        {
+            return previewUiEnabled;
         }
     }
 }

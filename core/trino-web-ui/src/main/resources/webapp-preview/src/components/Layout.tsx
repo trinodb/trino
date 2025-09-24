@@ -124,6 +124,11 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
         }
     }, [error, showSnackbar])
 
+    const onClassicUi = () => {
+        closeUserMenu()
+        window.location.assign('/ui')
+    }
+
     const onLogout = () => {
         logout({ redirect: authInfo?.authType != 'form' })
     }
@@ -156,6 +161,13 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
         {
             key: 'username',
             caption: username,
+        },
+        {
+            key: 'classicui',
+            caption: Texts.Menu.Header.ClassicUi,
+            onClick: () => {
+                onClassicUi()
+            },
             divider: true,
         },
         {
