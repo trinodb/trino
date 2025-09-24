@@ -246,6 +246,12 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 Set.of(SS_SOLD_SK_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SS_SOLD_SK_HANDLE,
+                        Domain.none(BIGINT))));
+        assertQueryDynamicFilters(
+                "SELECT * FROM store_sales JOIN tpcds.tiny.store ON store_sales.ss_sold_date_sk IS NOT DISTINCT FROM store.s_closed_date_sk AND (store.s_closed_date_sk < 0 OR store.s_closed_date_sk IS NULL)",
+                Set.of(SS_SOLD_SK_HANDLE),
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SS_SOLD_SK_HANDLE,
                         Domain.onlyNull(BIGINT))));
     }
 
