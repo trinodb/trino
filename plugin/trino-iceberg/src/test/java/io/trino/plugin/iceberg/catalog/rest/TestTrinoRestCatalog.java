@@ -22,6 +22,7 @@ import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -79,6 +80,7 @@ public class TestTrinoRestCatalog
         return new TrinoRestCatalog(
                 restSessionCatalog,
                 new CatalogName(catalogName),
+                Security.NONE,
                 NONE,
                 ImmutableMap.of(),
                 false,
