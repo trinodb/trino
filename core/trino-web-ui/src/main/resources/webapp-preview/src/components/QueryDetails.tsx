@@ -11,8 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import React, { ReactNode, useState } from 'react'
-import { useLocation, useParams } from 'react-router-dom'
+import React, { ReactNode } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { Box, Divider, Grid, Tab, Tabs, Typography } from '@mui/material'
 import { QueryJson } from './QueryJson'
 import { QueryReferences } from './QueryReferences'
@@ -33,15 +33,24 @@ const tabComponentMap: Record<TabValue, ReactNode> = {
 }
 export const QueryDetails = () => {
     const { queryId } = useParams()
-    const location = useLocation()
-    const queryParams = new URLSearchParams(location.search)
-    const requestedTab = queryParams.get('tab')
-    const [tabValue, setTabValue] = useState<TabValue>(
-        tabValues.includes(requestedTab as TabValue) ? (requestedTab as TabValue) : 'overview'
-    )
+    const [searchParams, setSearchParams] = useSearchParams()
+    const requestedTab = searchParams.get('tab')
+    const tabValue: TabValue = tabValues.includes(requestedTab as TabValue) ? (requestedTab as TabValue) : 'overview'
 
     const handleTabChange = (_: React.SyntheticEvent, newTab: TabValue) => {
-        setTabValue(newTab)
+        const nextParams = new URLSearchParams(searchParams)
+
+        if (newTab === 'overview') {
+            nextParams.delete('tab')
+        } else {
+            nextParams.set('tab', newTab)
+        }
+
+        if (nextParams.toString() === searchParams.toString()) {
+            return
+        }
+
+        setSearchParams(nextParams)
     }
 
     return (
