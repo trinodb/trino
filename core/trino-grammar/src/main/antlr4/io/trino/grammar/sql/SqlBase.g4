@@ -376,6 +376,8 @@ joinType
     | LEFT OUTER?
     | RIGHT OUTER?
     | FULL OUTER?
+    | ASOF LEFT OUTER?
+    | ASOF
     ;
 
 joinCriteria
@@ -1070,6 +1072,7 @@ AND: 'AND';
 ANY: 'ANY';
 ARRAY: 'ARRAY';
 AS: 'AS';
+ASOF: 'ASOF';
 ASC: 'ASC';
 AT: 'AT';
 AUTHORIZATION: 'AUTHORIZATION';

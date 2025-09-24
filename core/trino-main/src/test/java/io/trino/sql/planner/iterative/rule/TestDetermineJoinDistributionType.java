@@ -152,6 +152,96 @@ public class TestDetermineJoinDistributionType
         testRepartitionRightOuter(JoinDistributionType.AUTOMATIC, RIGHT);
     }
 
+    @Test
+    public void testAsofJoinDoesNotFlip()
+    {
+        // Set up stats and cardinalities such that a cost-based rule would prefer flipping children.
+        PlanNodeStatsEstimate smallProbe = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(1)
+                .build();
+        PlanNodeStatsEstimate largeBuild = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(10_000_000_000L)
+                .build();
+
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .overrideStats("probeValues", smallProbe)
+                .overrideStats("buildValues", largeBuild)
+                .on(p -> {
+                    Symbol probeKey = p.symbol("probe_key", BIGINT);
+                    Symbol probeTs = p.symbol("probe_ts", BIGINT);
+                    Symbol buildKey = p.symbol("build_key", BIGINT);
+                    Symbol buildTs = p.symbol("build_ts", BIGINT);
+
+                    return p.join(
+                            JoinType.ASOF,
+                            // small left/probe relation
+                            p.values(new PlanNodeId("probeValues"), ImmutableList.of(probeKey, probeTs),
+                                    ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 10L)))),
+                            // large right/build relation (stats-controlled)
+                            p.values(new PlanNodeId("buildValues"), ImmutableList.of(buildKey, buildTs),
+                                    ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 9L)))),
+                            new Comparison(
+                                    Comparison.Operator.LESS_THAN_OR_EQUAL,
+                                    new Reference(buildTs.type(), buildTs.name()),
+                                    new Reference(probeTs.type(), probeTs.name())),
+                            new JoinNode.EquiJoinClause(probeKey, buildKey));
+                })
+                .matches(join(JoinType.ASOF, builder -> builder
+                        .equiCriteria("probe_key", "build_key")
+                        .filter(new Comparison(
+                                Comparison.Operator.LESS_THAN_OR_EQUAL,
+                                new Reference(BIGINT, "build_ts"),
+                                new Reference(BIGINT, "probe_ts")))
+                        .left(values(ImmutableMap.of("probe_key", 0, "probe_ts", 1)))
+                        .right(values(ImmutableMap.of("build_key", 0, "build_ts", 1)))));
+    }
+
+    @Test
+    public void testAsofJoinAssignedPartitionedDistribution()
+    {
+        // Configure stats such that non-ASOF joins would prefer REPLICATED (small build),
+        // but ASOF must be PARTITIONED.
+        PlanNodeStatsEstimate probeStats = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(10_000_000_000L)
+                .build();
+        PlanNodeStatsEstimate buildStats = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(10)
+                .build();
+
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .overrideStats("probeValues", probeStats)
+                .overrideStats("buildValues", buildStats)
+                .on(p -> {
+                    Symbol probeKey = p.symbol("probe_key", BIGINT);
+                    Symbol probeTs = p.symbol("probe_ts", BIGINT);
+                    Symbol buildKey = p.symbol("build_key", BIGINT);
+                    Symbol buildTs = p.symbol("build_ts", BIGINT);
+
+                    return p.join(
+                            JoinType.ASOF,
+                            p.values(new PlanNodeId("probeValues"), ImmutableList.of(probeKey, probeTs),
+                                    ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 10L)))),
+                            p.values(new PlanNodeId("buildValues"), ImmutableList.of(buildKey, buildTs),
+                                    ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 9L)))),
+                            new Comparison(
+                                    Comparison.Operator.LESS_THAN_OR_EQUAL,
+                                    new Reference(buildTs.type(), buildTs.name()),
+                                    new Reference(probeTs.type(), probeTs.name())),
+                            new JoinNode.EquiJoinClause(probeKey, buildKey));
+                })
+                .matches(join(JoinType.ASOF, builder -> builder
+                        .equiCriteria("probe_key", "build_key")
+                        .distributionType(PARTITIONED)
+                        .filter(new Comparison(
+                                Comparison.Operator.LESS_THAN_OR_EQUAL,
+                                new Reference(BIGINT, "build_ts"),
+                                new Reference(BIGINT, "probe_ts")))
+                        .left(values(ImmutableMap.of("probe_key", 0, "probe_ts", 1)))
+                        .right(values(ImmutableMap.of("build_key", 0, "build_ts", 1)))));
+    }
+
     private void testRepartitionRightOuter(JoinDistributionType sessionDistributedJoin, JoinType joinType)
     {
         assertDetermineJoinDistributionType()

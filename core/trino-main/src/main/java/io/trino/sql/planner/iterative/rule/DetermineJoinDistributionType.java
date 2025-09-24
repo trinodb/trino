@@ -31,6 +31,7 @@ import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.getJoinDistributionType;
 import static io.trino.SystemSessionProperties.getJoinMaxBroadcastTableSize;
@@ -99,11 +100,13 @@ public class DetermineJoinDistributionType
     {
         List<PlanNodeWithCost> possibleJoinNodes = new ArrayList<>();
 
+        Optional<JoinNode> flippedJoin = joinNode.flipChildren();
+
         addJoinsWithDifferentDistributions(joinNode, possibleJoinNodes, context);
-        addJoinsWithDifferentDistributions(joinNode.flipChildren(), possibleJoinNodes, context);
+        flippedJoin.ifPresent(node -> addJoinsWithDifferentDistributions(node, possibleJoinNodes, context));
 
         if (possibleJoinNodes.stream().anyMatch(result -> result.getCost().hasUnknownComponents()) || possibleJoinNodes.isEmpty()) {
-            return getSizeBasedJoin(joinNode, context);
+            return getSizeBasedJoin(joinNode, flippedJoin, context);
         }
 
         // Using Ordering to facilitate rule determinism
@@ -111,7 +114,7 @@ public class DetermineJoinDistributionType
         return planNodeOrderings.min(possibleJoinNodes).getPlanNode();
     }
 
-    private JoinNode getSizeBasedJoin(JoinNode joinNode, Context context)
+    private JoinNode getSizeBasedJoin(JoinNode joinNode, Optional<JoinNode> flippedJoin, Context context)
     {
         DataSize joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
 
@@ -122,10 +125,9 @@ public class DetermineJoinDistributionType
         }
 
         boolean isLeftSideSmall = getSourceTablesSizeInBytes(joinNode.getLeft(), context.getLookup(), context.getStatsProvider()) <= joinMaxBroadcastTableSize.toBytes();
-        JoinNode flippedJoin = joinNode.flipChildren();
-        if (isLeftSideSmall && !mustPartition(flippedJoin)) {
+        if (flippedJoin.isPresent() && isLeftSideSmall && !mustPartition(flippedJoin.get())) {
             // choose join left side with small source tables as replicated build side
-            return flippedJoin.withDistributionType(REPLICATED);
+            return flippedJoin.get().withDistributionType(REPLICATED);
         }
 
         if (isRightSideSmall) {
@@ -133,9 +135,9 @@ public class DetermineJoinDistributionType
             return joinNode.withDistributionType(PARTITIONED);
         }
 
-        if (isLeftSideSmall) {
+        if (flippedJoin.isPresent() && isLeftSideSmall) {
             // left side is small enough, but must be partitioned
-            return flippedJoin.withDistributionType(PARTITIONED);
+            return flippedJoin.get().withDistributionType(PARTITIONED);
         }
 
         // Flip join sides if one side is smaller than the other by more than SIZE_DIFFERENCE_THRESHOLD times.
@@ -150,8 +152,8 @@ public class DetermineJoinDistributionType
             return joinNode.withDistributionType(PARTITIONED);
         }
 
-        if (leftOutputSizeInBytes * SIZE_DIFFERENCE_THRESHOLD < rightOutputSizeInBytes && !mustReplicate(flippedJoin, context)) {
-            return flippedJoin.withDistributionType(PARTITIONED);
+        if (flippedJoin.isPresent() && leftOutputSizeInBytes * SIZE_DIFFERENCE_THRESHOLD < rightOutputSizeInBytes && !mustReplicate(flippedJoin.get(), context)) {
+            return flippedJoin.get().withDistributionType(PARTITIONED);
         }
 
         // neither side is small enough, choose syntactic join order
@@ -186,7 +188,7 @@ public class DetermineJoinDistributionType
     {
         JoinType type = joinNode.getType();
         // With REPLICATED, the unmatched rows from right-side would be duplicated.
-        return type == RIGHT || type == FULL;
+        return type == RIGHT || type == FULL || type == JoinType.ASOF || type == JoinType.ASOF_LEFT;
     }
 
     private static boolean mustReplicate(JoinNode joinNode, Context context)

@@ -130,11 +130,13 @@ import io.trino.sql.tree.AllRows;
 import io.trino.sql.tree.Analyze;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.AutoGroupBy;
+import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
+import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Corresponding;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
@@ -415,7 +417,13 @@ import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.tree.DereferenceExpression.getQualifiedName;
+import static io.trino.sql.tree.Join.Type.ASOF;
+import static io.trino.sql.tree.Join.Type.ASOF_LEFT;
 import static io.trino.sql.tree.Join.Type.FULL;
 import static io.trino.sql.tree.Join.Type.INNER;
 import static io.trino.sql.tree.Join.Type.LEFT;
@@ -423,6 +431,7 @@ import static io.trino.sql.tree.Join.Type.RIGHT;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
 import static io.trino.sql.tree.SaveMode.IGNORE;
 import static io.trino.sql.tree.SaveMode.REPLACE;
+import static io.trino.sql.util.AstUtils.extractConjuncts;
 import static io.trino.sql.util.AstUtils.preOrder;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.MoreLists.mappedCopy;
@@ -3417,6 +3426,13 @@ class StatementAnalyzer
             Scope left = process(node.getLeft(), scope);
             Scope right = process(node.getRight(), isLateralRelation(node.getRight()) ? Optional.of(left) : scope);
 
+            // ASOF joins: disallow UNNEST on either side (not supported at analyzer stage)
+            if (node.getType() == ASOF || node.getType() == ASOF_LEFT) {
+                if (isUnnestRelation(node.getLeft()) || isUnnestRelation(node.getRight())) {
+                    throw semanticException(NOT_SUPPORTED, node, "ASOF JOIN involving UNNEST is not supported");
+                }
+            }
+
             if (isLateralRelation(node.getRight())) {
                 if (node.getType() == RIGHT || node.getType() == FULL) {
                     Stream<Expression> leftScopeReferences = getReferencesToScope(node.getRight(), analysis, left);
@@ -3457,6 +3473,9 @@ class StatementAnalyzer
             }
 
             if (criteria instanceof JoinUsing joinUsing) {
+                if (node.getType() == ASOF || node.getType() == ASOF_LEFT) {
+                    throw semanticException(NOT_SUPPORTED, node, "ASOF JOIN with USING clause is not supported");
+                }
                 return analyzeJoinUsing(node, joinUsing.getColumns(), scope, left, right);
             }
 
@@ -3483,12 +3502,91 @@ class StatementAnalyzer
 
                 analysis.recordSubqueries(node, expressionAnalysis);
                 analysis.setJoinCriteria(node, expression);
+
+                // For ASOF joins, enforce exactly one inequality predicate (<, <=, >, >=) that references both sides
+                if (node.getType() == ASOF || node.getType() == ASOF_LEFT) {
+                    if (countAsofInequalities(expression, left, right) != 1) {
+                        throw semanticException(INVALID_ARGUMENTS, expression, "ASOF JOIN requires exactly one inequality predicate in ON clause");
+                    }
+                    // Validate that no single side of an inequality mixes references from both left and right scopes.
+                    validateAsofInequalityScopes(expression, left, right);
+                }
             }
             else {
                 throw new UnsupportedOperationException("Unsupported join criteria: " + criteria.getClass().getName());
             }
 
             return output;
+        }
+
+        private int countAsofInequalities(Expression expression, Scope leftScope, Scope rightScope)
+        {
+            return (int) extractConjuncts(expression).stream()
+                    .flatMap(this::betweenToInequalities)
+                    .filter(conjunct -> isAsofInequalityCandidate(conjunct, leftScope, rightScope))
+                    .count();
+        }
+
+        private void validateAsofInequalityScopes(Expression expression, Scope leftScope, Scope rightScope)
+        {
+            extractConjuncts(expression).stream()
+                    .flatMap(this::betweenToInequalities)
+                    .filter(conjunct -> isAsofInequalityCandidate(conjunct, leftScope, rightScope))
+                    .map(ComparisonExpression.class::cast)
+                    .forEach(comparison -> validateNoMixedScope(comparison.getLeft(), comparison.getRight(), leftScope, rightScope));
+        }
+
+        private Stream<Expression> betweenToInequalities(Expression expression)
+        {
+            if (expression instanceof BetweenPredicate between) {
+                return Stream.of(
+                        new ComparisonExpression(expression.getLocation().orElseThrow(), GREATER_THAN_OR_EQUAL, between.getValue(), between.getMin()),
+                        new ComparisonExpression(expression.getLocation().orElseThrow(), LESS_THAN_OR_EQUAL, between.getValue(), between.getMax()));
+            }
+            return Stream.of(expression);
+        }
+
+        private void validateNoMixedScope(Expression left, Expression right, Scope leftScope, Scope rightScope)
+        {
+            // Determine scope usage using qualified name dependencies and relation type resolution
+            Set<QualifiedName> leftDependencies = NamesExtractor.extractNames(left, analysis.getColumnReferences());
+            boolean leftSideReferencesLeft = hasReferences(leftDependencies, leftScope);
+            boolean leftSideReferencesRight = hasReferences(leftDependencies, rightScope);
+
+            Set<QualifiedName> rightDependencies = NamesExtractor.extractNames(right, analysis.getColumnReferences());
+            boolean rightSideReferencesLeft = hasReferences(rightDependencies, leftScope);
+            boolean rightSideReferencesRight = hasReferences(rightDependencies, rightScope);
+
+            if (leftSideReferencesLeft && leftSideReferencesRight) {
+                throw semanticException(INVALID_ARGUMENTS, left, "ASOF inequality side mixes left and right references");
+            }
+            if (rightSideReferencesLeft && rightSideReferencesRight) {
+                throw semanticException(INVALID_ARGUMENTS, right, "ASOF inequality side mixes left and right references");
+            }
+        }
+
+        private boolean isAsofInequalityCandidate(Expression expression, Scope leftScope, Scope rightScope)
+        {
+            if (!(expression instanceof ComparisonExpression comparison)) {
+                return false;
+            }
+
+            if (comparison.getOperator() != LESS_THAN &&
+                    comparison.getOperator() != LESS_THAN_OR_EQUAL &&
+                    comparison.getOperator() != GREATER_THAN &&
+                    comparison.getOperator() != GREATER_THAN_OR_EQUAL) {
+                return false;
+            }
+
+            Set<QualifiedName> dependencies = NamesExtractor.extractNames(expression, analysis.getColumnReferences());
+            boolean hasLeftSideReferences = hasReferences(dependencies, leftScope);
+            boolean hasRightSideReferences = hasReferences(dependencies, rightScope);
+            return hasLeftSideReferences && hasRightSideReferences;
+        }
+
+        private boolean hasReferences(Set<QualifiedName> dependencies, Scope scope)
+        {
+            return dependencies.stream().anyMatch(scope.getRelationType()::canResolve);
         }
 
         @Override

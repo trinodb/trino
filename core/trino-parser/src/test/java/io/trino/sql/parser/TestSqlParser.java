@@ -4865,6 +4865,20 @@ public class TestSqlParser
     }
 
     @Test
+    public void testAsofJoinParsing()
+    {
+        Query asofJoinQuery = (Query) SQL_PARSER.createStatement("SELECT * FROM a ASOF JOIN b ON a.k = b.k AND b.t <= a.t");
+        QuerySpecification asofSpecification = (QuerySpecification) asofJoinQuery.getQueryBody();
+        Join asofJoin = (Join) asofSpecification.getFrom().orElseThrow();
+        assertThat(asofJoin.getType()).isEqualTo(Join.Type.ASOF);
+
+        Query asofLeftJoinQuery = (Query) SQL_PARSER.createStatement("SELECT * FROM a ASOF LEFT JOIN b ON b.t <= a.t");
+        QuerySpecification asofLeftSpecification = (QuerySpecification) asofLeftJoinQuery.getQueryBody();
+        Join asofLeftJoin = (Join) asofLeftSpecification.getFrom().orElseThrow();
+        assertThat(asofLeftJoin.getType()).isEqualTo(Join.Type.ASOF_LEFT);
+    }
+
+    @Test
     public void testUnnest()
     {
         assertStatement("SELECT * FROM t CROSS JOIN UNNEST(a)",

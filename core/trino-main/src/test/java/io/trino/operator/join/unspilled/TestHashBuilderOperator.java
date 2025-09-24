@@ -110,6 +110,7 @@ public class TestHashBuilderOperator
                 ImmutableList.of(1),
                 Optional.empty(),
                 Optional.empty(),
+                false,
                 ImmutableList.of(),
                 10_000,
                 new PagesIndex.TestingFactory(false),

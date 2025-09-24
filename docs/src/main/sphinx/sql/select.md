@@ -52,6 +52,7 @@ and `join_type` is one of
 LEFT [ OUTER ] JOIN
 RIGHT [ OUTER ] JOIN
 FULL [ OUTER ] JOIN
+ASOF [ LEFT ] JOIN
 CROSS JOIN
 ```
 
@@ -1401,6 +1402,61 @@ For more information, see [`JSON_TABLE`](json-table).
 ## Joins
 
 Joins allow you to combine data from multiple relations.
+
+### ASOF JOIN
+
+An ASOF join matches each row on the left side to the "closest" row on the right side according to an inequality predicate comparing an expression from the right relation to an expression from the left relation. It is commonly used for time or sequence based nearest-neighbor lookups.
+
+Syntax:
+
+```
+SELECT ...
+FROM left_relation
+ASOF [ LEFT ] JOIN right_relation
+  ON <equality_conjuncts> AND <inequality_conjunct>
+```
+
+Rules and behavior:
+
+- Inequality: Exactly one inequality predicate is required that compares an expression from the right relation to an expression from the left relation using one of `<`, `<=`, `>` or `>=`.
+- Equality: Any number of equality conjuncts (e.g., `left.k = right.k`) can appear in the `ON` clause.
+- Closest match: The engine picks the nearest matching right-side row allowed by the direction of the inequality and any additional predicates in the `ON` clause.
+- `ASOF LEFT`: Preserves all left rows, returning `NULL`s for right columns when there is no match.
+
+Examples:
+
+Latest quote at trade time:
+
+```
+WITH
+  trades(ts, sym) AS (VALUES (TIMESTAMP '2024-01-01 09:30:05', 'ABC'),
+                             (TIMESTAMP '2024-01-01 09:30:07', 'ABC')),
+  quotes(ts, sym, price) AS (VALUES (TIMESTAMP '2024-01-01 09:30:00', 'ABC', 100.0),
+                                    (TIMESTAMP '2024-01-01 09:30:06', 'ABC', 101.5))
+SELECT trades.ts, quotes.price
+FROM trades ASOF JOIN quotes
+  ON trades.sym = quotes.sym AND quotes.ts <= trades.ts
+ORDER BY 1;
+-- 2024-01-01 09:30:05  100.0
+-- 2024-01-01 09:30:07  101.5
+```
+
+ASOF LEFT with missing match:
+
+```
+WITH
+  readings(read_time) AS (
+    VALUES (TIMESTAMP '2024-01-01 10:00:00'),
+           (TIMESTAMP '2024-01-01 10:05:00')),
+  calibrations(effective_time, factor) AS (
+    VALUES (TIMESTAMP '2024-01-01 10:01:00', 1.02))
+SELECT readings.read_time, calibrations.factor
+FROM readings ASOF LEFT JOIN calibrations
+  ON calibrations.effective_time >= readings.read_time
+ORDER BY 1;
+-- 2024-01-01 10:00:00  1.02
+-- 2024-01-01 10:05:00  NULL
+```
 
 ### CROSS JOIN
 
