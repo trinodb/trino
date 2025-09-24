@@ -71,6 +71,7 @@ public abstract class BaseClickHouseTypeMapping
     private static final ZoneId VILNIUS = ZoneId.of("Europe/Vilnius");
     // minutes offset change since 1932-04-01, no DST
     private static final ZoneId KATHMANDU = ZoneId.of("Asia/Kathmandu");
+    private static final Function<ZoneId, String> DATETIME_TYPE_FACTORY = "DateTime('%s')"::formatted;
 
     protected TestingClickHouseServer clickhouseServer;
 
@@ -1031,7 +1032,7 @@ public abstract class BaseClickHouseTypeMapping
                     .addRoundTrip("DateTime('Asia/Kathmandu')", "timestamp '2024-01-01 12:34:56 -01:00'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2024-01-01 19:19:56 +05:45'")
                     .execute(getQueryRunner(), session, clickhouseCreateAndTrinoInsert("tpch.test_timestamp_with_time_zone"));
 
-            dateTimeWithTimeZoneTest(clickhouseDateTimeInputTypeFactory("datetime"))
+            dateTimeWithTimeZoneTest(DATETIME_TYPE_FACTORY)
                     .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.datetime_tz"));
         }
     }
@@ -1195,10 +1196,5 @@ public abstract class BaseClickHouseTypeMapping
     protected SqlExecutor onRemoteDatabase()
     {
         return clickhouseServer::execute;
-    }
-
-    private static Function<ZoneId, String> clickhouseDateTimeInputTypeFactory(String inputTypePrefix)
-    {
-        return zone -> format("%s('%s')", inputTypePrefix, zone);
     }
 }
