@@ -99,6 +99,8 @@ public class JoinDomainBuilder
 
     private long retainedSizeInBytes = INSTANCE_SIZE;
 
+    private boolean nullsAllowed;
+
     public JoinDomainBuilder(
             Type type,
             int maxDistinctValues,
@@ -160,6 +162,9 @@ public class JoinDomainBuilder
 
     public void add(Block block)
     {
+        if (block.hasNull()) {
+            nullsAllowed = true;
+        }
         if (collectDistinctValues) {
             switch (block) {
                 case ValueBlock valueBlock -> {
@@ -290,8 +295,7 @@ public class JoinDomainBuilder
                     }
                 }
             }
-            // Inner and right join doesn't match rows with null key column values.
-            return Domain.create(ValueSet.copyOf(type, values.build()), false);
+            return Domain.create(ValueSet.copyOf(type, values.build()), nullsAllowed);
         }
         if (collectMinMax) {
             if (minValue == null) {
@@ -307,7 +311,6 @@ public class JoinDomainBuilder
 
     private void add(ValueBlock block, int position)
     {
-        // Inner and right join doesn't match rows with null key column values.
         if (block.isNull(position)) {
             return;
         }
