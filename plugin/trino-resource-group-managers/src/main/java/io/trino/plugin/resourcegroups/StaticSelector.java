@@ -20,6 +20,7 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -51,7 +52,7 @@ public class StaticSelector
             Optional<Pattern> originalUserRegex,
             Optional<Pattern> authenticatedUserRegex,
             Optional<Pattern> sourceRegex,
-            Optional<List<String>> clientTags,
+            Optional<List<Pattern>> clientTags,
             Optional<SelectorResourceEstimate> selectorResourceEstimate,
             Optional<String> queryType,
             ResourceGroupIdTemplate group)
@@ -89,9 +90,13 @@ public class StaticSelector
                 .add(queryType.map(queryTypeValue ->
                             new BasicMatcher(criteria -> queryTypeValue.equalsIgnoreCase(criteria.getQueryType().orElse("")))))
                 .add(selectorResourceEstimate.map(selectorResourceEstimateValue ->
-                            new BasicMatcher(criteria -> selectorResourceEstimateValue.match(criteria.getResourceEstimates()))))
-                .add(clientTags.map(clientTagsValue ->
-                            new BasicMatcher(criteria -> criteria.getTags().containsAll(clientTagsValue))))
+                    new BasicMatcher(criteria -> selectorResourceEstimateValue.match(criteria.getResourceEstimates()))))
+                .add(clientTags.map(tags -> {
+                    for (Pattern tag : tags) {
+                        addNamedGroups(tag, variableNames);
+                    }
+                    return new PatternMatcher(variableNames, tags, SelectionCriteria::getTags);
+                }))
                 .build()
                 .stream()
                 .flatMap(Optional::stream) // remove any empty optionals
@@ -154,29 +159,40 @@ public class StaticSelector
         }
     }
 
-    private record PatternMatcher(Set<String> variableNames, Pattern pattern,
-                                  Function<SelectionCriteria, String> valueExtractor)
+    private record PatternMatcher(Set<String> variableNames, Collection<Pattern> patterns,
+                                      Function<SelectionCriteria, Collection<String>> valuesExtractor)
             implements SelectionMatcher
     {
+        public PatternMatcher(Set<String> variableNames, Pattern pattern,
+                                  Function<SelectionCriteria, String> valuesExtractor)
+        {
+            this(variableNames, ImmutableList.of(pattern), valuesExtractor.andThen(ImmutableList::of));
+        }
+
         @Override
         public boolean matches(SelectionCriteria criteria)
         {
-            return pattern.matcher(valueExtractor.apply(criteria)).matches();
+            return patterns.stream().allMatch(pattern ->
+                    valuesExtractor.apply(criteria).stream().anyMatch(v -> pattern.matcher(v).matches()));
         }
 
         @Override
         public void populateVariables(SelectionCriteria criteria, Map<String, String> variables)
         {
-            Matcher matcher = pattern.matcher(valueExtractor.apply(criteria));
-            if (!matcher.matches()) {
-                return;
-            }
-            Map<String, Integer> namedGroups = matcher.namedGroups();
-            for (String key : variableNames) {
-                if (namedGroups.containsKey(key)) {
-                    String value = matcher.group(namedGroups.get(key));
-                    if (value != null) {
-                        variables.put(key, value);
+            for (Pattern pattern : patterns) {
+                for (String tagValue : valuesExtractor.apply(criteria)) {
+                    Matcher matcher = pattern.matcher(tagValue);
+                    if (!matcher.matches()) {
+                        continue;
+                    }
+                    Map<String, Integer> namedGroups = matcher.namedGroups();
+                    for (String key : variableNames) {
+                        if (namedGroups.containsKey(key)) {
+                            String value = matcher.group(namedGroups.get(key));
+                            if (value != null) {
+                                variables.put(key, value);
+                            }
+                        }
                     }
                 }
             }
