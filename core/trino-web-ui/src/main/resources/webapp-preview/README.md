@@ -14,9 +14,8 @@ end users once all functionalities have been migrated.
 ## Building the Preview Web UI
 
 Preview Web UI is a potential new web interface featuring modernized tools
-and an updated look and feel. It is disabled by default and enabled only
-in the full development server by setting the `web-ui.preview.enabled=true`
-property.
+and an updated look and feel. It is enabled by default. To turn it off,
+set the `web-ui.preview.enabled=false` property.
 
 1. Run the `WebUiPreviewQueryRunner` class. This will start a minimalistic
    development server configured with the Preview UI.
