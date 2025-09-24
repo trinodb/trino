@@ -73,6 +73,10 @@ public abstract class BaseClickHouseTypeMapping
     private static final ZoneId KATHMANDU = ZoneId.of("Asia/Kathmandu");
     private static final Function<ZoneId, String> DATETIME_TYPE_FACTORY = "DateTime('%s')"::formatted;
 
+    // https://clickhouse.com/docs/sql-reference/data-types/datetime
+    private static final String MIN_SUPPORTED_DATETIME_VALUE = "1970-01-01 00:00:00";
+    private static final String MAX_SUPPORTED_DATETIME_VALUE = "2106-02-07 06:28:15";
+
     protected TestingClickHouseServer clickhouseServer;
 
     @BeforeAll
@@ -967,8 +971,8 @@ public abstract class BaseClickHouseTypeMapping
     @Test
     public void testClickHouseDateTimeMinMaxValues()
     {
-        testClickHouseDateTimeMinMaxValues("1970-01-01 00:00:00"); // min value in ClickHouse
-        testClickHouseDateTimeMinMaxValues("2106-02-07 06:28:15"); // max value in ClickHouse
+        testClickHouseDateTimeMinMaxValues(MIN_SUPPORTED_DATETIME_VALUE); // min value in ClickHouse
+        testClickHouseDateTimeMinMaxValues(MAX_SUPPORTED_DATETIME_VALUE); // max value in ClickHouse
     }
 
     private void testClickHouseDateTimeMinMaxValues(String timestamp)
@@ -997,24 +1001,42 @@ public abstract class BaseClickHouseTypeMapping
     @Test
     public void testUnsupportedTimestamp()
     {
-        testUnsupportedTimestamp("1969-12-31 23:59:59"); // min - 1 second
-        testUnsupportedTimestamp("2106-02-07 06:28:16"); // max + 1 second
+        testUnsupportedTimestamp("1969-12-31 23:59:59"); // MIN_SUPPORTED_DATETIME_VALUE - 1 second
+        testUnsupportedTimestamp("2106-02-07 06:28:16"); // MAX_SUPPORTED_DATETIME_VALUE + 1 second
     }
 
     public void testUnsupportedTimestamp(String unsupportedTimestamp)
     {
-        String minSupportedTimestamp = "1970-01-01 00:00:00";
-        String maxSupportedTimestamp = "2106-02-07 06:28:15";
-
         try (TestTable table = newTrinoTable("test_unsupported_timestamp", "(dt timestamp(0))")) {
             assertQueryFails(
                     format("INSERT INTO %s VALUES (TIMESTAMP '%s')", table.getName(), unsupportedTimestamp),
-                    format("Timestamp must be between %s and %s in ClickHouse: %s", minSupportedTimestamp, maxSupportedTimestamp, unsupportedTimestamp));
+                    format("Timestamp must be between %s and %s in ClickHouse: %s", MIN_SUPPORTED_DATETIME_VALUE, MAX_SUPPORTED_DATETIME_VALUE, unsupportedTimestamp));
         }
 
         try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.test_unsupported_timestamp", "(dt datetime) ENGINE=Log")) {
             onRemoteDatabase().execute(format("INSERT INTO %s VALUES ('%s')", table.getName(), unsupportedTimestamp));
             assertQuery(format("SELECT dt <> TIMESTAMP '%s' FROM %s", unsupportedTimestamp, table.getName()), "SELECT true"); // Inserting an unsupported datetime in ClickHouse will turn it into another datetime
+        }
+    }
+
+    @Test
+    void testUnsupportedDateTimeWithTimeZone()
+    {
+        for (ZoneId zoneId : timezones()) {
+            String inputType = DATETIME_TYPE_FACTORY.apply(zoneId);
+            testUnsupportedDateTimeWithTimeZone(inputType, "1969-12-31 23:59:59 UTC", "1969-12-31 23:59:59"); // MIN_SUPPORTED_DATETIME_VALUE - 1 second
+            testUnsupportedDateTimeWithTimeZone(inputType, "2106-02-07 06:28:16 UTC", "2106-02-07 06:28:16"); // MAX_SUPPORTED_DATETIME_VALUE + 1 second
+            testUnsupportedDateTimeWithTimeZone(inputType, "1970-01-01 00:00:00 Asia/Kathmandu", "1969-12-31 18:30:00");
+            testUnsupportedDateTimeWithTimeZone(inputType, "1970-01-01 00:13:42 Asia/Kathmandu", "1969-12-31 18:43:42");
+        }
+    }
+
+    private void testUnsupportedDateTimeWithTimeZone(String inputType, String unsupportedTimestampWithTz, String unsupportedTimestampUtc)
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.test_unsupported_timestamp_with_tz", "(dt %s) ENGINE=Log".formatted(inputType))) {
+            assertQueryFails(
+                    "INSERT INTO %s VALUES (TIMESTAMP '%s')".formatted(table.getName(), unsupportedTimestampWithTz),
+                    "Timestamp must be between %s and %s in ClickHouse: %s".formatted(MIN_SUPPORTED_DATETIME_VALUE, MAX_SUPPORTED_DATETIME_VALUE, unsupportedTimestampUtc));
         }
     }
 
@@ -1047,6 +1069,9 @@ public abstract class BaseClickHouseTypeMapping
                 // epoch
                 .addRoundTrip(inputTypeFactory.apply(UTC), "0", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '1970-01-01 00:00:00 Z'")
                 .addRoundTrip(inputTypeFactory.apply(UTC), "'1970-01-01 00:00:00'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '1970-01-01 00:00:00 Z'")
+                // DateTime supports the range [1970-01-01 00:00:00, 2106-02-07 06:28:15]
+                // Values outside this range gets stored incorrectly in ClickHouse.
+                // For example, 1970-01-01 00:00:00 in Asia/Kathmandu could be stored as 1970-01-01 05:30:00
                 .addRoundTrip(inputTypeFactory.apply(KATHMANDU), "'1970-01-01 00:00:00'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '1970-01-01 05:30:00 +05:30'")
 
                 // after epoch
@@ -1067,9 +1092,6 @@ public abstract class BaseClickHouseTypeMapping
 
                 // time gap in JVM zone
                 .addRoundTrip(inputTypeFactory.apply(UTC), "'1970-01-01 00:13:42'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '1970-01-01 00:13:42 Z'")
-                // TODO: Check the range of DateTime(timezone) values written from Trino to ClickHouse to prevent ClickHouse from storing incorrect results.
-                //       e.g. 1970-01-01 00:13:42 will become 1970-01-01 05:30:00
-                // .addRoundTrip(inputTypeFactory.apply(kathmandu), "'1970-01-01 00:13:42'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '1970-01-01 00:13:42 +05:30'")
                 .addRoundTrip(inputTypeFactory.apply(UTC), "'2018-04-01 02:13:55'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2018-04-01 02:13:55 Z'")
                 .addRoundTrip(inputTypeFactory.apply(KATHMANDU), "'2018-04-01 02:13:55'", TIMESTAMP_TZ_SECONDS, "TIMESTAMP '2018-04-01 02:13:55 +05:45'")
 
