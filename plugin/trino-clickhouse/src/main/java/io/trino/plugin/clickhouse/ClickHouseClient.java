@@ -636,6 +636,7 @@ public class ClickHouseClient
             return mapping;
         }
 
+        ClickHouseVersion version = getClickHouseServerVersion(session);
         ClickHouseColumn column = ClickHouseColumn.of("", jdbcTypeName);
         ClickHouseDataType columnDataType = column.getDataType();
         switch (columnDataType) {
@@ -724,7 +725,7 @@ public class ClickHouseClient
                         DISABLE_PUSHDOWN));
 
             case Types.DATE:
-                return Optional.of(dateColumnMappingUsingLocalDate(getClickHouseServerVersion(session)));
+                return Optional.of(dateColumnMappingUsingLocalDate(version));
 
             case Types.TIMESTAMP:
                 if (columnDataType == ClickHouseDataType.DateTime) {
@@ -733,7 +734,7 @@ public class ClickHouseClient
                     return Optional.of(ColumnMapping.longMapping(
                             TIMESTAMP_SECONDS,
                             timestampReadFunction(TIMESTAMP_SECONDS),
-                            timestampSecondsWriteFunction(getClickHouseServerVersion(session))));
+                            timestampSecondsWriteFunction(version)));
                 }
                 // TODO (https://github.com/trinodb/trino/issues/10537) Add support for Datetime64 type
                 return Optional.of(timestampColumnMapping(TIMESTAMP_MILLIS));
@@ -745,7 +746,7 @@ public class ClickHouseClient
                     return Optional.of(ColumnMapping.longMapping(
                             TIMESTAMP_TZ_SECONDS,
                             shortTimestampWithTimeZoneReadFunction(),
-                            shortTimestampWithTimeZoneWriteFunction(column.getTimeZone())));
+                            shortTimestampWithTimeZoneWriteFunction(version, column.getTimeZone())));
                 }
         }
 
@@ -926,12 +927,15 @@ public class ClickHouseClient
         };
     }
 
-    private static LongWriteFunction shortTimestampWithTimeZoneWriteFunction(TimeZone columnTimeZone)
+    private static LongWriteFunction shortTimestampWithTimeZoneWriteFunction(ClickHouseVersion version, TimeZone columnTimeZone)
     {
         return (statement, index, value) -> {
             long millisUtc = unpackMillisUtc(value);
             // Clickhouse JDBC driver inserts datetime as string value as yyyy-MM-dd HH:mm:ss and zone from the Column metadata would be used.
-            statement.setObject(index, Instant.ofEpochMilli(millisUtc).atZone(columnTimeZone.toZoneId()));
+            Instant instant = Instant.ofEpochMilli(millisUtc);
+            // ClickHouse stores incorrect results when the values are out of supported range.
+            DATETIME.validate(version, instant.atZone(UTC).toLocalDateTime());
+            statement.setObject(index, instant.atZone(columnTimeZone.toZoneId()));
         };
     }
 
