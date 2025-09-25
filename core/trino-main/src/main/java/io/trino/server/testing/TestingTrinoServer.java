@@ -352,7 +352,7 @@ public class TestingTrinoServer
 
         modules.add(additionalModule);
 
-        Bootstrap app = new Bootstrap(modules.build());
+        Bootstrap app = new Bootstrap("io.trino.bootstrap.engine", modules.build());
 
         Map<String, String> optionalProperties = new HashMap<>();
         environment.ifPresent(env -> optionalProperties.put("node.environment", env));

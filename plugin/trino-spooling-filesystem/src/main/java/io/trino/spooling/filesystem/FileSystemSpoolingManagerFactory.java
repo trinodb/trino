@@ -41,6 +41,7 @@ public class FileSystemSpoolingManagerFactory
     {
         requireNonNull(config, "requiredConfig is null");
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.spooling." + getName(),
                 new FileSystemSpoolingModule(context.isCoordinator()),
                 new MBeanModule(),
                 new MBeanServerModule(),

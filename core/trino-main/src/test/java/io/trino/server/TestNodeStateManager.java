@@ -286,7 +286,7 @@ class TestNodeStateManager
                 taskInfoSupplier,
                 serverConfig,
                 shutdownAction,
-                new LifeCycleManager(Collections.emptyList(), null),
+                new LifeCycleManager("node-state-manager", Collections.emptyList(), null),
                 executor);
     }
 

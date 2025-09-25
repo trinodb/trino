@@ -51,6 +51,7 @@ public class BigQueryConnectorFactory
         checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.catalog." + catalogName,
                 new JsonModule(),
                 new BigQueryConnectorModule(),
                 new MBeanServerModule(),
