@@ -89,7 +89,7 @@ public interface ResourceGroupsDao
             "  environment VARCHAR(128),\n" +
             "  source VARCHAR(512) NOT NULL,\n" +
             "  query_type VARCHAR(512),\n" +
-            "  update_time DATETIME NOT NULL,\n" +
+            "  update_time TIMESTAMP NOT NULL,\n" +
             "  resource_group_id VARCHAR(256) NOT NULL,\n" +
             "  PRIMARY KEY (environment, source, query_type),\n" +
             "  UNIQUE (source, environment, query_type, resource_group_id)\n" +
