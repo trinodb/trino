@@ -129,6 +129,7 @@ public class TestDropTableTask
 
     private ListenableFuture<Void> executeDropTable(QualifiedName tableName, boolean exists)
     {
-        return new DropTableTask(metadata, new AllowAllAccessControl()).execute(new DropTable(new NodeLocation(1, 1), tableName, exists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
+        return new DropTableTask(metadata, new AllowAllAccessControl())
+                .execute(new DropTable(new NodeLocation(1, 1), tableName, exists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }

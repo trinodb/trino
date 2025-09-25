@@ -426,15 +426,32 @@ public class TrinoHiveCatalog
                 schemaTableName.getTableName(),
                 false /* do not delete data */);
         try {
+            // Check for interruption before starting the potentially long-running operation
+            if (Thread.currentThread().isInterrupted()) {
+                throw new InterruptedException("Drop table operation was cancelled");
+            }
             // Use the Iceberg routine for dropping the table data because the data files
             // of the Iceberg table may be located in different locations
             dropTableData(table.io(), metadata);
+        }
+        catch (InterruptedException e) {
+            // Restore interrupted status and exit gracefully
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Drop table operation was cancelled", e);
         }
         catch (RuntimeException e) {
             // If the snapshot file is not found, an exception will be thrown by the dropTableData function.
             // So log the exception and continue with deleting the table location
             log.warn(e, "Failed to delete table data referenced by metadata");
         }
+        
+        // Check for interruption before final cleanup
+        if (Thread.currentThread().isInterrupted()) {
+            log.info("Drop table operation was cancelled during cleanup for table: %s", schemaTableName);
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Drop table operation was cancelled during cleanup");
+        }
+        
         deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, metastoreTable.getStorage().getLocation());
         invalidateTableCache(schemaTableName);
     }

@@ -16,6 +16,8 @@ package io.trino.execution;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -37,6 +39,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -54,6 +57,10 @@ public class DataDefinitionExecution<T extends Statement>
     private final QueryStateMachine stateMachine;
     private final List<Expression> parameters;
     private final WarningCollector warningCollector;
+    private final ListeningExecutorService executor;
+
+    // Track the running future so it can be cancelled
+    private volatile ListenableFuture<Void> runningFuture;
 
     private DataDefinitionExecution(
             DataDefinitionTask<T> task,
@@ -61,7 +68,8 @@ public class DataDefinitionExecution<T extends Statement>
             Slug slug,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            ExecutorService executor)
     {
         this.task = requireNonNull(task, "task is null");
         this.statement = requireNonNull(statement, "statement is null");
@@ -69,6 +77,7 @@ public class DataDefinitionExecution<T extends Statement>
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.parameters = parameters;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.executor = MoreExecutors.listeningDecorator(requireNonNull(executor, "executor is null"));
         stateMachine.addStateChangeListener(state -> {
             if (state.isDone() && stateMachine.getFinalQueryInfo().isEmpty()) {
                 // make sure the final query info is set and listeners are triggered
@@ -149,8 +158,12 @@ public class DataDefinitionExecution<T extends Statement>
                 return;
             }
 
-            ListenableFuture<Void> future = task.execute(statement, stateMachine, parameters, warningCollector);
-            Futures.addCallback(future, new FutureCallback<>()
+            // Execute the DDL task asynchronously to make it cancellable
+            runningFuture = executor.submit(() -> {
+                ListenableFuture<Void> taskFuture = task.execute(statement, stateMachine, parameters, warningCollector);
+                return taskFuture.get();
+            });
+            Futures.addCallback(runningFuture, new FutureCallback<>()
             {
                 @Override
                 public void onSuccess(@Nullable Void result)
@@ -222,6 +235,11 @@ public class DataDefinitionExecution<T extends Statement>
     @Override
     public void cancelQuery()
     {
+        // Cancel the running future if it exists
+        ListenableFuture<Void> future = runningFuture;
+        if (future != null) {
+            future.cancel(true);
+        }
         stateMachine.transitionToCanceled();
     }
 
@@ -306,11 +324,15 @@ public class DataDefinitionExecution<T extends Statement>
             implements QueryExecutionFactory<DataDefinitionExecution<?>>
     {
         private final Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks;
+        private final ExecutorService executor;
 
         @Inject
-        public DataDefinitionExecutionFactory(Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks)
+        public DataDefinitionExecutionFactory(
+                Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks,
+                @ForQueryExecution ExecutorService executor)
         {
             this.tasks = requireNonNull(tasks, "tasks is null");
+            this.executor = requireNonNull(executor, "executor is null");
         }
 
         @Override
@@ -336,7 +358,7 @@ public class DataDefinitionExecution<T extends Statement>
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
             stateMachine.setUpdateType(task.getName());
-            return new DataDefinitionExecution<>(task, statement, slug, stateMachine, parameters, warningCollector);
+            return new DataDefinitionExecution<>(task, statement, slug, stateMachine, parameters, warningCollector, executor);
         }
     }
 }
