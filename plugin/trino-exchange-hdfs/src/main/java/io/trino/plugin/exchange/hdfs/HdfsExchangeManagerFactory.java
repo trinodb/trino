@@ -46,6 +46,7 @@ public class HdfsExchangeManagerFactory
         requireNonNull(config, "config is null");
 
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.exchange.hdfs",
                 new MBeanModule(),
                 new MBeanServerModule(),
                 new PrefixObjectNameGeneratorModule("io.trino.plugin.exchange.hdfs", "trino.plugin.exchange.hdfs"),

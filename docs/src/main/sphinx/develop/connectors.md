@@ -118,10 +118,10 @@ creating a new instance of the connector:
 
 ```java
 @Override
-public Connector create(String connectorName, Map<String, String> config, ConnectorContext context)
+public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
 {
     requireNonNull(config, "config is null");
-    Bootstrap app = new Bootstrap(new ExampleModule());
+    Bootstrap app = new Bootstrap("io.trino.bootstrap.catalog." + catalogName, new ExampleModule());
     Injector injector = app
             .doNotInitializeLogging()
             .setRequiredConfigurationProperties(config)

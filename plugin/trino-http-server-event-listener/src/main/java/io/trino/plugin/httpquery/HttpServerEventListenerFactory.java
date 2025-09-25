@@ -53,6 +53,7 @@ public class HttpServerEventListenerFactory
     HttpServerEventListener createInternal(Map<String, String> config, EventListenerContext context, boolean testing)
     {
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.listener." + getName(),
                 new JsonModule(),
                 new JaxrsModule(),
                 testing ? new TestingHttpServerModule() : new HttpServerModule(),

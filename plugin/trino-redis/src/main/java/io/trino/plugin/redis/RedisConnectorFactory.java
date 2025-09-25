@@ -55,6 +55,7 @@ public class RedisConnectorFactory
         checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.catalog." + catalogName,
                 new JsonModule(),
                 new TypeDeserializerModule(context.getTypeManager()),
                 new RedisConnectorModule(),

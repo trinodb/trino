@@ -56,6 +56,7 @@ public class KafkaConnectorFactory
         checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.catalog." + catalogName,
                 ImmutableList.<Module>builder()
                         .add(new CatalogNameModule(catalogName))
                         .add(new JsonModule())

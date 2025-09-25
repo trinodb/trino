@@ -47,6 +47,7 @@ public class JmxConnectorFactory
         checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.catalog." + catalogName,
                 new MBeanServerModule(),
                 binder -> {
                     configBinder(binder).bindConfig(JmxConnectorConfig.class);
