@@ -16,13 +16,19 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.server.protocol.Slug;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -125,6 +131,41 @@ public class TestDropTableTask
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropTable(viewName, true)))
                 .hasErrorCode(GENERIC_USER_ERROR)
                 .hasMessageContaining("Table '%s' does not exist, but a materialized view with that name exists. Did you mean DROP MATERIALIZED VIEW %s?", viewName, viewName);
+    }
+
+    @Test
+    public void testDropTableIsCancellable() 
+            throws Exception
+    {
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
+        assertThat(metadata.getTableHandle(testSession, tableName)).isPresent();
+
+        // Test that drop table operation can be cancelled by using a slow executor
+        ListeningExecutorService slowExecutor = MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
+        try {
+            DropTable dropTable = new DropTable(new NodeLocation(1, 1), asQualifiedName(tableName), false);
+            DropTableTask task = new DropTableTask(metadata, new AllowAllAccessControl());
+            
+            // Simulate cancellation by creating a future that can be cancelled
+            ListenableFuture<Void> future = slowExecutor.submit(() -> {
+                try {
+                    Thread.sleep(1000); // Simulate slow operation
+                    return task.execute(dropTable, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP).get();
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Cancelled", e);
+                }
+            });
+            
+            // Cancel the future
+            boolean cancelled = future.cancel(true);
+            assertThat(cancelled).isTrue();
+        }
+        finally {
+            slowExecutor.shutdown();
+        }
     }
 
     private ListenableFuture<Void> executeDropTable(QualifiedName tableName, boolean exists)

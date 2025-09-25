@@ -701,13 +701,30 @@ public class TrinoGlueCatalog
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         try {
+            // Check for interruption before starting the potentially long-running operation
+            if (Thread.currentThread().isInterrupted()) {
+                throw new InterruptedException("Drop table operation was cancelled");
+            }
             dropTableData(table.io(), table.operations().current());
+        }
+        catch (InterruptedException e) {
+            // Restore interrupted status and exit gracefully
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Drop table operation was cancelled", e);
         }
         catch (RuntimeException e) {
             // If the snapshot file is not found, an exception will be thrown by the dropTableData function.
             // So log the exception and continue with deleting the table location
             LOG.warn(e, "Failed to delete table data referenced by metadata");
         }
+        
+        // Check for interruption before final cleanup
+        if (Thread.currentThread().isInterrupted()) {
+            LOG.info("Drop table operation was cancelled during cleanup for table: %s", schemaTableName);
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Drop table operation was cancelled during cleanup");
+        }
+        
         deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, table.location());
         invalidateTableCache(schemaTableName);
     }
