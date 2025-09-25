@@ -161,8 +161,8 @@ public class EnvSinglenodeCompatibility
 
         public Config(Map<String, String> extraOptions)
         {
-            this.compatibilityTestVersion = parseInt(requireNonNull(extraOptions.get(TEST_DOCKER_VERSION), () -> format("Required extra option %s is null", TEST_DOCKER_VERSION)));
-            this.compatibilityTestDockerImage = requireNonNull(extraOptions.get(TEST_DOCKER_IMAGE), () -> format("Required extra option %s is null", TEST_DOCKER_IMAGE));
+            this.compatibilityTestVersion = parseInt(requireNonNull(extraOptions.get(TEST_DOCKER_VERSION), () -> format("Required extra option compatibility.%s is null", TEST_DOCKER_VERSION)));
+            this.compatibilityTestDockerImage = requireNonNull(extraOptions.get(TEST_DOCKER_IMAGE), () -> format("Required extra option compatibility.%s is null", TEST_DOCKER_IMAGE));
         }
 
         public int getCompatibilityTestVersion()
