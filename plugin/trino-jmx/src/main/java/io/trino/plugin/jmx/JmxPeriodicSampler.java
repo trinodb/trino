@@ -67,7 +67,7 @@ public class JmxPeriodicSampler
     @PostConstruct
     public void start()
     {
-        if (tableHandles.size() > 0) {
+        if (!tableHandles.isEmpty()) {
             lastDumpTimestamp = roundToPeriod(currentTimeMillis());
             schedule();
         }
