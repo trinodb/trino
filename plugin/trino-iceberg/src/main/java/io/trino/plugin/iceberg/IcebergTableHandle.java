@@ -73,6 +73,8 @@ public class IcebergTableHandle
     // ANALYZE only. Coordinator-only
     private final Optional<Boolean> forAnalyze;
 
+    private final boolean disableTableStatisticsCache;
+
     @JsonCreator
     @DoNotCall // For JSON deserialization only
     public static IcebergTableHandle fromJsonForDeserializationOnly(
@@ -110,7 +112,8 @@ public class IcebergTableHandle
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
-                Optional.empty());
+                Optional.empty(),
+                false);
     }
 
     public IcebergTableHandle(
@@ -132,7 +135,8 @@ public class IcebergTableHandle
             boolean recordScannedFiles,
             Optional<DataSize> maxScannedFileSize,
             Set<IcebergColumnHandle> constraintColumns,
-            Optional<Boolean> forAnalyze)
+            Optional<Boolean> forAnalyze,
+            boolean disableTableStatisticsCache)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -153,6 +157,7 @@ public class IcebergTableHandle
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
         this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
         this.forAnalyze = requireNonNull(forAnalyze, "forAnalyze is null");
+        this.disableTableStatisticsCache = disableTableStatisticsCache;
     }
 
     @JsonProperty
@@ -273,6 +278,12 @@ public class IcebergTableHandle
         return forAnalyze;
     }
 
+    @JsonIgnore
+    public boolean ifDisableTableStatisticsCache()
+    {
+        return disableTableStatisticsCache;
+    }
+
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -304,7 +315,8 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
-                forAnalyze);
+                forAnalyze,
+                disableTableStatisticsCache);
     }
 
     public IcebergTableHandle forAnalyze()
@@ -328,7 +340,8 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
-                Optional.of(true));
+                Optional.of(true),
+                disableTableStatisticsCache);
     }
 
     public IcebergTableHandle forOptimize(boolean recordScannedFiles, DataSize maxScannedFileSize)
@@ -352,7 +365,8 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 Optional.of(maxScannedFileSize),
                 constraintColumns,
-                forAnalyze);
+                forAnalyze,
+                true);
     }
 
     public IcebergTableHandle withTablePartitioning(Optional<IcebergTablePartitioning> requiredTablePartitioning)
@@ -376,7 +390,8 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
-                forAnalyze);
+                forAnalyze,
+                disableTableStatisticsCache);
     }
 
     @Override
@@ -391,6 +406,7 @@ public class IcebergTableHandle
 
         IcebergTableHandle that = (IcebergTableHandle) o;
         return recordScannedFiles == that.recordScannedFiles &&
+                disableTableStatisticsCache == that.disableTableStatisticsCache &&
                 Objects.equals(schemaName, that.schemaName) &&
                 Objects.equals(tableName, that.tableName) &&
                 tableType == that.tableType &&
@@ -431,7 +447,8 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
-                forAnalyze);
+                forAnalyze,
+                disableTableStatisticsCache);
     }
 
     @Override
