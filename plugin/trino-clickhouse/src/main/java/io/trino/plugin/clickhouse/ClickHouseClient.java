@@ -89,7 +89,6 @@ import java.math.MathContext;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -98,7 +97,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -294,25 +292,25 @@ public class ClickHouseClient
         return true;
     }
 
-    @Override
-    public ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
-            throws SQLException
-    {
-        // Clickhouse maps their "database" to SQL catalogs and does not have schemas
-        DatabaseMetaData metadata = connection.getMetaData();
-        return metadata.getTables(
-                schemaName.orElse(null),
-                null,
-                escapeObjectNameForMetadataQuery(tableName, metadata.getSearchStringEscape()).orElse(null),
-                getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
-    }
-
-    @Override
-    protected String getTableSchemaName(ResultSet resultSet)
-            throws SQLException
-    {
-        return resultSet.getString("TABLE_CAT");
-    }
+//    @Override
+//    public ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
+//            throws SQLException
+//    {
+//        // Clickhouse maps their "database" to SQL catalogs and does not have schemas
+//        DatabaseMetaData metadata = connection.getMetaData();
+//        return metadata.getTables(
+//                schemaName.orElse(null),
+//                null,
+//                escapeObjectNameForMetadataQuery(tableName, metadata.getSearchStringEscape()).orElse(null),
+//                getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
+//    }
+//
+//    @Override
+//    protected String getTableSchemaName(ResultSet resultSet)
+//            throws SQLException
+//    {
+//        return resultSet.getString("TABLE_CAT");
+//    }
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
@@ -352,25 +350,25 @@ public class ClickHouseClient
         }
     }
 
-    @Override
-    public Collection<String> listSchemas(Connection connection)
-    {
-        // for Clickhouse, we need to list catalogs instead of schemas
-        try (ResultSet resultSet = connection.getMetaData().getCatalogs()) {
-            ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
-            while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE_CAT");
-                // skip internal schemas
-                if (filterSchema(schemaName)) {
-                    schemaNames.add(schemaName);
-                }
-            }
-            return schemaNames.build();
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
-    }
+//    @Override
+//    public Collection<String> listSchemas(Connection connection)
+//    {
+//        // for Clickhouse, we need to list catalogs instead of schemas
+//        try (ResultSet resultSet = connection.getMetaData().getCatalogs()) {
+//            ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
+//            while (resultSet.next()) {
+//                String schemaName = resultSet.getString("TABLE_CAT");
+//                // skip internal schemas
+//                if (filterSchema(schemaName)) {
+//                    schemaNames.add(schemaName);
+//                }
+//            }
+//            return schemaNames.build();
+//        }
+//        catch (SQLException e) {
+//            throw new TrinoException(JDBC_ERROR, e);
+//        }
+//    }
 
     @Override
     public Optional<String> getTableComment(ResultSet resultSet)

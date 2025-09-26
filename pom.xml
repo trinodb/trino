@@ -381,8 +381,22 @@
             <dependency>
                 <groupId>com.clickhouse</groupId>
                 <artifactId>clickhouse-jdbc</artifactId>
-                <version>0.7.1-patch1</version>
+                <version>0.9.2</version>
                 <classifier>all</classifier>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>listenablefuture</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.roaringbitmap</groupId>
+                        <artifactId>RoaringBitmap</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.roaringbitmap</groupId>
+                        <artifactId>shims</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
