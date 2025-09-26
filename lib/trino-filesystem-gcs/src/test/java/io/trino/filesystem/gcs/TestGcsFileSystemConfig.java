@@ -46,7 +46,7 @@ public class TestGcsFileSystemConfig
                                 .setBatchSize(100)
                                 .setProjectId(null)
                                 .setEndpoint(Optional.empty())
-                                .setAuthType(null)
+                                .setAuthType(AuthType.DEFAULT)
                                 .setJsonKey(null)
                                 .setJsonKeyFilePath(null)
                                 .setMaxRetries(20)
@@ -56,7 +56,7 @@ public class TestGcsFileSystemConfig
                                 .setMaxBackoffDelay(new Duration(2000, MILLISECONDS))
                                 .setApplicationId("Trino")))
                 .isInstanceOf(AssertionError.class)
-                // use-access-token is not deprecated and isn't allowed to be set with auth-type
+                // use-access-token is now deprecated and isn't allowed to be set with auth-type
                 .hasMessage("Untested attributes: [UseGcsAccessToken]");
     }
 
@@ -134,23 +134,6 @@ public class TestGcsFileSystemConfig
     }
 
     @Test
-    void testSetUseGcsAccessTokenWithAuthType()
-    {
-        assertThatThrownBy(() -> new GcsFileSystemConfig().setAuthType(AuthType.ACCESS_TOKEN).setUseGcsAccessToken(true))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Cannot set both gcs.use-access-token and gcs.auth-type");
-        assertThatThrownBy(() -> new GcsFileSystemConfig().setAuthType(AuthType.DEFAULT).setUseGcsAccessToken(false))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Cannot set both gcs.use-access-token and gcs.auth-type");
-        assertThatThrownBy(() -> new GcsFileSystemConfig().setUseGcsAccessToken(true).setAuthType(AuthType.ACCESS_TOKEN))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Cannot set both gcs.use-access-token and gcs.auth-type");
-        assertThatThrownBy(() -> new GcsFileSystemConfig().setUseGcsAccessToken(true).setAuthType(AuthType.DEFAULT))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Cannot set both gcs.use-access-token and gcs.auth-type");
-    }
-
-    @Test
     public void testValidation()
     {
         assertFailsValidation(
@@ -184,6 +167,38 @@ public class TestGcsFileSystemConfig
                         .setMaxBackoffDelay(new Duration(19, MILLISECONDS)),
                 "retryDelayValid",
                 "gcs.client.min-backoff-delay must be less than or equal to gcs.client.max-backoff-delay",
+                AssertTrue.class);
+
+        assertFailsValidation(
+                new GcsFileSystemConfig()
+                        .setAuthType(AuthType.ACCESS_TOKEN)
+                        .setUseGcsAccessToken(true),
+                "authTypeAndUseGcsAccessTokenMutuallyExclusive",
+                "Cannot set both gcs.use-access-token and gcs.auth-type",
+                AssertTrue.class);
+
+        assertFailsValidation(
+                new GcsFileSystemConfig()
+                        .setAuthType(AuthType.ACCESS_TOKEN)
+                        .setUseGcsAccessToken(false),
+                "authTypeAndUseGcsAccessTokenMutuallyExclusive",
+                "Cannot set both gcs.use-access-token and gcs.auth-type",
+                AssertTrue.class);
+
+        assertFailsValidation(
+                new GcsFileSystemConfig()
+                        .setAuthType(AuthType.DEFAULT)
+                        .setUseGcsAccessToken(true),
+                "authTypeAndUseGcsAccessTokenMutuallyExclusive",
+                "Cannot set both gcs.use-access-token and gcs.auth-type",
+                AssertTrue.class);
+
+        assertFailsValidation(
+                new GcsFileSystemConfig()
+                        .setAuthType(AuthType.DEFAULT)
+                        .setUseGcsAccessToken(false),
+                "authTypeAndUseGcsAccessTokenMutuallyExclusive",
+                "Cannot set both gcs.use-access-token and gcs.auth-type",
                 AssertTrue.class);
     }
 }
