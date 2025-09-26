@@ -7930,5 +7930,8 @@ public class TestAnalyzer
                     stringProperty("p1", "test string property", "", false),
                     integerProperty("p2", "test integer property", 0, false));
         }
+
+        @Override
+        public void shutdown() {}
     }
 }

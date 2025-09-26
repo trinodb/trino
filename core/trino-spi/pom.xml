@@ -818,6 +818,20 @@
                                     <code>java.method.removed</code>
                                     <old>method io.trino.spi.block.Block io.trino.spi.block.RowBlock::getFieldBlock(int)</old>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.noLongerDefault</code>
+                                    <old>method void io.trino.spi.connector.Connector::shutdown()</old>
+                                    <new>method void io.trino.spi.connector.Connector::shutdown()</new>
+                                    <justification>Require connector to implement shutdown to prevent leaks</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.nowAbstract</code>
+                                    <old>method void io.trino.spi.connector.Connector::shutdown()</old>
+                                    <new>method void io.trino.spi.connector.Connector::shutdown()</new>
+                                    <justification>Require connector to implement shutdown to prevent leaks</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
