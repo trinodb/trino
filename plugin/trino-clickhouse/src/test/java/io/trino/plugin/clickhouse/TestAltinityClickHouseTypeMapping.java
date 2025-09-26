@@ -14,10 +14,8 @@
 package io.trino.plugin.clickhouse;
 
 import io.trino.testing.QueryRunner;
-import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.clickhouse.TestingClickHouseServer.ALTINITY_DEFAULT_IMAGE;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class TestAltinityClickHouseTypeMapping
         extends BaseClickHouseTypeMapping
@@ -28,13 +26,5 @@ final class TestAltinityClickHouseTypeMapping
     {
         clickhouseServer = closeAfterClass(new TestingClickHouseServer(ALTINITY_DEFAULT_IMAGE));
         return ClickHouseQueryRunner.builder(clickhouseServer).build();
-    }
-
-    @Override
-    @Test
-    public void testUnsupportedPoint()
-    {
-        assertThatThrownBy(super::testUnsupportedPoint)
-                .hasMessageContaining("Failed to execute statement: CREATE TABLE");
     }
 }
