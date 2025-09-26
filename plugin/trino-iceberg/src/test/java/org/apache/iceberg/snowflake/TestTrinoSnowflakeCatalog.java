@@ -61,6 +61,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
+import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestIcebergSnowflakeCatalogConnectorSmokeTest.S3_ACCESS_KEY;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestIcebergSnowflakeCatalogConnectorSmokeTest.S3_REGION;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestIcebergSnowflakeCatalogConnectorSmokeTest.S3_SECRET_KEY;
@@ -221,6 +222,7 @@ public class TestTrinoSnowflakeCatalog
                 (connectorIdentity, fileIOProperties) -> {
                     throw new UnsupportedOperationException();
                 },
+                TABLE_STATISTICS_READER,
                 new TableStatisticsWriter(new NodeVersion("test-version")),
                 Optional.empty(),
                 false,

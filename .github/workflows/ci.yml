@@ -57,8 +57,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { java-version: 24, cache: 'true', cleanup-node: true }
-          - { java-version: 25-ea, cache: 'restore', cleanup-node: true }
+          - { java-version: 25, cache: 'true', cleanup-node: true }
+          - { java-version: 26-ea, cache: 'restore', cleanup-node: true }
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
@@ -189,7 +189,7 @@ jobs:
         timeout-minutes: 10
         with:
           cache: restore
-          java-version: '24'
+          java-version: 25
       - name: Maven Install
         run: |
           # build everything to make sure dependencies of impacted modules are present
@@ -521,7 +521,7 @@ jobs:
         with:
           cache: restore
           cleanup-node: ${{ format('{0}', matrix.modules == 'plugin/trino-singlestore' || matrix.modules == 'plugin/trino-exasol') }}
-          java-version: ${{ matrix.jdk != '' && matrix.jdk || '24' }}
+          java-version: ${{ matrix.jdk != '' && matrix.jdk || '25' }}
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -883,6 +883,7 @@ jobs:
             - suite-delta-lake-databricks143
             - suite-delta-lake-databricks154
             - suite-delta-lake-databricks164
+            - suite-exasol
             - suite-ranger
             - suite-gcs
             - suite-clients

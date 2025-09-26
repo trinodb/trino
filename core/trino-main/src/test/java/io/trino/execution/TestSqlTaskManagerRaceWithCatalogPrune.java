@@ -28,6 +28,7 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.connector.CatalogConnector;
 import io.trino.connector.CatalogFactory;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogPruneTask;
 import io.trino.connector.CatalogPruneTaskConfig;
 import io.trino.connector.ConnectorServices;
@@ -46,7 +47,7 @@ import io.trino.metadata.LanguageFunctionEngineManager;
 import io.trino.metadata.WorkerLanguageFunctionProvider;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
-import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorName;
@@ -78,13 +79,13 @@ import java.util.function.DoubleSupplier;
 import java.util.function.Predicate;
 
 import static io.airlift.tracing.Tracing.noopTracer;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.execution.BaseTestSqlTaskManager.OUT;
 import static io.trino.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.trino.execution.TaskTestUtils.createTestingPlanner;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.metadata.CatalogManager.NO_CATALOGS;
-import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -119,13 +120,14 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
         @Override
         public CatalogConnector createCatalog(CatalogProperties catalogProperties)
         {
-            Connector connector = MockConnectorFactory.create().create(catalogProperties.catalogHandle().getCatalogName().toString(), catalogProperties.properties(), new TestingConnectorContext());
+            Connector connector = MockConnectorFactory.create().create(catalogProperties.name().toString(), catalogProperties.properties(), new TestingConnectorContext());
+            CatalogHandle catalogHandle = createRootCatalogHandle(catalogProperties.name(), catalogProperties.version());
             ConnectorServices noOpConnectorService = new ConnectorServices(
                     Tracing.noopTracer(),
-                    catalogProperties.catalogHandle(),
+                    catalogHandle,
                     connector);
             return new CatalogConnector(
-                    catalogProperties.catalogHandle(),
+                    catalogHandle,
                     new ConnectorName("mock"),
                     noOpConnectorService,
                     noOpConnectorService,
@@ -200,7 +202,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
         {
             for (int i = 0; i < NUM_TASKS; i++) {
                 CatalogName catalogName = new CatalogName("catalog_" + i);
-                CatalogHandle catalogHandle = createRootCatalogHandle(catalogName, new CatalogHandle.CatalogVersion(UUID.randomUUID().toString()));
+                CatalogHandle catalogHandle = createRootCatalogHandle(catalogName, new CatalogVersion(UUID.randomUUID().toString()));
                 TaskId taskId = newTaskId();
                 workerTaskManager.updateTask(
                         TestingSession.testSession(),
@@ -276,7 +278,8 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
     {
         return PLAN_FRAGMENT.withActiveCatalogs(ImmutableList.of(
                 new CatalogProperties(
-                        catalogHandle,
+                        catalogHandle.getCatalogName(),
+                        catalogHandle.getVersion(),
                         new ConnectorName("mock"),
                         ImmutableMap.of())));
     }

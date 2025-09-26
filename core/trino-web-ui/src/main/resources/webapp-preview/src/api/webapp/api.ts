@@ -217,12 +217,42 @@ export interface QueryRoutine {
     authorization: string
 }
 
+export interface QueryStageNodeInfo {
+    '@type': string
+    id: string
+    source: QueryStageNodeInfo
+    sources: QueryStageNodeInfo[]
+    filteringSource: QueryStageNodeInfo
+    probeSource: QueryStageNodeInfo
+    indexSource: QueryStageNodeInfo
+    left: QueryStageNodeInfo
+    right: QueryStageNodeInfo
+}
+
 export interface QueryStagePlan {
     id: string
     jsonRepresentation: string
-    root: {
-        id: string
-    }
+    root: QueryStageNodeInfo
+}
+
+export interface QueryStageOperatorSummary {
+    pipelineId: number
+    planNodeId: string
+    operatorId: number
+    operatorType: string
+    child: QueryStageOperatorSummary
+    outputPositions: number
+    outputDataSize: string
+    totalDrivers: number
+    addInputCpu: string
+    getOutputCpu: string
+    finishCpu: string
+    addInputWall: string
+    getOutputWall: string
+    finishWall: string
+    blockedWall: string
+    inputDataSize: string
+    inputPositions: number
 }
 
 export interface QueryStageStats {
@@ -242,6 +272,54 @@ export interface QueryStageStats {
     bufferedDataSize: string
     outputDataSize: string
     outputPositions: number
+    totalBlockedTime: string
+    failedScheduledTime: string
+    failedCpuTime: string
+    cumulativeUserMemory: number
+    totalBufferedBytes: number
+    failedCumulativeUserMemory: number
+    peakUserMemoryReservation: string
+    operatorSummaries: QueryStageOperatorSummary[]
+}
+
+export interface QueryPipeline {
+    pipelineId: number
+    operatorSummaries: QueryStageOperatorSummary[]
+}
+
+export interface QueryTask {
+    lastHeartbeat: string
+    needsPlan: boolean
+    estimatedMemory: string
+    outputBuffers: {
+        totalBufferedBytes: number
+    }
+    stats: {
+        createTime: string
+        elapsedTime: string
+        fullyBlocked: boolean
+        blockedDrivers: number
+        completedDrivers: number
+        queuedDrivers: number
+        peakUserMemoryReservation: string
+        runningDrivers: number
+        processedInputDataSize: string
+        processedInputPositions: number
+        totalCpuTime: string
+        totalScheduledTime: string
+        userMemoryReservation: string
+        pipelines: QueryPipeline[]
+        firstStartTime: string
+        lastStartTime: string
+        lastEndTime: string
+        endTime: string
+    }
+    taskStatus: {
+        nodeId: string
+        taskId: string
+        self: string
+        state: string
+    }
 }
 
 export interface QueryStage {
@@ -250,6 +328,7 @@ export interface QueryStage {
     stageId: string
     state: string
     stageStats: QueryStageStats
+    tasks: QueryTask[]
 }
 
 export interface QueryStages {
@@ -270,6 +349,10 @@ export interface QueryStatusInfo extends QueryInfoBase {
     stages: QueryStages
 }
 
+export interface WorkerTaskInfo {
+    dummy: string
+}
+
 export async function statsApi(): Promise<ApiResponse<Stats>> {
     return await api.get<Stats>('/ui/api/stats')
 }
@@ -280,6 +363,10 @@ export async function workerApi(): Promise<ApiResponse<Worker[]>> {
 
 export async function workerStatusApi(nodeId: string): Promise<ApiResponse<WorkerStatusInfo>> {
     return await api.get<WorkerStatusInfo>(`/ui/api/worker/${nodeId}/status`)
+}
+
+export async function workerTaskApi(nodeId: string, taskId: string): Promise<ApiResponse<WorkerTaskInfo>> {
+    return await api.get<WorkerTaskInfo>(`/ui/api/worker/${nodeId}/task/${taskId}`)
 }
 
 export async function queryApi(): Promise<ApiResponse<QueryInfo[]>> {

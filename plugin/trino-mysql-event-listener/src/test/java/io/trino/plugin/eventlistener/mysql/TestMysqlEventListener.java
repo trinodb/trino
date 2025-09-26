@@ -18,7 +18,7 @@ import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.plugin.base.evenlistener.TestingEventListenerContext;
 import io.trino.spi.TrinoWarning;
-import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.connector.StandardWarningCode;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.EventListener;

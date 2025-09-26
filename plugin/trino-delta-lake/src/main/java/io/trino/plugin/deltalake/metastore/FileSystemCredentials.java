@@ -13,25 +13,17 @@
  */
 package io.trino.plugin.deltalake.metastore;
 
-import com.google.common.collect.ImmutableMap;
-
-import java.time.Instant;
 import java.util.Map;
-import java.util.Optional;
 
-import static java.util.Objects.requireNonNull;
-
-public record VendedCredentials(Optional<String> tableId, Instant expireAt, Map<String, String> credentials)
+public interface FileSystemCredentials
 {
-    public VendedCredentials
-    {
-        requireNonNull(tableId, "tableId is null");
-        requireNonNull(expireAt, "expireAt is null");
-        credentials = ImmutableMap.copyOf(credentials);
-    }
+    /**
+     * Returns extra credentials map to be passed to ConnectorIdentity
+     */
+    Map<String, String> asExtraCredentials();
 
-    public static VendedCredentials empty()
-    {
-        return new VendedCredentials(Optional.empty(), Instant.MAX, ImmutableMap.of());
-    }
+    /**
+     * Returns true if the credentials are still valid to be used.
+     */
+    boolean isValid();
 }

@@ -32,6 +32,7 @@ import io.trino.plugin.hive.line.JsonFileWriterFactory;
 import io.trino.plugin.hive.line.JsonPageSourceFactory;
 import io.trino.plugin.hive.line.OpenXJsonFileWriterFactory;
 import io.trino.plugin.hive.line.OpenXJsonPageSourceFactory;
+import io.trino.plugin.hive.line.ProtobufSequenceFilePageSourceFactory;
 import io.trino.plugin.hive.line.RegexFileWriterFactory;
 import io.trino.plugin.hive.line.RegexPageSourceFactory;
 import io.trino.plugin.hive.line.SimpleSequenceFilePageSourceFactory;
@@ -113,6 +114,7 @@ public class HiveModule
         pageSourceFactoryBinder.addBinding().to(ParquetPageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(RcFilePageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(AvroPageSourceFactory.class).in(Scopes.SINGLETON);
+        pageSourceFactoryBinder.addBinding().to(ProtobufSequenceFilePageSourceFactory.class).in(Scopes.SINGLETON);
 
         Multibinder<HiveFileWriterFactory> fileWriterFactoryBinder = newSetBinder(binder, HiveFileWriterFactory.class);
         binder.bind(OrcFileWriterFactory.class).in(Scopes.SINGLETON);

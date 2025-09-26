@@ -75,6 +75,7 @@ public class HudiConnectorFactory
         ClassLoader classLoader = HudiConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
+                    "io.trino.bootstrap.catalog." + catalogName,
                     new MBeanModule(),
                     new JsonModule(),
                     new HudiModule(),

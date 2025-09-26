@@ -121,8 +121,8 @@ public class TestPipelineStats
 
         assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(7));
 
-        assertThat(actual.getQueuedTime().getCount()).isEqualTo(8.0);
-        assertThat(actual.getElapsedTime().getCount()).isEqualTo(9.0);
+        assertThat(actual.getQueuedTime().count()).isEqualTo(8.0);
+        assertThat(actual.getElapsedTime().count()).isEqualTo(9.0);
 
         assertThat(actual.getTotalScheduledTime()).isEqualTo(new Duration(10, NANOSECONDS));
         assertThat(actual.getTotalCpuTime()).isEqualTo(new Duration(11, NANOSECONDS));

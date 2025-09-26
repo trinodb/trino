@@ -24,6 +24,7 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.client.NodeVersion;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.StaticConnectorFactory;
@@ -68,7 +69,7 @@ import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AllowAllAccessControl;
-import io.trino.spi.connector.CatalogHandle;
+import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
@@ -1140,6 +1141,7 @@ public class TestAnalyzer
     {
         Session session = testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties(
                 new QueryManagerConfig(),
+                new SpoolingEnabledConfig(),
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
                 new FeaturesConfig().setMaxGroupingSets(2048),
@@ -7928,5 +7930,8 @@ public class TestAnalyzer
                     stringProperty("p1", "test string property", "", false),
                     integerProperty("p2", "test integer property", 0, false));
         }
+
+        @Override
+        public void shutdown() {}
     }
 }

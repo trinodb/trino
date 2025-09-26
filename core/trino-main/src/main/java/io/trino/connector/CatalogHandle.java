@@ -11,19 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.connector;
+package io.trino.connector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.CatalogVersion;
 
 import java.util.Objects;
 
-import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.spi.connector.CatalogHandle.CatalogHandleType.INFORMATION_SCHEMA;
-import static io.trino.spi.connector.CatalogHandle.CatalogHandleType.NORMAL;
-import static io.trino.spi.connector.CatalogHandle.CatalogHandleType.SYSTEM;
+import static io.trino.connector.CatalogHandle.CatalogHandleType.INFORMATION_SCHEMA;
+import static io.trino.connector.CatalogHandle.CatalogHandleType.NORMAL;
+import static io.trino.connector.CatalogHandle.CatalogHandleType.SYSTEM;
 import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
@@ -164,68 +164,6 @@ public final class CatalogHandle
         public boolean isInternal()
         {
             return internal;
-        }
-    }
-
-    public static final class CatalogVersion
-    {
-        private static final int INSTANCE_SIZE = instanceSize(CatalogVersion.class);
-
-        private final String version;
-
-        /**
-         * Version of a catalog.
-         */
-        @JsonCreator
-        public CatalogVersion(String version)
-        {
-            requireNonNull(version, "version is null");
-            if (version.isEmpty()) {
-                throw new IllegalArgumentException("version is empty");
-            }
-            for (int i = 0; i < version.length(); i++) {
-                if (!isAllowedCharacter(version.charAt(i))) {
-                    throw new IllegalArgumentException("invalid version: " + version);
-                }
-            }
-
-            this.version = version;
-        }
-
-        private static boolean isAllowedCharacter(char c)
-        {
-            return ('0' <= c && c <= '9') ||
-                    ('a' <= c && c <= 'z') ||
-                    c == '_' ||
-                    c == '-';
-        }
-
-        @Override
-        public boolean equals(Object other)
-        {
-            if (this == other) {
-                return true;
-            }
-            return other instanceof CatalogVersion that &&
-                    version.equals(that.version);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return version.hashCode();
-        }
-
-        @JsonValue
-        @Override
-        public String toString()
-        {
-            return version;
-        }
-
-        public long getRetainedSizeInBytes()
-        {
-            return INSTANCE_SIZE + estimatedSizeOf(version);
         }
     }
 }

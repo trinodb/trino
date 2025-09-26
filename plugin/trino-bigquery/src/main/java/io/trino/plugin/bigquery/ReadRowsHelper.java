@@ -85,7 +85,7 @@ public class ReadRowsHelper
             do {
                 try {
                     ReadRowsResponse response = serverResponses.next();
-                    log.debug("ReadRowsResponse from BigQuery: %s", response);
+                    log.debug("ReadRowsResponse from BigQuery stream: %s at offset: %s", helper.streamName, nextOffset);
                     nextOffset += response.getRowCount();
                     return response;
                 }

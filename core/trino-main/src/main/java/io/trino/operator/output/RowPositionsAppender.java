@@ -21,7 +21,6 @@ import io.trino.spi.type.RowType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -79,9 +78,25 @@ public class RowPositionsAppender
         }
         ensureCapacity(positions.size());
         RowBlock sourceRowBlock = (RowBlock) block;
+        int startOffset = sourceRowBlock.getOffsetBase();
 
-        for (int i = 0; i < fieldAppenders.length; i++) {
-            fieldAppenders[i].append(positions, sourceRowBlock.getFieldBlock(i));
+        Block[] rawFieldBlocks = sourceRowBlock.getRawFieldBlocks();
+
+        if (startOffset == 0) {
+            for (int i = 0; i < fieldAppenders.length; i++) {
+                fieldAppenders[i].append(positions, rawFieldBlocks[i]);
+            }
+        }
+        else {
+            int[] adjustedPositions = new int[positions.size()];
+            for (int i = 0; i < positions.size(); i++) {
+                adjustedPositions[i] = startOffset + positions.getInt(i);
+            }
+            IntArrayList adjustedPositionsList = IntArrayList.wrap(adjustedPositions);
+
+            for (int i = 0; i < fieldAppenders.length; i++) {
+                fieldAppenders[i].append(adjustedPositionsList, rawFieldBlocks[i]);
+            }
         }
 
         if (sourceRowBlock.mayHaveNull()) {
@@ -108,9 +123,11 @@ public class RowPositionsAppender
         ensureCapacity(rlePositionCount);
         RowBlock sourceRowBlock = (RowBlock) value;
 
-        List<Block> fieldBlocks = sourceRowBlock.getFieldBlocks();
+        Block[] rawFieldBlocks = sourceRowBlock.getRawFieldBlocks();
+        int startOffset = sourceRowBlock.getOffsetBase();
+
         for (int i = 0; i < fieldAppenders.length; i++) {
-            fieldAppenders[i].appendRle(fieldBlocks.get(i).getSingleValueBlock(0), rlePositionCount);
+            fieldAppenders[i].appendRle(rawFieldBlocks[i].getSingleValueBlock(startOffset), rlePositionCount);
         }
 
         if (sourceRowBlock.isNull(0)) {
@@ -134,9 +151,11 @@ public class RowPositionsAppender
         ensureCapacity(1);
         RowBlock sourceRowBlock = (RowBlock) value;
 
-        List<Block> fieldBlocks = sourceRowBlock.getFieldBlocks();
+        Block[] rawFieldBlocks = sourceRowBlock.getRawFieldBlocks();
+        int startOffset = sourceRowBlock.getOffsetBase();
+
         for (int i = 0; i < fieldAppenders.length; i++) {
-            fieldAppenders[i].append(position, fieldBlocks.get(i));
+            fieldAppenders[i].append(startOffset + position, rawFieldBlocks[i]);
         }
 
         if (sourceRowBlock.isNull(position)) {

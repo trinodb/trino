@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Box, Card, CardContent, CardHeader, Divider, Grid2 as Grid, Typography, Tooltip } from '@mui/material'
+import { Box, Card, CardContent, CardHeader, Divider, Grid, Tooltip, Typography } from '@mui/material'
 import Chip, { ChipProps } from '@mui/material/Chip'
 import { Handle, Position } from '@xyflow/react'
 import { STAGE_NODE_PADDING_TOP, STAGE_NODE_WIDTH, OPERATOR_NODE_HEIGHT } from './layout'

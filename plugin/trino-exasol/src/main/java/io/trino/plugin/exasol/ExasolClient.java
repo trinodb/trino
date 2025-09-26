@@ -15,6 +15,7 @@ package io.trino.plugin.exasol;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.slice.Slices;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -24,11 +25,14 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
+import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.SliceReadFunction;
+import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
@@ -45,11 +49,13 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.Types;
 import java.time.LocalDate;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.BiFunction;
 
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -65,7 +71,10 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.stream.Collectors.joining;
 
 public class ExasolClient
         extends BaseJdbcClient
@@ -206,6 +215,9 @@ public class ExasolClient
         if (mapping.isPresent()) {
             return mapping;
         }
+        if (isHashType(typeHandle)) {
+            return Optional.of(hashTypeColumnMapping());
+        }
         switch (typeHandle.jdbcType()) {
             case Types.BOOLEAN:
                 return Optional.of(booleanColumnMapping());
@@ -237,6 +249,13 @@ public class ExasolClient
         return Optional.empty();
     }
 
+    private boolean isHashType(JdbcTypeHandle typeHandle)
+    {
+        return typeHandle.jdbcType() == Types.CHAR
+                && typeHandle.jdbcTypeName().isPresent()
+                && typeHandle.jdbcTypeName().get().equalsIgnoreCase("HASHTYPE");
+    }
+
     private static ColumnMapping dateColumnMapping()
     {
         // Exasol driver does not support LocalDate
@@ -262,6 +281,32 @@ public class ExasolClient
         });
     }
 
+    private static ColumnMapping hashTypeColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                VARBINARY,
+                hashTypeReadFunction(),
+                hashTypeWriteFunction());
+    }
+
+    private static SliceReadFunction hashTypeReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            String hex = resultSet.getString(columnIndex);
+            byte[] bytes = HexFormat.of().parseHex(hex);
+            return Slices.wrappedBuffer(bytes);
+        };
+    }
+
+    private static SliceWriteFunction hashTypeWriteFunction()
+    {
+        return SliceWriteFunction.of(Types.CHAR, (statement, index, slice) -> {
+            byte[] bytes = slice.getBytes();
+            String hex = HexFormat.of().formatHex(bytes);
+            statement.setString(index, hex);
+        });
+    }
+
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
@@ -278,5 +323,44 @@ public class ExasolClient
     public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support inserts");
+    }
+
+    @Override
+    protected Optional<BiFunction<String, Long, String>> limitFunction()
+    {
+        return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
+    }
+
+    @Override
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.of((query, sortItems, limit) -> {
+            String orderBy = sortItems.stream()
+                    .map(sortItem -> {
+                        String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
+                        String nullsHandling = sortItem.sortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
+                        return format("%s %s %s", quoted(sortItem.column().getColumnName()), ordering, nullsHandling);
+                    })
+                    .collect(joining(", "));
+            return format("%s ORDER BY %s LIMIT %d", query, orderBy, limit);
+        });
+    }
+
+    @Override
+    public boolean isTopNGuaranteed(ConnectorSession session)
+    {
+        return true;
+    }
+
+    @Override
+    public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        return true;
+    }
+
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
+    {
+        return true;
     }
 }

@@ -15,11 +15,11 @@ package io.trino.sql.planner;
 
 import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.PartitionFunction;
 import io.trino.spi.connector.BucketFunction;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;

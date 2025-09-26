@@ -422,13 +422,13 @@ public class TestCachingHiveMetastore
                         .put(keyColumn, Domain.create(ValueSet.ofRanges(Range.range(VARCHAR, utf8Slice("val1"), true, utf8Slice("val2"), true)), false))
                         .buildOrThrow()));
 
-        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount()).isEqualTo(0.0);
+        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().snapshot().count()).isEqualTo(0.0);
         metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, partitionColumnNames, withNoFilter);
-        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount()).isEqualTo(0.0);
+        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().snapshot().count()).isEqualTo(0.0);
         metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, partitionColumnNames, withSingleValueFilter);
-        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount()).isEqualTo(1.0);
+        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().snapshot().count()).isEqualTo(1.0);
         metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, partitionColumnNames, withNoSingleValueFilter);
-        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount()).isEqualTo(2.0);
+        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().snapshot().count()).isEqualTo(2.0);
     }
 
     @Test

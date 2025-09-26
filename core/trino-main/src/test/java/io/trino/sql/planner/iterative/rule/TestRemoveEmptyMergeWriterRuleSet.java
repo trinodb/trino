@@ -13,7 +13,7 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.trino.spi.connector.CatalogHandle;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.sql.planner.Partitioning;

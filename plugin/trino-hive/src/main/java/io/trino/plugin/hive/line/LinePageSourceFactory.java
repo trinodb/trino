@@ -96,7 +96,7 @@ public abstract class LinePageSourceFactory
 
         checkArgument(acidInfo.isEmpty(), "Acid is not supported");
 
-        return Optional.of(projectColumnDereferences(columns, baseColumns -> createPageSource(session, path, start, length, estimatedFileSize, schema, baseColumns)));
+        return Optional.of(projectColumnDereferences(columns, baseColumns -> createPageSource(session, path, start, length, estimatedFileSize, fileModifiedTime, schema, baseColumns)));
     }
 
     private ConnectorPageSource createPageSource(
@@ -105,6 +105,7 @@ public abstract class LinePageSourceFactory
             long start,
             long length,
             long estimatedFileSize,
+            long fileModifiedTime,
             Schema schema,
             List<HiveColumnHandle> columns)
     {
@@ -129,12 +130,15 @@ public abstract class LinePageSourceFactory
         }
 
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session);
-        TrinoInputFile inputFile = trinoFileSystem.newInputFile(path);
+        TrinoInputFile inputFile = lineReaderFactory.newInputFile(trinoFileSystem, path, estimatedFileSize, fileModifiedTime);
         try {
             // buffer file if small
+            long smallFileReadTimeNanos = 0;
             if (estimatedFileSize < SMALL_FILE_SIZE.toBytes()) {
+                long readStart = System.nanoTime();
                 try (InputStream inputStream = inputFile.newStream()) {
                     byte[] data = inputStream.readAllBytes();
+                    smallFileReadTimeNanos = System.nanoTime() - readStart;
                     inputFile = new MemoryInputFile(path, Slices.wrappedBuffer(data));
                 }
             }
@@ -150,7 +154,7 @@ public abstract class LinePageSourceFactory
             if (lineReader.isClosed()) {
                 return new EmptyPageSource();
             }
-            return new LinePageSource(lineReader, lineDeserializer, lineReaderFactory.createLineBuffer(), path);
+            return new LinePageSource(lineReader, lineDeserializer, lineReaderFactory.createLineBuffer(), path, smallFileReadTimeNanos);
         }
         catch (TrinoException e) {
             throw e;

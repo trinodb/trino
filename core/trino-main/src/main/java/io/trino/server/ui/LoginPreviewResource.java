@@ -56,7 +56,7 @@ public class LoginPreviewResource
 
     @GET
     @Path(UI_PREVIEW_AUTH_INFO)
-    public AuthInfo getAuthInfo(ContainerRequestContext request, @Context SecurityContext securityContext)
+    public AuthInfo getAuthInfo(@Context ContainerRequestContext request, @Context SecurityContext securityContext)
     {
         boolean isPasswordAllowed = formWebUiAuthenticationManager.isPasswordAllowed(securityContext.isSecure());
         Optional<String> username = formWebUiAuthenticationManager.getAuthenticatedUsername(request);

@@ -263,21 +263,22 @@ public class TableScanOperator
         Page page = null;
         if (sourcePage != null) {
             page = sourcePage.getPage();
-
-            // update operator stats
-            long endCompletedBytes = source.getCompletedBytes();
-            long endReadTimeNanos = source.getReadTimeNanos();
-            long positionCount = page.getPositionCount();
-            long endCompletedPositions = source.getCompletedPositions().orElse(completedPositions + positionCount);
-            operatorContext.recordPhysicalInputWithTiming(
-                    endCompletedBytes - completedBytes,
-                    endCompletedPositions - completedPositions,
-                    endReadTimeNanos - readTimeNanos);
-            operatorContext.recordProcessedInput(page.getSizeInBytes(), positionCount);
-            completedBytes = endCompletedBytes;
-            completedPositions = endCompletedPositions;
-            readTimeNanos = endReadTimeNanos;
         }
+
+        // update operator stats
+        long endCompletedBytes = source.getCompletedBytes();
+        long endReadTimeNanos = source.getReadTimeNanos();
+        long positionCount = page == null ? 0 : page.getPositionCount();
+        long sizeInBytes = page == null ? 0 : page.getSizeInBytes();
+        long endCompletedPositions = source.getCompletedPositions().orElse(completedPositions + positionCount);
+        operatorContext.recordPhysicalInputWithTiming(
+                endCompletedBytes - completedBytes,
+                endCompletedPositions - completedPositions,
+                endReadTimeNanos - readTimeNanos);
+        operatorContext.recordProcessedInput(sizeInBytes, positionCount);
+        completedBytes = endCompletedBytes;
+        completedPositions = endCompletedPositions;
+        readTimeNanos = endReadTimeNanos;
 
         // updating memory usage should happen after page is loaded.
         memoryContext.setBytes(source.getMemoryUsage());

@@ -41,16 +41,18 @@ public class LinePageSource
     private final LineDeserializer deserializer;
     private final LineBuffer lineBuffer;
     private final Location filePath;
+    private final long smallFileReadTimeNanos;
 
     private final PageBuilder pageBuilder;
     private long completedPositions;
 
-    public LinePageSource(LineReader lineReader, LineDeserializer deserializer, LineBuffer lineBuffer, Location filePath)
+    public LinePageSource(LineReader lineReader, LineDeserializer deserializer, LineBuffer lineBuffer, Location filePath, long smallFileReadTimeNanos)
     {
         this.lineReader = requireNonNull(lineReader, "lineReader is null");
         this.deserializer = requireNonNull(deserializer, "deserializer is null");
         this.lineBuffer = requireNonNull(lineBuffer, "lineBuffer is null");
         this.filePath = requireNonNull(filePath, "filePath is null");
+        this.smallFileReadTimeNanos = smallFileReadTimeNanos;
 
         this.pageBuilder = new PageBuilder(deserializer.getTypes());
     }
@@ -105,7 +107,7 @@ public class LinePageSource
     @Override
     public long getReadTimeNanos()
     {
-        return lineReader.getReadTimeNanos();
+        return smallFileReadTimeNanos + lineReader.getReadTimeNanos();
     }
 
     @Override

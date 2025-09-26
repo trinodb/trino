@@ -76,7 +76,7 @@ public final class HdfsFileSystemManager
             modules.add(new HiveS3Module());
         }
 
-        bootstrap = new Bootstrap(modules)
+        bootstrap = new Bootstrap("io.trino.bootstrap.catalog." + catalogName, modules)
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(Map.of())
                 .setOptionalConfigurationProperties(config);

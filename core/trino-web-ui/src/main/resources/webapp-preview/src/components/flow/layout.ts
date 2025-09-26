@@ -16,6 +16,8 @@ import { type Edge, type Node } from '@xyflow/react'
 import { RemoteExchangeNode } from './RemoteExchangeNode.tsx'
 import { PlanFragmentNode } from './PlanFragmentNode.tsx'
 import { OperatorNode } from './OperatorNode.tsx'
+import { StagePipelineNode } from './StagePipelineNode.tsx'
+import { StageOperatorNode } from './StageOperatorNode.tsx'
 
 export const STAGE_NODE_WIDTH = 400
 export const STAGE_NODE_PADDING_TOP = 280
@@ -23,6 +25,13 @@ export const OPERATOR_NODE_HEIGHT = 90
 export const OPERATOR_NODE_WIDTH = 340
 export const OPERATOR_NODE_PADDING_LEFT = 30
 export const REMOTE_EXCHANGE_NODE_HEIGHT = 4
+export const STAGE_PIPELINE_NODE_WIDTH = 400
+export const STAGE_PIPELINE_NODE_GAP = 20
+export const STAGE_PIPELINE_NODE_PADDING_TOP = 60
+export const STAGE_PIPELINE_NODE_PADDING_LEFT = 30
+export const STAGE_OPERATOR_NODE_WIDTH = 340
+export const STAGE_OPERATOR_NODE_HEIGHT = 250
+export const STAGE_OPERATOR_NODE_GAP = 50
 
 /**
  * Node type definitions for the query execution plan flow visualization
@@ -40,9 +49,17 @@ export const nodeTypes = {
     // RemoteExchangeNode: Represents a specific operator that takes input from another downstream stage
     // Appears as a thin divider line connecting data flow between different stages
     remoteExchangeNode: RemoteExchangeNode,
+
+    // StagePipelineNode: Container nodes representing a pipeline within a given stage
+    // Groups multiple StageOperatorNodes and organizes operators that execute together in a pipeline
+    stagePipelineNode: StagePipelineNode,
+
+    // StageOperatorNode: Individual execution operator nodes within a pipeline (TableScan, Filter, etc.)
+    // Shows performance metrics and represents specific operations that process data within a pipeline
+    stageOperatorNode: StageOperatorNode,
 }
 
-export const getLayoutedElements = (nodes: Node[], edges: Edge[], options: { direction: string }) => {
+export const getLayoutedPlanFlowElements = (nodes: Node[], edges: Edge[], options: { direction: string }) => {
     const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}))
     g.setGraph({ rankdir: options.direction })
 
@@ -94,6 +111,76 @@ export const getLayoutedElements = (nodes: Node[], edges: Edge[], options: { dir
                 }
             }
         }),
+        edges,
+    }
+}
+
+export const getLayoutedStagePerformanceElements = (nodes: Node[], edges: Edge[], options: { direction: string }) => {
+    const layoutedPipelineNodes: Node[] = nodes
+        .filter((node) => node.type === 'stagePipelineNode')
+        .map((node) => {
+            const { index } = node.data as { index: number }
+
+            return {
+                ...node,
+                position:
+                    options.direction == 'BT'
+                        ? {
+                              x: STAGE_PIPELINE_NODE_WIDTH * index + STAGE_PIPELINE_NODE_PADDING_LEFT * index,
+                              y: 0,
+                          }
+                        : {
+                              x: 0,
+                              y:
+                                  (STAGE_PIPELINE_NODE_PADDING_TOP +
+                                      STAGE_OPERATOR_NODE_HEIGHT +
+                                      STAGE_PIPELINE_NODE_GAP +
+                                      STAGE_OPERATOR_NODE_GAP) *
+                                  index,
+                          },
+            }
+        })
+
+    const layoutedOperatorNodes: Node[] = layoutedPipelineNodes.flatMap((stagePipelineNode) => {
+        const stageOperatorNodes: Node[] = nodes.filter(
+            (node) => node.type === 'stageOperatorNode' && node.parentId === stagePipelineNode.id
+        )
+        const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}))
+        g.setGraph({ rankdir: options.direction, ranksep: STAGE_OPERATOR_NODE_GAP })
+
+        stageOperatorNodes.forEach((stageOperatorNode) => {
+            g.setNode(stageOperatorNode.id, {
+                width: STAGE_OPERATOR_NODE_WIDTH,
+                height: STAGE_OPERATOR_NODE_HEIGHT,
+            })
+        })
+
+        edges
+            .filter((edge) => g.nodes().includes(edge.source))
+            .forEach((edge) => {
+                g.setEdge(edge.source, edge.target)
+            })
+
+        Dagre.layout(g)
+
+        return stageOperatorNodes.map((node) => {
+            const layoutedNode = g.node(node.id)
+            if (layoutedNode) {
+                return {
+                    ...node,
+                    position: {
+                        x: STAGE_PIPELINE_NODE_PADDING_LEFT + layoutedNode.x - STAGE_OPERATOR_NODE_WIDTH / 2,
+                        y: STAGE_PIPELINE_NODE_PADDING_TOP + layoutedNode.y - STAGE_OPERATOR_NODE_HEIGHT / 2,
+                    },
+                }
+            } else {
+                return node
+            }
+        })
+    })
+
+    return {
+        nodes: [...layoutedPipelineNodes, ...layoutedOperatorNodes],
         edges,
     }
 }

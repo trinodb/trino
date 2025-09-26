@@ -241,6 +241,12 @@ public class AddFileEntry
         }
         totalSize += estimatedSizeOf(partitionValues, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf);
         totalSize += estimatedSizeOf(tags, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf);
+        if (deletionVector.isPresent()) {
+            totalSize += deletionVector.get().getRetainedSizeInBytes();
+        }
+        if (!canonicalPartitionValues.isEmpty()) {
+            totalSize += estimatedSizeOf(canonicalPartitionValues, SizeOf::estimatedSizeOf, partitionValues -> partitionValues.map(SizeOf::estimatedSizeOf).orElse(0L));
+        }
         return totalSize;
     }
 }

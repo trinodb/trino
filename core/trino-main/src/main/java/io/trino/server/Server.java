@@ -117,7 +117,7 @@ public class Server
 
         modules.addAll(getAdditionalModules());
 
-        Bootstrap app = new Bootstrap(modules.build())
+        Bootstrap app = new Bootstrap("io.trino.bootstrap.engine", modules.build())
                 .loadSecretsPlugins();
 
         try {

@@ -618,7 +618,7 @@ public class PlanPrinter
 
         Map<PlanNodeId, Long> getSplitsTotalTimeNanos = stageInfo.map(info -> info.getStageStats().getGetSplitDistribution()
                         .entrySet().stream()
-                        .collect(toImmutableMap(Entry::getKey, entry -> (long) entry.getValue().getTotal())))
+                        .collect(toImmutableMap(Entry::getKey, entry -> (long) entry.getValue().total())))
                 .orElse(ImmutableMap.of());
         Map<PlanNodeId, Metrics> splitSourceMetrics = stageInfo.map(info -> info.getStageStats().getSplitSourceMetrics())
                 .orElse(ImmutableMap.of());

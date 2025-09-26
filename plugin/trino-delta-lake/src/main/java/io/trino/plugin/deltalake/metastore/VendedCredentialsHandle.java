@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.deltalake.metastore;
 
+import java.util.Optional;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -20,7 +22,7 @@ public record VendedCredentialsHandle(
         boolean catalogOwned,
         boolean managed,
         String tableLocation,
-        VendedCredentials vendedCredentials)
+        Optional<FileSystemCredentials> vendedCredentials)
 {
     public VendedCredentialsHandle
     {
@@ -34,11 +36,11 @@ public record VendedCredentialsHandle(
 
     public static VendedCredentialsHandle empty(String tableLocation)
     {
-        return new VendedCredentialsHandle(false, false, tableLocation, VendedCredentials.empty());
+        return new VendedCredentialsHandle(false, false, tableLocation, Optional.empty());
     }
 
     public static VendedCredentialsHandle of(DeltaMetastoreTable table)
     {
-        return new VendedCredentialsHandle(table.catalogOwned(), table.managed(), table.location(), table.vendedCredentials().orElse(VendedCredentials.empty()));
+        return new VendedCredentialsHandle(table.catalogOwned(), table.managed(), table.location(), Optional.empty());
     }
 }

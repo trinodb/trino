@@ -29,7 +29,6 @@ import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.type.TypeManager;
@@ -39,7 +38,6 @@ import io.trino.util.EmbedVersion;
 
 import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
-import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 
 public class TestingPostgreSqlConnectorContext
         implements ConnectorContext
@@ -57,12 +55,6 @@ public class TestingPostgreSqlConnectorContext
         TypeRegistry typeRegistry = new TypeRegistry(new TypeOperators(), new FeaturesConfig());
         typeRegistry.addType(GeometryType.GEOMETRY);
         typeManager = new InternalTypeManager(typeRegistry);
-    }
-
-    @Override
-    public CatalogHandle getCatalogHandle()
-    {
-        return TEST_CATALOG_HANDLE;
     }
 
     @Override

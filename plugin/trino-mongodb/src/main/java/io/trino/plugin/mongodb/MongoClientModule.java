@@ -37,6 +37,7 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class MongoClientModule
@@ -67,6 +68,7 @@ public class MongoClientModule
                 internalBinder -> internalBinder.bind(MongoServerDetailsProvider.class).toInstance(ImmutableList::of),
                 internalBinder -> internalBinder.bind(MongoServerDetailsProvider.class).to(SessionBasedMongoServerDetailsProvider.class).in(Scopes.SINGLETON)));
 
+        closingBinder(binder).registerCloseable(MongoSession.class);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
