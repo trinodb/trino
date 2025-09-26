@@ -69,6 +69,7 @@ import org.bson.types.Binary;
 import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
 
+import java.io.Closeable;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -130,6 +131,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 public class MongoSession
+        implements Closeable
 {
     private static final Logger log = Logger.get(MongoSession.class);
     private static final Set<String> SYSTEM_DATABASES = Set.of("admin", "local", "config");
@@ -195,7 +197,8 @@ public class MongoSession
                 .build();
     }
 
-    public void shutdown()
+    @Override
+    public void close()
     {
         client.close();
     }
