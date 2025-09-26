@@ -21,7 +21,6 @@ import jakarta.annotation.Nullable;
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
 import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
-import static java.lang.System.arraycopy;
 import static java.util.Objects.checkFromIndexSize;
 
 public class ByteArrayBlockEncoding
@@ -56,20 +55,7 @@ public class ByteArrayBlockEncoding
 
         encodeNullsAsBits(sliceOutput, isNull, rawOffset, positionCount);
 
-        if (isNull == null) {
-            sliceOutput.writeBytes(rawValues, rawOffset, positionCount);
-        }
-        else {
-            byte[] valuesWithoutNull = new byte[positionCount];
-            int nonNullPositionCount = 0;
-            for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = rawValues[i + rawOffset];
-                nonNullPositionCount += isNull[i + rawOffset] ? 0 : 1;
-            }
-
-            sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeBytes(valuesWithoutNull, 0, nonNullPositionCount);
-        }
+        sliceOutput.writeBytes(rawValues, rawOffset, positionCount);
     }
 
     @Override
@@ -79,42 +65,13 @@ public class ByteArrayBlockEncoding
 
         byte[] valueIsNullPacked = retrieveNullBits(sliceInput, positionCount);
         byte[] values = new byte[positionCount];
+        sliceInput.readBytes(Slices.wrappedBuffer(values));
 
         if (valueIsNullPacked == null) {
-            sliceInput.readBytes(Slices.wrappedBuffer(values));
             return new ByteArrayBlock(0, positionCount, null, values);
         }
         boolean[] valueIsNull = decodeNullBits(valueIsNullPacked, positionCount);
 
-        int nonNullPositionCount = sliceInput.readInt();
-        sliceInput.readBytes(Slices.wrappedBuffer(values, 0, nonNullPositionCount));
-        int position = nonNullPositionCount - 1;
-
-        // Handle Last (positionCount % 8) values
-        for (int i = positionCount - 1; i >= (positionCount & ~0b111) && position >= 0; i--) {
-            values[i] = values[position];
-            if (!valueIsNull[i]) {
-                position--;
-            }
-        }
-
-        // Handle the remaining positions.
-        for (int i = (positionCount & ~0b111) - 8; i >= 0 && position >= 0; i -= 8) {
-            byte packed = valueIsNullPacked[i >>> 3];
-            if (packed == 0) { // Only values
-                arraycopy(values, position - 7, values, i, 8);
-                position -= 8;
-            }
-            else if (packed != -1) { // At least one non-null
-                for (int j = i + 7; j >= i && position >= 0; j--) {
-                    values[j] = values[position];
-                    if (!valueIsNull[j]) {
-                        position--;
-                    }
-                }
-            }
-            // Do nothing if there are only nulls
-        }
         return new ByteArrayBlock(0, positionCount, valueIsNull, values);
     }
 }
