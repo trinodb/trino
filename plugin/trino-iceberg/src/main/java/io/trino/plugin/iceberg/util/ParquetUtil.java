@@ -15,7 +15,7 @@
 package io.trino.plugin.iceberg.util;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.parquet.ParquetCorruptionException;
+import io.trino.parquet.crypto.ParquetCryptoException;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
@@ -41,6 +41,7 @@ import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotat
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -58,6 +59,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static io.trino.parquet.metadata.HiddenColumnChunkMetadata.isHiddenColumn;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -70,7 +72,7 @@ public final class ParquetUtil
     private ParquetUtil() {}
 
     public static Metrics footerMetrics(ParquetMetadata metadata, Stream<FieldMetrics<?>> fieldMetrics, MetricsConfig metricsConfig)
-            throws ParquetCorruptionException
+            throws IOException
     {
         return footerMetrics(metadata, fieldMetrics, metricsConfig, null);
     }
@@ -80,7 +82,7 @@ public final class ParquetUtil
             Stream<FieldMetrics<?>> fieldMetrics,
             MetricsConfig metricsConfig,
             NameMapping nameMapping)
-            throws ParquetCorruptionException
+            throws IOException
     {
         requireNonNull(fieldMetrics, "fieldMetrics should not be null");
 
@@ -159,12 +161,16 @@ public final class ParquetUtil
     }
 
     public static List<Long> getSplitOffsets(ParquetMetadata metadata)
-            throws ParquetCorruptionException
+            throws IOException
     {
         List<BlockMetadata> blocks = metadata.getBlocks();
         List<Long> splitOffsets = new ArrayList<>(blocks.size());
         for (BlockMetadata blockMetaData : blocks) {
-            splitOffsets.add(blockMetaData.getStartingPos());
+            splitOffsets.add(blockMetaData.columns().stream()
+                    .filter(column -> !isHiddenColumn(column))
+                    .findFirst()
+                    .map(ColumnChunkMetadata::getStartingPos)
+                    .orElseThrow(() -> new ParquetCryptoException("User does not have access to selected columns")));
         }
         Collections.sort(splitOffsets);
         return ImmutableList.copyOf(splitOffsets);
