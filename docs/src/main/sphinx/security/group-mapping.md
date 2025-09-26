@@ -89,7 +89,8 @@ individual users.
 ### Configuration
 
 Enable LDAP group provider by creating an `etc/group-provider.properties` file 
-on the coordinator and add further configuration for the LDAP server connections and other information as detailed in the following sections.
+on the coordinator and add further configuration for the LDAP server
+connections and other information as detailed in the following sections.
 
 ```properties
 group-provider.name=ldap
