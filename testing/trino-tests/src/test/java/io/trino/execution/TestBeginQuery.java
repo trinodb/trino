@@ -214,6 +214,9 @@ public class TestBeginQuery
         {
             return new TestingPageSinkProvider();
         }
+
+        @Override
+        public void shutdown() {}
     }
 
     private static class TestMetadata

@@ -458,5 +458,8 @@ public class TestMaterializedViews
         {
             return metadata;
         }
+
+        @Override
+        public void shutdown() {}
     }
 }
