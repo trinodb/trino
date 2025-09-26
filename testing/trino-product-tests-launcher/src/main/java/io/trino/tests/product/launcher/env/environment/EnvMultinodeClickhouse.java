@@ -49,7 +49,7 @@ public class EnvMultinodeClickhouse
     private static final String ZOOKEEPER = "zookeeper";
 
     private static final DockerImageName CLICKHOUSE_IMAGE = DockerImageName.parse("clickhouse/clickhouse-server"); // see TestingClickHouseServer for details
-    private static final DockerImageName CLICKHOUSE_DEFAULT_IMAGE = CLICKHOUSE_IMAGE.withTag("24.3.14.35"); // EOL in 1 year after 2024-03-27
+    private static final DockerImageName CLICKHOUSE_DEFAULT_IMAGE = CLICKHOUSE_IMAGE.withTag("25.3.6.56"); // EOL in 1 year after 2025-03-27
     private static final String CLICKHOUSE = "clickhouse";
     private static final String CLICKHOUSE_NTH = CLICKHOUSE + "-";
     private static final String CONTAINER_CLICKHOUSE_CONFIG_DIR = "/etc/clickhouse-server/";
