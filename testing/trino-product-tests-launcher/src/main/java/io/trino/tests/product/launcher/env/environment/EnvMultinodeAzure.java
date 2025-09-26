@@ -130,7 +130,8 @@ public class EnvMultinodeAzure
 
     private DockerContainer createSpark()
     {
-        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark3-iceberg:" + hadoopImagesVersion, "spark")
+        // TODO Update the image to spark4-iceberg once "java.lang.NoClassDefFoundError: org/codehaus/jackson/map/ObjectMapper" is fixed
+        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark3-iceberg:119", "spark")
                 .withEnv("HADOOP_USER_NAME", "hive")
                 .withCopyFileToContainer(
                         forHostPath(getSparkConf()),
