@@ -99,6 +99,12 @@ public class JoinDomainBuilder
 
     private long retainedSizeInBytes = INSTANCE_SIZE;
 
+    /**
+     * Indicates whether null values are allowed in the join domain.
+     * This is set to true if any null values are observed in the input blocks
+     * during domain building, and is used to determine whether the resulting
+     * domain should include nulls.
+     */
     private boolean nullsAllowed;
 
     public JoinDomainBuilder(
