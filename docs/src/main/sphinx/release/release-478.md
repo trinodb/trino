@@ -3,6 +3,7 @@
 ## General
 
 * Run Trino on JDK 25.0.0 (build 36) ({issue}`26693`)
+* {{breaking}} Move startup logs to `io.trino.bootstrap` package ({issue}`26721`)
 
 ## Security
 
@@ -87,3 +88,5 @@
 ## Vertica connector
 
 ## SPI
+
+* Require `shutdown` to be implemented by the `Connector`. ({issue}`26718`)
