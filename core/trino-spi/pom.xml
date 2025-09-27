@@ -832,6 +832,11 @@
                                     <new>method void io.trino.spi.connector.Connector::shutdown()</new>
                                     <justification>Require connector to implement shutdown to prevent leaks</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method void io.trino.spi.connector.ConnectorMetadata::executeTableExecute(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableExecuteHandle)</old>
+                                    <new>method java.util.Map&lt;java.lang.String, java.lang.Long&gt; io.trino.spi.connector.ConnectorMetadata::executeTableExecute(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableExecuteHandle)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

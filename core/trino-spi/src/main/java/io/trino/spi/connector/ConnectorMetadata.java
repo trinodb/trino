@@ -160,9 +160,10 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Execute a {@link TableProcedureExecutionMode#coordinatorOnly() coordinator-only} table procedure.
+     * Execute a {@link TableProcedureExecutionMode#coordinatorOnly() coordinator-only} table procedure
+     * and return procedure execution metrics that will be populated in the query output.
      */
-    default void executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    default Map<String, Long> executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata executeTableExecute() is not implemented");
     }
