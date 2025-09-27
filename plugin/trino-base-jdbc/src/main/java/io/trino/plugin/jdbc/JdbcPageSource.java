@@ -180,10 +180,6 @@ public final class JdbcPageSource
                 });
             }
 
-            if (!resultSetFuture.isDone()) {
-                return null;
-            }
-
             Page page = requireNonNull(getFutureValue(resultSetFuture), "page is null");
 
             // If reading is not finished, schedule the next page construction
