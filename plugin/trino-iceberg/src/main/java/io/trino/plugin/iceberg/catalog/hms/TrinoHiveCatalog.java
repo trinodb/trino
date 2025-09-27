@@ -575,6 +575,9 @@ public class TrinoHiveCatalog
                 }
                 throw new TrinoException(ALREADY_EXISTS, "Materialized view already exists: " + viewName);
             }
+            else {
+                dropMaterializedViewStorage(session, existing.get());
+            }
         }
 
         if (hideMaterializedViewStorageTable) {
@@ -599,6 +602,8 @@ public class TrinoHiveCatalog
             PrincipalPrivileges principalPrivileges = isUsingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
 
             try {
+                // Reload the existing table, in case it was deleted above
+                existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
                 if (existing.isPresent()) {
                     metastore.replaceTable(viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges, ImmutableMap.of());
                 }
@@ -618,11 +623,9 @@ public class TrinoHiveCatalog
                 }
                 throw e;
             }
-
-            existing.ifPresent(existingView -> dropMaterializedViewStorage(session, existingView));
         }
         else {
-            createMaterializedViewWithStorageTable(session, viewName, definition, materializedViewProperties, existing);
+            createMaterializedViewWithStorageTable(session, viewName, definition, materializedViewProperties);
         }
     }
 
@@ -630,8 +633,7 @@ public class TrinoHiveCatalog
             ConnectorSession session,
             SchemaTableName viewName,
             ConnectorMaterializedViewDefinition definition,
-            Map<String, Object> materializedViewProperties,
-            Optional<io.trino.metastore.Table> existing)
+            Map<String, Object> materializedViewProperties)
     {
         SchemaTableName storageTable = createMaterializedViewStorageTable(session, viewName, definition, materializedViewProperties);
 
@@ -654,19 +656,6 @@ public class TrinoHiveCatalog
                 .setViewExpandedText(Optional.of("/* " + ICEBERG_MATERIALIZED_VIEW_COMMENT + " */"));
         io.trino.metastore.Table table = tableBuilder.build();
         PrincipalPrivileges principalPrivileges = isUsingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
-        if (existing.isPresent()) {
-            // drop the current storage table
-            String oldStorageTable = existing.get().getParameters().get(STORAGE_TABLE);
-            if (oldStorageTable != null) {
-                String storageSchema = Optional.ofNullable(existing.get().getParameters().get(STORAGE_SCHEMA))
-                        .orElse(viewName.getSchemaName());
-                metastore.dropTable(storageSchema, oldStorageTable, true);
-            }
-            // Replace the existing view definition
-            metastore.replaceTable(viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges, ImmutableMap.of());
-            return;
-        }
-        // create the view definition
         metastore.createTable(table, principalPrivileges);
     }
 
@@ -720,9 +709,7 @@ public class TrinoHiveCatalog
         if (!isTrinoMaterializedView(view.getTableType(), view.getParameters())) {
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Not a Materialized View: " + viewName);
         }
-
         dropMaterializedViewStorage(session, view);
-        metastore.dropTable(viewName.getSchemaName(), viewName.getTableName(), true);
     }
 
     private void dropMaterializedViewStorage(ConnectorSession session, io.trino.metastore.Table view)
@@ -749,6 +736,9 @@ public class TrinoHiveCatalog
                 log.warn(e, "Failed to delete storage table metadata '%s' for materialized view '%s'", storageMetadataLocation, viewName);
             }
         }
+        metastore.invalidateTable(viewName.getSchemaName(), viewName.getTableName());
+        metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
+                .ifPresent(table -> metastore.dropTable(viewName.getSchemaName(), viewName.getTableName(), true));
     }
 
     @Override
