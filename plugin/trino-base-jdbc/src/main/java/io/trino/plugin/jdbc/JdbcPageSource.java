@@ -51,7 +51,7 @@ public final class JdbcPageSource
         implements ConnectorPageSource
 {
     private static final Logger log = Logger.get(JdbcPageSource.class);
-    private static final CompletableFuture<ResultSet> UNINITIALIZED_RESULT_SET_FUTURE = CompletableFuture.completedFuture(null);
+    private static final CompletableFuture<Page> UNINITIALIZED_RESULT_SET_FUTURE = CompletableFuture.completedFuture(null);
 
     private final List<JdbcColumnHandle> columnHandles;
     private final ReadFunction[] readFunctions;
@@ -67,7 +67,7 @@ public final class JdbcPageSource
     private final PreparedStatement statement;
     private final AtomicLong readTimeNanos = new AtomicLong(0);
     private final PageBuilder pageBuilder;
-    private CompletableFuture<ResultSet> resultSetFuture;
+    private CompletableFuture<Page> resultSetFuture;
     @Nullable
     private ResultSet resultSet;
     private boolean finished;
@@ -155,13 +155,13 @@ public final class JdbcPageSource
     @Override
     public SourcePage getNextSourcePage()
     {
-        verify(pageBuilder.isEmpty(), "Expected pageBuilder to be empty");
         if (finished) {
             return null;
         }
         try {
             if (resultSetFuture == UNINITIALIZED_RESULT_SET_FUTURE && resultSet == null) {
                 checkState(!closed, "page source is closed");
+                // execute query async and then build first page from resultSet
                 resultSetFuture = supplyAsync(() -> {
                     long start = nanoTime();
                     try {
@@ -174,16 +174,34 @@ public final class JdbcPageSource
                     finally {
                         readTimeNanos.addAndGet(nanoTime() - start);
                     }
-                }, executor);
-            }
-            if (resultSet == null) {
-                if (!resultSetFuture.isDone()) {
-                    return null;
-                }
-                resultSet = requireNonNull(getFutureValue(resultSetFuture), "resultSet is null");
+                }, executor).thenApply(resultSet -> {
+                    this.resultSet = requireNonNull(resultSet, "resultSet is null");
+                    return buildPageFromResultSet();
+                });
             }
 
-            checkState(!closed, "page source is closed");
+            if (!resultSetFuture.isDone()) {
+                return null;
+            }
+
+            Page page = requireNonNull(getFutureValue(resultSetFuture), "page is null");
+
+            // If reading is not finished, schedule the next page construction
+            if (!finished) {
+                resultSetFuture = supplyAsync(this::buildPageFromResultSet, executor);
+            }
+
+            return SourcePage.create(page);
+        }
+        catch (RuntimeException e) {
+            throw handleSqlException(e);
+        }
+    }
+
+    private Page buildPageFromResultSet()
+    {
+        verify(pageBuilder.isEmpty(), "Expected pageBuilder to be empty");
+        try {
             while (!pageBuilder.isFull() && resultSet.next()) {
                 pageBuilder.declarePosition();
                 completedPositions++;
@@ -214,14 +232,14 @@ public final class JdbcPageSource
             if (!pageBuilder.isFull()) {
                 finished = true;
             }
+
+            Page page = pageBuilder.build();
+            pageBuilder.reset();
+            return page;
         }
-        catch (SQLException | RuntimeException e) {
+        catch (SQLException e) {
             throw handleSqlException(e);
         }
-
-        Page page = pageBuilder.build();
-        pageBuilder.reset();
-        return SourcePage.create(page);
     }
 
     @Override
