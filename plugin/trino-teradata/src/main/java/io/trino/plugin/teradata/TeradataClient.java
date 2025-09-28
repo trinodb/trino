@@ -333,9 +333,6 @@ public class TeradataClient
             return mapping;
         }
 
-        // switch by names as some types overlap other types going by jdbc type alone
-        String jdbcTypeName = typeHandle.jdbcTypeName().orElse("VARCHAR");
-
         switch (typeHandle.jdbcType()) {
             case Types.TINYINT:
                 return Optional.of(tinyintColumnMapping());
