@@ -58,7 +58,7 @@ connection-url=jdbc:teradata://example.teradata.com/SSLMODE=REQUIRED
 ```
 
 For more information on TLS configuration options, see the
-Teradata [JDBC documentation](https://teradata-docs.s3.amazonaws.com/doc/connectivity/jdbc/reference/current/jdbcug_chapter_2.html#URL_SSLMODE_).
+Teradata [JDBC documentation](https://teradata-docs.s3.amazonaws.com/doc/connectivity/jdbc/reference/current/jdbcug_chapter_2.html#URL_SSLMODE).
 
 ```{include} jdbc-authentication.fragment
 ```
@@ -84,7 +84,7 @@ The connector maps Teradata types to the corresponding Trino types following
 this table:
 
 :::{list-table} Teradata type to Trino type mapping
-:widths: 30, 30, 40
+:widths: 40, 40, 20
 :header-rows: 1
 
 * - Teradata type
@@ -113,16 +113,13 @@ this table:
   -
 * - `NUMBER(p, s)`
   - `DECIMAL(p, s)`
-  - `DECIMAL(p, s)` is an alias of `NUMERIC(p, s)`. See
-    [](teradata-decimal-type-handling) for more information.
+  - 
 * - `NUMERIC(p, s)`
   - `DECIMAL(p, s)`
-  - `DECIMAL(p, s)` is an alias of `NUMERIC(p, s)`. See
-    [](teradata-decimal-type-handling) for more information.
+  - 
 * - `DECIMAL(p, s)`
   - `DECIMAL(p, s)`
-  - `DECIMAL(p, s)` is an alias of `NUMERIC(p, s)`. See
-    [](postgresql-decimal-type-handling) for more information.
+  - 
 * - `CHAR(n)`
   - `CHAR(n)`
   -
@@ -131,6 +128,7 @@ this table:
   -
 * - `VARCHAR(n)`
   - `VARCHAR(n)`
+  - 
 * - `DATE`
   - `DATE`
   -
@@ -173,8 +171,8 @@ SELECT * FROM teradata.sales.orders;
 
 ## SQL support
 
-The connector provides read access to data and metadata in the Teradata
-database. In addition to the [globally available](https://trino.io/docs/current/language/sql-support.html#globally-available-statements)
-and [read operation] (https://trino.io/docs/current/language/sql-support.
-html#read-operations) statements, the connector supports the following features:
+The connector provides read access access to data and metadata in
+a Teradata database.  The connector supports the {ref}`globally available
+<sql-globally-available>` and {ref}`read operation <sql-read-operations>`
+statements.
 
