@@ -136,7 +136,7 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private ResourceUsage cachedResourceUsage = new ResourceUsage(0, 0, 0);
     @GuardedBy("root")
-    private long lastStartMillis;
+    private long lastStartNanos;
     private final CounterStat timeBetweenStartsSec = new CounterStat();
     private final CounterStat startedQueries = new CounterStat();
 
@@ -776,7 +776,7 @@ public class InternalResourceGroup
             }
             else {
                 parent.get().eligibleSubGroups.remove(this);
-                lastStartMillis = 0;
+                lastStartNanos = 0;
             }
             parent.get().updateEligibility();
         }
@@ -970,11 +970,11 @@ public class InternalResourceGroup
             boolean started = subGroup.internalStartNext();
             checkState(started, "Eligible sub group had no queries to run");
 
-            long currentTime = System.currentTimeMillis();
-            if (lastStartMillis != 0) {
-                timeBetweenStartsSec.update(Math.max(0, (currentTime - lastStartMillis) / 1000));
+            long currentTime = System.nanoTime();
+            if (lastStartNanos != 0) {
+                timeBetweenStartsSec.update(Math.max(0, (currentTime - lastStartNanos) / 1_000_000));
             }
-            lastStartMillis = currentTime;
+            lastStartNanos = currentTime;
 
             descendantQueuedQueries--;
             // Don't call updateEligibility here, as we're in a recursive call, and don't want to repeatedly update our ancestors.
