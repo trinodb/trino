@@ -105,7 +105,7 @@ public class TeradataClient
     @Inject
     public TeradataClient(
             BaseJdbcConfig config,
-            TeradataConfig teradataConfig,            
+            TeradataConfig teradataConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping,
