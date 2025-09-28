@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.plugin.integration.clearscape;
 
 public class Model
@@ -22,7 +21,6 @@ public class Model
     String password;
     String databaseName;
     String token;
-    String jdbcUrl;
     String region;
 
     public String getEnvName()
@@ -45,11 +43,6 @@ public class Model
         this.hostName = hostName;
     }
 
-    public String getUserName()
-    {
-        return userName;
-    }
-
     public void setUserName(String userName)
     {
         this.userName = userName;
@@ -65,11 +58,6 @@ public class Model
         this.password = password;
     }
 
-    public String getDatabaseName()
-    {
-        return databaseName;
-    }
-
     public void setDatabaseName(String databaseName)
     {
         this.databaseName = databaseName;
@@ -83,16 +71,6 @@ public class Model
     public void setToken(String token)
     {
         this.token = token;
-    }
-
-    public String getJdbcUrl()
-    {
-        return jdbcUrl;
-    }
-
-    public void setJdbcUrl(String jdbcUrl)
-    {
-        this.jdbcUrl = jdbcUrl;
     }
 
     public String getRegion()

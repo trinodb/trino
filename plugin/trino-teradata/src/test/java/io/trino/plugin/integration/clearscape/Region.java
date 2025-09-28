@@ -1,3 +1,5 @@
+package io.trino.plugin.integration.clearscape;
+
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,8 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.integration.clearscape;
-
-public record GetEnvironmentRequest(
-        String name
-) {}
+public enum Region {
+    US_CENTRAL,
+    US_EAST,
+    US_WEST,
+    SOUTHAMERICA_EAST,
+    EUROPE_WEST,
+    ASIA_SOUTH,
+    ASIA_NORTHEAST,
+    ASIA_SOUTHEAST,
+    AUSTRALIA_SOUTHEAST
+}

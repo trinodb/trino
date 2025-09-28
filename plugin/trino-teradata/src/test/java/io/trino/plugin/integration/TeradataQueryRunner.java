@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.plugin.integration;
 
 import com.google.common.collect.ImmutableList;
@@ -38,44 +37,15 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Sets up a QueryRunner for Teradata connector integration testing.
- */
 public final class TeradataQueryRunner
 {
-    private TeradataQueryRunner()
-    {
-        // private constructor to prevent instantiation
-    }
+    private TeradataQueryRunner() {}
 
     public static Builder builder(TestingTeradataServer server)
     {
         return new Builder(server);
     }
 
-    /**
-     * Starts a QueryRunner server for Teradata connector on port 8080.
-     *
-     * @param args unused
-     * @throws Exception on error
-     */
-    public static void main(String[] args)
-            throws Exception
-    {
-        Logging logger = Logging.initialize();
-        logger.setLevel("io.trino.plugin.teradata", Level.DEBUG);
-        logger.setLevel("io.trino", Level.INFO);
-        TestingTeradataServer server = new TestingTeradataServer(ClearScapeEnvironmentUtils.generateUniqueEnvName(TeradataQueryRunner.class));
-        QueryRunner queryRunner = builder(server).addCoordinatorProperty("http-server.http.port", "8080").setInitialTables(TpchTable.getTables()).build();
-
-        Logger log = Logger.get(TeradataQueryRunner.class);
-        log.info("======== SERVER STARTED ========");
-        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
-    }
-
-    /**
-     * Builder class for constructing DistributedQueryRunner with Teradata connector.
-     */
     public static class Builder
             extends DistributedQueryRunner.Builder<Builder>
     {
@@ -138,5 +108,19 @@ public final class TeradataQueryRunner
             });
             return super.build();
         }
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging logger = Logging.initialize();
+        logger.setLevel("io.trino.plugin.teradata", Level.DEBUG);
+        logger.setLevel("io.trino", Level.INFO);
+        TestingTeradataServer server = new TestingTeradataServer(ClearScapeEnvironmentUtils.generateUniqueEnvName(TeradataQueryRunner.class));
+        QueryRunner queryRunner = builder(server).addCoordinatorProperty("http-server.http.port", "8080").setInitialTables(TpchTable.getTables()).build();
+
+        Logger log = Logger.get(TeradataQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }

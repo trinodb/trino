@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.plugin.integration.clearscape;
 
 import io.airlift.log.Logger;
@@ -19,14 +18,6 @@ import io.trino.plugin.integration.util.TeradataTestConstants;
 
 import java.net.URISyntaxException;
 import java.util.regex.Pattern;
-
-/**
- * Manager class responsible for provisioning, starting, and tearing down ClearScape environments
- * using the Teradata Environment API.
- * This class reads configuration from a JSON file, uses the environment configuration to call the
- * Teradata ClearScape HTTP API, and sets up the necessary JDBC parameters for connecting to a
- * Teradata instance.
- */
 
 public class ClearScapeManager
 {
@@ -39,23 +30,11 @@ public class ClearScapeManager
     {
     }
 
-    /**
-     * Validates that the provided URL matches the expected Clearscape Teradata API pattern.
-     *
-     * @param url the environment URL to validate
-     * @return true if the URL is valid, false otherwise
-     */
     private boolean isValidUrl(String url)
     {
         return ALLOWED_URL_PATTERN.matcher(url).matches();
     }
 
-    /**
-     * Creates a new instance of {@link TeradataHttpClient} using the environment URL from the config.
-     *
-     * @return an initialized {@link TeradataHttpClient} instance
-     * @throws URISyntaxException if the environment URL is invalid
-     */
     private TeradataHttpClient getTeradataHttpClient()
             throws URISyntaxException
     {
@@ -78,28 +57,16 @@ public class ClearScapeManager
         createAndStartClearScapeInstance();
     }
 
-    /**
-     * Public method to stop the clearscape instance
-     */
     public void stop()
     {
         stopClearScapeInstance();
     }
 
-    /**
-     * Public method to shut down and delete the ClearScape environment instance. Should be called
-     * to clean up resources after usage.
-     */
     public void teardown()
     {
         shutdownAndDestroyClearScapeInstance();
     }
 
-    /**
-     * Handles the logic for creating and starting a ClearScape environment instance. If the
-     * environment already exists and is stopped, it is started. If it doesn't exist, a new
-     * environment is created. Updates the {@code configJSON} with host/IP and authentication info.
-     */
     private void createAndStartClearScapeInstance()
     {
         try {
@@ -118,7 +85,7 @@ public class ClearScapeManager
             if (response == null || response.ip() == null) {
                 CreateEnvironmentRequest request = new CreateEnvironmentRequest(
                         name,
-                        TeradataTestConstants.ENV_CLEARSCAPE_REGION,
+                        model.getRegion(),
                         model.getPassword());
                 response = teradataHttpClient.createEnvironment(request, token).get();
             }
@@ -136,9 +103,6 @@ public class ClearScapeManager
         }
     }
 
-    /**
-     * Handles the logic for stopping a ClearScape environment instance.
-     */
     private void stopClearScapeInstance()
     {
         try {
@@ -165,10 +129,6 @@ public class ClearScapeManager
         }
     }
 
-    /**
-     * Handles the logic for shutting down and deleting a ClearScape environment instance. Logs a
-     * warning if the environment is not available.
-     */
     private void shutdownAndDestroyClearScapeInstance()
     {
         try {

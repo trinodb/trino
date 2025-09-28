@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.plugin.integration;
 
 import io.trino.plugin.teradata.LogonMechanism;
@@ -59,7 +58,6 @@ public class DatabaseConfig
                 .jdbcProperties(this.jdbcProperties);
     }
 
-    // Getters
     public String getJdbcUrl()
     {
         return jdbcUrl;

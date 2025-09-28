@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>476</version>
+        <version>478-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -13,20 +13,33 @@
     <name>${project.artifactId}</name>
     <description>Trino - Teradata connector</description>
 
+    <properties>
+        <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
+    </properties>
+
     <dependencies>
+
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
+
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>classes</classifier>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
@@ -35,11 +48,6 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-plugin-toolkit</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jdbi</groupId>
-            <artifactId>jdbi3-core</artifactId>
         </dependency>
 
         <dependency>
@@ -85,12 +93,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.errorprone</groupId>
             <artifactId>error_prone_annotations</artifactId>
             <scope>runtime</scope>
@@ -105,7 +107,13 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>log</artifactId>
+            <artifactId>concurrent</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>json</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -117,7 +125,13 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>http-server</artifactId>
+            <artifactId>units</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>configuration-testing</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -132,6 +146,13 @@
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>tracing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
@@ -141,6 +162,25 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-exchange-filesystem</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-exchange-filesystem</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-jmx</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
             <scope>test</scope>
         </dependency>
@@ -154,7 +194,26 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-parser</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-plugin-toolkit</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-containers</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -173,18 +232,6 @@
         <dependency>
             <groupId>io.trino.tpch</groupId>
             <artifactId>tpch</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>jakarta.servlet</groupId>
-            <artifactId>jakarta.servlet-api</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -223,6 +270,9 @@
                 <configuration>
                     <ignoredDependencies>
                         <ignoredDependency>com.fasterxml.jackson.core:jackson-core</ignoredDependency>
+                        <ignoredDependency>com.fasterxml.jackson.core:jackson-databind</ignoredDependency>
+                        <ignoredDependency>com.google.guava:guava</ignoredDependency>
+                        <ignoredDependency>io.airlift:log</ignoredDependency>
                     </ignoredDependencies>
                 </configuration>
             </plugin>

@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.plugin.integration.clearscape;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -36,9 +35,7 @@ import static io.trino.plugin.integration.clearscape.Headers.CONTENT_TYPE;
 public class TeradataHttpClient
 {
     private final String baseUrl;
-
     private final HttpClient httpClient;
-
     private final ObjectMapper objectMapper;
 
     public TeradataHttpClient(String baseUrl)
@@ -46,7 +43,9 @@ public class TeradataHttpClient
         this(HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build(), baseUrl);
     }
 
-    public TeradataHttpClient(HttpClient httpClient, String baseUrl)
+    public TeradataHttpClient(
+            HttpClient httpClient,
+            String baseUrl)
     {
         this.httpClient = httpClient;
         this.baseUrl = baseUrl;
@@ -61,24 +60,14 @@ public class TeradataHttpClient
             String token)
     {
         var requestBody = handleCheckedException(() -> objectMapper.writeValueAsString(createEnvironmentRequest));
-
         var httpRequest = HttpRequest.newBuilder(URI.create(baseUrl.concat("/environments")))
                 .headers(
                         AUTHORIZATION, BEARER + token,
                         CONTENT_TYPE, APPLICATION_JSON)
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                 .build();
-
         return httpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.ofString())
                 .thenApply(httpResponse -> handleHttpResponse(httpResponse, new TypeReference<>() {}));
-    }
-
-    // Avoids long connections and the risk of connection termination by intermediary
-    public CompletableFuture<EnvironmentResponse> pollingCreateEnvironment(
-            CreateEnvironmentRequest createEnvironmentRequest,
-            String token)
-    {
-        throw new UnsupportedOperationException();
     }
 
     public EnvironmentResponse getEnvironment(GetEnvironmentRequest getEnvironmentRequest, String token)
@@ -89,7 +78,6 @@ public class TeradataHttpClient
                 .headers(AUTHORIZATION, BEARER + token)
                 .GET()
                 .build();
-
         var httpResponse =
                 handleCheckedException(() -> httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString()));
         return handleHttpResponse(httpResponse, new TypeReference<>() {});
@@ -109,19 +97,19 @@ public class TeradataHttpClient
                 .thenApply(httpResponse -> handleHttpResponse(httpResponse, new TypeReference<>() {}));
     }
 
-    public CompletableFuture<Void> startEnvironment(EnvironmentRequest environmentRequest, String token)
+    public void startEnvironment(EnvironmentRequest environmentRequest, String token)
     {
         var requestBody = handleCheckedException(() -> objectMapper.writeValueAsString(environmentRequest.request()));
-        return getVoidCompletableFuture(environmentRequest.name(), token, requestBody);
+        getVoidCompletableFuture(environmentRequest.name(), token, requestBody);
     }
 
-    public CompletableFuture<Void> stopEnvironment(EnvironmentRequest environmentRequest, String token)
+    public void stopEnvironment(EnvironmentRequest environmentRequest, String token)
     {
         var requestBody = handleCheckedException(() -> objectMapper.writeValueAsString(environmentRequest.request()));
-        return getVoidCompletableFuture(environmentRequest.name(), token, requestBody);
+        getVoidCompletableFuture(environmentRequest.name(), token, requestBody);
     }
 
-    private CompletableFuture<Void> getVoidCompletableFuture(String name, String token, String jsonPayLoadString)
+    private void getVoidCompletableFuture(String name, String token, String jsonPayLoadString)
     {
         HttpRequest.BodyPublisher publisher = HttpRequest.BodyPublishers.ofString(jsonPayLoadString);
         var httpRequest = HttpRequest.newBuilder(URI.create(baseUrl
@@ -133,7 +121,7 @@ public class TeradataHttpClient
                 .build();
         var httpResponse =
                 handleCheckedException(() -> httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString()));
-        return handleHttpResponse(httpResponse, new TypeReference<>() {});
+        handleHttpResponse(httpResponse, new TypeReference<>() {});
     }
 
     private <T> T handleHttpResponse(HttpResponse<String> httpResponse, TypeReference<T> typeReference)

@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.plugin.unit;
 
 import io.trino.plugin.teradata.LogonMechanism;
@@ -26,22 +25,13 @@ public class TestLogonMechanism
     public void testFromStringValidValues()
     {
         assertThat(LogonMechanism.fromString("TD2")).isEqualTo(LogonMechanism.TD2);
-        assertThat(LogonMechanism.fromString("JWT")).isEqualTo(LogonMechanism.JWT);
-        assertThat(LogonMechanism.fromString("BEARER")).isEqualTo(LogonMechanism.BEARER);
-        assertThat(LogonMechanism.fromString("SECRET")).isEqualTo(LogonMechanism.SECRET);
-
-        // Case-insensitive
         assertThat(LogonMechanism.fromString("td2")).isEqualTo(LogonMechanism.TD2);
-        assertThat(LogonMechanism.fromString("jwt")).isEqualTo(LogonMechanism.JWT);
     }
 
     @Test
     public void testGetMechanism()
     {
         assertThat(LogonMechanism.TD2.getMechanism()).isEqualTo("TD2");
-        assertThat(LogonMechanism.JWT.getMechanism()).isEqualTo("JWT");
-        assertThat(LogonMechanism.BEARER.getMechanism()).isEqualTo("BEARER");
-        assertThat(LogonMechanism.SECRET.getMechanism()).isEqualTo("SECRET");
     }
 
     @Test

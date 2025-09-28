@@ -11,12 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.plugin.integration;
 
 import io.trino.plugin.integration.util.TeradataTestConstants;
 import io.trino.plugin.teradata.LogonMechanism;
-import org.apache.commons.lang3.StringUtils;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -41,7 +39,7 @@ public class DatabaseConfigFactory
         }
         AuthenticationConfig authConfig = createAuthConfig(userName, password);
         LogonMechanism logMech = LogonMechanism.fromString(getEnvVar("logMech", DEFAULT_LOG_MECH));
-        String databaseName = StringUtils.replace(envName, "-", "_");
+        String databaseName = envName.replace("-", "_");
         return DatabaseConfig.builder()
                 .hostName(hostName)
                 .databaseName(databaseName)
@@ -63,12 +61,7 @@ public class DatabaseConfigFactory
 
     private static AuthenticationConfig createAuthConfig(String username, String password)
     {
-        return new AuthenticationConfig(username, password,
-                getEnvVar("jwt_token", null),
-                getEnvVar("jws_private_key", null),
-                getEnvVar("jws_cert", null),
-                getEnvVar("oidc_clientid", null),
-                getEnvVar("client_secret", null));
+        return new AuthenticationConfig(username, password);
     }
 
     private static String getEnvVar(String name, String defaultValue)

@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.plugin.integration.clearscape;
 
 import io.trino.plugin.integration.util.TeradataTestConstants;
@@ -21,15 +20,22 @@ public class ClearScapeSetup
     private final String token;
     private final String password;
     private final String envName;
+    private final String region;
     private final boolean destoryEnv;
     private ClearScapeManager manager;
 
-    public ClearScapeSetup(String token, String password, String envName, boolean destoryEnv)
+    public ClearScapeSetup(
+            String token,
+            String password,
+            String envName,
+            boolean destroyEnv,
+            String region)
     {
         this.token = token;
         this.password = password;
         this.envName = envName;
-        this.destoryEnv = destoryEnv;
+        this.region = region;
+        this.destoryEnv = destroyEnv;
     }
 
     public Model initialize()
@@ -54,6 +60,7 @@ public class ClearScapeSetup
         model.setPassword(password);
         model.setDatabaseName(TeradataTestConstants.ENV_CLEARSCAPE_USERNAME);
         model.setToken(token);
+        model.setRegion(region);
         return model;
     }
 

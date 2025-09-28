@@ -11,11 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.plugin.integration;
 
 import io.trino.plugin.integration.clearscape.ClearScapeSetup;
 import io.trino.plugin.integration.clearscape.Model;
+import io.trino.plugin.integration.clearscape.Region;
+import io.trino.plugin.integration.util.TeradataTestConstants;
+import io.trino.plugin.teradata.LogonMechanism;
 import io.trino.testing.sql.SqlExecutor;
 
 import java.sql.Connection;
@@ -24,9 +26,12 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+
+import static java.util.Objects.requireNonNull;
 
 public class TestingTeradataServer
         implements AutoCloseable, SqlExecutor
@@ -47,11 +52,16 @@ public class TestingTeradataServer
             if (System.getenv("CLEARSCAPE_DESTORY_ENV") != null) {
                 destoryEnv = Boolean.parseBoolean(System.getenv("CLEARSCAPE_DESTORY_ENV"));
             }
+            String region = System.getenv("CLEARSCAPE_REGION");
+            if (!isValidRegion(region)) {
+                region = TeradataTestConstants.ENV_CLEARSCAPE_REGION;
+            }
             this.clearScapeSetup = new ClearScapeSetup(
                     System.getenv("CLEARSCAPE_TOKEN"),
                     System.getenv("CLEARSCAPE_PASSWORD"),
                     config.getClearScapeEnvName(),
-                    destoryEnv);
+                    destoryEnv,
+                    region);
             Model model = this.clearScapeSetup.initialize();
             hostName = model.getHostName();
         }
@@ -62,6 +72,15 @@ public class TestingTeradataServer
                 .build();
         this.connection = createConnection();
         createTestDatabaseIfAbsent();
+    }
+
+    public static boolean isValidRegion(String region)
+    {
+        if (region == null || region.isBlank()) {
+            return false;
+        }
+        return Arrays.stream(Region.values())
+                .anyMatch(r -> r.name().equalsIgnoreCase(region));
     }
 
     private String buildJdbcUrl(String hostName)
@@ -104,27 +123,13 @@ public class TestingTeradataServer
         Properties props = new Properties();
         props.put("logmech", config.getLogMech().getMechanism());
 
-        switch (config.getLogMech()) {
-            case TD2:
-                AuthenticationConfig auth = config.getAuthConfig();
-                props.put("username", auth.getUserName());
-                props.put("password", auth.getPassword());
-                break;
-            case BEARER:
-                auth = config.getAuthConfig();
-                props.put("jws_private_key", auth.getJwsPrivateKey());
-                props.put("jws_cert", auth.getJwsCertificate());
-                props.put("oidc_clientid", auth.getClientId());
-                break;
-            case JWT:
-                props.put("logdata", "token=" + config.getAuthConfig().getJwtToken());
-                break;
-            case SECRET:
-                props.put("oidc_clientid", config.getAuthConfig().getClientId());
-                props.put("logdata", config.getAuthConfig().getClientSecret());
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported logon mechanism: " + config.getLogMech());
+        if (requireNonNull(config.getLogMech()) == LogonMechanism.TD2) {
+            AuthenticationConfig auth = config.getAuthConfig();
+            props.put("username", auth.userName());
+            props.put("password", auth.password());
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported logon mechanism: " + config.getLogMech());
         }
 
         return props;
@@ -136,25 +141,10 @@ public class TestingTeradataServer
         properties.put("connection-url", config.getJdbcUrl());
         properties.put("logon-mechanism", config.getLogMech().getMechanism());
 
-        switch (config.getLogMech()) {
-            case TD2:
-                AuthenticationConfig auth = config.getAuthConfig();
-                properties.put("connection-user", auth.getUserName());
-                properties.put("connection-password", auth.getPassword());
-                break;
-            case BEARER:
-                auth = config.getAuthConfig();
-                properties.put("oidc.client-id", auth.getClientId());
-                properties.put("oidc.jws-private-key", auth.getJwsPrivateKey());
-                properties.put("oidc.jws-certificate", auth.getJwsCertificate());
-                break;
-            case JWT:
-                properties.put("jwt.token", config.getAuthConfig().getJwtToken());
-                break;
-            case SECRET:
-                properties.put("oidc.client-id", config.getAuthConfig().getClientId());
-                properties.put("oidc.client-secret", config.getAuthConfig().getClientSecret());
-                break;
+        if (requireNonNull(config.getLogMech()) == LogonMechanism.TD2) {
+            AuthenticationConfig auth = config.getAuthConfig();
+            properties.put("connection-user", auth.userName());
+            properties.put("connection-password", auth.password());
         }
 
         return properties;
@@ -256,7 +246,6 @@ public class TestingTeradataServer
         }
     }
 
-    // Getters
     public String getDatabaseName()
     {
         return config.getDatabaseName();

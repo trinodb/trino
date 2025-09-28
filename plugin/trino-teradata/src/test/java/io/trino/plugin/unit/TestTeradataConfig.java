@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.plugin.unit;
 
 import io.trino.plugin.teradata.TeradataConfig;
@@ -25,11 +24,6 @@ public class TestTeradataConfig
     public void testDefaults()
     {
         TeradataConfig config = new TeradataConfig();
-        assertThat(config.getOidcClientId()).isNull();
-        assertThat(config.getOidcClientSecret()).isNull();
-        assertThat(config.getOidcJWSCertificate()).isNull();
-        assertThat(config.getOidcJWSPrivateKey()).isNull();
-        assertThat(config.getOidcJwtToken()).isNull();
         assertThat(config.getLogMech()).isEqualTo("TD2");
         assertThat(config.getTeradataCaseSensitivity()).isEqualTo(TeradataConfig.TeradataCaseSensitivity.CASE_SENSITIVE);
     }
@@ -38,20 +32,9 @@ public class TestTeradataConfig
     public void testSetters()
     {
         TeradataConfig config = new TeradataConfig()
-                .setOidcClientId("clientId")
-                .setOidcClientSecret("clientSecret")
-                .setOidcJWSCertificate("certificate")
-                .setOidcJWSPrivateKey("privateKey")
-                .setOidcJwtToken("jwtToken")
-                .setLogMech("LDAP")
+                .setLogMech("TD2")
                 .setTeradataCaseSensitivity(TeradataConfig.TeradataCaseSensitivity.CASE_INSENSITIVE);
-
-        assertThat(config.getOidcClientId()).contains("clientId");
-        assertThat(config.getOidcClientSecret()).contains("clientSecret");
-        assertThat(config.getOidcJWSCertificate()).contains("certificate");
-        assertThat(config.getOidcJWSPrivateKey()).contains("privateKey");
-        assertThat(config.getOidcJwtToken()).contains("jwtToken");
-        assertThat(config.getLogMech()).isEqualTo("LDAP");
+        assertThat(config.getLogMech()).isEqualTo("TD2");
         assertThat(config.getTeradataCaseSensitivity()).isEqualTo(TeradataConfig.TeradataCaseSensitivity.CASE_INSENSITIVE);
     }
 

@@ -11,12 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.plugin.integration.clearscape;
 
 public record EnvironmentRequest(
-
         String name,
-
         OperationRequest request
 ) {}
