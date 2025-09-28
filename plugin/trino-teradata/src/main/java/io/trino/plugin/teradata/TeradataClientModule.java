@@ -48,7 +48,6 @@ public class TeradataClientModule
         Driver driver = DriverManager.getDriver(config.getConnectionUrl());
         String longMech = LogonMechanism.fromString(teradataConfig.getLogMech()).getMechanism();
         connectionProperties.put("LOGMECH", longMech);
-        String clientId;
         switch (longMech) {
             case "TD2":
                 break;

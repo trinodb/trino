@@ -104,22 +104,18 @@ public class TeradataClient
         extends BaseJdbcClient
 {
     private static final PredicatePushdownController TERADATA_STRING_PUSHDOWN = FULL_PUSHDOWN;
-    private final Type jsonType;
     private final TeradataConfig.TeradataCaseSensitivity teradataJDBCCaseSensitivity;
 
     @Inject
     public TeradataClient(
             BaseJdbcConfig config,
-            TeradataConfig teradataConfig,
-            JdbcStatisticsConfig statisticsConfig,
+            TeradataConfig teradataConfig,            
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
-            TypeManager typeManager,
             IdentifierMapping identifierMapping,
             RemoteQueryModifier remoteQueryModifier)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, remoteQueryModifier, true);
-        this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.teradataJDBCCaseSensitivity = teradataConfig.getTeradataCaseSensitivity();
     }
 
