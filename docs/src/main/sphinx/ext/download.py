@@ -84,8 +84,15 @@ def filename(artifact, version, extension):
     extension = '.' + extension if extension else ''
     return artifact + '-' + version + extension
 
+# Download from Maven Central
+def download_mc_url(artifact, version, extension):
+    base = 'https://repo1.maven.org/maven2/io/trino'
+    file = filename(artifact, version, extension)
+    return '%s/%s/%s/%s' % (base, artifact, version, file)
 
-def download_url(artifact, version, extension):
+
+# Download from GitHub Releases
+def download_gh_url(artifact, version, extension):
     base = 'https://github.com/trinodb/trino/releases/download'
     file = filename(artifact, version, extension)
     return '%s/%s/%s' % (base, version, file)
@@ -93,7 +100,7 @@ def download_url(artifact, version, extension):
 
 def setup(app):
     # noinspection PyDefaultArgument,PyUnusedLocal
-    def download_link_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
+    def download_gh_link_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
         version = app.config.release
 
         if not text in ARTIFACTS:
@@ -103,12 +110,30 @@ def setup(app):
         artifact, extension = ARTIFACTS[text]
 
         title = filename(artifact, version, extension)
-        uri = download_url(artifact, version, extension)
+        uri = download_gh_url(artifact, version, extension)
 
         node = nodes.reference(title, title, internal=False, refuri=uri)
 
         return [node], []
-    app.add_role('maven_download', download_link_role)
+
+    def download_mc_link_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
+        version = app.config.release 
+
+        if not text in ARTIFACTS:
+            inliner.reporter.error('Unsupported download type: ' + text, line=lineno)
+            return [], []
+
+        artifact, extension = ARTIFACTS[text]
+
+        title = filename(artifact, version, extension)
+        uri = download_mc_url(artifact, version, extension)
+
+        node = nodes.reference(title, title, internal=False, refuri=uri)
+
+        return [node], []       
+    
+    app.add_role('download_gh', download_gh_link_role)
+    app.add_role('download_mc', download_mc_link_role)
 
     return {
         'parallel_read_safe': True,
