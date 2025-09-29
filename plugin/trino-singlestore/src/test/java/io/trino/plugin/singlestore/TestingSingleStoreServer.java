@@ -17,11 +17,16 @@ import com.google.common.collect.ImmutableSet;
 import org.testcontainers.containers.JdbcDatabaseContainer;
 import org.testcontainers.utility.DockerImageName;
 
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Set;
+
+import static io.trino.testing.containers.TestContainers.startOrReuse;
 
 public class TestingSingleStoreServer
         extends JdbcDatabaseContainer<TestingSingleStoreServer>
@@ -33,6 +38,8 @@ public class TestingSingleStoreServer
 
     public static final Integer SINGLESTORE_PORT = 3306;
 
+    private final Closeable cleanup;
+
     public TestingSingleStoreServer()
     {
         this(DEFAULT_VERSION);
@@ -43,7 +50,7 @@ public class TestingSingleStoreServer
         super(DockerImageName.parse(DEFAULT_TAG));
         addEnv("ROOT_PASSWORD", "memsql_root_password");
         addEnv("SINGLESTORE_VERSION", version);
-        start();
+        cleanup = startOrReuse(this);
     }
 
     @Override
@@ -87,6 +94,17 @@ public class TestingSingleStoreServer
     public String getTestQueryString()
     {
         return "SELECT 1";
+    }
+
+    @Override
+    public void close()
+    {
+        try {
+            cleanup.close();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     public void execute(String sql)
