@@ -58,6 +58,8 @@ import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.plugin.iceberg.system.files.FilesTablePageSource;
 import io.trino.plugin.iceberg.system.files.FilesTableSplit;
+import io.trino.plugin.iceberg.system.partitions.PartitionsTablePageSource;
+import io.trino.plugin.iceberg.system.partitions.PartitionsTableSplit;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -250,6 +252,13 @@ public class IcebergPageSourceProvider
                     fileIoFactory,
                     columns.stream().map(SystemColumnHandle.class::cast).map(SystemColumnHandle::columnName).collect(toImmutableList()),
                     filesTableSplit);
+        }
+
+        if (connectorSplit instanceof PartitionsTableSplit partitionsTableSplit) {
+            return new PartitionsTablePageSource(
+                    typeManager,
+                    columns.stream().map(SystemColumnHandle.class::cast).map(SystemColumnHandle::columnName).collect(toImmutableList()),
+                    partitionsTableSplit);
         }
 
         IcebergSplit split = (IcebergSplit) connectorSplit;

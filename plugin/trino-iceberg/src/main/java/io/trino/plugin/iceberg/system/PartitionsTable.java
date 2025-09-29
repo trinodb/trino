@@ -16,9 +16,12 @@ package io.trino.plugin.iceberg.system;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.iceberg.IcebergStatistics;
 import io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex;
+import io.trino.plugin.iceberg.system.partitions.PartitionsTableSplitSource;
 import io.trino.spi.block.SqlRow;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.InMemoryRecordSet;
@@ -130,13 +133,25 @@ public class PartitionsTable
     @Override
     public Distribution getDistribution()
     {
-        return Distribution.SINGLE_COORDINATOR;
+        return Distribution.ALL_NODES;
     }
 
     @Override
     public ConnectorTableMetadata getTableMetadata()
     {
         return connectorTableMetadata;
+    }
+
+    @Override
+    public Optional<ConnectorSplitSource> splitSource(ConnectorSession connectorSession, TupleDomain<ColumnHandle> constraint)
+    {
+        return Optional.of(new PartitionsTableSplitSource(
+                icebergTable,
+                snapshotId,
+                partitionColumnType.map(IcebergPartitionColumn::rowType),
+                dataColumnType,
+                icebergTable.io().properties(),
+                executor));
     }
 
     private static Optional<RowType> getMetricsColumnType(TypeManager typeManager, List<NestedField> columns)
