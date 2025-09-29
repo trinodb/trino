@@ -73,6 +73,17 @@ public final class PositionsAppenderPageBuilder
         }
     }
 
+    public void appendToOutputPartition(Page page)
+    {
+        int positionCount = page.getPositionCount();
+        declarePositions(positionCount);
+
+        for (int channel = 0; channel < channelAppenders.length; channel++) {
+            Block block = page.getBlock(channel);
+            channelAppenders[channel].appendRange(block, 0, positionCount);
+        }
+    }
+
     public void appendToOutputPartition(Page page, IntArrayList positions)
     {
         declarePositions(positions.size());

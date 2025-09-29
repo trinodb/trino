@@ -45,6 +45,12 @@ final class TypedPositionsAppender
     }
 
     @Override
+    public void appendRange(ValueBlock block, int offset, int length)
+    {
+        blockBuilder.appendRange(block, offset, length);
+    }
+
+    @Override
     public void appendRle(ValueBlock block, int count)
     {
         blockBuilder.appendRepeated(block, 0, count);
