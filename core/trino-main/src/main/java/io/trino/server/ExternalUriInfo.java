@@ -13,9 +13,9 @@
  */
 package io.trino.server;
 
-import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.UriBuilder;
 import jakarta.ws.rs.core.UriBuilderException;
 import jakarta.ws.rs.core.UriInfo;
@@ -23,8 +23,8 @@ import jakarta.ws.rs.core.UriInfo;
 import java.net.URI;
 import java.net.URISyntaxException;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.util.Objects.requireNonNull;
-import static java.util.Objects.requireNonNullElse;
 
 /**
  * Provides external URI information for the current request. The external URI may have a path prefix when behind a reverse proxy.
@@ -37,10 +37,15 @@ public class ExternalUriInfo
     private final UriInfo uriInfo;
     private final String forwardedPrefix;
 
-    public ExternalUriInfo(@Context UriInfo uriInfo, @HeaderParam(X_FORWARDED_PREFIX) String forwardedPrefix)
+    public ExternalUriInfo(@Context UriInfo uriInfo, @Context HttpHeaders httpHeaders)
+    {
+        this(uriInfo, requireNonNull(httpHeaders, "httpHeaders is null").getHeaderString(X_FORWARDED_PREFIX));
+    }
+
+    ExternalUriInfo(UriInfo uriInfo, String forwardedPrefix)
     {
         this.uriInfo = requireNonNull(uriInfo, "uriInfo is null");
-        this.forwardedPrefix = requireNonNullElse(forwardedPrefix, "");
+        this.forwardedPrefix = firstNonNull(forwardedPrefix, "");
     }
 
     public static ExternalUriInfo from(ContainerRequestContext requestContext)
