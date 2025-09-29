@@ -85,7 +85,7 @@ public final class SingleStoreQueryRunner
                 queryRunner.installPlugin(new SingleStorePlugin());
                 queryRunner.createCatalog("singlestore", "singlestore", connectorProperties);
 
-                queryRunner.execute("CREATE SCHEMA tpch");
+                queryRunner.execute("CREATE SCHEMA IF NOT EXISTS tpch");
                 copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);
 
                 return queryRunner;
