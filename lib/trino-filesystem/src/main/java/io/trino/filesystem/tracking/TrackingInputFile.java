@@ -76,4 +76,10 @@ public class TrackingInputFile
     {
         return delegate.location();
     }
+
+    @Override
+    public String toString()
+    {
+        return delegate.toString();
+    }
 }
