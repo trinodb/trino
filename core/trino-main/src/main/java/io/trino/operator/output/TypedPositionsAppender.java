@@ -21,7 +21,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 
-class TypedPositionsAppender
+final class TypedPositionsAppender
         implements PositionsAppender
 {
     private static final int INSTANCE_SIZE = instanceSize(TypedPositionsAppender.class);

@@ -31,7 +31,7 @@ import static io.trino.operator.output.PositionsAppenderUtil.calculateNewArraySi
 import static io.trino.spi.block.RowBlock.fromNotNullSuppressedFieldBlocks;
 import static java.util.Objects.requireNonNull;
 
-public class RowPositionsAppender
+public final class RowPositionsAppender
         implements PositionsAppender
 {
     private static final int INSTANCE_SIZE = instanceSize(RowPositionsAppender.class);
