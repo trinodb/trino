@@ -119,6 +119,6 @@ final class TracingInputFile
     @Override
     public String toString()
     {
-        return location().toString();
+        return delegate.toString();
     }
 }

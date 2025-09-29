@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public final class CacheInputFile
@@ -102,5 +103,15 @@ public final class CacheInputFile
     public Location location()
     {
         return delegate.location();
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("delegate", delegate)
+                .add("length", length)
+                .add("lastModified", lastModified)
+                .toString();
     }
 }
