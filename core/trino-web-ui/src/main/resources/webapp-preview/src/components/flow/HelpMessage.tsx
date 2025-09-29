@@ -11,21 +11,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Box, Typography, ToggleButtonGroup, ToggleButton } from '@mui/material'
+import { Box, Button, Typography, ToggleButtonGroup, ToggleButton } from '@mui/material'
 import React from 'react'
 import { LayoutDirectionType } from './types'
 
 interface IHelpMessageProps {
     layoutDirection: LayoutDirectionType
     onLayoutDirectionChange: (layoutDirection: LayoutDirectionType) => void
+    onOriginClick: () => void
     additionalContent?: React.ReactNode
 }
 
-export const HelpMessage = ({ layoutDirection, onLayoutDirectionChange, additionalContent }: IHelpMessageProps) => {
+export const HelpMessage = ({
+    layoutDirection,
+    onLayoutDirectionChange,
+    onOriginClick,
+    additionalContent,
+}: IHelpMessageProps) => {
     const handleLayoutChange = (_event: React.MouseEvent<HTMLElement>, newDirection: LayoutDirectionType | null) => {
         if (newDirection !== null) {
             onLayoutDirectionChange(newDirection)
         }
+    }
+
+    const handleOriginClick = () => {
+        onOriginClick()
     }
 
     return (
@@ -47,9 +57,19 @@ export const HelpMessage = ({ layoutDirection, onLayoutDirectionChange, addition
                 alignItems: 'center',
             }}
         >
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 0 }}>
-                Scroll to zoom in/out
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0 }}>
+                    Scroll to zoom in/out
+                </Typography>
+                <Button
+                    onClick={handleOriginClick}
+                    size="small"
+                    variant="text"
+                    sx={{ minWidth: 'auto', px: 1.5, py: 0.25 }}
+                >
+                    Origin
+                </Button>
+            </Box>
 
             <ToggleButtonGroup
                 value={layoutDirection}
@@ -65,7 +85,6 @@ export const HelpMessage = ({ layoutDirection, onLayoutDirectionChange, addition
                     <Typography variant="caption">Horizontal</Typography>
                 </ToggleButton>
             </ToggleButtonGroup>
-
             {additionalContent}
         </Box>
     )

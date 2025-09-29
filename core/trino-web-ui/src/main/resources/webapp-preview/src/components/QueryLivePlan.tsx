@@ -13,12 +13,12 @@
  */
 import { useParams } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Box, CircularProgress, Grid } from '@mui/material'
-import { ReactFlow, type Edge, type Node, useNodesState, useEdgesState } from '@xyflow/react'
+import { Alert, Box, CircularProgress, Grid, Typography } from '@mui/material'
+import { ReactFlow, type Edge, type Node, useNodesState, useEdgesState, type Viewport } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { queryStatusApi, QueryStatusInfo } from '../api/webapp/api.ts'
 import { QueryProgressBar } from './QueryProgressBar'
-import { nodeTypes, getLayoutedPlanFlowElements } from './flow/layout'
+import { nodeTypes, getLayoutedPlanFlowElements, getViewportFocusedOnNode } from './flow/layout'
 import { HelpMessage } from './flow/HelpMessage'
 import { getPlanFlowElements } from './flow/flowUtils'
 import { IQueryStatus, LayoutDirectionType } from './flow/types'
@@ -36,6 +36,7 @@ export const QueryLivePlan = () => {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
     const [layoutDirection, setLayoutDirection] = useState<LayoutDirectionType>('BT')
+    const [viewport, setViewport] = useState<Viewport>()
 
     const [loading, setLoading] = useState<boolean>(true)
     const [error, setError] = useState<string | null>(null)
@@ -94,6 +95,16 @@ export const QueryLivePlan = () => {
         }
     }
 
+    const focusViewportToFirstStage = () => {
+        const viewportTarget = getViewportFocusedOnNode(nodes, {
+            targetNodeId: 'stage-0',
+            containerWidth: containerRef.current?.clientWidth ?? 0,
+        })
+        if (viewportTarget) {
+            setViewport(viewportTarget)
+        }
+    }
+
     return (
         <>
             {loading && <CircularProgress />}
@@ -115,21 +126,30 @@ export const QueryLivePlan = () => {
                                                 ref={containerRef}
                                                 sx={{ width: '100%', height: '80vh', border: '1px solid #ccc' }}
                                             >
-                                                <ReactFlow
-                                                    nodes={nodes}
-                                                    edges={edges}
-                                                    onNodesChange={onNodesChange}
-                                                    onEdgesChange={onEdgesChange}
-                                                    nodeTypes={nodeTypes}
-                                                    minZoom={0.1}
-                                                    proOptions={{ hideAttribution: true }}
-                                                    defaultViewport={{ x: 200, y: 20, zoom: 0.8 }}
-                                                >
-                                                    <HelpMessage
-                                                        layoutDirection={layoutDirection}
-                                                        onLayoutDirectionChange={setLayoutDirection}
-                                                    />
-                                                </ReactFlow>
+                                                {nodes.length > 0 ? (
+                                                    <ReactFlow
+                                                        nodes={nodes}
+                                                        edges={edges}
+                                                        onNodesChange={onNodesChange}
+                                                        onEdgesChange={onEdgesChange}
+                                                        nodeTypes={nodeTypes}
+                                                        minZoom={0.1}
+                                                        proOptions={{ hideAttribution: true }}
+                                                        viewport={viewport}
+                                                        onViewportChange={setViewport}
+                                                        fitView
+                                                    >
+                                                        <HelpMessage
+                                                            layoutDirection={layoutDirection}
+                                                            onLayoutDirectionChange={setLayoutDirection}
+                                                            onOriginClick={focusViewportToFirstStage}
+                                                        />
+                                                    </ReactFlow>
+                                                ) : (
+                                                    <Typography sx={{ p: 1 }} fontSize="small">
+                                                        Rendering...
+                                                    </Typography>
+                                                )}
                                             </Box>
                                         </Box>
                                     </Grid>
