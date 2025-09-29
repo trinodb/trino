@@ -24,13 +24,13 @@ import {
     Select,
     SelectChangeEvent,
 } from '@mui/material'
-import { type Edge, type Node, ReactFlow, useEdgesState, useNodesState } from '@xyflow/react'
+import { type Edge, type Node, ReactFlow, useEdgesState, useNodesState, type Viewport } from '@xyflow/react'
 import { queryStatusApi, QueryStatusInfo, QueryStage } from '../api/webapp/api.ts'
 import { ApiResponse } from '../api/base.ts'
 import { Texts } from '../constant.ts'
 import { QueryProgressBar } from './QueryProgressBar.tsx'
 import { HelpMessage } from './flow/HelpMessage'
-import { nodeTypes, getLayoutedStagePerformanceElements } from './flow/layout'
+import { nodeTypes, getLayoutedStagePerformanceElements, getViewportFocusedOnNode } from './flow/layout'
 import { LayoutDirectionType } from './flow/types'
 import { getStagePerformanceFlowElements } from './flow/flowUtils.ts'
 
@@ -53,6 +53,7 @@ export const QueryStagePerformance = () => {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
     const [layoutDirection, setLayoutDirection] = useState<LayoutDirectionType>('BT')
+    const [viewport, setViewport] = useState<Viewport>()
 
     const [loading, setLoading] = useState<boolean>(true)
     const [error, setError] = useState<string | null>(null)
@@ -135,6 +136,16 @@ export const QueryStagePerformance = () => {
         },
     }
 
+    const focusViewportToFirstPipeline = () => {
+        const viewportTarget = getViewportFocusedOnNode(nodes, {
+            targetNodeId: 'pipeline-0',
+            containerWidth: containerRef.current?.clientWidth ?? 0,
+        })
+        if (viewportTarget) {
+            setViewport(viewportTarget)
+        }
+    }
+
     const handleStageIdChange = (event: SelectChangeEvent) => {
         setStagePlanId(event.target.value as string)
     }
@@ -169,11 +180,14 @@ export const QueryStagePerformance = () => {
                                                         nodeTypes={nodeTypes}
                                                         minZoom={0.1}
                                                         proOptions={{ hideAttribution: true }}
-                                                        defaultViewport={{ x: 200, y: 20, zoom: 0.8 }}
+                                                        viewport={viewport}
+                                                        onViewportChange={setViewport}
+                                                        fitView
                                                     >
                                                         <HelpMessage
                                                             layoutDirection={layoutDirection}
                                                             onLayoutDirectionChange={setLayoutDirection}
+                                                            onOriginClick={focusViewportToFirstPipeline}
                                                             additionalContent={
                                                                 <Box sx={{ mt: 2 }}>
                                                                     <FormControl size="small" sx={{ minWidth: 200 }}>
