@@ -22,6 +22,8 @@ public sealed interface PositionsAppender
 {
     void append(IntArrayList positions, ValueBlock source);
 
+    void appendRange(ValueBlock block, int offset, int length);
+
     /**
      * Appends the specified value positionCount times.
      * The result is the same as with using {@link PositionsAppender#append(IntArrayList, ValueBlock)} with

@@ -595,7 +595,7 @@ public class TestPagePartitioner
     {
         TestOutputBuffer outputBuffer = new TestOutputBuffer();
         PagePartitionerBuilder pagePartitionerBuilder = pagePartitioner(outputBuffer, BIGINT, type, type);
-        PagePartitioner pagePartitioner = pagePartitionerBuilder.build();
+        PagePartitioner multiPartitionPartitioner = pagePartitionerBuilder.build();
         Page input = new Page(
                 createLongSequenceBlock(0, POSITIONS_PER_PAGE), // partition block
                 createBlockForType(type, POSITIONS_PER_PAGE),
@@ -603,14 +603,25 @@ public class TestPagePartitioner
 
         List<Object> expected = readChannel(Stream.of(input, input), 1, type);
 
-        mode1.partitionPage(pagePartitioner, input);
-        mode2.partitionPage(pagePartitioner, input);
+        mode1.partitionPage(multiPartitionPartitioner, input);
+        mode2.partitionPage(multiPartitionPartitioner, input);
 
-        pagePartitioner.close();
+        multiPartitionPartitioner.close();
 
-        List<Object> partitioned = readChannel(outputBuffer.getEnqueuedDeserialized(), 1, type);
-        assertThat(partitioned).containsExactlyInAnyOrderElementsOf(expected); // output of the PagePartitioner can be reordered
+        List<Object> multiPartitionedOutput = readChannel(outputBuffer.getEnqueuedDeserialized(), 1, type);
+        assertThat(multiPartitionedOutput).containsExactlyInAnyOrderElementsOf(expected); // output of the PagePartitioner can be reordered
         outputBuffer.clear();
+
+        // Test single partition output matches input
+        PagePartitioner singlePartitionPartitioner = pagePartitionerBuilder
+                .withPartitionFunction(new SinglePartitionFailIfCalled())
+                .build();
+        OperatorContext operatorContext = operatorContext();
+        singlePartitionPartitioner.partitionPage(input, operatorContext);
+        singlePartitionPartitioner.partitionPage(input, operatorContext);
+        singlePartitionPartitioner.close();
+        List<Object> singlePartitionedOutput = readChannel(outputBuffer.getEnqueuedDeserialized(), 1, type);
+        assertThat(singlePartitionedOutput).isEqualTo(expected);
     }
 
     private static Block createBlockForType(Type type, int positionsPerPage)
@@ -971,6 +982,22 @@ public class TestPagePartitioner
             }
 
             return toIntExact(Math.abs(value) % partitionCount);
+        }
+    }
+
+    private static final class SinglePartitionFailIfCalled
+            implements PartitionFunction
+    {
+        @Override
+        public int partitionCount()
+        {
+            return 1;
+        }
+
+        @Override
+        public int getPartition(Page page, int position)
+        {
+            throw new UnsupportedOperationException("getPartition should not be called on single partitioned outputs");
         }
     }
 }
