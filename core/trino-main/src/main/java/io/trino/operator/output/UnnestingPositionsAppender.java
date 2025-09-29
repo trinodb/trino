@@ -37,7 +37,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Dispatches the {@link #append} and {@link #appendRle} methods to the {@link #delegate} depending on the input {@link Block} class.
  */
-public class UnnestingPositionsAppender
+public final class UnnestingPositionsAppender
 {
     private static final int INSTANCE_SIZE = instanceSize(UnnestingPositionsAppender.class);
 
@@ -235,7 +235,7 @@ public class UnnestingPositionsAppender
         return false;
     }
 
-    private static class DictionaryIdsBuilder
+    private static final class DictionaryIdsBuilder
     {
         private static final int INSTANCE_SIZE = instanceSize(DictionaryIdsBuilder.class);
 
