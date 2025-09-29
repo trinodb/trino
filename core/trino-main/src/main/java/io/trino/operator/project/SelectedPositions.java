@@ -13,6 +13,7 @@
  */
 package io.trino.operator.project;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Preconditions.checkState;
@@ -60,6 +61,17 @@ public class SelectedPositions
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + sizeOf(positions);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("isList", isList)
+                .add("positions", positions)
+                .add("offset", offset)
+                .add("size", size)
+                .toString();
     }
 
     public boolean isList()
