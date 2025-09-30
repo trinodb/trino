@@ -55,6 +55,6 @@ public class TpchScaledTable
         }
         TpchScaledTable other = (TpchScaledTable) obj;
         return Objects.equals(this.tableName, other.tableName) &&
-               this.scaleFactor == other.scaleFactor;
+                this.scaleFactor == other.scaleFactor;
     }
 }

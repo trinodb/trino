@@ -377,8 +377,8 @@ public class BigQueryMetadata
             //BigLake tables are external with connectionId that don't have objectMetadata (ObjectTable discriminator) and their uri starts with gs:// (OMNI table discriminator)
             List<String> sourceUris = externalTableDefinition.getSourceUris();
             return !isNullOrEmpty(externalTableDefinition.getConnectionId()) &&
-                   isNullOrEmpty(externalTableDefinition.getObjectMetadata()) &&
-                   (sourceUris != null && sourceUris.stream().allMatch(uri -> uri.startsWith("gs://")));
+                    isNullOrEmpty(externalTableDefinition.getObjectMetadata()) &&
+                    (sourceUris != null && sourceUris.stream().allMatch(uri -> uri.startsWith("gs://")));
         }
         return false;
     }
