@@ -15,12 +15,10 @@ package io.trino.spi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.errorprone.annotations.FormatMethod;
 
 import java.util.List;
 import java.util.Objects;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class QueryId
@@ -36,7 +34,9 @@ public final class QueryId
 
     public QueryId(String id)
     {
-        this.id = validateId(id);
+        requireNonNull(id, "id is null");
+        checkArgument(!id.isEmpty(), "id is empty");
+        this.id = validateId("queryId", id);
     }
 
     public String getId()
@@ -86,34 +86,41 @@ public final class QueryId
         return true;
     }
 
-    public static String validateId(String id)
+    static String validateId(String name, String id)
     {
-        requireNonNull(id, "id is null");
-        checkArgument(!id.isEmpty(), "id is empty");
-        checkArgument(isValidId(id), "Invalid id %s", id);
+        if (!isValidId(id)) {
+            throw new IllegalArgumentException("Invalid " + name + " " + id);
+        }
         return id;
     }
 
     public static List<String> parseDottedId(String id, int expectedParts, String name)
     {
         requireNonNull(id, "id is null");
-        checkArgument(expectedParts > 0, "expectedParts must be at least 1");
+        checkArgument(expectedParts > 1, "expectedParts must be at least 2");
         requireNonNull(name, "name is null");
 
-        List<String> ids = List.of(id.split("\\."));
-        checkArgument(ids.size() == expectedParts, "Invalid %s %s", name, id);
-
-        for (String part : ids) {
-            validateId(part);
+        String[] parts = new String[expectedParts];
+        int startOffset = 0;
+        for (int i = 0, length = parts.length - 1; i < length; i++) {
+            int dotIndex = id.indexOf('.', startOffset);
+            if (dotIndex <= startOffset) {
+                throw new IllegalArgumentException("Invalid " + name + " " + id);
+            }
+            parts[i] = validateId(name, id.substring(startOffset, dotIndex));
+            startOffset = dotIndex + 1;
         }
-        return ids;
+        if (id.indexOf('.', startOffset) != -1) {
+            throw new IllegalArgumentException("Invalid " + name + " " + id);
+        }
+        parts[parts.length - 1] = validateId(name, id.substring(startOffset));
+        return List.of(parts);
     }
 
-    @FormatMethod
-    private static void checkArgument(boolean condition, String message, Object... messageArgs)
+    private static void checkArgument(boolean condition, String message)
     {
         if (!condition) {
-            throw new IllegalArgumentException(format(message, messageArgs));
+            throw new IllegalArgumentException(message);
         }
     }
 }
