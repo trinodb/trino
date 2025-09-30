@@ -239,6 +239,20 @@
                                     <newVisibility>package</newVisibility>
                                     <justification>Hidden method that is not used outside of QueryId</justification>
                                 </item>
+                                <item>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.QueryId::toString()</old>
+                                    <new>method java.lang.String io.trino.spi.QueryId::toString()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
+                                    <justification>QueryId converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.kindChanged</code>
+                                    <old>class io.trino.spi.QueryId</old>
+                                    <new>class io.trino.spi.QueryId</new>
+                                    <justification>QueryId converted to a record</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

@@ -9449,7 +9449,7 @@ public abstract class BaseIcebergConnectorTest
     private void assertQueryIdAndUserStored(String tableName, QueryId queryId)
     {
         assertThat(getFieldFromLatestSnapshotSummary(tableName, TRINO_QUERY_ID_NAME))
-                .isEqualTo(queryId.toString());
+                .isEqualTo(queryId.id());
         assertThat(getFieldFromLatestSnapshotSummary(tableName, TRINO_USER_NAME))
                 .isEqualTo("user");
     }

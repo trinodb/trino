@@ -263,7 +263,7 @@ public class QueuedStatementResource
     {
         return externalUriInfo.baseUriBuilder()
                 .path("/v1/statement/queued/")
-                .path(queryId.toString())
+                .path(queryId.id())
                 .path(slug.makeSlug(QUEUED_QUERY, token))
                 .path(String.valueOf(token))
                 .build();
@@ -280,7 +280,7 @@ public class QueuedStatementResource
     {
         QueryState state = queryError.map(error -> FAILED).orElse(QUEUED);
         return new QueryResults(
-                queryId.toString(),
+                queryId.id(),
                 getQueryInfoUri(queryInfoUrl, queryId, externalUriInfo),
                 null,
                 nextUri,
@@ -325,7 +325,7 @@ public class QueuedStatementResource
             this.queryInfoUrl = queryInfoUrlFactory.getQueryInfoUrl(queryId);
             requireNonNull(tracer, "tracer is null");
             this.querySpan = tracer.spanBuilder("query")
-                    .setAttribute(TrinoAttributes.QUERY_ID, queryId.toString())
+                    .setAttribute(TrinoAttributes.QUERY_ID, queryId.id())
                     .startSpan();
         }
 
@@ -446,7 +446,7 @@ public class QueuedStatementResource
         {
             return coordinatorLocation.getUri(externalUriInfo)
                     .path("/v1/statement/executing")
-                    .path(queryId.toString())
+                    .path(queryId.id())
                     .path(slug.makeSlug(EXECUTING_QUERY, 0))
                     .path("0")
                     .build();
