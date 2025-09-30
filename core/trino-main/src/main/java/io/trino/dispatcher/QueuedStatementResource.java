@@ -86,6 +86,9 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
+import static io.trino.dispatcher.QueuedStatementResource.SubmissionState.ABANDONED;
+import static io.trino.dispatcher.QueuedStatementResource.SubmissionState.NOT_SUBMITTED;
+import static io.trino.dispatcher.QueuedStatementResource.SubmissionState.SUBMITTED;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.server.ServletSecurityUtils.authenticatedIdentity;
@@ -301,6 +304,13 @@ public class QueuedStatementResource
                 OptionalLong.empty());
     }
 
+    enum SubmissionState
+    {
+        NOT_SUBMITTED,
+        SUBMITTED,
+        ABANDONED
+    }
+
     private static final class Query
     {
         private final String query;
@@ -313,7 +323,7 @@ public class QueuedStatementResource
         private final AtomicLong lastToken = new AtomicLong();
 
         private final long initTime = System.nanoTime();
-        private final AtomicReference<Boolean> submissionGate = new AtomicReference<>();
+        private final AtomicReference<SubmissionState> submissionGate = new AtomicReference<>(NOT_SUBMITTED);
         private final SettableFuture<Void> creationFuture = SettableFuture.create();
 
         public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, QueryInfoUrlFactory queryInfoUrlFactory, Tracer tracer)
@@ -347,12 +357,12 @@ public class QueuedStatementResource
 
         public boolean tryAbandonSubmissionWithTimeout(long querySubmissionTimeoutNanos)
         {
-            return (System.nanoTime() - initTime) >= querySubmissionTimeoutNanos && submissionGate.compareAndSet(null, false);
+            return (System.nanoTime() - initTime) >= querySubmissionTimeoutNanos && submissionGate.compareAndSet(NOT_SUBMITTED, ABANDONED);
         }
 
         public boolean isSubmissionAbandoned()
         {
-            return Boolean.FALSE.equals(submissionGate.get());
+            return ABANDONED.equals(submissionGate.get());
         }
 
         public boolean isCreated()
@@ -372,7 +382,7 @@ public class QueuedStatementResource
 
         private void submitIfNeeded()
         {
-            if (submissionGate.compareAndSet(null, true)) {
+            if (submissionGate.compareAndSet(NOT_SUBMITTED, SUBMITTED)) {
                 querySpan.addEvent("submit");
                 creationFuture.setFuture(dispatchManager.createQuery(queryId, querySpan, slug, sessionContext, query));
             }
