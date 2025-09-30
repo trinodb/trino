@@ -50,7 +50,6 @@ public class IAMSecurityMapping
     protected final boolean useClusterDefault;
     private final Optional<String> endpoint;
     private final Optional<String> region;
-    private final Boolean requireIdentity = true;
 
     public IAMSecurityMapping(
             @JsonProperty("user") Optional<Pattern> user,
