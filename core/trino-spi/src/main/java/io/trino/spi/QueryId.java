@@ -17,11 +17,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.List;
-import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public final class QueryId
+public record QueryId(String id)
 {
     @JsonCreator
     public static QueryId valueOf(String queryId)
@@ -30,50 +29,30 @@ public final class QueryId
         return new QueryId(queryId);
     }
 
-    private final String id;
-
-    public QueryId(String id)
+    public QueryId
     {
         requireNonNull(id, "id is null");
         checkArgument(!id.isEmpty(), "id is empty");
-        this.id = validateId("queryId", id);
+        validateId("queryId", id);
     }
 
+    // For backward compatibility
+    @JsonValue
+    @Deprecated // Use id() instead
     public String getId()
     {
         return id;
     }
 
     @Override
-    @JsonValue
     public String toString()
     {
         return id;
     }
 
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(id);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        QueryId other = (QueryId) obj;
-        return Objects.equals(this.id, other.id);
-    }
-
     //
     // Id helper methods
     //
-
     // Check if the string matches [_a-z0-9]+ , but without the overhead of regex
     private static boolean isValidId(String id)
     {

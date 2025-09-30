@@ -882,7 +882,7 @@ public abstract class BaseBigQueryConnectorTest
 
     private void assertLabelForTable(String expectedView, QueryId queryId, String traceToken)
     {
-        String expectedLabel = "q_" + queryId.toString() + "__t_" + traceToken;
+        String expectedLabel = "q_" + queryId.id() + "__t_" + traceToken;
 
         @Language("SQL")
         String checkForLabelQuery =
