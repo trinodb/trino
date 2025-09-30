@@ -39,12 +39,17 @@ public class TaskId
     }
 
     private final String fullId;
+    private final StageId stageId;
+    private final int partitionId;
+    private final int attemptId;
 
     public TaskId(StageId stageId, int partitionId, int attemptId)
     {
-        requireNonNull(stageId, "stageId is null");
+        this.stageId = requireNonNull(stageId, "stageId is null");
         checkArgument(partitionId >= 0, "partitionId is negative: %s", partitionId);
         checkArgument(attemptId >= 0, "attemptId is negative: %s", attemptId);
+        this.partitionId = partitionId;
+        this.attemptId = attemptId;
 
         // There is a strange JDK bug related to the CompactStrings implementation in JDK20+ which causes some fullId values
         // to get corrupted when this particular line is JIT-optimized. Changing implicit concatenation to a String.join call
@@ -55,27 +60,32 @@ public class TaskId
     private TaskId(String fullId)
     {
         this.fullId = requireNonNull(fullId, "fullId is null");
+        List<String> parts = parseDottedId(fullId, 4, "taskId");
+        this.stageId = new StageId(new QueryId(parts.get(0)), parseInt(parts.get(1)));
+        this.partitionId = parseInt(parts.get(2));
+        this.attemptId = parseInt(parts.get(3));
+        checkArgument(partitionId >= 0, "partitionId is negative: %s", partitionId);
+        checkArgument(attemptId >= 0, "attemptId is negative: %s", attemptId);
     }
 
     public QueryId getQueryId()
     {
-        return new QueryId(parseDottedId(fullId, 4, "taskId").get(0));
+        return stageId.getQueryId();
     }
 
     public StageId getStageId()
     {
-        List<String> ids = parseDottedId(fullId, 4, "taskId");
-        return StageId.valueOf(ids.subList(0, 2));
+        return stageId;
     }
 
     public int getPartitionId()
     {
-        return parseInt(parseDottedId(fullId, 4, "taskId").get(2));
+        return partitionId;
     }
 
     public int getAttemptId()
     {
-        return parseInt(parseDottedId(fullId, 4, "taskId").get(3));
+        return attemptId;
     }
 
     @Override
