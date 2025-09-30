@@ -528,7 +528,6 @@
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
                 <version>11.29.1</version>
-                <classifier>jdk11</classifier>
             </dependency>
 
             <dependency>
@@ -2781,6 +2780,24 @@
                                         <artifactId>snowflake-jdbc</artifactId>
                                     </dependency>
                                 </conflictingDependencies>
+                            </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>com.nimbusds</groupId>
+                                        <artifactId>oauth2-oidc-sdk</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>net.snowflake</groupId>
+                                        <artifactId>snowflake-jdbc</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <resources>
+                                    <resource>iso3166_1alpha-2-3-map.properties</resource>
+                                    <resource>iso3166_1alpha2-codes.properties</resource>
+                                    <resource>iso3166_1alpha3-codes.properties</resource>
+                                    <resource>iso3166_3-codes.properties</resource>
+                                </resources>
                             </exception>
                         </exceptions>
                     </configuration>
