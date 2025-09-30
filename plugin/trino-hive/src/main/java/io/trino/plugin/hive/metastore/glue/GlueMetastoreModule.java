@@ -155,6 +155,7 @@ public final class GlueMetastoreModule
 
     @Provides
     @Singleton
+    @ForGlueHttpClient
     public static SdkHttpClient createGlueSdkHttpClient(GlueHiveMetastoreConfig config)
     {
         return ApacheHttpClient.builder()
@@ -164,6 +165,7 @@ public final class GlueMetastoreModule
 
     @Provides
     @Singleton
+    @ForStsHttpClient
     public static SdkHttpClient createStsSdkHttpClient()
     {
         return ApacheHttpClient.builder().build();
