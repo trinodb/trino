@@ -65,6 +65,16 @@ public record QueryId(String id)
         return true;
     }
 
+    private static boolean isValidDottedId(char[] chars)
+    {
+        for (int i = 0; i < chars.length; i++) {
+            if (!(chars[i] == '_' || chars[i] == '.' || chars[i] >= 'a' && chars[i] <= 'z' || chars[i] >= '0' && chars[i] <= '9')) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     static String validateId(String name, String id)
     {
         if (!isValidId(id)) {
@@ -79,20 +89,26 @@ public record QueryId(String id)
         checkArgument(expectedParts > 1, "expectedParts must be at least 2");
         requireNonNull(name, "name is null");
 
-        String[] parts = new String[expectedParts];
-        int startOffset = 0;
-        for (int i = 0, length = parts.length - 1; i < length; i++) {
-            int dotIndex = id.indexOf('.', startOffset);
-            if (dotIndex <= startOffset) {
-                throw new IllegalArgumentException("Invalid " + name + " " + id);
-            }
-            parts[i] = validateId(name, id.substring(startOffset, dotIndex));
-            startOffset = dotIndex + 1;
-        }
-        if (id.indexOf('.', startOffset) != -1) {
+        char[] chars = id.toCharArray();
+        if (!isValidDottedId(chars)) {
             throw new IllegalArgumentException("Invalid " + name + " " + id);
         }
-        parts[parts.length - 1] = validateId(name, id.substring(startOffset));
+        String[] parts = new String[expectedParts];
+        int startOffset = 0;
+        int partIndex = 0;
+        for (int i = 0, length = chars.length; i < length; i++) {
+            if (chars[i] == '.') {
+                if (i <= startOffset || i == length - 1) {
+                    throw new IllegalArgumentException("Invalid " + name + " " + id);
+                }
+                parts[partIndex++] = new String(chars, startOffset, i - startOffset);
+                startOffset = i + 1;
+            }
+        }
+        parts[partIndex++] = new String(chars, startOffset, chars.length - startOffset);
+        if (partIndex != expectedParts) {
+            throw new IllegalArgumentException("Invalid " + name + " " + id);
+        }
         return List.of(parts);
     }
 
