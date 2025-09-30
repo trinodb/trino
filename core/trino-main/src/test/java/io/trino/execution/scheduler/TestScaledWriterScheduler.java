@@ -34,6 +34,7 @@ import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.metadata.Split;
 import io.trino.node.InternalNode;
 import io.trino.node.TestingInternalNodeManager;
+import io.trino.spi.QueryId;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Partitioning;
@@ -229,7 +230,7 @@ public class TestScaledWriterScheduler
     private static TaskStatus buildTaskStatus(boolean isOutputBufferOverUtilized, long outputDataSize, Optional<Integer> maxWriterCount, DataSize writerInputDataSize)
     {
         return new TaskStatus(
-                TaskId.valueOf("taskId"),
+                new TaskId(new StageId(new QueryId("query_id"), 0), 0, 0),
                 "task-instance-id",
                 0,
                 TaskState.RUNNING,
@@ -258,10 +259,12 @@ public class TestScaledWriterScheduler
             implements StageExecution
     {
         private final PlanFragment fragment;
+        private final StageId stageId;
 
         public TestingStageExecution(PlanFragment fragment)
         {
             this.fragment = requireNonNull(fragment, "fragment is null");
+            this.stageId = new StageId(new QueryId("query_id"), 0);
         }
 
         @Override
@@ -357,7 +360,7 @@ public class TestScaledWriterScheduler
         @Override
         public Optional<RemoteTask> scheduleTask(InternalNode node, int partition, Multimap<PlanNodeId, Split> initialSplits)
         {
-            return Optional.of(new TestingRemoteTask(TaskId.valueOf("taskId"), "nodeId", fragment));
+            return Optional.of(new TestingRemoteTask(new TaskId(stageId, partition, 0), "nodeId", fragment));
         }
 
         @Override
