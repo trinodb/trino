@@ -100,6 +100,7 @@ import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Path("/v1/statement")
@@ -344,9 +345,9 @@ public class QueuedStatementResource
             return lastToken.get();
         }
 
-        public boolean tryAbandonSubmissionWithTimeout(Duration querySubmissionTimeout)
+        public boolean tryAbandonSubmissionWithTimeout(long querySubmissionTimeoutNanos)
         {
-            return Duration.nanosSince(initTime).compareTo(querySubmissionTimeout) >= 0 && submissionGate.compareAndSet(null, false);
+            return (System.nanoTime() - initTime) >= querySubmissionTimeoutNanos && submissionGate.compareAndSet(null, false);
         }
 
         public boolean isSubmissionAbandoned()
@@ -480,11 +481,11 @@ public class QueuedStatementResource
         private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
         private final ScheduledExecutorService scheduledExecutorService = newSingleThreadScheduledExecutor(daemonThreadsNamed("drain-state-query-manager"));
 
-        private final Duration querySubmissionTimeout;
+        private final long querySubmissionTimeoutNanos;
 
         public QueryManager(Duration querySubmissionTimeout)
         {
-            this.querySubmissionTimeout = requireNonNull(querySubmissionTimeout, "querySubmissionTimeout is null");
+            this.querySubmissionTimeoutNanos = requireNonNull(querySubmissionTimeout, "querySubmissionTimeout is null").roundTo(NANOSECONDS);
         }
 
         public void initialize(DispatchManager dispatchManager)
@@ -520,7 +521,7 @@ public class QueuedStatementResource
                 // Query submission was explicitly abandoned
                 return true;
             }
-            if (query.tryAbandonSubmissionWithTimeout(querySubmissionTimeout)) {
+            if (query.tryAbandonSubmissionWithTimeout(querySubmissionTimeoutNanos)) {
                 // Query took too long to be submitted by the client
                 return true;
             }
