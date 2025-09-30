@@ -67,6 +67,10 @@ kafka:
   - changed-files:
     - any-glob-to-any-file: 'plugin/trino-kafka/**'
 
+lakehouse:
+  - changed-files:
+    - any-glob-to-any-file: 'plugin/trino-lakehouse/**'
+
 loki:
   - changed-files:
     - any-glob-to-any-file: 'plugin/trino-loki/**'
