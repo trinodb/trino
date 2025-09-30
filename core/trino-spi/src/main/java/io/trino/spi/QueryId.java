@@ -16,6 +16,7 @@ package io.trino.spi;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 
 import java.util.List;
 import java.util.Objects;
@@ -97,23 +98,42 @@ public final class QueryId
     public static List<String> parseDottedId(String id, int expectedParts, String name)
     {
         requireNonNull(id, "id is null");
-        checkArgument(expectedParts > 0, "expectedParts must be at least 1");
+        checkArgument(expectedParts > 1, "expectedParts must be at least 2");
         requireNonNull(name, "name is null");
 
-        List<String> ids = List.of(id.split("\\."));
-        checkArgument(ids.size() == expectedParts, "Invalid %s %s", name, id);
-
-        for (String part : ids) {
+        String[] parts = new String[expectedParts];
+        int startOffset = 0;
+        for (int i = 0; i < parts.length - 1; i++) {
+            int dotIndex = id.indexOf('.', startOffset);
+            if (dotIndex < 0) {
+                throw new IllegalArgumentException(format("Invalid %s %s", name, id));
+            }
+            String part = id.substring(startOffset, dotIndex);
             validateId(part);
+            parts[i] = part;
+            startOffset = dotIndex + 1;
         }
-        return ids;
+        if (id.indexOf('.', startOffset) != -1) {
+            throw new IllegalArgumentException(format("Invalid %s %s", name, id));
+        }
+        String lastPart = id.substring(startOffset);
+        validateId(lastPart);
+        parts[parts.length - 1] = lastPart;
+        return List.of(parts);
     }
 
     @FormatMethod
-    private static void checkArgument(boolean condition, String message, Object... messageArgs)
+    private static void checkArgument(boolean condition, @FormatString String message, Object argument)
     {
         if (!condition) {
-            throw new IllegalArgumentException(format(message, messageArgs));
+            throw new IllegalArgumentException(format(message, argument));
+        }
+    }
+
+    private static void checkArgument(boolean condition, String message)
+    {
+        if (!condition) {
+            throw new IllegalArgumentException(message);
         }
     }
 }
