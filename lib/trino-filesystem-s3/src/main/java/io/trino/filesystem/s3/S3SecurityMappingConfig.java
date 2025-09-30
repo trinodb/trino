@@ -103,6 +103,7 @@ public class S3SecurityMappingConfig
         return this;
     }
 
+    @Override
     @AssertTrue(message = "Exactly one of s3.security-mapping.config-file or s3.security-mapping.config-uri must be set")
     public boolean validateMappingsConfig()
     {
