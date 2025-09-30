@@ -73,6 +73,7 @@ public class GlueSecurityMappingConfig
         return this;
     }
 
+    @Override
     @AssertTrue(message = "Exactly one of hive.metastore.glue.security-mapping.config-file or hive.metastore.glue.security-mapping.config-uri must be set")
     public boolean validateMappingsConfig()
     {
