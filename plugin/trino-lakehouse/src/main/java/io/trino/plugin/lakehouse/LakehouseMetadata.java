@@ -198,9 +198,9 @@ public class LakehouseMetadata
     }
 
     @Override
-    public void executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    public Map<String, Long> executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
-        forHandle(tableExecuteHandle).executeTableExecute(session, tableExecuteHandle);
+        return forHandle(tableExecuteHandle).executeTableExecute(session, tableExecuteHandle);
     }
 
     @Override

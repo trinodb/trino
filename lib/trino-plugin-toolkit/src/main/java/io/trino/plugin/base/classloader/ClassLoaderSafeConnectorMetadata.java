@@ -211,10 +211,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    public Map<String, Long> executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            delegate.executeTableExecute(session, tableExecuteHandle);
+            return delegate.executeTableExecute(session, tableExecuteHandle);
         }
     }
 

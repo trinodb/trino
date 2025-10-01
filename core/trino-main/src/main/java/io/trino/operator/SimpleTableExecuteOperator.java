@@ -13,11 +13,19 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
+
+import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -25,8 +33,6 @@ import static java.util.Objects.requireNonNull;
 public class SimpleTableExecuteOperator
         implements Operator
 {
-    private static final Page PAGE = new Page(0);
-
     public static class SimpleTableExecuteOperatorOperatorFactory
             implements OperatorFactory
     {
@@ -35,6 +41,7 @@ public class SimpleTableExecuteOperator
         private final Metadata metadata;
         private final Session session;
         private final TableExecuteHandle executeHandle;
+        private final List<Type> types;
         private boolean closed;
 
         public SimpleTableExecuteOperatorOperatorFactory(
@@ -42,13 +49,15 @@ public class SimpleTableExecuteOperator
                 PlanNodeId planNodeId,
                 Metadata metadata,
                 Session session,
-                TableExecuteHandle executeHandle)
+                TableExecuteHandle executeHandle,
+                List<Type> types)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.metadata = requireNonNull(metadata, "planNodeId is null");
             this.session = requireNonNull(session, "planNodeId is null");
             this.executeHandle = requireNonNull(executeHandle, "executeHandle is null");
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         }
 
         @Override
@@ -60,7 +69,8 @@ public class SimpleTableExecuteOperator
                     context,
                     metadata,
                     session,
-                    executeHandle);
+                    executeHandle,
+                    types);
         }
 
         @Override
@@ -77,7 +87,8 @@ public class SimpleTableExecuteOperator
                     planNodeId,
                     metadata,
                     session,
-                    executeHandle);
+                    executeHandle,
+                    types);
         }
     }
 
@@ -85,6 +96,7 @@ public class SimpleTableExecuteOperator
     private final Metadata metadata;
     private final Session session;
     private final TableExecuteHandle executeHandle;
+    private final List<Type> types;
 
     private boolean finished;
 
@@ -92,12 +104,14 @@ public class SimpleTableExecuteOperator
             OperatorContext operatorContext,
             Metadata metadata,
             Session session,
-            TableExecuteHandle executeHandle)
+            TableExecuteHandle executeHandle,
+            List<Type> types)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.session = requireNonNull(session, "session is null");
         this.executeHandle = requireNonNull(executeHandle, "executeHandle is null");
+        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
     }
 
     @Override
@@ -125,9 +139,17 @@ public class SimpleTableExecuteOperator
             return null;
         }
 
-        metadata.executeTableExecute(session, executeHandle);
+        Map<String, Long> metrics = metadata.executeTableExecute(session, executeHandle);
         finished = true;
-        return PAGE;
+        PageBuilder pageBuilder = new PageBuilder(types);
+        BlockBuilder metricNameBuilder = pageBuilder.getBlockBuilder(0);
+        BlockBuilder metricValueBuilder = pageBuilder.getBlockBuilder(1);
+        for (Map.Entry<String, Long> entry : metrics.entrySet()) {
+            types.get(0).writeSlice(metricNameBuilder, Slices.utf8Slice(entry.getKey()));
+            types.get(1).writeLong(metricValueBuilder, entry.getValue());
+            pageBuilder.declarePosition();
+        }
+        return pageBuilder.build();
     }
 
     @Override
