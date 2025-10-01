@@ -1530,7 +1530,7 @@ public class AddExchanges
     private static Map<Symbol, Symbol> computeIdentityTranslations(Assignments assignments)
     {
         Map<Symbol, Symbol> outputToInput = new HashMap<>();
-        for (Map.Entry<Symbol, Expression> assignment : assignments.getMap().entrySet()) {
+        for (Map.Entry<Symbol, Expression> assignment : assignments.assignments().entrySet()) {
             if (assignment.getValue() instanceof Reference) {
                 outputToInput.put(assignment.getKey(), Symbol.from(assignment.getValue()));
             }

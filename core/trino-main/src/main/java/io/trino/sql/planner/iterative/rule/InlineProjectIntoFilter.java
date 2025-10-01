@@ -164,9 +164,9 @@ public class InlineProjectIntoFilter
         newAssignments.putAll(projectNode.getAssignments().filter(symbol -> !postFilterSymbols.contains(symbol)));
 
         Map<Symbol, Expression> outputAssignments = new HashMap<>();
-        outputAssignments.putAll(Assignments.identity(node.getOutputSymbols()).getMap());
+        outputAssignments.putAll(Assignments.identity(node.getOutputSymbols()).assignments());
         // Restore inlined symbols.
-        outputAssignments.putAll(postFilterAssignments.getMap());
+        outputAssignments.putAll(postFilterAssignments.assignments());
 
         return Result.ofPlanNode(new ProjectNode(
                 context.getIdAllocator().getNextId(),

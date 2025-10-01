@@ -139,7 +139,7 @@ public final class GatherAndMergeWindows
                 // The only kind of use of the output of the target that we can safely ignore is a simple identity propagation.
                 // The target node, when hoisted above the projections, will provide the symbols directly.
                 Map<Symbol, Expression> assignmentsWithoutTargetOutputIdentities = Maps.filterKeys(
-                        project.getAssignments().getMap(),
+                        project.getAssignments().assignments(),
                         output -> !(project.getAssignments().isIdentity(output) && targetOutputs.contains(output)));
 
                 if (targetInputs.stream().anyMatch(assignmentsWithoutTargetOutputIdentities::containsKey)) {

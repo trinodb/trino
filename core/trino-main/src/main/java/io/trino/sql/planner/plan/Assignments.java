@@ -36,7 +36,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
-public record Assignments(Map<Symbol, Expression> assignments)
+public record Assignments(@JsonProperty("assignments") Map<Symbol, Expression> assignments)
 {
     public static Builder builder()
     {
@@ -95,12 +95,6 @@ public record Assignments(Map<Symbol, Expression> assignments)
     public List<Symbol> getOutputs()
     {
         return ImmutableList.copyOf(assignments.keySet());
-    }
-
-    @JsonProperty("assignments")
-    public Map<Symbol, Expression> getMap()
-    {
-        return assignments;
     }
 
     public Assignments rewrite(Function<Expression, Expression> rewrite)
@@ -197,7 +191,7 @@ public record Assignments(Map<Symbol, Expression> assignments)
 
         public Builder putAll(Assignments assignments)
         {
-            return putAll(assignments.getMap());
+            return putAll(assignments.assignments());
         }
 
         public Builder putAll(Map<Symbol, ? extends Expression> assignments)

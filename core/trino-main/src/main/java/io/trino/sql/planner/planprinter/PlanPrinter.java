@@ -2007,7 +2007,7 @@ public class PlanPrinter
 
         private void printAssignments(NodeRepresentation nodeOutput, Assignments assignments)
         {
-            for (Entry<Symbol, Expression> entry : assignments.getMap().entrySet()) {
+            for (Entry<Symbol, Expression> entry : assignments.assignments().entrySet()) {
                 if (entry.getValue() instanceof Reference && ((Reference) entry.getValue()).name().equals(entry.getKey().name())) {
                     // skip identity assignments
                     continue;

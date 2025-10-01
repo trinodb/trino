@@ -101,7 +101,7 @@ public final class SymbolAliases
     private Map<String, Reference> getUpdatedAssignments(Assignments assignments)
     {
         ImmutableMap.Builder<String, Reference> mapUpdate = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Expression> assignment : assignments.getMap().entrySet()) {
+        for (Map.Entry<Symbol, Expression> assignment : assignments.assignments().entrySet()) {
             for (Map.Entry<String, Reference> existingAlias : map.entrySet()) {
                 if (assignment.getValue().equals(existingAlias.getValue())) {
                     // Simple symbol rename
