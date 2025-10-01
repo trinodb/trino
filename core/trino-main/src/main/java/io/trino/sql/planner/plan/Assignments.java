@@ -218,6 +218,12 @@ public record Assignments(@JsonProperty("assignments") Map<Symbol, Expression> a
             return this;
         }
 
+        public Builder add(Assignment assignment)
+        {
+            put(assignment.output(), assignment.expression());
+            return this;
+        }
+
         public Builder putIdentities(Iterable<Symbol> symbols)
         {
             for (Symbol symbol : symbols) {
@@ -235,12 +241,6 @@ public record Assignments(@JsonProperty("assignments") Map<Symbol, Expression> a
         public Assignments build()
         {
             return new Assignments(assignments);
-        }
-
-        public Builder add(Assignment assignment)
-        {
-            put(assignment.output(), assignment.expression());
-            return this;
         }
     }
 }
