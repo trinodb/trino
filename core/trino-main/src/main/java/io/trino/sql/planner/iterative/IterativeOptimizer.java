@@ -178,10 +178,8 @@ public class IterativeOptimizer
                     invoked = true;
                     Rule.Result result = transform(node, rule, context);
                     timeEnd = nanoTime();
-                    if (result.transformedPlan().isPresent()) {
+                    if (!result.isEmpty()) {
                         changedPlanNodeIds.add(result.transformedPlan().get().getId());
-                    }
-                    if (result.transformedPlan().isPresent()) {
                         node = context.memo.replace(group, result.transformedPlan().get(), rule.getClass().getName());
 
                         applied = true;
