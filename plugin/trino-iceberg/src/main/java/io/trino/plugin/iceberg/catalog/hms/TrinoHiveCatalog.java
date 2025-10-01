@@ -731,6 +731,7 @@ public class TrinoHiveCatalog
             checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view " + viewName);
             try {
                 dropMaterializedViewStorage(session, fileSystemFactory.create(session), storageMetadataLocation);
+                invalidateTableCache(viewName);
             }
             catch (IOException e) {
                 log.warn(e, "Failed to delete storage table metadata '%s' for materialized view '%s'", storageMetadataLocation, viewName);
