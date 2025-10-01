@@ -75,7 +75,7 @@ public class PushDownDereferencesThroughRowNumber
         RowNumberNode rowNumberNode = captures.get(CHILD);
 
         // Extract dereferences from project node assignments for pushdown
-        Set<FieldReference> dereferences = extractRowSubscripts(projectNode.getAssignments().getExpressions(), false);
+        Set<FieldReference> dereferences = extractRowSubscripts(projectNode.getAssignments().expressions(), false);
 
         // Exclude dereferences on symbols being used in partitionBy
         dereferences = dereferences.stream()

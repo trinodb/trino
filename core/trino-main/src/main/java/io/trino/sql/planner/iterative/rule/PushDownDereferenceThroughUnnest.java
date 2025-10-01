@@ -75,7 +75,7 @@ public class PushDownDereferenceThroughUnnest
         UnnestNode unnestNode = captures.get(CHILD);
 
         // Extract dereferences for pushdown from project node's assignments
-        Set<FieldReference> dereferences = extractRowSubscripts(projectNode.getAssignments().getExpressions(), false);
+        Set<FieldReference> dereferences = extractRowSubscripts(projectNode.getAssignments().expressions(), false);
 
         // Only retain dereferences on replicate symbols
         dereferences = dereferences.stream()
@@ -114,7 +114,7 @@ public class PushDownDereferenceThroughUnnest
                                 source,
                                 ImmutableList.<Symbol>builder()
                                         .addAll(unnestNode.getReplicateSymbols())
-                                        .addAll(dereferenceAssignments.getSymbols())
+                                        .addAll(dereferenceAssignments.outputs())
                                         .build(),
                                 unnestNode.getMappings(),
                                 unnestNode.getOrdinalitySymbol(),
