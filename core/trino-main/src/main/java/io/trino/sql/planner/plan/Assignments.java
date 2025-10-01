@@ -124,9 +124,7 @@ public record Assignments(@JsonProperty("assignments") Map<Symbol, Expression> a
 
     public boolean isIdentity(Symbol output)
     {
-        Expression expression = assignments.get(output);
-
-        return expression instanceof Reference reference && reference.name().equals(output.name());
+        return assignments.get(output) instanceof Reference reference && reference.name().equals(output.name());
     }
 
     public boolean isIdentity()
