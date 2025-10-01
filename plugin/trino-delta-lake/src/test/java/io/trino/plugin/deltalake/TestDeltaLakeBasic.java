@@ -1641,10 +1641,10 @@ public class TestDeltaLakeBasic
         assertThat(query("TABLE " + tableName))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "(1, JSON '{\"a\":1}', MAP(ARRAY['key1'], ARRAY[NULL]))," +
-                        "(2, JSON '{\"a\":2}', MAP(ARRAY['key1'], ARRAY[JSON '{\"key\":\"value\"}']))," +
-                        "(3, JSON 'null', NULL)," +
-                        "(4, NULL, NULL)," +
+                         "(1, JSON '{\"a\":1}', MAP(ARRAY['key1'], ARRAY[NULL]))," +
+                         "(2, JSON '{\"a\":2}', MAP(ARRAY['key1'], ARRAY[JSON '{\"key\":\"value\"}']))," +
+                         "(3, JSON 'null', NULL)," +
+                         "(4, NULL, NULL)," +
                          "(5, JSON '{\"a\":5}', NULL)");
     }
 
