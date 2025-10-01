@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -32,13 +31,12 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Collector;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
-public class Assignments
+public record Assignments(Map<Symbol, Expression> assignments)
 {
     public static Builder builder()
     {
@@ -79,7 +77,7 @@ public class Assignments
 
     public static Assignments of(Collection<? extends Expression> expressions, SymbolAllocator symbolAllocator)
     {
-        Assignments.Builder assignments = Assignments.builder();
+        Builder assignments = Assignments.builder();
 
         for (Expression expression : expressions) {
             assignments.put(symbolAllocator.newSymbol(expression), expression);
@@ -87,8 +85,6 @@ public class Assignments
 
         return assignments.build();
     }
-
-    private final Map<Symbol, Expression> assignments;
 
     @JsonCreator
     public Assignments(@JsonProperty("assignments") Map<Symbol, Expression> assignments)
@@ -109,9 +105,11 @@ public class Assignments
 
     public Assignments rewrite(Function<Expression, Expression> rewrite)
     {
-        return assignments.entrySet().stream()
-                .map(entry -> Maps.immutableEntry(entry.getKey(), rewrite.apply(entry.getValue())))
-                .collect(toAssignments());
+        ImmutableMap.Builder<Symbol, Expression> builder = ImmutableMap.builderWithExpectedSize(assignments.size());
+        for (Entry<Symbol, Expression> entry : assignments.entrySet()) {
+            builder.put(entry.getKey(), rewrite.apply(entry.getValue()));
+        }
+        return new Assignments(builder.buildOrThrow());
     }
 
     public Assignments filter(Collection<Symbol> symbols)
@@ -121,9 +119,13 @@ public class Assignments
 
     public Assignments filter(Predicate<Symbol> predicate)
     {
-        return assignments.entrySet().stream()
-                .filter(entry -> predicate.test(entry.getKey()))
-                .collect(toAssignments());
+        ImmutableMap.Builder<Symbol, Expression> builder = ImmutableMap.builder();
+        for (Entry<Symbol, Expression> entry : assignments.entrySet()) {
+            if (predicate.test(entry.getKey())) {
+                builder.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return new Assignments(builder.buildOrThrow());
     }
 
     public boolean isIdentity(Symbol output)
@@ -135,7 +137,7 @@ public class Assignments
 
     public boolean isIdentity()
     {
-        for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
+        for (Entry<Symbol, Expression> entry : assignments.entrySet()) {
             Expression expression = entry.getValue();
             Symbol symbol = entry.getKey();
             if (!(expression instanceof Reference reference && reference.name().equals(symbol.name()))) {
@@ -143,18 +145,6 @@ public class Assignments
             }
         }
         return true;
-    }
-
-    private Collector<Entry<Symbol, Expression>, Builder, Assignments> toAssignments()
-    {
-        return Collector.of(
-                Assignments::builder,
-                (builder, entry) -> builder.put(entry.getKey(), entry.getValue()),
-                (left, right) -> {
-                    left.putAll(right.build());
-                    return left;
-                },
-                Assignments.Builder::build);
     }
 
     public Collection<Expression> getExpressions()
@@ -184,33 +174,12 @@ public class Assignments
 
     public boolean isEmpty()
     {
-        return size() == 0;
+        return assignments.isEmpty();
     }
 
     public void forEach(BiConsumer<Symbol, Expression> consumer)
     {
         assignments.forEach(consumer);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        Assignments that = (Assignments) o;
-
-        return assignments.equals(that.assignments);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return assignments.hashCode();
     }
 
     public static class Assignment
