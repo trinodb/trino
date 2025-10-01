@@ -1677,6 +1677,21 @@ public class TestSqlParser
     }
 
     @Test
+    void testDirectInvocation()
+    {
+        assertStatement("SELECT ('hello').concat(' ').concat('world')",
+                simpleQuery(selectList(
+                        new FunctionCall(QualifiedName.of("concat"), Lists.newArrayList(
+                                new FunctionCall(QualifiedName.of("concat"), Lists.newArrayList(new StringLiteral("hello"), new StringLiteral(" "))),
+                                new StringLiteral("world"))))));
+
+        assertStatement("SELECT (-123).abs()",
+                simpleQuery(selectList(
+                        new FunctionCall(QualifiedName.of("abs"), Lists.newArrayList(new LongLiteral("-123"))))));
+
+    }
+
+    @Test
     void testCreateBranch()
     {
         assertThat(statement("CREATE BRANCH b IN TABLE t"))
