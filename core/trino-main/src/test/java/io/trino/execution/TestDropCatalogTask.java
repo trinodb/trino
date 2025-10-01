@@ -90,7 +90,7 @@ public class TestDropCatalogTask
     }
 
     @Test
-    public void testDuplicatedCreateCatalogIfNotExists()
+    public void testDuplicatedDropCatalogIfNotExists()
     {
         queryRunner.createCatalog(TEST_CATALOG, "tpch", ImmutableMap.of());
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isTrue();
