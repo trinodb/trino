@@ -306,15 +306,41 @@ final class DateProjection
         }
     }
 
-    private Instant parse(String value)
-            throws DateTimeParseException
-    {
+    private Instant parse(String value) throws DateTimeParseException {
         TemporalAccessor parsed = dateFormat.parse(value);
-        if (parsed.query(TemporalQueries.localDate()) != null && parsed.query(TemporalQueries.localTime()) == null) {
-            return LocalDate.from(parsed).atStartOfDay().toInstant(UTC);
-        }
-        return LocalDateTime.from(parsed).toInstant(UTC);
+
+        int year = parsed.isSupported(ChronoField.YEAR)
+                ? parsed.get(ChronoField.YEAR)
+                : 1970; // default epoch year
+
+        int month = parsed.isSupported(ChronoField.MONTH_OF_YEAR)
+                ? parsed.get(ChronoField.MONTH_OF_YEAR)
+                : 1; // default January
+
+        int day = parsed.isSupported(ChronoField.DAY_OF_MONTH)
+                ? parsed.get(ChronoField.DAY_OF_MONTH)
+                : 1; // default 1st of the month
+
+        int hour = parsed.isSupported(ChronoField.HOUR_OF_DAY)
+                ? parsed.get(ChronoField.HOUR_OF_DAY)
+                : 0;
+
+        int minute = parsed.isSupported(ChronoField.MINUTE_OF_HOUR)
+                ? parsed.get(ChronoField.MINUTE_OF_HOUR)
+                : 0;
+
+        int second = parsed.isSupported(ChronoField.SECOND_OF_MINUTE)
+                ? parsed.get(ChronoField.SECOND_OF_MINUTE)
+                : 0;
+
+        int nano = parsed.isSupported(ChronoField.NANO_OF_SECOND)
+                ? parsed.get(ChronoField.NANO_OF_SECOND)
+                : 0;
+
+        LocalDateTime ldt = LocalDateTime.of(year, month, day, hour, minute, second, nano);
+        return ldt.toInstant(ZoneOffset.UTC);
     }
+
 
     private static TrinoException invalidRangeProperty(String columnName, String dateFormatPattern, Optional<String> errorDetail)
     {
