@@ -83,5 +83,10 @@ public interface Rule<T>
         {
             return transformedPlan.isEmpty();
         }
+
+        public boolean isPresent()
+        {
+            return transformedPlan.isPresent();
+        }
     }
 }
