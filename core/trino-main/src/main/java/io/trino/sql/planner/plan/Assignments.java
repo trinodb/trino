@@ -182,25 +182,12 @@ public record Assignments(Map<Symbol, Expression> assignments)
         assignments.forEach(consumer);
     }
 
-    public static class Assignment
+    public record Assignment(Symbol output, Expression expression)
     {
-        private final Symbol output;
-        private final Expression expression;
-
-        public Assignment(Symbol output, Expression expression)
+        public Assignment
         {
-            this.output = requireNonNull(output, "output is null");
-            this.expression = requireNonNull(expression, "expression is null");
-        }
-
-        public Symbol getOutput()
-        {
-            return output;
-        }
-
-        public Expression getExpression()
-        {
-            return expression;
+            requireNonNull(output, "output is null");
+            requireNonNull(expression, "expression is null");
         }
     }
 
@@ -260,7 +247,7 @@ public record Assignments(Map<Symbol, Expression> assignments)
 
         public Builder add(Assignment assignment)
         {
-            put(assignment.getOutput(), assignment.getExpression());
+            put(assignment.output(), assignment.expression());
             return this;
         }
     }
