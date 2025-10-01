@@ -60,7 +60,7 @@ public interface Rule<T>
         WarningCollector getWarningCollector();
     }
 
-    final class Result
+    record Result(Optional<PlanNode> transformedPlan)
     {
         private static final Result EMPTY = new Result(Optional.empty());
 
@@ -74,16 +74,9 @@ public interface Rule<T>
             return new Result(Optional.of(transformedPlan));
         }
 
-        private final Optional<PlanNode> transformedPlan;
-
-        private Result(Optional<PlanNode> transformedPlan)
+        public Result
         {
-            this.transformedPlan = requireNonNull(transformedPlan, "transformedPlan is null");
-        }
-
-        public Optional<PlanNode> getTransformedPlan()
-        {
-            return transformedPlan;
+            requireNonNull(transformedPlan, "transformedPlan is null");
         }
 
         public boolean isEmpty()
