@@ -109,10 +109,10 @@ public class PagesSpatialIndexSupplier
         for (int position = 0; position < addresses.size(); position++) {
             long pageAddress = addresses.getLong(position);
             int blockIndex = decodeSliceIndex(pageAddress);
-            Block chennelBlock = channels.get(geometryChannel).get(blockIndex);
-            VariableWidthBlock block = (VariableWidthBlock) chennelBlock.getUnderlyingValueBlock();
+            Block channelBlock = channels.get(geometryChannel).get(blockIndex);
+            VariableWidthBlock block = (VariableWidthBlock) channelBlock.getUnderlyingValueBlock();
             int blockPosition = decodePosition(pageAddress);
-            int valueBlockPosition = chennelBlock.getUnderlyingValuePosition(blockPosition);
+            int valueBlockPosition = channelBlock.getUnderlyingValuePosition(blockPosition);
 
             // TODO Consider pushing is-null and is-empty checks into a filter below the join
             if (block.isNull(valueBlockPosition)) {
