@@ -81,7 +81,7 @@ public class PushDownDereferencesThroughWindow
         // Extract dereferences for pushdown
         Set<FieldReference> dereferences = extractRowSubscripts(
                 ImmutableList.<Expression>builder()
-                        .addAll(projectNode.getAssignments().getExpressions())
+                        .addAll(projectNode.getAssignments().expressions())
                         // also include dereference projections used in window functions
                         .addAll(windowNode.getWindowFunctions().values().stream()
                                 .flatMap(function -> function.getArguments().stream())

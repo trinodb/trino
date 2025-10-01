@@ -102,7 +102,7 @@ public class PushPredicateThroughProjectIntoRowNumber
         RowNumberNode rowNumber = captures.get(ROW_NUMBER);
 
         Symbol rowNumberSymbol = rowNumber.getRowNumberSymbol();
-        if (!project.getAssignments().getSymbols().contains(rowNumberSymbol)) {
+        if (!project.getAssignments().outputs().contains(rowNumberSymbol)) {
             return Result.empty();
         }
 

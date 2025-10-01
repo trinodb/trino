@@ -159,7 +159,7 @@ public class InlineProjectIntoFilter
             return Result.empty();
         }
 
-        Set<Symbol> postFilterSymbols = postFilterAssignments.getSymbols();
+        Set<Symbol> postFilterSymbols = postFilterAssignments.outputs();
         // Remove inlined expressions from the underlying projection.
         newAssignments.putAll(projectNode.getAssignments().filter(symbol -> !postFilterSymbols.contains(symbol)));
 

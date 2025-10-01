@@ -152,7 +152,7 @@ public final class GatherAndMergeWindows
                         .putIdentities(targetInputs)
                         .build();
 
-                if (!newTargetChildOutputs.containsAll(SymbolsExtractor.extractUnique(newAssignments.getExpressions()))) {
+                if (!newTargetChildOutputs.containsAll(SymbolsExtractor.extractUnique(newAssignments.expressions()))) {
                     // Projection uses an output of the target -- can't move the target above this projection.
                     return Optional.empty();
                 }

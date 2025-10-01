@@ -66,7 +66,7 @@ public class PushDownDereferenceThroughProject
         ProjectNode child = captures.get(CHILD);
 
         // Extract dereferences from project node assignments for pushdown
-        Set<FieldReference> dereferences = extractRowSubscripts(node.getAssignments().getExpressions(), false);
+        Set<FieldReference> dereferences = extractRowSubscripts(node.getAssignments().expressions(), false);
 
         // Exclude dereferences on symbols being synthesized within child
         dereferences = dereferences.stream()

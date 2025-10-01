@@ -75,7 +75,7 @@ public class PushDownDereferencesThroughMarkDistinct
         MarkDistinctNode markDistinctNode = captures.get(CHILD);
 
         // Extract dereferences from project node assignments for pushdown
-        Set<FieldReference> dereferences = extractRowSubscripts(projectNode.getAssignments().getExpressions(), false);
+        Set<FieldReference> dereferences = extractRowSubscripts(projectNode.getAssignments().expressions(), false);
 
         // Exclude dereferences on distinct symbols being used in markDistinctNode. We do not need to filter
         // dereferences on markerSymbol since it is supposed to be of boolean type.

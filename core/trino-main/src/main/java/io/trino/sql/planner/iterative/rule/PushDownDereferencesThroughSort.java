@@ -75,7 +75,7 @@ public class PushDownDereferencesThroughSort
         SortNode sortNode = captures.get(CHILD);
 
         // Extract dereferences from project node assignments for pushdown
-        Set<FieldReference> dereferences = extractRowSubscripts(projectNode.getAssignments().getExpressions(), false);
+        Set<FieldReference> dereferences = extractRowSubscripts(projectNode.getAssignments().expressions(), false);
 
         // Exclude dereferences on symbols used in ordering scheme to avoid replication of data
         dereferences = dereferences.stream()

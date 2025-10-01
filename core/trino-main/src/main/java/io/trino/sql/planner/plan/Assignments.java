@@ -15,8 +15,8 @@ package io.trino.sql.planner.plan;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -24,7 +24,6 @@ import io.trino.sql.planner.SymbolAllocator;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -92,9 +91,9 @@ public record Assignments(@JsonProperty("assignments") Map<Symbol, Expression> a
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
     }
 
-    public List<Symbol> getOutputs()
+    public Set<Symbol> outputs()
     {
-        return ImmutableList.copyOf(assignments.keySet());
+        return ImmutableSet.copyOf(assignments.keySet());
     }
 
     public Assignments rewrite(Function<Expression, Expression> rewrite)
@@ -139,14 +138,9 @@ public record Assignments(@JsonProperty("assignments") Map<Symbol, Expression> a
         return true;
     }
 
-    public Collection<Expression> getExpressions()
+    public Collection<Expression> expressions()
     {
         return assignments.values();
-    }
-
-    public Set<Symbol> getSymbols()
-    {
-        return assignments.keySet();
     }
 
     public Set<Entry<Symbol, Expression>> entrySet()
