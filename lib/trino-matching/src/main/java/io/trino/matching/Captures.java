@@ -16,6 +16,8 @@ package io.trino.matching;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class Captures
 {
     private static final Captures NIL = new Captures(null, null, null);
@@ -84,5 +86,15 @@ public class Captures
         result = 31 * result + (value != null ? value.hashCode() : 0);
         result = 31 * result + (tail != null ? tail.hashCode() : 0);
         return result;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("capture", capture)
+                .add("value", value)
+                .add("tail", tail)
+                .toString();
     }
 }

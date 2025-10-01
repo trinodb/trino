@@ -15,6 +15,8 @@ package io.trino.matching;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 public class Capture<T>
 {
     private static final AtomicInteger sequenceCounter = new AtomicInteger();
@@ -39,5 +41,13 @@ public class Capture<T>
     public String description()
     {
         return description;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("description", description)
+                .toString();
     }
 }
