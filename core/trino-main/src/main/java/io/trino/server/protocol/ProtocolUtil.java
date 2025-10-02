@@ -219,7 +219,7 @@ public final class ProtocolUtil
 
         // Store current stage details into a builder
         StageStats.Builder builder = StageStats.builder()
-                .setStageId(String.valueOf(stageInfo.getStageId().getId()))
+                .setStageId(String.valueOf(stageInfo.getStageId().id()))
                 .setState(stageInfo.getState().toString())
                 .setDone(stageInfo.getState().isDone())
                 .setTotalSplits(stageStats.getTotalDrivers())

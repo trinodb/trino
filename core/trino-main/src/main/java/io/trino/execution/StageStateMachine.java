@@ -121,7 +121,7 @@ public class StageStateMachine
 
         stageSpan = tracer.spanBuilder("stage")
                 .setParent(Context.current().with(schedulerSpan))
-                .setAttribute(TrinoAttributes.QUERY_ID, stageId.getQueryId().toString())
+                .setAttribute(TrinoAttributes.QUERY_ID, stageId.queryId().toString())
                 .setAttribute(TrinoAttributes.STAGE_ID, stageId.toString())
                 .startSpan();
 
@@ -655,7 +655,7 @@ public class StageStateMachine
                 succinctBytes(failedPhysicalWrittenDataSize),
 
                 new StageGcStatistics(
-                        stageId.getId(),
+                        stageId.id(),
                         totalTasks,
                         fullGcTaskCount,
                         minFullGcSec,

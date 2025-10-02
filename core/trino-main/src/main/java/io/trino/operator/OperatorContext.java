@@ -522,7 +522,7 @@ public class OperatorContext
         long inputPositionsCount = inputPositions.getTotalCount();
 
         return new OperatorStats(
-                driverContext.getTaskId().getStageId().getId(),
+                driverContext.getTaskId().getStageId().id(),
                 driverContext.getPipelineContext().getPipelineId(),
                 operatorId,
                 planNodeId,
