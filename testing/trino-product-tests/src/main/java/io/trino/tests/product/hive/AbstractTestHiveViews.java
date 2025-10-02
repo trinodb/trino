@@ -472,7 +472,7 @@ public abstract class AbstractTestHiveViews
 
         QueryExecutor executor = connectToTrino("trino_no_default_catalog");
         assertQueryFailure(() -> executor.executeQuery("SELECT count(*) FROM no_catalog_schema_view"))
-                .hasMessageMatching(".*Schema must be specified when session schema is not set.*");
+                .hasMessageMatching(".*Catalog must be specified when session catalog is not set.*");
         assertThat(executor.executeQuery("SELECT count(*) FROM hive.default.no_catalog_schema_view"))
                 .containsOnly(row(1L));
     }
