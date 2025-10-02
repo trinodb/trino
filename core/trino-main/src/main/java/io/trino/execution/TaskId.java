@@ -44,11 +44,12 @@ public record TaskId(String fullId, StageId stageId, int partitionId, int attemp
         requireNonNull(stageId, "stageId is null");
         checkArgument(partitionId >= 0, "partitionId is negative: %s", partitionId);
         checkArgument(attemptId >= 0, "attemptId is negative: %s", attemptId);
+        checkArgument(fullId.equals(constructFullId(stageId, partitionId, attemptId)), "fullId does not match provided components");
     }
 
     public TaskId(StageId stageId, int partitionId, int attemptId)
     {
-        this("%s.%s.%s".formatted(stageId.toString(), String.valueOf(partitionId), String.valueOf(attemptId)), stageId, partitionId, attemptId);
+        this(constructFullId(stageId, partitionId, attemptId), stageId, partitionId, attemptId);
     }
 
     public QueryId queryId()
@@ -85,5 +86,10 @@ public record TaskId(String fullId, StageId stageId, int partitionId, int attemp
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + estimatedSizeOf(fullId);
+    }
+
+    private static String constructFullId(StageId stageId, int partitionId, int attemptId)
+    {
+        return "%s.%s.%s".formatted(stageId.toString(), String.valueOf(partitionId), String.valueOf(attemptId));
     }
 }
