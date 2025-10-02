@@ -21,11 +21,14 @@ import io.trino.sql.planner.plan.PlanFragmentId;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 
 public record StageId(QueryId queryId, int id)
 {
+    private static final int INSTANCE_SIZE = instanceSize(StageId.class);
+
     @JsonCreator
     public static StageId valueOf(String stageId)
     {
@@ -60,5 +63,10 @@ public record StageId(QueryId queryId, int id)
     public String toString()
     {
         return queryId + "." + id;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + queryId.getRetainedSizeInBytes();
     }
 }
