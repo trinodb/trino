@@ -174,12 +174,15 @@ public class RowBlockBuilder
         boolean[] rawRowIsNull = rowBlock.getRawRowIsNull();
         if (rawRowIsNull != null) {
             for (int i = 0; i < length; i++) {
-                if (rawRowIsNull[startOffset + offset + i]) {
-                    rowIsNull[positionCount + i] = true;
-                    hasNullRow = true;
+                boolean isNull = rawRowIsNull[startOffset + offset + i];
+                hasNullRow |= isNull;
+                hasNonNullRow |= !isNull;
+                if (hasNullRow & hasNonNullRow) {
+                    System.arraycopy(rawRowIsNull, startOffset + offset + i, rowIsNull, positionCount + i, length - i);
+                    break;
                 }
                 else {
-                    hasNonNullRow = true;
+                    rowIsNull[positionCount + i] = isNull;
                 }
             }
         }

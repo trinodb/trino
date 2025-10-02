@@ -180,12 +180,15 @@ public class ArrayBlockBuilder
         boolean[] rawValueIsNull = arrayBlock.getRawValueIsNull();
         if (rawValueIsNull != null) {
             for (int i = 0; i < length; i++) {
-                if (rawValueIsNull[rawOffsetBase + offset + i]) {
-                    valueIsNull[positionCount + i] = true;
-                    hasNullValue = true;
+                boolean isNull = rawValueIsNull[rawOffsetBase + offset + i];
+                hasNullValue |= isNull;
+                hasNonNullValue |= !isNull;
+                if (hasNullValue & hasNonNullValue) {
+                    System.arraycopy(rawValueIsNull, rawOffsetBase + offset + i, valueIsNull, positionCount + i, length - i);
+                    break;
                 }
                 else {
-                    hasNonNullValue = true;
+                    valueIsNull[positionCount + i] = isNull;
                 }
             }
         }
