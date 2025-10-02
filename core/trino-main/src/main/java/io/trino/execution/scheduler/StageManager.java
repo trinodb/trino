@@ -175,7 +175,7 @@ class StageManager
 
     public void failTaskRemotely(TaskId taskId, Throwable failureCause)
     {
-        SqlStage sqlStage = requireNonNull(stages.get(taskId.getStageId()), () -> "stage not found: %s" + taskId.getStageId());
+        SqlStage sqlStage = requireNonNull(stages.get(taskId.stageId()), () -> "stage not found: %s" + taskId.stageId());
         sqlStage.failTaskRemotely(taskId, failureCause);
     }
 

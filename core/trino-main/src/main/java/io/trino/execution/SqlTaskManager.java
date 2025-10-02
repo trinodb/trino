@@ -233,7 +233,7 @@ public class SqlTaskManager
                             taskId,
                             locationFactory.createLocalTaskLocation(taskId),
                             nodeInfo.getNodeId(),
-                            queryContexts.getUnchecked(taskId.getQueryId()),
+                            queryContexts.getUnchecked(taskId.queryId()),
                             tracer,
                             sqlTaskExecutionFactory,
                             taskNotificationExecutor,

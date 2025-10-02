@@ -232,7 +232,7 @@ public abstract class AbstractTestQueryFramework
                         List<TaskInfo> taskInfos = taskManager.getAllTaskInfo();
                         for (TaskInfo taskInfo : taskInfos) {
                             TaskId taskId = taskInfo.taskStatus().getTaskId();
-                            QueryId queryId = taskId.getQueryId();
+                            QueryId queryId = taskId.queryId();
                             TaskState taskState = taskInfo.taskStatus().getState();
                             if (!taskState.isDone()) {
                                 try {

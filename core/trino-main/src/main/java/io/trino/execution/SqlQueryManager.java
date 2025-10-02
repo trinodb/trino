@@ -176,7 +176,7 @@ public class SqlQueryManager
     @Override
     public void outputTaskFailed(TaskId taskId, Throwable failure)
     {
-        queryTracker.getQuery(taskId.getQueryId()).outputTaskFailed(taskId, failure);
+        queryTracker.getQuery(taskId.queryId()).outputTaskFailed(taskId, failure);
     }
 
     @Override

@@ -380,8 +380,8 @@ public class DynamicFilterService
 
     public void addTaskDynamicFilters(TaskId taskId, Map<DynamicFilterId, Domain> newDynamicFilters)
     {
-        DynamicFilterContext context = dynamicFilterContexts.get(taskId.getQueryId());
-        int taskAttemptId = taskId.getAttemptId();
+        DynamicFilterContext context = dynamicFilterContexts.get(taskId.queryId());
+        int taskAttemptId = taskId.attemptId();
         if (context == null || taskAttemptId < context.getAttemptId()) {
             // query has been removed or dynamic filters are from a previous query attempt
             return;
@@ -389,7 +389,7 @@ public class DynamicFilterService
         checkState(
                 context.isTaskRetriesEnabled() || taskAttemptId == context.getAttemptId(),
                 "Query %s retry attempt %s has not been registered with dynamic filter service",
-                taskId.getQueryId(),
+                taskId.queryId(),
                 taskAttemptId);
         context.addTaskDynamicFilters(taskId, newDynamicFilters);
     }
@@ -732,7 +732,7 @@ public class DynamicFilterService
         private void collectPartitioned(TaskId taskId, Domain domain)
         {
             synchronized (collectedTasks) {
-                if (!collectedTasks.checkedAdd(taskId.getPartitionId())) {
+                if (!collectedTasks.checkedAdd(taskId.partitionId())) {
                     return;
                 }
             }
@@ -969,7 +969,7 @@ public class DynamicFilterService
                 collectionContext.collect(taskId, domain);
             });
 
-            if (stageDynamicFilters.computeIfAbsent(taskId.getStageId(), key -> newConcurrentHashSet()).addAll(newDynamicFilters.keySet())) {
+            if (stageDynamicFilters.computeIfAbsent(taskId.stageId(), key -> newConcurrentHashSet()).addAll(newDynamicFilters.keySet())) {
                 updateExpectedTaskCount();
             }
         }

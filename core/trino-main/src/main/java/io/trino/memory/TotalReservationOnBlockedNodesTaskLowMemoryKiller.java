@@ -74,12 +74,12 @@ public class TotalReservationOnBlockedNodesTaskLowMemoryKiller
         Stream<SimpleEntry<TaskId, Long>> stream = memoryPool.getTaskMemoryReservations().entrySet().stream()
                 // consider only tasks from queries with task retries enabled
                 .map(entry -> new SimpleEntry<>(TaskId.valueOf(entry.getKey()), entry.getValue()))
-                .filter(entry -> runningQueries.containsKey(entry.getKey().getQueryId()))
-                .filter(entry -> runningQueries.get(entry.getKey().getQueryId()).getRetryPolicy() == TASK);
+                .filter(entry -> runningQueries.containsKey(entry.getKey().queryId()))
+                .filter(entry -> runningQueries.get(entry.getKey().queryId()).getRetryPolicy() == TASK);
 
         if (onlySpeculative) {
             stream = stream.filter(entry -> {
-                TaskInfo taskInfo = runningQueries.get(entry.getKey().getQueryId()).getTaskInfos().get(entry.getKey());
+                TaskInfo taskInfo = runningQueries.get(entry.getKey().queryId()).getTaskInfos().get(entry.getKey());
                 if (taskInfo == null) {
                     return false;
                 }

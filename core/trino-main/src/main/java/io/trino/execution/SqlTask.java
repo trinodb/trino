@@ -555,8 +555,8 @@ public class SqlTask
 
             taskSpan.set(tracer.spanBuilder("task")
                     .setParent(Context.current().with(stageSpan))
-                    .setAttribute(TrinoAttributes.QUERY_ID, taskId.getQueryId().toString())
-                    .setAttribute(TrinoAttributes.STAGE_ID, taskId.getStageId().toString())
+                    .setAttribute(TrinoAttributes.QUERY_ID, taskId.queryId().toString())
+                    .setAttribute(TrinoAttributes.STAGE_ID, taskId.stageId().toString())
                     .setAttribute(TrinoAttributes.TASK_ID, taskId.toString())
                     .startSpan());
 

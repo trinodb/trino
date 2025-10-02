@@ -272,8 +272,8 @@ public abstract class BaseTestSqlTaskManager
             TaskId reduceLimitsId = new TaskId(new StageId("q1", 0), 1, 0);
             TaskId increaseLimitsId = new TaskId(new StageId("q2", 0), 1, 0);
 
-            QueryContext reducesLimitsContext = sqlTaskManager.getQueryContext(reduceLimitsId.getQueryId());
-            QueryContext attemptsIncreaseContext = sqlTaskManager.getQueryContext(increaseLimitsId.getQueryId());
+            QueryContext reducesLimitsContext = sqlTaskManager.getQueryContext(reduceLimitsId.queryId());
+            QueryContext attemptsIncreaseContext = sqlTaskManager.getQueryContext(increaseLimitsId.queryId());
 
             // not initialized with a task update yet
             assertThat(reducesLimitsContext.isMemoryLimitsInitialized()).isFalse();
@@ -354,7 +354,7 @@ public abstract class BaseTestSqlTaskManager
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, OutputBuffers outputBuffers)
     {
-        sqlTaskManager.getQueryContext(taskId.getQueryId())
+        sqlTaskManager.getQueryContext(taskId.queryId())
                 .addTaskContext(new TaskStateMachine(taskId, directExecutor()), testSessionBuilder().build(), () -> {}, false, false);
         return sqlTaskManager.updateTask(TEST_SESSION,
                 taskId,

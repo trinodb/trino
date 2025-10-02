@@ -595,10 +595,10 @@ public class SqlTaskExecution
             this.pipelineContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), partitioned);
             this.pipelineSpan = tracer.spanBuilder("pipeline")
                     .setParent(Context.current().with(taskSpan))
-                    .setAttribute(TrinoAttributes.QUERY_ID, taskId.getQueryId().toString())
-                    .setAttribute(TrinoAttributes.STAGE_ID, taskId.getStageId().toString())
+                    .setAttribute(TrinoAttributes.QUERY_ID, taskId.queryId().toString())
+                    .setAttribute(TrinoAttributes.STAGE_ID, taskId.stageId().toString())
                     .setAttribute(TrinoAttributes.TASK_ID, taskId.toString())
-                    .setAttribute(TrinoAttributes.PIPELINE_ID, taskId.getStageId() + "-" + pipelineContext.getPipelineId())
+                    .setAttribute(TrinoAttributes.PIPELINE_ID, taskId.stageId() + "-" + pipelineContext.getPipelineId())
                     .startSpan();
         }
 

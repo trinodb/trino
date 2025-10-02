@@ -1400,7 +1400,7 @@ public class PipelinedQueryScheduler
 
         public void reportTaskFailure(TaskId taskId, Throwable failureCause)
         {
-            StageExecution stageExecution = stageExecutions.get(taskId.getStageId());
+            StageExecution stageExecution = stageExecutions.get(taskId.stageId());
             if (stageExecution == null) {
                 return;
             }
@@ -1411,7 +1411,7 @@ public class PipelinedQueryScheduler
             }
 
             stageExecution.failTask(taskId, failureCause);
-            stateMachine.transitionToFailed(failureCause, Optional.of(taskId.getStageId()));
+            stateMachine.transitionToFailed(failureCause, Optional.of(taskId.stageId()));
             stageExecutions.values().forEach(StageExecution::abort);
         }
 
