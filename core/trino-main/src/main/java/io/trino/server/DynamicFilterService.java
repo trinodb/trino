@@ -396,7 +396,7 @@ public class DynamicFilterService
 
     public void stageCannotScheduleMoreTasks(StageId stageId, int attemptId, int numberOfTasks)
     {
-        DynamicFilterContext context = dynamicFilterContexts.get(stageId.getQueryId());
+        DynamicFilterContext context = dynamicFilterContexts.get(stageId.queryId());
         if (context == null || attemptId < context.getAttemptId()) {
             // query has been removed or not registered (e.g. dynamic filtering is disabled)
             // or a newer attempt has already been triggered

@@ -19,13 +19,12 @@ import io.trino.spi.QueryId;
 import io.trino.sql.planner.plan.PlanFragmentId;
 
 import java.util.List;
-import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 
-public class StageId
+public record StageId(QueryId queryId, int id)
 {
     @JsonCreator
     public static StageId valueOf(String stageId)
@@ -37,7 +36,7 @@ public class StageId
     public static StageId valueOf(List<String> ids)
     {
         checkArgument(ids.size() == 2, "Expected two ids but got: %s", ids);
-        return new StageId(new QueryId(ids.get(0)), Integer.parseInt(ids.get(1)));
+        return new StageId(new QueryId(ids.get(0)), parseInt(ids.get(1)));
     }
 
     public static StageId create(QueryId queryId, PlanFragmentId fragmentId)
@@ -45,29 +44,15 @@ public class StageId
         return new StageId(queryId, parseInt(fragmentId.toString()));
     }
 
-    private final QueryId queryId;
-    private final int id;
-
     public StageId(String queryId, int id)
     {
         this(new QueryId(queryId), id);
     }
 
-    public StageId(QueryId queryId, int id)
+    public StageId
     {
-        this.queryId = requireNonNull(queryId, "queryId is null");
+        requireNonNull(queryId, "queryId is null");
         checkArgument(id >= 0, "id is negative: %s", id);
-        this.id = id;
-    }
-
-    public QueryId getQueryId()
-    {
-        return queryId;
-    }
-
-    public int getId()
-    {
-        return id;
     }
 
     @Override
@@ -75,25 +60,5 @@ public class StageId
     public String toString()
     {
         return queryId + "." + id;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(id, queryId);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        StageId other = (StageId) obj;
-        return this.id == other.id &&
-                Objects.equals(this.queryId, other.queryId);
     }
 }

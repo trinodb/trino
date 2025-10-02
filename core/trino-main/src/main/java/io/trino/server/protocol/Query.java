@@ -760,7 +760,7 @@ class Query
         }
 
         // no matching sub stage, so return this stage
-        return Optional.of(stage.getStageId().getId());
+        return Optional.of(stage.getStageId().id());
     }
 
     private static QueryError toQueryError(ResultQueryInfo queryInfo, Optional<Throwable> exception)

@@ -70,7 +70,7 @@ public class TaskId
 
     public QueryId getQueryId()
     {
-        return stageId.getQueryId();
+        return stageId.queryId();
     }
 
     public StageId getStageId()

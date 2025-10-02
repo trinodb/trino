@@ -25,7 +25,7 @@ public class PageSinkId
 
     public static PageSinkId fromTaskId(TaskId taskId)
     {
-        long stageId = taskId.getStageId().getId();
+        long stageId = taskId.getStageId().id();
         long partitionId = taskId.getPartitionId();
         checkArgument(partitionId == (partitionId & 0x00FFFFFF), "partitionId is out of allowable range");
         long attemptId = taskId.getAttemptId();

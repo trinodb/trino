@@ -1493,7 +1493,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         fragment.getOutputPartitioningScheme().getPartitionCount());
                 ExchangeContext exchangeContext = new ExchangeContextInstance(
                         queryStateMachine.getQueryId(),
-                        new ExchangeId("external-exchange-" + stage.getStageId().getId()),
+                        new ExchangeId("external-exchange-" + stage.getStageId().id()),
                         schedulerSpan);
 
                 boolean preserveOrderWithinPartition = rootFragment && stage.getFragment().getPartitioning().equals(SINGLE_DISTRIBUTION);
