@@ -24,11 +24,8 @@ import java.util.function.Predicate;
 
 import static java.util.Objects.requireNonNull;
 
-public class Property<F, C, T>
+public record Property<F, C, T>(String name, BiFunction<F, C, Optional<T>> function)
 {
-    private final String name;
-    private final BiFunction<F, C, Optional<T>> function;
-
     public static <F, C, T> Property<F, C, T> property(String name, Function<F, T> function)
     {
         return property(name, (source, context) -> function.apply(source));
@@ -49,15 +46,10 @@ public class Property<F, C, T>
         return new Property<>(name, function);
     }
 
-    public Property(String name, BiFunction<F, C, Optional<T>> function)
+    public Property
     {
-        this.name = requireNonNull(name, "name is null");
-        this.function = requireNonNull(function, "function is null");
-    }
-
-    public String getName()
-    {
-        return name;
+        requireNonNull(name, "name is null");
+        requireNonNull(function, "function is null");
     }
 
     public BiFunction<F, C, Optional<?>> getFunction()
