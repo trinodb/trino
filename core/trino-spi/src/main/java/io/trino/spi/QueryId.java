@@ -18,10 +18,14 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.List;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public record QueryId(String id)
 {
+    private static final int INSTANCE_SIZE = instanceSize(QueryId.class);
+
     @JsonCreator
     public static QueryId valueOf(String queryId)
     {
@@ -117,5 +121,10 @@ public record QueryId(String id)
         if (!condition) {
             throw new IllegalArgumentException(message);
         }
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + estimatedSizeOf(id);
     }
 }

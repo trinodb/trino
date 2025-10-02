@@ -57,6 +57,6 @@ public record TaskId(StageId stageId, int partitionId, int attemptId)
 
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE;
+        return INSTANCE_SIZE + stageId.getRetainedSizeInBytes();
     }
 }
