@@ -56,7 +56,17 @@ export const QueryJson = () => {
                 <Grid container spacing={0}>
                     <Grid size={{ xs: 12 }}>
                         <Box sx={{ pt: 2 }}>
-                            <CodeBlock language="json" code={queryJson} />
+                            <CodeBlock
+                                language="json"
+                                code={queryJson}
+                                monacoOptions={{
+                                    lineNumbers: 'on',
+                                    minimap: { enabled: true },
+                                    guides: { indentation: true },
+                                    folding: true,
+                                    stickyScroll: { enabled: true },
+                                }}
+                            />
                         </Box>
                     </Grid>
                 </Grid>
