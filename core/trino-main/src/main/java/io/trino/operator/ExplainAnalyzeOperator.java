@@ -151,7 +151,7 @@ public class ExplainAnalyzeOperator
             return null;
         }
 
-        QueryInfo queryInfo = queryPerformanceFetcher.getQueryInfo(operatorContext.getDriverContext().getTaskId().getQueryId());
+        QueryInfo queryInfo = queryPerformanceFetcher.getQueryInfo(operatorContext.getDriverContext().getTaskId().queryId());
         checkState(queryInfo.getStages().isPresent(), "Stages informations is missing");
         checkState(queryInfo.getStages().get().getOutputStage().getSubStages().size() == 1, "Expected one sub stage of explain node");
 
@@ -194,7 +194,7 @@ public class ExplainAnalyzeOperator
 
     private boolean isFinalStageInfo(StagesInfo stages)
     {
-        List<StageInfo> subStages = stages.getSubStagesDeepPreOrder(operatorContext.getDriverContext().getTaskId().getStageId());
+        List<StageInfo> subStages = stages.getSubStagesDeepPreOrder(operatorContext.getDriverContext().getTaskId().stageId());
         return subStages.stream().allMatch(StageInfo::isFinalStageInfo);
     }
 }

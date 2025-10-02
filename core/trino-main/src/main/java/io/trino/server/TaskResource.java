@@ -433,9 +433,9 @@ public class TaskResource
 
         Optional<InjectedFailure> injectedFailure = failureInjector.getInjectedFailure(
                 traceToken.get(),
-                taskId.getStageId().id(),
-                taskId.getPartitionId(),
-                taskId.getAttemptId());
+                taskId.stageId().id(),
+                taskId.partitionId(),
+                taskId.attemptId());
 
         if (injectedFailure.isEmpty()) {
             return false;

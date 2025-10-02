@@ -25,67 +25,35 @@ import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.QueryId.parseDottedId;
 import static java.lang.Integer.parseInt;
-import static java.lang.String.join;
 import static java.util.Objects.requireNonNull;
 
-public class TaskId
+public record TaskId(String fullId, StageId stageId, int partitionId, int attemptId)
 {
     private static final int INSTANCE_SIZE = instanceSize(TaskId.class);
 
     @JsonCreator
-    public static TaskId valueOf(String taskId)
+    public static TaskId valueOf(String fullId)
     {
-        return new TaskId(taskId);
+        List<String> parts = parseDottedId(fullId, 4, "taskId");
+        return new TaskId(fullId, new StageId(new QueryId(parts.get(0)), parseInt(parts.get(1))), parseInt(parts.get(2)), parseInt(parts.get(3)));
     }
 
-    private final String fullId;
-    private final StageId stageId;
-    private final int partitionId;
-    private final int attemptId;
+    public TaskId
+    {
+        requireNonNull(fullId, "fullId is null");
+        requireNonNull(stageId, "stageId is null");
+        checkArgument(partitionId >= 0, "partitionId is negative: %s", partitionId);
+        checkArgument(attemptId >= 0, "attemptId is negative: %s", attemptId);
+    }
 
     public TaskId(StageId stageId, int partitionId, int attemptId)
     {
-        this.stageId = requireNonNull(stageId, "stageId is null");
-        checkArgument(partitionId >= 0, "partitionId is negative: %s", partitionId);
-        checkArgument(attemptId >= 0, "attemptId is negative: %s", attemptId);
-        this.partitionId = partitionId;
-        this.attemptId = attemptId;
-
-        // There is a strange JDK bug related to the CompactStrings implementation in JDK20+ which causes some fullId values
-        // to get corrupted when this particular line is JIT-optimized. Changing implicit concatenation to a String.join call
-        // seems to mitigate this issue. See: https://github.com/trinodb/trino/issues/18272 for more details.
-        this.fullId = join(".", stageId.toString(), String.valueOf(partitionId), String.valueOf(attemptId));
+        this("%s.%s.%s".formatted(stageId.toString(), String.valueOf(partitionId), String.valueOf(attemptId)), stageId, partitionId, attemptId);
     }
 
-    private TaskId(String fullId)
-    {
-        this.fullId = requireNonNull(fullId, "fullId is null");
-        List<String> parts = parseDottedId(fullId, 4, "taskId");
-        this.stageId = new StageId(new QueryId(parts.get(0)), parseInt(parts.get(1)));
-        this.partitionId = parseInt(parts.get(2));
-        this.attemptId = parseInt(parts.get(3));
-        checkArgument(partitionId >= 0, "partitionId is negative: %s", partitionId);
-        checkArgument(attemptId >= 0, "attemptId is negative: %s", attemptId);
-    }
-
-    public QueryId getQueryId()
+    public QueryId queryId()
     {
         return stageId.queryId();
-    }
-
-    public StageId getStageId()
-    {
-        return stageId;
-    }
-
-    public int getPartitionId()
-    {
-        return partitionId;
-    }
-
-    public int getAttemptId()
-    {
-        return attemptId;
     }
 
     @Override
