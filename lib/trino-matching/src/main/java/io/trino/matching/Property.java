@@ -13,9 +13,6 @@
  */
 package io.trino.matching;
 
-import io.trino.matching.pattern.EqualsPattern;
-import io.trino.matching.pattern.FilterPattern;
-
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;

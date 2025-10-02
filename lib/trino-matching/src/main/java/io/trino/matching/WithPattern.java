@@ -11,14 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.matching.pattern;
-
-import io.trino.matching.Captures;
-import io.trino.matching.Match;
-import io.trino.matching.Pattern;
-import io.trino.matching.PatternVisitor;
-import io.trino.matching.Property;
-import io.trino.matching.PropertyPattern;
+package io.trino.matching;
 
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -26,7 +19,7 @@ import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
-public class WithPattern<T>
+public final class WithPattern<T>
         extends Pattern<T>
 {
     private final PropertyPattern<? super T, ?, ?> propertyPattern;
@@ -55,11 +48,5 @@ public class WithPattern<T>
         Optional<?> propertyValue = property.apply((T) object, context);
         return propertyValue.map(value -> propertyPattern.getPattern().match(value, captures, context))
                 .orElseGet(Stream::of);
-    }
-
-    @Override
-    public void accept(PatternVisitor patternVisitor)
-    {
-        patternVisitor.visitWith(this);
     }
 }

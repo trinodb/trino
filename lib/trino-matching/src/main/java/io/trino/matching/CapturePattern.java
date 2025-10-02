@@ -11,44 +11,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.matching.pattern;
+package io.trino.matching;
 
-import io.trino.matching.Captures;
-import io.trino.matching.Match;
-import io.trino.matching.Pattern;
-import io.trino.matching.PatternVisitor;
-
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
-public class EqualsPattern<T>
+public final class CapturePattern<T>
         extends Pattern<T>
 {
-    private final T expectedValue;
+    private final Capture<T> capture;
 
-    public EqualsPattern(T expectedValue, Optional<Pattern<?>> previous)
+    public CapturePattern(Capture<T> capture, Pattern<T> previous)
     {
         super(previous);
-        this.expectedValue = requireNonNull(expectedValue, "expectedValue can't be null. Use isNull() pattern instead.");
+        this.capture = requireNonNull(capture, "capture is null");
     }
 
-    public T expectedValue()
+    public Capture<T> capture()
     {
-        return expectedValue;
+        return capture;
     }
 
     @Override
     public <C> Stream<Match> accept(Object object, Captures captures, C context)
     {
-        return Stream.of(Match.of(captures))
-                .filter(match -> expectedValue.equals(object));
-    }
-
-    @Override
-    public void accept(PatternVisitor patternVisitor)
-    {
-        patternVisitor.visitEquals(this);
+        Captures newCaptures = captures.addAll(Captures.ofNullable(capture, (T) object));
+        return Stream.of(Match.of(newCaptures));
     }
 }
