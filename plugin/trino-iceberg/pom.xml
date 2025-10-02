@@ -24,7 +24,7 @@
             <dependency>
                 <groupId>org.jboss.resteasy</groupId>
                 <artifactId>resteasy-core</artifactId>
-                <version>6.0.3.Final</version>
+                <version>7.0.0.Final</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -201,13 +201,13 @@
         <dependency>
             <groupId>org.apache.datasketches</groupId>
             <artifactId>datasketches-java</artifactId>
-            <version>6.0.0</version>
+            <version>8.0.0</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.datasketches</groupId>
             <artifactId>datasketches-memory</artifactId>
-            <version>2.2.1</version>
+            <version>6.0.0</version>
         </dependency>
 
         <dependency>
@@ -664,7 +664,7 @@
         <dependency>
             <groupId>org.keycloak</groupId>
             <artifactId>keycloak-core</artifactId>
-            <version>24.0.5</version>
+            <version>26.4.0</version>
             <scope>test</scope>
         </dependency>
 
