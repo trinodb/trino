@@ -11,12 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.matching.pattern;
-
-import io.trino.matching.Captures;
-import io.trino.matching.Match;
-import io.trino.matching.Pattern;
-import io.trino.matching.PatternVisitor;
+package io.trino.matching;
 
 import java.util.Optional;
 import java.util.function.BiPredicate;
@@ -24,7 +19,7 @@ import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
-public class FilterPattern<T>
+public final class FilterPattern<T>
         extends Pattern<T>
 {
     private final BiPredicate<? super T, ?> predicate;
@@ -47,11 +42,5 @@ public class FilterPattern<T>
         BiPredicate<? super T, C> predicate = (BiPredicate<? super T, C>) this.predicate;
         return Stream.of(Match.of(captures))
                 .filter(match -> predicate.test((T) object, context));
-    }
-
-    @Override
-    public void accept(PatternVisitor patternVisitor)
-    {
-        patternVisitor.visitFilter(this);
     }
 }
