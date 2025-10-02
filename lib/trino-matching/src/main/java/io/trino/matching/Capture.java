@@ -15,13 +15,16 @@ package io.trino.matching;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Objects.requireNonNull;
 
-public class Capture<T>
+public record Capture<T>(String description)
 {
     private static final AtomicInteger sequenceCounter = new AtomicInteger();
 
-    private final String description;
+    public Capture
+    {
+        requireNonNull(description, "description is null");
+    }
 
     public static <T> Capture<T> newCapture()
     {
@@ -31,23 +34,5 @@ public class Capture<T>
     public static <T> Capture<T> newCapture(String description)
     {
         return new Capture<>(description + "@" + sequenceCounter.incrementAndGet());
-    }
-
-    private Capture(String description)
-    {
-        this.description = description;
-    }
-
-    public String description()
-    {
-        return description;
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("description", description)
-                .toString();
     }
 }
