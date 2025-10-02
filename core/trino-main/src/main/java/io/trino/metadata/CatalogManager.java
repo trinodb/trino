@@ -75,4 +75,6 @@ public interface CatalogManager
     void createCatalog(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists);
 
     void dropCatalog(CatalogName catalogName, boolean exists);
+
+    default void refreshCatalogsFromStore(){}
 }

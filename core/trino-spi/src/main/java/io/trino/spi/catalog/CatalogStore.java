@@ -42,6 +42,16 @@ public interface CatalogStore
      */
     void removeCatalog(CatalogName catalogName);
 
+    /**
+     * Set the catalog manager. This allows catalog stores to trigger
+     * catalog reloads when they detect external changes.
+     * Default implementation does nothing for backward compatibility.
+     */
+    default void setCatalogManager(Object catalogManager)
+    {
+        // Default no-op implementation
+    }
+
     interface StoredCatalog
     {
         CatalogName name();
