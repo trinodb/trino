@@ -613,12 +613,12 @@ public abstract class BaseFailureRecoveryTest
             String queryId = null;
             try {
                 resultWithPlan = getDistributedQueryRunner().executeWithPlan(withTraceToken(session, traceToken), resolveTableName(query, tableName));
-                queryId = resultWithPlan.queryId().getId();
+                queryId = resultWithPlan.queryId().id();
             }
             catch (RuntimeException e) {
                 failure = e;
                 if (e instanceof QueryFailedException queryFailedException) {
-                    queryId = queryFailedException.getQueryId().getId();
+                    queryId = queryFailedException.getQueryId().id();
                 }
             }
 
