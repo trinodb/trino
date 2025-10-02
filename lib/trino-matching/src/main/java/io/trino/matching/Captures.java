@@ -15,6 +15,7 @@ package io.trino.matching;
 
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -49,6 +50,18 @@ public class Captures
             return other;
         }
         return new Captures(capture, value, tail.addAll(other));
+    }
+
+    @SuppressWarnings("unchecked cast")
+    public <T> Optional<T> getOptional(Capture<T> capture)
+    {
+        if (this.equals(NIL)) {
+            return Optional.empty();
+        }
+        if (this.capture.equals(capture)) {
+            return Optional.ofNullable((T) value);
+        }
+        return tail.getOptional(capture);
     }
 
     @SuppressWarnings("unchecked cast")
