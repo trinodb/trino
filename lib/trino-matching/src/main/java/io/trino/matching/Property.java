@@ -28,7 +28,7 @@ public record Property<F, C, T>(String name, BiFunction<F, C, Optional<T>> funct
 {
     public static <F, C, T> Property<F, C, T> property(String name, Function<F, T> function)
     {
-        return property(name, (source, context) -> function.apply(source));
+        return property(name, (source, _) -> function.apply(source));
     }
 
     public static <F, C, T> Property<F, C, T> property(String name, BiFunction<F, C, T> function)
@@ -38,7 +38,7 @@ public record Property<F, C, T>(String name, BiFunction<F, C, Optional<T>> funct
 
     public static <F, C, T> Property<F, C, T> optionalProperty(String name, Function<F, Optional<T>> function)
     {
-        return new Property<>(name, (source, context) -> function.apply(source));
+        return new Property<>(name, (source, _) -> function.apply(source));
     }
 
     public static <F, C, T> Property<F, C, T> optionalProperty(String name, BiFunction<F, C, Optional<T>> function)
@@ -76,7 +76,7 @@ public record Property<F, C, T>(String name, BiFunction<F, C, Optional<T>> funct
 
     public PropertyPattern<F, C, T> matching(Predicate<? super T> predicate)
     {
-        return matching((t, context) -> predicate.test(t));
+        return matching((t, _) -> predicate.test(t));
     }
 
     public PropertyPattern<F, C, T> matching(BiPredicate<? super T, ?> predicate)
