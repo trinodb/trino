@@ -26,7 +26,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.apache.parquet.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * Reads keys from two environment variables.
