@@ -53,6 +53,7 @@ public class TestIcebergConnectorSmokeTest
         QueryRunner queryRunner = IcebergQueryRunner.builder()
                 .setInitialTables(NATION, ORDERS, REGION)
                 .setIcebergProperties(ImmutableMap.of(
+                        "fs.native-local.enabled", "true",
                         "iceberg.file-format", format.name(),
                         "iceberg.register-table-procedure.enabled", "true",
                         "iceberg.writer-sort-buffer-size", "1MB",
