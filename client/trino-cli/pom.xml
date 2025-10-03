@@ -62,7 +62,7 @@
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
             <!-- JDK11 support dropped by version 1.9+ -->
-            <version>1.8</version>
+            <version>1.11</version>
         </dependency>
 
         <dependency>
