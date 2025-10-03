@@ -183,10 +183,10 @@
 
         <!-- keep dependency properties sorted -->
         <dep.airlift.version>364</dep.airlift.version>
-        <dep.alluxio.version>2.9.6</dep.alluxio.version>
+        <dep.alluxio.version>313</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
-        <dep.aws-sdk.version>1.12.791</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.792</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.8.0</dep.confluent.version>
         <dep.docker.images.version>119</dep.docker.images.version>
@@ -195,7 +195,7 @@
         <dep.frontend-maven-plugin.version>1.15.4</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
-        <dep.gib.version>4.5.4</dep.gib.version>
+        <dep.gib.version>4.5.6</dep.gib.version>
         <dep.httpcore5.version>5.3.6</dep.httpcore5.version>
         <dep.iceberg.version>1.10.0</dep.iceberg.version>
         <dep.jna.version>5.18.1</dep.jna.version>
@@ -206,13 +206,13 @@
         <dep.okio.version>3.16.0</dep.okio.version>
         <dep.parquet.version>1.16.0</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
-        <dep.protobuf.version>3.25.8</dep.protobuf.version>
+        <dep.protobuf.version>4.32.1</dep.protobuf.version>
         <dep.snowflake.version>3.26.1</dep.snowflake.version>
         <dep.swagger.version>2.2.38</dep.swagger.version>
         <dep.takari.version>2.3.2</dep.takari.version>
         <dep.tcnative.version>2.0.74.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
-        <dep.wire.version>5.2.1</dep.wire.version>
+        <dep.wire.version>5.4.0</dep.wire.version>
         <dep.zookeeper.version>3.9.4</dep.zookeeper.version>
         <extraJavaVectorArgs>--add-modules=jdk.incubator.vector</extraJavaVectorArgs>
         <!--
@@ -228,7 +228,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.38</version>
+                <version>1.3.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -284,7 +284,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.49.5</version>
+                <version>3.49.6</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -300,7 +300,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.34.8</version>
+                <version>2.34.9</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -380,7 +380,7 @@
             <dependency>
                 <groupId>com.clickhouse</groupId>
                 <artifactId>clickhouse-jdbc</artifactId>
-                <version>0.7.1-patch1</version>
+                <version>0.9.2</version>
                 <classifier>all</classifier>
             </dependency>
 
@@ -509,7 +509,7 @@
             <dependency>
                 <groupId>com.mysql</groupId>
                 <artifactId>mysql-connector-j</artifactId>
-                <version>9.2.0</version>
+                <version>9.4.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.google.protobuf</groupId>
@@ -2306,7 +2306,7 @@
             <dependency>
                 <groupId>org.mariadb.jdbc</groupId>
                 <artifactId>mariadb-java-client</artifactId>
-                <version>3.3.4</version>
+                <version>3.5.6</version>
             </dependency>
 
             <dependency>
