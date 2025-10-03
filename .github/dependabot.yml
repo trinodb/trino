@@ -4,16 +4,6 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    groups:
-      dependency-updates:
-        applies-to: version-updates
-        update-types:
-        - major
-        - minor
-        - patch
-      security-updates:
-        applies-to: security-updates
-        dependency-type: production
   - package-ecosystem: "maven"
     directory: "/"
     schedule:
@@ -21,13 +11,3 @@ updates:
     assignees:
       - wendigo
     open-pull-requests-limit: 10
-    groups:
-      dependency-updates:
-        applies-to: version-updates
-        update-types:
-        - major
-        - minor
-        - patch
-      security-updates:
-        applies-to: security-updates
-        dependency-type: production
