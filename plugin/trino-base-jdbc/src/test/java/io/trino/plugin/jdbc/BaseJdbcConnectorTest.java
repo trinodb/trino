@@ -150,12 +150,12 @@ public abstract class BaseJdbcConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_UPDATE -> true;
             case SUPPORTS_ADD_COLUMN_WITH_POSITION,
-                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                 SUPPORTS_CREATE_VIEW,
-                 SUPPORTS_DEFAULT_COLUMN_VALUE,
-                 SUPPORTS_MERGE,
-                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
-                 SUPPORTS_ROW_LEVEL_UPDATE -> false;
+                     SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                     SUPPORTS_CREATE_VIEW,
+                     SUPPORTS_DEFAULT_COLUMN_VALUE,
+                     SUPPORTS_MERGE,
+                     SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
+                     SUPPORTS_ROW_LEVEL_UPDATE -> false;
             // Dynamic filters can be pushed down only if predicate push down is supported.
             // It is possible for a connector to have predicate push down support but not push down dynamic filters.
             // TODO default SUPPORTS_DYNAMIC_FILTER_PUSHDOWN to SUPPORTS_PREDICATE_PUSHDOWN
@@ -621,7 +621,7 @@ public abstract class BaseJdbcConnectorTest
             assertThat(query("SELECT min(short_decimal), min(long_decimal), min(a_bigint), min(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT max(short_decimal), max(long_decimal), max(a_bigint), max(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT sum(short_decimal), sum(long_decimal), sum(a_bigint), sum(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT avg(short_decimal), avg(long_decimal), avg(a_bigint), avg(t_double) FROM " + emptyTable.getName())).isFullyPushedDown();
+            assertNumericAveragePushdown(emptyTable);
         }
 
         try (TestTable testTable = createAggregationTestTable(schemaName + ".test_num_agg_pd",
@@ -629,7 +629,7 @@ public abstract class BaseJdbcConnectorTest
             assertThat(query("SELECT min(short_decimal), min(long_decimal), min(a_bigint), min(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT max(short_decimal), max(long_decimal), max(a_bigint), max(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT sum(short_decimal), sum(long_decimal), sum(a_bigint), sum(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT avg(short_decimal), avg(long_decimal), avg(a_bigint), avg(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertNumericAveragePushdown(testTable);
 
             // smoke testing of more complex cases
             // WHERE on aggregation column
@@ -645,6 +645,11 @@ public abstract class BaseJdbcConnectorTest
             // GROUP BY with WHERE on aggregation column
             assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE long_decimal < 124 GROUP BY short_decimal")).isFullyPushedDown();
         }
+    }
+
+    protected void assertNumericAveragePushdown(TestTable testTable)
+    {
+        assertThat(query("SELECT avg(short_decimal), avg(long_decimal), avg(a_bigint), avg(t_double) FROM " + testTable.getName())).isFullyPushedDown();
     }
 
     @Test
@@ -1153,12 +1158,12 @@ public abstract class BaseJdbcConnectorTest
 
         assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % nationkey = 2"))
                 .isFullyPushedDown()
-                .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
+                .matches(getArithmeticPredicatePushdownExpectedValues());
 
         // some databases calculate remainder instead of modulus when one of the values is negative
         assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % -nationkey = 2"))
                 .isFullyPushedDown()
-                .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
+                .matches(getArithmeticPredicatePushdownExpectedValues());
 
         assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % 0 = 2"))
                 .failure().hasMessageContaining("by zero");
@@ -1168,6 +1173,11 @@ public abstract class BaseJdbcConnectorTest
                 .failure().hasMessageContaining("by zero");
 
         // TODO add coverage for other arithmetic pushdowns https://github.com/trinodb/trino/issues/14808
+    }
+
+    protected String getArithmeticPredicatePushdownExpectedValues()
+    {
+        return "VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')";
     }
 
     @Test
@@ -1307,7 +1317,8 @@ public abstract class BaseJdbcConnectorTest
                 assertThat(query(session, format("SELECT n.name FROM nation n %s orders o ON DATE '2025-03-19' = o.orderdate", joinOperator))).joinIsNotFullyPushedDown();
 
                 // no projection on the probe side, only filter
-                assertJoinConditionallyPushedDown(session, format("SELECT n.name FROM nation n %s orders o ON n.regionkey = 1", joinOperator),
+                // reduced the size of the join table to make the test faster: instead of joining on the large orders table, it is joined on only one record
+                assertJoinConditionallyPushedDown(session, format("SELECT n.name FROM nation n %s (SELECT * FROM orders WHERE orderkey = 1) o ON n.regionkey = 1", joinOperator),
                         expectJoinPushdownOnEmptyProjection(joinOperator));
 
                 // pushdown when using USING
