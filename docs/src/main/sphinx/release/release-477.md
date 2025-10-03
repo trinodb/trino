@@ -29,7 +29,7 @@
 * Do not include catalogs that failed to load in `system.metadata.catalogs`. ({issue}`26493`)
 * Simplify node discovery configuration for Kubernetes-like environments that 
   provide DNS names for all workers when the `discovery.type` config property is set 
-  to `dns`. ({issue}`26119`, {issue}`26119`)
+  to `dns`. ({issue}`26119`)
 * Improve memory usage for certain queries involving {func}`row_number`, {func}`rank`,
   {func}`dense_rank`, and `ORDER BY ... LIMIT`. ({issue}`25946`)
 * Improve memory usage for queries involving `GROUP BY`. ({issue}`25879`)
@@ -218,7 +218,7 @@
 ## SPI
 
 * Remove `ConnectorSession` from `Type.getObjectValue`. ({issue}`25945`)
-* Remove unused `NodeManager` `getEnvironment` method. ({issue}`26096`)
+* Remove unused `NodeManager.getEnvironment` method. ({issue}`26096`)
 * Remove `@Experimental` annotation. ({issue}`26200`)
 * Remove deprecated `ConnectorPageSource.getNextPage` method. ({issue}`26222`)
 * Remove support for `EventListener#splitCompleted`. ({issue}`26436`)
