@@ -18,6 +18,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.AdaptivePlanner;
 import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.ExplainAnalyzeNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -65,6 +66,7 @@ public class TableExecuteStructureValidator
                 || node instanceof TableExecuteNode
                 || node instanceof OutputNode
                 || node instanceof ExchangeNode
-                || node instanceof TableFinishNode;
+                || node instanceof TableFinishNode
+                || node instanceof ExplainAnalyzeNode;
     }
 }

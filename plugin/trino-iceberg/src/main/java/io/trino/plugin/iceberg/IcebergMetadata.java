@@ -660,7 +660,8 @@ public class IcebergMetadata
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
-                Optional.of(false));
+                Optional.of(false),
+                false);
     }
 
     private Optional<IcebergTablePartitioning> getTablePartitioning(ConnectorSession session, Table icebergTable)
@@ -3292,7 +3293,8 @@ public class IcebergMetadata
                 table.isRecordScannedFiles(),
                 table.getMaxScannedFileSize(),
                 table.getConstraintColumns(),
-                table.getForAnalyze());
+                table.getForAnalyze(),
+                table.ifDisableTableStatisticsCache());
 
         return Optional.of(new LimitApplicationResult<>(table, false, false));
     }
@@ -3393,7 +3395,8 @@ public class IcebergMetadata
                         table.isRecordScannedFiles(),
                         table.getMaxScannedFileSize(),
                         newConstraintColumns,
-                        table.getForAnalyze()),
+                        table.getForAnalyze(),
+                        table.ifDisableTableStatisticsCache()),
                 remainingConstraint.transformKeys(ColumnHandle.class::cast),
                 extractionResult.remainingExpression(),
                 false));
@@ -3541,6 +3544,15 @@ public class IcebergMetadata
         }
 
         IcebergTableHandle originalHandle = (IcebergTableHandle) tableHandle;
+
+        if (originalHandle.ifDisableTableStatisticsCache()) {
+            Table icebergTable = catalog.loadTable(session, originalHandle.getSchemaTableName());
+            return tableStatisticsReader.getTableStatistics(
+                    session,
+                    originalHandle,
+                    originalHandle.getProjectedColumns(),
+                    icebergTable);
+        }
         // Certain table handle attributes are not applicable to select queries (which need stats).
         // If this changes, the caching logic may here may need to be revised.
         checkArgument(!originalHandle.isRecordScannedFiles(), "Unexpected scanned files recording set");
@@ -3565,7 +3577,8 @@ public class IcebergMetadata
                 false, // recordScannedFiles does not affect stats
                 originalHandle.getMaxScannedFileSize(),
                 ImmutableSet.of(), // constraintColumns do not affect stats
-                Optional.empty()); // forAnalyze does not affect stats
+                Optional.empty(),  // forAnalyze does not affect stats
+                false); // disableTableStatisticsCache does not affect stats
         return getIncrementally(
                 tableStatisticsCache,
                 cacheKey,
