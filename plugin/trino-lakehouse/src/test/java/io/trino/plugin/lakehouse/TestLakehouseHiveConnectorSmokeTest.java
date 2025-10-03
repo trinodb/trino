@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.lakehouse.TableType.HIVE;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestLakehouseHiveConnectorSmokeTest
         extends BaseLakehouseConnectorSmokeTest
@@ -65,5 +66,14 @@ public class TestLakehouseHiveConnectorSmokeTest
                    format = 'ORC',
                    type = 'HIVE'
                 )""");
+    }
+
+    @Test
+    void testSelectMetadataTable()
+    {
+        assertThatThrownBy(() -> computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$history\""))
+                .hasMessageMatching(".* Table .* does not exist");
+        assertThatThrownBy(() -> computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$files\""))
+                .hasMessageMatching(".* Table .* does not exist");
     }
 }

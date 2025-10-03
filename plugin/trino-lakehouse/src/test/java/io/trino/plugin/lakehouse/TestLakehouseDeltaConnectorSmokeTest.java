@@ -59,4 +59,18 @@ public class TestLakehouseDeltaConnectorSmokeTest
                    type = 'DELTA'
                 )\\E""");
     }
+
+    @Test
+    void testSelectMetadataTable()
+    {
+        assertThat((Long) computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$history\"")).isEqualTo(1L);
+        assertThat((Long) computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$transactions\"")).isEqualTo(1L);
+        assertThat((Long) computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$properties\"")).isEqualTo(3L);
+        assertThat((Long) computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$partitions\"")).isEqualTo(0L);
+
+        assertThatThrownBy(() -> computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$files\""))
+                .hasMessageMatching(".* Table .* does not exist");
+        assertThatThrownBy(() -> computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$timeline\""))
+                .hasMessageMatching(".* Table .* does not exist");
+    }
 }
