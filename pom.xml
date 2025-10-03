@@ -183,7 +183,7 @@
 
         <!-- keep dependency properties sorted -->
         <dep.airlift.version>364</dep.airlift.version>
-        <dep.alluxio.version>2.9.6</dep.alluxio.version>
+        <dep.alluxio.version>313</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
         <dep.aws-sdk.version>1.12.791</dep.aws-sdk.version>
