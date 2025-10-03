@@ -652,6 +652,12 @@ public class CachingJdbcClient
         return get(tablePrimaryKeysCache, remoteTableName, () -> delegate.getPrimaryKeys(session, remoteTableName));
     }
 
+    @Override
+    public ColumnMetadata toColumnMetadata(JdbcColumnHandle columnHandle)
+    {
+        return delegate.toColumnMetadata(columnHandle);
+    }
+
     public void onDataChanged(SchemaTableName table)
     {
         invalidateAllIf(statisticsCache, key -> key.mayReference(table));
