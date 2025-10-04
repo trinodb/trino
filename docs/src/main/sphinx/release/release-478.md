@@ -1,0 +1,106 @@
+# Release 478 (dd Oct 2025)
+
+## General
+
+* Add support for column lineage in `UNNEST` clause. ({issue}`16946`)
+* Fix potential incorrect results when reading `row` type. ({issue}`26806`)
+
+## Security
+
+## Web UI
+
+* Improve rendering performance of large query JSON code in [](/admin/preview-web-interface). ({issue}`26807`)
+* Fix query plan default viewport in [](/admin/preview-web-interface). ({issue}`26749`)
+
+## JDBC driver
+
+## Docker image
+
+* Run Trino on JDK 25.0.0 (build 36). ({issue}`26693`)
+
+## CLI
+
+## BigQuery connector
+
+## Blackhole connector
+
+## Cassandra connector
+
+## ClickHouse connector
+
+## Delta Lake connector
+
+* Fix failure when reading `NULL` map on `json` type. ({issue}`26700`)
+
+## Druid connector
+
+## DuckDB connector
+
+## Elasticsearch connector
+
+## Exasol connector
+
+## Faker connector
+
+## Google Sheets connector
+
+## Hive connector
+
+* Add support for reading encrypted Parquet files. ({issue}`24517`, {issue}`9383`)
+
+## Hudi connector
+
+## Iceberg connector
+
+* Improve performance when writing sorted tables and the `iceberg.sorted-writing.local-staging-path`
+  config option is set. ({issue}`24376`)
+* Fix failure due to column count mismatch when executing `add_files_from_table`
+  procedure. ({issue}`26774`)
+
+## Ignite connector
+
+## JMX connector
+
+## Kafka connector
+
+* Fix failure when filtering partitions by timestamp offset. ({issue}`26787`)
+
+## Loki connector
+
+## MariaDB connector
+
+## Memory connector
+
+## MongoDB connector
+
+## MySQL connector
+
+## OpenSearch connector
+
+## Oracle connector
+
+## Pinot connector
+
+## PostgreSQL connector
+
+## Prometheus connector
+
+## Redis connector
+
+## Redshift connector
+
+## SingleStore connector
+
+## Snowflake connector
+
+## SQL Server connector
+
+## TPC-H connector
+
+## TPC-DS connector
+
+## Vertica connector
+
+## SPI
+
+* Require `shutdown` to be implemented by the `Connector`. ({issue}`26718`)
