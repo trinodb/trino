@@ -739,12 +739,10 @@ jobs:
           REDSHIFT_VPC_SECURITY_GROUP_IDS: ${{ vars.REDSHIFT_VPC_SECURITY_GROUP_IDS }}
           REDSHIFT_S3_TPCH_TABLES_ROOT: ${{ vars.REDSHIFT_S3_TPCH_TABLES_ROOT }}
           REDSHIFT_S3_UNLOAD_ROOT: ${{ vars.REDSHIFT_S3_UNLOAD_ROOT }}
-        # TODO: make redshift great again
         if: >-
           contains(matrix.modules, 'trino-redshift') &&
           (contains(matrix.profile, 'cloud-tests') || contains(matrix.profile, 'fte-tests')) &&
-          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.REDSHIFT_SUBNET_GROUP_NAME != '') &&
-          false
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.REDSHIFT_SUBNET_GROUP_NAME != '')
         run: |
           source .github/bin/redshift/setup-aws-redshift.sh
 
@@ -764,7 +762,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ vars.REDSHIFT_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.REDSHIFT_AWS_SECRET_ACCESS_KEY }}
         # Cancelled workflows may have left the ephemeral cluster running
-        if: false # TODO: make redshift great again
+        if: always()
         run: .github/bin/redshift/delete-aws-redshift.sh
       - name: Sanitize artifact name
         if: always()
