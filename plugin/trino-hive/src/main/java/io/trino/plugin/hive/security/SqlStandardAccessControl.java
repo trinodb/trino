@@ -704,9 +704,15 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
+    public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnSchema> columns)
     {
         return ImmutableList.of();
+    }
+
+    @Override
+    public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        throw new UnsupportedOperationException("getRowFilters should be called with columns");
     }
 
     @Override

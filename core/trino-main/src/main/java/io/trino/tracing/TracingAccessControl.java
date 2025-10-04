@@ -810,11 +810,11 @@ public class TracingAccessControl
     }
 
     @Override
-    public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
+    public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName, List<ColumnSchema> columns)
     {
         Span span = startSpan("getRowFilters");
         try (var _ = scopedSpan(span)) {
-            return delegate.getRowFilters(context, tableName);
+            return delegate.getRowFilters(context, tableName, columns);
         }
     }
 

@@ -690,7 +690,7 @@ final class TestOpaAccessControl
     @Test
     void testGetRowFiltersThrowsForIllegalResponse()
     {
-        Consumer<OpaAccessControl> methodUnderTest = authorizer -> authorizer.getRowFilters(TEST_SECURITY_CONTEXT, TEST_COLUMN_MASKING_TABLE_NAME);
+        Consumer<OpaAccessControl> methodUnderTest = authorizer -> authorizer.getRowFilters(TEST_SECURITY_CONTEXT, TEST_COLUMN_MASKING_TABLE_NAME, ImmutableList.of());
         assertAccessControlMethodThrowsForIllegalResponses(methodUnderTest, rowFilteringOpaConfig(), OPA_ROW_FILTERING_URI);
 
         // Also test a valid JSON response, but containing invalid fields for a row filters request
@@ -763,7 +763,7 @@ final class TestOpaAccessControl
         InstrumentedHttpClient httpClient = createMockHttpClient(OPA_ROW_FILTERING_URI, buildValidatingRequestHandler(TEST_IDENTITY, new MockResponse(responseContent, 200)));
         OpaAccessControl authorizer = createOpaAuthorizer(rowFilteringOpaConfig(), httpClient);
 
-        List<ViewExpression> result = authorizer.getRowFilters(TEST_SECURITY_CONTEXT, TEST_COLUMN_MASKING_TABLE_NAME);
+        List<ViewExpression> result = authorizer.getRowFilters(TEST_SECURITY_CONTEXT, TEST_COLUMN_MASKING_TABLE_NAME, ImmutableList.of());
         assertThat(result).allSatisfy(expression -> {
             assertThat(expression.getCatalog()).contains("some_catalog");
             assertThat(expression.getSchema()).contains("some_schema");
@@ -803,7 +803,7 @@ final class TestOpaAccessControl
                 });
         OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), httpClient);
 
-        List<ViewExpression> result = authorizer.getRowFilters(TEST_SECURITY_CONTEXT, TEST_COLUMN_MASKING_TABLE_NAME);
+        List<ViewExpression> result = authorizer.getRowFilters(TEST_SECURITY_CONTEXT, TEST_COLUMN_MASKING_TABLE_NAME, ImmutableList.of());
         assertThat(result).isEmpty();
         assertThat(httpClient.getRequests()).isEmpty();
     }
