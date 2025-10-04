@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.lakehouse.TableType.ICEBERG;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestLakehouseIcebergConnectorSmokeTest
         extends BaseLakehouseConnectorSmokeTest
@@ -43,5 +44,24 @@ public class TestLakehouseIcebergConnectorSmokeTest
                    location = \\E's3://test-bucket-.*/tpch/region-.*'\\Q,
                    type = 'ICEBERG'
                 )\\E""");
+    }
+
+    @Test
+    void testSelectMetadataTable()
+    {
+        assertThat((Long) computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$history\"")).isEqualTo(1L);
+        assertThat((Long) computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$metadata_log_entries\"")).isEqualTo(1L);
+        assertThat((Long) computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$snapshots\"")).isEqualTo(1L);
+        assertThat((Long) computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$all_manifests\"")).isEqualTo(1L);
+        assertThat((Long) computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$manifests\"")).isEqualTo(1L);
+        assertThat((Long) computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$partitions\"")).isEqualTo(1L);
+        assertThat((Long) computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$files\"")).isEqualTo(1L);
+        assertThat((Long) computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$all_entries\"")).isEqualTo(1L);
+        assertThat((Long) computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$entries\"")).isEqualTo(1L);
+        assertThat((Long) computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$properties\"")).isEqualTo(6L);
+        assertThat((Long) computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$refs\"")).isEqualTo(1L);
+
+        assertThatThrownBy(() -> computeScalar("SELECT count(*) FROM lakehouse.tpch.\"region$timeline\""))
+                .hasMessageMatching(".* Table .* does not exist");
     }
 }
