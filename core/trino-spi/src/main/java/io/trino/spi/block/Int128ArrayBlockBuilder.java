@@ -154,12 +154,15 @@ public class Int128ArrayBlockBuilder
         boolean[] rawValueIsNull = int128ArrayBlock.getRawValueIsNull();
         if (rawValueIsNull != null) {
             for (int i = 0; i < length; i++) {
-                if (rawValueIsNull[rawOffset + offset + i]) {
-                    valueIsNull[positionCount + i] = true;
-                    hasNullValue = true;
+                boolean isNull = rawValueIsNull[rawOffset + offset + i];
+                hasNullValue |= isNull;
+                hasNonNullValue |= !isNull;
+                if (hasNullValue & hasNonNullValue) {
+                    System.arraycopy(rawValueIsNull, rawOffset + offset + i, valueIsNull, positionCount + i, length - i);
+                    break;
                 }
                 else {
-                    hasNonNullValue = true;
+                    valueIsNull[positionCount + i] = isNull;
                 }
             }
         }
