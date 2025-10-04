@@ -149,7 +149,7 @@ public class TestS3SecurityMapping
         assertMappingFails(
                 provider,
                 path("s3://bar/test"),
-                "No S3 role selected and mapping has no default role");
+                "No IAM role selected and mapping has no default role");
 
         // matches prefix and user selected one of the allowed roles
         assertMapping(
@@ -164,7 +164,7 @@ public class TestS3SecurityMapping
                 path("s3://bar/test")
                         .withUser("bob")
                         .withExtraCredentialIamRole("bogus"),
-                "Selected S3 role is not allowed: bogus");
+                "Selected IAM role is not allowed: bogus");
 
         // verify that colon replacement works
         String roleWithoutColon = "arn#aws#iam##123456789101#role/allow_bucket_2";
@@ -180,12 +180,6 @@ public class TestS3SecurityMapping
                 provider,
                 path("s3://bar/abc/data/test.csv"),
                 MappingResult.iamRole("arn:aws:iam::123456789101:role/allow_path"));
-
-        // matches empty rule at the end -- default role used
-        assertMapping(
-                provider,
-                MappingSelector.empty(),
-                MappingResult.iamRole("arn:aws:iam::123456789101:role/default"));
 
         // matches prefix -- default role used
         assertMapping(
@@ -206,193 +200,6 @@ public class TestS3SecurityMapping
                 path("s3://xyz/bar")
                         .withExtraCredentialIamRole("arn:aws:iam::123456789101:role/allow_bar"),
                 MappingResult.iamRole("arn:aws:iam::123456789101:role/allow_bar"));
-
-        // matches user -- default role used
-        assertMapping(
-                provider,
-                MappingSelector.empty()
-                        .withUser("alice"),
-                MappingResult.iamRole("alice_role"));
-
-        // matches user and user selected default role
-        assertMapping(
-                provider,
-                MappingSelector.empty()
-                        .withUser("alice")
-                        .withExtraCredentialIamRole("alice_role"),
-                MappingResult.iamRole("alice_role"));
-
-        // matches user and selected role not allowed
-        assertMappingFails(
-                provider,
-                MappingSelector.empty()
-                        .withUser("alice")
-                        .withExtraCredentialIamRole("bogus"),
-                "Selected S3 role is not allowed: bogus");
-
-        // verify that the first matching rule is used
-        // matches prefix earlier in the file and selected role not allowed
-        assertMappingFails(
-                provider,
-                path("s3://bar/test")
-                        .withUser("alice")
-                        .withExtraCredentialIamRole("alice_role"),
-                "Selected S3 role is not allowed: alice_role");
-
-        // matches user regex -- default role used
-        assertMapping(
-                provider,
-                MappingSelector.empty()
-                        .withUser("bob"),
-                MappingResult.iamRole("bob_and_charlie_role"));
-
-        // matches group -- default role used
-        assertMapping(
-                provider,
-                MappingSelector.empty()
-                        .withGroups("finance"),
-                MappingResult.iamRole("finance_role"));
-
-        // matches group regex -- default role used
-        assertMapping(
-                provider,
-                MappingSelector.empty()
-                        .withGroups("eng"),
-                MappingResult.iamRole("hr_and_eng_group"));
-
-        // verify that all constraints must match
-        // matches user but not group -- uses empty mapping at the end
-        assertMapping(
-                provider,
-                MappingSelector.empty()
-                        .withUser("danny"),
-                MappingResult.iamRole("arn:aws:iam::123456789101:role/default"));
-
-        // matches group but not user -- uses empty mapping at the end
-        assertMapping(
-                provider,
-                MappingSelector.empty()
-                        .withGroups("hq"),
-                MappingResult.iamRole("arn:aws:iam::123456789101:role/default"));
-
-        // matches user and group
-        assertMapping(
-                provider,
-                MappingSelector.empty()
-                        .withUser("danny")
-                        .withGroups("hq"),
-                MappingResult.iamRole("danny_hq_role"));
-
-        // matches prefix -- mapping provides credentials and endpoint
-        assertMapping(
-                provider,
-                path("s3://endpointbucket/bar"),
-                credentials("AKIAxxxaccess", "iXbXxxxsecret")
-                        .withEndpoint("http://localhost:7753"));
-
-        // matches prefix -- mapping provides credentials and region
-        assertMapping(
-                provider,
-                path("s3://regionalbucket/bar"),
-                credentials("AKIAxxxaccess", "iXbXxxxsecret")
-                        .withRegion("us-west-2"));
-
-        // matches role session name
-        assertMapping(
-                provider,
-                path("s3://somebucket/"),
-                MappingResult.iamRole("arn:aws:iam::1234567891012:role/default")
-                        .withRoleSessionName("iam-trino-session"));
-    }
-
-    @Test
-    public void testMappingWithFallbackToClusterDefault()
-    {
-        S3SecurityMappingConfig mappingConfig = new S3SecurityMappingConfig()
-                .setConfigFile(getResourceFile("security-mapping-with-fallback-to-cluster-default.json"));
-
-        var provider = new S3SecurityMappingProvider(mappingConfig, new S3SecurityMappingsFileSource(mappingConfig));
-
-        // matches prefix -- uses the role from the mapping
-        assertMapping(
-                provider,
-                path("s3://bar/abc/data/test.csv"),
-                MappingResult.iamRole("arn:aws:iam::123456789101:role/allow_path"));
-
-        // doesn't match any rule except default rule at the end
-        assertThat(getMapping(provider, MappingSelector.empty())).isEmpty();
-    }
-
-    @Test
-    public void testMappingWithoutFallback()
-    {
-        S3SecurityMappingConfig mappingConfig = new S3SecurityMappingConfig()
-                .setConfigFile(getResourceFile("security-mapping-without-fallback.json"));
-
-        var provider = new S3SecurityMappingProvider(mappingConfig, new S3SecurityMappingsFileSource(mappingConfig));
-
-        // matches prefix - return role from the mapping
-        assertMapping(
-                provider,
-                path("s3://bar/abc/data/test.csv"),
-                MappingResult.iamRole("arn:aws:iam::123456789101:role/allow_path"));
-
-        // doesn't match any rule
-        assertMappingFails(
-                provider,
-                MappingSelector.empty(),
-                "No matching S3 security mapping");
-    }
-
-    @Test
-    public void testMappingWithoutRoleCredentialsFallbackShouldFail()
-    {
-        assertThatThrownBy(() ->
-                new S3SecurityMapping(
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty()))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("must either allow useClusterDefault role or provide role and/or credentials");
-    }
-
-    @Test
-    public void testMappingWithRoleAndFallbackShouldFail()
-    {
-        Optional<String> iamRole = Optional.of("arn:aws:iam::123456789101:role/allow_path");
-        Optional<Boolean> useClusterDefault = Optional.of(true);
-
-        assertThatThrownBy(() ->
-                new S3SecurityMapping(
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        iamRole,
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        useClusterDefault,
-                        Optional.empty(),
-                        Optional.empty()))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("must either allow useClusterDefault role or provide role and/or credentials");
     }
 
     @Test
@@ -474,32 +281,6 @@ public class TestS3SecurityMapping
                         Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("SSE Customer key cannot be provided together with KMS key ID");
-    }
-
-    @Test
-    public void testMappingWithRoleSessionNameWithoutIamRoleShouldFail()
-    {
-        Optional<String> roleSessionName = Optional.of("iam-trino-session");
-
-        assertThatThrownBy(() ->
-                new S3SecurityMapping(
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        roleSessionName,
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty()))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("iamRole must be provided when roleSessionName is provided");
     }
 
     private File getResourceFile(String name)
@@ -589,11 +370,6 @@ public class TestS3SecurityMapping
             return new MappingSelector(user, groups, location, extraCredentialIamRole, extraCredentialKmsKeyId, extraCredentialCustomerKey);
         }
 
-        public MappingSelector withGroups(String... groups)
-        {
-            return new MappingSelector(user, ImmutableSet.copyOf(groups), location, extraCredentialIamRole, extraCredentialKmsKeyId, extraCredentialCustomerKey);
-        }
-
         public ConnectorIdentity identity()
         {
             Map<String, String> extraCredentials = new HashMap<>();
@@ -665,11 +441,6 @@ public class TestS3SecurityMapping
             this.region = requireNonNull(region, "region is null");
         }
 
-        public MappingResult withEndpoint(String endpoint)
-        {
-            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), kmsKeyId, sseCustomerKey, Optional.of(endpoint), region);
-        }
-
         public MappingResult withKmsKeyId(String kmsKeyId)
         {
             return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), Optional.of(kmsKeyId), Optional.empty(), endpoint, region);
@@ -678,16 +449,6 @@ public class TestS3SecurityMapping
         public MappingResult withSseCustomerKey(String customerKey)
         {
             return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), Optional.empty(), Optional.of(customerKey), endpoint, region);
-        }
-
-        public MappingResult withRegion(String region)
-        {
-            return new MappingResult(accessKey, secretKey, iamRole, Optional.empty(), kmsKeyId, sseCustomerKey, endpoint, Optional.of(region));
-        }
-
-        public MappingResult withRoleSessionName(String roleSessionName)
-        {
-            return new MappingResult(accessKey, secretKey, iamRole, Optional.of(roleSessionName), kmsKeyId, sseCustomerKey, Optional.empty(), region);
         }
 
         public Optional<String> accessKey()

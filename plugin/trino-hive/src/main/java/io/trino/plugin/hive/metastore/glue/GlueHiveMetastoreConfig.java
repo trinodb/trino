@@ -17,6 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
+import io.trino.iam.aws.IAMSecurityMappingConfig;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
@@ -32,6 +33,7 @@ import java.util.Optional;
         "hive.metastore.glue.aws-credentials-provider",
 })
 public class GlueHiveMetastoreConfig
+        extends IAMSecurityMappingConfig
 {
     private Optional<String> glueRegion = Optional.empty();
     private Optional<URI> glueEndpointUrl = Optional.empty();
