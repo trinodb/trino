@@ -35,7 +35,7 @@ public class GcsFileSystemModule
                 GcsFileSystemConfig::getAuthType,
                 type -> switch (type) {
                     case ACCESS_TOKEN -> _ -> binder.bind(GcsAuth.class).to(GcsAccessTokenAuth.class).in(Scopes.SINGLETON);
-                    case DEFAULT -> _ -> binder.bind(GcsAuth.class).to(GcsDefaultAuth.class).in(Scopes.SINGLETON);
+                    case SERVICE_ACCOUNT -> _ -> binder.bind(GcsAuth.class).to(GcsServiceAccountAuth.class).in(Scopes.SINGLETON);
                 }));
     }
 }

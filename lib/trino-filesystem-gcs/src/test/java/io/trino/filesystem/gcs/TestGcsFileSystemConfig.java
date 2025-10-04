@@ -45,7 +45,7 @@ public class TestGcsFileSystemConfig
                 .setUseGcsAccessToken(false)
                 .setProjectId(null)
                 .setEndpoint(Optional.empty())
-                .setAuthType(AuthType.DEFAULT)
+                .setAuthType(AuthType.SERVICE_ACCOUNT)
                 .setJsonKey(null)
                 .setJsonKeyFilePath(null)
                 .setMaxRetries(20)
@@ -184,7 +184,7 @@ public class TestGcsFileSystemConfig
         assertFailsValidation(
                 new GcsFileSystemConfig()
                         .setUseGcsAccessToken(true)
-                        .setAuthType(AuthType.DEFAULT),
+                        .setAuthType(AuthType.SERVICE_ACCOUNT),
                 "authTypeAndUseGcsAccessTokenMutuallyExclusive",
                 "Cannot set both gcs.use-access-token and gcs.auth-type",
                 AssertTrue.class);
@@ -192,7 +192,7 @@ public class TestGcsFileSystemConfig
         assertFailsValidation(
                 new GcsFileSystemConfig()
                         .setUseGcsAccessToken(false)
-                        .setAuthType(AuthType.DEFAULT),
+                        .setAuthType(AuthType.SERVICE_ACCOUNT),
                 "authTypeAndUseGcsAccessTokenMutuallyExclusive",
                 "Cannot set both gcs.use-access-token and gcs.auth-type",
                 AssertTrue.class);

@@ -21,6 +21,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.AssertFalse;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -36,7 +37,7 @@ public class GcsFileSystemConfig
     public enum AuthType
     {
         ACCESS_TOKEN,
-        DEFAULT;
+        SERVICE_ACCOUNT;
     }
 
     private DataSize readBlockSize = DataSize.of(2, MEGABYTE);
@@ -147,7 +148,7 @@ public class GcsFileSystemConfig
         if (useGcsAccessToken.isPresent() && useGcsAccessToken.get()) {
             return AuthType.ACCESS_TOKEN;
         }
-        return authType.orElse(AuthType.DEFAULT);
+        return authType.orElse(AuthType.SERVICE_ACCOUNT);
     }
 
     @Config("gcs.auth-type")
@@ -303,9 +304,9 @@ public class GcsFileSystemConfig
         return (jsonKey == null) ^ (jsonKeyFilePath == null);
     }
 
-    @AssertTrue(message = "Cannot set both gcs.use-access-token and gcs.auth-type")
-    public boolean isAuthTypeAndUseGcsAccessTokenMutuallyExclusive()
+    @AssertFalse(message = "Cannot set both gcs.use-access-token and gcs.auth-type")
+    public boolean areAuthTypeAndGcsAccessTokenConfigured()
     {
-        return !(authType.isPresent() && useGcsAccessToken.isPresent());
+        return authType.isPresent() && useGcsAccessToken.isPresent();
     }
 }
