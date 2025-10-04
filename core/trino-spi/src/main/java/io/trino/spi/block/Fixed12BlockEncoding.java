@@ -19,6 +19,7 @@ import jakarta.annotation.Nullable;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
+import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
 import static java.util.Objects.checkFromIndexSize;
 
 public class Fixed12BlockEncoding
@@ -53,23 +54,7 @@ public class Fixed12BlockEncoding
 
         encodeNullsAsBits(sliceOutput, isNull, rawArrayOffset, positionCount);
 
-        if (isNull == null) {
-            sliceOutput.writeInts(rawValues, rawArrayOffset * 3, positionCount * 3);
-        }
-        else {
-            int[] valuesWithoutNull = new int[positionCount * 3];
-            int nonNullPositionCount = 0;
-            for (int i = 0; i < positionCount; i++) {
-                int rawIntOffset = (i + rawArrayOffset) * 3;
-                valuesWithoutNull[nonNullPositionCount] = rawValues[rawIntOffset];
-                valuesWithoutNull[nonNullPositionCount + 1] = rawValues[rawIntOffset + 1];
-                valuesWithoutNull[nonNullPositionCount + 2] = rawValues[rawIntOffset + 2];
-                nonNullPositionCount += isNull[i + rawArrayOffset] ? 0 : 3;
-            }
-
-            sliceOutput.writeInt(nonNullPositionCount / 3);
-            sliceOutput.writeInts(valuesWithoutNull, 0, nonNullPositionCount);
-        }
+        sliceOutput.writeInts(rawValues, rawArrayOffset * 3, positionCount * 3);
     }
 
     @Override
@@ -77,23 +62,16 @@ public class Fixed12BlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
-
+        byte[] valueIsNullPacked = retrieveNullBits(sliceInput, positionCount);
         int[] values = new int[positionCount * 3];
-        if (valueIsNull == null) {
-            sliceInput.readInts(values);
+        sliceInput.readInts(values);
+
+        if (valueIsNullPacked == null) {
+            return new Fixed12Block(0, positionCount, null, values);
         }
-        else {
-            int nonNullPositionCount = sliceInput.readInt();
-            sliceInput.readInts(values, 0, nonNullPositionCount * 3);
-            int position = 3 * (nonNullPositionCount - 1);
-            for (int i = positionCount - 1; i >= 0 && position >= 0; i--) {
-                System.arraycopy(values, position, values, 3 * i, 3);
-                if (!valueIsNull[i]) {
-                    position -= 3;
-                }
-            }
-        }
+
+        boolean[] valueIsNull = decodeNullBits(valueIsNullPacked, positionCount);
+
         return new Fixed12Block(0, positionCount, valueIsNull, values);
     }
 }

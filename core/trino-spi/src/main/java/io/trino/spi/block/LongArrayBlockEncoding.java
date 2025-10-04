@@ -20,7 +20,6 @@ import jakarta.annotation.Nullable;
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
 import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
-import static java.lang.System.arraycopy;
 import static java.util.Objects.checkFromIndexSize;
 
 public class LongArrayBlockEncoding
@@ -55,20 +54,7 @@ public class LongArrayBlockEncoding
 
         encodeNullsAsBits(sliceOutput, isNull, rawOffset, positionCount);
 
-        if (isNull == null) {
-            sliceOutput.writeLongs(rawValues, rawOffset, positionCount);
-        }
-        else {
-            long[] valuesWithoutNull = new long[positionCount];
-            int nonNullPositionCount = 0;
-            for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = rawValues[i + rawOffset];
-                nonNullPositionCount += isNull[i + rawOffset] ? 0 : 1;
-            }
-
-            sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeLongs(valuesWithoutNull, 0, nonNullPositionCount);
-        }
+        sliceOutput.writeLongs(rawValues, rawOffset, positionCount);
     }
 
     @Override
@@ -85,35 +71,8 @@ public class LongArrayBlockEncoding
         }
         boolean[] valueIsNull = decodeNullBits(valueIsNullPacked, positionCount);
 
-        int nonNullPositionCount = sliceInput.readInt();
-        sliceInput.readLongs(values, 0, nonNullPositionCount);
-        int position = nonNullPositionCount - 1;
+        sliceInput.readLongs(values);
 
-        // Handle Last (positionCount % 8) values
-        for (int i = positionCount - 1; i >= (positionCount & ~0b111) && position >= 0; i--) {
-            values[i] = values[position];
-            if (!valueIsNull[i]) {
-                position--;
-            }
-        }
-
-        // Handle the remaining positions.
-        for (int i = (positionCount & ~0b111) - 8; i >= 0 && position >= 0; i -= 8) {
-            byte packed = valueIsNullPacked[i >>> 3];
-            if (packed == 0) { // Only values
-                arraycopy(values, position - 7, values, i, 8);
-                position -= 8;
-            }
-            else if (packed != -1) { // At least one non-null
-                for (int j = i + 7; j >= i && position >= 0; j--) {
-                    values[j] = values[position];
-                    if (!valueIsNull[j]) {
-                        position--;
-                    }
-                }
-            }
-            // Do nothing if there are only nulls
-        }
         return new LongArrayBlock(0, positionCount, valueIsNull, values);
     }
 }

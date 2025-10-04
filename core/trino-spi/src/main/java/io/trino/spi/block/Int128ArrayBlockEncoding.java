@@ -19,6 +19,7 @@ import jakarta.annotation.Nullable;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
+import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
 import static java.util.Objects.checkFromIndexSize;
 
 public class Int128ArrayBlockEncoding
@@ -53,22 +54,7 @@ public class Int128ArrayBlockEncoding
 
         encodeNullsAsBits(sliceOutput, isNull, rawArrayOffset, positionCount);
 
-        if (isNull == null) {
-            sliceOutput.writeLongs(rawValues, rawArrayOffset * 2, positionCount * 2);
-        }
-        else {
-            long[] valuesWithoutNull = new long[positionCount * 2];
-            int nonNullPositionCount = 0;
-            for (int i = 0; i < positionCount; i++) {
-                int rawValuesIndex = (i + rawArrayOffset) * 2;
-                valuesWithoutNull[nonNullPositionCount] = rawValues[rawValuesIndex];
-                valuesWithoutNull[nonNullPositionCount + 1] = rawValues[rawValuesIndex + 1];
-                nonNullPositionCount += isNull[i + rawArrayOffset] ? 0 : 2;
-            }
-
-            sliceOutput.writeInt(nonNullPositionCount / 2);
-            sliceOutput.writeLongs(valuesWithoutNull, 0, nonNullPositionCount);
-        }
+        sliceOutput.writeLongs(rawValues, rawArrayOffset * 2, positionCount * 2);
     }
 
     @Override
@@ -76,23 +62,16 @@ public class Int128ArrayBlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
-
+        byte[] valueIsNullPacked = retrieveNullBits(sliceInput, positionCount);
         long[] values = new long[positionCount * 2];
-        if (valueIsNull == null) {
+
+        if (valueIsNullPacked == null) {
             sliceInput.readLongs(values);
+            return new Int128ArrayBlock(0, positionCount, null, values);
         }
-        else {
-            int nonNullPositionCount = sliceInput.readInt();
-            sliceInput.readLongs(values, 0, nonNullPositionCount * 2);
-            int position = 2 * (nonNullPositionCount - 1);
-            for (int i = positionCount - 1; i >= 0 && position >= 0; i--) {
-                System.arraycopy(values, position, values, 2 * i, 2);
-                if (!valueIsNull[i]) {
-                    position -= 2;
-                }
-            }
-        }
+        boolean[] valueIsNull = decodeNullBits(valueIsNullPacked, positionCount);
+
+        sliceInput.readLongs(values);
 
         return new Int128ArrayBlock(0, positionCount, valueIsNull, values);
     }
