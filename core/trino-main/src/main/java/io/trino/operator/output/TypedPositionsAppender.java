@@ -21,7 +21,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 
-class TypedPositionsAppender
+final class TypedPositionsAppender
         implements PositionsAppender
 {
     private static final int INSTANCE_SIZE = instanceSize(TypedPositionsAppender.class);
@@ -42,6 +42,12 @@ class TypedPositionsAppender
     public void append(IntArrayList positions, ValueBlock block)
     {
         blockBuilder.appendPositions(block, positions.elements(), 0, positions.size());
+    }
+
+    @Override
+    public void appendRange(ValueBlock block, int offset, int length)
+    {
+        blockBuilder.appendRange(block, offset, length);
     }
 
     @Override

@@ -17,9 +17,12 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.ValueBlock;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
-public interface PositionsAppender
+public sealed interface PositionsAppender
+        permits RowPositionsAppender, TypedPositionsAppender
 {
     void append(IntArrayList positions, ValueBlock source);
+
+    void appendRange(ValueBlock block, int offset, int length);
 
     /**
      * Appends the specified value positionCount times.
