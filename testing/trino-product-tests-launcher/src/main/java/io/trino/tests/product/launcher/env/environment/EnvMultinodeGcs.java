@@ -134,7 +134,7 @@ public class EnvMultinodeGcs
     private DockerContainer createSpark(MountableFile credentialsFile)
     {
         String containerGcpCredentialsFile = "/spark/conf/gcp-credentials.json";
-        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark3-iceberg:" + hadoopImagesVersion, "spark")
+        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark4-iceberg:" + hadoopImagesVersion, "spark")
                 .withEnv("HADOOP_USER_NAME", "hive")
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/spark-defaults.conf")),
