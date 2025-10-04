@@ -37,7 +37,7 @@ public record QueryId(String id)
     {
         requireNonNull(id, "id is null");
         checkArgument(!id.isEmpty(), "id is empty");
-        validateId("queryId", id);
+        validateId(id);
     }
 
     // For backward compatibility
@@ -79,10 +79,10 @@ public record QueryId(String id)
         return true;
     }
 
-    static String validateId(String name, String id)
+    public static String validateId(String id)
     {
         if (!isValidId(id)) {
-            throw new IllegalArgumentException("Invalid " + name + " " + id);
+            throw new IllegalArgumentException("Invalid queryId " + id);
         }
         return id;
     }
