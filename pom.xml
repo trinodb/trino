@@ -148,16 +148,19 @@
     </scm>
 
     <properties>
-        <project.build.targetJdk>24</project.build.targetJdk>
+        <!-- We can't use target JDK 26 yet, ASM doesn't recognize it -->
+        <project.build.targetJdk>25</project.build.targetJdk>
         <!-- for reproducible build support, updated by release plugin -->
         <project.build.outputTimestamp>2025-09-24T23:09:23Z</project.build.outputTimestamp>
         <!-- TODO remove this property when no module overrides it -->
         <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
 
+        <!-- TODO: temporary until maven-enforcer starts recognizing JDK 26 -->
+        <air.check.skip-enforcer>true</air.check.skip-enforcer>
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
-        <air.java.version>24.0.1</air.java.version>
+        <air.java.version>26</air.java.version>
         <air.javadoc.lint>syntax,reference,html,-missing</air.javadoc.lint>
         <air.modernizer.java-version>8</air.modernizer.java-version>
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
