@@ -231,15 +231,6 @@
                                     <justification>Require connector to implement shutdown to prevent leaks</justification>
                                 </item>
                                 <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.visibilityReduced</code>
-                                    <old>method java.lang.String io.trino.spi.QueryId::validateId(java.lang.String)</old>
-                                    <new>method java.lang.String io.trino.spi.QueryId::validateId(java.lang.String, java.lang.String)</new>
-                                    <oldVisibility>public</oldVisibility>
-                                    <newVisibility>package</newVisibility>
-                                    <justification>Hidden method that is not used outside of QueryId</justification>
-                                </item>
-                                <item>
                                     <code>java.annotation.removed</code>
                                     <old>method java.lang.String io.trino.spi.QueryId::toString()</old>
                                     <new>method java.lang.String io.trino.spi.QueryId::toString()</new>
