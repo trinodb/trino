@@ -878,7 +878,7 @@ class AstBuilder
         return new SetDefaultValue(
                 getLocation(context),
                 getQualifiedName(context.tableName),
-                (Identifier) visit(context.columnName),
+                getQualifiedName(context.columnName),
                 (Expression) visit(context.literal()),
                 context.EXISTS() != null);
     }
@@ -889,7 +889,7 @@ class AstBuilder
         return new DropDefaultValue(
                 getLocation(context),
                 getQualifiedName(context.tableName),
-                (Identifier) visit(context.columnName),
+                getQualifiedName(context.columnName),
                 context.EXISTS() != null);
     }
 

@@ -27,7 +27,6 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.sql.tree.DropDefaultValue;
-import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,12 +37,12 @@ import java.util.Set;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -66,12 +65,12 @@ final class TestDropDefaultValueTask
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
 
-        metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTable(tableName), FAIL);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTableWithDefault(tableName), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).orElseThrow();
         assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(column("a", "123"), column("b", "123"));
 
-        getFutureValue(executeDropDefaultValue(asQualifiedName(tableName), identifier("b"), false));
+        getFutureValue(executeDropDefaultValue(asQualifiedName(tableName), "b", false));
         assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(column("a", "123"), column("b", null));
     }
@@ -81,7 +80,7 @@ final class TestDropDefaultValueTask
     {
         QualifiedObjectName tableName = qualifiedObjectName("not_existing_table");
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropDefaultValue(asQualifiedName(tableName), identifier("b"), false)))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropDefaultValue(asQualifiedName(tableName), "b", false)))
                 .hasErrorCode(TABLE_NOT_FOUND)
                 .hasMessageContaining("Table '%s' does not exist", tableName);
     }
@@ -91,19 +90,30 @@ final class TestDropDefaultValueTask
     {
         QualifiedName tableName = qualifiedName("not_existing_table");
 
-        getFutureValue(executeDropDefaultValue(tableName, identifier("b"), true));
+        getFutureValue(executeDropDefaultValue(tableName, "b", true));
         // no exception
+    }
+
+    @Test
+    void testDropDefaultFieldValue()
+    {
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTableWithDefault(tableName), FAIL);
+
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropDefaultValue(asQualifiedName(tableName), "missing_column", false)))
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessageContaining("Column 'missing_column' does not exist");
     }
 
     @Test
     void testDropDefaultValueMissingColumn()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTable(tableName), FAIL);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTableWithDefault(tableName), FAIL);
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropDefaultValue(asQualifiedName(tableName), identifier("missing_column"), false)))
-                .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessageContaining("Column 'missing_column' does not exist");
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropDefaultValue(asQualifiedName(tableName), QualifiedName.of("row", "field"), false)))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("Cannot modify nested fields");
     }
 
     @Test
@@ -113,8 +123,8 @@ final class TestDropDefaultValueTask
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.of(column("a", null)));
         metadata.createTable(testSession, TEST_CATALOG_NAME, tableMetadata, FAIL);
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropDefaultValue(asQualifiedName(tableName), identifier("a"), false)))
-                .hasErrorCode(NOT_SUPPORTED)
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropDefaultValue(asQualifiedName(tableName), "a", false)))
+                .hasErrorCode(GENERIC_USER_ERROR)
                 .hasMessageContaining("Column 'a' does not have a default value");
     }
 
@@ -124,7 +134,7 @@ final class TestDropDefaultValueTask
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
         metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropDefaultValue(asQualifiedName(viewName), identifier("test"), false)))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropDefaultValue(asQualifiedName(viewName), "test", false)))
                 .hasErrorCode(TABLE_NOT_FOUND)
                 .hasMessageContaining("Table '%s' does not exist, but a view with that name exists.", viewName);
     }
@@ -135,18 +145,27 @@ final class TestDropDefaultValueTask
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
         metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()), someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropDefaultValue(asQualifiedName(materializedViewName), identifier("test"), false)))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropDefaultValue(asQualifiedName(materializedViewName), "test", false)))
                 .hasErrorCode(TABLE_NOT_FOUND)
                 .hasMessageContaining("Table '%s' does not exist, but a materialized view with that name exists.", materializedViewName);
     }
 
-    private ListenableFuture<Void> executeDropDefaultValue(QualifiedName table, Identifier column, boolean tableExists)
+    private ListenableFuture<Void> executeDropDefaultValue(QualifiedName table, String column, boolean tableExists)
     {
-        return new DropDefaultValueTask(plannerContext.getMetadata(), new AllowAllAccessControl())
-                .execute(new DropDefaultValue(new NodeLocation(1, 1), table, column, tableExists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
+        return executeDropDefaultValue(table, QualifiedName.of(column), tableExists);
     }
 
-    private static ConnectorTableMetadata simpleTable(QualifiedObjectName tableName)
+    private ListenableFuture<Void> executeDropDefaultValue(QualifiedName table, QualifiedName column, boolean tableExists)
+    {
+        return new DropDefaultValueTask(plannerContext.getMetadata(), new AllowAllAccessControl())
+                .execute(new DropDefaultValue(
+                        new NodeLocation(1, 1),
+                        table,
+                        column,
+                        tableExists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
+    }
+
+    private static ConnectorTableMetadata simpleTableWithDefault(QualifiedObjectName tableName)
     {
         return new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.of(column("a", "123"), column("b", "123")));
     }

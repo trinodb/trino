@@ -27,12 +27,14 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.sql.tree.DropDefaultValue;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.QualifiedName;
 
 import java.util.List;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
@@ -85,11 +87,15 @@ public class DropDefaultValueTask
 
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
-        String column = statement.getColumnName().getValue();
-        ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(column);
+        QualifiedName field = statement.getColumnName();
+        if (field.getOriginalParts().size() != 1) {
+            throw semanticException(NOT_SUPPORTED, statement, "Cannot modify nested fields");
+        }
+        String columnName = field.getOriginalParts().getFirst().getValue();
+        ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(columnName);
 
         if (columnHandle == null) {
-            throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", column);
+            throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", columnName);
         }
 
         ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle, columnHandle);
@@ -97,10 +103,10 @@ public class DropDefaultValueTask
             throw semanticException(NOT_SUPPORTED, statement, "Cannot modify hidden column");
         }
         if (columnMetadata.getDefaultValue().isEmpty()) {
-            throw semanticException(NOT_SUPPORTED, statement, "Column '%s' does not have a default value", column);
+            throw semanticException(GENERIC_USER_ERROR, statement, "Column '%s' does not have a default value", columnName);
         }
         if (!metadata.getConnectorCapabilities(session, catalogHandle).contains(DEFAULT_COLUMN_VALUE)) {
-            throw semanticException(NOT_SUPPORTED, statement, "Catalog '%s' does not support default value for column name '%s'", catalogHandle, column);
+            throw semanticException(NOT_SUPPORTED, statement, "Catalog '%s' does not support default value for column name '%s'", catalogHandle, columnName);
         }
 
         metadata.dropDefaultValue(session, tableHandle, columnHandle);

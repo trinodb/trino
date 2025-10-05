@@ -25,10 +25,10 @@ public class DropDefaultValue
         extends Statement
 {
     private final QualifiedName tableName;
-    private final Identifier columnName;
+    private final QualifiedName columnName;
     private final boolean tableExists;
 
-    public DropDefaultValue(NodeLocation location, QualifiedName tableName, Identifier columnName, boolean tableExists)
+    public DropDefaultValue(NodeLocation location, QualifiedName tableName, QualifiedName columnName, boolean tableExists)
     {
         super(location);
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -41,7 +41,7 @@ public class DropDefaultValue
         return tableName;
     }
 
-    public Identifier getColumnName()
+    public QualifiedName getColumnName()
     {
         return columnName;
     }

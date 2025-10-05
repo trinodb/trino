@@ -29,6 +29,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SetDefaultValue;
 
 import java.util.List;
@@ -95,7 +96,11 @@ public class SetDefaultValueTask
 
         TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
-        String columnName = statement.getColumnName().getValue();
+        QualifiedName field = statement.getColumnName();
+        if (field.getOriginalParts().size() != 1) {
+            throw semanticException(NOT_SUPPORTED, statement, "Cannot modify nested fields");
+        }
+        String columnName = field.getOriginalParts().getFirst().getValue();
         ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(columnName);
 
         if (columnHandle == null) {
@@ -104,7 +109,7 @@ public class SetDefaultValueTask
 
         ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle, columnHandle);
         if (columnMetadata.isHidden()) {
-            throw semanticException(NOT_SUPPORTED, statement, "Cannot modify hidden columnName");
+            throw semanticException(NOT_SUPPORTED, statement, "Cannot modify hidden column");
         }
 
         if (!metadata.getConnectorCapabilities(session, catalogHandle).contains(DEFAULT_COLUMN_VALUE)) {

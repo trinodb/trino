@@ -25,11 +25,11 @@ public class SetDefaultValue
         extends Statement
 {
     private final QualifiedName tableName;
-    private final Identifier columnName;
+    private final QualifiedName columnName;
     private final Expression defaultValue;
     private final boolean tableExists;
 
-    public SetDefaultValue(NodeLocation location, QualifiedName tableName, Identifier columnName, Expression defaultValue, boolean tableExists)
+    public SetDefaultValue(NodeLocation location, QualifiedName tableName, QualifiedName columnName, Expression defaultValue, boolean tableExists)
     {
         super(location);
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -43,7 +43,7 @@ public class SetDefaultValue
         return tableName;
     }
 
-    public Identifier getColumnName()
+    public QualifiedName getColumnName()
     {
         return columnName;
     }
