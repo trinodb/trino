@@ -547,7 +547,7 @@ public class TestSqlFormatter
                 QualifiedName.of(ImmutableList.of(
                         new Identifier(new NodeLocation(1, 13), "foo", false),
                         new Identifier(new NodeLocation(1, 17), "t", false))),
-                new Identifier(new NodeLocation(1, 32), "a", false),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 32), "a", false))),
                 new LongLiteral(new NodeLocation(1, 46), "123"),
                 false)))
                 .isEqualTo("ALTER TABLE foo.t ALTER COLUMN a SET DEFAULT 123");
@@ -557,7 +557,7 @@ public class TestSqlFormatter
                 QualifiedName.of(ImmutableList.of(
                         new Identifier(new NodeLocation(1, 23), "foo", false),
                         new Identifier(new NodeLocation(1, 27), "t", false))),
-                new Identifier(new NodeLocation(1, 42), "b", false),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 42), "b", false))),
                 new LongLiteral(new NodeLocation(1, 56), "123"),
                 true)))
                 .isEqualTo("ALTER TABLE IF EXISTS foo.t ALTER COLUMN b SET DEFAULT 123");
@@ -571,7 +571,7 @@ public class TestSqlFormatter
                 QualifiedName.of(ImmutableList.of(
                         new Identifier(new NodeLocation(1, 13), "foo", false),
                         new Identifier(new NodeLocation(1, 17), "t", false))),
-                new Identifier(new NodeLocation(1, 32), "a", false),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 32), "a", false))),
                 false)))
                 .isEqualTo("ALTER TABLE foo.t ALTER COLUMN a DROP DEFAULT");
 
@@ -580,7 +580,7 @@ public class TestSqlFormatter
                 QualifiedName.of(ImmutableList.of(
                         new Identifier(new NodeLocation(1, 23), "foo", false),
                         new Identifier(new NodeLocation(1, 27), "t", false))),
-                new Identifier(new NodeLocation(1, 42), "b", false),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 42), "b", false))),
                 true)))
                 .isEqualTo("ALTER TABLE IF EXISTS foo.t ALTER COLUMN b DROP DEFAULT");
     }

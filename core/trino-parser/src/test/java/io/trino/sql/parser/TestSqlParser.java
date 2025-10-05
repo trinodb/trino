@@ -4190,7 +4190,7 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(
                                 new Identifier(location(1, 13), "foo", false),
                                 new Identifier(location(1, 17), "t", false))),
-                        new Identifier(location(1, 32), "a", false),
+                        QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 32), "a", false))),
                         new LongLiteral(location(1, 46), "123"),
                         false));
 
@@ -4200,7 +4200,7 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(
                                 new Identifier(location(1, 23), "foo", false),
                                 new Identifier(location(1, 27), "t", false))),
-                        new Identifier(location(1, 42), "b", false),
+                        QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 42), "b", false))),
                         new LongLiteral(location(1, 56), "123"),
                         true));
     }
@@ -4214,7 +4214,7 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(
                                 new Identifier(location(1, 13), "foo", false),
                                 new Identifier(location(1, 17), "t", false))),
-                        new Identifier(location(1, 32), "a", false),
+                        QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 32), "a", false))),
                         false));
 
         assertThat(statement("ALTER TABLE IF EXISTS foo.t ALTER COLUMN b DROP DEFAULT"))
@@ -4223,7 +4223,7 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(
                                 new Identifier(location(1, 23), "foo", false),
                                 new Identifier(location(1, 27), "t", false))),
-                        new Identifier(location(1, 42), "b", false),
+                        QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 42), "b", false))),
                         true));
     }
 
