@@ -1918,7 +1918,7 @@ public abstract class BaseIcebergConnectorTest
                             "  ('col0', NULL, 4e0, 2e-1, NULL, '1', '10')," +
                             "  ('col1', NULL, 4e0, 2e-1, NULL, '2', '11'), " +
                             "  ('col2', NULL, 4e0, 2e-1, NULL, '3', '12'), " +
-                            "  ('col3', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                            "  ('col3', NULL, NULL, 0, NULL, NULL, NULL), " +
                             "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)");
         }
         else {

@@ -158,18 +158,6 @@ public class TestIcebergStatistics
                 .filter(row -> "name".equals(row.getField(0)))
                 .collect(onlyElement()).getField(1);
         assertThat(nameDataSize).isBetween(1000.0, 3000.0);
-        assertQuery(
-                "SHOW STATS FOR " + tableName,
-                """
-                VALUES
-                  ('nationkey', null, 25, 0, null, '0', '24'),
-                  ('regionkey', null, 5, 0, null, '0', '4'),
-                  ('name', %s, 25, 0, null, null, null),
-                  ('info', null, null, null, null, null, null),
-                  (null, null, null, null, 50, null, null)
-                """.formatted(nameDataSize));
-
-        assertUpdate("ANALYZE " + tableName);
         double infoDataSize = (double) computeActual("SHOW STATS FOR " + tableName).getMaterializedRows().stream()
                 .filter(row -> "info".equals(row.getField(0)))
                 .collect(onlyElement()).getField(1);
@@ -181,7 +169,19 @@ public class TestIcebergStatistics
                   ('nationkey', null, 25, 0, null, '0', '24'),
                   ('regionkey', null, 5, 0, null, '0', '4'),
                   ('name', %s, 25, 0, null, null, null),
-                  ('info', %s, 25, 0.1, null, null, null),
+                  ('info', %s, null, 0, null, null, null),
+                  (null, null, null, null, 50, null, null)
+                """.formatted(nameDataSize, infoDataSize));
+
+        assertUpdate("ANALYZE " + tableName);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                VALUES
+                  ('nationkey', null, 25, 0, null, '0', '24'),
+                  ('regionkey', null, 5, 0, null, '0', '4'),
+                  ('name', %s, 25, 0, null, null, null),
+                  ('info', %s, 25, 0, null, null, null),
                   (null, null, null, null, 50, null, null)
                 """.formatted(nameDataSize, infoDataSize)); // Row count statistics do not yet account for position deletes
 

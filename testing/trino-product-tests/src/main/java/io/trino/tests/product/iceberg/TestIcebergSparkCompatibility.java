@@ -1989,7 +1989,7 @@ public class TestIcebergSparkCompatibility
         assertThat(onTrino().executeQuery("SHOW STATS FOR " + trinoTableName))
                 .containsOnly(
                         row("col0", null, null, 0.0, null, "1", "3"),
-                        row("col1", null, null, null, null, null, null),
+                        row("col1", null, null, 0.0, null, null, null),
                         row("col2", 264.0, null, 0.0, null, null, null),
                         row("col3", 124.0, null, 0.0, null, null, null),
                         row(null, null, null, null, 2.0, null, null));
