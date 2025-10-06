@@ -13,10 +13,13 @@
  */
 package io.trino.plugin.opa;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.opa.schema.OpaBatchColumnMaskQueryResult;
 import io.trino.plugin.opa.schema.OpaColumnMaskQueryResult;
 import io.trino.plugin.opa.schema.OpaQueryContext;
@@ -32,6 +35,9 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.security.AccessDeniedException;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;
@@ -55,6 +61,8 @@ public class OpaHighLevelClient
     private final Optional<URI> opaRowFiltersUri;
     private final Optional<URI> opaColumnMaskingUri;
     private final Optional<URI> opaBatchColumnMaskingUri;
+    private final ImmutableMap<String, String> opaAdditionalContext;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
 
     @Inject
     public OpaHighLevelClient(
@@ -74,6 +82,7 @@ public class OpaHighLevelClient
         this.opaRowFiltersUri = config.getOpaRowFiltersUri();
         this.opaColumnMaskingUri = config.getOpaColumnMaskingUri();
         this.opaBatchColumnMaskingUri = config.getOpaBatchColumnMaskingUri();
+        this.opaAdditionalContext = ImmutableMap.copyOf(loadAdditionalContextFromFile(config.getAdditionalContextFile()));
     }
 
     public boolean queryOpa(OpaQueryInput input)
@@ -155,6 +164,11 @@ public class OpaHighLevelClient
                 .orElse(ImmutableMap.of());
     }
 
+    public Map<String, String> getAdditionalContext()
+    {
+        return opaAdditionalContext;
+    }
+
     public static OpaQueryInput buildQueryInputForSimpleResource(OpaQueryContext context, String operation, OpaQueryInputResource resource)
     {
         return new OpaQueryInput(context, OpaQueryInputAction.builder().operation(operation).resource(resource).build());
@@ -189,5 +203,19 @@ public class OpaHighLevelClient
     private static OpaQueryInput buildQueryInputForSimpleAction(OpaQueryContext context, String operation)
     {
         return new OpaQueryInput(context, OpaQueryInputAction.builder().operation(operation).build());
+    }
+
+    private static Map<String, String> loadAdditionalContextFromFile(Optional<File> additionalContextFile)
+    {
+        if (additionalContextFile.isEmpty()) {
+            return Map.of();
+        }
+
+        try {
+            return OBJECT_MAPPER.readValue(additionalContextFile.get(), new TypeReference<Map<String, String>>() {});
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }
