@@ -24,7 +24,6 @@ import org.apache.iceberg.mapping.NameMapping;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.ORC_ICEBERG_ID_KEY;
@@ -33,13 +32,13 @@ public final class OrcIcebergIds
 {
     private OrcIcebergIds() {}
 
-    public static Map<Integer, OrcColumn> fileColumnsByIcebergId(OrcReader reader, Optional<NameMapping> nameMapping)
+    public static Map<Integer, OrcColumn> fileColumnsByIcebergId(OrcReader reader, NameMapping nameMapping)
     {
         List<OrcColumn> fileColumns = reader.getRootColumn().getNestedColumns();
 
-        if (nameMapping.isPresent() && !hasIds(reader.getRootColumn())) {
+        if (!hasIds(reader.getRootColumn())) {
             fileColumns = fileColumns.stream()
-                    .map(orcColumn -> setMissingFieldIds(orcColumn, nameMapping.get(), ImmutableList.of(orcColumn.getColumnName())))
+                    .map(orcColumn -> setMissingFieldIds(orcColumn, nameMapping, ImmutableList.of(orcColumn.getColumnName())))
                     .collect(toImmutableList());
         }
 
