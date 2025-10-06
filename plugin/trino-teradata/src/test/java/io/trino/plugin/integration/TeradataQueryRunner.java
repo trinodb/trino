@@ -26,7 +26,6 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.assertj.core.api.Assertions;
 import org.assertj.core.api.ObjectAssert;
 import org.intellij.lang.annotations.Language;
 
@@ -36,6 +35,7 @@ import java.util.Locale;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public final class TeradataQueryRunner
 {
@@ -44,6 +44,20 @@ public final class TeradataQueryRunner
     public static Builder builder(TestingTeradataServer server)
     {
         return new Builder(server);
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging logger = Logging.initialize();
+        logger.setLevel("io.trino.plugin.teradata", Level.DEBUG);
+        logger.setLevel("io.trino", Level.INFO);
+        TestingTeradataServer server = new TestingTeradataServer(ClearScapeEnvironmentUtils.generateUniqueEnvName(TeradataQueryRunner.class));
+        QueryRunner queryRunner = builder(server).addCoordinatorProperty("http-server.http.port", "8080").setInitialTables(TpchTable.getTables()).build();
+
+        Logger log = Logger.get(TeradataQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 
     public static class Builder
@@ -62,7 +76,7 @@ public final class TeradataQueryRunner
         {
             @Language("SQL") String sql = String.format("CREATE TABLE %s AS SELECT * FROM %s", table.objectName(), table);
             queryRunner.execute(session, sql);
-            ((ObjectAssert) Assertions.assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + table.objectName()).getOnlyValue()).as("Table is not loaded properly: %s", new Object[] {
+            ((ObjectAssert) assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + table.objectName()).getOnlyValue()).as("Table is not loaded properly: %s", new Object[] {
                     table.objectName()})).isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + table).getOnlyValue());
         }
 
@@ -108,19 +122,5 @@ public final class TeradataQueryRunner
             });
             return super.build();
         }
-    }
-
-    public static void main(String[] args)
-            throws Exception
-    {
-        Logging logger = Logging.initialize();
-        logger.setLevel("io.trino.plugin.teradata", Level.DEBUG);
-        logger.setLevel("io.trino", Level.INFO);
-        TestingTeradataServer server = new TestingTeradataServer(ClearScapeEnvironmentUtils.generateUniqueEnvName(TeradataQueryRunner.class));
-        QueryRunner queryRunner = builder(server).addCoordinatorProperty("http-server.http.port", "8080").setInitialTables(TpchTable.getTables()).build();
-
-        Logger log = Logger.get(TeradataQueryRunner.class);
-        log.info("======== SERVER STARTED ========");
-        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }

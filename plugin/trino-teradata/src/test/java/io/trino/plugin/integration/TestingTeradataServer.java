@@ -44,7 +44,7 @@ public class TestingTeradataServer
 
     public TestingTeradataServer(String envName)
     {
-        this.config = DatabaseConfigFactory.create(envName);
+        config = DatabaseConfigFactory.create(envName);
         String hostName = config.getHostName();
         // Initialize ClearScape Instance and Get the host name from ClearScape API in case config is using clearscape
         if (config.isUseClearScape()) {
@@ -56,21 +56,21 @@ public class TestingTeradataServer
             if (!isValidRegion(region)) {
                 region = TeradataTestConstants.ENV_CLEARSCAPE_REGION;
             }
-            this.clearScapeSetup = new ClearScapeSetup(
+            clearScapeSetup = new ClearScapeSetup(
                     System.getenv("CLEARSCAPE_TOKEN"),
                     System.getenv("CLEARSCAPE_PASSWORD"),
                     config.getClearScapeEnvName(),
                     destroyEnv,
                     region);
-            Model model = this.clearScapeSetup.initialize();
+            Model model = clearScapeSetup.initialize();
             hostName = model.getHostName();
         }
         String jdbcUrl = buildJdbcUrl(hostName);
-        this.config = config.toBuilder()
+        config = config.toBuilder()
                 .hostName(hostName)
                 .jdbcUrl(jdbcUrl)
                 .build();
-        this.connection = createConnection();
+        connection = createConnection();
         createTestDatabaseIfAbsent();
     }
 
