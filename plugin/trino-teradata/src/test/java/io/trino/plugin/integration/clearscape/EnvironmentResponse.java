@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.integration.clearscape;
 
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public record EnvironmentResponse(
@@ -25,7 +26,7 @@ public record EnvironmentResponse(
         requireNonNull(state, "state must not be null");
         requireNonNull(region, "name must not be null");
         requireNonNull(name, "name must not be null");
-        region = region.toUpperCase();
+        region = region.toUpperCase(ENGLISH);
     }
 
     public enum State
