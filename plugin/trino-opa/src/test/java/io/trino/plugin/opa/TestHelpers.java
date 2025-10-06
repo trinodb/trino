@@ -92,6 +92,7 @@ public final class TestHelpers
         config.getOpaRowFiltersUri().ifPresent(rowFiltersUri -> configBuilder.put("opa.policy.row-filters-uri", rowFiltersUri.toString()));
         config.getOpaColumnMaskingUri().ifPresent(columnMaskingUri -> configBuilder.put("opa.policy.column-masking-uri", columnMaskingUri.toString()));
         config.getOpaBatchColumnMaskingUri().ifPresent(batchColumnMaskingUri -> configBuilder.put("opa.policy.batch-column-masking-uri", batchColumnMaskingUri.toString()));
+        config.getOpaBatchSize().ifPresent(batchUri -> configBuilder.put("opa.policy.batch-size", batchUri.toString()));
         return configBuilder.buildOrThrow();
     }
 

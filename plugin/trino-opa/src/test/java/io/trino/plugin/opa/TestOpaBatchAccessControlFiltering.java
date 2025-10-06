@@ -53,7 +53,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 final class TestOpaBatchAccessControlFiltering
 {
     public static final String PATH_TO_FILTER_RESOURCES = "/input/action/filterResources";
-    public static final OpaConfig OPA_CONFIG = batchFilteringOpaConfig();
+    public static final OpaConfig OPA_CONFIG_NO_BATCH_SIZE = batchFilteringOpaConfig();
+    public static final OpaConfig OPA_CONFIG_BATCH_SIZE_2 = batchFilteringOpaConfig().setOpaBatchSize(2);
+    public static final OpaConfig OPA_CONFIG_BATCH_SIZE_3 = batchFilteringOpaConfig().setOpaBatchSize(3);
+    public static final OpaConfig OPA_CONFIG_BATCH_SIZE_100 = batchFilteringOpaConfig().setOpaBatchSize(100);
 
     @Test
     void testFilterViewQueryOwnedBy()
@@ -72,16 +75,24 @@ final class TestOpaBatchAccessControlFiltering
                         }
                         """.formatted(identity.getUser()));
 
-        assertAccessControlMethodBehaviour(
-                (accessControl, systemSecurityContext, identities) -> accessControl.filterViewQueryOwnedBy(systemSecurityContext.getIdentity(), identities),
-                inputIdentities,
-                identityToJsonNode,
-                new ExpectedRequestProperties(
-                        ImmutableMap.of(11, 1),
-                        1,
-                        "FilterViewQueryOwnedBy",
-                        inputIdentities.stream().map(identityToJsonNode).collect(toImmutableSet())),
-                OPA_CONFIG);
+        List<TestCase> testCases = ImmutableList.of(new TestCase(OPA_CONFIG_NO_BATCH_SIZE, ImmutableMap.of(11, 1), 1),
+                new TestCase(OPA_CONFIG_BATCH_SIZE_2, ImmutableMap.of(2, 5, 1, 1), 6),
+                new TestCase(OPA_CONFIG_BATCH_SIZE_3, ImmutableMap.of(3, 3, 2, 1), 4),
+                new TestCase(OPA_CONFIG_BATCH_SIZE_100, ImmutableMap.of(11, 1), 1)
+        );
+
+        for (TestCase testCase : testCases) {
+            assertAccessControlMethodBehaviour(
+                    (accessControl, systemSecurityContext, identities) -> accessControl.filterViewQueryOwnedBy(systemSecurityContext.getIdentity(), identities),
+                    inputIdentities,
+                    identityToJsonNode,
+                    new ExpectedRequestProperties(
+                            testCase.batchSizeToBatchNumber,
+                            testCase.numberOfRequest,
+                            "FilterViewQueryOwnedBy",
+                            inputIdentities.stream().map(identityToJsonNode).collect(toImmutableSet())),
+                    testCase.opaConfig);
+        }
     }
 
     @Test
@@ -98,16 +109,23 @@ final class TestOpaBatchAccessControlFiltering
                                 {"name": "%s"}
                         }
                         """.formatted(e));
+        List<TestCase> testCases = ImmutableList.of(new TestCase(OPA_CONFIG_NO_BATCH_SIZE, ImmutableMap.of(11, 1), 1),
+                new TestCase(OPA_CONFIG_BATCH_SIZE_2, ImmutableMap.of(2, 5, 1, 1), 6),
+                new TestCase(OPA_CONFIG_BATCH_SIZE_3, ImmutableMap.of(3, 3, 2, 1), 4),
+                new TestCase(OPA_CONFIG_BATCH_SIZE_100, ImmutableMap.of(11, 1), 1)
+        );
 
-        assertAccessControlMethodBehaviour(
-                OpaAccessControl::filterCatalogs,
-                catalogs,
-                catalogToJsonNode,
-                new ExpectedRequestProperties(ImmutableMap.of(11, 1),
-                        1,
-                        "FilterCatalogs",
-                        catalogs.stream().map(catalogToJsonNode).collect(toImmutableSet())),
-                OPA_CONFIG);
+        for (TestCase testCase : testCases) {
+            assertAccessControlMethodBehaviour(
+                    OpaAccessControl::filterCatalogs,
+                    catalogs,
+                    catalogToJsonNode,
+                    new ExpectedRequestProperties(testCase.batchSizeToBatchNumber,
+                            testCase.numberOfRequest,
+                            "FilterCatalogs",
+                            catalogs.stream().map(catalogToJsonNode).collect(toImmutableSet())),
+                    testCase.opaConfig);
+        }
     }
 
     @Test
@@ -127,15 +145,23 @@ final class TestOpaBatchAccessControlFiltering
                  }
                 """.formatted(schema, catalog));
 
-        assertAccessControlMethodBehaviour(
-                (accessControl, systemSecurityContext, items) -> accessControl.filterSchemas(systemSecurityContext, catalog, items),
-                schemas,
-                schemaToJsonNode,
-                new ExpectedRequestProperties(ImmutableMap.of(11, 1),
-                        1,
-                        "FilterSchemas",
-                        schemas.stream().map(schemaToJsonNode).collect(toImmutableSet())),
-                OPA_CONFIG);
+        List<TestCase> testCases = ImmutableList.of(new TestCase(OPA_CONFIG_NO_BATCH_SIZE, ImmutableMap.of(11, 1), 1),
+                new TestCase(OPA_CONFIG_BATCH_SIZE_2, ImmutableMap.of(2, 5, 1, 1), 6),
+                new TestCase(OPA_CONFIG_BATCH_SIZE_3, ImmutableMap.of(3, 3, 2, 1), 4),
+                new TestCase(OPA_CONFIG_BATCH_SIZE_100, ImmutableMap.of(11, 1), 1)
+        );
+
+        for (TestCase testCase : testCases) {
+            assertAccessControlMethodBehaviour(
+                    (accessControl, systemSecurityContext, items) -> accessControl.filterSchemas(systemSecurityContext, catalog, items),
+                    schemas,
+                    schemaToJsonNode,
+                    new ExpectedRequestProperties(testCase.batchSizeToBatchNumber,
+                            testCase.numberOfRequest,
+                            "FilterSchemas",
+                            schemas.stream().map(schemaToJsonNode).collect(toImmutableSet())),
+                    testCase.opaConfig);
+        }
     }
 
     @Test
@@ -161,15 +187,23 @@ final class TestOpaBatchAccessControlFiltering
                 }
                 """.formatted(table.getTableName(), table.getSchemaName(), catalogName));
 
-        assertAccessControlMethodBehaviour(
-                (accessControl, systemSecurityContext, items) -> accessControl.filterTables(systemSecurityContext, catalogName, items),
-                tables,
-                tableToJsonNode,
-                new ExpectedRequestProperties(ImmutableMap.of(12, 1),
-                        1,
-                        "FilterTables",
-                        tables.stream().map(tableToJsonNode).collect(toImmutableSet())),
-                OPA_CONFIG);
+        List<TestCase> testCases = ImmutableList.of(new TestCase(OPA_CONFIG_NO_BATCH_SIZE, ImmutableMap.of(12, 1), 1),
+                new TestCase(OPA_CONFIG_BATCH_SIZE_2, ImmutableMap.of(2, 6), 6),
+                new TestCase(OPA_CONFIG_BATCH_SIZE_3, ImmutableMap.of(3, 4), 4),
+                new TestCase(OPA_CONFIG_BATCH_SIZE_100, ImmutableMap.of(12, 1), 1)
+        );
+
+        for (TestCase testCase : testCases) {
+            assertAccessControlMethodBehaviour(
+                    (accessControl, systemSecurityContext, items) -> accessControl.filterTables(systemSecurityContext, catalogName, items),
+                    tables,
+                    tableToJsonNode,
+                    new ExpectedRequestProperties(testCase.batchSizeToBatchNumber,
+                            testCase.numberOfRequest,
+                            "FilterTables",
+                            tables.stream().map(tableToJsonNode).collect(toImmutableSet())),
+                    testCase.opaConfig);
+        }
     }
 
     @Test
@@ -191,36 +225,44 @@ final class TestOpaBatchAccessControlFiltering
                 tableTwo, buildColumnSet.apply(10, "table_two"),
                 tableThree, buildColumnSet.apply(7, "table_three"));
 
-        InstrumentedHttpClient mockClient = createMockHttpClient(
-                OPA_SERVER_BATCH_URI,
-                buildHandler(pathToResources,
-                        ImmutableSet.of("\"table_one_column_1\"", "\"table_one_column_2\"", "\"table_one_column_3\"", "\"table_two_column_1\"")
-                                .stream()
-                                .map(RequestTestUtilities::toJsonNode)
-                                .collect(toImmutableSet())));
+        List<TestCase> testCases = ImmutableList.of(new TestCase(OPA_CONFIG_NO_BATCH_SIZE, ImmutableMap.of(12, 1, 10, 1, 7, 1), 3),
+                new TestCase(OPA_CONFIG_BATCH_SIZE_2, ImmutableMap.of(2, 6 + 5 + 3, 1, 1), 6 + 5 + 4),
+                new TestCase(OPA_CONFIG_BATCH_SIZE_3, ImmutableMap.of(3, 4 + 3 + 2, 1, 2), 4 + 4 + 3),
+                new TestCase(OPA_CONFIG_BATCH_SIZE_100, ImmutableMap.of(12, 1, 10, 1, 7, 1), 3)
+        );
 
-        OpaAccessControl authorizer = createOpaAuthorizer(OPA_CONFIG, mockClient);
-        Map<SchemaTableName, Set<String>> result = authorizer.filterColumns(
-                TEST_SECURITY_CONTEXT,
-                catalog,
-                requestedColumns);
+        for (TestCase testCase : testCases) {
+            InstrumentedHttpClient mockClient = createMockHttpClient(
+                    OPA_SERVER_BATCH_URI,
+                    buildHandler(pathToResources,
+                            ImmutableSet.of("\"table_one_column_1\"", "\"table_one_column_2\"", "\"table_one_column_3\"", "\"table_two_column_1\"")
+                                    .stream()
+                                    .map(RequestTestUtilities::toJsonNode)
+                                    .collect(toImmutableSet())));
 
-        assertThat(result).containsExactlyInAnyOrderEntriesOf(
-                ImmutableMap.of(tableOne, ImmutableSet.of("table_one_column_1", "table_one_column_2", "table_one_column_3"),
-                        tableTwo, ImmutableSet.of("table_two_column_1")));
+            OpaAccessControl authorizer = createOpaAuthorizer(testCase.opaConfig, mockClient);
+            Map<SchemaTableName, Set<String>> result = authorizer.filterColumns(
+                    TEST_SECURITY_CONTEXT,
+                    catalog,
+                    requestedColumns);
 
-        assertRequestMatchesExpectedRequestProperties(new ExpectedRequestProperties(
-                        ImmutableMap.of(7, 1, 10, 1, 12, 1),
-                        3,
-                        "FilterColumns",
-                        requestedColumns
-                                .entrySet()
-                                .stream()
-                                .flatMap(entry -> entry.getValue().stream())
-                                .map(item -> toJsonNode("\"%s\"".formatted(item)))
-                                .collect(toImmutableSet())),
-                ImmutableList.copyOf(mockClient.getRequests()),
-                pathToResources);
+            assertThat(result).containsExactlyInAnyOrderEntriesOf(
+                    ImmutableMap.of(tableOne, ImmutableSet.of("table_one_column_1", "table_one_column_2", "table_one_column_3"),
+                            tableTwo, ImmutableSet.of("table_two_column_1")));
+
+            assertRequestMatchesExpectedRequestProperties(new ExpectedRequestProperties(
+                            testCase.batchSizeToBatchNumber,
+                            testCase.numberOfRequest,
+                            "FilterColumns",
+                            requestedColumns
+                                    .entrySet()
+                                    .stream()
+                                    .flatMap(entry -> entry.getValue().stream())
+                                    .map(item -> toJsonNode("\"%s\"".formatted(item)))
+                                    .collect(toImmutableSet())),
+                    ImmutableList.copyOf(mockClient.getRequests()),
+                    pathToResources);
+        }
     }
 
     @Test
@@ -274,15 +316,23 @@ final class TestOpaBatchAccessControlFiltering
                 }
                 """.formatted(catalog, function.getSchemaName(), function.getFunctionName()));
 
-        assertAccessControlMethodBehaviour(
-                (authorizer, systemSecurityContext, items) -> authorizer.filterFunctions(systemSecurityContext, catalog, items),
-                functions,
-                schemaFunctionNameToJsonNode,
-                new ExpectedRequestProperties(ImmutableMap.of(14, 1),
-                        1,
-                        "FilterFunctions",
-                        functions.stream().map(schemaFunctionNameToJsonNode).collect(toImmutableSet())),
-                OPA_CONFIG);
+        List<TestCase> testCases = ImmutableList.of(new TestCase(OPA_CONFIG_NO_BATCH_SIZE, ImmutableMap.of(14, 1), 1),
+                new TestCase(OPA_CONFIG_BATCH_SIZE_2, ImmutableMap.of(2, 7), 7),
+                new TestCase(OPA_CONFIG_BATCH_SIZE_3, ImmutableMap.of(3, 4, 2, 1), 5),
+                new TestCase(OPA_CONFIG_BATCH_SIZE_100, ImmutableMap.of(14, 1), 1)
+        );
+
+        for (TestCase testCase : testCases) {
+            assertAccessControlMethodBehaviour(
+                    (authorizer, systemSecurityContext, items) -> authorizer.filterFunctions(systemSecurityContext, catalog, items),
+                    functions,
+                    schemaFunctionNameToJsonNode,
+                    new ExpectedRequestProperties(testCase.batchSizeToBatchNumber,
+                            testCase.numberOfRequest,
+                            "FilterFunctions",
+                            functions.stream().map(schemaFunctionNameToJsonNode).collect(toImmutableSet())),
+                    testCase.opaConfig);
+        }
     }
 
     private static List<JsonNode> extractRequestElements(JsonNode request, String path)
@@ -303,6 +353,8 @@ final class TestOpaBatchAccessControlFiltering
         });
     }
 
+    record TestCase(OpaConfig opaConfig, Map<Integer, Integer> batchSizeToBatchNumber, Integer numberOfRequest) {}
+
     record ExpectedRequestProperties(Map<Integer, Integer> batchChunkSizes, int numberOfRequests, String operation, Set<JsonNode> expectedRequestItems) {}
 
     private static <T> void assertAccessControlMethodBehaviour(
@@ -318,17 +370,17 @@ final class TestOpaBatchAccessControlFiltering
                 objectsToFilter.stream().filter(obj -> objectsToFilter.indexOf(obj) % 2 == 0).collect(toImmutableSet()),
                 objectsToFilter.stream().filter(obj -> objectsToFilter.indexOf(obj) % 2 != 0).collect(toImmutableSet()));
 
-        record TestCase<T>(Set<T> expectedResourcesResult, Set<JsonNode> allowedResources)
+        record SubTestCase<T>(Set<T> expectedResourcesResult, Set<JsonNode> allowedResources)
         {
 
         }
 
-        List<TestCase<T>> testCases = allowedObjects
+        List<SubTestCase<T>> testCases = allowedObjects
                 .stream()
-                .map(items -> new TestCase<T>(items, items.stream().map(valueExtractor).collect(toImmutableSet())))
+                .map(items -> new SubTestCase<T>(items, items.stream().map(valueExtractor).collect(toImmutableSet())))
                 .collect(toImmutableList());
 
-        for (TestCase testCase : testCases) {
+        for (SubTestCase testCase : testCases) {
             InstrumentedHttpClient httpClient = createMockHttpClient(OPA_SERVER_BATCH_URI, buildHandler(PATH_TO_FILTER_RESOURCES, testCase.allowedResources));
             OpaAccessControl accessControl = createOpaAuthorizer(config, httpClient);
             var result = method.apply(accessControl, TEST_SECURITY_CONTEXT, objectsToFilter.stream().collect(toImmutableSet()));
@@ -382,7 +434,7 @@ final class TestOpaBatchAccessControlFiltering
     private static void assertFilteringAccessControlMethodDoesNotSendRequests(Function<OpaAccessControl, Collection<?>> method)
     {
         InstrumentedHttpClient httpClientForEmptyRequest = createMockHttpClient(OPA_SERVER_BATCH_URI, request -> OK_RESPONSE);
-        assertThat(method.apply(createOpaAuthorizer(OPA_CONFIG, httpClientForEmptyRequest))).isEmpty();
+        assertThat(method.apply(createOpaAuthorizer(OPA_CONFIG_BATCH_SIZE_2, httpClientForEmptyRequest))).isEmpty();
         assertThat(httpClientForEmptyRequest.getRequests()).isEmpty();
     }
 }
