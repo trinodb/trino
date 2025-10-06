@@ -295,12 +295,14 @@ final class TeradataConnectorTest
         };
     }
 
+    @Override
     @Test
     public void testTimestampWithTimeZoneCastToDatePredicate()
     {
         abort("Skipping as connector does not support Timestamp with Time Zone data type");
     }
 
+    @Override
     @Test
     public void testTimestampWithTimeZoneCastToTimestampPredicate()
     {
