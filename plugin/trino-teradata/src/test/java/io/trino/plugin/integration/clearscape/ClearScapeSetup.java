@@ -15,6 +15,8 @@ package io.trino.plugin.integration.clearscape;
 
 import io.trino.plugin.integration.util.TeradataTestConstants;
 
+import static java.util.Objects.requireNonNull;
+
 public class ClearScapeSetup
 {
     private final String token;
@@ -31,6 +33,10 @@ public class ClearScapeSetup
             boolean destroyEnv,
             String region)
     {
+        requireNonNull(token, "token is null");
+        requireNonNull(password, "password is null");
+        requireNonNull(envName, "envName is null");
+        requireNonNull(region, "region is null");
         this.token = token;
         this.password = password;
         this.envName = envName;

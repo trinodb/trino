@@ -13,32 +13,24 @@
  */
 package io.trino.plugin.integration.clearscape;
 
-import java.util.List;
+import static java.util.Objects.requireNonNull;
 
 public record EnvironmentResponse(
         State state,
         String region,
         String name,
-        String ip,
-        String dnsName,
-        String owner,
-        String type,
-        List<Service> services)
+        String ip)
 {
+    public EnvironmentResponse {
+        requireNonNull(state, "state must not be null");
+        requireNonNull(region, "name must not be null");
+        requireNonNull(name, "name must not be null");
+        region = region.toUpperCase();
+    }
+
     public enum State
     {
         RUNNING,
         STOPPED,
     }
-
-    record Service(
-            List<Credential> credentials,
-            String name,
-            String url
-    ) {}
-
-    record Credential(
-            String name,
-            String value
-    ) {}
 }

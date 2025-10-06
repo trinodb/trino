@@ -21,6 +21,5 @@ public final class Headers
     public static final String BEARER = "Bearer ";
 
     private Headers()
-    {
-    }
+    {}
 }

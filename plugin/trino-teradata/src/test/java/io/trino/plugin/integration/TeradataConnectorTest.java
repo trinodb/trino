@@ -26,7 +26,6 @@ import io.trino.testing.sql.TestTable;
 import org.assertj.core.api.AssertProvider;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -39,11 +38,21 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 final class TeradataConnectorTest
         extends BaseJdbcConnectorTest
 {
     private TestingTeradataServer database;
+
+    private static void verifyResultOrFailure(AssertProvider<QueryAssertions.QueryAssert> queryAssertProvider, Consumer<QueryAssertions.QueryAssert> verifyResults,
+            Consumer<TrinoExceptionAssert> verifyFailure)
+    {
+        requireNonNull(verifyResults, "verifyResults is null");
+        requireNonNull(verifyFailure, "verifyFailure is null");
+        QueryAssertions.QueryAssert queryAssert = assertThat(queryAssertProvider);
+        verifyResults.accept(queryAssert);
+    }
 
     @Override
     protected SqlExecutor onRemoteDatabase()
@@ -55,7 +64,7 @@ final class TeradataConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        database = new TestingTeradataServer(ClearScapeEnvironmentUtils.generateUniqueEnvName(getClass()));
+        database = closeAfterClass(new TestingTeradataServer(ClearScapeEnvironmentUtils.generateUniqueEnvName(getClass())));
         // Register this specific instance for this test class
         return TeradataQueryRunner.builder(database).setInitialTables(REQUIRED_TPCH_TABLES).build();
     }
@@ -108,7 +117,7 @@ final class TeradataConnectorTest
     @AfterAll
     public void cleanupTestDatabase()
     {
-        database.close();
+        database = null;
     }
 
     @Override
@@ -162,7 +171,7 @@ final class TeradataConnectorTest
     {
         String tableName = "varchar_as_date_pred";
         try (TestTable table = newTrinoTable(tableName, "(a varchar(50))", List.of("'999-09-09'", "'1005-09-09'", "'2005-06-06'", "'2005-06-6'", "'2005-6-06'", "'2005-6-6'", "' " +
-                "2005-06-06'", "'2005-06-06 '", "' +2005-06-06'", "'02005-06-06'", "'2005-09-06'", "'2005-09-6'", "'2005-9-06'", "'2005-9-6'", "' 2005-09-06'", "'2005-09-06 '",
+                        "2005-06-06'", "'2005-06-06 '", "' +2005-06-06'", "'02005-06-06'", "'2005-09-06'", "'2005-09-6'", "'2005-9-06'", "'2005-9-6'", "' 2005-09-06'", "'2005-09-06 '",
                 "' +2005-09-06'", "'02005-09-06'", "'2005-09-09'", "'2005-09-9'", "'2005-9-09'", "'2005-9-9'", "' 2005-09-09'", "'2005-09-09 '", "' +2005-09-09'", "'02005-09-09" +
                         "'", "'2005-09-10'", "'2005-9-10'", "' 2005-09-10'", "'2005-09-10 '", "' +2005-09-10'", "'02005-09-10'", "'2005-09-20'", "'2005-9-20'", "' 2005-09-20'",
                 "'2005-09-20 '", "' +2005-09-20'", "'02005-09-20'", "'9999-09-09'", "'99999-09-09'"))) {
@@ -262,7 +271,7 @@ final class TeradataConnectorTest
     public void testVarcharCharComparison()
     {
         try (TestTable table = newTrinoTable("test_varchar_char", "(k int, v char(3))", List.of("-1, CAST(NULL AS varchar(3))", "0, CAST('' AS varchar(3))", "1, CAST(' ' AS" +
-                " varchar(3))", "2, CAST('  ' AS varchar(3))", "3, CAST('   ' AS varchar(3))", "4, CAST('x' AS varchar(3))", "5, CAST('x ' AS varchar(3))",
+                        " varchar(3))", "2, CAST('  ' AS varchar(3))", "3, CAST('   ' AS varchar(3))", "4, CAST('x' AS varchar(3))", "5, CAST('x ' AS varchar(3))",
                 "6, CAST('x  ' AS " + "varchar(3))"))) {
             //  Teradata's CHAR type automatically pads values with spaces to the defined length
             assertQuery("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS char(2))", "VALUES (0, '   '), (1, '   '), (2, '   '), (3, '   ')");
@@ -286,123 +295,121 @@ final class TeradataConnectorTest
         };
     }
 
-    @Override
     @Test
     public void testTimestampWithTimeZoneCastToDatePredicate()
     {
-        Assumptions.abort("Skipping as connector does not support Timestamp with Time Zone data type");
+        abort("Skipping as connector does not support Timestamp with Time Zone data type");
     }
 
-    @Override
     @Test
     public void testTimestampWithTimeZoneCastToTimestampPredicate()
     {
-        Assumptions.abort("Skipping as connector does not support Timestamp with Time Zone data type");
+        abort("Skipping as connector does not support Timestamp with Time Zone data type");
     }
 
     @Override
     @Test
     public void testRenameSchema()
     {
-        Assumptions.abort("Skipping as connector does not support RENAME SCHEMA");
+        abort("Skipping as connector does not support RENAME SCHEMA");
     }
 
     @Override
     @Test
     public void testColumnName()
     {
-        Assumptions.abort("Skipping as connector does not support column level write operations");
+        abort("Skipping as connector does not support column level write operations");
     }
 
     @Override
     @Test
     public void testCreateTableAsSelectWithUnicode()
     {
-        Assumptions.abort("Skipping as connector does not support creating table with UNICODE characters");
+        abort("Skipping as connector does not support creating table with UNICODE characters");
     }
 
     @Override
     @Test
     public void testUpdateNotNullColumn()
     {
-        Assumptions.abort("Skipping as connector does not support insert operations");
+        abort("Skipping as connector does not support insert operations");
     }
 
     @Override
     @Test
     public void testWriteBatchSizeSessionProperty()
     {
-        Assumptions.abort("Skipping as connector does not support insert operations");
+        abort("Skipping as connector does not support insert operations");
     }
 
     @Override
     @Test
     public void testInsertWithoutTemporaryTable()
     {
-        Assumptions.abort("Skipping as connector does not support insert operations");
+        abort("Skipping as connector does not support insert operations");
     }
 
     @Override
     @Test
     public void testWriteTaskParallelismSessionProperty()
     {
-        Assumptions.abort("Skipping as connector does not support insert operations");
+        abort("Skipping as connector does not support insert operations");
     }
 
     @Override
     @Test
     public void testInsertIntoNotNullColumn()
     {
-        Assumptions.abort("Skipping as connector does not support insert operations");
+        abort("Skipping as connector does not support insert operations");
     }
 
     @Override
     @Test
     public void testDropSchemaCascade()
     {
-        Assumptions.abort("Skipping as connector does not support dropping schemas with CASCADE option");
+        abort("Skipping as connector does not support dropping schemas with CASCADE option");
     }
 
     @Override
     @Test
     public void testAddColumn()
     {
-        Assumptions.abort("Skipping as connector does not support column level write operations");
+        abort("Skipping as connector does not support column level write operations");
     }
 
     @Override
     @Test
     public void testDropNonEmptySchemaWithTable()
     {
-        Assumptions.abort("Skipping as connector does not support drop schemas");
+        abort("Skipping as connector does not support drop schemas");
     }
 
     @Override
     @Test
     public void verifySupportsUpdateDeclaration()
     {
-        Assumptions.abort("Skipping as connector does not support update operations");
+        abort("Skipping as connector does not support update operations");
     }
 
     @Override
     @Test
     public void testDropNotNullConstraint()
     {
-        Assumptions.abort("Skipping as connector does not support dropping a not null constraint");
+        abort("Skipping as connector does not support dropping a not null constraint");
     }
 
     @Override
     @Test
     public void testExecuteProcedureWithInvalidQuery()
     {
-        Assumptions.abort("Skipping as connector does not support execute procedure");
+        abort("Skipping as connector does not support execute procedure");
     }
 
     @Override
     @Test
     public void testCreateTableAsSelectNegativeDate()
     {
-        Assumptions.abort("Skipping as connector does not support creating table with negative date");
+        abort("Skipping as connector does not support creating table with negative date");
     }
 
     // Creates CTAS queries with proper session and row count validation
@@ -465,14 +472,5 @@ final class TeradataConnectorTest
             assertThat(query(format("SELECT char_large FROM %s WHERE id = 1", table.getName()))).matches("VALUES CAST('TERADATA' AS CHAR(100))");
             assertThat(query(format("SELECT char_col FROM %s WHERE id = 3", table.getName()))).matches("VALUES CAST('' AS CHAR(5))");
         }
-    }
-
-    private static void verifyResultOrFailure(AssertProvider<QueryAssertions.QueryAssert> queryAssertProvider, Consumer<QueryAssertions.QueryAssert> verifyResults,
-            Consumer<TrinoExceptionAssert> verifyFailure)
-    {
-        requireNonNull(verifyResults, "verifyResults is null");
-        requireNonNull(verifyFailure, "verifyFailure is null");
-        QueryAssertions.QueryAssert queryAssert = assertThat(queryAssertProvider);
-        verifyResults.accept(queryAssert);
     }
 }

@@ -18,7 +18,6 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.DataSetup;
-import io.trino.testing.datatype.SqlDataTypeTest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
@@ -33,13 +32,14 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.datatype.SqlDataTypeTest.create;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 final class TestTeradataTypeMapping
         extends AbstractTestQueryFramework
 {
-    private TestingTeradataServer database;
     private final String envName;
+    private TestingTeradataServer database;
 
     public TestTeradataTypeMapping()
     {
@@ -50,7 +50,7 @@ final class TestTeradataTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        database = new TestingTeradataServer(envName);
+        database = closeAfterClass(new TestingTeradataServer(envName));
         // Register this specific instance for this test class
         return TeradataQueryRunner.builder(database).build();
     }
@@ -58,15 +58,13 @@ final class TestTeradataTypeMapping
     @AfterAll
     void cleanupTestClass()
     {
-        if (database != null) {
-            database.close();
-        }
+        database = null;
     }
 
     @Test
     void testByteint()
     {
-        SqlDataTypeTest.create()
+        create()
                 .addRoundTrip("byteint", "0", TINYINT, "CAST(0 AS TINYINT)")
                 .addRoundTrip("byteint", "127", TINYINT, "CAST(127 AS TINYINT)")
                 .addRoundTrip("byteint", "-128", TINYINT, "CAST(-128 AS TINYINT)")
@@ -77,7 +75,7 @@ final class TestTeradataTypeMapping
     @Test
     void testSmallint()
     {
-        SqlDataTypeTest.create()
+        create()
                 .addRoundTrip("smallint", "0", SMALLINT, "CAST(0 AS SMALLINT)")
                 .addRoundTrip("smallint", "32767", SMALLINT, "CAST(32767 AS SMALLINT)")
                 .addRoundTrip("smallint", "-32768", SMALLINT, "CAST(-32768 AS SMALLINT)")
@@ -88,7 +86,7 @@ final class TestTeradataTypeMapping
     @Test
     void testInteger()
     {
-        SqlDataTypeTest.create()
+        create()
                 .addRoundTrip("integer", "0", INTEGER, "0")
                 .addRoundTrip("integer", "2147483647", INTEGER, "2147483647")
                 .addRoundTrip("integer", "-2147483648", INTEGER, "-2147483648")
@@ -99,7 +97,7 @@ final class TestTeradataTypeMapping
     @Test
     void testBigint()
     {
-        SqlDataTypeTest.create()
+        create()
                 .addRoundTrip("bigint", "0", BIGINT, "CAST(0 AS BIGINT)")
                 .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807")
                 .addRoundTrip("bigint", "-9223372036854775808", BIGINT, "-9223372036854775808")
@@ -110,7 +108,7 @@ final class TestTeradataTypeMapping
     @Test
     void testFloat()
     {
-        SqlDataTypeTest.create()
+        create()
                 .addRoundTrip("float", "0", DOUBLE, "CAST(0 AS DOUBLE)")
                 .addRoundTrip("real", "0", DOUBLE, "CAST(0 AS DOUBLE)")
                 .addRoundTrip("double precision", "0", DOUBLE, "CAST(0 AS DOUBLE)")
@@ -129,7 +127,7 @@ final class TestTeradataTypeMapping
     @Test
     void testDecimal()
     {
-        SqlDataTypeTest.create()
+        create()
                 .addRoundTrip("decimal(3, 0)", "0", createDecimalType(3, 0), "CAST('0' AS decimal(3, 0))")
                 .addRoundTrip("numeric(3, 0)", "0", createDecimalType(3, 0), "CAST('0' AS decimal(3, 0))")
                 .addRoundTrip("decimal(3, 1)", "0.0", createDecimalType(3, 1), "CAST('0.0' AS decimal(3, 1))")
@@ -163,7 +161,7 @@ final class TestTeradataTypeMapping
     @Test
     void testNumber()
     {
-        SqlDataTypeTest.create()
+        create()
                 .addRoundTrip("numeric(3)", "0", createDecimalType(3, 0), "CAST('0' AS decimal(3, 0))")
                 .addRoundTrip("number(5,2)", "0", createDecimalType(5, 2), "CAST('0' AS decimal(5, 2))")
                 .addRoundTrip("number(38)", "0", createDecimalType(38, 0), "CAST('0' AS decimal(38, 0))")
@@ -176,7 +174,7 @@ final class TestTeradataTypeMapping
     @Test
     void testChar()
     {
-        SqlDataTypeTest.create()
+        create()
                 .addRoundTrip("char(3)", "''", createCharType(3), "CAST('' AS char(3))")
                 .addRoundTrip("char(3)", "' '", createCharType(3), "CAST(' ' AS char(3))")
                 .addRoundTrip("char(3)", "'  '", createCharType(3), "CAST('  ' AS char(3))")
@@ -194,14 +192,14 @@ final class TestTeradataTypeMapping
         String tmode = database.getTMode();
         if (tmode.equals("TERA")) {
             // truncation
-            SqlDataTypeTest.create()
+            create()
                     .addRoundTrip("char(3)", "'ABCD'", createCharType(3), "CAST('ABCD' AS char(3))")
                     .execute(getQueryRunner(), teradataJDBCCreateAndInsert("chart"));
         }
         else {
             // Error on truncation
             assertThatThrownBy(() ->
-                    SqlDataTypeTest.create()
+                    create()
                             .addRoundTrip("char(3)", "'ABCD'", createCharType(3), "CAST('ABCD' AS char(3))")
                             .execute(getQueryRunner(), teradataJDBCCreateAndInsert("chart")))
                     .isInstanceOf(RuntimeException.class)
@@ -210,7 +208,7 @@ final class TestTeradataTypeMapping
                     .hasMessageContaining("Right truncation of string data");
         }
         // max-size
-        SqlDataTypeTest.create()
+        create()
                 .addRoundTrip("char(64000)", "'max'", createCharType(64000), "CAST('max' AS char(64000))")
                 .execute(getQueryRunner(), teradataJDBCCreateAndInsert("charl"));
     }
@@ -218,7 +216,7 @@ final class TestTeradataTypeMapping
     @Test
     void testVarchar()
     {
-        SqlDataTypeTest.create()
+        create()
                 .addRoundTrip("varchar(32)", "''", createVarcharType(32), "CAST('' AS varchar(32))")
                 .addRoundTrip("varchar(32)", "' '", createVarcharType(32), "CAST(' ' AS varchar(32))")
                 .addRoundTrip("varchar(32)", "' '", createVarcharType(32), "CAST(' ' AS varchar(32))")
@@ -234,26 +232,26 @@ final class TestTeradataTypeMapping
                 .addRoundTrip("varchar(32)", "' BC'", createVarcharType(32), "CAST(' BC' AS varchar(32))")
                 .addRoundTrip("varchar(32)", "null", createVarcharType(32), "CAST(null AS varchar(32))")
                 .execute(getQueryRunner(), teradataJDBCCreateAndInsert("varchar"));
-        String tmode = database.getTMode();
-        if (tmode.equals("TERA")) {
+        String teraMode = database.getTMode();
+        if (teraMode.equals("TERA")) {
             // truncation
-            SqlDataTypeTest.create()
+            create()
                     .addRoundTrip("varchar(3)", "'ABCD'", createVarcharType(3), "CAST('ABCD' AS varchar(3))")
                     .execute(getQueryRunner(), teradataJDBCCreateAndInsert("varchart"));
         }
         else {
             // Error on truncation
             assertThatThrownBy(() ->
-                    SqlDataTypeTest.create()
+                    create()
                             .addRoundTrip("varchar(3)", "'ABCD'", createVarcharType(3), "CAST('ABCD' AS varchar(3))")
                             .execute(getQueryRunner(), teradataJDBCCreateAndInsert("varchart")))
-                            .isInstanceOf(RuntimeException.class)
-                            .hasCauseInstanceOf(SQLException.class)
-                            .cause()
-                            .hasMessageContaining("Right truncation of string data");
+                    .isInstanceOf(RuntimeException.class)
+                    .hasCauseInstanceOf(SQLException.class)
+                    .cause()
+                    .hasMessageContaining("Right truncation of string data");
         }
         // max-size
-        SqlDataTypeTest.create()
+        create()
                 .addRoundTrip("long varchar", "'max'", createVarcharType(64000), "CAST('max' AS varchar(64000))")
                 .execute(getQueryRunner(), teradataJDBCCreateAndInsert("varcharl"));
     }
@@ -261,7 +259,7 @@ final class TestTeradataTypeMapping
     @Test
     void testDate()
     {
-        SqlDataTypeTest.create()
+        create()
                 .addRoundTrip("date", "DATE '0001-01-01'", DATE, "DATE '0001-01-01'")
                 .addRoundTrip("date", "DATE '0012-12-12'", DATE, "DATE '0012-12-12'")
                 .addRoundTrip("date", "DATE '1500-01-01'", DATE, "DATE '1500-01-01'")
