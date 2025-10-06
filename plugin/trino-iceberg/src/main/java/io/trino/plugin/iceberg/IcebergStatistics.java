@@ -71,8 +71,8 @@ public record IcebergStatistics(
         private long fileCount;
         private long size;
         private final Map<Integer, ColumnStatistics> columnStatistics = new HashMap<>();
-        private final Map<Integer, Optional<Long>> nullCounts = new HashMap<>();
-        private final Map<Integer, Optional<Long>> nanCounts = new HashMap<>();
+        private final Map<Integer, Long> nullCounts = new HashMap<>();
+        private final Map<Integer, Long> nanCounts = new HashMap<>();
         private final Map<Integer, Long> columnSizes = new HashMap<>();
 
         public Builder(
@@ -90,26 +90,19 @@ public record IcebergStatistics(
             recordCount += dataFile.recordCount();
             size += dataFile.fileSizeInBytes();
 
-            Map<Integer, Long> newColumnSizes = dataFile.columnSizes();
-            if (newColumnSizes != null) {
-                for (Map.Entry<Integer, Long> entry : newColumnSizes.entrySet()) {
-                    Long addedSize = entry.getValue();
-                    if (addedSize != null) {
-                        columnSizes.merge(entry.getKey(), addedSize, Long::sum);
-                    }
-                }
-            }
+            mergeLongStatistics(columnSizes, dataFile.columnSizes());
+            mergeLongStatistics(nanCounts, dataFile.nanValueCounts());
+            Map<Integer, Long> nullValueCounts = dataFile.nullValueCounts();
+            mergeLongStatistics(nullCounts, nullValueCounts);
 
             Set<Integer> identityPartitionFieldIds = partitionSpec.fields().stream()
                     .filter(field -> field.transform().isIdentity())
                     .map(PartitionField::sourceId)
                     .collect(toImmutableSet());
             Map<Integer, Optional<String>> partitionValues = getPartitionKeys(dataFile.partition(), partitionSpec);
-            Optional<Map<Integer, Long>> nanValueCounts = Optional.ofNullable(dataFile.nanValueCounts());
             for (Types.NestedField column : partitionSpec.schema().columns()) {
                 int id = column.fieldId();
                 io.trino.spi.type.Type trinoType = fieldIdToTrinoType.get(id);
-                updateNanCountStats(id, nanValueCounts.map(map -> map.get(id)));
                 if (identityPartitionFieldIds.contains(id)) {
                     verify(partitionValues.containsKey(id), "Unable to find value for partition column with field id %s", id);
                     Optional<String> partitionValue = partitionValues.get(id);
@@ -123,11 +116,12 @@ public record IcebergStatistics(
                                 trinoValue,
                                 Optional.of(0L),
                                 dataFile.recordCount());
-                        updateNullCountStats(id, Optional.of(0L));
                     }
                     else {
                         // Update null counts, but do not clear min/max
-                        updateNullCountStats(id, Optional.of(dataFile.recordCount()));
+                        if (nullValueCounts == null || !nullValueCounts.containsKey(id)) {
+                            nullCounts.merge(id, dataFile.recordCount(), Long::sum);
+                        }
                     }
                 }
                 else {
@@ -135,7 +129,7 @@ public record IcebergStatistics(
                             Conversions.fromByteBuffer(column.type(), Optional.ofNullable(dataFile.lowerBounds()).map(a -> a.get(id)).orElse(null)));
                     Object upperBound = convertIcebergValueToTrino(column.type(),
                             Conversions.fromByteBuffer(column.type(), Optional.ofNullable(dataFile.upperBounds()).map(a -> a.get(id)).orElse(null)));
-                    Optional<Long> nullCount = Optional.ofNullable(dataFile.nullValueCounts()).map(nullCounts -> nullCounts.get(id));
+                    Optional<Long> nullCount = Optional.ofNullable(nullValueCounts).map(nullCounts -> nullCounts.get(id));
                     updateMinMaxStats(
                             id,
                             trinoType,
@@ -143,7 +137,6 @@ public record IcebergStatistics(
                             upperBound,
                             nullCount,
                             dataFile.recordCount());
-                    updateNullCountStats(id, nullCount);
                 }
             }
         }
@@ -158,37 +151,15 @@ public record IcebergStatistics(
                 statistics.getMax().ifPresent(max -> maxValues.put(fieldId, max));
             });
 
-            Map<Integer, Long> nullCounts = this.nullCounts.entrySet().stream()
-                    .filter(entry -> entry.getValue().isPresent())
-                    .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().orElseThrow()));
-
-            Map<Integer, Long> nanCounts = this.nanCounts.entrySet().stream()
-                    .filter(entry -> entry.getValue().isPresent())
-                    .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().orElseThrow()));
-
             return new IcebergStatistics(
                     recordCount,
                     fileCount,
                     size,
                     minValues.buildOrThrow(),
                     maxValues.buildOrThrow(),
-                    nullCounts,
-                    nanCounts,
+                    ImmutableMap.copyOf(nullCounts),
+                    ImmutableMap.copyOf(nanCounts),
                     ImmutableMap.copyOf(columnSizes));
-        }
-
-        private void updateNullCountStats(int id, Optional<Long> nullCount)
-        {
-            // If one file is missing nullCounts for a column, invalidate the estimate
-            nullCounts.merge(id, nullCount, (existingCount, newCount) ->
-                    existingCount.isPresent() && newCount.isPresent() ? Optional.of(existingCount.get() + newCount.get()) : Optional.empty());
-        }
-
-        private void updateNanCountStats(int id, Optional<Long> nanCount)
-        {
-            // If one file is missing nanCounts for a column, invalidate the estimate
-            nanCounts.merge(id, nanCount, (existingCount, newCount) ->
-                    (existingCount.isPresent() && newCount.isPresent()) ? Optional.of(existingCount.get() + newCount.get()) : Optional.empty());
         }
 
         private void updateMinMaxStats(
@@ -208,6 +179,20 @@ public record IcebergStatistics(
                             .getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
                     return new ColumnStatistics(comparisonHandle, lowerBound, upperBound);
                 }).updateMinMax(lowerBound, upperBound);
+            }
+        }
+
+        private static void mergeLongStatistics(Map<Integer, Long> accumulated, Map<Integer, Long> fileStatistics)
+        {
+            if (fileStatistics == null) {
+                return;
+            }
+            for (Map.Entry<Integer, Long> entry : fileStatistics.entrySet()) {
+                Long value = entry.getValue();
+                if (value != null) {
+                    Integer fieldId = entry.getKey();
+                    accumulated.merge(fieldId, value, Long::sum);
+                }
             }
         }
     }
