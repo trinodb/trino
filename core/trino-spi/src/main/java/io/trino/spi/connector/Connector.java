@@ -246,7 +246,7 @@ public interface Connector
      * no methods will be called on the connector or any objects that
      * have been returned from the connector.
      */
-    default void shutdown() {}
+    void shutdown();
 
     default Set<ConnectorCapabilities> getCapabilities()
     {

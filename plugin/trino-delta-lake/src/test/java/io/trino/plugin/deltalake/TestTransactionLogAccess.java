@@ -25,6 +25,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.deltalake.metastore.NoOpVendedCredentialsProvider;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -108,7 +109,7 @@ public class TestTransactionLogAccess
             "age=29/part-00000-3794c463-cb0c-4beb-8d07-7cc1e3b5920f.c000.snappy.parquet");
 
     private final TestingTelemetry testingTelemetry = TestingTelemetry.create("transaction-log-access");
-    private final DefaultDeltaLakeFileSystemFactory tracingFileSystemFactory = new DefaultDeltaLakeFileSystemFactory(new TracingFileSystemFactory(testingTelemetry.getTracer(), new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)));
+    private final DefaultDeltaLakeFileSystemFactory tracingFileSystemFactory = new DefaultDeltaLakeFileSystemFactory(new TracingFileSystemFactory(testingTelemetry.getTracer(), new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS)), new NoOpVendedCredentialsProvider());
 
     private TransactionLogAccess transactionLogAccess;
     private TableSnapshot tableSnapshot;
@@ -600,8 +601,7 @@ public class TestTransactionLogAccess
                                     Optional.empty(),
                                     Optional.empty(),
                                     0,
-                                    false,
-                                    Optional.empty()),
+                                    false),
                             updatedTableSnapshot,
                             TupleDomain.all(),
                             alwaysTrue())) {

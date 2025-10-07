@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>477-SNAPSHOT</version>
+        <version>478-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -37,10 +37,6 @@
             <groupId>com.azure</groupId>
             <artifactId>azure-identity</artifactId>
             <exclusions>
-                <exclusion>
-                    <groupId>com.nimbusds</groupId>
-                    <artifactId>oauth2-oidc-sdk</artifactId>
-                </exclusion>
                 <exclusion>
                     <groupId>net.java.dev.jna</groupId>
                     <artifactId>jna-platform</artifactId>
@@ -142,13 +138,6 @@
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-xml</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.nimbusds</groupId>
-            <artifactId>oauth2-oidc-sdk</artifactId>
-            <classifier>jdk11</classifier>
             <scope>runtime</scope>
         </dependency>
 

@@ -22,8 +22,10 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.ThreadCount;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.HiveCompressionOption;
 import jakarta.validation.constraints.AssertFalse;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
@@ -86,6 +88,7 @@ public class IcebergConfig
     private boolean hideMaterializedViewStorageTable = true;
     private Optional<String> materializedViewsStorageSchema = Optional.empty();
     private boolean sortedWritingEnabled = true;
+    private Optional<String> sortedWritingLocalStagingPath = Optional.empty();
     private boolean queryPartitionFilterRequired;
     private Set<String> queryPartitionFilterRequiredSchemas = ImmutableSet.of();
     private int splitManagerThreads = Math.min(Runtime.getRuntime().availableProcessors() * 2, 32);
@@ -451,6 +454,32 @@ public class IcebergConfig
     {
         this.sortedWritingEnabled = sortedWritingEnabled;
         return this;
+    }
+
+    @NotNull
+    public Optional<String> getSortedWritingLocalStagingPath()
+    {
+        return sortedWritingLocalStagingPath;
+    }
+
+    @Config("iceberg.sorted-writing.local-staging-path")
+    @ConfigDescription("Use provided local directory for staging writes to sorted tables. Use ${USER} placeholder to use different location for each user")
+    public IcebergConfig setSortedWritingLocalStagingPath(String sortedWritingLocalStagingPath)
+    {
+        this.sortedWritingLocalStagingPath = Optional.ofNullable(sortedWritingLocalStagingPath);
+        return this;
+    }
+
+    @AssertTrue(message = "iceberg.sorted-writing.local-staging-path must not use any prefix other than file:// or local://")
+    public boolean isSortedWritingLocalStagingPathValid()
+    {
+        if (sortedWritingLocalStagingPath.isEmpty()) {
+            return true;
+        }
+        Optional<String> scheme = Location.of(sortedWritingLocalStagingPath.get()).scheme();
+        return scheme.isEmpty()
+                || scheme.equals(Optional.of("file"))
+                || scheme.equals(Optional.of("local"));
     }
 
     @Config("iceberg.query-partition-filter-required")

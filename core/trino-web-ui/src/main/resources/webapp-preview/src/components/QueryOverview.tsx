@@ -19,7 +19,7 @@ import {
     Box,
     CircularProgress,
     Divider,
-    Grid2 as Grid,
+    Grid,
     Table,
     TableBody,
     TableCell,

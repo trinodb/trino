@@ -18,94 +18,45 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import io.trino.spi.QueryId;
 
 import java.util.List;
-import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.QueryId.parseDottedId;
 import static java.lang.Integer.parseInt;
-import static java.lang.String.join;
 import static java.util.Objects.requireNonNull;
 
-public class TaskId
+public record TaskId(StageId stageId, int partitionId, int attemptId)
 {
     private static final int INSTANCE_SIZE = instanceSize(TaskId.class);
 
     @JsonCreator
-    public static TaskId valueOf(String taskId)
+    public static TaskId valueOf(String fullId)
     {
-        return new TaskId(taskId);
+        List<String> parts = parseDottedId(fullId, 4, "taskId");
+        return new TaskId(new StageId(new QueryId(parts.get(0)), parseInt(parts.get(1))), parseInt(parts.get(2)), parseInt(parts.get(3)));
     }
 
-    private final String fullId;
-
-    public TaskId(StageId stageId, int partitionId, int attemptId)
+    public TaskId
     {
         requireNonNull(stageId, "stageId is null");
         checkArgument(partitionId >= 0, "partitionId is negative: %s", partitionId);
         checkArgument(attemptId >= 0, "attemptId is negative: %s", attemptId);
-
-        // There is a strange JDK bug related to the CompactStrings implementation in JDK20+ which causes some fullId values
-        // to get corrupted when this particular line is JIT-optimized. Changing implicit concatenation to a String.join call
-        // seems to mitigate this issue. See: https://github.com/trinodb/trino/issues/18272 for more details.
-        this.fullId = join(".", stageId.toString(), String.valueOf(partitionId), String.valueOf(attemptId));
     }
 
-    private TaskId(String fullId)
+    public QueryId queryId()
     {
-        this.fullId = requireNonNull(fullId, "fullId is null");
-    }
-
-    public QueryId getQueryId()
-    {
-        return new QueryId(parseDottedId(fullId, 4, "taskId").get(0));
-    }
-
-    public StageId getStageId()
-    {
-        List<String> ids = parseDottedId(fullId, 4, "taskId");
-        return StageId.valueOf(ids.subList(0, 2));
-    }
-
-    public int getPartitionId()
-    {
-        return parseInt(parseDottedId(fullId, 4, "taskId").get(2));
-    }
-
-    public int getAttemptId()
-    {
-        return parseInt(parseDottedId(fullId, 4, "taskId").get(3));
+        return stageId.queryId();
     }
 
     @Override
     @JsonValue
     public String toString()
     {
-        return fullId;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(fullId);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        TaskId other = (TaskId) obj;
-        return Objects.equals(this.fullId, other.fullId);
+        return stageId.queryId().id() + '.' + stageId.id() + '.' + partitionId + '.' + attemptId;
     }
 
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + estimatedSizeOf(fullId);
+        return INSTANCE_SIZE + stageId.getRetainedSizeInBytes();
     }
 }

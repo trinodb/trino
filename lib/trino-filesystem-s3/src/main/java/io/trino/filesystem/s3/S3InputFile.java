@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.NONE;
 import static io.trino.filesystem.s3.S3SseCUtils.encoded;
@@ -107,6 +108,16 @@ final class S3InputFile
     public Location location()
     {
         return location.location();
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("location", location)
+                .add("length", length)
+                .add("lastModified", lastModified)
+                .toString();
     }
 
     private GetObjectRequest newGetObjectRequest()

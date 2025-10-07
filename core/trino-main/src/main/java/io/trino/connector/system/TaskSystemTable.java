@@ -113,8 +113,8 @@ public class TaskSystemTable
                     nodeId,
 
                     taskStatus.getTaskId().toString(),
-                    taskStatus.getTaskId().getStageId().toString(),
-                    taskStatus.getTaskId().getQueryId().toString(),
+                    taskStatus.getTaskId().stageId().toString(),
+                    taskStatus.getTaskId().queryId().toString(),
                     taskStatus.getState().toString(),
 
                     (long) stats.getTotalDrivers(),

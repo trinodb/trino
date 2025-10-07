@@ -14,6 +14,7 @@
 package io.trino.metadata;
 
 import io.trino.Session;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.EntityKindAndName;
@@ -186,6 +187,16 @@ public interface SystemSecurityMetadata
      * Get the identity to run the function as
      */
     Optional<Identity> getFunctionRunAsIdentity(Session session, CatalogSchemaFunctionName functionName);
+
+    /**
+     * A catalog was created
+     */
+    void catalogCreated(Session session, CatalogName catalog);
+
+    /**
+     * A catalog was dropped
+     */
+    void catalogDropped(Session session, CatalogName catalog);
 
     /**
      * A function is created

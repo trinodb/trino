@@ -40,6 +40,7 @@ public class DbSessionPropertyManagerFactory
     {
         try {
             Bootstrap app = new Bootstrap(
+                    "io.trino.bootstrap.session." + getName(),
                     new MBeanModule(),
                     new MBeanServerModule(),
                     new JsonModule(),

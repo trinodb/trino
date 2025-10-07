@@ -44,6 +44,7 @@ public class CassandraConnectorFactory
         checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.catalog." + catalogName,
                 binder -> binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry()),
                 new MBeanModule(),
                 new JsonModule(),

@@ -154,7 +154,7 @@ public final class MigrationUtils
     {
         ParquetReaderOptions options = ParquetReaderOptions.defaultOptions();
         try (ParquetDataSource dataSource = new TrinoParquetDataSource(file, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats())) {
-            ParquetMetadata metadata = MetadataReader.readFooter(dataSource, options.getMaxFooterReadSize());
+            ParquetMetadata metadata = MetadataReader.readFooter(dataSource, options.getMaxFooterReadSize(), Optional.empty());
             return ParquetUtil.footerMetrics(metadata, Stream.empty(), metricsConfig, nameMapping);
         }
         catch (IOException e) {

@@ -35,6 +35,7 @@ import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
@@ -50,6 +51,7 @@ import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorName;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
@@ -196,6 +198,7 @@ public final class MetadataManager
     private final TableFunctionRegistry tableFunctionRegistry;
     private final TypeManager typeManager;
     private final TypeCoercion typeCoercion;
+    private final CatalogManager catalogManager;
 
     private final ConcurrentMap<QueryId, QueryCatalogs> catalogsByQueryId = new ConcurrentHashMap<>();
 
@@ -207,13 +210,15 @@ public final class MetadataManager
             GlobalFunctionCatalog globalFunctionCatalog,
             LanguageFunctionManager languageFunctionManager,
             TableFunctionRegistry tableFunctionRegistry,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            CatalogManager catalogManager)
     {
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         functions = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
         functionResolver = new BuiltinFunctionResolver(this, typeManager, globalFunctionCatalog);
         this.typeCoercion = new TypeCoercion(typeManager::getType);
+        this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
 
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -791,6 +796,29 @@ public final class MetadataManager
             }
         }
         return tableComments.build();
+    }
+
+    @Override
+    public void createCatalog(Session session, CatalogName catalog, ConnectorName connectorName, Map<String, String> properties, boolean notExists)
+    {
+        catalogManager.createCatalog(catalog, connectorName, properties, notExists);
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog.toString());
+        if (catalogMetadata.getSecurityManagement() == SYSTEM) {
+            systemSecurityMetadata.catalogCreated(session, catalog);
+        }
+    }
+
+    @Override
+    public void dropCatalog(Session session, CatalogName catalog, boolean cascade)
+    {
+        Optional<CatalogMetadata> catalogMetadata = Optional.empty();
+        if (catalogManager.getCatalog(catalog).isPresent()) {
+            catalogMetadata = Optional.of(getCatalogMetadataForWrite(session, catalog.toString()));
+        }
+        catalogManager.dropCatalog(catalog, cascade);
+        if (catalogMetadata.isPresent() && catalogMetadata.get().getSecurityManagement() == SYSTEM) {
+            systemSecurityMetadata.catalogDropped(session, catalog);
+        }
     }
 
     @Override

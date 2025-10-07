@@ -384,7 +384,8 @@ public class PlanTester
                 globalFunctionCatalog,
                 languageFunctionManager,
                 tableFunctionRegistry,
-                typeManager);
+                typeManager,
+                catalogManager);
         typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
         this.joinCompiler = new JoinCompiler(typeOperators);
         this.hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators);
@@ -541,6 +542,7 @@ public class PlanTester
     {
         SystemSessionProperties sessionProperties = new SystemSessionProperties(
                 new QueryManagerConfig(),
+                new SpoolingEnabledConfig(),
                 taskManagerConfig,
                 new MemoryManagerConfig(),
                 new FeaturesConfig(),

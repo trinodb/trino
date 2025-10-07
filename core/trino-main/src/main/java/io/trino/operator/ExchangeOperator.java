@@ -96,8 +96,8 @@ public class ExchangeOperator
                 // LazyExchangeDataSource allows to choose an exchange source implementation based on the information received from a split.
                 TaskId taskId = taskContext.getTaskId();
                 exchangeDataSource = new LazyExchangeDataSource(
-                        taskId.getQueryId(),
-                        new ExchangeId(format("direct-exchange-%s-%s", taskId.getStageId().getId(), sourceId)),
+                        taskId.queryId(),
+                        new ExchangeId(format("direct-exchange-%s-%s", taskId.stageId().id(), sourceId)),
                         taskContext.getSession().getQuerySpan(),
                         directExchangeClientSupplier,
                         memoryContext,

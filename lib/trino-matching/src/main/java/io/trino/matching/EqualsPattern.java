@@ -11,51 +11,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.matching.pattern;
-
-import io.trino.matching.Captures;
-import io.trino.matching.Match;
-import io.trino.matching.Pattern;
-import io.trino.matching.PatternVisitor;
+package io.trino.matching;
 
 import java.util.Optional;
 import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
-public class TypeOfPattern<T>
+public final class EqualsPattern<T>
         extends Pattern<T>
 {
-    private final Class<T> expectedClass;
+    private final T expectedValue;
 
-    public TypeOfPattern(Class<T> expectedClass)
-    {
-        this(expectedClass, Optional.empty());
-    }
-
-    public TypeOfPattern(Class<T> expectedClass, Optional<Pattern<?>> previous)
+    public EqualsPattern(T expectedValue, Optional<Pattern<?>> previous)
     {
         super(previous);
-        this.expectedClass = requireNonNull(expectedClass, "expectedClass is null");
+        this.expectedValue = requireNonNull(expectedValue, "expectedValue can't be null. Use isNull() pattern instead.");
     }
 
-    public Class<T> expectedClass()
+    public T expectedValue()
     {
-        return expectedClass;
+        return expectedValue;
     }
 
     @Override
     public <C> Stream<Match> accept(Object object, Captures captures, C context)
     {
-        if (expectedClass.isInstance(object)) {
-            return Stream.of(Match.of(captures));
-        }
-        return Stream.of();
-    }
-
-    @Override
-    public void accept(PatternVisitor patternVisitor)
-    {
-        patternVisitor.visitTypeOf(this);
+        return Stream.of(Match.of(captures))
+                .filter(match -> expectedValue.equals(object));
     }
 }

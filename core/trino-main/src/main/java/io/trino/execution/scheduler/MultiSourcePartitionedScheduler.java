@@ -96,7 +96,7 @@ public class MultiSourcePartitionedScheduler
          *  * there can be task in other stage blocked waiting for the dynamic filters, or
          *  * connector split source for this stage might be blocked waiting the dynamic filters.
         */
-        if (dynamicFilterService.isCollectingTaskNeeded(stageExecution.getStageId().getQueryId(), stageExecution.getFragment())) {
+        if (dynamicFilterService.isCollectingTaskNeeded(stageExecution.getStageId().queryId(), stageExecution.getFragment())) {
             stageExecution.beginScheduling();
             /*
              * We can select node randomly because DynamicFilterSourceOperator is not dependent on splits

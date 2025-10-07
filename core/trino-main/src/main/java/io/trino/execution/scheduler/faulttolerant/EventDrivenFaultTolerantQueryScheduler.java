@@ -560,7 +560,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         public void failTaskRemotely(TaskId taskId, Throwable failureCause)
         {
-            SqlStage sqlStage = requireNonNull(stages.get(taskId.getStageId()), () -> "stage not found: %s" + taskId.getStageId());
+            SqlStage sqlStage = requireNonNull(stages.get(taskId.stageId()), () -> "stage not found: %s" + taskId.stageId());
             sqlStage.failTaskRemotely(taskId, failureCause);
         }
 
@@ -582,13 +582,13 @@ public class EventDrivenFaultTolerantQueryScheduler
             @Override
             public String onRemoteTaskEvent(RemoteTaskEvent event)
             {
-                return "task_" + event.getTaskStatus().getTaskId().getStageId().toString();
+                return "task_" + event.getTaskStatus().getTaskId().stageId().toString();
             }
 
             @Override
             public String onRemoteTaskExchangeUpdatedSinkAcquired(RemoteTaskExchangeUpdatedSinkAcquired event)
             {
-                return "task_" + event.getTaskId().getStageId().toString();
+                return "task_" + event.getTaskId().stageId().toString();
             }
 
             @Override
@@ -1493,7 +1493,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         fragment.getOutputPartitioningScheme().getPartitionCount());
                 ExchangeContext exchangeContext = new ExchangeContextInstance(
                         queryStateMachine.getQueryId(),
-                        new ExchangeId("external-exchange-" + stage.getStageId().getId()),
+                        new ExchangeId("external-exchange-" + stage.getStageId().id()),
                         schedulerSpan);
 
                 boolean preserveOrderWithinPartition = rootFragment && stage.getFragment().getPartitioning().equals(SINGLE_DISTRIBUTION);
@@ -1816,7 +1816,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             TaskStatus taskStatus = event.getTaskStatus();
             TaskId taskId = taskStatus.getTaskId();
             TaskState taskState = taskStatus.getState();
-            StageExecution stageExecution = getStageExecution(taskId.getStageId());
+            StageExecution stageExecution = getStageExecution(taskId.stageId());
 
             if (stageExecution.getState().isDone()) {
                 return null;
@@ -1854,7 +1854,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         public Void onRemoteTaskExchangeSinkUpdateRequired(RemoteTaskExchangeSinkUpdateRequiredEvent event)
         {
             TaskId taskId = event.getTaskStatus().getTaskId();
-            StageExecution stageExecution = getStageExecution(taskId.getStageId());
+            StageExecution stageExecution = getStageExecution(taskId.stageId());
             stageExecution.initializeUpdateOfExchangeSinkInstanceHandle(taskId, eventQueue);
             return null;
         }
@@ -1863,7 +1863,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         public Void onRemoteTaskExchangeUpdatedSinkAcquired(RemoteTaskExchangeUpdatedSinkAcquired event)
         {
             TaskId taskId = event.getTaskId();
-            StageExecution stageExecution = getStageExecution(taskId.getStageId());
+            StageExecution stageExecution = getStageExecution(taskId.stageId());
             stageExecution.finalizeUpdateOfExchangeSinkInstanceHandle(taskId, event.getExchangeSinkInstanceHandle());
             return null;
         }
@@ -2443,12 +2443,12 @@ public class EventDrivenFaultTolerantQueryScheduler
             if (getState().isDone()) {
                 return;
             }
-            StagePartition partition = getStagePartition(taskId.getPartitionId());
-            CompletableFuture<ExchangeSinkInstanceHandle> exchangeSinkInstanceHandleFuture = exchange.updateSinkInstanceHandle(partition.getExchangeSinkHandle(), taskId.getAttemptId());
+            StagePartition partition = getStagePartition(taskId.partitionId());
+            CompletableFuture<ExchangeSinkInstanceHandle> exchangeSinkInstanceHandleFuture = exchange.updateSinkInstanceHandle(partition.getExchangeSinkHandle(), taskId.attemptId());
 
             exchangeSinkInstanceHandleFuture.whenComplete((sinkInstanceHandle, throwable) -> {
                 if (throwable != null) {
-                    eventQueue.add(new StageFailureEvent(taskId.getStageId(), throwable));
+                    eventQueue.add(new StageFailureEvent(taskId.stageId(), throwable));
                 }
                 else {
                     eventQueue.add(new RemoteTaskExchangeUpdatedSinkAcquired(taskId, sinkInstanceHandle));
@@ -2461,7 +2461,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             if (getState().isDone()) {
                 return;
             }
-            StagePartition partition = getStagePartition(taskId.getPartitionId());
+            StagePartition partition = getStagePartition(taskId.partitionId());
             partition.updateExchangeSinkInstanceHandle(taskId, updatedExchangeSinkInstanceHandle);
         }
 
@@ -2472,7 +2472,7 @@ public class EventDrivenFaultTolerantQueryScheduler
          */
         public Optional<List<PrioritizedScheduledTask>> taskFinished(TaskId taskId, TaskStatus taskStatus)
         {
-            int partitionId = taskId.getPartitionId();
+            int partitionId = taskId.partitionId();
             StagePartition partition = getStagePartition(partitionId);
             Optional<SpoolingOutputStats.Snapshot> outputStats = partition.taskFinished(taskId);
 
@@ -2483,7 +2483,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 return Optional.of(taskFailed(taskId, Failures.toFailure(new TrinoException(GENERIC_INTERNAL_ERROR, "Treating FINISHED task as FAILED because we received empty spooling output stats")), taskStatus));
             }
 
-            exchange.sinkFinished(partition.getExchangeSinkHandle(), taskId.getAttemptId());
+            exchange.sinkFinished(partition.getExchangeSinkHandle(), taskId.attemptId());
 
             if (!partition.isRunning()) {
                 runningPartitions.remove(partitionId);
@@ -2502,7 +2502,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     true,
                     Optional.empty());
 
-            sinkOutputSelectorBuilder.include(exchange.getId(), taskId.getPartitionId(), taskId.getAttemptId());
+            sinkOutputSelectorBuilder.include(exchange.getId(), taskId.partitionId(), taskId.attemptId());
 
             if (noMorePartitions && remainingPartitions.isEmpty() && !stage.getState().isDone()) {
                 finish();
@@ -2568,7 +2568,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         public List<PrioritizedScheduledTask> taskFailed(TaskId taskId, ExecutionFailureInfo failureInfo, TaskStatus taskStatus)
         {
-            int partitionId = taskId.getPartitionId();
+            int partitionId = taskId.partitionId();
             StagePartition partition = getStagePartition(partitionId);
             partition.taskFailed(taskId);
 

@@ -29,6 +29,11 @@ exit_code=0
 failed_versions=()
 
 for version in ${tested_versions[*]}; do
+    if [[ "${version}" == "477" ]]
+    then
+        echo "TODO: 477 was skipped because trino-jdbc-477 wasn't release to sonatype central"
+        continue
+    fi
     if ! time env TRINO_JDBC_VERSION_UNDER_TEST="${version}" ${maven_run_tests} -Ddep.presto-jdbc-under-test="${version}"; then
         exit_code=1
         failed_versions+=("${version}")

@@ -15,16 +15,17 @@ package io.trino.spi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.errorprone.annotations.FormatMethod;
 
 import java.util.List;
-import java.util.Objects;
 
-import static java.lang.String.format;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
-public final class QueryId
+public record QueryId(String id)
 {
+    private static final int INSTANCE_SIZE = instanceSize(QueryId.class);
+
     @JsonCreator
     public static QueryId valueOf(String queryId)
     {
@@ -32,48 +33,30 @@ public final class QueryId
         return new QueryId(queryId);
     }
 
-    private final String id;
-
-    public QueryId(String id)
+    public QueryId
     {
-        this.id = validateId(id);
+        requireNonNull(id, "id is null");
+        checkArgument(!id.isEmpty(), "id is empty");
+        validateId(id);
     }
 
+    // For backward compatibility
+    @JsonValue
+    @Deprecated // Use id() instead
     public String getId()
     {
         return id;
     }
 
     @Override
-    @JsonValue
     public String toString()
     {
         return id;
     }
 
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(id);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        QueryId other = (QueryId) obj;
-        return Objects.equals(this.id, other.id);
-    }
-
     //
     // Id helper methods
     //
-
     // Check if the string matches [_a-z0-9]+ , but without the overhead of regex
     private static boolean isValidId(String id)
     {
@@ -86,34 +69,62 @@ public final class QueryId
         return true;
     }
 
+    private static boolean isValidDottedId(char[] chars)
+    {
+        for (int i = 0; i < chars.length; i++) {
+            if (!(chars[i] == '_' || chars[i] == '.' || chars[i] >= 'a' && chars[i] <= 'z' || chars[i] >= '0' && chars[i] <= '9')) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public static String validateId(String id)
     {
-        requireNonNull(id, "id is null");
-        checkArgument(!id.isEmpty(), "id is empty");
-        checkArgument(isValidId(id), "Invalid id %s", id);
+        if (!isValidId(id)) {
+            throw new IllegalArgumentException("Invalid queryId " + id);
+        }
         return id;
     }
 
     public static List<String> parseDottedId(String id, int expectedParts, String name)
     {
         requireNonNull(id, "id is null");
-        checkArgument(expectedParts > 0, "expectedParts must be at least 1");
+        checkArgument(expectedParts > 1, "expectedParts must be at least 2");
         requireNonNull(name, "name is null");
 
-        List<String> ids = List.of(id.split("\\."));
-        checkArgument(ids.size() == expectedParts, "Invalid %s %s", name, id);
-
-        for (String part : ids) {
-            validateId(part);
+        char[] chars = id.toCharArray();
+        if (!isValidDottedId(chars)) {
+            throw new IllegalArgumentException("Invalid " + name + " " + id);
         }
-        return ids;
+        String[] parts = new String[expectedParts];
+        int startOffset = 0;
+        int partIndex = 0;
+        for (int i = 0, length = chars.length; i < length; i++) {
+            if (chars[i] == '.') {
+                if (i <= startOffset || i == length - 1) {
+                    throw new IllegalArgumentException("Invalid " + name + " " + id);
+                }
+                parts[partIndex++] = new String(chars, startOffset, i - startOffset);
+                startOffset = i + 1;
+            }
+        }
+        parts[partIndex++] = new String(chars, startOffset, chars.length - startOffset);
+        if (partIndex != expectedParts) {
+            throw new IllegalArgumentException("Invalid " + name + " " + id);
+        }
+        return List.of(parts);
     }
 
-    @FormatMethod
-    private static void checkArgument(boolean condition, String message, Object... messageArgs)
+    private static void checkArgument(boolean condition, String message)
     {
         if (!condition) {
-            throw new IllegalArgumentException(format(message, messageArgs));
+            throw new IllegalArgumentException(message);
         }
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + estimatedSizeOf(id);
     }
 }

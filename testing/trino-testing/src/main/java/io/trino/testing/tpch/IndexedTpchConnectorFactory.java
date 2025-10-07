@@ -110,6 +110,9 @@ public class IndexedTpchConnectorFactory
             {
                 return new TpchNodePartitioningProvider(nodeManager, splitsPerNode);
             }
+
+            @Override
+            public void shutdown() {}
         };
     }
 

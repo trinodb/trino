@@ -764,7 +764,7 @@ public abstract class BaseIcebergMaterializedViewTest
                     .executeWithPlan(getSession(), format("REFRESH MATERIALIZED VIEW %s", materializedViewName))
                     .queryId();
             String savedQueryId = getStorageTableMetadata(materializedViewName).currentSnapshot().summary().get("trino_query_id");
-            assertThat(savedQueryId).isEqualTo(refreshQueryId.getId());
+            assertThat(savedQueryId).isEqualTo(refreshQueryId.id());
         }
         finally {
             assertUpdate("DROP TABLE " + sourceTableName);

@@ -382,7 +382,7 @@ fault-tolerant execution. You can configure a filesystem-based exchange manager
 that stores spooled data in a specified location, such as {ref}`AWS S3
 <fte-exchange-aws-s3>` and S3-compatible systems, {ref}`Azure Blob Storage
 <fte-exchange-azure-blob>`, {ref}`Google Cloud Storage <fte-exchange-gcs>`,
-or {ref}`HDFS <fte-exchange-hdfs>`.
+{ref}`Alluxio <fte-exchange-alluxio>`, or {ref}`HDFS <fte-exchange-hdfs>`.
 
 ### Configuration
 
@@ -503,6 +503,18 @@ the property may be configured for:
     retry a request.
   - `10`
   - Azure Blob Storage
+* - `exchange.alluxio.block-size`
+  - Block [data size](prop-type-data-size) for Alluxio storage.
+  - `4MB`
+  - Alluxio
+* - `exchange.alluxio.site-file-path`
+  - Path to the alluxio site file that contains your custom configuration,
+    for example `/etc/alluxio-site.properties`. The file must exist on all
+    nodes in the Trino cluster. Follow the [Alluxio client configuration
+    documentation](https://docs.alluxio.io/os/user/stable/en/operation/Configuration.html)
+    for more details.
+  -
+  - Alluxio
 * - `exchange.hdfs.block-size`
   - Block [data size](prop-type-data-size) for HDFS storage.
   - `4MB`
@@ -594,6 +606,18 @@ exchange.s3.aws-access-key=example-access-key
 exchange.s3.aws-secret-key=example-secret-key
 exchange.s3.endpoint=https://storage.googleapis.com
 exchange.gcs.json-key-file-path=/path/to/gcs_keyfile.json
+```
+
+(fte-exchange-alluxio)=
+#### Alluxio
+
+The following `exchange-manager.properties` configuration example specifies Alluxio
+as the spooling storage destination.
+
+```properties
+exchange-manager.name=alluxio
+exchange.base-directories=alluxio://alluxio-master:19998/exchange-spooling-directory
+exchange.alluxio.site-file-path=/path/to/alluxio-site.properties
 ```
 
 (fte-exchange-hdfs)=

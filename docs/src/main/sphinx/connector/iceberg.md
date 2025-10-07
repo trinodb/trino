@@ -217,6 +217,15 @@ implementation is used:
   -  Enable [sorted writing](iceberg-sorted-files) to tables with a specified sort order. Equivalent
      session property is `sorted_writing_enabled`.
   -  `true` 
+* - `iceberg.sorted-writing.local-staging-path`
+  -  A local directory that Trino can use for staging writes to sorted tables.
+     The `${USER}` placeholder can be used to use a different
+     location for each user. When this property is not configured, the target 
+     storage will be used for staging while writing to sorted tables which can
+     be inefficient when writing to object stores like S3. When 
+     `fs.hadoop.enabled` is not enabled, using this feature requires setup of 
+     [local file system](/object-storage/file-system-local)
+  -  
 * - `iceberg.allowed-extra-properties`
   -  List of extra properties that are allowed to be set on Iceberg tables.
      Use `*` to allow all properties.
@@ -2145,7 +2154,8 @@ enabled, metadata caching in coordinator memory is deactivated.
 
 Additionally, you can use the following catalog configuration properties:
 
-:::{list-table} Memory metadata caching configuration properties :widths: 25, 75
+:::{list-table} Memory metadata caching configuration properties
+:widths: 25, 75
 :header-rows: 1
 
 * - Property
@@ -2160,4 +2170,4 @@ Additionally, you can use the following catalog configuration properties:
     Defaults to `200MB`.
 * - `fs.memory-cache.max-content-length`
   - The maximum file size that can be cached. Defaults to `15MB`.
-  :::
+ :::

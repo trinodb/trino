@@ -69,7 +69,7 @@ public class ExpressionMatcher
     private static Map<Symbol, Expression> getAssignments(PlanNode node)
     {
         if (node instanceof ProjectNode projectNode) {
-            return projectNode.getAssignments().getMap();
+            return projectNode.getAssignments().assignments();
         }
         return null;
     }

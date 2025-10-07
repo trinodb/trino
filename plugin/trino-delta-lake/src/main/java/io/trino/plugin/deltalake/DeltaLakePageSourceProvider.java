@@ -263,6 +263,7 @@ public class DeltaLakePageSourceProvider
                 fileFormatDataSourceStats,
                 options,
                 Optional.empty(),
+                Optional.empty(),
                 domainCompactionThreshold,
                 OptionalLong.of(split.getFileSize()));
 
@@ -362,7 +363,7 @@ public class DeltaLakePageSourceProvider
     private Map<Integer, String> loadParquetIdAndNameMapping(TrinoInputFile inputFile, ParquetReaderOptions options)
     {
         try (ParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, options, fileFormatDataSourceStats)) {
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options.getMaxFooterReadSize());
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options.getMaxFooterReadSize(), Optional.empty());
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 

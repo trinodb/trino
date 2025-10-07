@@ -40,6 +40,7 @@ public class AiConnectorFactory
         checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.catalog." + catalogName,
                 new AiModule(),
                 binder -> {
                     binder.bind(Tracer.class).toInstance(context.getTracer());

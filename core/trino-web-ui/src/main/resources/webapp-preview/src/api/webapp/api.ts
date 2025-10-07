@@ -282,6 +282,11 @@ export interface QueryStageStats {
     operatorSummaries: QueryStageOperatorSummary[]
 }
 
+export interface QueryPipeline {
+    pipelineId: number
+    operatorSummaries: QueryStageOperatorSummary[]
+}
+
 export interface QueryTask {
     lastHeartbeat: string
     needsPlan: boolean
@@ -303,6 +308,11 @@ export interface QueryTask {
         totalCpuTime: string
         totalScheduledTime: string
         userMemoryReservation: string
+        pipelines: QueryPipeline[]
+        firstStartTime: string
+        lastStartTime: string
+        lastEndTime: string
+        endTime: string
     }
     taskStatus: {
         nodeId: string

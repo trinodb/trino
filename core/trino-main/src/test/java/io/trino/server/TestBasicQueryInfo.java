@@ -165,7 +165,7 @@ public class TestBasicQueryInfo
                         false,
                         new NodeVersion("test")));
 
-        assertThat(basicInfo.getQueryId().getId()).isEqualTo("0");
+        assertThat(basicInfo.getQueryId().id()).isEqualTo("0");
         assertThat(basicInfo.getState()).isEqualTo(RUNNING);
         assertThat(basicInfo.isScheduled()).isTrue(); // from query stats
         assertThat(basicInfo.getQuery()).isEqualTo("SELECT 4");

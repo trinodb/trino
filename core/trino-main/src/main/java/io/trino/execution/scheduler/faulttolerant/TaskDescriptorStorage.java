@@ -217,7 +217,7 @@ public class TaskDescriptorStorage
      */
     public synchronized void put(StageId stageId, TaskDescriptor descriptor)
     {
-        TaskDescriptors storage = storages.get(stageId.getQueryId());
+        TaskDescriptors storage = storages.get(stageId.queryId());
         if (storage == null) {
             // query has been terminated
             return;
@@ -256,7 +256,7 @@ public class TaskDescriptorStorage
      */
     public synchronized Optional<TaskDescriptor> get(StageId stageId, int partitionId)
     {
-        TaskDescriptors storage = storages.get(stageId.getQueryId());
+        TaskDescriptors storage = storages.get(stageId.queryId());
         if (storage == null) {
             // query has been terminated
             return Optional.empty();
@@ -272,7 +272,7 @@ public class TaskDescriptorStorage
      */
     public synchronized void remove(StageId stageId, int partitionId)
     {
-        TaskDescriptors storage = storages.get(stageId.getQueryId());
+        TaskDescriptors storage = storages.get(stageId.queryId());
         if (storage == null) {
             // query has been terminated
             return;

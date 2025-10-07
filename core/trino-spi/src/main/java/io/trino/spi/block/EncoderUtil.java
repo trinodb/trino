@@ -69,52 +69,6 @@ final class EncoderUtil
     }
 
     /**
-     * Append null values for the block as a stream of bits.
-     *
-     * @deprecated Use {@link EncoderUtil#encodeNullsAsBits(SliceOutput, boolean[], int, int)} instead
-     */
-    @Deprecated(forRemoval = true)
-    @SuppressWarnings({"NarrowingCompoundAssignment", "ImplicitNumericConversion"})
-    public static void encodeNullsAsBits(SliceOutput sliceOutput, Block block)
-    {
-        boolean mayHaveNull = block.mayHaveNull();
-        sliceOutput.writeBoolean(mayHaveNull);
-        if (!mayHaveNull) {
-            return;
-        }
-
-        int positionCount = block.getPositionCount();
-        byte[] packedIsNull = new byte[((positionCount & ~0b111) + 1) / 8];
-        int currentByte = 0;
-
-        for (int position = 0; position < (positionCount & ~0b111); position += 8, currentByte++) {
-            byte value = 0;
-            value |= block.isNull(position) ? 0b1000_0000 : 0;
-            value |= block.isNull(position + 1) ? 0b0100_0000 : 0;
-            value |= block.isNull(position + 2) ? 0b0010_0000 : 0;
-            value |= block.isNull(position + 3) ? 0b0001_0000 : 0;
-            value |= block.isNull(position + 4) ? 0b0000_1000 : 0;
-            value |= block.isNull(position + 5) ? 0b0000_0100 : 0;
-            value |= block.isNull(position + 6) ? 0b0000_0010 : 0;
-            value |= block.isNull(position + 7) ? 0b0000_0001 : 0;
-            packedIsNull[currentByte] = value;
-        }
-
-        sliceOutput.writeBytes(packedIsNull);
-
-        // write last null bits
-        if ((positionCount & 0b111) > 0) {
-            byte value = 0;
-            int mask = 0b1000_0000;
-            for (int position = positionCount & ~0b111; position < positionCount; position++) {
-                value |= block.isNull(position) ? mask : 0;
-                mask >>>= 1;
-            }
-            sliceOutput.appendByte(value);
-        }
-    }
-
-    /**
      * Decode the bit stream created by encodeNullsAsBits.
      */
     public static Optional<boolean[]> decodeNullBits(SliceInput sliceInput, int positionCount)

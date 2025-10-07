@@ -60,6 +60,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorCapabilities;
+import io.trino.spi.connector.ConnectorName;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.Constraint;
@@ -370,6 +371,24 @@ public class TracingMetadata
         Span span = startSpan("listRelationComments", new QualifiedTablePrefix(catalogName, schemaName, Optional.empty()));
         try (var _ = scopedSpan(span)) {
             return delegate.listRelationComments(session, catalogName, schemaName, relationFilter);
+        }
+    }
+
+    @Override
+    public void createCatalog(Session session, CatalogName catalog, ConnectorName connectorName, Map<String, String> properties, boolean notExists)
+    {
+        Span span = startSpan("createCatalog", catalog);
+        try (var _ = scopedSpan(span)) {
+            delegate.createCatalog(session, catalog, connectorName, properties, notExists);
+        }
+    }
+
+    @Override
+    public void dropCatalog(Session session, CatalogName catalog, boolean cascade)
+    {
+        Span span = startSpan("dropCatalog", catalog);
+        try (var _ = scopedSpan(span)) {
+            delegate.dropCatalog(session, catalog, cascade);
         }
     }
 

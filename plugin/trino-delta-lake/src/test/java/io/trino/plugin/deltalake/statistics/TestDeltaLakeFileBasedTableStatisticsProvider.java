@@ -22,6 +22,7 @@ import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeSessionProperties;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
+import io.trino.plugin.deltalake.metastore.NoOpVendedCredentialsProvider;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -87,19 +88,19 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
 
         FileFormatDataSourceStats fileFormatDataSourceStats = new FileFormatDataSourceStats();
 
-        transactionLogReaderFactory = new FileSystemTransactionLogReaderFactory(new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY));
+        transactionLogReaderFactory = new FileSystemTransactionLogReaderFactory(new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpVendedCredentialsProvider()));
 
         transactionLogAccess = new TransactionLogAccess(
                 typeManager,
                 checkpointSchemaManager,
                 new DeltaLakeConfig(),
                 fileFormatDataSourceStats,
-                new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY),
+                new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpVendedCredentialsProvider()),
                 new ParquetReaderConfig(),
                 newDirectExecutorService(),
                 transactionLogReaderFactory);
 
-        statistics = new CachingExtendedStatisticsAccess(new MetaDirStatisticsAccess(new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY), new JsonCodecFactory().jsonCodec(ExtendedStatistics.class)));
+        statistics = new CachingExtendedStatisticsAccess(new MetaDirStatisticsAccess(new DefaultDeltaLakeFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY, new NoOpVendedCredentialsProvider()), new JsonCodecFactory().jsonCodec(ExtendedStatistics.class)));
         tableStatisticsProvider = new FileBasedTableStatisticsProvider(
                 typeManager,
                 transactionLogAccess,
@@ -138,8 +139,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 Optional.empty(),
                 Optional.empty(),
                 0,
-                false,
-                Optional.empty());
+                false);
     }
 
     @Test
@@ -271,8 +271,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 tableHandle.getUpdateRowIdColumns(),
                 tableHandle.getAnalyzeHandle(),
                 0,
-                tableHandle.isTimeTravel(),
-                Optional.empty());
+                tableHandle.isTimeTravel());
         stats = getTableStatistics(SESSION, tableHandleWithUnenforcedConstraint);
         columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
         assertThat(columnStatistics.getRange().get().getMin()).isEqualTo(0.0);
@@ -298,8 +297,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 tableHandle.getUpdateRowIdColumns(),
                 tableHandle.getAnalyzeHandle(),
                 0,
-                tableHandle.isTimeTravel(),
-                Optional.empty());
+                tableHandle.isTimeTravel());
         DeltaLakeTableHandle tableHandleWithNoneUnenforcedConstraint = new DeltaLakeTableHandle(
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
@@ -315,8 +313,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 tableHandle.getUpdateRowIdColumns(),
                 tableHandle.getAnalyzeHandle(),
                 0,
-                tableHandle.isTimeTravel(),
-                Optional.empty());
+                tableHandle.isTimeTravel());
         // If either the table handle's constraint or the provided Constraint are none, it will cause a 0 record count to be reported
         assertEmptyStats(getTableStatistics(SESSION, tableHandleWithNoneEnforcedConstraint));
         assertEmptyStats(getTableStatistics(SESSION, tableHandleWithNoneUnenforcedConstraint));

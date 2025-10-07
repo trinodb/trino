@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```text
-DELETE FROM table_name [ WHERE condition ]
+DELETE FROM table_name [ @ branch_name ] [ WHERE condition ]
 ```
 
 ## Description
@@ -30,6 +30,12 @@ Delete all orders:
 
 ```
 DELETE FROM orders;
+```
+
+Delete all orders in the `audit` branch:
+
+```sql
+DELETE FROM orders @ audit;
 ```
 
 ## Limitations

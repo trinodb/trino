@@ -37,7 +37,7 @@ public class TpcdsConnectorFactory
     {
         checkStrictSpiVersionMatch(context, this);
 
-        Bootstrap app = new Bootstrap(new TpcdsModule(context.getNodeManager()));
+        Bootstrap app = new Bootstrap("io.trino.bootstrap.catalog." + catalogName, new TpcdsModule(context.getNodeManager()));
 
         Injector injector = app
                 .doNotInitializeLogging()

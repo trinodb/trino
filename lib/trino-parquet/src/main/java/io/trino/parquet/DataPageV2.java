@@ -44,9 +44,10 @@ public final class DataPageV2
             int uncompressedSize,
             OptionalLong firstRowIndex,
             Statistics<?> statistics,
-            boolean isCompressed)
+            boolean isCompressed,
+            int pageIndex)
     {
-        super(uncompressedSize, valueCount, firstRowIndex);
+        super(uncompressedSize, valueCount, firstRowIndex, pageIndex);
         this.rowCount = rowCount;
         this.nullCount = nullCount;
         this.repetitionLevels = requireNonNull(repetitionLevels, "repetitionLevels slice is null");
@@ -82,6 +83,7 @@ public final class DataPageV2
         return dataEncoding;
     }
 
+    @Override
     public Slice getSlice()
     {
         return slice;

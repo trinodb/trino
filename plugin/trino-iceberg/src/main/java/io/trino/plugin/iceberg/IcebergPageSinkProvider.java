@@ -39,6 +39,7 @@ import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.io.LocationProvider;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.collect.Maps.transformValues;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.maxPartitionsPerWriter;
@@ -54,6 +55,7 @@ public class IcebergPageSinkProvider
     private final PageIndexerFactory pageIndexerFactory;
     private final DataSize sortingFileWriterBufferSize;
     private final int sortingFileWriterMaxOpenFiles;
+    private final Optional<String> sortingFileWriterLocalStagingPath;
     private final TypeManager typeManager;
     private final PageSorter pageSorter;
 
@@ -64,6 +66,7 @@ public class IcebergPageSinkProvider
             IcebergFileWriterFactory fileWriterFactory,
             PageIndexerFactory pageIndexerFactory,
             SortingFileWriterConfig sortingFileWriterConfig,
+            IcebergConfig icebergConfig,
             TypeManager typeManager,
             PageSorter pageSorter)
     {
@@ -73,6 +76,7 @@ public class IcebergPageSinkProvider
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.sortingFileWriterBufferSize = sortingFileWriterConfig.getWriterSortBufferSize();
         this.sortingFileWriterMaxOpenFiles = sortingFileWriterConfig.getMaxOpenSortFiles();
+        this.sortingFileWriterLocalStagingPath = icebergConfig.getSortedWritingLocalStagingPath();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
     }
@@ -111,6 +115,7 @@ public class IcebergPageSinkProvider
                 tableHandle.sortOrder(),
                 sortingFileWriterBufferSize,
                 sortingFileWriterMaxOpenFiles,
+                sortingFileWriterLocalStagingPath,
                 typeManager,
                 pageSorter);
     }
@@ -142,6 +147,7 @@ public class IcebergPageSinkProvider
                         optimizeHandle.sortOrder(),
                         sortingFileWriterBufferSize,
                         sortingFileWriterMaxOpenFiles,
+                        sortingFileWriterLocalStagingPath,
                         typeManager,
                         pageSorter);
             case OPTIMIZE_MANIFESTS:

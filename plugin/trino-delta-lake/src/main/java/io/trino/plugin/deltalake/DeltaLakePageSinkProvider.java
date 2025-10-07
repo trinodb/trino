@@ -119,7 +119,7 @@ public class DeltaLakePageSinkProvider
                 maxPartitionsPerWriter,
                 dataFileInfoCodec,
                 Location.of(tableHandle.location()),
-                tableHandle.credentialsHandle(),
+                tableHandle.toCredentialsHandle(),
                 session,
                 stats,
                 trinoVersion,

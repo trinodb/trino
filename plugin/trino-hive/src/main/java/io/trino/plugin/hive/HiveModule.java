@@ -14,14 +14,15 @@
 package io.trino.plugin.hive;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.avro.AvroFileWriterFactory;
 import io.trino.plugin.hive.avro.AvroPageSourceFactory;
+import io.trino.plugin.hive.crypto.ParquetEncryptionModule;
 import io.trino.plugin.hive.esri.EsriPageSourceFactory;
 import io.trino.plugin.hive.fs.CachingDirectoryLister;
 import io.trino.plugin.hive.fs.DirectoryLister;
@@ -61,10 +62,10 @@ import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HiveModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
         configBinder(binder).bindConfig(HiveConfig.class);
         configBinder(binder).bindConfig(HiveMetastoreConfig.class);
@@ -136,6 +137,7 @@ public class HiveModule
         fileWriterFactoryBinder.addBinding().to(ParquetFileWriterFactory.class).in(Scopes.SINGLETON);
 
         binder.install(new HiveExecutorModule());
+        install(new ParquetEncryptionModule());
     }
 
     @Provides

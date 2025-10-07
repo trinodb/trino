@@ -276,7 +276,7 @@ public class RowBlockBuilder
 
         if (startOffset == 0) {
             for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
-                appendPositionsToField(rawFieldBlocks[fieldId], positions, 0, length, fieldBlockBuilders[fieldId]);
+                appendPositionsToField(rawFieldBlocks[fieldId], positions, offset, length, fieldBlockBuilders[fieldId]);
             }
         }
         else {
