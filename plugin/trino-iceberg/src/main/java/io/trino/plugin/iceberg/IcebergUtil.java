@@ -188,6 +188,8 @@ import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
+import static org.apache.iceberg.TableProperties.GC_ENABLED;
+import static org.apache.iceberg.TableProperties.GC_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
@@ -869,7 +871,7 @@ public final class IcebergUtil
                 .toList();
     }
 
-    public static Transaction newCreateTableTransaction(TrinoCatalog catalog, ConnectorTableMetadata tableMetadata, ConnectorSession session, boolean replace, String tableLocation, Predicate<String> allowedExtraProperties)
+    public static Transaction newCreateTableTransaction(TrinoCatalog catalog, ConnectorTableMetadata tableMetadata, ConnectorSession session, boolean replace, String tableLocation, Predicate<String> allowedExtraProperties, boolean defaultNewTablesGcEnabled)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         Schema schema = schemaFromMetadata(tableMetadata.getColumns());
@@ -879,10 +881,10 @@ public final class IcebergUtil
         Transaction transaction;
 
         if (replace) {
-            transaction = catalog.newCreateOrReplaceTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, tableLocation, createTableProperties(tableMetadata, allowedExtraProperties));
+            transaction = catalog.newCreateOrReplaceTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, tableLocation, createTableProperties(tableMetadata, allowedExtraProperties, defaultNewTablesGcEnabled));
         }
         else {
-            transaction = catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, Optional.ofNullable(tableLocation), createTableProperties(tableMetadata, allowedExtraProperties));
+            transaction = catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, Optional.ofNullable(tableLocation), createTableProperties(tableMetadata, allowedExtraProperties, defaultNewTablesGcEnabled));
         }
 
         // If user doesn't set compression-codec for parquet, we need to remove write.parquet.compression-codec property,
@@ -897,7 +899,7 @@ public final class IcebergUtil
         return transaction;
     }
 
-    public static Map<String, String> createTableProperties(ConnectorTableMetadata tableMetadata, Predicate<String> allowedExtraProperties)
+    public static Map<String, String> createTableProperties(ConnectorTableMetadata tableMetadata, Predicate<String> allowedExtraProperties, boolean defaultNewTablesGcEnabled)
     {
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
         IcebergFileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
@@ -955,10 +957,15 @@ public final class IcebergUtil
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }
 
-        Map<String, String> baseProperties = propertiesBuilder.buildOrThrow();
         Map<String, String> extraProperties = IcebergTableProperties.getExtraProperties(tableMetadata.getProperties()).orElseGet(ImmutableMap::of);
+        verifyExtraProperties(propertiesBuilder.buildOrThrow().keySet(), extraProperties, allowedExtraProperties);
 
-        verifyExtraProperties(baseProperties.keySet(), extraProperties, allowedExtraProperties);
+        // If user doesn't set gc.enabled, we need to set it to defaultNewTablesGcEnabled value
+        if (!extraProperties.containsKey(GC_ENABLED) && defaultNewTablesGcEnabled != GC_ENABLED_DEFAULT) {
+            propertiesBuilder.put(GC_ENABLED, Boolean.toString(defaultNewTablesGcEnabled));
+        }
+
+        Map<String, String> baseProperties = propertiesBuilder.buildOrThrow();
 
         return ImmutableMap.<String, String>builder()
                 .putAll(baseProperties)

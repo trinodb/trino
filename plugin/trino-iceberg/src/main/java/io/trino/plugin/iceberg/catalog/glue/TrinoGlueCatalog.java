@@ -160,6 +160,9 @@ import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.CatalogUtil.dropTableData;
+import static org.apache.iceberg.TableProperties.GC_ENABLED;
+import static org.apache.iceberg.TableProperties.GC_ENABLED_DEFAULT;
+import static org.apache.iceberg.util.PropertyUtil.propertyAsBoolean;
 
 public class TrinoGlueCatalog
         extends AbstractTrinoCatalog
@@ -707,7 +710,9 @@ public class TrinoGlueCatalog
             // So log the exception and continue with deleting the table location
             LOG.warn(e, "Failed to delete table data referenced by metadata");
         }
-        deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, table.location());
+        if (propertyAsBoolean(table.properties(), GC_ENABLED, GC_ENABLED_DEFAULT)) {
+            deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, table.location());
+        }
         invalidateTableCache(schemaTableName);
     }
 

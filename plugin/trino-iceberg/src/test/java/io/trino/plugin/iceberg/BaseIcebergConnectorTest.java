@@ -219,7 +219,7 @@ public abstract class BaseIcebergConnectorTest
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.file-format", format.name())
                         // Only allow some extra properties. Add "sorted_by" so that we can test that the property is disallowed by the connector explicitly.
-                        .put("iceberg.allowed-extra-properties", "extra.property.one,extra.property.two,extra.property.three,sorted_by")
+                        .put("iceberg.allowed-extra-properties", "extra.property.one,extra.property.two,extra.property.three,sorted_by,gc.enabled")
                         // Allows testing the sorting writer flushing to the file system with smaller tables
                         .put("iceberg.writer-sort-buffer-size", "1MB")
                         .buildOrThrow())
@@ -5126,6 +5126,96 @@ public abstract class BaseIcebergConnectorTest
                 verifySplitCount("SELECT row_id FROM " + tableName + " WHERE col < " + highValue,
                         (format == ORC && testSetup.getTrinoTypeName().contains("timestamp(6)") ? 2 : expectedSplitCount));
             }
+        }
+    }
+
+    @Test
+    public void testDefaultGcEnabledTablePropertyOnCreateAndCtas() throws IOException
+    {
+        // CREATE TABLE AS SELECT
+        String ctasTable = "test_gc_enabled_ctas_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + ctasTable + " AS SELECT 1 x", 1);
+        String ctasTableLocation = getTableLocation(ctasTable);
+        String ctasMetadataLocation = getLatestMetadataLocation(fileSystem, ctasTableLocation);
+        TableMetadata ctasMetadata = TableMetadataParser.read(FILE_IO_FACTORY.create(fileSystem), ctasMetadataLocation);
+        assertThat(ctasMetadata.properties().getOrDefault("gc.enabled", "")).isEqualTo("");
+        assertThat(ctasMetadata.properties().getOrDefault("gc.enabled", "true")).isEqualTo("true");
+
+        // collect data files and verify they are removed on drop
+        var ctasDataFiles = getAllDataFilesFromTableDirectory(ctasTable);
+        assertThat(ctasDataFiles).isNotEmpty();
+        assertUpdate("DROP TABLE " + ctasTable);
+        for (String path : ctasDataFiles) {
+            assertThat(fileSystem.newInputFile(Location.of(path)).exists()).isFalse();
+        }
+
+        // CREATE TABLE then INSERT
+        String createTable = "test_gc_enabled_create_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + createTable + " (a bigint)");
+        String createTableLocation = getTableLocation(createTable);
+        String createMetadataLocation = getLatestMetadataLocation(fileSystem, createTableLocation);
+        TableMetadata createMetadata = TableMetadataParser.read(FILE_IO_FACTORY.create(fileSystem), createMetadataLocation);
+        assertThat(createMetadata.properties().getOrDefault("gc.enabled", "")).isEqualTo("");
+        assertThat(createMetadata.properties().getOrDefault("gc.enabled", "true")).isEqualTo("true");
+        assertUpdate("INSERT INTO " + createTable + " VALUES 2", 1);
+        var createDataFiles = getAllDataFilesFromTableDirectory(createTable);
+        assertThat(createDataFiles).isNotEmpty();
+        assertUpdate("DROP TABLE " + createTable);
+        for (String path : createDataFiles) {
+            assertThat(fileSystem.newInputFile(Location.of(path)).exists()).isFalse();
+        }
+    }
+
+    @Test
+    public void testGcDisabledDoesNotDeleteDataFilesOnDrop() throws IOException
+    {
+        String table = "test_gc_disabled_keeps_files_" + randomNameSuffix();
+        // Set gc.enabled=false via extra_properties
+        assertUpdate("CREATE TABLE " + table + " WITH (extra_properties = MAP(ARRAY['gc.enabled'], ARRAY['false'])) AS SELECT 1 x", 1);
+
+        String tableLocation = getTableLocation(table);
+        String metadataLocation = getLatestMetadataLocation(fileSystem, tableLocation);
+        TableMetadata metadata = TableMetadataParser.read(FILE_IO_FACTORY.create(fileSystem), metadataLocation);
+        assertThat(metadata.properties().getOrDefault("gc.enabled", "")).isEqualTo("false");
+
+        var dataFiles = getAllDataFilesFromTableDirectory(table);
+        assertThat(dataFiles).isNotEmpty();
+
+        assertUpdate("DROP TABLE " + table);
+
+        // When gc.enabled is false, data files should not be deleted. Verify the data files still exist
+        for (String path : dataFiles) {
+            assertThat(fileSystem.newInputFile(Location.of(path)).exists()).isTrue();
+        }
+    }
+
+    @Test
+    public void testGcDisabledAfterAlterDoesNotDeleteDataFilesOnDrop() throws IOException
+    {
+        String table = "test_gc_disabled_after_alter_keeps_files_" + randomNameSuffix();
+        // CTAS to create table with default gc.enabled=true
+        assertUpdate("CREATE TABLE " + table + " AS SELECT 1 x", 1);
+
+        String tableLocation = getTableLocation(table);
+        String metadataLocation = getLatestMetadataLocation(fileSystem, tableLocation);
+        TableMetadata metadata = TableMetadataParser.read(FILE_IO_FACTORY.create(fileSystem), metadataLocation);
+        assertThat(metadata.properties().getOrDefault("gc.enabled", "true")).isEqualTo("true");
+
+        var dataFiles = getAllDataFilesFromTableDirectory(table);
+        assertThat(dataFiles).isNotEmpty();
+
+        // Flip gc.enabled to false via ALTER TABLE ... SET PROPERTIES extra_properties
+        assertUpdate("ALTER TABLE " + table + " SET PROPERTIES extra_properties = MAP(ARRAY['gc.enabled'], ARRAY['false'])");
+
+        // Verify the property is now false in latest metadata
+        String newMetadataLocation = getLatestMetadataLocation(fileSystem, tableLocation);
+        TableMetadata newMetadata = TableMetadataParser.read(FILE_IO_FACTORY.create(fileSystem), newMetadataLocation);
+        assertThat(newMetadata.properties().getOrDefault("gc.enabled", "")).isEqualTo("false");
+
+        // Drop the table and verify data files still exist
+        assertUpdate("DROP TABLE " + table);
+        for (String path : dataFiles) {
+            assertThat(fileSystem.newInputFile(Location.of(path)).exists()).isTrue();
         }
     }
 

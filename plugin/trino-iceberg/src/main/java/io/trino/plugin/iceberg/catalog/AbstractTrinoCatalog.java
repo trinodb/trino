@@ -107,6 +107,7 @@ import static java.util.UUID.randomUUID;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.apache.iceberg.TableMetadataParser.getFileExtension;
+import static org.apache.iceberg.TableProperties.GC_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION_DEFAULT;
 import static org.apache.iceberg.Transactions.createOrReplaceTableTransaction;
 import static org.apache.iceberg.Transactions.createTableTransaction;
@@ -312,7 +313,7 @@ public abstract class AbstractTrinoCatalog
         Schema schema = schemaFromMetadata(columns);
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(materializedViewProperties));
         SortOrder sortOrder = parseSortFields(schema, getSortOrder(materializedViewProperties));
-        Map<String, String> properties = createTableProperties(new ConnectorTableMetadata(storageTableName, columns, materializedViewProperties, Optional.empty()), _ -> false);
+        Map<String, String> properties = createTableProperties(new ConnectorTableMetadata(storageTableName, columns, materializedViewProperties, Optional.empty()), _ -> false, GC_ENABLED_DEFAULT);
 
         TableMetadata metadata = newTableMetadata(schema, partitionSpec, sortOrder, tableLocation, properties);
 
@@ -350,7 +351,7 @@ public abstract class AbstractTrinoCatalog
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, materializedViewProperties, Optional.empty());
         String tableLocation = getTableLocation(tableMetadata.getProperties())
                 .orElseGet(() -> defaultTableLocation(session, tableMetadata.getTable()));
-        Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session, false, tableLocation, _ -> false);
+        Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session, false, tableLocation, _ -> false, GC_ENABLED_DEFAULT);
         AppendFiles appendFiles = transaction.newAppend();
         commit(appendFiles, session);
         transaction.commitTransaction();

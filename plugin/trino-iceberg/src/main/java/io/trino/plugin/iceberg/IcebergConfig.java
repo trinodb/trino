@@ -45,6 +45,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.iceberg.TableProperties.GC_ENABLED_DEFAULT;
 
 @DefunctConfig({
         "iceberg.allow-legacy-snapshot-syntax",
@@ -95,6 +96,7 @@ public class IcebergConfig
     private int planningThreads = Math.min(Runtime.getRuntime().availableProcessors(), 16);
     private int fileDeleteThreads = Runtime.getRuntime().availableProcessors() * 2;
     private List<String> allowedExtraProperties = ImmutableList.of();
+    private boolean defaultNewTablesGcEnabled = GC_ENABLED_DEFAULT;
     private boolean incrementalRefreshEnabled = true;
     private boolean metadataCacheEnabled = true;
     private boolean objectStoreLayoutEnabled;
@@ -564,6 +566,19 @@ public class IcebergConfig
         this.allowedExtraProperties = ImmutableList.copyOf(allowedExtraProperties);
         checkArgument(!allowedExtraProperties.contains("*") || allowedExtraProperties.size() == 1,
                 "Wildcard * should be the only element in the list");
+        return this;
+    }
+
+    public boolean isDefaultNewTablesGcEnabled()
+    {
+        return defaultNewTablesGcEnabled;
+    }
+
+    @Config("iceberg.default-new-tables-gc.enabled")
+    @ConfigDescription("Default value for Iceberg property gc.enabled when creating new tables")
+    public IcebergConfig setDefaultNewTablesGcEnabled(boolean defaultNewTablesGcEnabled)
+    {
+        this.defaultNewTablesGcEnabled = defaultNewTablesGcEnabled;
         return this;
     }
 
