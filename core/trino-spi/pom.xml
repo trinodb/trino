@@ -292,6 +292,15 @@
                                     <new>method io.opentelemetry.api.common.Value&lt;java.util.List&lt;io.opentelemetry.api.common.Value&lt;?&gt;&gt;&gt; io.opentelemetry.api.common.Value&lt;T&gt;::of(io.opentelemetry.api.common.Value&lt;?&gt;[])</new>
                                     <justification>Revapi now detects new API changes to vararg args</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method boolean[] io.trino.spi.block.RowBlock::getRawRowIsNull()</old>
+                                    <new>method boolean[] io.trino.spi.block.RowBlock::getRawRowIsNull()</new>
+                                    <oldVisibility>package</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                    <justification>Allow direct access to isNull mask on RowBlock for performance critical sections</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

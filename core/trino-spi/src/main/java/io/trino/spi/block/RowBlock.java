@@ -185,7 +185,7 @@ public final class RowBlock
     }
 
     @Nullable
-    boolean[] getRawRowIsNull()
+    public boolean[] getRawRowIsNull()
     {
         return rowIsNull;
     }
