@@ -179,6 +179,7 @@ public class TestQueryStateInfo
                         DataSize.valueOf("41GB"),
                         ImmutableList.of(),
                         DynamicFiltersStats.EMPTY,
+                        ImmutableMap.of(),
                         ImmutableList.of(),
                         ImmutableList.of()),
                 Optional.empty(),

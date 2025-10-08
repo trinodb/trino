@@ -415,8 +415,9 @@ public class TestSystemMetadataConnector
         });
 
         actualMetadataCallsCount = actualMetadataCallsCount.stream()
-                // Every query involves beginQuery and cleanupQuery, so ignore them.
-                .filter(method -> !"ConnectorMetadata.beginQuery".equals(method) && !"ConnectorMetadata.cleanupQuery".equals(method))
+                // Every query involves beginQuery, cleanupQuery and getMetrics, so ignore them.
+                .filter(method -> !"ConnectorMetadata.beginQuery".equals(method) && !"ConnectorMetadata.cleanupQuery".equals(method)
+                        && !"ConnectorMetadata.getMetrics".equals(method))
                 .collect(toImmutableMultiset());
 
         assertMultisetsEqual(actualMetadataCallsCount, expectedMetadataCallsCount);
