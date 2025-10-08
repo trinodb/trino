@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
@@ -270,7 +271,7 @@ public class TestQueryStats
                     107)),
 
             DynamicFiltersStats.EMPTY,
-
+            ImmutableMap.of(),
             operatorSummaries,
             optimizerRulesSummaries);
 
