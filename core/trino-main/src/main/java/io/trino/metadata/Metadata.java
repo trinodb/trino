@@ -67,6 +67,7 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.FunctionAuthorization;
 import io.trino.spi.security.GrantInfo;
@@ -146,6 +147,11 @@ public interface Metadata
     Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right);
 
     Optional<Object> getInfo(Session session, TableHandle handle);
+
+    /**
+     * Return connector-specific, metadata operations metrics for the given session.
+     */
+    Metrics getMetrics(Session session, String catalogName);
 
     CatalogSchemaTableName getTableName(Session session, TableHandle tableHandle);
 
@@ -482,6 +488,8 @@ public interface Metadata
      * Gets all the catalogs
      */
     List<CatalogInfo> listCatalogs(Session session);
+
+    List<CatalogInfo> listActiveCatalogs(Session session);
 
     /**
      * Get the names that match the specified table prefix (never null).

@@ -28,6 +28,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Privilege;
@@ -251,6 +252,14 @@ public interface ConnectorMetadata
     default Optional<Object> getInfo(ConnectorSession session, ConnectorTableHandle table)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Return connector-specific, metadata operations metrics for the given session.
+     */
+    default Metrics getMetrics(ConnectorSession session)
+    {
+        return Metrics.EMPTY;
     }
 
     /**
