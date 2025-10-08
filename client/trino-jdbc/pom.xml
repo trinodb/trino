@@ -477,6 +477,10 @@
                                     <shadedPattern>${shadeBase}.guava</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>com.squareup</pattern>
+                                    <shadedPattern>${shadeBase}.squareup</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>io.airlift</pattern>
                                     <shadedPattern>${shadeBase}.airlift</shadedPattern>
                                 </relocation>
@@ -487,6 +491,10 @@
                                 <relocation>
                                     <pattern>net.bytebuddy</pattern>
                                     <shadedPattern>${shadeBase}.net.bytebuddy</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.brotli</pattern>
+                                    <shadedPattern>${shadeBase}.brotli</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>org.joda.time</pattern>
