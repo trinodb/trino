@@ -33,6 +33,8 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.OperatorStats;
+import io.trino.plugin.base.metrics.DistributionSnapshot;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.server.DynamicFilterService;
@@ -42,6 +44,7 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Plan;
@@ -56,9 +59,11 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.TestingSession;
 import io.trino.testing.sql.TestTable;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
@@ -111,8 +116,10 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
+import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.SystemSessionProperties.DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.SystemSessionProperties.ITERATIVE_OPTIMIZER_TIMEOUT;
 import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.MAX_WRITER_TASK_COUNT;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
@@ -179,6 +186,7 @@ import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.offset;
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseIcebergConnectorTest
@@ -9212,6 +9220,52 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails(
                 "CREATE TABLE test_data_location WITH (data_location = 'local:///data-location/xyz') AS SELECT 1 AS val",
                 "Data location can only be set when object store layout is enabled");
+    }
+
+    @Test
+    public void testCatalogMetadataMetrics()
+    {
+        MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(
+                getSession(),
+                "SELECT count(*) FROM region r, nation n WHERE r.regionkey = n.regionkey");
+        Map<String, Metrics> metrics = getCatalogMetadataMetrics(result.queryId());
+        assertCountMetricExists(metrics, "iceberg", "metastore.all.time.total");
+        assertDistributionMetricExists(metrics, "iceberg", "metastore.all.time.distribution");
+        assertCountMetricExists(metrics, "iceberg", "metastore.getTable.time.total");
+        assertDistributionMetricExists(metrics, "iceberg", "metastore.getTable.time.distribution");
+    }
+
+    @Test
+    public void testCatalogMetadataMetricsWithOptimizerTimeoutExceeded()
+    {
+        String query = "SELECT count(*) FROM region r, nation n WHERE r.regionkey = n.regionkey";
+        try {
+            Session smallOptimizerTimeout = TestingSession.testSessionBuilder(getSession())
+                    .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, succinctDuration(1, MILLISECONDS).toString())
+                    .build();
+            MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(smallOptimizerTimeout, query);
+            fail(format("Expected query to fail: %s [QueryId: %s]", query, result.queryId()));
+        }
+        catch (QueryFailedException e) {
+            assertThat(e.getMessage()).contains("The optimizer exhausted the time limit");
+            Map<String, Metrics> metrics = getCatalogMetadataMetrics(e.getQueryId());
+            assertCountMetricExists(metrics, "iceberg", "metastore.all.time.total");
+            assertCountMetricExists(metrics, "iceberg", "metastore.getTable.time.total");
+        }
+    }
+
+    protected static void assertDistributionMetricExists(Map<String, Metrics> metrics, String catalog, String metricKey)
+    {
+        assertThat(metrics.get(catalog).getMetrics()).isNotEmpty();
+        assertThat(metrics.get(catalog).getMetrics()).containsKey(metricKey);
+        assertThat(((DistributionSnapshot) metrics.get(catalog).getMetrics().get(metricKey)).total()).isGreaterThan(0);
+    }
+
+    protected static void assertCountMetricExists(Map<String, Metrics> metrics, String catalog, String metricKey)
+    {
+        assertThat(metrics.get(catalog).getMetrics()).isNotEmpty();
+        assertThat(metrics.get(catalog).getMetrics()).containsKey(metricKey);
+        assertThat(((LongCount) metrics.get(catalog).getMetrics().get(metricKey)).getTotal()).isGreaterThan(0);
     }
 
     @Test
