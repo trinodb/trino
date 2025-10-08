@@ -24,6 +24,7 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.TrinoPrincipal;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.BaseTable;
@@ -200,4 +201,9 @@ public interface TrinoCatalog
     void updateColumnComment(ConnectorSession session, SchemaTableName schemaTableName, ColumnIdentity columnIdentity, Optional<String> comment);
 
     Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName, String hiveCatalogName);
+
+    default Metrics getMetrics()
+    {
+        return Metrics.EMPTY;
+    }
 }

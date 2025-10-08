@@ -53,6 +53,7 @@ import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.ViewNotFoundException;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.BaseTable;
@@ -878,6 +879,12 @@ public class TrinoHiveCatalog
             return Optional.of(new CatalogSchemaTableName(hiveCatalogName, tableName));
         }
         return Optional.empty();
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return metastore.getMetrics();
     }
 
     @Override
