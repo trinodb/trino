@@ -29,7 +29,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static io.trino.execution.DistributionSnapshot.pruneMetrics;
+import static io.trino.plugin.base.metrics.DistributionSnapshot.pruneMetrics;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
