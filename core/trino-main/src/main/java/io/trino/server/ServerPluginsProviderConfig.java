@@ -13,23 +13,28 @@
  */
 package io.trino.server;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.validation.FileExists;
 
 import java.io.File;
+import java.util.List;
 
 public class ServerPluginsProviderConfig
 {
-    private File installedPluginsDir = new File("plugin");
+    private List<File> installedPluginsDirs = ImmutableList.of(new File("plugin"));
 
-    public File getInstalledPluginsDir()
+    public List<@FileExists File> getInstalledPluginsDirs()
     {
-        return installedPluginsDir;
+        return installedPluginsDirs;
     }
 
     @Config("plugin.dir")
-    public ServerPluginsProviderConfig setInstalledPluginsDir(File installedPluginsDir)
+    @ConfigDescription("Comma separated list of root directories where the plugins are located")
+    public ServerPluginsProviderConfig setInstalledPluginsDirs(List<File> installedPluginsDirs)
     {
-        this.installedPluginsDir = installedPluginsDir;
+        this.installedPluginsDirs = ImmutableList.copyOf(installedPluginsDirs);
         return this;
     }
 }

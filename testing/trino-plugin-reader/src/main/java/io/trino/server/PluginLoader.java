@@ -67,10 +67,10 @@ public class PluginLoader
         plugin.getExchangeManagerFactories().forEach(factory -> System.out.println(EXCHANGE_MANAGER + factory.getName()));
     }
 
-    public static List<Plugin> loadPlugins(File path)
+    public static List<Plugin> loadPlugins(List<File> path)
     {
         ServerPluginsProviderConfig config = new ServerPluginsProviderConfig();
-        config.setInstalledPluginsDir(path);
+        config.setInstalledPluginsDirs(path);
         ServerPluginsProvider pluginsProvider = new ServerPluginsProvider(config, directExecutor());
         ImmutableList.Builder<Plugin> plugins = ImmutableList.builder();
         pluginsProvider.loadPlugins((plugin, createClassLoader) -> loadPlugin(createClassLoader, plugins), PluginManager::createClassLoader);

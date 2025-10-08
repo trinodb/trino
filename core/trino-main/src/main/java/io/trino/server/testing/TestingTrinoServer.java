@@ -275,7 +275,10 @@ public class TestingTrinoServer
                 .put("exchange.client-threads", "4")
                 // Reduce memory footprint in tests
                 .put("exchange.max-buffer-size", "4MB")
-                .put("internal-communication.shared-secret", "internal-shared-secret");
+                .put("internal-communication.shared-secret", "internal-shared-secret")
+                .put("plugin.dir", baseDataDir
+                        .orElseGet(TestingTrinoServer::tempDirectory)
+                        .toString());
 
         if (coordinator) {
             if (catalogMangerKind == CatalogMangerKind.DYNAMIC) {

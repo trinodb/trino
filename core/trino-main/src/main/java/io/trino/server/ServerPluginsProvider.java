@@ -36,13 +36,13 @@ import static java.util.Objects.requireNonNull;
 public class ServerPluginsProvider
         implements PluginsProvider
 {
-    private final File installedPluginsDir;
+    private final List<File> installedPluginsDirs;
     private final Executor executor;
 
     @Inject
     public ServerPluginsProvider(ServerPluginsProviderConfig config, @ForStartup Executor executor)
     {
-        this.installedPluginsDir = config.getInstalledPluginsDir();
+        this.installedPluginsDirs = config.getInstalledPluginsDirs();
         this.executor = requireNonNull(executor, "executor is null");
     }
 
@@ -51,7 +51,8 @@ public class ServerPluginsProvider
     {
         executeUntilFailure(
                 executor,
-                listFiles(installedPluginsDir).stream()
+                installedPluginsDirs.stream()
+                        .flatMap(installedPluginsDir -> listFiles(installedPluginsDir).stream())
                         .filter(File::isDirectory)
                         .map(file -> (Callable<?>) () -> {
                             loader.load(file.getAbsolutePath(), () ->
