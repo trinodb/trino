@@ -121,7 +121,7 @@ class OutputBufferMemoryManager
                     this.bufferBlockedFuture = null;
                 }
             }
-            recordBufferUtilization();
+            recordBufferUtilization(currentBufferedBytes);
         }
         // Reduce contention by reading first and only updating if the new value might become the maximum (uncommon)
         if (currentBufferedBytes > peakMemoryUsage.get()) {
@@ -134,13 +134,13 @@ class OutputBufferMemoryManager
         }
     }
 
-    private synchronized void recordBufferUtilization()
+    private synchronized void recordBufferUtilization(long currentBufferedBytes)
     {
         long recordTime = ticker.read();
         if (lastBufferUtilizationRecordTime != -1) {
             bufferUtilization.add(lastBufferUtilization, (double) recordTime - this.lastBufferUtilizationRecordTime);
         }
-        double utilization = getUtilization();
+        double utilization = getUtilization(currentBufferedBytes);
         // skip recording of buffer utilization until data is put into buffer
         if (lastBufferUtilizationRecordTime != -1 || utilization != 0.0) {
             lastBufferUtilizationRecordTime = recordTime;
@@ -190,13 +190,18 @@ class OutputBufferMemoryManager
 
     public double getUtilization()
     {
-        return bufferedBytes.get() / (double) maxBufferedBytes;
+        return getUtilization(bufferedBytes.get());
+    }
+
+    private double getUtilization(long currentBufferedBytes)
+    {
+        return currentBufferedBytes / (double) maxBufferedBytes;
     }
 
     public synchronized TDigest getUtilizationHistogram()
     {
         // always get most up to date histogram
-        recordBufferUtilization();
+        recordBufferUtilization(bufferedBytes.get());
         return TDigest.copyOf(bufferUtilization);
     }
 
