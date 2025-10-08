@@ -68,6 +68,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrincipalType;
@@ -1280,6 +1281,11 @@ public class SemiTransactionalHiveMetastore
     public void checkSupportsHiveAcidTransactions()
     {
         delegate.checkSupportsTransactions();
+    }
+
+    public Metrics getMetrics()
+    {
+        return delegate.getMetrics();
     }
 
     public void beginQuery(ConnectorSession session)
