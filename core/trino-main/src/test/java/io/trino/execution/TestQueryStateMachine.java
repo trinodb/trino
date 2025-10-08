@@ -30,6 +30,7 @@ import io.trino.execution.warnings.DefaultWarningCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.execution.warnings.WarningCollectorConfig;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.TestMetadataManager;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
@@ -89,7 +90,6 @@ import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.execution.QueryState.STARTING;
 import static io.trino.execution.QueryState.WAITING_FOR_RESOURCES;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
@@ -442,15 +442,7 @@ public class TestQueryStateMachine
     {
         CountDownLatch cleanup = new CountDownLatch(1);
         QueryStateMachine queryStateMachine = queryStateMachine()
-                .withMetadata(new TracingMetadata(noopTracer(), createTestMetadataManager())
-                {
-                    @Override
-                    public void cleanupQuery(Session session)
-                    {
-                        cleanup.countDown();
-                        super.cleanupQuery(session);
-                    }
-                })
+                .beforeQueryCleanup(cleanup::countDown)
                 .build();
 
         Future<?> anotherThread = executor.submit(() -> {
@@ -479,15 +471,7 @@ public class TestQueryStateMachine
     {
         CountDownLatch cleanup = new CountDownLatch(1);
         QueryStateMachine queryStateMachine = queryStateMachine()
-                .withMetadata(new TracingMetadata(noopTracer(), createTestMetadataManager())
-                {
-                    @Override
-                    public void cleanupQuery(Session session)
-                    {
-                        cleanup.countDown();
-                        super.cleanupQuery(session);
-                    }
-                })
+                .beforeQueryCleanup(cleanup::countDown)
                 .build();
 
         Future<?> anotherThread = executor.submit(() -> {
@@ -761,7 +745,7 @@ public class TestQueryStateMachine
     private class QueryStateMachineBuilder
     {
         private Ticker ticker = Ticker.systemTicker();
-        private Metadata metadata;
+        private Optional<Runnable> beforeQueryCleanup = Optional.empty();
         private WarningCollector warningCollector = WarningCollector.NOOP;
         private String setCatalog;
         private String setPath;
@@ -780,9 +764,9 @@ public class TestQueryStateMachine
         }
 
         @CanIgnoreReturnValue
-        public QueryStateMachineBuilder withMetadata(Metadata metadata)
+        public QueryStateMachineBuilder beforeQueryCleanup(Runnable runnable)
         {
-            this.metadata = metadata;
+            this.beforeQueryCleanup = Optional.of(runnable);
             return this;
         }
 
@@ -842,10 +826,24 @@ public class TestQueryStateMachine
 
         public QueryStateMachine build()
         {
-            if (metadata == null) {
-                metadata = createTestMetadataManager();
-            }
             TransactionManager transactionManager = createTestTransactionManager();
+            Metadata metadata = TestMetadataManager.builder()
+                    .withTransactionManager(transactionManager)
+                    .build();
+            if (beforeQueryCleanup.isPresent()) {
+                Runnable beforeQueryCleanupAction = beforeQueryCleanup.get();
+                // Using TracingMetadata in lieu of "Forwarding Metadata" which currently does not exist
+                metadata = new TracingMetadata(noopTracer(), metadata)
+                {
+                    @Override
+                    public void cleanupQuery(Session session)
+                    {
+                        beforeQueryCleanupAction.run();
+                        super.cleanupQuery(session);
+                    }
+                };
+            }
+
             AccessControlManager accessControl = new AccessControlManager(
                     NodeVersion.UNKNOWN,
                     transactionManager,
