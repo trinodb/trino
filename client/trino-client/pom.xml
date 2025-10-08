@@ -56,22 +56,12 @@
 
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp-brotli</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp-jvm</artifactId>
         </dependency>
 
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp-urlconnection</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp-zstd</artifactId>
         </dependency>
 
         <dependency>

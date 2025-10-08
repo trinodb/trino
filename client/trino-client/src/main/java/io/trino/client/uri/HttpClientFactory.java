@@ -21,11 +21,7 @@ import io.trino.client.auth.external.ExternalAuthenticator;
 import io.trino.client.auth.external.HttpTokenPoller;
 import io.trino.client.auth.external.RedirectHandler;
 import io.trino.client.auth.external.TokenPoller;
-import okhttp3.CompressionInterceptor;
-import okhttp3.Gzip;
 import okhttp3.OkHttpClient;
-import okhttp3.brotli.Brotli;
-import okhttp3.zstd.Zstd;
 
 import java.io.File;
 import java.time.Duration;
@@ -130,10 +126,6 @@ public class HttpClientFactory
         setupTimeouts(builder, toIntExact(uri.getTimeout().toMillis()), TimeUnit.MILLISECONDS);
         setupHttpLogging(builder, uri.getHttpLoggingLevel());
 
-        if (!uri.isCompressionDisabled()) {
-            setupCompression(builder);
-        }
-
         if (uri.isLocalRedirectDisallowed()) {
             builder.addNetworkInterceptor(new DisallowLocalRedirectInterceptor());
         }
@@ -172,11 +164,6 @@ public class HttpClientFactory
         uri.getDnsResolver().ifPresent(resolverClass -> builder.dns(instantiateDnsResolver(resolverClass, uri.getDnsResolverContext())::lookup));
 
         return builder;
-    }
-
-    private static void setupCompression(OkHttpClient.Builder builder)
-    {
-        builder.addInterceptor(new CompressionInterceptor(Zstd.INSTANCE, Brotli.INSTANCE, Gzip.INSTANCE));
     }
 
     protected static void setupUserAgent(OkHttpClient.Builder builder, String userAgent)
