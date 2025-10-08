@@ -14,10 +14,12 @@
 package io.trino.server;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -35,6 +37,24 @@ class TestPluginReader
         int exitCode = cmd.execute(
                 "--impacted-modules", "src/test/resources/gib-impacted.log",
                 "--plugin-dir", "src/test/resources/server-plugins",
+                "--root-pom", "src/test/resources/pom.xml");
+        assertThat(exitCode).isEqualTo(0);
+        assertThat(writer.toString()).isEqualTo("");
+    }
+
+    @Test
+    void testCallMultiplePluginDirs(@TempDir Path tempDir)
+    {
+        PluginReader pluginReader = new PluginReader();
+        StringWriter writer = new StringWriter();
+        CommandLine cmd = new CommandLine(pluginReader)
+                .setOut(new PrintWriter(writer))
+                .setErr(new PrintWriter(writer));
+
+        int exitCode = cmd.execute(
+                "--impacted-modules", "src/test/resources/gib-impacted.log",
+                "--plugin-dir", "src/test/resources/server-plugins",
+                "--plugin-dir", tempDir.toString(),
                 "--root-pom", "src/test/resources/pom.xml");
         assertThat(exitCode).isEqualTo(0);
         assertThat(writer.toString()).isEqualTo("");
