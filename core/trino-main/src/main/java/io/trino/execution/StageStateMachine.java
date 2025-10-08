@@ -29,6 +29,7 @@ import io.trino.operator.BlockedReason;
 import io.trino.operator.OperatorStats;
 import io.trino.operator.PipelineStats;
 import io.trino.operator.TaskStats;
+import io.trino.plugin.base.metrics.DistributionSnapshot;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.metrics.Metrics;

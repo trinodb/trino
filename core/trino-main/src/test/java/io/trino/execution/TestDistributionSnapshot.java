@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import io.airlift.stats.TDigest;
+import io.trino.plugin.base.metrics.DistributionSnapshot;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import org.junit.jupiter.api.Test;
 
