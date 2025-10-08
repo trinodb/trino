@@ -24,7 +24,12 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionProcessorProviderFactory;
+import io.trino.plugin.lakehouse.functions.tablechanges.TableChangesFunctionProvider;
+import io.trino.spi.function.FunctionProvider;
+import io.trino.spi.function.table.ConnectorTableFunction;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -52,6 +57,10 @@ class LakehouseModule
 
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
+
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(TableChangesFunctionProvider.class).in(Scopes.SINGLETON);
+        binder.bind(FunctionProvider.class).to(LakehouseFunctionProvider.class).in(Scopes.SINGLETON);
+        binder.bind(TableChangesFunctionProcessorProviderFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(Key.get(boolean.class, HideDeltaLakeTables.class)).toInstance(false);
     }
