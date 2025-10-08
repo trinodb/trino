@@ -39,7 +39,7 @@ import static java.util.Objects.requireNonNull;
  * - the memory pool is exhausted
  */
 @ThreadSafe
-class OutputBufferMemoryManager
+final class OutputBufferMemoryManager
 {
     private static final ListenableFuture<Void> NOT_BLOCKED = immediateVoidFuture();
 
