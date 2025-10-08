@@ -24,7 +24,6 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.type.Type;
 import io.trino.type.UnknownType;
 
@@ -34,7 +33,6 @@ import java.util.function.Function;
 
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.instruction.VariableInstruction.incrementVariable;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
@@ -60,7 +58,7 @@ public class ArrayMapBytecodeExpression
         body = new BytecodeBlock();
 
         Variable blockBuilder = scope.declareVariable(BlockBuilder.class, "blockBuilder_" + NEXT_VARIABLE_ID.getAndIncrement());
-        body.append(blockBuilder.set(constantType(binder, toType).invoke("createBlockBuilder", BlockBuilder.class, constantNull(BlockBuilderStatus.class), array.invoke("getPositionCount", int.class))));
+        body.append(blockBuilder.set(constantType(binder, toType).invoke("createBlockBuilder", BlockBuilder.class, array.invoke("getPositionCount", int.class))));
 
         // get element, apply function, and write new element to block builder
         Variable position = scope.declareVariable(int.class, "position_" + NEXT_VARIABLE_ID.getAndIncrement());

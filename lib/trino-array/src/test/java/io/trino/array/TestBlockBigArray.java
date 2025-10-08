@@ -26,7 +26,7 @@ public class TestBlockBigArray
     public void testRetainedSizeWithOverlappingBlocks()
     {
         int entries = 123;
-        IntArrayBlockBuilder blockBuilder = new IntArrayBlockBuilder(null, entries);
+        IntArrayBlockBuilder blockBuilder = new IntArrayBlockBuilder(entries);
         for (int i = 0; i < entries; i++) {
             blockBuilder.writeInt(i);
         }

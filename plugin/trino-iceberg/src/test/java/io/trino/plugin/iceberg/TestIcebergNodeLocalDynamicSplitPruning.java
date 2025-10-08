@@ -131,7 +131,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     new OrcWriterStats())) {
                 BlockBuilder keyBuilder = INTEGER.createFixedSizeBlockBuilder(1);
                 INTEGER.writeLong(keyBuilder, keyColumnValue);
-                BlockBuilder dataBuilder = VARCHAR.createBlockBuilder(null, 1);
+                BlockBuilder dataBuilder = VARCHAR.createBlockBuilder(1);
                 VARCHAR.writeString(dataBuilder, dataColumnValue);
                 writer.write(new Page(keyBuilder.build(), dataBuilder.build()));
             }
@@ -300,7 +300,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     new OrcWriterStats())) {
                 BlockBuilder dateBuilder = DATE.createFixedSizeBlockBuilder(1);
                 DATE.writeLong(dateBuilder, dateColumnValue);
-                BlockBuilder receiptBuilder = VARCHAR.createBlockBuilder(null, 1);
+                BlockBuilder receiptBuilder = VARCHAR.createBlockBuilder(1);
                 VARCHAR.writeString(receiptBuilder, receiptColumnValue);
                 BlockBuilder amountBuilder = amountColumnType.createFixedSizeBlockBuilder(1);
                 writeShortDecimal(amountBuilder, amountColumnValue.unscaledValue().longValueExact());
@@ -452,7 +452,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 INTEGER.writeLong(yearBuilder, yearColumnValue);
                 BlockBuilder monthBuilder = INTEGER.createFixedSizeBlockBuilder(1);
                 INTEGER.writeLong(monthBuilder, monthColumnValue);
-                BlockBuilder receiptBuilder = VARCHAR.createBlockBuilder(null, 1);
+                BlockBuilder receiptBuilder = VARCHAR.createBlockBuilder(1);
                 VARCHAR.writeString(receiptBuilder, receiptColumnValue);
                 BlockBuilder amountBuilder = amountColumnType.createFixedSizeBlockBuilder(1);
                 writeShortDecimal(amountBuilder, amountColumnValue.unscaledValue().longValueExact());

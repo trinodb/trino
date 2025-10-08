@@ -177,7 +177,7 @@ public class BenchmarkJsonPathBinaryOperators
 
         private static Block createChannelConstantTypes(int positionCount)
         {
-            BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, positionCount);
+            BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(positionCount);
             for (int position = 0; position < positionCount; position++) {
                 SliceOutput slice = new DynamicSliceOutput(20);
                 slice.appendBytes("{\"first\" : ".getBytes(UTF_8))
@@ -192,7 +192,7 @@ public class BenchmarkJsonPathBinaryOperators
 
         private static Block createChannelVaryingTypes(int positionCount)
         {
-            BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, positionCount);
+            BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(positionCount);
             for (int position = 0; position < positionCount; position++) {
                 SliceOutput slice = new DynamicSliceOutput(20);
                 slice.appendBytes("{\"first\" : ".getBytes(UTF_8));
@@ -215,7 +215,7 @@ public class BenchmarkJsonPathBinaryOperators
 
         private static Block createChannelMultipleVaryingTypes(int positionCount)
         {
-            BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, positionCount);
+            BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(positionCount);
             for (int position = 0; position < positionCount; position++) {
                 SliceOutput slice = new DynamicSliceOutput(20);
 

@@ -62,7 +62,7 @@ public class TestRealType
     @Test
     public void testNaNHash()
     {
-        BlockBuilder blockBuilder = new IntArrayBlockBuilder(null, 5);
+        BlockBuilder blockBuilder = new IntArrayBlockBuilder(5);
         REAL.writeFloat(blockBuilder, Float.NaN);
         REAL.writeInt(blockBuilder, floatToIntBits(Float.NaN));
         REAL.writeInt(blockBuilder, floatToRawIntBits(Float.NaN));

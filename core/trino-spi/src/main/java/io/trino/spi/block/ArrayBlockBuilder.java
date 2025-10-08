@@ -14,7 +14,6 @@
 package io.trino.spi.block;
 
 import io.trino.spi.type.Type;
-import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 
@@ -34,8 +33,6 @@ public class ArrayBlockBuilder
 
     private int positionCount;
 
-    @Nullable
-    private final BlockBuilderStatus blockBuilderStatus;
     private boolean initialized;
     private final int initialEntryCount;
 
@@ -49,39 +46,22 @@ public class ArrayBlockBuilder
 
     private long retainedSizeInBytes;
 
-    /**
-     * Caller of this constructor is responsible for making sure `valuesBlock` is constructed with the same `blockBuilderStatus` as the one in the argument
-     */
-    public ArrayBlockBuilder(BlockBuilder valuesBlock, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public ArrayBlockBuilder(Type elementType, int expectedEntries, int expectedBytesPerEntry)
     {
         this(
-                blockBuilderStatus,
-                valuesBlock,
+                elementType.createBlockBuilder(expectedEntries, expectedBytesPerEntry),
                 expectedEntries);
     }
 
-    public ArrayBlockBuilder(Type elementType, BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public ArrayBlockBuilder(Type elementType, int expectedEntries)
     {
         this(
-                blockBuilderStatus,
-                elementType.createBlockBuilder(blockBuilderStatus, expectedEntries, expectedBytesPerEntry),
+                elementType.createBlockBuilder(expectedEntries),
                 expectedEntries);
     }
 
-    public ArrayBlockBuilder(Type elementType, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public ArrayBlockBuilder(BlockBuilder values, int expectedEntries)
     {
-        this(
-                blockBuilderStatus,
-                elementType.createBlockBuilder(blockBuilderStatus, expectedEntries),
-                expectedEntries);
-    }
-
-    /**
-     * Caller of this private constructor is responsible for making sure `values` is constructed with the same `blockBuilderStatus` as the one in the argument
-     */
-    private ArrayBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, BlockBuilder values, int expectedEntries)
-    {
-        this.blockBuilderStatus = blockBuilderStatus;
         this.values = requireNonNull(values, "values is null");
         this.initialEntryCount = max(expectedEntries, 1);
 
@@ -235,10 +215,6 @@ public class ArrayBlockBuilder
         }
 
         positionCount += length;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(length * SIZE_IN_BYTES_PER_POSITION);
-        }
     }
 
     @Override
@@ -281,10 +257,6 @@ public class ArrayBlockBuilder
         hasNullValue |= isNull;
         hasNonNullValue |= !isNull;
         positionCount++;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(SIZE_IN_BYTES_PER_POSITION);
-        }
     }
 
     private void ensureCapacity(int capacity)
@@ -311,9 +283,6 @@ public class ArrayBlockBuilder
     private void updateRetainedSize()
     {
         retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(offsets);
-        if (blockBuilderStatus != null) {
-            retainedSizeInBytes += BlockBuilderStatus.INSTANCE_SIZE;
-        }
     }
 
     @Override
@@ -338,9 +307,9 @@ public class ArrayBlockBuilder
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries)
     {
-        return new ArrayBlockBuilder(blockBuilderStatus, values.newBlockBuilderLike(blockBuilderStatus), expectedEntries);
+        return new ArrayBlockBuilder(values.newBlockBuilderLike(), expectedEntries);
     }
 
     @Override
@@ -353,7 +322,7 @@ public class ArrayBlockBuilder
 
     private Block nullRle(int positionCount)
     {
-        ArrayBlock nullValueBlock = createArrayBlockInternal(0, 1, new boolean[] {true}, new int[] {0, 0}, values.newBlockBuilderLike(null).build());
+        ArrayBlock nullValueBlock = createArrayBlockInternal(0, 1, new boolean[] {true}, new int[] {0, 0}, values.newBlockBuilderLike().build());
         return RunLengthEncodedBlock.create(nullValueBlock, positionCount);
     }
 }

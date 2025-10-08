@@ -109,7 +109,7 @@ public final class Re2JRegexp
         int group = toIntExact(groupIndex);
         validateGroup(group, matcher.groupCount());
 
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 32);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(32);
         while (true) {
             if (!matcher.find()) {
                 break;
@@ -141,7 +141,7 @@ public final class Re2JRegexp
     public Block split(Slice source)
     {
         Matcher matcher = re2jPattern.matcher(source);
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 32);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(32);
 
         int lastEnd = 0;
         while (matcher.find()) {

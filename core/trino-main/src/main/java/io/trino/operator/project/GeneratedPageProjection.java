@@ -42,7 +42,7 @@ public class GeneratedPageProjection
         this.isDeterministic = isDeterministic;
         this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
         this.pageProjectionWorkFactory = requireNonNull(pageProjectionWorkFactory, "pageProjectionWorkFactory is null");
-        this.blockBuilder = projection.type().createBlockBuilder(null, 1);
+        this.blockBuilder = projection.type().createBlockBuilder(1);
     }
 
     @Override
@@ -60,7 +60,7 @@ public class GeneratedPageProjection
     @Override
     public Block project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
     {
-        blockBuilder = blockBuilder.newBlockBuilderLike(selectedPositions.size(), null);
+        blockBuilder = blockBuilder.newBlockBuilderLike(selectedPositions.size());
         try {
             return ((PageProjectionWork) pageProjectionWorkFactory.invoke(blockBuilder, session, page, selectedPositions)).process();
         }

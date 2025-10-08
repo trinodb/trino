@@ -79,7 +79,7 @@ public class BenchmarkRowBlockBuilder
         {
             types = Collections.nCopies(typesLength, BIGINT);
             RowType rowType = RowType.anonymous(types);
-            blockBuilder = rowType.createBlockBuilder(null, rows);
+            blockBuilder = rowType.createBlockBuilder(rows);
             random = new Random(1024L);
         }
 

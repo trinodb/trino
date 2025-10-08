@@ -131,7 +131,7 @@ public class SkipAggregationBuilder
         for (int i = 0; i < aggregatorFactories.size(); i++) {
             GroupedAggregator groupedAggregator = aggregatorFactories.get(i).createGroupedAggregator(aggregationMetrics);
             groupedAggregator.processPage(positionCount, groupIds, page);
-            BlockBuilder outputBuilder = groupedAggregator.getType().createBlockBuilder(null, positionCount);
+            BlockBuilder outputBuilder = groupedAggregator.getType().createBlockBuilder(positionCount);
             for (int position = 0; position < positionCount; position++) {
                 groupedAggregator.evaluate(position, outputBuilder);
             }

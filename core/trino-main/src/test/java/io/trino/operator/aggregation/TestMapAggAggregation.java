@@ -145,7 +145,7 @@ public class TestMapAggAggregation
     {
         MapType innerMapType = mapType(VARCHAR, VARCHAR);
 
-        BlockBuilder builder = innerMapType.createBlockBuilder(null, 3);
+        BlockBuilder builder = innerMapType.createBlockBuilder(3);
         innerMapType.writeObject(builder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
         innerMapType.writeObject(builder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("c", "d")));
         innerMapType.writeObject(builder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("e", "f")));
@@ -168,7 +168,7 @@ public class TestMapAggAggregation
                 RowType.field("f1", INTEGER),
                 RowType.field("f2", DOUBLE)));
 
-        BlockBuilder builder = innerRowType.createBlockBuilder(null, 3);
+        BlockBuilder builder = innerRowType.createBlockBuilder(3);
         innerRowType.writeObject(builder, toRow(ImmutableList.of(INTEGER, DOUBLE), 1L, 1.0));
         innerRowType.writeObject(builder, toRow(ImmutableList.of(INTEGER, DOUBLE), 2L, 2.0));
         innerRowType.writeObject(builder, toRow(ImmutableList.of(INTEGER, DOUBLE), 3L, 3.0));

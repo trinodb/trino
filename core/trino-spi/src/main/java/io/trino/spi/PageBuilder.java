@@ -70,7 +70,7 @@ public class PageBuilder
         // Stream API should not be used since constructor can be called in performance sensitive sections
         blockBuilders = new BlockBuilder[types.size()];
         for (int i = 0; i < blockBuilders.length; i++) {
-            blockBuilders[i] = types.get(i).createBlockBuilder(null, initialExpectedEntries);
+            blockBuilders[i] = types.get(i).createBlockBuilder(initialExpectedEntries);
         }
     }
 
@@ -84,7 +84,7 @@ public class PageBuilder
         declaredPositions = 0;
 
         for (int i = 0; i < blockBuilders.length; i++) {
-            blockBuilders[i] = blockBuilders[i].newBlockBuilderLike(null);
+            blockBuilders[i] = blockBuilders[i].newBlockBuilderLike();
         }
     }
 

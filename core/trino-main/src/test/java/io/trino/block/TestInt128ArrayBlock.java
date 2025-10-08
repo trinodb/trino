@@ -49,9 +49,9 @@ public class TestInt128ArrayBlock
     public void testLazyBlockBuilderInitialization()
     {
         Int128[] expectedValues = createTestValue(100);
-        BlockBuilder emptyBlockBuilder = new Int128ArrayBlockBuilder(null, 0);
+        BlockBuilder emptyBlockBuilder = new Int128ArrayBlockBuilder(0);
 
-        BlockBuilder blockBuilder = new Int128ArrayBlockBuilder(null, expectedValues.length);
+        BlockBuilder blockBuilder = new Int128ArrayBlockBuilder(expectedValues.length);
         assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
 
@@ -59,7 +59,7 @@ public class TestInt128ArrayBlock
         assertThat(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes()).isTrue();
         assertThat(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes()).isTrue();
 
-        blockBuilder = blockBuilder.newBlockBuilderLike(null);
+        blockBuilder = blockBuilder.newBlockBuilderLike();
         assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
     }
@@ -73,7 +73,7 @@ public class TestInt128ArrayBlock
             assertThat(block.getEstimatedDataSizeForStats(i)).isEqualTo(Int128.SIZE);
         }
 
-        assertThat(new IntArrayBlockBuilder(null, 22).appendNull().build().getEstimatedDataSizeForStats(0)).isEqualTo(0);
+        assertThat(new IntArrayBlockBuilder(22).appendNull().build().getEstimatedDataSizeForStats(0)).isEqualTo(0);
     }
 
     @Test
@@ -95,7 +95,7 @@ public class TestInt128ArrayBlock
 
     private static BlockBuilder createBlockBuilderWithValues(Int128[] expectedValues)
     {
-        Int128ArrayBlockBuilder blockBuilder = new Int128ArrayBlockBuilder(null, expectedValues.length);
+        Int128ArrayBlockBuilder blockBuilder = new Int128ArrayBlockBuilder(expectedValues.length);
         writeValues(expectedValues, blockBuilder);
         return blockBuilder;
     }

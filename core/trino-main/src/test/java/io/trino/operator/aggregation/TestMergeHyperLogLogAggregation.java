@@ -34,7 +34,7 @@ public class TestMergeHyperLogLogAggregation
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = HYPER_LOG_LOG.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = HYPER_LOG_LOG.createBlockBuilder(length);
         for (int i = start; i < start + length; i++) {
             HyperLogLog hll = HyperLogLog.newInstance(NUMBER_OF_BUCKETS);
             hll.add(i);

@@ -211,7 +211,7 @@ public final class JoniRegexpFunctions
     {
         Matcher matcher = pattern.matcher(source.getBytes());
         validateGroup(groupIndex, matcher.getEagerRegion());
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 32);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(32);
         int group = toIntExact(groupIndex);
 
         int nextStart = 0;
@@ -278,7 +278,7 @@ public final class JoniRegexpFunctions
     public static Block regexpSplit(@SqlType("varchar(x)") Slice source, @SqlType(JoniRegexpType.NAME) JoniRegexp pattern)
     {
         Matcher matcher = pattern.matcher(source.getBytes());
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 32);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(32);
 
         int lastEnd = 0;
         int nextStart = 0;

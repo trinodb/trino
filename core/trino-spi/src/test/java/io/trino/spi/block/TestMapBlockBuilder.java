@@ -33,7 +33,7 @@ public class TestMapBlockBuilder
     @Override
     protected BlockBuilder createBlockBuilder()
     {
-        return new MapBlockBuilder(MAP_TYPE, null, 1);
+        return new MapBlockBuilder(MAP_TYPE, 1);
     }
 
     @Override
@@ -56,7 +56,7 @@ public class TestMapBlockBuilder
     @Override
     protected ValueBlock blockFromValues(Iterable<Map<String, Integer>> maps)
     {
-        MapBlockBuilder blockBuilder = new MapBlockBuilder(MAP_TYPE, null, 1);
+        MapBlockBuilder blockBuilder = new MapBlockBuilder(MAP_TYPE, 1);
         for (Map<String, Integer> map : maps) {
             if (map == null) {
                 blockBuilder.appendNull();

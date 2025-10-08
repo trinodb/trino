@@ -16,7 +16,6 @@ package io.trino.spi.block;
 
 import io.trino.spi.block.MapHashTables.HashBuildMode;
 import io.trino.spi.type.MapType;
-import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Optional;
@@ -37,9 +36,6 @@ public class MapBlockBuilder
 
     private final MapType mapType;
 
-    @Nullable
-    private final BlockBuilderStatus blockBuilderStatus;
-
     private int positionCount;
     private int[] offsets;
     private boolean[] mapIsNull;
@@ -50,28 +46,24 @@ public class MapBlockBuilder
     private boolean currentEntryOpened;
     private HashBuildMode hashBuildMode = HashBuildMode.DUPLICATE_NOT_CHECKED;
 
-    public MapBlockBuilder(MapType mapType, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public MapBlockBuilder(MapType mapType, int expectedEntries)
     {
         this(
                 mapType,
-                blockBuilderStatus,
-                mapType.getKeyType().createBlockBuilder(blockBuilderStatus, expectedEntries),
-                mapType.getValueType().createBlockBuilder(blockBuilderStatus, expectedEntries),
+                mapType.getKeyType().createBlockBuilder(expectedEntries),
+                mapType.getValueType().createBlockBuilder(expectedEntries),
                 new int[expectedEntries + 1],
                 new boolean[expectedEntries]);
     }
 
     private MapBlockBuilder(
             MapType mapType,
-            @Nullable BlockBuilderStatus blockBuilderStatus,
             BlockBuilder keyBlockBuilder,
             BlockBuilder valueBlockBuilder,
             int[] offsets,
             boolean[] mapIsNull)
     {
         this.mapType = requireNonNull(mapType, "mapType is null");
-
-        this.blockBuilderStatus = blockBuilderStatus;
 
         this.positionCount = 0;
         this.offsets = requireNonNull(offsets, "offsets is null");
@@ -109,15 +101,11 @@ public class MapBlockBuilder
     @Override
     public long getRetainedSizeInBytes()
     {
-        long size = INSTANCE_SIZE
+        return INSTANCE_SIZE
                 + keyBlockBuilder.getRetainedSizeInBytes()
                 + valueBlockBuilder.getRetainedSizeInBytes()
                 + sizeOf(offsets)
                 + sizeOf(mapIsNull);
-        if (blockBuilderStatus != null) {
-            size += BlockBuilderStatus.INSTANCE_SIZE;
-        }
-        return size;
     }
 
     public <E extends Throwable> void buildEntry(MapValueBuilder<E> builder)
@@ -226,11 +214,6 @@ public class MapBlockBuilder
         mapIsNull[positionCount] = isNull;
         hasNullValue |= isNull;
         positionCount++;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(Integer.BYTES + Byte.BYTES);
-            blockBuilderStatus.addBytes((offsets[positionCount] - offsets[positionCount - 1]) * HASH_MULTIPLIER * Integer.BYTES);
-        }
     }
 
     @Override
@@ -242,8 +225,8 @@ public class MapBlockBuilder
                 hasNonNull |= !mapIsNull[i];
             }
             if (!hasNonNull) {
-                Block emptyKeyBlock = mapType.getKeyType().createBlockBuilder(null, 0).build();
-                Block emptyValueBlock = mapType.getValueType().createBlockBuilder(null, 0).build();
+                Block emptyKeyBlock = mapType.getKeyType().createBlockBuilder(0).build();
+                Block emptyValueBlock = mapType.getValueType().createBlockBuilder(0).build();
                 int[] emptyOffsets = {0, 0};
                 boolean[] nulls = {true};
                 return RunLengthEncodedBlock.create(
@@ -293,13 +276,12 @@ public class MapBlockBuilder
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries)
     {
         return new MapBlockBuilder(
                 mapType,
-                blockBuilderStatus,
-                keyBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
-                valueBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
+                keyBlockBuilder.newBlockBuilderLike(),
+                valueBlockBuilder.newBlockBuilderLike(),
                 new int[expectedEntries + 1],
                 new boolean[expectedEntries]);
     }

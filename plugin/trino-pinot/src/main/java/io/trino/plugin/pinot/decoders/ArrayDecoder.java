@@ -46,7 +46,7 @@ public class ArrayDecoder
             output.appendNull();
         }
         else {
-            BlockBuilder elementBlockBuilder = type.getElementType().createBlockBuilder(null, 1);
+            BlockBuilder elementBlockBuilder = type.getElementType().createBlockBuilder(1);
             for (int i = 0; i < value.size(); i++) {
                 int index = i;
                 elementDecoder.decode(() -> value.get(index), elementBlockBuilder);

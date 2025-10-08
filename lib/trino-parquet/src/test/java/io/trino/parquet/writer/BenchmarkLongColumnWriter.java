@@ -51,7 +51,7 @@ public class BenchmarkLongColumnWriter
     @Override
     protected Block generateBlock(int size)
     {
-        BlockBuilder blockBuilder = getTrinoType().createBlockBuilder(null, size);
+        BlockBuilder blockBuilder = getTrinoType().createBlockBuilder(size);
         for (long value : this.generateDataBatch(size)) {
             getTrinoType().writeLong(blockBuilder, value);
         }

@@ -13,8 +13,6 @@
  */
 package io.trino.spi.block;
 
-import jakarta.annotation.Nullable;
-
 import java.util.Arrays;
 
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -29,8 +27,6 @@ public class ShortArrayBlockBuilder
     private static final int INSTANCE_SIZE = instanceSize(ShortArrayBlockBuilder.class);
     private static final Block NULL_VALUE_BLOCK = new ShortArrayBlock(0, 1, new boolean[] {true}, new short[1]);
 
-    @Nullable
-    private final BlockBuilderStatus blockBuilderStatus;
     private boolean initialized;
     private final int initialEntryCount;
 
@@ -44,9 +40,8 @@ public class ShortArrayBlockBuilder
 
     private long retainedSizeInBytes;
 
-    public ShortArrayBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public ShortArrayBlockBuilder(int expectedEntries)
     {
-        this.blockBuilderStatus = blockBuilderStatus;
         this.initialEntryCount = max(expectedEntries, 1);
 
         updateRetainedSize();
@@ -60,9 +55,6 @@ public class ShortArrayBlockBuilder
 
         hasNonNullValue = true;
         positionCount++;
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(ShortArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
         return this;
     }
 
@@ -81,10 +73,6 @@ public class ShortArrayBlockBuilder
             hasNonNullValue = true;
         }
         positionCount++;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(ShortArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
     }
 
     @Override
@@ -111,10 +99,6 @@ public class ShortArrayBlockBuilder
             hasNonNullValue = true;
         }
         positionCount += count;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(count * ShortArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
     }
 
     @Override
@@ -155,10 +139,6 @@ public class ShortArrayBlockBuilder
             hasNonNullValue = true;
         }
         positionCount += length;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(length * ShortArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
     }
 
     @Override
@@ -199,10 +179,6 @@ public class ShortArrayBlockBuilder
             hasNonNullValue = true;
         }
         positionCount += length;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(length * ShortArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
     }
 
     @Override
@@ -214,9 +190,6 @@ public class ShortArrayBlockBuilder
 
         hasNullValue = true;
         positionCount++;
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(ShortArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
         return this;
     }
 
@@ -243,9 +216,9 @@ public class ShortArrayBlockBuilder
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries)
     {
-        return new ShortArrayBlockBuilder(blockBuilderStatus, expectedEntries);
+        return new ShortArrayBlockBuilder(expectedEntries);
     }
 
     private void ensureCapacity(int capacity)
@@ -272,9 +245,6 @@ public class ShortArrayBlockBuilder
     private void updateRetainedSize()
     {
         retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
-        if (blockBuilderStatus != null) {
-            retainedSizeInBytes += BlockBuilderStatus.INSTANCE_SIZE;
-        }
     }
 
     @Override

@@ -271,7 +271,7 @@ public class AvroColumnDecoder
         List<Type> typeParameters = type.getTypeParameters();
         Type elementType = typeParameters.get(0);
 
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, list.size());
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(list.size());
         for (Object element : list) {
             serializeObject(blockBuilder, element, elementType, columnName);
         }

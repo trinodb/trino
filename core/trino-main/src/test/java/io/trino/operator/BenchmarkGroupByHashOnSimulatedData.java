@@ -553,7 +553,7 @@ public class BenchmarkGroupByHashOnSimulatedData
             Block allValues = generateValues(channel, distinctValuesCountInColumn).build();
             Random r = new Random(channel);
             for (int i = 0; i < blockCount; i++) {
-                BlockBuilder block = columnType.getType().createBlockBuilder(null, positionsPerBlock);
+                BlockBuilder block = columnType.getType().createBlockBuilder(positionsPerBlock);
                 for (int j = 0; j < positionsPerBlock; j++) {
                     if (isNull(r, nullChance)) {
                         block.appendNull();
@@ -569,7 +569,7 @@ public class BenchmarkGroupByHashOnSimulatedData
 
         private BlockBuilder generateValues(int channel, int distinctValueCount)
         {
-            BlockBuilder allValues = columnType.getType().createBlockBuilder(null, distinctValueCount);
+            BlockBuilder allValues = columnType.getType().createBlockBuilder(distinctValueCount);
             columnType.getBlockWriter().write(allValues, distinctValueCount, channel);
             return allValues;
         }

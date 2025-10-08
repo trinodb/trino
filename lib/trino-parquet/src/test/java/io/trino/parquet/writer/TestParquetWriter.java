@@ -241,7 +241,7 @@ public class TestParquetWriter
         List<Type> types = ImmutableList.of(VARCHAR, VARCHAR);
 
         Slice minA = Slices.utf8Slice("abc".repeat(300)); // within truncation threshold
-        Block blockA = VARCHAR.createBlockBuilder(null, 2)
+        Block blockA = VARCHAR.createBlockBuilder(2)
                 .writeEntry(minA)
                 .writeEntry(Slices.utf8Slice("y".repeat(3200))) // bigger than truncation threshold
                 .build();
@@ -249,7 +249,7 @@ public class TestParquetWriter
         String threeByteCodePoint = new String(Character.toChars(0x20AC));
         String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
         Slice minB = Slices.utf8Slice(threeByteCodePoint.repeat(300)); // truncation in middle of unicode bytes
-        Block blockB = VARCHAR.createBlockBuilder(null, 2)
+        Block blockB = VARCHAR.createBlockBuilder(2)
                 .writeEntry(minB)
                 // start with maxCodePoint to make it max value in stats
                 // last character for truncation is maxCodePoint

@@ -312,7 +312,7 @@ public class TestFileSingleStreamSpiller
     {
         BlockBuilder col1 = BIGINT.createFixedSizeBlockBuilder(1);
         BlockBuilder col2 = DOUBLE.createFixedSizeBlockBuilder(1);
-        BlockBuilder col3 = VARBINARY.createBlockBuilder(null, 1);
+        BlockBuilder col3 = VARBINARY.createBlockBuilder(1);
 
         BIGINT.writeLong(col1, pageNumber);
         DOUBLE.writeDouble(col2, pageNumber + 0.5);

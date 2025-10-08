@@ -213,7 +213,7 @@ public class TestJsonPath2016TypeSerialization
 
     private static void assertJsonRoundTrip(IrJsonPath object)
     {
-        BlockBuilder blockBuilder = JSON_PATH_2016.createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = JSON_PATH_2016.createBlockBuilder(1);
         JSON_PATH_2016.writeObject(blockBuilder, object);
         Block serialized = blockBuilder.build();
         Object deserialized = JSON_PATH_2016.getObject(serialized, 0);

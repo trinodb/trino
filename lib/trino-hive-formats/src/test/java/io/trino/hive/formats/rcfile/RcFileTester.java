@@ -488,7 +488,7 @@ public class RcFileTester
                 DataSize.of(100, KILOBYTE),   // use a smaller size to create more row groups
                 DataSize.of(200, KILOBYTE),
                 true);
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1024);
+        BlockBuilder blockBuilder = type.createBlockBuilder(1024);
         while (values.hasNext()) {
             Object value = values.next();
             writeTrinoValue(type, blockBuilder, value);

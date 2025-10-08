@@ -64,7 +64,7 @@ public class PinotBrokerPageSource
 
         this.columnBuilders = columnHandles.stream()
                 .map(PinotColumnHandle::getDataType)
-                .map(type -> type.createBlockBuilder(null, 1))
+                .map(type -> type.createBlockBuilder(1))
                 .toArray(BlockBuilder[]::new);
         long start = System.nanoTime();
         resultIterator = pinotClient.createResultIterator(session, query, columnHandles);
@@ -131,7 +131,7 @@ public class PinotBrokerPageSource
         Block[] blocks = new Block[columnBuilders.length];
         for (int i = 0; i < columnBuilders.length; i++) {
             blocks[i] = columnBuilders[i].build();
-            columnBuilders[i] = columnBuilders[i].newBlockBuilderLike(null);
+            columnBuilders[i] = columnBuilders[i].newBlockBuilderLike();
         }
         if (decoders.isEmpty()) {
             return SourcePage.create(rowCount);

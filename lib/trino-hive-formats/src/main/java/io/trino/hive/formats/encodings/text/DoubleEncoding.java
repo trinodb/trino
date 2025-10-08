@@ -70,7 +70,7 @@ public class DoubleEncoding
             throws FileCorruptionException
     {
         int size = columnData.rowCount();
-        BlockBuilder builder = type.createBlockBuilder(null, size);
+        BlockBuilder builder = type.createBlockBuilder(size);
 
         Slice slice = columnData.getSlice();
         for (int i = 0; i < size; i++) {

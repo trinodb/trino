@@ -15,7 +15,6 @@
 package io.trino.spi.block;
 
 import io.trino.spi.type.Type;
-import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.List;
@@ -32,9 +31,6 @@ public class RowBlockBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(RowBlockBuilder.class);
 
-    @Nullable
-    private final BlockBuilderStatus blockBuilderStatus;
-
     private int positionCount;
     private boolean[] rowIsNull;
     private final BlockBuilder[] fieldBlockBuilders;
@@ -44,29 +40,27 @@ public class RowBlockBuilder
     private boolean hasNullRow;
     private boolean hasNonNullRow;
 
-    public RowBlockBuilder(List<Type> fieldTypes, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public RowBlockBuilder(List<Type> fieldTypes, int expectedEntries)
     {
         this(
-                blockBuilderStatus,
-                createFieldBlockBuilders(fieldTypes, blockBuilderStatus, expectedEntries),
+                createFieldBlockBuilders(fieldTypes, expectedEntries),
                 new boolean[expectedEntries]);
     }
 
-    private RowBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, BlockBuilder[] fieldBlockBuilders, boolean[] rowIsNull)
+    private RowBlockBuilder(BlockBuilder[] fieldBlockBuilders, boolean[] rowIsNull)
     {
-        this.blockBuilderStatus = blockBuilderStatus;
         this.positionCount = 0;
         this.rowIsNull = requireNonNull(rowIsNull, "rowIsNull is null");
         this.fieldBlockBuilders = requireNonNull(fieldBlockBuilders, "fieldBlockBuilders is null");
         this.fieldBlockBuildersList = List.of(fieldBlockBuilders);
     }
 
-    private static BlockBuilder[] createFieldBlockBuilders(List<Type> fieldTypes, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    private static BlockBuilder[] createFieldBlockBuilders(List<Type> fieldTypes, int expectedEntries)
     {
         // Stream API should not be used since constructor can be called in performance sensitive sections
         BlockBuilder[] fieldBlockBuilders = new BlockBuilder[fieldTypes.size()];
         for (int i = 0; i < fieldTypes.size(); i++) {
-            fieldBlockBuilders[i] = fieldTypes.get(i).createBlockBuilder(blockBuilderStatus, expectedEntries);
+            fieldBlockBuilders[i] = fieldTypes.get(i).createBlockBuilder(expectedEntries);
         }
         return fieldBlockBuilders;
     }
@@ -93,9 +87,6 @@ public class RowBlockBuilder
         long size = INSTANCE_SIZE + sizeOf(rowIsNull);
         for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
             size += fieldBlockBuilder.getRetainedSizeInBytes();
-        }
-        if (blockBuilderStatus != null) {
-            size += BlockBuilderStatus.INSTANCE_SIZE;
         }
         return size;
     }
@@ -278,10 +269,6 @@ public class RowBlockBuilder
         }
 
         positionCount += count;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(Integer.BYTES + Byte.BYTES);
-        }
     }
 
     private static void appendRepeatedToField(Block fieldBlock, int position, int count, BlockBuilder fieldBlockBuilder)
@@ -410,10 +397,6 @@ public class RowBlockBuilder
                 throw new IllegalStateException(format("field %s has unexpected position count. Expected: %s, actual: %s", i, positionCount, fieldBlockBuilders[i].getPositionCount()));
             }
         }
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(Integer.BYTES + Byte.BYTES);
-        }
     }
 
     @Override
@@ -459,20 +442,20 @@ public class RowBlockBuilder
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries)
     {
         BlockBuilder[] newBlockBuilders = new BlockBuilder[fieldBlockBuilders.length];
         for (int i = 0; i < fieldBlockBuilders.length; i++) {
-            newBlockBuilders[i] = fieldBlockBuilders[i].newBlockBuilderLike(blockBuilderStatus);
+            newBlockBuilders[i] = fieldBlockBuilders[i].newBlockBuilderLike();
         }
-        return new RowBlockBuilder(blockBuilderStatus, newBlockBuilders, new boolean[expectedEntries]);
+        return new RowBlockBuilder(newBlockBuilders, new boolean[expectedEntries]);
     }
 
     private Block nullRle(int length)
     {
         Block[] fieldBlocks = new Block[fieldBlockBuilders.length];
         for (int i = 0; i < fieldBlockBuilders.length; i++) {
-            fieldBlocks[i] = fieldBlockBuilders[i].newBlockBuilderLike(null).appendNull().build();
+            fieldBlocks[i] = fieldBlockBuilders[i].newBlockBuilderLike().appendNull().build();
         }
 
         RowBlock nullRowBlock = createRowBlockInternal(0, 1, new boolean[] {true}, fieldBlocks);

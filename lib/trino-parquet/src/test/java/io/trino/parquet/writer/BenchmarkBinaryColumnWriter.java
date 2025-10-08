@@ -56,7 +56,7 @@ public class BenchmarkBinaryColumnWriter
     @Override
     protected Block generateBlock(int size)
     {
-        BlockBuilder blockBuilder = getTrinoType().createBlockBuilder(null, size);
+        BlockBuilder blockBuilder = getTrinoType().createBlockBuilder(size);
         for (byte[] value : type.generateData(size, positionLength.getRange())) {
             getTrinoType().writeSlice(blockBuilder, Slices.wrappedBuffer(value));
         }

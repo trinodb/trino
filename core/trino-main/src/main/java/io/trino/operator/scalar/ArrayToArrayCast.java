@@ -45,7 +45,7 @@ public final class ArrayToArrayCast
             throws Throwable
     {
         int positionCount = array.getPositionCount();
-        BlockBuilder resultBuilder = resultType.createBlockBuilder(null, positionCount);
+        BlockBuilder resultBuilder = resultType.createBlockBuilder(positionCount);
         for (int position = 0; position < positionCount; position++) {
             if (array.isNull(position)) {
                 resultBuilder.appendNull();

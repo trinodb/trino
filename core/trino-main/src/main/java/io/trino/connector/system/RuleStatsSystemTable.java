@@ -88,7 +88,7 @@ public class RuleStatsSystemTable
 
         int positionCount = ruleStats.size();
         Map<String, BlockBuilder> blockBuilders = ruleStatsTable.getColumns().stream()
-                .collect(toImmutableMap(ColumnMetadata::getName, column -> column.getType().createBlockBuilder(null, positionCount)));
+                .collect(toImmutableMap(ColumnMetadata::getName, column -> column.getType().createBlockBuilder(positionCount)));
 
         for (Map.Entry<Class<?>, RuleStats> entry : ruleStats.entrySet()) {
             RuleStats stats = entry.getValue();

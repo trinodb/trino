@@ -43,7 +43,7 @@ public class TestSimpleRowType
 
     private static ValueBlock createTestBlock()
     {
-        RowBlockBuilder blockBuilder = TYPE.createBlockBuilder(null, 3);
+        RowBlockBuilder blockBuilder = TYPE.createBlockBuilder(3);
 
         blockBuilder.buildEntry(fieldBuilders -> {
             BIGINT.writeLong(fieldBuilders.get(0), 1);

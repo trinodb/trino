@@ -89,7 +89,7 @@ class TestFlatHashStrategy
                 assertThat(flatHashStrategy.valueIdentical(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET, blocks, position)).isTrue();
                 assertThat(flatHashStrategy.valueIdentical(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET, blocks, 3)).isFalse();
 
-                BlockBuilder[] blockBuilders = types.stream().map(type -> type.createBlockBuilder(null, 1)).toArray(BlockBuilder[]::new);
+                BlockBuilder[] blockBuilders = types.stream().map(type -> type.createBlockBuilder(1)).toArray(BlockBuilder[]::new);
                 flatHashStrategy.readFlat(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET, blockBuilders);
                 List<Block> output = Arrays.stream(blockBuilders).map(BlockBuilder::build).toList();
                 Page actualPage = new Page(output.toArray(Block[]::new));

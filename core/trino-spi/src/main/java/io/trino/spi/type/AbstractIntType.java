@@ -17,7 +17,6 @@ import io.airlift.slice.XxHash64;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.IntArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
@@ -121,24 +120,17 @@ public abstract class AbstractIntType
     }
 
     @Override
-    public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public final BlockBuilder createBlockBuilder(int expectedEntries)
     {
-        int maxBlockSizeInBytes;
-        if (blockBuilderStatus == null) {
-            maxBlockSizeInBytes = PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
-        }
-        else {
-            maxBlockSizeInBytes = blockBuilderStatus.getMaxPageSizeInBytes();
-        }
+        int maxBlockSizeInBytes = PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
         return new IntArrayBlockBuilder(
-                blockBuilderStatus,
                 Math.min(expectedEntries, maxBlockSizeInBytes / Integer.BYTES));
     }
 
     @Override
     public final BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return new IntArrayBlockBuilder(null, positionCount);
+        return new IntArrayBlockBuilder(positionCount);
     }
 
     @ScalarOperator(READ_VALUE)

@@ -63,7 +63,7 @@ public class TestArrayBlockBuilder
     public void testRetainedSizeInBytes()
     {
         int expectedEntries = 1000;
-        ArrayBlockBuilder arrayBlockBuilder = new ArrayBlockBuilder(BIGINT, null, expectedEntries);
+        ArrayBlockBuilder arrayBlockBuilder = new ArrayBlockBuilder(BIGINT, expectedEntries);
         long initialRetainedSize = arrayBlockBuilder.getRetainedSizeInBytes();
         for (int i = 0; i < expectedEntries; i++) {
             int value = i;
@@ -76,7 +76,7 @@ public class TestArrayBlockBuilder
     @Test
     public void testConcurrentWriting()
     {
-        ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, null, EXPECTED_ENTRY_COUNT);
+        ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, EXPECTED_ENTRY_COUNT);
         blockBuilder.buildEntry(elementBuilder -> {
             BIGINT.writeLong(elementBuilder, 45);
             assertThatThrownBy(() -> blockBuilder.buildEntry(ignore -> {}))
@@ -150,7 +150,7 @@ public class TestArrayBlockBuilder
 
     private static BlockBuilder blockBuilder()
     {
-        return new ArrayBlockBuilder(BIGINT, null, 10);
+        return new ArrayBlockBuilder(BIGINT, 10);
     }
 
     private static void assertIsAllNulls(Block block, int expectedPositionCount)
@@ -171,7 +171,7 @@ public class TestArrayBlockBuilder
     @Override
     protected BlockBuilder createBlockBuilder()
     {
-        return new ArrayBlockBuilder(new VariableWidthBlockBuilder(null, 1, 100), null, 1);
+        return new ArrayBlockBuilder(new VariableWidthBlockBuilder(1, 100), 1);
     }
 
     @Override
@@ -194,7 +194,7 @@ public class TestArrayBlockBuilder
     @Override
     protected ValueBlock blockFromValues(Iterable<List<String>> values)
     {
-        ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(new VariableWidthBlockBuilder(null, 1, 100), null, 1);
+        ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(new VariableWidthBlockBuilder(1, 100), 1);
         for (List<String> array : values) {
             if (array == null) {
                 blockBuilder.appendNull();

@@ -86,8 +86,8 @@ public class BenchmarkArrayEqualOperator
         private static Block[] createChannels(int positionCount, int arraySize, ArrayType arrayType)
         {
             ThreadLocalRandom random = ThreadLocalRandom.current();
-            ArrayBlockBuilder leftBlockBuilder = arrayType.createBlockBuilder(null, positionCount);
-            ArrayBlockBuilder rightBlockBuilder = arrayType.createBlockBuilder(null, positionCount);
+            ArrayBlockBuilder leftBlockBuilder = arrayType.createBlockBuilder(positionCount);
+            ArrayBlockBuilder rightBlockBuilder = arrayType.createBlockBuilder(positionCount);
             for (int position = 0; position < positionCount; position++) {
                 leftBlockBuilder.buildEntry(leftElementBuilder -> {
                     rightBlockBuilder.buildEntry(rightElementBuilder -> {

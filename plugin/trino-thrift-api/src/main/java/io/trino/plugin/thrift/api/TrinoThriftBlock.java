@@ -335,7 +335,7 @@ public final class TrinoThriftBlock
     private static Block convertColumnToBlock(RecordSet recordSet, int columnIndex, int positions)
     {
         Type type = recordSet.getColumnTypes().get(columnIndex);
-        BlockBuilder output = type.createBlockBuilder(null, positions);
+        BlockBuilder output = type.createBlockBuilder(positions);
         Class<?> javaType = type.getJavaType();
         RecordCursor cursor = recordSet.cursor();
         for (int position = 0; position < positions; position++) {

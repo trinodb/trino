@@ -522,7 +522,7 @@ public class ParquetReader
         ColumnChunk metadataChunk = readColumnChunk(field.getMetadata());
 
         int positionCount = metadataChunk.getBlock().getPositionCount();
-        BlockBuilder variantBlock = VARCHAR.createBlockBuilder(null, max(1, positionCount));
+        BlockBuilder variantBlock = VARCHAR.createBlockBuilder(max(1, positionCount));
         ColumnChunk valueChunk = readColumnChunk(field.getValue());
         for (int position = 0; position < positionCount; position++) {
             Slice metadata = VARBINARY.getSlice(metadataChunk.getBlock(), position);

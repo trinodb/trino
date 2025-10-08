@@ -54,7 +54,7 @@ public class TestTypedHistogram
 
     private static void testMassive(boolean grouped, Type type, ObjIntConsumer<BlockBuilder> writeData)
     {
-        BlockBuilder inputBlockBuilder = type.createBlockBuilder(null, 5000);
+        BlockBuilder inputBlockBuilder = type.createBlockBuilder(5000);
         IntStream.range(1, 2000)
                 .flatMap(value -> IntStream.iterate(value, IntUnaryOperator.identity()).limit(value))
                 .forEach(value -> writeData.accept(inputBlockBuilder, value));
@@ -79,11 +79,11 @@ public class TestTypedHistogram
         }
 
         MapType mapType = mapType(type, BIGINT);
-        MapBlockBuilder actualBuilder = mapType.createBlockBuilder(null, 1);
+        MapBlockBuilder actualBuilder = mapType.createBlockBuilder(1);
         typedHistogram.serialize(groupId, actualBuilder);
         Block actualBlock = actualBuilder.build();
 
-        MapBlockBuilder expectedBuilder = mapType.createBlockBuilder(null, 1);
+        MapBlockBuilder expectedBuilder = mapType.createBlockBuilder(1);
         expectedBuilder.buildEntry((keyBuilder, valueBuilder) -> IntStream.range(1, 2000)
                 .forEach(value -> {
                     writeData.accept(keyBuilder, value);
@@ -94,7 +94,7 @@ public class TestTypedHistogram
         assertThat(typedHistogram.size()).isEqualTo(1999);
 
         if (grouped) {
-            actualBuilder = mapType.createBlockBuilder(null, 1);
+            actualBuilder = mapType.createBlockBuilder(1);
             typedHistogram.serialize(3, actualBuilder);
             actualBlock = actualBuilder.build();
             assertThat(actualBlock.getPositionCount()).isEqualTo(1);

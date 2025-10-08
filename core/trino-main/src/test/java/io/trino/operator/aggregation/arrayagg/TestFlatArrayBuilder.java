@@ -50,7 +50,7 @@ public class TestFlatArrayBuilder
             flatArrayBuilder.add(valueBlock, i);
         }
 
-        LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(null, size);
+        LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(size);
         flatArrayBuilder.writeAll(blockBuilder);
 
         Block block = blockBuilder.build();
@@ -76,7 +76,7 @@ public class TestFlatArrayBuilder
             }
         }
 
-        LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(null, size);
+        LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(size);
         long nextIndex = 0;
         while (nextIndex != -1) {
             nextIndex = flatArrayBuilder.write(nextIndex, blockBuilder);

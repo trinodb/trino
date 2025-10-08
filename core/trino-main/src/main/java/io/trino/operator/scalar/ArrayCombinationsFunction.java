@@ -60,7 +60,7 @@ public final class ArrayCombinationsFunction
 
         ArrayType arrayType = new ArrayType(elementType);
         if (combinationLength > arrayLength) {
-            return arrayType.createBlockBuilder(null, 0).build();
+            return arrayType.createBlockBuilder(0).build();
         }
 
         int combinationCount = combinationCount(arrayLength, combinationLength);

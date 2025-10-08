@@ -174,7 +174,7 @@ public abstract class AbstractTestAggregationFunction
             oldWidth = width;
 
             Type outputType = resolvedFunction.signature().getReturnType();
-            BlockBuilder blockBuilder = outputType.createBlockBuilder(null, 1000);
+            BlockBuilder blockBuilder = outputType.createBlockBuilder(1000);
             aggregation.output(blockBuilder);
             Block block = blockBuilder.build();
 
@@ -201,7 +201,7 @@ public abstract class AbstractTestAggregationFunction
             Block block = sequenceBlocks[i];
             int positionCount = block.getPositionCount();
             Type type = types.get(i);
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, positionCount);
+            BlockBuilder blockBuilder = type.createBlockBuilder(positionCount);
             for (int position = 0; position < positionCount; position++) {
                 // append null
                 blockBuilder.appendNull();

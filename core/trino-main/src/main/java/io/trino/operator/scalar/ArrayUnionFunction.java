@@ -70,7 +70,7 @@ public final class ArrayUnionFunction
             set.add(rightArray, i);
         }
 
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, set.size());
+        BlockBuilder blockBuilder = type.createBlockBuilder(set.size());
         set.getAllWithSizeLimit(blockBuilder, "array_union", MAX_FUNCTION_MEMORY);
         return blockBuilder.build();
     }

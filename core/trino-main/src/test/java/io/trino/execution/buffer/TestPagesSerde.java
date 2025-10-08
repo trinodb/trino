@@ -206,7 +206,7 @@ public class TestPagesSerde
     @Test
     public void testVarcharSerializedSize()
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 5);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(5);
 
         // empty page
         Page page = new Page(builder.build());

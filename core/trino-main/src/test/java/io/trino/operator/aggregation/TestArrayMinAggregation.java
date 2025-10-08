@@ -31,7 +31,7 @@ public class TestArrayMinAggregation
     protected Block[] getSequenceBlocks(int start, int length)
     {
         ArrayType arrayType = new ArrayType(BIGINT);
-        BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = arrayType.createBlockBuilder(length);
         for (int i = start; i < start + length; i++) {
             arrayType.writeObject(blockBuilder, arrayBlockOf(BIGINT, i));
         }

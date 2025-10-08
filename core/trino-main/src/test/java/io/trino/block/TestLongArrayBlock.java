@@ -47,9 +47,9 @@ public class TestLongArrayBlock
     public void testLazyBlockBuilderInitialization()
     {
         Long[] expectedValues = createTestValue(100);
-        BlockBuilder emptyBlockBuilder = new LongArrayBlockBuilder(null, 0);
+        BlockBuilder emptyBlockBuilder = new LongArrayBlockBuilder(0);
 
-        LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(null, expectedValues.length);
+        LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(expectedValues.length);
         assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
 
@@ -57,7 +57,7 @@ public class TestLongArrayBlock
         assertThat(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes()).isTrue();
         assertThat(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes()).isTrue();
 
-        blockBuilder = (LongArrayBlockBuilder) blockBuilder.newBlockBuilderLike(null);
+        blockBuilder = (LongArrayBlockBuilder) blockBuilder.newBlockBuilderLike();
         assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
     }
@@ -71,7 +71,7 @@ public class TestLongArrayBlock
             assertThat(block.getEstimatedDataSizeForStats(i)).isEqualTo(Long.BYTES);
         }
 
-        assertThat(new LongArrayBlockBuilder(null, 22).appendNull().build().getEstimatedDataSizeForStats(0)).isEqualTo(0);
+        assertThat(new LongArrayBlockBuilder(22).appendNull().build().getEstimatedDataSizeForStats(0)).isEqualTo(0);
     }
 
     @Test
@@ -93,7 +93,7 @@ public class TestLongArrayBlock
 
     private static BlockBuilder createBlockBuilderWithValues(Long[] expectedValues)
     {
-        LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(null, expectedValues.length);
+        LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(expectedValues.length);
         writeValues(expectedValues, blockBuilder);
         return blockBuilder;
     }

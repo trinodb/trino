@@ -100,7 +100,7 @@ public class BenchmarkArrayJoin
         {
             ArrayType arrayType = new ArrayType(BIGINT);
 
-            ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
+            ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(positionCount);
             for (int position = 0; position < positionCount; position++) {
                 blockBuilder.buildEntry(elementBuilder -> {
                     for (int i = 0; i < arraySize; i++) {

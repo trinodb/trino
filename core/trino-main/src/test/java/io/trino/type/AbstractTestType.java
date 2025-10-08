@@ -166,7 +166,7 @@ public abstract class AbstractTestType
 
     private ValueBlock createAlternatingNullsBlock(Block testBlock)
     {
-        BlockBuilder nullsBlockBuilder = type.createBlockBuilder(null, testBlock.getPositionCount());
+        BlockBuilder nullsBlockBuilder = type.createBlockBuilder(testBlock.getPositionCount());
         for (int position = 0; position < testBlock.getPositionCount(); position++) {
             if (testBlock.isNull(position)) {
                 checkState(type instanceof UnknownType);
@@ -281,7 +281,7 @@ public abstract class AbstractTestType
                 assertThat(readFlatMethod.invoke(fixed, elementFixedOffset, variable, variableOffset)).isEqualTo(expectedStackValue);
             }
 
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+            BlockBuilder blockBuilder = type.createBlockBuilder(1);
             writeFlatToBlockMethod.invokeExact(fixed, elementFixedOffset, variable, variableOffset, blockBuilder);
             assertPositionEquals(testBlock, i, expectedStackValue, expectedObjectValues.get(i));
 
@@ -298,7 +298,7 @@ public abstract class AbstractTestType
                 assertThat((boolean) flatBlockPositionIdenticalOperator.invokeExact(fixed, elementFixedOffset, variable, variableOffset, testBlock, i)).isTrue();
                 assertThat((boolean) blockPositionFlatIdenticalOperator.invokeExact(testBlock, i, fixed, elementFixedOffset, variable, variableOffset)).isTrue();
 
-                ValueBlock nullValue = type.createBlockBuilder(null, 1).appendNull().buildValueBlock();
+                ValueBlock nullValue = type.createBlockBuilder(1).appendNull().buildValueBlock();
                 assertThat((boolean) flatBlockPositionIdenticalOperator.invokeExact(fixed, elementFixedOffset, variable, variableOffset, nullValue, 0)).isFalse();
                 assertThat((boolean) blockPositionFlatIdenticalOperator.invokeExact(nullValue, 0, fixed, elementFixedOffset, variable, variableOffset)).isFalse();
             }
@@ -327,12 +327,12 @@ public abstract class AbstractTestType
         assertPositionValue(block.getRegion(0, position + 1), position, expectedStackValue, hash, expectedObjectValue);
         assertPositionValue(block.getRegion(position, block.getPositionCount() - position), 0, expectedStackValue, hash, expectedObjectValue);
 
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = type.createBlockBuilder(1);
         blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
         assertPositionValue(blockBuilder.buildValueBlock(), 0, expectedStackValue, hash, expectedObjectValue);
 
         if (expectedStackValue != null) {
-            blockBuilder = type.createBlockBuilder(null, 1);
+            blockBuilder = type.createBlockBuilder(1);
             writeBlockMethod.invoke(expectedStackValue, blockBuilder);
             assertPositionValue(blockBuilder.buildValueBlock(), 0, expectedStackValue, hash, expectedObjectValue);
         }
@@ -586,7 +586,7 @@ public abstract class AbstractTestType
 
     private static Block createBlock(Type type, Object value)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = type.createBlockBuilder(1);
 
         Class<?> javaType = type.getJavaType();
         if (value == null) {
@@ -673,7 +673,7 @@ public abstract class AbstractTestType
 
     private Block toBlock(Object value)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = type.createBlockBuilder(1);
         Class<?> javaType = type.getJavaType();
         if (value == null) {
             blockBuilder.appendNull();

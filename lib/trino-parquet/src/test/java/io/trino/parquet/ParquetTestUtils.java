@@ -282,7 +282,7 @@ public class ParquetTestUtils
 
     private static Block generateBlock(Type type, int positions)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, positions);
+        BlockBuilder blockBuilder = type.createBlockBuilder(positions);
         for (int i = 0; i < positions; i++) {
             writeNativeValue(type, blockBuilder, (long) i);
         }
@@ -291,7 +291,7 @@ public class ParquetTestUtils
 
     private static <T> Block generateBlock(Type type, List<T> data)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, data.size());
+        BlockBuilder blockBuilder = type.createBlockBuilder(data.size());
         for (T value : data) {
             writeNativeValue(type, blockBuilder, value);
         }

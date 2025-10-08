@@ -49,8 +49,8 @@ public class BufferedMapValueBuilder
     {
         this.mapType = requireNonNull(mapType, "mapType is null");
         this.hashBuildMode = hashBuildMode;
-        this.keyBlockBuilder = mapType.getKeyType().createBlockBuilder(null, bufferSize);
-        this.valueBlockBuilder = mapType.getValueType().createBlockBuilder(null, bufferSize);
+        this.keyBlockBuilder = mapType.getKeyType().createBlockBuilder(bufferSize);
+        this.valueBlockBuilder = mapType.getValueType().createBlockBuilder(bufferSize);
         this.bufferSize = bufferSize;
     }
 
@@ -72,8 +72,8 @@ public class BufferedMapValueBuilder
             if (bufferSize < entryCount) {
                 bufferSize = entryCount;
             }
-            keyBlockBuilder = keyBlockBuilder.newBlockBuilderLike(bufferSize, null);
-            valueBlockBuilder = valueBlockBuilder.newBlockBuilderLike(bufferSize, null);
+            keyBlockBuilder = keyBlockBuilder.newBlockBuilderLike(bufferSize);
+            valueBlockBuilder = valueBlockBuilder.newBlockBuilderLike(bufferSize);
         }
 
         int startSize = keyBlockBuilder.getPositionCount();

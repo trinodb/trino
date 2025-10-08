@@ -53,7 +53,7 @@ public final class ArraySliceFunction
         long toIndex = Math.min(fromIndex + length, size + 1);
 
         if (fromIndex >= toIndex || fromIndex < 1) {
-            return type.createBlockBuilder(null, 0).build();
+            return type.createBlockBuilder(0).build();
         }
 
         return array.getRegion((int) (fromIndex - 1), (int) (toIndex - fromIndex));

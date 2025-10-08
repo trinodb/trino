@@ -274,7 +274,7 @@ public class TestIcebergBucketing
         ColumnTransform transform = PartitionTransforms.bucket(trinoType, bucketCount);
         Function<Block, Block> blockTransform = transform.blockTransform();
 
-        BlockBuilder blockBuilder = trinoType.createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = trinoType.createBlockBuilder(1);
 
         Object trinoValue = toTrinoValue(icebergType, icebergValue);
         verify(trinoValue == null || Primitives.wrap(trinoType.getJavaType()).isInstance(trinoValue), "Unexpected value for %s: %s", trinoType, trinoValue != null ? trinoValue.getClass() : null);

@@ -227,7 +227,7 @@ public class TestMapBlock
     private BlockBuilder createBlockBuilderWithValues(Map<String, Long>[] maps)
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
-        MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
+        MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(1);
         for (Map<String, Long> map : maps) {
             createBlockBuilderWithValues(map, mapBlockBuilder);
         }
@@ -338,7 +338,7 @@ public class TestMapBlock
     public void testStrict()
     {
         MapType mapType = mapType(BIGINT, BIGINT);
-        MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
+        MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(1);
         mapBlockBuilder.strict();
 
         // Add 100 maps with only one entry but the same key

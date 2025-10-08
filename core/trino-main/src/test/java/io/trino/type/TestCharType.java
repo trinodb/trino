@@ -45,7 +45,7 @@ public class TestCharType
 
     public static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = CHAR_TYPE.createBlockBuilder(null, 15);
+        BlockBuilder blockBuilder = CHAR_TYPE.createBlockBuilder(15);
         CHAR_TYPE.writeString(blockBuilder, "apple");
         CHAR_TYPE.writeString(blockBuilder, "apple");
         CHAR_TYPE.writeString(blockBuilder, "apple");
@@ -72,7 +72,7 @@ public class TestCharType
         CharType charType = createCharType(3);
 
         for (int codePoint : ImmutableList.of(0, 1, 10, 17, (int) ' ', 127, 1011, 11_000, 65_891, MIN_SUPPLEMENTARY_CODE_POINT, MAX_CODE_POINT)) {
-            VariableWidthBlockBuilder blockBuilder = charType.createBlockBuilder(null, 1);
+            VariableWidthBlockBuilder blockBuilder = charType.createBlockBuilder(1);
             Slice slice = (codePoint != ' ') ? codePointToUtf8(codePoint) : EMPTY_SLICE;
             blockBuilder.writeEntry(slice);
             Block block = blockBuilder.build();

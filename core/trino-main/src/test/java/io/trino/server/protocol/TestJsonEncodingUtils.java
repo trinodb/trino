@@ -120,7 +120,7 @@ public class TestJsonEncodingUtils
     {
         ArrayType arrayType = new ArrayType(BIGINT);
         List<TypedColumn> columns = ImmutableList.of(typed("col0", arrayType));
-        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 10);
+        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(10);
 
         blockBuilder.buildEntry(builder -> {
             for (int i = 0; i < 10; i++) {
@@ -150,7 +150,7 @@ public class TestJsonEncodingUtils
     {
         ArrayType arrayType = new ArrayType(INTEGER);
         List<TypedColumn> columns = ImmutableList.of(typed("col0", arrayType));
-        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 10);
+        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(10);
 
         blockBuilder.buildEntry(builder -> {
             for (int i = 0; i < 10; i++) {
@@ -180,7 +180,7 @@ public class TestJsonEncodingUtils
     {
         ArrayType arrayType = new ArrayType(TINYINT);
         List<TypedColumn> columns = ImmutableList.of(typed("col0", arrayType));
-        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 5);
+        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(5);
 
         blockBuilder.buildEntry(builder -> {
             for (int i = 0; i < 5; i++) {
@@ -211,7 +211,7 @@ public class TestJsonEncodingUtils
     {
         ArrayType arrayType = new ArrayType(SMALLINT);
         List<TypedColumn> columns = ImmutableList.of(typed("col0", arrayType));
-        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 5);
+        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(5);
 
         blockBuilder.buildEntry(builder -> {
             for (int i = 0; i < 5; i++) {
@@ -242,7 +242,7 @@ public class TestJsonEncodingUtils
     {
         ArrayType arrayType = new ArrayType(DOUBLE);
         List<TypedColumn> columns = ImmutableList.of(typed("col0", arrayType));
-        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 5);
+        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(5);
 
         blockBuilder.buildEntry(builder -> {
             for (int i = 0; i < 5; i++) {
@@ -273,7 +273,7 @@ public class TestJsonEncodingUtils
     {
         ArrayType arrayType = new ArrayType(REAL);
         List<TypedColumn> columns = ImmutableList.of(typed("col0", arrayType));
-        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 7);
+        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(7);
 
         blockBuilder.buildEntry(builder -> {
             for (int i = 0; i < 5; i++) {
@@ -322,7 +322,7 @@ public class TestJsonEncodingUtils
     {
         ArrayType arrayType = new ArrayType(VARCHAR);
         List<TypedColumn> columns = ImmutableList.of(typed("col0", arrayType));
-        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 6);
+        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(6);
 
         blockBuilder.buildEntry(builder -> {
             for (int i = 0; i < 5; i++) {
@@ -361,7 +361,7 @@ public class TestJsonEncodingUtils
         CharType charType = CharType.createCharType(5);
         ArrayType arrayType = new ArrayType(charType);
         List<TypedColumn> columns = ImmutableList.of(typed("col0", arrayType));
-        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 6);
+        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(6);
 
         blockBuilder.buildEntry(builder -> {
             for (int i = 0; i < 5; i++) {
@@ -392,7 +392,7 @@ public class TestJsonEncodingUtils
     {
         ArrayType arrayType = new ArrayType(BOOLEAN);
         List<TypedColumn> columns = ImmutableList.of(typed("col0", arrayType));
-        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 6);
+        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(6);
 
         blockBuilder.buildEntry(builder -> {
             for (int i = 0; i < 5; i++) {
@@ -412,7 +412,7 @@ public class TestJsonEncodingUtils
     {
         MapType mapType = new MapType(REAL, DOUBLE, new TypeOperators());
         List<TypedColumn> columns = ImmutableList.of(typed("col0", mapType));
-        MapBlockBuilder blockBuilder = mapType.createBlockBuilder(null, 6);
+        MapBlockBuilder blockBuilder = mapType.createBlockBuilder(6);
 
         blockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
             REAL.writeFloat(keyBuilder, 0.0f);
@@ -451,7 +451,7 @@ public class TestJsonEncodingUtils
     {
         MapType mapType = new MapType(VARBINARY, DOUBLE, new TypeOperators());
         List<TypedColumn> columns = ImmutableList.of(typed("col0", mapType));
-        MapBlockBuilder blockBuilder = mapType.createBlockBuilder(null, 6);
+        MapBlockBuilder blockBuilder = mapType.createBlockBuilder(6);
 
         blockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
             VARBINARY.writeSlice(keyBuilder, utf8Slice("value"));
@@ -482,7 +482,7 @@ public class TestJsonEncodingUtils
                 RowType.field("c", BOOLEAN));
 
         List<TypedColumn> columns = ImmutableList.of(typed("col0", rowType));
-        RowBlockBuilder blockBuilder = rowType.createBlockBuilder(null, 2);
+        RowBlockBuilder blockBuilder = rowType.createBlockBuilder(2);
 
         blockBuilder.buildEntry(builders -> {
             BIGINT.writeLong(builders.get(0), 1);

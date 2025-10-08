@@ -53,7 +53,7 @@ public class MapEncoding
         this.keyEncoding = keyEncoding;
         this.valueEncoding = valueEncoding;
         this.distinctMapKeys = new DistinctMapKeys(mapType, false);
-        this.keyBlockBuilder = mapType.getKeyType().createBlockBuilder(null, 128);
+        this.keyBlockBuilder = mapType.getKeyType().createBlockBuilder(128);
     }
 
     @Override
@@ -166,7 +166,7 @@ public class MapEncoding
         public Block getKeyBlock()
         {
             Block keyBlock = keyBlockBuilder.build();
-            keyBlockBuilder = mapType.getKeyType().createBlockBuilder(null, keyBlock.getPositionCount());
+            keyBlockBuilder = mapType.getKeyType().createBlockBuilder(keyBlock.getPositionCount());
             return keyBlock;
         }
 

@@ -30,7 +30,7 @@ final class TypedPositionsAppender
 
     TypedPositionsAppender(Type type, int expectedPositions)
     {
-        this.blockBuilder = type.createBlockBuilder(null, expectedPositions);
+        this.blockBuilder = type.createBlockBuilder(expectedPositions);
     }
 
     public TypedPositionsAppender(BlockBuilder blockBuilder)
@@ -74,7 +74,7 @@ final class TypedPositionsAppender
     public void reset()
     {
         if (blockBuilder.getPositionCount() > 0) {
-            blockBuilder = blockBuilder.newBlockBuilderLike(null);
+            blockBuilder = blockBuilder.newBlockBuilderLike();
         }
     }
 

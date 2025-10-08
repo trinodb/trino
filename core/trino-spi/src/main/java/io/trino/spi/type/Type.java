@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 
@@ -96,20 +95,20 @@ public interface Type
      * Creates the preferred block builder for this type. This is the builder used to
      * store values after an expression projection within the query.
      */
-    BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry);
+    BlockBuilder createBlockBuilder(int expectedEntries, int expectedBytesPerEntry);
 
     /**
      * Creates the preferred block builder for this type. This is the builder used to
      * store values after an expression projection within the query.
      */
-    BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries);
+    BlockBuilder createBlockBuilder(int expectedEntries);
 
     /**
      * Creates a block containing as single  null values.
      */
     default ValueBlock createNullBlock()
     {
-        return createBlockBuilder(null, 1, 0)
+        return createBlockBuilder(1, 0)
                 .appendNull()
                 .buildValueBlock();
     }

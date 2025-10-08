@@ -160,7 +160,7 @@ public class TestBlockSet
     @Test
     public void testGetElementPositionRandom()
     {
-        BlockBuilder keysBuilder = VARCHAR.createBlockBuilder(null, 5);
+        BlockBuilder keysBuilder = VARCHAR.createBlockBuilder(5);
         VARCHAR.writeSlice(keysBuilder, utf8Slice("hello"));
         VARCHAR.writeSlice(keysBuilder, utf8Slice("bye"));
         VARCHAR.writeSlice(keysBuilder, utf8Slice("abc"));
@@ -171,7 +171,7 @@ public class TestBlockSet
             set.add(keys, i);
         }
 
-        BlockBuilder valuesBuilder = VARCHAR.createBlockBuilder(null, 5);
+        BlockBuilder valuesBuilder = VARCHAR.createBlockBuilder(5);
         VARCHAR.writeSlice(valuesBuilder, utf8Slice("bye"));
         VARCHAR.writeSlice(valuesBuilder, utf8Slice("abc"));
         VARCHAR.writeSlice(valuesBuilder, utf8Slice("hello"));

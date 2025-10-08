@@ -85,7 +85,7 @@ public class TestLearnAggregations
     private static void assertLearnClassifier(Aggregator aggregator)
     {
         aggregator.processPage(getPage());
-        BlockBuilder finalOut = aggregator.getType().createBlockBuilder(null, 1);
+        BlockBuilder finalOut = aggregator.getType().createBlockBuilder(1);
         aggregator.evaluate(finalOut);
         Block block = finalOut.build();
         Slice slice = aggregator.getType().getSlice(block, 0);

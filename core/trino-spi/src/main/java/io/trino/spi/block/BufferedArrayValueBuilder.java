@@ -32,7 +32,7 @@ public class BufferedArrayValueBuilder
     BufferedArrayValueBuilder(ArrayType arrayType, int bufferSize)
     {
         this.bufferSize = bufferSize;
-        this.valueBuilder = arrayType.getElementType().createBlockBuilder(null, bufferSize);
+        this.valueBuilder = arrayType.getElementType().createBlockBuilder(bufferSize);
     }
 
     public long getRetainedSizeInBytes()
@@ -48,7 +48,7 @@ public class BufferedArrayValueBuilder
             if (bufferSize < entryCount) {
                 bufferSize = entryCount;
             }
-            valueBuilder = valueBuilder.newBlockBuilderLike(bufferSize, null);
+            valueBuilder = valueBuilder.newBlockBuilderLike(bufferSize);
         }
 
         int startSize = valueBuilder.getPositionCount();

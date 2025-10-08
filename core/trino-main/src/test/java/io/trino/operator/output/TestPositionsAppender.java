@@ -380,7 +380,7 @@ public class TestPositionsAppender
 
     private static ValueBlock singleValueBlock(String value)
     {
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(1);
         VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice(value));
         return blockBuilder.buildValueBlock();
     }
@@ -448,7 +448,7 @@ public class TestPositionsAppender
 
     private static Block nullBlock(TestType type, int positionCount)
     {
-        BlockBuilder blockBuilder = type.getType().createBlockBuilder(null, positionCount);
+        BlockBuilder blockBuilder = type.getType().createBlockBuilder(positionCount);
         for (int i = 0; i < positionCount; i++) {
             blockBuilder.appendNull();
         }
@@ -457,7 +457,7 @@ public class TestPositionsAppender
 
     private static Block nullBlock(Type type, int positionCount)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, positionCount);
+        BlockBuilder blockBuilder = type.createBlockBuilder(positionCount);
         for (int i = 0; i < positionCount; i++) {
             blockBuilder.appendNull();
         }
@@ -466,7 +466,7 @@ public class TestPositionsAppender
 
     private static Block emptyBlock(TestType type)
     {
-        return type.adapt(type.getType().createBlockBuilder(null, 0).build());
+        return type.adapt(type.getType().createBlockBuilder(0).build());
     }
 
     private static Block createRandomBlockForType(TestType type, int positionCount, float nullRate)
@@ -563,7 +563,7 @@ public class TestPositionsAppender
 
     private static Block buildBlock(Type type, List<BlockView> inputs, long sizeInBytes)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 10);
+        BlockBuilder blockBuilder = type.createBlockBuilder(10);
         for (BlockView input : inputs) {
             ValueBlock valueBlock = input.block().getUnderlyingValueBlock();
             for (int position : input.positions()) {

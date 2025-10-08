@@ -129,7 +129,7 @@ public class BenchmarkArrayTransform
 
         private static Block createChannel(int positionCount, int arraySize, ArrayType arrayType)
         {
-            ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
+            ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(positionCount);
             for (int position = 0; position < positionCount; position++) {
                 blockBuilder.buildEntry(elementBuilder -> {
                     for (int i = 0; i < arraySize; i++) {

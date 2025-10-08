@@ -79,7 +79,7 @@ public class BenchmarkHashCodeOperator
         private static Block createChannel(int positionCount, Type type)
         {
             ThreadLocalRandom random = ThreadLocalRandom.current();
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, positionCount);
+            BlockBuilder blockBuilder = type.createBlockBuilder(positionCount);
             for (int position = 0; position < positionCount; position++) {
                 addElement(type, random, blockBuilder);
             }

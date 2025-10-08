@@ -766,7 +766,7 @@ public class TestApproximatePercentileAggregation
 
     private static Block createRleBlock(Iterable<Double> percentiles, int positionCount)
     {
-        ArrayBlockBuilder arrayBuilder = new ArrayType(DOUBLE).createBlockBuilder(null, 1);
+        ArrayBlockBuilder arrayBuilder = new ArrayType(DOUBLE).createBlockBuilder(1);
         arrayBuilder.buildEntry(elementBuilder -> {
             for (double percentile : percentiles) {
                 DOUBLE.writeDouble(elementBuilder, percentile);

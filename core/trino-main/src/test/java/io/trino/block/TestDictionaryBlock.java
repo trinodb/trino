@@ -366,7 +366,7 @@ public class TestDictionaryBlock
 
     private static BlockBuilder createBlockBuilder()
     {
-        return new VariableWidthBlockBuilder(null, 100, 1);
+        return new VariableWidthBlockBuilder(100, 1);
     }
 
     private static void assertDictionaryIds(DictionaryBlock dictionaryBlock, int... expected)

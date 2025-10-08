@@ -13,8 +13,6 @@
  */
 package io.trino.spi.block;
 
-import jakarta.annotation.Nullable;
-
 import java.util.Arrays;
 
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -29,8 +27,6 @@ public class Int128ArrayBlockBuilder
     private static final int INSTANCE_SIZE = instanceSize(Int128ArrayBlockBuilder.class);
     private static final Block NULL_VALUE_BLOCK = new Int128ArrayBlock(0, 1, new boolean[] {true}, new long[2]);
 
-    @Nullable
-    private final BlockBuilderStatus blockBuilderStatus;
     private boolean initialized;
     private final int initialEntryCount;
 
@@ -44,9 +40,8 @@ public class Int128ArrayBlockBuilder
 
     private long retainedSizeInBytes;
 
-    public Int128ArrayBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public Int128ArrayBlockBuilder(int expectedEntries)
     {
-        this.blockBuilderStatus = blockBuilderStatus;
         this.initialEntryCount = max(expectedEntries, 1);
 
         updateRetainedSize();
@@ -62,9 +57,6 @@ public class Int128ArrayBlockBuilder
 
         hasNonNullValue = true;
         positionCount++;
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(Int128ArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
     }
 
     @Override
@@ -87,10 +79,6 @@ public class Int128ArrayBlockBuilder
             hasNonNullValue = true;
         }
         positionCount++;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(Int128ArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
     }
 
     @Override
@@ -126,10 +114,6 @@ public class Int128ArrayBlockBuilder
             hasNonNullValue = true;
         }
         positionCount += count;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(count * Int128ArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
     }
 
     @Override
@@ -170,10 +154,6 @@ public class Int128ArrayBlockBuilder
             hasNonNullValue = true;
         }
         positionCount += length;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(length * LongArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
     }
 
     @Override
@@ -222,10 +202,6 @@ public class Int128ArrayBlockBuilder
             hasNonNullValue = true;
         }
         positionCount += length;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(length * Int128ArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
     }
 
     @Override
@@ -237,9 +213,6 @@ public class Int128ArrayBlockBuilder
 
         hasNullValue = true;
         positionCount++;
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(Int128ArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
         return this;
     }
 
@@ -266,9 +239,9 @@ public class Int128ArrayBlockBuilder
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries)
     {
-        return new Int128ArrayBlockBuilder(blockBuilderStatus, expectedEntries);
+        return new Int128ArrayBlockBuilder(expectedEntries);
     }
 
     private void ensureCapacity(int capacity)
@@ -295,9 +268,6 @@ public class Int128ArrayBlockBuilder
     private void updateRetainedSize()
     {
         retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
-        if (blockBuilderStatus != null) {
-            retainedSizeInBytes += BlockBuilderStatus.INSTANCE_SIZE;
-        }
     }
 
     @Override

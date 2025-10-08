@@ -22,7 +22,7 @@ public class TestIntArrayBlockBuilder
     @Override
     protected BlockBuilder createBlockBuilder()
     {
-        return new IntArrayBlockBuilder(null, 1);
+        return new IntArrayBlockBuilder(1);
     }
 
     @Override
@@ -40,7 +40,7 @@ public class TestIntArrayBlockBuilder
     @Override
     protected ValueBlock blockFromValues(Iterable<Integer> values)
     {
-        IntArrayBlockBuilder blockBuilder = new IntArrayBlockBuilder(null, 1);
+        IntArrayBlockBuilder blockBuilder = new IntArrayBlockBuilder(1);
         for (Integer value : values) {
             if (value == null) {
                 blockBuilder.appendNull();

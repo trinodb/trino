@@ -105,7 +105,7 @@ public class BenchmarkArrayDotProduct
         private static Block createChannel(int positionCount, int arraySize, Type elementType)
         {
             ArrayType arrayType = new ArrayType(elementType);
-            ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
+            ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(positionCount);
             for (int position = 0; position < positionCount; position++) {
                 blockBuilder.buildEntry(elementBuilder -> {
                     for (int i = 0; i < arraySize; i++) {

@@ -114,7 +114,7 @@ public final class BlackHolePageSourceProvider
             builder = fixedWidthType.createFixedSizeBlockBuilder(rowsCount);
         }
         else {
-            builder = type.createBlockBuilder(null, rowsCount, slice.length());
+            builder = type.createBlockBuilder(rowsCount, slice.length());
         }
 
         for (int i = 0; i < rowsCount; i++) {

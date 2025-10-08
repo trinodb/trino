@@ -22,7 +22,7 @@ public class TestLongArrayBlockBuilder
     @Override
     protected BlockBuilder createBlockBuilder()
     {
-        return new LongArrayBlockBuilder(null, 1);
+        return new LongArrayBlockBuilder(1);
     }
 
     @Override
@@ -40,7 +40,7 @@ public class TestLongArrayBlockBuilder
     @Override
     protected ValueBlock blockFromValues(Iterable<Long> values)
     {
-        LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(null, 1);
+        LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(1);
         for (Long value : values) {
             if (value == null) {
                 blockBuilder.appendNull();

@@ -78,7 +78,7 @@ public final class ArrayHistogramFunction
                 histogram.add(0, valueBlock, position, 1L);
             }
         }
-        MapBlockBuilder blockBuilder = mapType.createBlockBuilder(null, histogram.size());
+        MapBlockBuilder blockBuilder = mapType.createBlockBuilder(histogram.size());
         histogram.serialize(0, blockBuilder);
         MapBlock mapBlock = (MapBlock) blockBuilder.build();
         return mapType.getObject(mapBlock, 0);

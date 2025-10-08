@@ -123,7 +123,7 @@ public final class RepeatFunction
     {
         checkCondition(count <= MAX_RESULT_ENTRIES, INVALID_FUNCTION_ARGUMENT, "count argument of repeat function must be less than or equal to 10000");
         checkCondition(count >= 0, INVALID_FUNCTION_ARGUMENT, "count argument of repeat function must be greater than or equal to 0");
-        return type.createBlockBuilder(null, toIntExact(count));
+        return type.createBlockBuilder(toIntExact(count));
     }
 
     private static Block repeatNullValues(BlockBuilder blockBuilder, long count)

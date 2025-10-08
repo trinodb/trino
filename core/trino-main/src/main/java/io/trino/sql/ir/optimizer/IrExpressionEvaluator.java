@@ -391,7 +391,7 @@ public class IrExpressionEvaluator
                 .map(e -> evaluate(e, session, bindings))
                 .toList();
 
-        BlockBuilder builder = expression.elementType().createBlockBuilder(null, values.size());
+        BlockBuilder builder = expression.elementType().createBlockBuilder(values.size());
         for (Object element : values) {
             writeNativeValue(expression.elementType(), builder, element);
         }

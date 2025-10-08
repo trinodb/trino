@@ -24,7 +24,7 @@ public class TestInt128ArrayBlockBuilder
     @Override
     protected BlockBuilder createBlockBuilder()
     {
-        return new Int128ArrayBlockBuilder(null, 1);
+        return new Int128ArrayBlockBuilder(1);
     }
 
     @Override
@@ -42,7 +42,7 @@ public class TestInt128ArrayBlockBuilder
     @Override
     protected ValueBlock blockFromValues(Iterable<Int128> values)
     {
-        Int128ArrayBlockBuilder blockBuilder = new Int128ArrayBlockBuilder(null, 1);
+        Int128ArrayBlockBuilder blockBuilder = new Int128ArrayBlockBuilder(1);
         for (Int128 value : values) {
             if (value == null) {
                 blockBuilder.appendNull();

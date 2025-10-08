@@ -1109,7 +1109,7 @@ public final class TestHiveFileFormats
                                 .isEqualTo(expectedValue);
                     }
                     else {
-                        BlockBuilder builder = type.createBlockBuilder(null, 1);
+                        BlockBuilder builder = type.createBlockBuilder(1);
                         type.writeObject(builder, expectedValue);
                         expectedValue = type.getObjectValue(builder.build(), 0);
                         assertThat(actualValue)

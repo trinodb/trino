@@ -79,7 +79,7 @@ public class TestPageSplitterUtil
         List<Type> types = ImmutableList.of(VARCHAR);
 
         Slice expectedValue = wrappedBuffer("test".getBytes(UTF_8));
-        VariableWidthBlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1, expectedValue.length());
+        VariableWidthBlockBuilder blockBuilder = VARCHAR.createBlockBuilder(1, expectedValue.length());
         blockBuilder.writeEntry(expectedValue);
         Block rleBlock = RunLengthEncodedBlock.create(blockBuilder.build(), positionCount);
         Page initialPage = new Page(rleBlock);

@@ -58,7 +58,7 @@ public abstract class BlockEncoding
         int size = columnData.rowCount();
 
         Slice slice = columnData.getSlice();
-        BlockBuilder builder = type.createBlockBuilder(null, size);
+        BlockBuilder builder = type.createBlockBuilder(size);
         for (int i = 0; i < size; i++) {
             int length = columnData.getLength(i);
             int offset = columnData.getOffset(i);

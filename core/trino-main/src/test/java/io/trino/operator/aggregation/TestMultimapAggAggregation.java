@@ -177,7 +177,7 @@ public class TestMultimapAggAggregation
         TestingAggregationFunction aggregationFunction = getAggregationFunction(BIGINT, BIGINT);
         GroupedAggregator groupedAggregator = aggregationFunction.createAggregatorFactory(SINGLE, Ints.asList(), OptionalInt.empty())
                 .createGroupedAggregator(new AggregationMetrics());
-        BlockBuilder blockBuilder = aggregationFunction.getFinalType().createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = aggregationFunction.getFinalType().createBlockBuilder(1);
         groupedAggregator.evaluate(0, blockBuilder);
         assertThat(blockBuilder.build().isNull(0)).isTrue();
     }

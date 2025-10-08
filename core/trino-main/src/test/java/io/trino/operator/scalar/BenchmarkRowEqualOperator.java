@@ -91,8 +91,8 @@ public class BenchmarkRowEqualOperator
         private static Block[] createChannels(int positionCount, RowType rowType)
         {
             ThreadLocalRandom random = ThreadLocalRandom.current();
-            RowBlockBuilder leftBlockBuilder = rowType.createBlockBuilder(null, positionCount);
-            RowBlockBuilder rightBlockBuilder = rowType.createBlockBuilder(null, positionCount);
+            RowBlockBuilder leftBlockBuilder = rowType.createBlockBuilder(positionCount);
+            RowBlockBuilder rightBlockBuilder = rowType.createBlockBuilder(positionCount);
             for (int position = 0; position < positionCount; position++) {
                 leftBlockBuilder.buildEntry(leftFieldBuilders -> {
                     rightBlockBuilder.buildEntry(rightFieldBuilders -> {

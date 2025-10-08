@@ -56,7 +56,7 @@ public class AggregationTestOutput
 
     private static Object getGroupValue(Type finalType, GroupedAggregator groupedAggregator, int groupId)
     {
-        BlockBuilder out = finalType.createBlockBuilder(null, 1);
+        BlockBuilder out = finalType.createBlockBuilder(1);
         groupedAggregator.evaluate(groupId, out);
         return BlockAssertions.getOnlyValue(finalType, out.build());
     }

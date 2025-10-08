@@ -93,7 +93,7 @@ public class TestLongDecimalWithOverflowStateSerializer
     private LongDecimalWithOverflowState roundTrip(LongDecimalWithOverflowState state, int expectedLength, Function<Block, Block> serializedModification)
     {
         LongDecimalWithOverflowStateSerializer serializer = new LongDecimalWithOverflowStateSerializer();
-        VariableWidthBlockBuilder out = new VariableWidthBlockBuilder(null, 1, 0);
+        VariableWidthBlockBuilder out = new VariableWidthBlockBuilder(1, 0);
 
         serializer.serialize(state, out);
 

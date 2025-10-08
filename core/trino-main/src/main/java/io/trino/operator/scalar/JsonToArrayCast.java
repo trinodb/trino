@@ -100,7 +100,7 @@ public class JsonToArrayCast
                 return null;
             }
 
-            BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 1);
+            BlockBuilder blockBuilder = arrayType.createBlockBuilder(1);
             arrayAppender.append(jsonParser, blockBuilder);
             if (jsonParser.nextToken() != null) {
                 throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));

@@ -26,7 +26,7 @@ public final class ArrayConcatUtils
     @UsedByGeneratedCode
     public static Block appendElement(Type elementType, Block block, long value)
     {
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(block.getPositionCount() + 1);
         blockBuilder.appendBlockRange(block, 0, block.getPositionCount());
 
         elementType.writeLong(blockBuilder, value);
@@ -37,7 +37,7 @@ public final class ArrayConcatUtils
     @UsedByGeneratedCode
     public static Block appendElement(Type elementType, Block block, boolean value)
     {
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(block.getPositionCount() + 1);
         blockBuilder.appendBlockRange(block, 0, block.getPositionCount());
 
         elementType.writeBoolean(blockBuilder, value);
@@ -48,7 +48,7 @@ public final class ArrayConcatUtils
     @UsedByGeneratedCode
     public static Block appendElement(Type elementType, Block block, double value)
     {
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(block.getPositionCount() + 1);
         blockBuilder.appendBlockRange(block, 0, block.getPositionCount());
 
         elementType.writeDouble(blockBuilder, value);
@@ -59,7 +59,7 @@ public final class ArrayConcatUtils
     @UsedByGeneratedCode
     public static Block appendElement(Type elementType, Block block, Slice value)
     {
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(block.getPositionCount() + 1);
         blockBuilder.appendBlockRange(block, 0, block.getPositionCount());
 
         elementType.writeSlice(blockBuilder, value);
@@ -70,7 +70,7 @@ public final class ArrayConcatUtils
     @UsedByGeneratedCode
     public static Block appendElement(Type elementType, Block block, Object value)
     {
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(block.getPositionCount() + 1);
         blockBuilder.appendBlockRange(block, 0, block.getPositionCount());
 
         elementType.writeObject(blockBuilder, value);
@@ -82,7 +82,7 @@ public final class ArrayConcatUtils
     @UsedByGeneratedCode
     public static Block prependElement(Type elementType, Slice value, Block block)
     {
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(block.getPositionCount() + 1);
 
         elementType.writeSlice(blockBuilder, value);
         blockBuilder.appendBlockRange(block, 0, block.getPositionCount());
@@ -93,7 +93,7 @@ public final class ArrayConcatUtils
     @UsedByGeneratedCode
     public static Block prependElement(Type elementType, Object value, Block block)
     {
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(block.getPositionCount() + 1);
 
         elementType.writeObject(blockBuilder, value);
         blockBuilder.appendBlockRange(block, 0, block.getPositionCount());
@@ -104,7 +104,7 @@ public final class ArrayConcatUtils
     @UsedByGeneratedCode
     public static Block prependElement(Type elementType, long value, Block block)
     {
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(block.getPositionCount() + 1);
 
         elementType.writeLong(blockBuilder, value);
         blockBuilder.appendBlockRange(block, 0, block.getPositionCount());
@@ -115,7 +115,7 @@ public final class ArrayConcatUtils
     @UsedByGeneratedCode
     public static Block prependElement(Type elementType, boolean value, Block block)
     {
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(block.getPositionCount() + 1);
 
         elementType.writeBoolean(blockBuilder, value);
         blockBuilder.appendBlockRange(block, 0, block.getPositionCount());
@@ -126,7 +126,7 @@ public final class ArrayConcatUtils
     @UsedByGeneratedCode
     public static Block prependElement(Type elementType, double value, Block block)
     {
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(block.getPositionCount() + 1);
 
         elementType.writeDouble(blockBuilder, value);
         blockBuilder.appendBlockRange(block, 0, block.getPositionCount());

@@ -212,7 +212,7 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
 
     private Block makeVarcharArrayBlock(String... elements)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(null, elements.length);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(elements.length);
         for (String element : elements) {
             if (element == null) {
                 builder.appendNull();
