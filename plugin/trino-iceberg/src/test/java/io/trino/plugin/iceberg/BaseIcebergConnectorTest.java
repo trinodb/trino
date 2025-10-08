@@ -1631,7 +1631,7 @@ public abstract class BaseIcebergConnectorTest
                 "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
             assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
             assertThat(query("ALTER TABLE " + table.getName() + " DROP COLUMN comment"))
-                    .failure().hasMessageContaining("Cannot find source column for sort field");
+                    .failure().hasMessageContaining("Cannot drop sort field: comment");
         }
     }
 
