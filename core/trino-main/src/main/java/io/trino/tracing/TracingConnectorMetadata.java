@@ -79,6 +79,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Privilege;
@@ -249,6 +250,15 @@ public class TracingConnectorMetadata
         Span span = startSpan("getInfo", table);
         try (var _ = scopedSpan(span)) {
             return delegate.getInfo(session, table);
+        }
+    }
+
+    @Override
+    public Metrics getMetrics(ConnectorSession session)
+    {
+        Span span = startSpan("getMetrics");
+        try (var _ = scopedSpan(span)) {
+            return delegate.getMetrics(session);
         }
     }
 

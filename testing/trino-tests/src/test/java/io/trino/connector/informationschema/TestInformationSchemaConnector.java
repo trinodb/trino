@@ -400,8 +400,8 @@ public class TestInformationSchemaConnector
     private void assertMetadataCalls(@Language("SQL") String actualSql, @Language("SQL") String expectedSql, Multiset<String> expectedMetadataCallsCount)
     {
         expectedMetadataCallsCount = ImmutableMultiset.<String>builder()
-                // Every query involves beginQuery and cleanupQuery, so expect them implicitly.
-                .add("ConnectorMetadata.beginQuery", "ConnectorMetadata.cleanupQuery")
+                // Every query involves beginQuery, cleanupQuery and getMetrics, so expect them implicitly.
+                .add("ConnectorMetadata.beginQuery", "ConnectorMetadata.cleanupQuery", "ConnectorMetadata.getMetrics")
                 .addAll(expectedMetadataCallsCount)
                 .build();
 

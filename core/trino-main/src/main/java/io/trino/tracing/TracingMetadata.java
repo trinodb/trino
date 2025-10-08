@@ -97,6 +97,7 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.FunctionAuthorization;
 import io.trino.spi.security.GrantInfo;
@@ -281,6 +282,15 @@ public class TracingMetadata
         Span span = startSpan("getInfo", handle);
         try (var _ = scopedSpan(span)) {
             return delegate.getInfo(session, handle);
+        }
+    }
+
+    @Override
+    public Metrics getMetrics(Session session, String catalogName)
+    {
+        Span span = startSpan("getMetrics", catalogName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getMetrics(session, catalogName);
         }
     }
 
@@ -865,6 +875,15 @@ public class TracingMetadata
         Span span = startSpan("listCatalogs");
         try (var _ = scopedSpan(span)) {
             return delegate.listCatalogs(session);
+        }
+    }
+
+    @Override
+    public List<CatalogInfo> listActiveCatalogs(Session session)
+    {
+        Span span = startSpan("listActiveCatalogs");
+        try (var _ = scopedSpan(span)) {
+            return delegate.listActiveCatalogs(session);
         }
     }
 
