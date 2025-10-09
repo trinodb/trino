@@ -195,16 +195,28 @@ public class TrinoHudiStorage
     public List<StoragePathInfo> listDirectEntries(StoragePath path)
             throws IOException
     {
-        FileIterator fileIterator = fileSystem.listFiles(convertToLocation(path));
+        Location location = convertToLocation(path);
+        Optional<Boolean> dirExists = fileSystem.directoryExists(location);
+
+        // For hierarchical filesystems (HDFS): directoryExists returns true/false
+        // For non-hierarchical filesystems (S3): returns empty if directory doesn't exist
+        if (dirExists.isPresent() && !dirExists.get()) {
+            // Path exists but is not a directory
+            throw new FileNotFoundException("Path " + path + " does not exist");
+        }
+
+        FileIterator fileIterator = fileSystem.listFiles(location);
         Set<StoragePathInfo> entryList = new HashSet<>();
         while (fileIterator.hasNext()) {
             entryList.add(getDirectEntryPathInfo(path, fileIterator.next()));
         }
-        if (entryList.isEmpty()) {
-            // Based on the API definition, the `FileNotFoundException` should be thrown here
-            // so that Hudi logic can catch it and swallow it as needed
+
+        // For S3 (non-hierarchical): empty list means directory doesn't exist
+        // For HDFS (hierarchical): empty list is valid (empty directory)
+        if (entryList.isEmpty() && dirExists.isEmpty()) {
             throw new FileNotFoundException("Path " + path + " does not exist");
         }
+
         return ImmutableList.copyOf(entryList);
     }
 
@@ -224,7 +236,17 @@ public class TrinoHudiStorage
     public List<StoragePathInfo> listDirectEntries(StoragePath path, StoragePathFilter filter)
             throws IOException
     {
-        FileIterator fileIterator = fileSystem.listFiles(convertToLocation(path));
+        Location location = convertToLocation(path);
+        Optional<Boolean> dirExists = fileSystem.directoryExists(location);
+
+        // For hierarchical filesystems (HDFS): directoryExists returns true/false
+        // For non-hierarchical filesystems (S3): returns empty if directory doesn't exist
+        if (dirExists.isPresent() && !dirExists.get()) {
+            // Path exists but is not a directory
+            throw new FileNotFoundException("Path " + path + " does not exist");
+        }
+
+        FileIterator fileIterator = fileSystem.listFiles(location);
         ImmutableList.Builder<StoragePathInfo> listBuilder = ImmutableList.builder();
         int count = 0;
         while (fileIterator.hasNext()) {
@@ -234,11 +256,13 @@ public class TrinoHudiStorage
                 listBuilder.add(pathInfo);
             }
         }
-        if (count == 0) {
-            // Based on the API definition, the `FileNotFoundException` should be thrown here
-            // so that Hudi logic can catch it and swallow it as needed
+
+        // For S3 (non-hierarchical): empty list means directory doesn't exist
+        // For HDFS (hierarchical): empty list is valid (empty directory)
+        if (count == 0 && dirExists.isEmpty()) {
             throw new FileNotFoundException("Path " + path + " does not exist");
         }
+
         return listBuilder.build();
     }
 
