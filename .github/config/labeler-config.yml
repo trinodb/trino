@@ -131,10 +131,6 @@ sqlserver:
   - changed-files:
     - any-glob-to-any-file: 'plugin/trino-sqlserver/**'
 
-vertica:
-  - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-vertica/**'
-
 docs:
   - changed-files:
     - any-glob-to-any-file: 'docs/**'
