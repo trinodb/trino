@@ -45,7 +45,7 @@ public final class DevelopmentServer
 
                 // Use a temporary directory to satisfy configuration validation
                 configBinder(binder).bindConfigDefaults(ServerPluginsProviderConfig.class, config ->
-                        config.setInstalledPluginsDirs(ImmutableList.of(pluginPath.toFile())));
+                        config.setInstalledPluginsDirs(ImmutableList.of(pluginPath)));
 
                 closingBinder(binder).registerCloseable(() -> Files.deleteIfExists(pluginPath));
             });
