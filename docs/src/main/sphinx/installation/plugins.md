@@ -364,8 +364,4 @@ with the listed coordinates.
   - [](/connector/tpch)
   - [io.trino:trino-tpch](https://central.sonatype.com/search?q=io.trino%3Atrino-tpch)
   - {download_gh}`tpch`
-* - vertica
-  - [](/connector/vertica)
-  - [io.trino:trino-vertica](https://central.sonatype.com/search?q=io.trino%3Atrino-vertica)
-  - {download_gh}`vertica`
 :::
