@@ -20,6 +20,7 @@ import java.io.Closeable;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
+import java.time.ZoneId;
 
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
@@ -63,6 +64,11 @@ public class TestingClickHouseServer
         this(image, false);
     }
 
+    public TestingClickHouseServer(DockerImageName image, ZoneId timeZone)
+    {
+        this(image, false, timeZone);
+    }
+
     /**
      * @param clusterEnabled also configure ClickHouse Keeper and a cluster named
      *         {@code test_cluster} containing this node, which is what
@@ -70,7 +76,13 @@ public class TestingClickHouseServer
      */
     public TestingClickHouseServer(DockerImageName image, boolean clusterEnabled)
     {
+        this(image, clusterEnabled, ZoneId.of("UTC"));
+    }
+
+    private TestingClickHouseServer(DockerImageName image, boolean clusterEnabled, ZoneId timeZone)
+    {
         ClickHouseContainer container = new ClickHouseContainer(image)
+                .withEnv("TZ", timeZone.getId())
                 .withCopyFileToContainer(forClasspathResource("custom.xml"), "/etc/clickhouse-server/config.d/custom.xml")
                 .withStartupAttempts(10);
         if (clusterEnabled) {

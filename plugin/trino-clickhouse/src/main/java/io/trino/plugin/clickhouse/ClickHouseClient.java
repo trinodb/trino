@@ -16,6 +16,7 @@ package io.trino.plugin.clickhouse;
 import com.clickhouse.client.ClickHouseVersionUtils;
 import com.clickhouse.data.ClickHouseColumn;
 import com.clickhouse.data.ClickHouseDataType;
+import com.clickhouse.jdbc.ClickHouseConnection;
 import com.google.common.base.Enums;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -44,6 +45,7 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
@@ -74,8 +76,10 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.NumberType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeDescriptor;
 import io.trino.spi.type.TypeManager;
@@ -126,6 +130,7 @@ import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PARTITION_BY_
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PRIMARY_KEY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PROPERTY;
 import static io.trino.plugin.clickhouse.TrinoToClickHouseWriteChecker.DATETIME;
+import static io.trino.plugin.clickhouse.TrinoToClickHouseWriteChecker.DATETIME64;
 import static io.trino.plugin.clickhouse.TrinoToClickHouseWriteChecker.UINT16;
 import static io.trino.plugin.clickhouse.TrinoToClickHouseWriteChecker.UINT32;
 import static io.trino.plugin.clickhouse.TrinoToClickHouseWriteChecker.UINT64;
@@ -178,11 +183,16 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_SECONDS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
@@ -212,6 +222,7 @@ public class ClickHouseClient
     private static final String NO_COMMENT = "";
 
     public static final int DEFAULT_DOMAIN_COMPACTION_THRESHOLD = 1_000;
+    public static final int CLICKHOUSE_MAX_SUPPORTED_DATETIME64_PRECISION = 9;
 
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
@@ -718,6 +729,18 @@ public class ClickHouseClient
                 }
                 yield Optional.of(varbinaryColumnMapping());
             }
+            case DateTime64 -> {
+                try {
+                    TimeZone timeZone = column.getTimeZone();
+                    if (timeZone == null) {
+                        timeZone = connection.unwrap(ClickHouseConnection.class).getServerTimeZone();
+                    }
+                    yield Optional.of(timestampWithTimeZoneColumnMapping(typeHandle.requiredDecimalDigits(), version, timeZone));
+                }
+                catch (SQLException e) {
+                    throw new TrinoException(JDBC_ERROR, e);
+                }
+            }
             case UUID -> Optional.of(uuidColumnMapping());
             default -> Optional.empty();
         };
@@ -779,7 +802,7 @@ public class ClickHouseClient
                             timestampReadFunction(TIMESTAMP_SECONDS),
                             timestampSecondsWriteFunction(version)));
                 }
-                // TODO (https://github.com/trinodb/trino/issues/10537) Add support for Datetime64 type
+                // TODO Add support for DateTime32 type
                 yield Optional.of(timestampColumnMapping(TIMESTAMP_MILLIS));
             }
             case Types.TIMESTAMP_WITH_TIMEZONE -> {
@@ -789,7 +812,7 @@ public class ClickHouseClient
                     yield Optional.of(ColumnMapping.longMapping(
                             TIMESTAMP_TZ_SECONDS,
                             shortTimestampWithTimeZoneReadFunction(),
-                            shortTimestampWithTimeZoneWriteFunction(version, column.getTimeZone())));
+                            shortTimestampWithTimeZoneWriteFunction(DATETIME, version, column.getTimeZone())));
                 }
                 if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
                     yield mapToUnboundedVarchar(typeHandle);
@@ -977,6 +1000,26 @@ public class ClickHouseClient
         };
     }
 
+    private static ColumnMapping timestampWithTimeZoneColumnMapping(int precision, ClickHouseVersionUtils version, TimeZone columnTimeZone)
+    {
+        verifyDateTime64Precision(precision);
+        if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
+            return ColumnMapping.longMapping(
+                    createTimestampWithTimeZoneType(precision),
+                    shortTimestampWithTimeZoneReadFunction(),
+                    shortTimestampWithTimeZoneWriteFunction(DATETIME64, version, columnTimeZone));
+        }
+        return ColumnMapping.objectMapping(
+                createTimestampWithTimeZoneType(precision),
+                longTimestampWithTimeZoneReadFunction(),
+                longTimestampWithTimeZoneWriteFunction(DATETIME64, version, columnTimeZone));
+    }
+
+    private static void verifyDateTime64Precision(int precision)
+    {
+        checkArgument(precision >= 0 && precision <= CLICKHOUSE_MAX_SUPPORTED_DATETIME64_PRECISION, "Precision is out of range: %s", precision);
+    }
+
     private static LongReadFunction shortTimestampWithTimeZoneReadFunction()
     {
         return (resultSet, columnIndex) -> {
@@ -985,16 +1028,44 @@ public class ClickHouseClient
         };
     }
 
-    private static LongWriteFunction shortTimestampWithTimeZoneWriteFunction(ClickHouseVersionUtils version, TimeZone columnTimeZone)
+    private static LongWriteFunction shortTimestampWithTimeZoneWriteFunction(TrinoToClickHouseWriteChecker<LocalDateTime> valueChecker, ClickHouseVersionUtils version, TimeZone columnTimeZone)
     {
         return (statement, index, value) -> {
             long millisUtc = unpackMillisUtc(value);
             // Clickhouse JDBC driver inserts datetime as string value as yyyy-MM-dd HH:mm:ss and zone from the Column metadata would be used.
             Instant instant = Instant.ofEpochMilli(millisUtc);
             // ClickHouse stores incorrect results when the values are out of supported range.
-            DATETIME.validate(version, instant.atZone(UTC).toLocalDateTime());
+            valueChecker.validate(version, instant.atZone(UTC).toLocalDateTime());
             statement.setObject(index, instant.atZone(columnTimeZone.toZoneId()));
         };
+    }
+
+    private static ObjectReadFunction longTimestampWithTimeZoneReadFunction()
+    {
+        return ObjectReadFunction.of(
+                LongTimestampWithTimeZone.class,
+                (resultSet, columnIndex) -> {
+                    ZonedDateTime zonedDateTime = resultSet.getObject(columnIndex, ZonedDateTime.class);
+                    return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(
+                            zonedDateTime.toEpochSecond(),
+                            (long) zonedDateTime.getNano() * PICOSECONDS_PER_NANOSECOND,
+                            getTimeZoneKey(zonedDateTime.getZone().getId()));
+                });
+    }
+
+    private static ObjectWriteFunction longTimestampWithTimeZoneWriteFunction(TrinoToClickHouseWriteChecker<LocalDateTime> valueChecker, ClickHouseVersionUtils version, TimeZone columnTimeZone)
+    {
+        return ObjectWriteFunction.of(
+                LongTimestampWithTimeZone.class,
+                (statement, index, value) -> {
+                    long epochMillis = value.getEpochMillis();
+                    long epochSeconds = floorDiv(epochMillis, MILLISECONDS_PER_SECOND);
+                    long nanoAdjustment = floorMod(epochMillis, MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND + value.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
+                    Instant instant = Instant.ofEpochSecond(epochSeconds, nanoAdjustment);
+                    // ClickHouse stores incorrect results when the values are out of supported range.
+                    valueChecker.validate(version, instant.atZone(UTC).toLocalDateTime());
+                    statement.setObject(index, instant.atZone(columnTimeZone.toZoneId()));
+                });
     }
 
     private ColumnMapping ipAddressColumnMapping(String clickhouseType)
