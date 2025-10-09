@@ -248,7 +248,7 @@ may not be specified using both methods.
     different users, the first registered token is stored and authenticates all
     users.
 * - `disableCompression`
-  -  Whether compression should be enabled.
+  -  Whether HTTP compression should be disabled. Defaults to `false`.
 * - `disallowLocalRedirect`
   -  Whether client should reject redirects to localhost, link or site local
      IP addresses. Defaults to `false`.
