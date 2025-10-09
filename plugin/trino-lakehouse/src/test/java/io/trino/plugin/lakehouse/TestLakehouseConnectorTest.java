@@ -365,4 +365,17 @@ public class TestLakehouseConnectorTest
                    type = 'ICEBERG'
                 )\\E""");
     }
+
+    @Test
+    void testBucketFunction()
+    {
+        assertThat(query("SELECT lakehouse.system.bucket('trino', 16)"))
+                .matches("VALUES 10");
+
+        assertThat(query("SELECT lakehouse.system.other_function('trino', 16)"))
+                .failure().hasMessageMatching("line .:.: Function 'lakehouse.system.other_function' not registered");
+
+        assertThat(query("SELECT lakehouse.tpch.bucket('trino', 16)"))
+                .failure().hasMessageMatching("line .:.: Function 'lakehouse.tpch.bucket' not registered");
+    }
 }
