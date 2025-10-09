@@ -233,6 +233,10 @@ to the following table:
 * - `DateTime[(timezone)]`
   - `TIMESTAMP(0) [WITH TIME ZONE]`
   -
+* - `DateTime64(p[, timezone])`
+  - `TIMESTAMP(p) WITH TIME ZONE`
+  - `p` must be in the range `0` to `9`. If no timezone is specified, the
+    ClickHouse server timezone is used.
 * - `IPv4`
   - `IPADDRESS`
   -
