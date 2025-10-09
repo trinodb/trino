@@ -148,16 +148,18 @@
     </scm>
 
     <properties>
-        <project.build.targetJdk>24</project.build.targetJdk>
+        <project.build.targetJdk>26</project.build.targetJdk>
         <!-- for reproducible build support, updated by release plugin -->
         <project.build.outputTimestamp>2025-09-24T23:09:23Z</project.build.outputTimestamp>
         <!-- TODO remove this property when no module overrides it -->
         <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
 
+        <!-- TODO: temporary until maven-enforcer starts recognizing JDK 26 -->
+        <air.check.skip-enforcer>true</air.check.skip-enforcer>
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
-        <air.java.version>24.0.1</air.java.version>
+        <air.java.version>26</air.java.version>
         <air.javadoc.lint>syntax,reference,html,-missing</air.javadoc.lint>
         <air.modernizer.java-version>8</air.modernizer.java-version>
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
@@ -186,6 +188,7 @@
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
+        <dep.asm.version>9.9</dep.asm.version>
         <dep.aws-sdk.version>1.12.792</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.8.0</dep.confluent.version>
@@ -203,6 +206,7 @@
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>4.1.0</dep.kafka-clients.version>
         <dep.okhttp.version>5.2.0</dep.okhttp.version>
+        <dep.okhttp.version>5.1.0</dep.okhttp.version>
         <dep.okio.version>3.16.0</dep.okio.version>
         <dep.parquet.version>1.16.0</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
@@ -2876,11 +2880,6 @@
     <profiles>
         <profile>
             <id>errorprone-compiler</id>
-            <properties>
-                <!-- set java target to 25 to enable incubator linking -->
-                <project.build.targetJdk>25</project.build.targetJdk>
-                <air.java.version>25.0.0</air.java.version>
-            </properties>
             <build>
                 <plugins>
                     <plugin>
