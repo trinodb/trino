@@ -415,8 +415,7 @@ public class TestLakehouseConnectorTest
     }
 
     @Test
-    public void testCatalogMetadataMetricsWithOptimizerTimeoutExceeded()
-    {
+    public void testCatalogMetadataMetricsWithOptimizerTimeoutExceeded() {
         String query = "SELECT count(*) FROM region r, nation n, mock_metrics.default.mock_table m WHERE r.regionkey = n.regionkey";
         try {
             Session smallOptimizerTimeout = TestingSession.testSessionBuilder(getSession())
@@ -424,12 +423,24 @@ public class TestLakehouseConnectorTest
                     .build();
             QueryRunner.MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(smallOptimizerTimeout, query);
             fail(format("Expected query to fail: %s [QueryId: %s]", query, result.queryId()));
-        }
-        catch (QueryFailedException e) {
+        } catch (QueryFailedException e) {
             assertThat(e.getMessage()).contains("The optimizer exhausted the time limit");
             Map<String, Metrics> metrics = getCatalogMetadataMetrics(e.getQueryId());
             assertCountMetricExists(metrics, "lakehouse", "iceberg.metastore.all.time.total");
             assertCountMetricExists(metrics, "lakehouse", "iceberg.metastore.getTable.time.total");
         }
+    }
+
+    @Test
+    void testBucketFunction()
+    {
+        assertThat(query("SELECT lakehouse.system.bucket('trino', 16)"))
+                .matches("VALUES 10");
+
+        assertThat(query("SELECT lakehouse.system.other_function('trino', 16)"))
+                .failure().hasMessageMatching("line .:.: Function 'lakehouse.system.other_function' not registered");
+
+        assertThat(query("SELECT lakehouse.tpch.bucket('trino', 16)"))
+                .failure().hasMessageMatching("line .:.: Function 'lakehouse.tpch.bucket' not registered");
     }
 }
