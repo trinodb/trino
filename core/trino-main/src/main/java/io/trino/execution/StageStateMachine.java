@@ -243,11 +243,15 @@ public class StageStateMachine
 
     public void updateMemoryUsage(long deltaUserMemoryInBytes, long deltaRevocableMemoryInBytes, long deltaTotalMemoryInBytes)
     {
-        currentUserMemory.addAndGet(deltaUserMemoryInBytes);
-        currentRevocableMemory.addAndGet(deltaRevocableMemoryInBytes);
+        long currentUserMemory = this.currentUserMemory.addAndGet(deltaUserMemoryInBytes);
+        long currentRevocableMemory = this.currentRevocableMemory.addAndGet(deltaRevocableMemoryInBytes);
         currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
-        peakUserMemory.updateAndGet(currentPeakValue -> max(currentUserMemory.get(), currentPeakValue));
-        peakRevocableMemory.updateAndGet(currentPeakValue -> max(currentRevocableMemory.get(), currentPeakValue));
+        if (currentUserMemory > peakUserMemory.get()) {
+            peakUserMemory.accumulateAndGet(currentUserMemory, Math::max);
+        }
+        if (currentRevocableMemory > peakRevocableMemory.get()) {
+            peakRevocableMemory.accumulateAndGet(currentRevocableMemory, Math::max);
+        }
     }
 
     public BasicStageStats getBasicStageStats(Supplier<Iterable<TaskInfo>> taskInfosSupplier)
