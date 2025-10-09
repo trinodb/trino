@@ -64,7 +64,7 @@ public class IcebergBigQueryMetastoreModule
                 optionsBuilder.setCredentials(ServiceAccountCredentials.fromStream(fs));
             }
             catch (Exception e) {
-                throw new CredentialException("Unable to locate GCP Service Account JSON file");
+                throw new CredentialException("Unable to locate GCP Service Account JSON file: " + e.getMessage(), e);
             }
         }
         return new BigQueryMetastoreClientImpl(optionsBuilder.build());

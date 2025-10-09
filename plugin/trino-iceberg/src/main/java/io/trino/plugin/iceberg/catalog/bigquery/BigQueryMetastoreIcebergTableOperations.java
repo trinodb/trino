@@ -171,7 +171,7 @@ public class BigQueryMetastoreIcebergTableOperations
             String oldMetadataLocation, String newMetadataLocation, TableMetadata metadata)
     {
         Table table = client.load(tableReference);
-        if (table.getEtag().isEmpty()) {
+        if (Strings.isNullOrEmpty(table.getEtag())) {
             throw new ValidationException(
                     "Etag of legacy table %s is empty, manually update the table via the BigQuery API or"
                             + " recreate and retry",
