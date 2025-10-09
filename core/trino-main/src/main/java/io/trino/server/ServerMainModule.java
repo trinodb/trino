@@ -333,6 +333,7 @@ public class ServerMainModule
                     config.setMaxResponseContentLength(DataSize.of(64, MEGABYTE));
                     config.setMaxRequestsQueuedPerDestination(65536);
                     if (internalCommunicationConfig.isHttp2Enabled()) {
+                        // HTTP/2 requires fewer connections thanks to multiplexing
                         config.setMaxConnectionsPerServer(64);
                     }
                     else {
