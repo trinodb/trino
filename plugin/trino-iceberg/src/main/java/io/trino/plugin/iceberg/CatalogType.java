@@ -22,5 +22,6 @@ public enum CatalogType
     JDBC,
     NESSIE,
     SNOWFLAKE,
+    BIGQUERY_METASTORE
     /**/;
 }
