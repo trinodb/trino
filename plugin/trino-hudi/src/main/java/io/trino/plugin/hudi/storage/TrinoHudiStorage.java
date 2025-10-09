@@ -195,15 +195,13 @@ public class TrinoHudiStorage
     public List<StoragePathInfo> listDirectEntries(StoragePath path)
             throws IOException
     {
+        if (!exists(path)) {
+            throw new FileNotFoundException("Path " + path + " does not exist");
+        }
         FileIterator fileIterator = fileSystem.listFiles(convertToLocation(path));
         Set<StoragePathInfo> entryList = new HashSet<>();
         while (fileIterator.hasNext()) {
             entryList.add(getDirectEntryPathInfo(path, fileIterator.next()));
-        }
-        if (entryList.isEmpty()) {
-            // Based on the API definition, the `FileNotFoundException` should be thrown here
-            // so that Hudi logic can catch it and swallow it as needed
-            throw new FileNotFoundException("Path " + path + " does not exist");
         }
         return ImmutableList.copyOf(entryList);
     }
@@ -224,20 +222,16 @@ public class TrinoHudiStorage
     public List<StoragePathInfo> listDirectEntries(StoragePath path, StoragePathFilter filter)
             throws IOException
     {
+        if (!exists(path)) {
+            throw new FileNotFoundException("Path " + path + " does not exist");
+        }
         FileIterator fileIterator = fileSystem.listFiles(convertToLocation(path));
         ImmutableList.Builder<StoragePathInfo> listBuilder = ImmutableList.builder();
-        int count = 0;
         while (fileIterator.hasNext()) {
             StoragePathInfo pathInfo = getDirectEntryPathInfo(path, fileIterator.next());
-            count++;
             if (filter.accept(pathInfo.getPath())) {
                 listBuilder.add(pathInfo);
             }
-        }
-        if (count == 0) {
-            // Based on the API definition, the `FileNotFoundException` should be thrown here
-            // so that Hudi logic can catch it and swallow it as needed
-            throw new FileNotFoundException("Path " + path + " does not exist");
         }
         return listBuilder.build();
     }
