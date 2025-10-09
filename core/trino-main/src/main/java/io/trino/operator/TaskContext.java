@@ -270,8 +270,11 @@ public class TaskContext
     public DataSize getPeakMemoryReservation()
     {
         long userMemory = taskMemoryContext.getUserMemory();
-        currentPeakUserMemoryReservation.updateAndGet(oldValue -> max(oldValue, userMemory));
-        return DataSize.ofBytes(currentPeakUserMemoryReservation.get());
+        long currentPeakUserMemoryReservation = this.currentPeakUserMemoryReservation.get();
+        if (userMemory > currentPeakUserMemoryReservation) {
+            currentPeakUserMemoryReservation = this.currentPeakUserMemoryReservation.accumulateAndGet(userMemory, Math::max);
+        }
+        return DataSize.ofBytes(currentPeakUserMemoryReservation);
     }
 
     public DataSize getRevocableMemoryReservation()
