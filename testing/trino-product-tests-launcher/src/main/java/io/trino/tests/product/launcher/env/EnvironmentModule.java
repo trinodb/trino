@@ -37,8 +37,8 @@ import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TaskRetriesMultinode;
 import io.trino.tests.product.launcher.env.environment.SpoolingMinio;
-import io.trino.tests.product.launcher.env.jdk.DistributionDownloadingJdkProvider;
 import io.trino.tests.product.launcher.env.jdk.JdkProvider;
+import io.trino.tests.product.launcher.env.jdk.TemurinJdkProvider;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import java.io.File;
@@ -125,9 +125,9 @@ public final class EnvironmentModule
     @Singleton
     public JdkProvider provideJdk(Map<String, JdkProvider> jdkProviders, EnvironmentOptions options)
     {
-        String version = firstNonNull(options.jdkVersion, "").trim().toLowerCase(ENGLISH);
+        String version = firstNonNull(options.trinoJdkRelease, "").trim().toLowerCase(ENGLISH);
         if (version.isBlank()) {
-            throw new IllegalArgumentException("Expected non-empty --trino-jdk-version");
+            throw new IllegalArgumentException("Expected non-empty --trino-jdk-release");
         }
 
         JdkProvider jdkProvider = jdkProviders.get(canonicalJdkProviderName(version));
@@ -135,7 +135,7 @@ public final class EnvironmentModule
             return jdkProvider;
         }
 
-        return new DistributionDownloadingJdkProvider(requireNonNull(options.jdkDistributions, "--trino-jdk-paths is empty"), version, options.jdkDownloadPath);
+        return new TemurinJdkProvider(version, options.jdkDownloadPath);
     }
 
     @Provides
