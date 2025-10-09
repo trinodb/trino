@@ -77,9 +77,9 @@ public class ViewAccessControl
     }
 
     @Override
-    public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
+    public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName, List<ColumnSchema> columns)
     {
-        return delegate.getRowFilters(context, tableName);
+        return delegate.getRowFilters(context, tableName, columns);
     }
 
     @Override
