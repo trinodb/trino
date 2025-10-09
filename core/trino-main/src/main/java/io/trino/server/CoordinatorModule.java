@@ -357,11 +357,17 @@ public class CoordinatorModule
         binder.bind(RemoteTaskStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(RemoteTaskStats.class).withGeneratedName();
 
+        InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
         install(internalHttpClientModule("scheduler", ForScheduler.class)
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(60, SECONDS));
                     config.setRequestTimeout(new Duration(20, SECONDS));
-                    config.setMaxConnectionsPerServer(250);
+                    if (internalCommunicationConfig.isHttp2Enabled()) {
+                        config.setMaxConnectionsPerServer(64);
+                    }
+                    else {
+                        config.setMaxConnectionsPerServer(250);
+                    }
                 }).build());
 
         binder.bind(ScheduledExecutorService.class).annotatedWith(ForScheduler.class)
