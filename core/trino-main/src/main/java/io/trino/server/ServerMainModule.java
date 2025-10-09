@@ -202,6 +202,7 @@ public class ServerMainModule
 
         configBinder(binder).bindConfigDefaults(HttpServerConfig.class, httpServerConfig -> {
             httpServerConfig.setHttp2MaxConcurrentStreams(32 * 1024); // from the default 16K
+            httpServerConfig.setCompressionEnabled(false); // https://github.com/jetty/jetty.project/issues/13679
         });
 
         binder.bind(PreparedStatementEncoder.class).in(Scopes.SINGLETON);
