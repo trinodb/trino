@@ -85,6 +85,11 @@ public class ClosingBinder
         closeables.addBinding().toProvider(new ResourceCloser<T>(key, close));
     }
 
+    public void registerCloseable(AutoCloseable instance)
+    {
+        closeables.addBinding().toInstance(instance);
+    }
+
     private static class ResourceCloser<T>
             implements Provider<AutoCloseable>
     {
