@@ -249,6 +249,9 @@ may not be specified using both methods.
     users.
 * - `disableCompression`
   -  Whether compression should be enabled.
+* - `disallowLocalRedirect`
+  -  Whether client should reject redirects to localhost, link or site local
+     IP addresses. Defaults to `false`.
 * - `assumeLiteralUnderscoreInMetadataCallsForNonConformingClients`
   - When enabled, the name patterns passed to `DatabaseMetaData` methods are
     treated as underscores. You can use this as a workaround for applications
