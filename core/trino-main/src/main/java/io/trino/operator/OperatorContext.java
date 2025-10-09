@@ -350,9 +350,15 @@ public class OperatorContext
         //   Here, the total memory used to be user+system, and sans revocable. This apparent inconsistency should be removed.
         //   Perhaps, we don't need to track "total memory" here.
         long totalMemory = userMemory;
-        peakUserMemoryReservation.accumulateAndGet(userMemory, Math::max);
-        peakRevocableMemoryReservation.accumulateAndGet(revocableMemory, Math::max);
-        peakTotalMemoryReservation.accumulateAndGet(totalMemory, Math::max);
+        if (userMemory > peakUserMemoryReservation.get()) {
+            peakUserMemoryReservation.accumulateAndGet(userMemory, Math::max);
+        }
+        if (revocableMemory > peakRevocableMemoryReservation.get()) {
+            peakRevocableMemoryReservation.accumulateAndGet(revocableMemory, Math::max);
+        }
+        if (totalMemory > peakTotalMemoryReservation.get()) {
+            peakTotalMemoryReservation.accumulateAndGet(totalMemory, Math::max);
+        }
     }
 
     public long getReservedRevocableBytes()
