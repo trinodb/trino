@@ -22,6 +22,7 @@ import picocli.CommandLine.Option;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,7 +47,7 @@ public class PluginReader
     private Optional<File> impactedModulesFile;
 
     @Option(names = {"-p", "--plugin-dir"}, description = "Trino plugin directories", arity = "1..*")
-    private List<File> pluginDirs = List.of(new File("plugin"));
+    private List<Path> pluginDirs = List.of(Path.of("plugin"));
 
     @Option(names = {"-r", "--root-pom"}, description = "Trino root module pom.xml")
     private File rootPom = new File("pom.xml");

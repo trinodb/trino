@@ -18,21 +18,21 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.validation.FileExists;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.List;
 
 public class ServerPluginsProviderConfig
 {
-    private List<File> installedPluginsDirs = ImmutableList.of(new File("plugin"));
+    private List<Path> installedPluginsDirs = ImmutableList.of(Path.of("plugin"));
 
-    public List<@FileExists File> getInstalledPluginsDirs()
+    public List<@FileExists Path> getInstalledPluginsDirs()
     {
         return installedPluginsDirs;
     }
 
     @Config("plugin.dir")
     @ConfigDescription("Comma separated list of root directories where the plugins are located")
-    public ServerPluginsProviderConfig setInstalledPluginsDirs(List<File> installedPluginsDirs)
+    public ServerPluginsProviderConfig setInstalledPluginsDirs(List<Path> installedPluginsDirs)
     {
         this.installedPluginsDirs = ImmutableList.copyOf(installedPluginsDirs);
         return this;

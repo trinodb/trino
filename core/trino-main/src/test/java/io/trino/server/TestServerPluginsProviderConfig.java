@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +31,7 @@ public class TestServerPluginsProviderConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ServerPluginsProviderConfig.class)
-                .setInstalledPluginsDirs(List.of(new File("plugin"))));
+                .setInstalledPluginsDirs(List.of(Path.of("plugin"))));
     }
 
     @Test
@@ -41,7 +40,7 @@ public class TestServerPluginsProviderConfig
         Map<String, String> properties = ImmutableMap.of("plugin.dir", tempDir.toString());
 
         ServerPluginsProviderConfig expected = new ServerPluginsProviderConfig()
-                .setInstalledPluginsDirs(List.of(tempDir.toFile()));
+                .setInstalledPluginsDirs(List.of(tempDir));
 
         assertFullMapping(properties, expected);
     }
@@ -52,7 +51,7 @@ public class TestServerPluginsProviderConfig
         Map<String, String> properties = ImmutableMap.of("plugin.dir", tempDir1.toString() + "," + tempDir2.toString());
 
         ServerPluginsProviderConfig expected = new ServerPluginsProviderConfig()
-                .setInstalledPluginsDirs(List.of(tempDir1.toFile(), tempDir2.toFile()));
+                .setInstalledPluginsDirs(List.of(tempDir1, tempDir2));
 
         assertFullMapping(properties, expected);
     }
