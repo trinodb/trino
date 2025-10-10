@@ -449,15 +449,27 @@ public class QueryStateMachine
             long taskRevocableMemoryInBytes,
             long taskTotalMemoryInBytes)
     {
-        currentUserMemory.addAndGet(deltaUserMemoryInBytes);
-        currentRevocableMemory.addAndGet(deltaRevocableMemoryInBytes);
-        currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
-        peakUserMemory.updateAndGet(currentPeakValue -> Math.max(currentUserMemory.get(), currentPeakValue));
-        peakRevocableMemory.updateAndGet(currentPeakValue -> Math.max(currentRevocableMemory.get(), currentPeakValue));
-        peakTotalMemory.updateAndGet(currentPeakValue -> Math.max(currentTotalMemory.get(), currentPeakValue));
-        peakTaskUserMemory.accumulateAndGet(taskUserMemoryInBytes, Math::max);
-        peakTaskRevocableMemory.accumulateAndGet(taskRevocableMemoryInBytes, Math::max);
-        peakTaskTotalMemory.accumulateAndGet(taskTotalMemoryInBytes, Math::max);
+        long currentUserMemory = this.currentUserMemory.addAndGet(deltaUserMemoryInBytes);
+        long currentRevocableMemory = this.currentRevocableMemory.addAndGet(deltaRevocableMemoryInBytes);
+        long currentTotalMemory = this.currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
+        if (currentUserMemory > peakUserMemory.get()) {
+            peakUserMemory.accumulateAndGet(currentUserMemory, Math::max);
+        }
+        if (currentRevocableMemory > peakRevocableMemory.get()) {
+            peakRevocableMemory.accumulateAndGet(currentRevocableMemory, Math::max);
+        }
+        if (currentTotalMemory > peakTotalMemory.get()) {
+            peakTotalMemory.accumulateAndGet(currentTotalMemory, Math::max);
+        }
+        if (taskUserMemoryInBytes > peakTaskUserMemory.get()) {
+            peakTaskUserMemory.accumulateAndGet(taskUserMemoryInBytes, Math::max);
+        }
+        if (taskRevocableMemoryInBytes > peakTaskRevocableMemory.get()) {
+            peakTaskRevocableMemory.accumulateAndGet(taskRevocableMemoryInBytes, Math::max);
+        }
+        if (taskTotalMemoryInBytes > peakTaskTotalMemory.get()) {
+            peakTaskTotalMemory.accumulateAndGet(taskTotalMemoryInBytes, Math::max);
+        }
     }
 
     public BasicQueryInfo getBasicQueryInfo(Optional<BasicStageStats> rootStage)
