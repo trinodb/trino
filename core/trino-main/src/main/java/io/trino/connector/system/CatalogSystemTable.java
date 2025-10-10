@@ -29,9 +29,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.List;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.MetadataListing.listCatalogs;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
@@ -75,10 +72,7 @@ public class CatalogSystemTable
     {
         Session session = ((FullConnectorSession) connectorSession).getSession();
         Builder table = InMemoryRecordSet.builder(CATALOG_TABLE);
-        List<CatalogInfo> catalogInfos = listCatalogs(session, metadata, accessControl).stream()
-                .filter(CatalogInfo::loaded)
-                .collect(toImmutableList());
-        for (CatalogInfo catalogInfo : catalogInfos) {
+        for (CatalogInfo catalogInfo : listCatalogs(session, metadata, accessControl)) {
             table.addRow(
                     catalogInfo.catalogName(),
                     catalogInfo.catalogName(),

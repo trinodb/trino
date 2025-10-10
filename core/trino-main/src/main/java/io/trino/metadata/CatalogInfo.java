@@ -18,7 +18,7 @@ import io.trino.spi.connector.ConnectorName;
 
 import static java.util.Objects.requireNonNull;
 
-public record CatalogInfo(String catalogName, CatalogHandle catalogHandle, ConnectorName connectorName, boolean loaded)
+public record CatalogInfo(String catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
 {
     public CatalogInfo
     {
