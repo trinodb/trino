@@ -16,18 +16,23 @@ package io.trino.plugin.jdbc;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.type.Type;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static java.util.Objects.requireNonNull;
 
 public final class JdbcColumnHandle
@@ -40,11 +45,12 @@ public final class JdbcColumnHandle
     private final Type columnType;
     private final boolean nullable;
     private final Optional<String> comment;
+    private final Map<String, Object> columnProperties;
 
     // All and only required fields
     public JdbcColumnHandle(String columnName, JdbcTypeHandle jdbcTypeHandle, Type columnType)
     {
-        this(columnName, jdbcTypeHandle, columnType, true, Optional.empty());
+        this(columnName, jdbcTypeHandle, columnType, true, Optional.empty(), ImmutableMap.of());
     }
 
     /**
@@ -57,13 +63,15 @@ public final class JdbcColumnHandle
             @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
             @JsonProperty("columnType") Type columnType,
             @JsonProperty("nullable") boolean nullable,
-            @JsonProperty("comment") Optional<String> comment)
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("columnProperties") Map<String, Object> columnProperties)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.jdbcTypeHandle = requireNonNull(jdbcTypeHandle, "jdbcTypeHandle is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.nullable = nullable;
         this.comment = requireNonNull(comment, "comment is null");
+        this.columnProperties = ImmutableMap.copyOf(verifyColumnProperties(columnProperties));
     }
 
     @JsonProperty
@@ -94,6 +102,12 @@ public final class JdbcColumnHandle
     public Optional<String> getComment()
     {
         return comment;
+    }
+
+    @JsonProperty
+    public Map<String, Object> getColumnProperties()
+    {
+        return columnProperties;
     }
 
     public ColumnMetadata getColumnMetadata()
@@ -149,7 +163,42 @@ public final class JdbcColumnHandle
                 + sizeOf(nullable)
                 + estimatedSizeOf(columnName)
                 + sizeOf(comment, SizeOf::estimatedSizeOf)
-                + jdbcTypeHandle.getRetainedSizeInBytes();
+                + jdbcTypeHandle.getRetainedSizeInBytes()
+                + estimatedSizeOf(columnProperties, SizeOf::estimatedSizeOf, JdbcColumnHandle::estimatedObjectSizeOf);
+    }
+
+    private static long estimatedObjectSizeOf(Object value)
+    {
+        return switch (value) {
+            case String stringValue -> estimatedSizeOf(stringValue);
+            case Boolean _, Integer _, Long _, Double _ -> instanceSize(value.getClass());
+            case List<?> list -> estimatedSizeOf(list, JdbcColumnHandle::estimatedObjectSizeOf);
+            case Map<?, ?> map -> estimatedSizeOf(map, JdbcColumnHandle::estimatedObjectSizeOf, JdbcColumnHandle::estimatedObjectSizeOf);
+            default -> throw new TrinoException(INVALID_COLUMN_PROPERTY, "Unsupported property value type: " + value.getClass().getName());
+        };
+    }
+
+    private static Map<String, Object> verifyColumnProperties(Map<String, Object> columnProperties)
+    {
+        requireNonNull(columnProperties, "columnProperties is null");
+        columnProperties.values().forEach(JdbcColumnHandle::verifyPropertyValueType);
+        return columnProperties;
+    }
+
+    private static void verifyPropertyValueType(Object value)
+    {
+        switch (value) {
+            case String _, Boolean _, Integer _, Long _, Double _ -> {
+                return;
+            }
+            case List<?> list -> list.stream().forEach(JdbcColumnHandle::verifyPropertyValueType);
+            case Map<?, ?> map -> map.entrySet().stream().forEach(entry -> {
+                verifyPropertyValueType(entry.getKey());
+                verifyPropertyValueType(entry.getValue());
+            });
+            case null -> throw new TrinoException(INVALID_COLUMN_PROPERTY, "Property value is null");
+            default -> throw new TrinoException(INVALID_COLUMN_PROPERTY, "Unsupported property value type: " + value.getClass().getName());
+        }
     }
 
     public static Builder builder()
@@ -169,6 +218,7 @@ public final class JdbcColumnHandle
         private Type columnType;
         private boolean nullable = true;
         private Optional<String> comment = Optional.empty();
+        private Map<String, Object> columnProperties = ImmutableMap.of();
 
         public Builder() {}
 
@@ -179,6 +229,7 @@ public final class JdbcColumnHandle
             this.columnType = handle.getColumnType();
             this.nullable = handle.isNullable();
             this.comment = handle.getComment();
+            this.columnProperties = handle.getColumnProperties();
         }
 
         public Builder setColumnName(String columnName)
@@ -211,6 +262,12 @@ public final class JdbcColumnHandle
             return this;
         }
 
+        public Builder setColumnProperties(Map<String, Object> columnProperties)
+        {
+            this.columnProperties = columnProperties;
+            return this;
+        }
+
         public JdbcColumnHandle build()
         {
             return new JdbcColumnHandle(
@@ -218,7 +275,8 @@ public final class JdbcColumnHandle
                     jdbcTypeHandle,
                     columnType,
                     nullable,
-                    comment);
+                    comment,
+                    columnProperties);
         }
     }
 }
