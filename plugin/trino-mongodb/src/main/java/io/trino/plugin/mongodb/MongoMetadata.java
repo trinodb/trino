@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.common.io.Closer;
+import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -517,7 +518,7 @@ public class MongoMetadata
         Closer closer = Closer.create();
         closer.register(() -> mongoSession.dropTable(temporaryTable));
 
-        try {
+        try (MongoClient client = mongoSession.createClient()) {
             // Create the temporary page sink ID table
             RemoteTableName pageSinkIdsTable = new RemoteTableName(temporaryTable.databaseName(), generateTemporaryTableName(session));
             MongoColumnHandle pageSinkIdColumn = new MongoColumnHandle(pageSinkIdColumnName, ImmutableList.of(), TRINO_PAGE_SINK_ID_COLUMN_TYPE, false, false, Optional.empty());
@@ -525,13 +526,13 @@ public class MongoMetadata
             closer.register(() -> mongoSession.dropTable(pageSinkIdsTable));
 
             // Insert all the page sink IDs into the page sink ID table
-            MongoCollection<Document> pageSinkIdsCollection = mongoSession.getCollection(pageSinkIdsTable);
+            MongoCollection<Document> pageSinkIdsCollection = client.getDatabase(pageSinkIdsTable.databaseName()).getCollection(pageSinkIdsTable.collectionName());
             List<Document> pageSinkIds = fragments.stream()
                     .map(slice -> new Document(pageSinkIdColumnName, slice.getLong(0)))
                     .collect(toImmutableList());
             pageSinkIdsCollection.insertMany(pageSinkIds);
 
-            MongoCollection<Document> temporaryCollection = mongoSession.getCollection(temporaryTable);
+            MongoCollection<Document> temporaryCollection = client.getDatabase(temporaryTable.databaseName()).getCollection(temporaryTable.collectionName());
             temporaryCollection.aggregate(ImmutableList.of(
                     lookup(pageSinkIdsTable.collectionName(), pageSinkIdColumnName, pageSinkIdColumnName, "page_sink_id"),
                     match(ne("page_sink_id", ImmutableList.of())),
