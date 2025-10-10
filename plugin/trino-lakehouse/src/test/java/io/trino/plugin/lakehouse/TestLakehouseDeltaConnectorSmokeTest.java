@@ -16,6 +16,8 @@ package io.trino.plugin.lakehouse;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.lakehouse.TableType.DELTA;
+import static io.trino.testing.TestingNames.randomNameSuffix;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -58,5 +60,28 @@ public class TestLakehouseDeltaConnectorSmokeTest
                    location = \\E's3://test-bucket-.*/tpch/region.*'\\Q,
                    type = 'DELTA'
                 )\\E""");
+    }
+
+    @Test
+    void testProcedures()
+    {
+        String tableName = "table_for_procedures_" + randomNameSuffix();
+
+        assertUpdate(format("CREATE TABLE %s AS SELECT 2 AS age", tableName), 1);
+
+        assertThat(query(format("CALL lakehouse.system.vacuum(CURRENT_SCHEMA, '%s', '8.00d')", tableName)))
+                .succeeds().returnsEmptyResult();
+
+        assertThat(query(format("CALL lakehouse.system.drop_stats('DELTA', CURRENT_SCHEMA, '%s')", tableName)))
+                .succeeds().returnsEmptyResult();
+
+        assertThat(query(format("CALL lakehouse.system.register_table('DELTA', CURRENT_SCHEMA, '%s', 's3://bucket/table')", tableName)))
+                .failure().hasMessage("Failed checking table location s3://bucket/table");
+
+        assertThat(query(format("CALL lakehouse.system.unregister_table('DELTA', CURRENT_SCHEMA, '%s')", tableName)))
+                .succeeds().returnsEmptyResult();
+
+        assertThat(query(format("CALL lakehouse.system.flush_metadata_cache('DELTA', CURRENT_SCHEMA, '%s')", tableName)))
+                .succeeds().returnsEmptyResult();
     }
 }
