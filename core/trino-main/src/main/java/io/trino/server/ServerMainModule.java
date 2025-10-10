@@ -432,6 +432,9 @@ public class ServerMainModule
         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
         binder.bind(BlockEncodingSerde.class).to(InternalBlockEncodingSerde.class).in(Scopes.SINGLETON);
 
+        // SIMD support: detect and install provider eagerly at startup
+        binder.bind(io.trino.simd.SimdInitializer.class).asEagerSingleton();
+
         // thread visualizer
         jaxrsBinder(binder).bind(ThreadResource.class);
 
