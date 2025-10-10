@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.lakehouse;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import io.airlift.slice.Slice;
 import io.trino.metastore.Table;
@@ -87,6 +88,8 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
+import io.trino.spi.metrics.Metric;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
@@ -249,6 +252,17 @@ public class LakehouseMetadata
     public Optional<Object> getInfo(ConnectorSession session, ConnectorTableHandle table)
     {
         return forHandle(table).getInfo(session, table);
+    }
+
+    @Override
+    public Metrics getMetrics(ConnectorSession session)
+    {
+        return new Metrics(ImmutableMap.<String, Metric<?>>builder()
+                .putAll(hiveMetadata.getMetrics(session).getMetrics())
+                .putAll(icebergMetadata.getMetrics(session).getMetrics())
+                .putAll(deltaMetadata.getMetrics(session).getMetrics())
+                .putAll(hudiMetadata.getMetrics(session).getMetrics())
+                .buildOrThrow());
     }
 
     @Override

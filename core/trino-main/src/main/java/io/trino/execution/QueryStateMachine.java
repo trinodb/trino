@@ -36,6 +36,7 @@ import io.trino.execution.QueryExecution.QueryOutputInfo;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.Metadata;
 import io.trino.operator.BlockedReason;
 import io.trino.operator.OperatorStats;
@@ -182,6 +183,8 @@ public class QueryStateMachine
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
     private final AtomicReference<List<TableInfo>> referencedTables = new AtomicReference<>(ImmutableList.of());
     private final AtomicReference<List<RoutineInfo>> routines = new AtomicReference<>(ImmutableList.of());
+    private final AtomicBoolean catalogMetadataMetricsCollected = new AtomicBoolean(false);
+    private final AtomicReference<Map<String, Metrics>> catalogMetadataMetrics = new AtomicReference<>(ImmutableMap.of());
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
 
     private final WarningCollector warningCollector;
@@ -384,6 +387,30 @@ public class QueryStateMachine
         metadata.beginQuery(session);
 
         return queryStateMachine;
+    }
+
+    private void collectCatalogMetadataMetrics()
+    {
+        // collect the metrics only once. This avoid issue with transaction being removed
+        // after the check but before the metrics collection
+        if (catalogMetadataMetricsCollected.compareAndSet(false, true)) {
+            if (session.getTransactionId().filter(transactionManager::transactionExists).isEmpty()) {
+                // The metrics collection depends on active transaction as the metrics
+                // are stored in the transactional ConnectorMetadata, but the collection can be
+                // run after the query has failed e.g., via cancel.
+                return;
+            }
+
+            ImmutableMap.Builder<String, Metrics> catalogMetadataMetrics = ImmutableMap.builder();
+            for (CatalogInfo activeCatalog : metadata.listActiveCatalogs(session)) {
+                Metrics metrics = metadata.getMetrics(session, activeCatalog.catalogName());
+                if (!metrics.getMetrics().isEmpty()) {
+                    catalogMetadataMetrics.put(activeCatalog.catalogName(), metrics);
+                }
+            }
+
+            this.catalogMetadataMetrics.set(catalogMetadataMetrics.buildOrThrow());
+        }
     }
 
     public QueryId getQueryId()
@@ -936,7 +963,7 @@ public class QueryStateMachine
                 stageGcStatistics.build(),
 
                 getDynamicFiltersStats(),
-
+                catalogMetadataMetrics.get(),
                 operatorStatsSummary.build(),
                 planOptimizersStatsCollector.getTopRuleStats());
     }
@@ -1156,6 +1183,7 @@ public class QueryStateMachine
     {
         queryStateTimer.beginFinishing();
 
+        collectCatalogMetadataMetrics();
         if (!queryState.setIf(FINISHING, currentState -> currentState != FINISHING && !currentState.isDone())) {
             return false;
         }
@@ -1229,6 +1257,7 @@ public class QueryStateMachine
     {
         queryStateTimer.endQuery();
 
+        collectCatalogMetadataMetrics();
         // NOTE: The failure cause must be set before triggering the state change, so
         // listeners can observe the exception. This is safe because the failure cause
         // can only be observed if the transition to FAILED is successful.
@@ -1549,6 +1578,7 @@ public class QueryStateMachine
                 queryStats.getFailedPhysicalWrittenDataSize(),
                 queryStats.getStageGcStatistics(),
                 queryStats.getDynamicFiltersStats(),
+                ImmutableMap.of(),
                 ImmutableList.of(), // Remove the operator summaries as OperatorInfo (especially DirectExchangeClientStatus) can hold onto a large amount of memory
                 ImmutableList.of());
     }

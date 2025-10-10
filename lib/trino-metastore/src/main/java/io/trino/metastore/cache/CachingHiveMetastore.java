@@ -47,6 +47,7 @@ import io.trino.metastore.TableInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import org.weakref.jmx.Managed;
@@ -1118,6 +1119,12 @@ public final class CachingHiveMetastore
     public void dropFunction(String databaseName, String functionName, String signatureToken)
     {
         delegate.dropFunction(databaseName, functionName, signatureToken);
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return delegate.getMetrics();
     }
 
     private static <K, V> LoadingCache<K, V> buildCache(
