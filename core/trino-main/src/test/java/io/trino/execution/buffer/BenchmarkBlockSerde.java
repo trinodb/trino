@@ -23,6 +23,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.simd.SimdSupportManager;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.RowType;
@@ -81,7 +82,12 @@ public class BenchmarkBlockSerde
 {
     private static final DecimalType LONG_DECIMAL_TYPE = createDecimalType(30, 5);
 
-    public static final int ROWS = 10_000_000;
+    static {
+        // Ensure EncoderUtil is configured with detected SIMD support for benchmarks/tests
+        SimdSupportManager.initialize();
+    }
+
+    public static final int ROWS = 8192;
 
     @Benchmark
     public Object serializeLongDecimal(LongDecimalBenchmarkData data)

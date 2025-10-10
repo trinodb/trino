@@ -59,15 +59,7 @@ public class ShortArrayBlockEncoding
             sliceOutput.writeShorts(rawValues, rawOffset, positionCount);
         }
         else {
-            short[] valuesWithoutNull = new short[positionCount];
-            int nonNullPositionCount = 0;
-            for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = rawValues[i + rawOffset];
-                nonNullPositionCount += isNull[i + rawOffset] ? 0 : 1;
-            }
-
-            sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeShorts(valuesWithoutNull, 0, nonNullPositionCount);
+            EncoderUtil.compressShortsWithNulls(sliceOutput, rawValues, isNull, rawOffset, positionCount);
         }
     }
 

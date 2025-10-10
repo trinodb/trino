@@ -59,15 +59,7 @@ public class IntArrayBlockEncoding
             sliceOutput.writeInts(rawValues, rawOffset, positionCount);
         }
         else {
-            int[] valuesWithoutNull = new int[positionCount];
-            int nonNullPositionCount = 0;
-            for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = rawValues[i + rawOffset];
-                nonNullPositionCount += isNull[i + rawOffset] ? 0 : 1;
-            }
-
-            sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeInts(valuesWithoutNull, 0, nonNullPositionCount);
+            EncoderUtil.compressIntsWithNulls(sliceOutput, rawValues, isNull, rawOffset, positionCount);
         }
     }
 

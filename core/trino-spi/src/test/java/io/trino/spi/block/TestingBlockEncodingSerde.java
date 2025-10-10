@@ -15,6 +15,7 @@ package io.trino.spi.block;
 
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.trino.spi.simd.SimdSupportManager;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
@@ -36,6 +37,11 @@ public final class TestingBlockEncodingSerde
     private final Function<TypeId, Type> types;
     private final ConcurrentMap<Class<? extends Block>, BlockEncoding> blockEncodingsByClass = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, BlockEncoding> blockEncodingsByName = new ConcurrentHashMap<>();
+
+    static {
+        // Ensure EncoderUtil is configured with detected SIMD support for benchmarks/tests
+        SimdSupportManager.initialize();
+    }
 
     public TestingBlockEncodingSerde()
     {

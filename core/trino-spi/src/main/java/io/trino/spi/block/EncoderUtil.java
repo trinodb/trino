@@ -15,15 +15,37 @@ package io.trino.spi.block;
 
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.trino.spi.SimdSupport;
 import jakarta.annotation.Nullable;
+import jdk.incubator.vector.ByteVector;
+import jdk.incubator.vector.IntVector;
+import jdk.incubator.vector.LongVector;
+import jdk.incubator.vector.ShortVector;
+import jdk.incubator.vector.VectorMask;
+import jdk.incubator.vector.VectorSpecies;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Optional;
 
-final class EncoderUtil
+import static java.util.Objects.checkFromIndexSize;
+import static java.util.Objects.requireNonNull;
+
+public final class EncoderUtil
 {
+    private static final VectorSpecies<Long> LONG_SPECIES = LongVector.SPECIES_PREFERRED;
+    private static final VectorSpecies<Integer> INT_SPECIES = IntVector.SPECIES_PREFERRED;
+    private static final VectorSpecies<Byte> BYTE_SPECIES = ByteVector.SPECIES_PREFERRED;
+    private static final VectorSpecies<Short> SHORT_SPECIES = ShortVector.SPECIES_PREFERRED;
+    private static SimdSupport simd = SimdSupport.NONE;
+    private static final int SIMD_OPTIMIZATION_LENGTH_THRESHOLD = 1024;
+
     private EncoderUtil() {}
+
+    public static void setSimdSupport(SimdSupport simdSupport)
+    {
+        simd = requireNonNull(simdSupport, "simdSupport is null");
+    }
 
     /**
      * Append null values for the block as a stream of bits.
@@ -119,5 +141,201 @@ final class EncoderUtil
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    // Bytes
+    public static void compressBytesWithNulls(SliceOutput sliceOutput, byte[] values, boolean[] isNull, int offset, int length)
+    {
+        if (simd.supportByteGeneric() && simd.supportByteCompress() && length >= SIMD_OPTIMIZATION_LENGTH_THRESHOLD) {
+            compressBytesWithNullsVectorized(sliceOutput, values, isNull, offset, length);
+        }
+        else {
+            compressBytesWithNullsScalar(sliceOutput, values, isNull, offset, length);
+        }
+    }
+
+    static void compressBytesWithNullsVectorized(SliceOutput sliceOutput, byte[] values, boolean[] isNull, int offset, int length)
+    {
+        requireNonNull(sliceOutput, "sliceOutput is null");
+        checkFromIndexSize(offset, length, values.length);
+        checkFromIndexSize(offset, length, isNull.length);
+        byte[] compressed = new byte[length];
+        int valuesIndex = 0;
+        int compressedIndex = 0;
+        for (; valuesIndex < BYTE_SPECIES.loopBound(length); valuesIndex += BYTE_SPECIES.length()) {
+            VectorMask<Byte> mask = BYTE_SPECIES.loadMask(isNull, valuesIndex + offset).not();
+            ByteVector.fromArray(BYTE_SPECIES, values, valuesIndex + offset)
+                    .compress(mask)
+                    .intoArray(compressed, compressedIndex);
+            compressedIndex += mask.trueCount();
+        }
+        for (; valuesIndex < length; valuesIndex++) {
+            compressed[compressedIndex] = values[valuesIndex + offset];
+            compressedIndex += isNull[valuesIndex + offset] ? 0 : 1;
+        }
+        sliceOutput.writeInt(compressedIndex);
+        sliceOutput.writeBytes(compressed, 0, compressedIndex);
+    }
+
+    static void compressBytesWithNullsScalar(SliceOutput sliceOutput, byte[] values, boolean[] isNull, int offset, int length)
+    {
+        requireNonNull(sliceOutput, "sliceOutput is null");
+        checkFromIndexSize(offset, length, values.length);
+        checkFromIndexSize(offset, length, isNull.length);
+        byte[] compressed = new byte[length];
+        int compressedIndex = 0;
+        for (int i = 0; i < length; i++) {
+            compressed[compressedIndex] = values[i + offset];
+            compressedIndex += isNull[i + offset] ? 0 : 1;
+        }
+        sliceOutput.writeInt(compressedIndex);
+        sliceOutput.writeBytes(compressed, 0, compressedIndex);
+    }
+
+    // Shorts
+    public static void compressShortsWithNulls(SliceOutput sliceOutput, short[] values, boolean[] isNull, int offset, int length)
+    {
+        if (simd.supportShortGeneric() && simd.supportShortCompress() && length >= SIMD_OPTIMIZATION_LENGTH_THRESHOLD) {
+            compressShortsWithNullsVectorized(sliceOutput, values, isNull, offset, length);
+        }
+        else {
+            compressShortsWithNullsScalar(sliceOutput, values, isNull, offset, length);
+        }
+    }
+
+    static void compressShortsWithNullsVectorized(SliceOutput sliceOutput, short[] values, boolean[] isNull, int offset, int length)
+    {
+        requireNonNull(sliceOutput, "sliceOutput is null");
+        checkFromIndexSize(offset, length, values.length);
+        checkFromIndexSize(offset, length, isNull.length);
+        short[] compressed = new short[length];
+        int valuesIndex = 0;
+        int compressedIndex = 0;
+        for (; valuesIndex < SHORT_SPECIES.loopBound(length); valuesIndex += SHORT_SPECIES.length()) {
+            VectorMask<Short> mask = SHORT_SPECIES.loadMask(isNull, valuesIndex + offset).not();
+            ShortVector.fromArray(SHORT_SPECIES, values, valuesIndex + offset)
+                    .compress(mask)
+                    .intoArray(compressed, compressedIndex);
+            compressedIndex += mask.trueCount();
+        }
+        for (; valuesIndex < length; valuesIndex++) {
+            compressed[compressedIndex] = values[valuesIndex + offset];
+            compressedIndex += isNull[valuesIndex + offset] ? 0 : 1;
+        }
+        sliceOutput.writeInt(compressedIndex);
+        sliceOutput.writeShorts(compressed, 0, compressedIndex);
+    }
+
+    static void compressShortsWithNullsScalar(SliceOutput sliceOutput, short[] values, boolean[] isNull, int offset, int length)
+    {
+        requireNonNull(sliceOutput, "sliceOutput is null");
+        checkFromIndexSize(offset, length, values.length);
+        checkFromIndexSize(offset, length, isNull.length);
+        short[] compressed = new short[length];
+        int compressedIndex = 0;
+        for (int i = 0; i < length; i++) {
+            compressed[compressedIndex] = values[i + offset];
+            compressedIndex += isNull[i + offset] ? 0 : 1;
+        }
+        sliceOutput.writeInt(compressedIndex);
+        sliceOutput.writeShorts(compressed, 0, compressedIndex);
+    }
+
+    // Ints
+    public static void compressIntsWithNulls(SliceOutput sliceOutput, int[] values, boolean[] isNull, int offset, int length)
+    {
+        if (simd.supportIntegerGeneric() && simd.supportIntegerCompress() && length >= SIMD_OPTIMIZATION_LENGTH_THRESHOLD) {
+            compressIntsWithNullsVectorized(sliceOutput, values, isNull, offset, length);
+        }
+        else {
+            compressIntsWithNullsScalar(sliceOutput, values, isNull, offset, length);
+        }
+    }
+
+    static void compressIntsWithNullsVectorized(SliceOutput sliceOutput, int[] values, boolean[] isNull, int offset, int length)
+    {
+        requireNonNull(sliceOutput, "sliceOutput is null");
+        checkFromIndexSize(offset, length, values.length);
+        checkFromIndexSize(offset, length, isNull.length);
+        int[] compressed = new int[length];
+        int valuesIndex = 0;
+        int compressedIndex = 0;
+        for (; valuesIndex < INT_SPECIES.loopBound(length); valuesIndex += INT_SPECIES.length()) {
+            VectorMask<Integer> mask = INT_SPECIES.loadMask(isNull, valuesIndex + offset).not();
+            IntVector.fromArray(INT_SPECIES, values, valuesIndex + offset)
+                    .compress(mask)
+                    .intoArray(compressed, compressedIndex);
+            compressedIndex += mask.trueCount();
+        }
+        for (; valuesIndex < length; valuesIndex++) {
+            compressed[compressedIndex] = values[valuesIndex + offset];
+            compressedIndex += isNull[valuesIndex + offset] ? 0 : 1;
+        }
+        sliceOutput.writeInt(compressedIndex);
+        sliceOutput.writeInts(compressed, 0, compressedIndex);
+    }
+
+    static void compressIntsWithNullsScalar(SliceOutput sliceOutput, int[] values, boolean[] isNull, int offset, int length)
+    {
+        requireNonNull(sliceOutput, "sliceOutput is null");
+        checkFromIndexSize(offset, length, values.length);
+        checkFromIndexSize(offset, length, isNull.length);
+        int[] compressed = new int[length];
+        int compressedIndex = 0;
+        for (int i = 0; i < length; i++) {
+            compressed[compressedIndex] = values[i + offset];
+            compressedIndex += isNull[i + offset] ? 0 : 1;
+        }
+        sliceOutput.writeInt(compressedIndex);
+        sliceOutput.writeInts(compressed, 0, compressedIndex);
+    }
+
+    // Longs
+    public static void compressLongsWithNulls(SliceOutput sliceOutput, long[] values, boolean[] isNull, int offset, int length)
+    {
+        if (simd.supportLongGeneric() && simd.supportLongCompress() && length >= SIMD_OPTIMIZATION_LENGTH_THRESHOLD) {
+            compressLongsWithNullsVectorized(sliceOutput, values, isNull, offset, length);
+        }
+        else {
+            compressLongsWithNullsScalar(sliceOutput, values, isNull, offset, length);
+        }
+    }
+
+    static void compressLongsWithNullsVectorized(SliceOutput sliceOutput, long[] values, boolean[] isNull, int offset, int length)
+    {
+        requireNonNull(sliceOutput, "sliceOutput is null");
+        checkFromIndexSize(offset, length, values.length);
+        checkFromIndexSize(offset, length, isNull.length);
+        long[] compressed = new long[length];
+        int valuesIndex = 0;
+        int compressedIndex = 0;
+        for (; valuesIndex < LONG_SPECIES.loopBound(length); valuesIndex += LONG_SPECIES.length()) {
+            VectorMask<Long> mask = LONG_SPECIES.loadMask(isNull, valuesIndex + offset).not();
+            LongVector.fromArray(LONG_SPECIES, values, valuesIndex + offset)
+                    .compress(mask)
+                    .intoArray(compressed, compressedIndex);
+            compressedIndex += mask.trueCount();
+        }
+        for (; valuesIndex < length; valuesIndex++) {
+            compressed[compressedIndex] = values[valuesIndex + offset];
+            compressedIndex += isNull[valuesIndex + offset] ? 0 : 1;
+        }
+        sliceOutput.writeInt(compressedIndex);
+        sliceOutput.writeLongs(compressed, 0, compressedIndex);
+    }
+
+    static void compressLongsWithNullsScalar(SliceOutput sliceOutput, long[] values, boolean[] isNull, int offset, int length)
+    {
+        requireNonNull(sliceOutput, "sliceOutput is null");
+        checkFromIndexSize(offset, length, values.length);
+        checkFromIndexSize(offset, length, isNull.length);
+        long[] compressed = new long[length];
+        int compressedIndex = 0;
+        for (int i = 0; i < length; i++) {
+            compressed[compressedIndex] = values[i + offset];
+            compressedIndex += isNull[i + offset] ? 0 : 1;
+        }
+        sliceOutput.writeInt(compressedIndex);
+        sliceOutput.writeLongs(compressed, 0, compressedIndex);
     }
 }

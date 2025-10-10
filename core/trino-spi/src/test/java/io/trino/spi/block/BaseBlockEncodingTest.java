@@ -14,6 +14,7 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.DynamicSliceOutput;
+import io.trino.spi.simd.SimdSupportManager;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
@@ -26,6 +27,11 @@ import static io.trino.spi.block.BlockTestUtils.assertBlockEquals;
 public abstract class BaseBlockEncodingTest<T>
 {
     private static final int[] RANDOM_BLOCK_SIZES = {2, 4, 8, 9, 16, 17, 32, 33, 64, 65, 1000, 1000000};
+
+    static {
+        // Ensure EncoderUtil is configured with detected SIMD support for benchmarks/tests
+        SimdSupportManager.initialize();
+    }
 
     private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
 

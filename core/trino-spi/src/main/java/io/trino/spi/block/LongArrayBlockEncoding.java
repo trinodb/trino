@@ -59,15 +59,7 @@ public class LongArrayBlockEncoding
             sliceOutput.writeLongs(rawValues, rawOffset, positionCount);
         }
         else {
-            long[] valuesWithoutNull = new long[positionCount];
-            int nonNullPositionCount = 0;
-            for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = rawValues[i + rawOffset];
-                nonNullPositionCount += isNull[i + rawOffset] ? 0 : 1;
-            }
-
-            sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeLongs(valuesWithoutNull, 0, nonNullPositionCount);
+            EncoderUtil.compressLongsWithNulls(sliceOutput, rawValues, isNull, rawOffset, positionCount);
         }
     }
 
