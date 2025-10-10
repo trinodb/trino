@@ -87,7 +87,7 @@ public class BenchmarkBlockSerde
         SimdSupportManager.initialize();
     }
 
-    public static final int ROWS = 10_000_000;
+    public static final int ROWS = 8192;
 
     @Benchmark
     public Object serializeLongDecimal(LongDecimalBenchmarkData data)
