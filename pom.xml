@@ -198,7 +198,7 @@
         <dep.gib.version>4.5.6</dep.gib.version>
         <dep.httpcore5.version>5.3.6</dep.httpcore5.version>
         <dep.iceberg.version>1.10.0</dep.iceberg.version>
-        <dep.jetty.version>12.1.3-SNAPSHOT</dep.jetty.version>
+        <dep.jetty.version>12.1.2</dep.jetty.version>
         <dep.jna.version>5.18.1</dep.jna.version>
         <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
