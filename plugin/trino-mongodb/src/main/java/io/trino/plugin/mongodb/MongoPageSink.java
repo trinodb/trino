@@ -14,7 +14,6 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
-import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.InsertManyOptions;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -109,7 +108,6 @@ public class MongoPageSink
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        MongoCollection<Document> collection = mongoSession.getCollection(remoteTableName);
         List<Document> batch = new ArrayList<>(page.getPositionCount());
 
         for (int position = 0; position < page.getPositionCount(); position++) {
@@ -123,7 +121,7 @@ public class MongoPageSink
             batch.add(doc);
         }
 
-        collection.insertMany(batch, new InsertManyOptions().ordered(true));
+        mongoSession.insertMany(remoteTableName, batch, new InsertManyOptions().ordered(true));
         return NOT_BLOCKED;
     }
 

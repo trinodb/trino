@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import com.mongodb.DBRef;
+import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCursor;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
@@ -97,6 +98,7 @@ public class MongoPageSource
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
     private static final int ROWS_PER_REQUEST = 1024;
 
+    private final MongoClient client;
     private final MongoCursor<Document> cursor;
     private final List<MongoColumnHandle> columns;
     private final List<Type> columnTypes;
@@ -112,9 +114,11 @@ public class MongoPageSource
             List<MongoColumnHandle> columns,
             String implicitPrefix)
     {
+        requireNonNull(mongoSession, "mongoSession is null");
+        this.client = mongoSession.createClient();
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.columnTypes = columns.stream().map(MongoColumnHandle::type).collect(toList());
-        this.cursor = mongoSession.execute(tableHandle, columns);
+        this.cursor = mongoSession.execute(client, tableHandle, columns);
         currentDoc = null;
 
         pageBuilder = new PageBuilder(columnTypes);
@@ -444,6 +448,7 @@ public class MongoPageSource
     @Override
     public void close()
     {
+        client.close();
         cursor.close();
     }
 }
