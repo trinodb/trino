@@ -14,6 +14,7 @@
 package io.trino.spi.simd;
 
 import io.trino.spi.SimdSupport;
+import io.trino.spi.block.EncoderUtil;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -36,6 +37,7 @@ public final class SimdSupportManager
 
     /**
      * Initialize the global SIMD support exactly once.
+     * Subsequent calls are ignored. Installs the support into {@link EncoderUtil}.
      */
     public static void initialize()
     {
@@ -43,6 +45,12 @@ public final class SimdSupportManager
             return;
         }
         current = detectSimd();
+        configureSimdSupport();
+    }
+
+    private static void configureSimdSupport()
+    {
+        EncoderUtil.setSimdSupport(current);
     }
 
     /**

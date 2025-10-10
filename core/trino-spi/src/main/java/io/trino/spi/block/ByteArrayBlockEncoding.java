@@ -60,15 +60,7 @@ public class ByteArrayBlockEncoding
             sliceOutput.writeBytes(rawValues, rawOffset, positionCount);
         }
         else {
-            byte[] valuesWithoutNull = new byte[positionCount];
-            int nonNullPositionCount = 0;
-            for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = rawValues[i + rawOffset];
-                nonNullPositionCount += isNull[i + rawOffset] ? 0 : 1;
-            }
-
-            sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeBytes(valuesWithoutNull, 0, nonNullPositionCount);
+            EncoderUtil.compressBytesWithNulls(sliceOutput, rawValues, isNull, rawOffset, positionCount);
         }
     }
 
