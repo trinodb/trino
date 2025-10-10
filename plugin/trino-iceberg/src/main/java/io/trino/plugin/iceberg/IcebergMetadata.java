@@ -49,6 +49,7 @@ import io.trino.plugin.hive.HiveWrittenPartitions;
 import io.trino.plugin.iceberg.aggregation.DataSketchStateSerializer;
 import io.trino.plugin.iceberg.aggregation.IcebergThetaSketchForStats;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.catalog.rest.TrinoRestCatalog;
 import io.trino.plugin.iceberg.functions.IcebergFunctionProvider;
 import io.trino.plugin.iceberg.procedure.IcebergAddFilesFromTableHandle;
 import io.trino.plugin.iceberg.procedure.IcebergAddFilesHandle;
@@ -1304,7 +1305,7 @@ public class IcebergMetadata
         Location location = Location.of(transaction.table().location());
         try {
             // S3 Tables internally assigns a unique location for each table
-            if (!isS3Tables(location.toString())) {
+            if (!isS3Tables(location.toString()) && !(catalog instanceof TrinoRestCatalog restCatalog && restCatalog.isBigLake())) {
                 TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), transaction.table().io().properties());
                 if (!replace && fileSystem.listFiles(location).hasNext()) {
                     throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
@@ -1523,6 +1524,9 @@ public class IcebergMetadata
 
         if (isS3Tables(icebergTable.location())) {
             log.debug("S3 Tables does not support statistics: %s", table.name());
+        }
+        else if (catalog instanceof TrinoRestCatalog restCatalog && restCatalog.isBigLake()) {
+            log.debug("BigLake metastore does not support statistics: %s", table.name());
         }
         else if (!computedStatistics.isEmpty()) {
             long newSnapshotId = icebergTable.currentSnapshot().snapshotId();
@@ -2931,6 +2935,9 @@ public class IcebergMetadata
         Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
         if (isS3Tables(icebergTable.location())) {
             throw new TrinoException(NOT_SUPPORTED, "S3 Tables does not support analyze");
+        }
+        if (catalog instanceof TrinoRestCatalog restCatalog && restCatalog.isBigLake()) {
+            throw new TrinoException(NOT_SUPPORTED, "BigLake metastore does not support analyze");
         }
         beginTransaction(icebergTable);
         return handle;
