@@ -16,7 +16,6 @@ package io.trino.connector;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Key;
 import io.trino.Session;
-import io.trino.metadata.CatalogManager;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
@@ -84,16 +83,16 @@ public class TestDynamicCatalogs
         H2QueryRunner h2QueryRunner = new H2QueryRunner();
         CatalogStore catalogStore = queryRunner.getCoordinator().getInstance(new Key<>() {});
         ConnectorServicesProvider connectorServicesProvider = queryRunner.getCoordinator().getInstance(new Key<>() {});
-        CatalogManager catalogManager = queryRunner.getCoordinator().getInstance(new Key<>() {});
         CatalogProperties catalogProperties = catalogStore.createCatalogProperties(new CatalogName(catalogName), new ConnectorName("memory"), ImmutableMap.of("invalid", "128MB"));
         catalogStore.addOrReplaceCatalog(catalogProperties);
         connectorServicesProvider.loadInitialCatalogs();
 
         assertQuery(queryRunner, session, "SHOW CATALOGS", h2QueryRunner, "VALUES 'healthy_catalog', '" + catalogName + "', 'system'", false, false);
         assertQueryFails(queryRunner, session, "CREATE TABLE %s.default.test_table (age INT)".formatted(catalogName), ".*Catalog '%s' failed to initialize and is disabled.*".formatted(catalogName));
+        assertQueryFails(queryRunner, session, "SELECT * FROM %s.default.test_table".formatted(catalogName), ".*Catalog '%s' failed to initialize and is disabled.*".formatted(catalogName));
         assertQueryFails(queryRunner, session, "CREATE CATALOG %s USING memory WITH (\"memory.max-data-per-node\" = '128MB')".formatted(catalogName), ".*Catalog '%s' already exists.*".formatted(catalogName));
-        assertQueryFails(queryRunner, session, "DROP CATALOG " + catalogName, ".*Catalog '%s' failed to initialize and is disabled.*".formatted(catalogName));
 
-        catalogManager.dropCatalog(new CatalogName(catalogName), false);
+        assertUpdate(queryRunner, session, "DROP CATALOG " + catalogName, OptionalLong.empty(), Optional.empty());
+        assertQuery(queryRunner, session, "SHOW CATALOGS", h2QueryRunner, "VALUES 'healthy_catalog', 'system'", false, false);
     }
 }
