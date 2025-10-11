@@ -479,7 +479,7 @@ public interface Metadata
     Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName);
 
     /**
-     * Lists all defined catalogs (both loaded properly and failed ones).
+     * Gets all the loaded catalogs
      */
     List<CatalogInfo> listCatalogs(Session session);
 

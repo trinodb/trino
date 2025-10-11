@@ -155,6 +155,7 @@ import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.CONNECTOR;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.SYSTEM;
+import static io.trino.metadata.CatalogStatus.LOADED;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.LanguageFunctionManager.isTrinoSqlLanguageFunction;
@@ -812,7 +813,8 @@ public final class MetadataManager
     public void dropCatalog(Session session, CatalogName catalog, boolean cascade)
     {
         Optional<CatalogMetadata> catalogMetadata = Optional.empty();
-        if (catalogManager.getCatalog(catalog).isPresent()) {
+        Optional<Catalog> optionalCatalog = catalogManager.getCatalog(catalog);
+        if (optionalCatalog.isPresent() && optionalCatalog.get().getCatalogStatus() == LOADED) {
             catalogMetadata = Optional.of(getCatalogMetadataForWrite(session, catalog.toString()));
         }
         catalogManager.dropCatalog(catalog, cascade);

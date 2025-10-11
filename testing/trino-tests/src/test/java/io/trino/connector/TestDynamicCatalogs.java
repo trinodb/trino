@@ -11,13 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.connector.system;
+package io.trino.connector;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Key;
 import io.trino.Session;
-import io.trino.connector.ConnectorServicesProvider;
-import io.trino.metadata.CatalogManager;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
@@ -29,16 +27,16 @@ import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @Execution(SAME_THREAD)
-public class TestSystemMetadataCatalogTable
+public class TestDynamicCatalogs
         extends AbstractTestQueryFramework
 {
     private CatalogStore catalogStore;
     private ConnectorServicesProvider connectorServicesProvider;
-    private CatalogManager catalogManager;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -52,37 +50,38 @@ public class TestSystemMetadataCatalogTable
         queryRunner.createCatalog("healthy_catalog", "memory", ImmutableMap.of("memory.max-data-per-node", "128MB"));
         catalogStore = queryRunner.getCoordinator().getInstance(new Key<>() {});
         connectorServicesProvider = queryRunner.getCoordinator().getInstance(new Key<>() {});
-        catalogManager = queryRunner.getCoordinator().getInstance(new Key<>() {});
         return queryRunner;
     }
 
     @Test
-    public void testCatalogTableShowsCorrectStatusWhenCatalogsAreLoadedCorrectly()
+    public void testHealthyCatalog()
     {
-        assertQuery("SELECT * FROM system.metadata.catalogs", "VALUES" +
-                "('healthy_catalog', 'healthy_catalog', 'memory', 'LOADED'), " +
-                "('system', 'system', 'system', 'LOADED')");
+        String catalogName = "new_catalog" + randomNameSuffix();
+        assertQuery("SHOW CATALOGS", "VALUES 'healthy_catalog', 'system'");
 
-        assertUpdate("CREATE CATALOG brain USING memory WITH (\"memory.max-data-per-node\" = '128MB')");
-        assertQuery("SELECT * FROM system.metadata.catalogs", "VALUES" +
-                "('healthy_catalog', 'healthy_catalog', 'memory', 'LOADED'), " +
-                "('brain', 'brain', 'memory', 'LOADED'), " +
-                "('system', 'system', 'system', 'LOADED')");
+        assertUpdate("CREATE CATALOG %s USING memory WITH (\"memory.max-data-per-node\" = '128MB')".formatted(catalogName));
+        assertQuery("SHOW CATALOGS", "VALUES 'healthy_catalog', '" + catalogName + "', 'system'");
 
-        assertUpdate("DROP CATALOG brain");
+        assertUpdate("CREATE TABLE %s.default.test_table (age INT)".formatted(catalogName));
+        assertUpdate("INSERT INTO %s.default.test_table VALUES (10)".formatted(catalogName), 1);
+        assertQuery("SELECT * FROM %s.default.test_table".formatted(catalogName), "VALUES (10)");
+
+        assertUpdate("DROP CATALOG " + catalogName);
+        assertQuery("SHOW CATALOGS", "VALUES 'healthy_catalog', 'system'");
     }
 
     @Test
-    public void testCatalogTableShowsCorrectStatusWhenCatalogIsNotLoadedCorrectly()
+    public void testUnhealthyCatalog()
     {
-        CatalogProperties catalogProperties = catalogStore.createCatalogProperties(new CatalogName("broken"), new ConnectorName("memory"), ImmutableMap.of("memory.max-data-per-n", "128MB"));
-
+        String catalogName = "new_catalog" + randomNameSuffix();
+        // simulate loading an unhealthy catalog during a startup
+        CatalogProperties catalogProperties = catalogStore.createCatalogProperties(new CatalogName(catalogName), new ConnectorName("memory"), ImmutableMap.of("invalid", "128MB"));
         catalogStore.addOrReplaceCatalog(catalogProperties);
         connectorServicesProvider.loadInitialCatalogs();
-        assertQuery("SELECT * FROM system.metadata.catalogs", "VALUES" +
-                "('healthy_catalog', 'healthy_catalog', 'memory', 'LOADED'), " +
-                "('broken', 'broken', 'memory', 'FAILED_TO_LOAD'), " +
-                "('system', 'system', 'system', 'LOADED')");
-        catalogManager.dropCatalog(new CatalogName("broken"), false);
+
+        assertQuery("SHOW CATALOGS", "VALUES 'healthy_catalog', '" + catalogName + "', 'system'");
+        assertQueryFails("CREATE TABLE %s.default.test_table (age INT)".formatted(catalogName), ".*Catalog '%s' failed to initialize and is disabled.*".formatted(catalogName));
+        assertQueryFails("CREATE CATALOG %s USING memory WITH (\"memory.max-data-per-node\" = '128MB')".formatted(catalogName), ".*Catalog '%s' already exists.*".formatted(catalogName));
+        assertUpdate("DROP CATALOG " + catalogName);
     }
 }
