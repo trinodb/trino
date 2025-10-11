@@ -32,6 +32,7 @@ import io.trino.plugin.jdbc.DoubleWriteFunction;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
@@ -101,6 +102,7 @@ import java.util.Set;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.function.BiFunction;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -164,6 +166,7 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.stream.Collectors.joining;
 
 public class OracleClient
         extends BaseJdbcClient
@@ -221,6 +224,17 @@ public class OracleClient
             .put(DATE, WriteMapping.longMapping("date", trinoDateToOracleDateWriteFunction()))
             .put(TIMESTAMP_TZ_MILLIS, WriteMapping.longMapping("timestamp(3) with time zone", oracleTimestampWithTimeZoneWriteFunction()))
             .buildOrThrow();
+
+    private static final Set<String> ORACLE_COLLATABLE_TYPES = ImmutableSet.<String>builder()
+            .add("char")
+            .add("nchar")
+            .add("varchar")
+            .add("varchar2")
+            .add("nvarchar")
+            .add("nvarchar2")
+            .add("clob")
+            .add("nclob")
+            .build();
 
     private final boolean synonymsEnabled;
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
@@ -620,11 +634,64 @@ public class OracleClient
     @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
-        return Optional.of((sql, limit) -> format("SELECT * FROM (%s) WHERE ROWNUM <= %s", sql, limit));
+        return Optional.of((sql, limit) -> format("%s FETCH FIRST %s ROWS ONLY", sql, limit));
     }
 
     @Override
     public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        return true;
+    }
+
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
+    {
+        return true;
+    }
+
+    @Override
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.of((query, sortItems, limit) -> {
+            String orderBy = sortItems.stream()
+                    .flatMap(sortItem -> {
+                        String collation = "";
+                        if (isCollatable(sortItem.column())) {
+                            // In Oracle BINARY collation provides byte-based comparison
+                            collation = "COLLATE BINARY";
+                        }
+                        String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
+                        String nullsHandling = switch (sortItem.sortOrder()) {
+                            // In Oracle both ASC and DESC imply NULLS LAST, but we'll be explicit
+                            case ASC_NULLS_FIRST, DESC_NULLS_FIRST -> "NULLS FIRST";
+                            case ASC_NULLS_LAST, DESC_NULLS_LAST -> "NULLS LAST";
+                        };
+                        return Stream.of(format("%s %s %s %s", quoted(sortItem.column().getColumnName()), collation, ordering, nullsHandling));
+                    })
+                    .collect(joining(", "));
+            return format("%s ORDER BY %s FETCH FIRST %s ROWS ONLY", query, orderBy, limit);
+        });
+    }
+
+    private boolean isCollatable(JdbcColumnHandle column)
+    {
+        if (column.getColumnType() instanceof CharType || column.getColumnType() instanceof VarcharType) {
+            String jdbcTypeName = column.getJdbcTypeHandle().jdbcTypeName()
+                    .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + column.getJdbcTypeHandle()));
+            return isCollatable(jdbcTypeName);
+        }
+
+        // non-textual types don't have the concept of collation
+        return false;
+    }
+
+    private boolean isCollatable(String jdbcTypeName)
+    {
+        return ORACLE_COLLATABLE_TYPES.contains(jdbcTypeName);
+    }
+
+    @Override
+    public boolean isTopNGuaranteed(ConnectorSession session)
     {
         return true;
     }
