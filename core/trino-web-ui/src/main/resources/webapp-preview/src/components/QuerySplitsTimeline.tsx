@@ -177,8 +177,11 @@ export const QuerySplitsTimeline = () => {
             return <Alert severity="info">No split timeline data available.</Alert>
         }
 
-        const timelineStartTime = items.reduce((min, item) => Math.min(min, item.start_time), items[0].start_time)
-        const timelineEndTime = items.reduce((max, item) => Math.max(max, item.end_time), items[0].end_time)
+        const startTimes = items.map((i) => i.start_time).filter(Number.isFinite)
+        const endTimes = items.map((i) => i.end_time).filter(Number.isFinite)
+
+        const timelineStartTime = startTimes.length ? Math.min(...startTimes) : null
+        const timelineEndTime = endTimes.length ? Math.max(...endTimes) : null
 
         const itemRenderer: TimelineItemRenderer = ({ item, itemContext, getItemProps }: TimelineItemRendererProps) => {
             const splitItem = item as SplitTimelineItem
@@ -286,20 +289,28 @@ export const QuerySplitsTimeline = () => {
                     ))}
                 </Box>
 
-                <Timeline
-                    groups={groups}
-                    items={items}
-                    defaultTimeStart={timelineStartTime}
-                    defaultTimeEnd={timelineEndTime}
-                    itemRenderer={itemRenderer}
-                    minZoom={60 * 1000}
-                    itemHeightRatio={0.65}
-                    itemTouchSendsClick={false}
-                    canMove={false}
-                    canResize={false}
-                    stackItems
-                    // traditionalZoom
-                />
+                {timelineStartTime && timelineEndTime ? (
+                    <Timeline
+                        groups={groups}
+                        items={items}
+                        defaultTimeStart={timelineStartTime}
+                        defaultTimeEnd={timelineEndTime}
+                        itemRenderer={itemRenderer}
+                        minZoom={60 * 1000}
+                        itemHeightRatio={0.65}
+                        itemTouchSendsClick={false}
+                        canMove={false}
+                        canResize={false}
+                        stackItems
+                        // traditionalZoom
+                    />
+                ) : (
+                    <Box sx={{ width: '100%', mt: 1 }}>
+                        <Alert severity="info">
+                            Splits timeline will appear automatically when at least one query task starts running
+                        </Alert>
+                    </Box>
+                )}
             </Box>
         )
     }
