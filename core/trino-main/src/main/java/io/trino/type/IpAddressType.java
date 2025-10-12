@@ -127,25 +127,6 @@ public class IpAddressType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        appendTo(
-                (Int128ArrayBlock) block.getUnderlyingValueBlock(),
-                block.getUnderlyingValuePosition(position),
-                (Int128ArrayBlockBuilder) blockBuilder);
-    }
-
-    private void appendTo(Int128ArrayBlock block, int position, Int128ArrayBlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            blockBuilder.writeInt128(block.getInt128High(position), block.getInt128Low(position));
-        }
-    }
-
-    @Override
     public void writeSlice(BlockBuilder blockBuilder, Slice value)
     {
         writeSlice(blockBuilder, value, 0, value.length());

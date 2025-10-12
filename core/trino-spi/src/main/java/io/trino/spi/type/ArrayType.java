@@ -245,17 +245,6 @@ public class ArrayType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            writeObject(blockBuilder, getObject(block, position));
-        }
-    }
-
-    @Override
     public Block getObject(Block block, int position)
     {
         return read((ArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
