@@ -13,13 +13,9 @@
  */
 package io.trino.filesystem.azure;
 
-import com.azure.storage.blob.BlobContainerClientBuilder;
-import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
-
-public sealed interface AzureAuth
-        permits AzureAuthAccessKey, AzureAuthDefault, AzureAuthOauth, AzureVendedAuth
+public final class AzureFileSystemConstants
 {
-    void setAuth(String storageAccount, BlobContainerClientBuilder builder);
+    public static final String EXTRA_SAS_TOKEN_PROPERTY_PREFIX = "internal$account_sas$";
 
-    void setAuth(String storageAccount, DataLakeServiceClientBuilder builder);
+    private AzureFileSystemConstants() {}
 }
