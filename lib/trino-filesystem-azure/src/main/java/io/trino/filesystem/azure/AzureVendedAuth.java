@@ -17,40 +17,36 @@ import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
 
 import java.util.Map;
+import java.util.Optional;
 
 public final class AzureVendedAuth
         implements AzureAuth
 {
-    private final Map<String, String> accountSasTokens;
+    private final Map<String, String> sasTokens;
     private final AzureAuth fallbackAuth;
 
-    public AzureVendedAuth(Map<String, String> accountSasTokens, AzureAuth fallbackAuth)
+    public AzureVendedAuth(Map<String, String> sasTokens, AzureAuth fallbackAuth)
     {
-        this.accountSasTokens = accountSasTokens;
+        this.sasTokens = sasTokens;
         this.fallbackAuth = fallbackAuth;
     }
 
     @Override
     public void setAuth(String storageAccount, BlobContainerClientBuilder builder)
     {
-        String sasToken = accountSasTokens.get(AzureFileSystemConstants.EXTRA_SAS_TOKEN_PROPERTY_PREFIX + storageAccount);
-        if (sasToken == null) {
-            fallbackAuth.setAuth(storageAccount, builder);
-        }
-        else {
-            builder.sasToken(sasToken);
-        }
+        getSasToken(storageAccount)
+                .ifPresentOrElse(builder::sasToken, () -> fallbackAuth.setAuth(storageAccount, builder));
     }
 
     @Override
     public void setAuth(String storageAccount, DataLakeServiceClientBuilder builder)
     {
-        String sasToken = accountSasTokens.get(AzureFileSystemConstants.EXTRA_SAS_TOKEN_PROPERTY_PREFIX + storageAccount);
-        if (sasToken == null) {
-            fallbackAuth.setAuth(storageAccount, builder);
-        }
-        else {
-            builder.sasToken(sasToken);
-        }
+        getSasToken(storageAccount)
+                .ifPresentOrElse(builder::sasToken, () -> fallbackAuth.setAuth(storageAccount, builder));
+    }
+
+    public Optional<String> getSasToken(String storageAccount)
+    {
+        return Optional.ofNullable(sasTokens.get(AzureFileSystemConstants.EXTRA_SAS_TOKEN_PROPERTY_PREFIX + storageAccount));
     }
 }

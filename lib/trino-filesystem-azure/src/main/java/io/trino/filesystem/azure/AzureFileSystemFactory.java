@@ -146,6 +146,10 @@ public class AzureFileSystemFactory
 
     private static AzureAuth withVendedAuth(ConnectorIdentity identity, AzureAuth defaultAuth)
     {
-        return identity.getExtraCredentials().isEmpty() ? defaultAuth : new AzureVendedAuth(identity.getExtraCredentials(), defaultAuth);
+        if (identity.getExtraCredentials().containsKey(AzureFileSystemConstants.EXTRA_USE_VENDED_TOKEN) &&
+                identity.getExtraCredentials().get(AzureFileSystemConstants.EXTRA_USE_VENDED_TOKEN).equalsIgnoreCase("true")) {
+            return new AzureVendedAuth(identity.getExtraCredentials(), defaultAuth);
+        }
+        return defaultAuth;
     }
 }

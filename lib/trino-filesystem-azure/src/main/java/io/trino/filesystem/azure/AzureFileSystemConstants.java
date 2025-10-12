@@ -15,6 +15,14 @@ package io.trino.filesystem.azure;
 
 public final class AzureFileSystemConstants
 {
+    /**
+     * Internal property enabling {@link AzureVendedAuth} on the filesystem when set to true.
+     */
+    public static final String EXTRA_USE_VENDED_TOKEN = "internal$use_vended_token";
+
+    /**
+     * Internal prefix for SAS token property keys, mapping storage accounts to their SAS tokens.
+     */
     public static final String EXTRA_SAS_TOKEN_PROPERTY_PREFIX = "internal$account_sas$";
 
     private AzureFileSystemConstants() {}
