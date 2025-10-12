@@ -265,9 +265,10 @@ public class ArrayType
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         Block arrayBlock = (Block) value;
+        ValueBlock valueBlock = arrayBlock.getUnderlyingValueBlock();
         ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-                elementType.appendTo(arrayBlock, i, elementBuilder);
+                elementBuilder.append(valueBlock, arrayBlock.getUnderlyingValuePosition(i));
             }
         });
     }

@@ -772,7 +772,7 @@ public final class OpenXJsonDeserializer
                 int keyIndex = 0;
                 for (Object fieldName : fieldNames) {
                     if (distinctKeys[keyIndex]) {
-                        keyType.appendTo(keyBlock, keyIndex, keyBuilder);
+                        keyBuilder.append(keyBlock.getUnderlyingValueBlock(), keyBlock.getUnderlyingValuePosition(keyIndex));
                         valueDecoder.decode(jsonObject.get(fieldName), valueBuilder);
                     }
                     keyIndex++;

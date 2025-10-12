@@ -147,10 +147,8 @@ public class DistinctWindowAccumulator
                     continue;
                 }
                 for (int channel = 0; channel < argumentChannels.size(); channel++) {
-                    argumentTypes.get(channel).appendTo(
-                            page.getBlock(channel),
-                            position,
-                            filteredPageBuilder.getBlockBuilder(channel));
+                    Block block = page.getBlock(channel);
+                    filteredPageBuilder.getBlockBuilder(channel).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
                 }
                 filteredPageBuilder.declarePosition();
             }

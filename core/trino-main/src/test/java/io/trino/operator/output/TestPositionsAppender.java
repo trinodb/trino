@@ -570,8 +570,9 @@ public class TestPositionsAppender
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(blockBuilderStatus, 10);
         for (BlockView input : inputs) {
+            ValueBlock valueBlock = input.block().getUnderlyingValueBlock();
             for (int position : input.positions()) {
-                type.appendTo(input.block(), position, blockBuilder);
+                blockBuilder.append(valueBlock, input.block().getUnderlyingValuePosition(position));
             }
         }
         return blockBuilder.build();

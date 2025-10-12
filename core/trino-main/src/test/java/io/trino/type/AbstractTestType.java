@@ -328,7 +328,7 @@ public abstract class AbstractTestType
         assertPositionValue(block.getRegion(position, block.getPositionCount() - position), 0, expectedStackValue, hash, expectedObjectValue);
 
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-        type.appendTo(block, position, blockBuilder);
+        blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
         assertPositionValue(blockBuilder.buildValueBlock(), 0, expectedStackValue, hash, expectedObjectValue);
 
         if (expectedStackValue != null) {

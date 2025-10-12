@@ -273,7 +273,8 @@ public class RowType
         int rawIndex = sqlRow.getRawIndex();
         ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
             for (int i = 0; i < sqlRow.getFieldCount(); i++) {
-                fields.get(i).getType().appendTo(sqlRow.getRawFieldBlock(i), rawIndex, fieldBuilders.get(i));
+                Block block = sqlRow.getRawFieldBlock(i);
+                fieldBuilders.get(i).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(rawIndex));
             }
         });
     }

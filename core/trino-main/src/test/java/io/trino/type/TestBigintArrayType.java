@@ -51,7 +51,7 @@ public class TestBigintArrayType
         Block block = (Block) value;
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(block.getPositionCount() + 1);
         for (int i = 0; i < block.getPositionCount(); i++) {
-            BIGINT.appendTo(block, i, blockBuilder);
+            blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(i));
         }
         BIGINT.writeLong(blockBuilder, 1L);
 

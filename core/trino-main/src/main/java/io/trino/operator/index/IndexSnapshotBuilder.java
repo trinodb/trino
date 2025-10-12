@@ -138,8 +138,7 @@ public class IndexSnapshotBuilder
                 missingKeysPageBuilder.declarePosition();
                 for (int i = 0; i < page.getChannelCount(); i++) {
                     Block block = page.getBlock(i);
-                    Type type = indexKeysRecordCursor.getType(i);
-                    type.appendTo(block, position, missingKeysPageBuilder.getBlockBuilder(i));
+                    missingKeysPageBuilder.getBlockBuilder(i).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
                 }
             }
         }

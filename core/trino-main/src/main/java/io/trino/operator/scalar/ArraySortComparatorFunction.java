@@ -17,6 +17,7 @@ import com.google.common.primitives.Ints;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedArrayValueBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.OperatorDependency;
@@ -55,7 +56,6 @@ public final class ArraySortComparatorFunction
     @TypeParameter("T")
     @SqlType("array(T)")
     public Block sort(
-            @TypeParameter("T") Type type,
             @OperatorDependency(operator = READ_VALUE, argumentTypes = "T", convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL)) MethodHandle readValue,
             @SqlType("array(T)") Block block,
             @SqlType("function(T, T, integer)") ComparatorObjectLambda function)
@@ -78,8 +78,9 @@ public final class ArraySortComparatorFunction
         sortPositions(arrayLength, comparator);
 
         return arrayValueBuilder.build(arrayLength, elementBuilder -> {
+            ValueBlock valueBlock = block.getUnderlyingValueBlock();
             for (int i = 0; i < arrayLength; i++) {
-                type.appendTo(block, positions.get(i), elementBuilder);
+                elementBuilder.append(valueBlock, block.getUnderlyingValuePosition(positions.get(i)));
             }
         });
     }
