@@ -31,6 +31,7 @@ import io.trino.operator.join.LookupSource;
 import io.trino.operator.join.unspilled.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -399,8 +400,8 @@ public class BenchmarkHashBuildAndJoinOperators
         pageBuilder.declarePosition();
 
         for (int channel = 0; channel < types.size(); channel++) {
-            Type type = types.get(channel);
-            type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
+            Block block = page.getBlock(channel);
+            pageBuilder.getBlockBuilder(channel).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
         }
     }
 

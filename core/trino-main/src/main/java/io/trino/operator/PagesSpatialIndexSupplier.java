@@ -26,7 +26,6 @@ import io.trino.operator.PagesRTreeIndex.GeometryWithPosition;
 import io.trino.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlock;
-import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -60,7 +59,6 @@ public class PagesSpatialIndexSupplier
 
     private final Session session;
     private final LongArrayList addresses;
-    private final List<Type> types;
     private final List<Integer> outputChannels;
     private final List<ObjectArrayList<Block>> channels;
     private final Optional<Integer> radiusChannel;
@@ -74,7 +72,6 @@ public class PagesSpatialIndexSupplier
     public PagesSpatialIndexSupplier(
             Session session,
             LongArrayList addresses,
-            List<Type> types,
             List<Integer> outputChannels,
             List<ObjectArrayList<Block>> channels,
             int geometryChannel,
@@ -87,7 +84,6 @@ public class PagesSpatialIndexSupplier
     {
         this.session = session;
         this.addresses = addresses;
-        this.types = types;
         this.outputChannels = outputChannels;
         this.channels = channels;
         this.spatialRelationshipTest = spatialRelationshipTest;
@@ -202,6 +198,6 @@ public class PagesSpatialIndexSupplier
         if (rtree.isEmpty()) {
             return EMPTY_INDEX;
         }
-        return new PagesRTreeIndex(session, addresses, types, outputChannels, channels, rtree, radiusChannel, constantRadius, spatialRelationshipTest, filterFunctionFactory, partitions);
+        return new PagesRTreeIndex(session, addresses, outputChannels, channels, rtree, radiusChannel, constantRadius, spatialRelationshipTest, filterFunctionFactory, partitions);
     }
 }

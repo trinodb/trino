@@ -17,6 +17,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedArrayValueBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -49,20 +50,19 @@ public class MapEntriesFunction
     {
         verify(rowType.getTypeParameters().size() == 2);
 
-        Type keyType = rowType.getTypeParameters().get(0);
-        Type valueType = rowType.getTypeParameters().get(1);
-
         int size = sqlMap.getSize();
         int rawOffset = sqlMap.getRawOffset();
         Block rawKeyBlock = sqlMap.getRawKeyBlock();
         Block rawValueBlock = sqlMap.getRawValueBlock();
 
         return arrayValueBuilder.build(size, valueBuilder -> {
+            ValueBlock keyBlock = rawKeyBlock.getUnderlyingValueBlock();
+            ValueBlock valueBlock = rawValueBlock.getUnderlyingValueBlock();
             for (int i = 0; i < size; i++) {
                 int offset = rawOffset + i;
                 ((RowBlockBuilder) valueBuilder).buildEntry(fieldBuilders -> {
-                    keyType.appendTo(rawKeyBlock, offset, fieldBuilders.get(0));
-                    valueType.appendTo(rawValueBlock, offset, fieldBuilders.get(1));
+                    fieldBuilders.get(0).append(keyBlock, rawKeyBlock.getUnderlyingValuePosition(offset));
+                    fieldBuilders.get(1).append(valueBlock, rawValueBlock.getUnderlyingValuePosition(offset));
                 });
             }
         });

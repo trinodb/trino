@@ -19,6 +19,7 @@ import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.testing.MaterializedResult;
@@ -167,8 +168,8 @@ public class TestPagesIndexPageSorter
 
             Page page = inputPages.get(index);
             for (int i = 0; i < types.size(); i++) {
-                Type type = types.get(i);
-                type.appendTo(page.getBlock(i), position, pageBuilder.getBlockBuilder(i));
+                Block block = page.getBlock(i);
+                pageBuilder.getBlockBuilder(i).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
             }
             pageBuilder.declarePosition();
         }

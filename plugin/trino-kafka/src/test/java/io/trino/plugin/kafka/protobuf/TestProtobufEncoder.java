@@ -399,10 +399,7 @@ public class TestProtobufEncoder
                 new int[] {0, 1},
                 nativeValueToBlock(VARCHAR, utf8Slice("Key")),
                 rowBlockBuilder.build());
-        mapType.appendTo(
-                mapBlock,
-                0,
-                mapBlockBuilder);
+        mapBlockBuilder.append(mapBlock.getUnderlyingValueBlock(), mapBlock.getUnderlyingValuePosition(0));
 
         Type listType = nestedRowType.getTypeParameters().get(0);
         BlockBuilder listBlockBuilder = listType.createBlockBuilder(null, 1);
@@ -411,11 +408,11 @@ public class TestProtobufEncoder
                 Optional.empty(),
                 new int[] {0, rowBlockBuilder.getPositionCount()},
                 rowBlockBuilder.build());
-        listType.appendTo(arrayBlock, 0, listBlockBuilder);
+        listBlockBuilder.append(arrayBlock.getUnderlyingValueBlock(), arrayBlock.getUnderlyingValuePosition(0));
 
         BlockBuilder nestedBlockBuilder = nestedRowType.createBlockBuilder(null, 1);
         Block rowBlock = fromFieldBlocks(1, new Block[] {listBlockBuilder.build(), mapBlockBuilder.build(), rowBlockBuilder.build()});
-        nestedRowType.appendTo(rowBlock, 0, nestedBlockBuilder);
+        nestedBlockBuilder.append(rowBlock.getUnderlyingValueBlock(), rowBlock.getUnderlyingValuePosition(0));
 
         rowEncoder.appendColumnValue(nestedBlockBuilder.build(), 0);
 

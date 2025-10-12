@@ -36,6 +36,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.block.MapValueBuilder;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
@@ -253,7 +254,11 @@ public final class MapTransformValuesFunction
                                                                 .append(newInstance(RuntimeException.class, transformationException))
                                                                 .throwObject(),
                                                         ImmutableList.of(type(Throwable.class))))))
-                        .append(keySqlType.invoke("appendTo", void.class, rawKeyBlock, add(index, rawOffset), keyBuilder))
+                        .append(keyBuilder.invoke(
+                                "append",
+                                void.class,
+                                rawKeyBlock.invoke("getUnderlyingValueBlock", ValueBlock.class),
+                                rawKeyBlock.invoke("getUnderlyingValuePosition", int.class, add(index, rawOffset))))
                         .append(writeTransformedValueElement)));
 
         body.ret();

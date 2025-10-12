@@ -238,7 +238,8 @@ public class TestLookupJoinPageBuilder
         public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
         {
             for (int i = 0; i < types.size(); i++) {
-                types.get(i).appendTo(page.getBlock(i), (int) position, pageBuilder.getBlockBuilder(i));
+                Block block = page.getBlock(i);
+                pageBuilder.getBlockBuilder(i).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition((int) position));
             }
         }
 

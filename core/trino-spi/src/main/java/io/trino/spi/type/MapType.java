@@ -333,8 +333,8 @@ public class MapType
 
         ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
             for (int i = 0; i < sqlMap.getSize(); i++) {
-                keyType.appendTo(rawKeyBlock, rawOffset + i, keyBuilder);
-                valueType.appendTo(rawValueBlock, rawOffset + i, valueBuilder);
+                keyBuilder.append(rawKeyBlock.getUnderlyingValueBlock(), rawKeyBlock.getUnderlyingValuePosition(rawOffset + i));
+                valueBuilder.append(rawValueBlock.getUnderlyingValueBlock(), rawValueBlock.getUnderlyingValuePosition(rawOffset + i));
             }
         });
     }
