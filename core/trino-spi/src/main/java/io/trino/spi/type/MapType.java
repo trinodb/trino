@@ -304,17 +304,6 @@ public class MapType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            writeObject(blockBuilder, getObject(block, position));
-        }
-    }
-
-    @Override
     public SqlMap getObject(Block block, int position)
     {
         return read((MapBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
