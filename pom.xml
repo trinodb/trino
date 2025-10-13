@@ -2431,7 +2431,7 @@
         <repository>
             <!-- not really but I don't need to configure rrf ;-) -->
             <id>apache-snapshots</id>
-            <url>https://pub-b1b15852e27443e99b4b0194bbfb454a.r2.dev</url>
+            <url>https://pub-b1b15852e27443e99b4b0194bbfb454a.r2.dev/staging</url>
         </repository>
     </repositories>
 
