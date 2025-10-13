@@ -457,7 +457,7 @@ public final class QueryAssertions
         assertEventually(timeout, () -> assertQueryFails(queryRunner, session, sql, expectedMessageRegExp));
     }
 
-    protected static void assertQueryFails(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
+    public static void assertQueryFails(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
         try {
             MaterializedResultWithPlan resultWithPlan = queryRunner.executeWithPlan(session, sql);
