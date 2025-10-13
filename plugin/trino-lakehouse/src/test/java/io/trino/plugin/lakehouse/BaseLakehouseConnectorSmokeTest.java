@@ -62,6 +62,7 @@ public abstract class BaseLakehouseConnectorSmokeTest
                 .addLakehouseProperty("s3.endpoint", hiveMinio.getMinio().getMinioAddress())
                 .addLakehouseProperty("s3.path-style-access", "true")
                 .addLakehouseProperty("s3.streaming.part-size", "5MB")
+                .addLakehouseProperty("iceberg.add-files-procedure.enabled", "true")
                 .build();
     }
 
