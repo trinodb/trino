@@ -85,9 +85,3 @@ jobs:
           if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-server gib-impacted.log; then
             $MAVEN test ${MAVEN_TEST} -pl :trino-test-jdbc-compatibility-old-server
           fi
-      - name: Upload test results
-        uses: ./.github/actions/process-test-results
-        if: always()
-        with:
-          has-failed-tests: ${{ steps.tests-old.outcome == 'failure' || steps.tests-current.outcome == 'failure' }}
-          upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
