@@ -150,7 +150,7 @@ public class TrinoBigQueryMetastoreCatalog
             client.load(toDatasetReference(namespace));
             return true;
         }
-        catch (IllegalArgumentException e) {
+        catch (Throwable e) {
             return false;
         }
     }
@@ -212,7 +212,7 @@ public class TrinoBigQueryMetastoreCatalog
         try {
             return toMetadata(client.load(toDatasetReference(namespace)));
         }
-        catch (IllegalArgumentException e) {
+        catch (Throwable e) {
             throw new NoSuchNamespaceException("%s", e.getMessage());
         }
     }
@@ -406,7 +406,7 @@ public class TrinoBigQueryMetastoreCatalog
     @Override
     public String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return createDefaultStorageLocationUri(schemaTableName.getSchemaName());
+        return String.format("%s/%s", createDefaultStorageLocationUri(schemaTableName.getSchemaName()), schemaTableName.getTableName());
     }
 
     @Override
