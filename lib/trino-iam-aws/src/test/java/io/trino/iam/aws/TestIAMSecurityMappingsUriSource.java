@@ -11,8 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.s3;
+package io.trino.iam.aws;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
@@ -24,7 +25,7 @@ import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.http.client.testing.TestingResponse.mockResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestS3SecurityMappingsUriSource
+public class TestIAMSecurityMappingsUriSource
 {
     private static final String MOCK_MAPPINGS_RESPONSE =
             "{\"mappings\": [{\"iamRole\":\"arn:aws:iam::test\",\"user\":\"test\"}]}";
@@ -33,8 +34,9 @@ public class TestS3SecurityMappingsUriSource
     public void testGetRawJson()
     {
         Response response = mockResponse(HttpStatus.OK, JSON_UTF_8, MOCK_MAPPINGS_RESPONSE);
-        S3SecurityMappingConfig config = new S3SecurityMappingConfig().setConfigUri(URI.create("http://test:1234/api/endpoint"));
-        var provider = new S3SecurityMappingsUriSource(config, new TestingHttpClient(_ -> response));
+        IAMSecurityMappingConfig config = new IAMSecurityMappingConfig().setConfigUriInternal(URI.create("http://test:1234/api/endpoint"));
+        var typeRef = new TypeReference<IAMSecurityMappings<IAMSecurityMapping>>() {};
+        var provider = new IAMSecurityMappingsUriSource<>(config, new TestingHttpClient(_ -> response), typeRef);
         String result = provider.getRawJsonString();
         assertThat(result).isEqualTo(MOCK_MAPPINGS_RESPONSE);
     }

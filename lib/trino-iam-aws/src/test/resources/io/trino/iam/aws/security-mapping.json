@@ -1,0 +1,58 @@
+{
+    "mappings": [
+        {
+            "user": "jane",
+            "accessKey": "AKIAxxxaccess",
+            "secretKey": "iXbXxxxsecret"
+        },
+        {
+            "user": "john",
+            "allowedIamRoles": [
+                "arn:aws:iam::123456789101:role/role_a",
+                "arn:aws:iam::123456789101:role/role_b"
+            ]
+        },
+        {
+            "user": "alice",
+            "iamRole": "alice_role"
+        },
+        {
+            "user": "bob|charlie",
+            "iamRole": "bob_and_charlie_role"
+        },
+        {
+            "group": "finance",
+            "iamRole": "finance_role"
+        },
+        {
+            "group": "hr|eng",
+            "iamRole": "hr_and_eng_group"
+        },
+        {
+            "user": "danny",
+            "group": "hq",
+            "iamRole": "danny_hq_role"
+        },
+        {
+            "user": "ryan",
+            "accessKey": "AKIAxxxaccess",
+            "secretKey": "iXbXxxxsecret",
+            "endpoint": "http://localhost:7753"
+        },
+        {
+            "user": "emily",
+            "accessKey": "AKIAxxxaccess",
+            "secretKey": "iXbXxxxsecret",
+            "region": "us-west-2"
+        },
+        {
+            "user": "jack",
+            "iamRole": "arn:aws:iam::1234567891012:role/default",
+            "roleSessionName": "iam-trino-session"
+        },
+        {
+            "useClusterDefault": "false",
+            "iamRole": "arn:aws:iam::123456789101:role/default"
+        }
+    ]
+}

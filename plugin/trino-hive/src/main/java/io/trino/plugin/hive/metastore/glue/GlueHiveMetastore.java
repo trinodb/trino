@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -180,7 +179,6 @@ public class GlueHiveMetastore
     private final Predicate<software.amazon.awssdk.services.glue.model.Table> tableVisibilityFilter;
     private final ExecutorService executor;
 
-    @Inject
     public GlueHiveMetastore(
             GlueClient glueClient,
             GlueCache glueCache,
