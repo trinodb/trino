@@ -68,9 +68,6 @@ Cloud Storage:
 
 * - Property
   - Description
-* - `gcs.use-access-token`
-  - Flag to set usage of a client-provided OAuth 2.0 token to access Google
-    Cloud Storage. Defaults to `false`, deprecated to use `gcs.auth-type` instead.
 * - `gcs.auth-type`
   - Authentication type to use for Google Cloud Storage access. Default to `SERVICE_ACCOUNT`.
   Supported values are:
