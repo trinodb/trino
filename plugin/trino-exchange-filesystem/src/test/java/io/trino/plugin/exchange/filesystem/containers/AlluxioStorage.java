@@ -34,7 +34,9 @@ public class AlluxioStorage
     public void start()
     {
         alluxioMaster = createAlluxioMasterContainer();
+        alluxioMaster.start();
         alluxioWorker = createAlluxioWorkerContainer();
+        alluxioWorker.start();
     }
 
     private static GenericContainer<?> createAlluxioMasterContainer()

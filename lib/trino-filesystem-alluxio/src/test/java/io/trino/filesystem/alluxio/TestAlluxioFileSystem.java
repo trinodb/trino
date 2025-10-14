@@ -58,7 +58,9 @@ public class TestAlluxioFileSystem
     void setup()
     {
         alluxioMaster = createAlluxioMasterContainer();
+        alluxioMaster.start();
         alluxioWorker = createAlluxioWorkerContainer();
+        alluxioWorker.start();
         this.rootLocation = Location.of("alluxio:///");
         InstancedConfiguration conf = Configuration.copyGlobal();
         FileSystemContext fsContext = FileSystemContext.create(conf);
@@ -146,8 +148,7 @@ public class TestAlluxioFileSystem
 
     private static GenericContainer<?> createAlluxioMasterContainer()
     {
-        GenericContainer<?> container = new GenericContainer<>(ALLUXIO_IMAGE);
-        container.withCommand("master-only")
+        return new GenericContainer<>(ALLUXIO_IMAGE).withCommand("master-only")
                 .withEnv("ALLUXIO_JAVA_OPTS",
                         "-Dalluxio.security.authentication.type=NOSASL "
                                 + "-Dalluxio.master.hostname=localhost "
@@ -161,14 +162,11 @@ public class TestAlluxioFileSystem
                 .waitingFor(new LogMessageWaitStrategy()
                         .withRegEx(".*Primary started*\n")
                         .withStartupTimeout(Duration.ofMinutes(5)));
-        container.start();
-        return container;
     }
 
     private static GenericContainer<?> createAlluxioWorkerContainer()
     {
-        GenericContainer<?> container = new GenericContainer<>(ALLUXIO_IMAGE);
-        container.withCommand("worker-only")
+        return new GenericContainer<>(ALLUXIO_IMAGE).withCommand("worker-only")
                 .withNetworkMode("host")
                 .withEnv("ALLUXIO_JAVA_OPTS",
                         "-Dalluxio.security.authentication.type=NOSASL "
@@ -181,7 +179,5 @@ public class TestAlluxioFileSystem
                                 + "-Dalluxio.security.authorization.plugins.enabled=false ")
                 .withAccessToHost(true)
                 .waitingFor(Wait.forLogMessage(".*Alluxio worker started.*\n", 1));
-        container.start();
-        return container;
     }
 }
