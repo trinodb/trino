@@ -16,6 +16,8 @@ package io.trino.plugin.clickhouse;
 import com.clickhouse.data.ClickHouseColumn;
 import com.clickhouse.data.ClickHouseDataType;
 import com.clickhouse.data.ClickHouseVersion;
+import com.clickhouse.data.value.UnsignedLong;
+import com.clickhouse.jdbc.JdbcTypeMapping;
 import com.google.common.base.Enums;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -44,6 +46,7 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
@@ -61,7 +64,11 @@ import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
+import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapHashTables;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -74,9 +81,11 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -99,6 +108,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -116,6 +126,7 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.clickhouse.ClickHouseSessionProperties.isMapStringAsVarchar;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ENGINE_PROPERTY;
@@ -164,6 +175,7 @@ import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
+import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -184,6 +196,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
@@ -212,6 +225,7 @@ public class ClickHouseClient
 
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
+    private final TypeOperators typeOperators;
     private final Type uuidType;
     private final Type ipAddressType;
     private final AtomicReference<ClickHouseVersion> clickHouseVersion = new AtomicReference<>();
@@ -226,6 +240,7 @@ public class ClickHouseClient
             RemoteQueryModifier queryModifier)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
+        this.typeOperators = typeManager.getTypeOperators();
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
@@ -636,8 +651,22 @@ public class ClickHouseClient
             return mapping;
         }
 
+        Optional<ColumnMapping> columnMapping = toColumnMapping(session, jdbcTypeName, typeHandle.jdbcType(), typeHandle.decimalDigits(), typeHandle.columnSize());
+        if (columnMapping.isEmpty() && getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+            return mapToUnboundedVarchar(typeHandle);
+        }
+        return columnMapping;
+    }
+
+    private Optional<ColumnMapping> toColumnMapping(
+            ConnectorSession session,
+            String typeName,
+            int jdbcType,
+            Optional<Integer> decimalDigits,
+            Optional<Integer> columnSize)
+    {
         ClickHouseVersion version = getClickHouseServerVersion(session);
-        ClickHouseColumn column = ClickHouseColumn.of("", jdbcTypeName);
+        ClickHouseColumn column = ClickHouseColumn.of("", typeName);
         ClickHouseDataType columnDataType = column.getDataType();
         switch (columnDataType) {
             case Bool:
@@ -677,11 +706,13 @@ public class ClickHouseClient
                 return Optional.of(varbinaryColumnMapping());
             case UUID:
                 return Optional.of(uuidColumnMapping());
+            case Map:
+                return mapColumnMapping(session, column.getKeyInfo(), column.getValueInfo());
             default:
                 // no-op
         }
 
-        switch (typeHandle.jdbcType()) {
+        switch (jdbcType) {
             case Types.TINYINT:
                 return Optional.of(tinyintColumnMapping());
 
@@ -706,16 +737,13 @@ public class ClickHouseClient
                 return Optional.of(doubleColumnMapping());
 
             case Types.DECIMAL:
-                int decimalDigits = typeHandle.requiredDecimalDigits();
-                int precision = typeHandle.requiredColumnSize();
-
                 ColumnMapping decimalColumnMapping;
-                if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
-                    int scale = Math.min(decimalDigits, getDecimalDefaultScale(session));
+                if (getDecimalRounding(session) == ALLOW_OVERFLOW && columnSize.orElseThrow() > Decimals.MAX_PRECISION) {
+                    int scale = Math.min(decimalDigits.orElseThrow(), getDecimalDefaultScale(session));
                     decimalColumnMapping = decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session));
                 }
                 else {
-                    decimalColumnMapping = decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)));
+                    decimalColumnMapping = decimalColumnMapping(createDecimalType(columnSize.orElseThrow(), max(decimalDigits.orElseThrow(), 0)));
                 }
                 return Optional.of(ColumnMapping.mapping(
                         decimalColumnMapping.getType(),
@@ -730,7 +758,7 @@ public class ClickHouseClient
             case Types.TIMESTAMP:
                 if (columnDataType == ClickHouseDataType.DateTime) {
                     // ClickHouse DateTime does not have sub-second precision
-                    verify(typeHandle.requiredDecimalDigits() == 0, "Expected 0 as timestamp precision, but got %s", typeHandle.requiredDecimalDigits());
+                    verify(decimalDigits.orElseThrow() == 0, "Expected 0 as timestamp precision, but got %s", decimalDigits.orElseThrow());
                     return Optional.of(ColumnMapping.longMapping(
                             TIMESTAMP_SECONDS,
                             timestampReadFunction(TIMESTAMP_SECONDS),
@@ -742,16 +770,12 @@ public class ClickHouseClient
             case Types.TIMESTAMP_WITH_TIMEZONE:
                 if (columnDataType == ClickHouseDataType.DateTime) {
                     // ClickHouse DateTime does not have sub-second precision
-                    verify(typeHandle.requiredDecimalDigits() == 0, "Expected 0 as timestamp with time zone precision, but got %s", typeHandle.requiredDecimalDigits());
+                    verify(decimalDigits.orElseThrow() == 0, "Expected 0 as timestamp with time zone precision, but got %s", decimalDigits.orElseThrow());
                     return Optional.of(ColumnMapping.longMapping(
                             TIMESTAMP_TZ_SECONDS,
                             shortTimestampWithTimeZoneReadFunction(),
                             shortTimestampWithTimeZoneWriteFunction(version, column.getTimeZone())));
                 }
-        }
-
-        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
-            return mapToUnboundedVarchar(typeHandle);
         }
 
         return Optional.empty();
@@ -804,6 +828,12 @@ public class ClickHouseClient
         }
         if (type.equals(uuidType)) {
             return WriteMapping.sliceMapping("UUID", uuidWriteFunction());
+        }
+        if (type instanceof MapType mapType) {
+            WriteMapping keyMapping = toWriteMapping(session, mapType.getKeyType());
+            WriteMapping valueMapping = toWriteMapping(session, mapType.getValueType());
+            String dataType = "Map(%s, %s)".formatted(keyMapping.getDataType(), valueMapping.getDataType());
+            return WriteMapping.objectMapping(dataType, mapWriteFunction());
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type);
     }
@@ -946,24 +976,28 @@ public class ClickHouseClient
                 (resultSet, columnIndex) -> {
                     // copied from IpAddressOperators.castFromVarcharToIpAddress
                     byte[] address = InetAddresses.forString(resultSet.getString(columnIndex)).getAddress();
-
-                    byte[] bytes;
-                    if (address.length == 4) {
-                        bytes = new byte[16];
-                        bytes[10] = (byte) 0xff;
-                        bytes[11] = (byte) 0xff;
-                        arraycopy(address, 0, bytes, 12, 4);
-                    }
-                    else if (address.length == 16) {
-                        bytes = address;
-                    }
-                    else {
-                        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid InetAddress length: " + address.length);
-                    }
-
+                    byte[] bytes = parseIpAddressBytes(address);
                     return wrappedBuffer(bytes);
                 },
                 ipAddressWriteFunction(clickhouseType));
+    }
+
+    private static byte[] parseIpAddressBytes(byte[] address)
+    {
+        byte[] parsedBytes;
+        if (address.length == 4) {
+            parsedBytes = new byte[16];
+            parsedBytes[10] = (byte) 0xff;
+            parsedBytes[11] = (byte) 0xff;
+            arraycopy(address, 0, parsedBytes, 12, 4);
+        }
+        else if (address.length == 16) {
+            parsedBytes = address;
+        }
+        else {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid InetAddress length: " + address.length);
+        }
+        return parsedBytes;
     }
 
     private static SliceWriteFunction ipAddressWriteFunction(String clickhouseType)
@@ -1001,6 +1035,120 @@ public class ClickHouseClient
     private static SliceWriteFunction uuidWriteFunction()
     {
         return (statement, index, value) -> statement.setObject(index, trinoUuidToJavaUuid(value), Types.OTHER);
+    }
+
+    private Optional<ColumnMapping> mapColumnMapping(ConnectorSession session, ClickHouseColumn keyColumn, ClickHouseColumn valueColumn)
+    {
+        JdbcTypeMapping typeMapping = JdbcTypeMapping.getDefaultMapping();
+        Optional<ColumnMapping> keyMapping = toColumnMapping(
+                session,
+                keyColumn.getOriginalTypeName(),
+                typeMapping.toSqlType(keyColumn, Map.of()),
+                Optional.of(keyColumn.getPrecision()),
+                Optional.of(keyColumn.getScale()));
+        Optional<ColumnMapping> valueMapping = toColumnMapping(
+                session,
+                valueColumn.getOriginalTypeName(),
+                typeMapping.toSqlType(valueColumn, Map.of()),
+                Optional.of(valueColumn.getPrecision()),
+                Optional.of(valueColumn.getScale()));
+        if (keyMapping.isEmpty() || valueMapping.isEmpty()) {
+            return Optional.empty();
+        }
+
+        MapType mapType = new MapType(
+                keyMapping.get().getType(),
+                valueMapping.get().getType(),
+                typeOperators);
+        return Optional.of(ColumnMapping.objectMapping(
+                mapType,
+                ObjectReadFunction.of(SqlMap.class, (resultSet, columnIndex) -> {
+                    Object data = resultSet.getObject(columnIndex);
+                    if (!(data instanceof Map<?, ?> mapData)) {
+                        throw new TrinoException(StandardErrorCode.TYPE_MISMATCH, "Expected ClickHouse to return a Map");
+                    }
+
+                    return buildMapValue(
+                            mapType,
+                            mapData.size(),
+                            (keyBuilder, valueBuilder) -> {
+                                for (Object key : mapData.keySet()) {
+                                    writeValue(keyMapping.get().getType(), keyBuilder, key);
+                                    writeValue(valueMapping.get().getType(), valueBuilder, mapData.get(key));
+                                }
+                            });
+                }),
+                mapWriteFunction(),
+                DISABLE_PUSHDOWN));
+    }
+
+    private static ObjectWriteFunction mapWriteFunction()
+    {
+        return ObjectWriteFunction.of(SqlMap.class, (statement, index, value) -> {
+            MapType mapType = (MapType) value.getMapType();
+            Type keyType = mapType.getKeyType();
+            Type valueType = mapType.getValueType();
+
+            Map<Object, Object> mapValue = new HashMap<>();
+            for (int position = 0; position < value.getSize(); position++) {
+                Object keyEntry = keyType.getObjectValue(value.getRawKeyBlock(), position);
+                Object valueEntry = valueType.getObjectValue(value.getRawValueBlock(), position);
+                mapValue.put(keyEntry, valueEntry);
+            }
+
+            statement.setObject(index, mapValue);
+        });
+    }
+
+    private static void writeValue(Type type, BlockBuilder blockBuilder, Object value)
+    {
+        if (value == null) {
+            blockBuilder.appendNull();
+        }
+        else if (type.getJavaType() == long.class) {
+            switch (value) {
+                case Float floatValue -> type.writeLong(blockBuilder, floatToIntBits(floatValue));
+                case Double doubleValue -> type.writeLong(blockBuilder, Double.doubleToLongBits(doubleValue));
+                case Number numberValue -> type.writeLong(blockBuilder, numberValue.longValue());
+                case LocalDate dateValue -> type.writeLong(blockBuilder, dateValue.toEpochDay());
+                default -> throw new UnsupportedOperationException("Unsupported type for map key or value: " + type);
+            }
+        }
+        else if (type.getJavaType() == double.class) {
+            type.writeDouble(blockBuilder, ((Number) value).doubleValue());
+        }
+        else if (type.getJavaType() == boolean.class) {
+            type.writeBoolean(blockBuilder, (boolean) value);
+        }
+        else if (type.getJavaType() == io.airlift.slice.Slice.class) {
+            if (value instanceof InetAddress ipAddressValue) {
+                byte[] address = parseIpAddressBytes(ipAddressValue.getAddress());
+                type.writeSlice(blockBuilder, wrappedBuffer(address));
+            }
+            else if (value instanceof UUID uuidValue) {
+                type.writeSlice(blockBuilder, javaUuidToTrinoUuid(uuidValue));
+            }
+            else {
+                type.writeSlice(blockBuilder, utf8Slice(value.toString()));
+            }
+        }
+        else if (type.getJavaType() == Int128.class) {
+            type.writeObject(blockBuilder, Int128.valueOf(((UnsignedLong) value).bigIntegerValue()));
+        }
+        else if (type.getJavaType() == SqlMap.class) {
+            Map<Object, Object> mapValue = (Map<Object, Object>) value;
+            MapType mapType = (MapType) type;
+            BlockBuilder keyBuilder = mapType.getKeyType().createBlockBuilder(null, 0);
+            BlockBuilder valueBuilder = mapType.getValueType().createBlockBuilder(null, 0);
+            for (Map.Entry<Object, Object> mapEntry : mapValue.entrySet()) {
+                writeValue(mapType.getKeyType(), keyBuilder, mapEntry.getKey());
+                writeValue(mapType.getValueType(), valueBuilder, mapEntry.getValue());
+            }
+            type.writeObject(blockBuilder, new SqlMap(mapType, MapHashTables.HashBuildMode.DUPLICATE_NOT_CHECKED, keyBuilder.build(), valueBuilder.build()));
+        }
+        else {
+            throw new UnsupportedOperationException("Unsupported type for map key or value: " + type);
+        }
     }
 
     public static boolean supportsPushdown(Variable variable, RewriteContext<ParameterizedExpression> context)

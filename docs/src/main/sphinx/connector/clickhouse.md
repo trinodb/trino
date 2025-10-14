@@ -248,6 +248,9 @@ to the following table:
 * - `UUID`
   - `UUID`
   -
+* - `MAP(k, v)`
+  - `MAP(k, v)`
+  -
 :::
 
 No other types are supported.
@@ -306,6 +309,9 @@ to the following table:
   -
 * - `UUID`
   - `UUID`
+  -
+* - `MAP(k, v)`
+  - `MAP(k, v)`
   -
 :::
 

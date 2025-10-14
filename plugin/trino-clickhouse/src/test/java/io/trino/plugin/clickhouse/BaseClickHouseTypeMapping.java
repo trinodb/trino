@@ -15,8 +15,11 @@ package io.trino.plugin.clickhouse;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.TimeZoneKey;
-import io.trino.spi.type.UuidType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
@@ -53,6 +56,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_SECONDS;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -1128,8 +1132,8 @@ public abstract class BaseClickHouseTypeMapping
     public void testUuid()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("Nullable(UUID)", "NULL", UuidType.UUID, "CAST(NULL AS UUID)")
-                .addRoundTrip("Nullable(UUID)", "'114514ea-0601-1981-1142-e9b55b0abd6d'", UuidType.UUID, "CAST('114514ea-0601-1981-1142-e9b55b0abd6d' AS UUID)")
+                .addRoundTrip("Nullable(UUID)", "NULL", UUID, "CAST(NULL AS UUID)")
+                .addRoundTrip("Nullable(UUID)", "'114514ea-0601-1981-1142-e9b55b0abd6d'", UUID, "CAST('114514ea-0601-1981-1142-e9b55b0abd6d' AS UUID)")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("default.ck_test_uuid"));
 
         SqlDataTypeTest.create()
@@ -1163,6 +1167,67 @@ public abstract class BaseClickHouseTypeMapping
                 .addRoundTrip("Nullable(IPv4)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
                 .addRoundTrip("Nullable(IPv6)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
                 .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_ip"));
+    }
+
+    @Test
+    public void testMap()
+    {
+        addClickhouseCreateAndInsertDataTypeTests(SqlDataTypeTest.create())
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), clickhouseCreateAndInsert("tpch.test_map"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("Map(Int32, Bool)", "MAP(ARRAY[42], ARRAY[true])", mapWithValueType(BOOLEAN))
+                .addRoundTrip("Map(Int32, Int8)", "MAP(ARRAY[42], ARRAY[TINYINT '0'])", mapWithValueType(TINYINT))
+                .addRoundTrip("Map(Int32, Int32)", "MAP(ARRAY[42], ARRAY[1])", mapWithValueType(INTEGER))
+                .addRoundTrip("Map(Int32, Int64)", "MAP(ARRAY[42], ARRAY[BIGINT '2'])", mapWithValueType(BIGINT))
+                .addRoundTrip("Map(Int32, UInt8)", "MAP(ARRAY[42], ARRAY[SMALLINT '3'])", mapWithValueType(SMALLINT))
+                .addRoundTrip("Map(Int32, UInt16)", "MAP(ARRAY[42], ARRAY[4])", mapWithValueType(INTEGER))
+                .addRoundTrip("Map(Int32, UInt32)", "MAP(ARRAY[42], ARRAY[BIGINT '5'])", mapWithValueType(BIGINT))
+                .addRoundTrip("Map(Int32, UInt64)", "MAP(ARRAY[42], ARRAY[CAST(6 AS DECIMAL(20, 0))])", mapWithValueType(DecimalType.createDecimalType(20, 0)))
+                .addRoundTrip("Map(Int32, Float32)", "MAP(ARRAY[42], ARRAY[REAL '7'])", mapWithValueType(REAL))
+                .addRoundTrip("Map(Int32, Float64)", "MAP(ARRAY[42], ARRAY[DOUBLE '8'])", mapWithValueType(DOUBLE))
+                .addRoundTrip("Map(Int32, FixedString(4))", "MAP(ARRAY[42], ARRAY['nine'])", mapWithValueType(VARCHAR), "MAP(ARRAY[42], ARRAY[CAST('nine' AS VARCHAR)])")
+                .addRoundTrip("Map(Int32, String)", "MAP(ARRAY[42], ARRAY['ten'])", mapWithValueType(VARCHAR), "MAP(ARRAY[42], ARRAY[CAST('ten' AS VARCHAR)])")
+                .addRoundTrip("Map(Int32, Date)", "MAP(ARRAY[42], ARRAY[DATE '2011-11-11'])", mapWithValueType(DATE))
+                .addRoundTrip("Map(Int32, IPv4)", "MAP(ARRAY[42], ARRAY[IPADDRESS '213.213.213.213'])", mapWithValueType(IPADDRESS))
+                .addRoundTrip("Map(Int32, IPv6)", "MAP(ARRAY[42], ARRAY[IPADDRESS '2001:44c8:129:2632:33:0:252:14'])", mapWithValueType(IPADDRESS))
+                .addRoundTrip("Map(Int32, Enum('hello' = 1, 'world' = 2))", "MAP(ARRAY[42], ARRAY[CAST('world' AS VARCHAR)])", mapWithValueType(VARCHAR))
+                .addRoundTrip("Map(Int32, UUID)", "MAP(ARRAY[42], ARRAY[UUID '92d3f742-b13c-4d8e-9d7a-1130d2d31980'])", mapWithValueType(UUID))
+                .addRoundTrip("Map(Int32, Map(Int32, Int32))", "MAP(ARRAY[42], ARRAY[MAP(ARRAY[1], ARRAY[2])])", mapWithValueType(mapWithValueType(INTEGER)))
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), clickhouseCreateAndTrinoInsert(mapStringAsVarcharSession(), "tpch.test_map"));
+    }
+
+    protected SqlDataTypeTest addClickhouseCreateAndInsertDataTypeTests(SqlDataTypeTest dataTypeTest)
+    {
+        dataTypeTest.addRoundTrip("Map(Int32, Bool)", "map(42, true)", mapWithValueType(BOOLEAN), "MAP(ARRAY[42], ARRAY[true])")
+                .addRoundTrip("Map(Int32, Int8)", "map(42, 0)", mapWithValueType(TINYINT), "MAP(ARRAY[42], ARRAY[TINYINT '0'])")
+                .addRoundTrip("Map(Int32, Int32)", "map(42, 1)", mapWithValueType(INTEGER), "MAP(ARRAY[42], ARRAY[1])")
+                .addRoundTrip("Map(Int32, Int64)", "map(42, 2)", mapWithValueType(BIGINT), "MAP(ARRAY[42], ARRAY[BIGINT '2'])")
+                .addRoundTrip("Map(Int32, UInt8)", "map(42, 3)", mapWithValueType(SMALLINT), "MAP(ARRAY[42], ARRAY[SMALLINT '3'])")
+                .addRoundTrip("Map(Int32, UInt16)", "map(42, 4)", mapWithValueType(INTEGER), "MAP(ARRAY[42], ARRAY[4])")
+                .addRoundTrip("Map(Int32, UInt32)", "map(42, 5)", mapWithValueType(BIGINT), "MAP(ARRAY[42], ARRAY[BIGINT '5'])")
+                .addRoundTrip("Map(Int32, UInt64)", "map(42, 6)", mapWithValueType(DecimalType.createDecimalType(20, 0)), "MAP(ARRAY[42], ARRAY[CAST(6 AS DECIMAL(20, 0))])")
+                .addRoundTrip("Map(Int32, Float32)", "map(42, 7)", mapWithValueType(REAL), "MAP(ARRAY[42], ARRAY[REAL '7'])")
+                .addRoundTrip("Map(Int32, Float64)", "map(42, 8)", mapWithValueType(DOUBLE), "MAP(ARRAY[42], ARRAY[DOUBLE '8'])")
+                .addRoundTrip("Map(Int32, FixedString(4))", "map(42, 'nine')", mapWithValueType(VARCHAR), "MAP(ARRAY[42], ARRAY[CAST('nine' AS VARCHAR)])")
+                .addRoundTrip("Map(Int32, String)", "map(42, 'ten')", mapWithValueType(VARCHAR), "MAP(ARRAY[42], ARRAY[CAST('ten' AS VARCHAR)])")
+                .addRoundTrip("Map(Int32, Date)", "map(42, '2011-11-11')", mapWithValueType(DATE), "MAP(ARRAY[42], ARRAY[DATE '2011-11-11'])")
+                .addRoundTrip("Map(Int32, IPv4)", "map(42, '213.213.213.213')", mapWithValueType(IPADDRESS), "MAP(ARRAY[42], ARRAY[IPADDRESS '213.213.213.213'])")
+                .addRoundTrip("Map(Int32, IPv6)", "map(42, '2001:44c8:129:2632:33:0:252:14')", mapWithValueType(IPADDRESS), "MAP(ARRAY[42], ARRAY[IPADDRESS '2001:44c8:129:2632:33:0:252:14'])")
+                .addRoundTrip("Map(Int32, Enum('hello' = 1, 'world' = 2))", "map(42, 'world')", mapWithValueType(VARCHAR), "MAP(ARRAY[42], ARRAY[CAST('world' AS VARCHAR)])")
+                .addRoundTrip("Map(Int32, UUID)", "map(42, '92d3f742-b13c-4d8e-9d7a-1130d2d31980')", mapWithValueType(UUID), "MAP(ARRAY[42], ARRAY[UUID '92d3f742-b13c-4d8e-9d7a-1130d2d31980'])");
+        // TODO: This fails because the timestamp precision is set to 29
+//                .addRoundTrip(
+//                        "Map(Int32, DateTime('Asia/Kathmandu'))",
+//                        "map(42, '2012-12-01 12:00:00')",
+//                        mapWithValueType(TIMESTAMP_TZ_SECONDS),
+//                        "MAP(ARRAY[42], ARRAY[TIMESTAMP '2012-12-01 12:00:00 +05:45'])")
+        return dataTypeTest;
+    }
+
+    protected static Type mapWithValueType(Type valueType)
+    {
+        return new MapType(INTEGER, valueType, new TypeOperators());
     }
 
     @Test
@@ -1213,6 +1278,11 @@ public abstract class BaseClickHouseTypeMapping
     protected DataSetup clickhouseCreateAndTrinoInsert(String tableNamePrefix)
     {
         return new CreateAndTrinoInsertDataSetup(new ClickHouseSqlExecutor(onRemoteDatabase()), new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
+    }
+
+    protected DataSetup clickhouseCreateAndTrinoInsert(Session session, String tableNamePrefix)
+    {
+        return new CreateAndTrinoInsertDataSetup(new ClickHouseSqlExecutor(onRemoteDatabase()), new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     protected SqlExecutor onRemoteDatabase()

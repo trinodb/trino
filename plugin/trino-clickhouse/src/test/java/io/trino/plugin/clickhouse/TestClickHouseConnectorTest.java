@@ -72,6 +72,7 @@ public class TestClickHouseConnectorTest
                  SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE,
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
                  SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_MAP_TYPE,
                  SUPPORTS_TRUNCATE -> true;
             case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
@@ -79,7 +80,6 @@ public class TestClickHouseConnectorTest
                  SUPPORTS_ARRAY,
                  SUPPORTS_DELETE,
                  SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
-                 SUPPORTS_MAP_TYPE,
                  SUPPORTS_NEGATIVE_DATE,
                  SUPPORTS_ROW_TYPE,
                  SUPPORTS_SET_COLUMN_TYPE,
@@ -662,6 +662,24 @@ public class TestClickHouseConnectorTest
             assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
             assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (TRY(5/0), 4)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
             assertQueryFails(format("INSERT INTO %s (not_null_col) VALUES (TRY(6/0))", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+        }
+    }
+
+    @Test
+    @Override
+    public void testInsertMap()
+    {
+        // TODO: Add more types here
+        testMapRoundTrip("INTEGER", "2");
+        testMapRoundTrip("VARCHAR", "CAST('foobar' AS VARCHAR)");
+    }
+
+    private void testMapRoundTrip(String valueType, String value)
+    {
+        try (TestTable table = newTrinoTable("test_insert_map_", "(col map(INTEGER, %s) NOT NULL)".formatted(valueType))) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES map(ARRAY[1], ARRAY[%s])".formatted(value), 1);
+            assertThat(query("SELECT col[1] FROM " + table.getName()))
+                    .matches("VALUES " + value);
         }
     }
 
