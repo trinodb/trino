@@ -24,6 +24,7 @@ import alluxio.grpc.DeletePOptions;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -71,17 +72,25 @@ public class TestAlluxioFileSystem
 
     @AfterAll
     void tearDown()
+            throws Exception
     {
-        if (alluxioMaster != null) {
-            alluxioMaster.close();
+        try (AutoCloseableCloser closer = AutoCloseableCloser.create()) {
+            if (alluxioMaster != null) {
+                closer.register(alluxioMaster);
+                alluxioMaster = null;
+            }
+            if (alluxioWorker != null) {
+                closer.register(alluxioWorker);
+                alluxioWorker = null;
+            }
+            fileSystem = null;
+            if (alluxioFs != null) {
+                closer.register(alluxioFs);
+                alluxioFs = null;
+            }
+            rootLocation = null;
+            alluxioFileSystemFactory = null;
         }
-        if (alluxioWorker != null) {
-            alluxioWorker.close();
-        }
-        fileSystem = null;
-        alluxioFs = null;
-        rootLocation = null;
-        alluxioFileSystemFactory = null;
     }
 
     @AfterEach
