@@ -486,8 +486,6 @@ jobs:
             - { modules: plugin/trino-redshift, profile: fte-tests }
             - { modules: plugin/trino-resource-group-managers }
             - { modules: plugin/trino-singlestore }
-            - { modules: plugin/trino-snowflake }
-            - { modules: plugin/trino-snowflake, profile: cloud-tests }
             - { modules: plugin/trino-sqlserver }
             - { modules: plugin/trino-vertica }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
@@ -674,7 +672,8 @@ jobs:
           SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}
           SNOWFLAKE_ROLE: ${{ vars.SNOWFLAKE_ROLE }}
           SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}
-        if: matrix.modules == 'plugin/trino-snowflake' && contains(matrix.profile, 'cloud-tests') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.SNOWFLAKE_URL != '')
+        # Disabled temporarily until Snowflake account is migrated
+        if: false && matrix.modules == 'plugin/trino-snowflake' && contains(matrix.profile, 'cloud-tests') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.SNOWFLAKE_URL != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-snowflake -Pcloud-tests \
             -Dsnowflake.test.server.url="${SNOWFLAKE_URL}" \
@@ -903,7 +902,6 @@ jobs:
             - suite-clickhouse
             - suite-mysql
             - suite-iceberg
-            - suite-snowflake
             - suite-hudi
             - suite-ignite
           exclude:
