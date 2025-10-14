@@ -102,8 +102,7 @@ public class TestCassandraConnectorTest
                  SUPPORTS_RENAME_TABLE,
                  SUPPORTS_ROW_TYPE,
                  SUPPORTS_SET_COLUMN_TYPE,
-                 SUPPORTS_TOPN_PUSHDOWN,
-                 SUPPORTS_UPDATE -> false;
+                 SUPPORTS_TOPN_PUSHDOWN -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -1525,6 +1524,143 @@ public class TestCassandraConnectorTest
 
     @Test
     @Override
+    public void testUpdate()
+    {
+        try (TestCassandraTable testCassandraTable = testTable(
+                "table_update_data",
+                ImmutableList.of(
+                        partitionColumn("partition_one", "bigint"),
+                        partitionColumn("partition_two", "int"),
+                        clusterColumn("clust_one", "text"),
+                        clusterColumn("clust_two", "text"),
+                        generalColumn("data", "text")),
+                ImmutableList.of(
+                        "1, 1, 'clust_one_1', 'clust_two_1', null",
+                        "2, 2, 'clust_one_2', 'clust_two_2', null",
+                        "3, 3, 'clust_one_3', 'clust_two_3', null",
+                        "4, 4, 'clust_one_4', 'clust_two_4', null",
+                        "5, 5, 'clust_one_5', 'clust_two_5', null",
+                        "6, 6, 'clust_one_6', 'clust_two_6', null",
+                        "7, 7, 'clust_one_7', 'clust_two_7', null",
+                        "8, 8, 'clust_one_8', 'clust_two_8', null",
+                        "9, 9, 'clust_one_9', 'clust_two_9', null",
+                        "1, 1, 'clust_one_1', 'clust_two_2', null",
+                        "1, 1, 'clust_one_2', 'clust_two_1', null",
+                        "1, 1, 'clust_one_2', 'clust_two_2', null",
+                        "1, 2, 'clust_one_2', 'clust_two_1', null",
+                        "1, 2, 'clust_one_2', 'clust_two_2', null",
+                        "2, 2, 'clust_one_1', 'clust_two_1', null"))) {
+            String keyspaceAndTable = testCassandraTable.getTableName();
+            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
+
+            // error
+            assertThat(query("UPDATE " + keyspaceAndTable + " SET data='new_data'"))
+                    .failure().hasMessage("Updating without partition key is not supported");
+            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + " WHERE data IS NULL").getRowCount()).isEqualTo(15);
+
+            String wherePartialPartitionKey = " WHERE partition_one=1 AND clust_one='clust_one_1' AND clust_two>='clust_two_1'";
+            assertThat(query("UPDATE " + keyspaceAndTable + " SET data='new_data'" + wherePartialPartitionKey))
+                    .failure().hasMessage("This connector does not support modifying table rows");
+            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + " WHERE data IS NULL").getRowCount()).isEqualTo(15);
+
+            String whereInvalidRangePartitionKey = " WHERE partition_one=3 AND partition_two>=3 AND clust_one='clust_one_2' AND clust_two='clust_two_3'";
+            assertThat(query("UPDATE " + keyspaceAndTable + " SET data='new_data'" + whereInvalidRangePartitionKey))
+                    .failure().hasMessage("This connector does not support modifying table rows");
+            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + " WHERE data IS NULL").getRowCount()).isEqualTo(15);
+
+            String whereClusteringKeyOnly = " WHERE clust_one='clust_one_2'";
+            assertThat(query("UPDATE " + keyspaceAndTable + " SET data='new_data'" + whereClusteringKeyOnly))
+                    .failure().hasMessage("This connector does not support modifying table rows");
+            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + " WHERE data IS NULL").getRowCount()).isEqualTo(15);
+
+            String whereIncompleteClusteringKey = " WHERE partition_one=3 AND partition_two=3 AND clust_one='clust_one_2'";
+            assertThat(query("UPDATE " + keyspaceAndTable + " SET data='new_data'" + whereIncompleteClusteringKey))
+                    .failure().hasMessage("Updating without all clustering keys or with non-eq predicates is not supported");
+            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + " WHERE data IS NULL").getRowCount()).isEqualTo(15);
+
+            String whereInvalidRangeClusteringKey = " WHERE partition_one=3 AND partition_two=3 AND clust_one>='clust_one_2' AND clust_two='clust_two_3'";
+            assertThat(query("UPDATE " + keyspaceAndTable + " SET data='new_data'" + whereInvalidRangeClusteringKey))
+                    .failure().hasMessage("This connector does not support modifying table rows");
+            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + " WHERE data IS NULL").getRowCount()).isEqualTo(15);
+
+            String whereMultiplePartitionKeyWithClusteringKey = " WHERE " +
+                    " (partition_one=1 AND partition_two=1 AND clust_one='clust_one_1') OR " +
+                    " (partition_one=1 AND partition_two=2 AND clust_one='clust_one_2') ";
+            assertThat(query("UPDATE " + keyspaceAndTable + " SET data='new_data'" + whereMultiplePartitionKeyWithClusteringKey))
+                    .failure().hasMessage("This connector does not support modifying table rows");
+            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
+
+            // success
+            String wherePrimaryKey = " WHERE partition_one=3 AND partition_two=3 AND clust_one='clust_one_3' AND clust_two='clust_two_3'";
+            assertUpdate("UPDATE " + keyspaceAndTable + " SET data='new_data'" + wherePrimaryKey);
+            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + " WHERE data IS NULL").getRowCount()).isEqualTo(14);
+            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + " WHERE data='new_data'").getRowCount()).isEqualTo(1);
+
+            String whereClusteringKeysUsingIn = " WHERE partition_one=1 AND partition_two=1 AND clust_one IN ('clust_one_1', 'clust_one_2') AND clust_two IN ('clust_two_1', 'clust_two_2')";
+            assertUpdate("UPDATE " + keyspaceAndTable + " SET data='new_data2'" + whereClusteringKeysUsingIn);
+            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + " WHERE data IS NULL").getRowCount()).isEqualTo(10);
+            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + " WHERE data='new_data2'").getRowCount()).isEqualTo(4);
+        }
+    }
+
+    @Test
+    @Override
+    public void testUpdateWithPredicates()
+    {
+        assertThatThrownBy(super::testUpdateWithPredicates)
+                .hasStackTraceContaining("This connector does not support modifying table rows");
+    }
+
+    @Test
+    @Override
+    public void testUpdateWithNullValues()
+    {
+        assertThatThrownBy(super::testUpdateWithNullValues)
+                .hasStackTraceContaining("This connector does not support modifying table rows");
+    }
+
+    @Test
+    @Override
+    public void testRowLevelUpdate()
+    {
+        assertThatThrownBy(super::testRowLevelUpdate)
+                .hasStackTraceContaining("This connector does not support modifying table rows");
+    }
+
+    @Test
+    @Override
+    public void testUpdateAllValues()
+    {
+        assertThatThrownBy(super::testUpdateAllValues)
+                .hasStackTraceContaining("This connector does not support modifying table rows");
+    }
+
+    @Test
+    @Override
+    public void testUpdateCaseSensitivity()
+    {
+        assertThatThrownBy(super::testUpdateCaseSensitivity)
+                .hasStackTraceContaining("This connector does not support modifying table rows");
+    }
+
+    @Test
+    @Override
+    public void testUpdateMultipleCondition()
+    {
+        assertThatThrownBy(super::testUpdateMultipleCondition)
+                .hasStackTraceContaining("This connector does not support modifying table rows");
+    }
+
+    @Test
+    @Override
+    public void testUpdateRowConcurrently()
+    {
+        assertThatThrownBy(super::testUpdateRowConcurrently)
+                .hasStackTraceContaining("This connector does not support modifying table rows");
+    }
+
+    @Test
+    @Override
     public void testDelete()
     {
         try (TestCassandraTable testCassandraTable = testTable(
@@ -1533,23 +1669,24 @@ public class TestCassandraConnectorTest
                         partitionColumn("partition_one", "bigint"),
                         partitionColumn("partition_two", "int"),
                         clusterColumn("clust_one", "text"),
+                        clusterColumn("clust_two", "text"),
                         generalColumn("data", "text")),
                 ImmutableList.of(
-                        "1, 1, 'clust_one_1', null",
-                        "2, 2, 'clust_one_2', null",
-                        "3, 3, 'clust_one_3', null",
-                        "4, 4, 'clust_one_4', null",
-                        "5, 5, 'clust_one_5', null",
-                        "6, 6, 'clust_one_6', null",
-                        "7, 7, 'clust_one_7', null",
-                        "8, 8, 'clust_one_8', null",
-                        "9, 9, 'clust_one_9', null",
-                        "1, 1, 'clust_one_2', null",
-                        "1, 1, 'clust_one_3', null",
-                        "1, 2, 'clust_one_1', null",
-                        "1, 2, 'clust_one_2', null",
-                        "1, 2, 'clust_one_3', null",
-                        "2, 2, 'clust_one_1', null"))) {
+                        "1, 1, 'clust_one_1', 'clust_two_1', null",
+                        "2, 2, 'clust_one_2', 'clust_two_2', null",
+                        "3, 3, 'clust_one_3', 'clust_two_3', null",
+                        "4, 4, 'clust_one_4', 'clust_two_4', null",
+                        "5, 5, 'clust_one_5', 'clust_two_5', null",
+                        "6, 6, 'clust_one_6', 'clust_two_6', null",
+                        "7, 7, 'clust_one_7', 'clust_two_7', null",
+                        "8, 8, 'clust_one_8', 'clust_two_8', null",
+                        "9, 9, 'clust_one_9', 'clust_two_9', null",
+                        "1, 1, 'clust_one_2', 'clust_two_2', null",
+                        "1, 1, 'clust_one_3', 'clust_two_1', null",
+                        "1, 2, 'clust_one_1', 'clust_two_2', null",
+                        "1, 2, 'clust_one_2', 'clust_two_1', null",
+                        "1, 2, 'clust_one_3', 'clust_two_2', null",
+                        "2, 2, 'clust_one_1', 'clust_two_1', null"))) {
             String keyspaceAndTable = testCassandraTable.getTableName();
             assertThat(computeActual("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
 
@@ -1558,20 +1695,35 @@ public class TestCassandraConnectorTest
                     .failure().hasMessage("Deleting without partition key is not supported");
             assertThat(computeActual("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
 
+            String wherePartialPartitionKey = " WHERE partition_one=1 AND clust_one='clust_one_1' AND clust_two='clust_two_1'";
+            assertThat(query("DELETE FROM " + keyspaceAndTable + wherePartialPartitionKey))
+                    .failure().hasMessage("This connector does not support modifying table rows");
+            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
+
+            String whereInvalidRangePartitionKey = " WHERE partition_one=3 AND partition_two>=3 AND clust_one='clust_one_2' AND clust_two='clust_two_3'";
+            assertThat(query("DELETE FROM " + keyspaceAndTable + whereInvalidRangePartitionKey))
+                    .failure().hasMessage("This connector does not support modifying table rows");
+            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + " WHERE data IS NULL").getRowCount()).isEqualTo(15);
+
+            String whereInvalidClusteringKey = " WHERE partition_one=1 AND partition_two=1 AND clust_two='clust_two_1'";
+            assertThat(query("DELETE FROM " + keyspaceAndTable + whereInvalidClusteringKey))
+                    .failure().hasMessage("This connector does not support modifying table rows");
+            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
+
             String whereClusteringKeyOnly = " WHERE clust_one='clust_one_2'";
             assertThat(query("DELETE FROM " + keyspaceAndTable + whereClusteringKeyOnly))
-                    .failure().hasMessage("Delete without primary key or partition key is not supported");
+                    .failure().hasMessage("This connector does not support modifying table rows");
             assertThat(computeActual("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
 
             String whereMultiplePartitionKeyWithClusteringKey = " WHERE " +
                     " (partition_one=1 AND partition_two=1 AND clust_one='clust_one_1') OR " +
                     " (partition_one=1 AND partition_two=2 AND clust_one='clust_one_2') ";
             assertThat(query("DELETE FROM " + keyspaceAndTable + whereMultiplePartitionKeyWithClusteringKey))
-                    .failure().hasMessage("Delete without primary key or partition key is not supported");
+                    .failure().hasMessage("This connector does not support modifying table rows");
             assertThat(computeActual("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
 
             // success
-            String wherePrimaryKey = " WHERE partition_one=3 AND partition_two=3 AND clust_one='clust_one_3'";
+            String wherePrimaryKey = " WHERE partition_one=3 AND partition_two=3 AND clust_one='clust_one_3' AND clust_two='clust_two_3'";
             assertUpdate("DELETE FROM " + keyspaceAndTable + wherePrimaryKey);
             assertThat(computeActual("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(14);
             assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + wherePrimaryKey).getRowCount()).isEqualTo(0);
@@ -1585,6 +1737,11 @@ public class TestCassandraConnectorTest
             assertUpdate("DELETE FROM " + keyspaceAndTable + whereMultiplePartitionKey);
             assertThat(computeActual("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(9);
             assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + whereMultiplePartitionKey).getRowCount()).isEqualTo(0);
+
+            String whereClusteringKeysUsingIn = " WHERE partition_one=4 AND partition_two=4 AND clust_one IN ('clust_one_4', 'clust_one_5') AND clust_two IN ('clust_two_4', 'clust_two_5')";
+            assertUpdate("DELETE FROM " + keyspaceAndTable + whereClusteringKeysUsingIn);
+            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(8);
+            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + whereClusteringKeysUsingIn).getRowCount()).isEqualTo(0);
         }
     }
 
@@ -1593,7 +1750,7 @@ public class TestCassandraConnectorTest
     public void testDeleteWithLike()
     {
         assertThatThrownBy(super::testDeleteWithLike)
-                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+                .hasStackTraceContaining("This connector does not support modifying table rows");
     }
 
     @Test
@@ -1601,7 +1758,7 @@ public class TestCassandraConnectorTest
     public void testDeleteWithComplexPredicate()
     {
         assertThatThrownBy(super::testDeleteWithComplexPredicate)
-                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+                .hasStackTraceContaining("This connector does not support modifying table rows");
     }
 
     @Test
@@ -1609,7 +1766,7 @@ public class TestCassandraConnectorTest
     public void testDeleteWithSemiJoin()
     {
         assertThatThrownBy(super::testDeleteWithSemiJoin)
-                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+                .hasStackTraceContaining("This connector does not support modifying table rows");
     }
 
     @Test
@@ -1617,7 +1774,7 @@ public class TestCassandraConnectorTest
     public void testDeleteWithSubquery()
     {
         assertThatThrownBy(super::testDeleteWithSubquery)
-                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+                .hasStackTraceContaining("This connector does not support modifying table rows");
     }
 
     @Test
@@ -1625,7 +1782,7 @@ public class TestCassandraConnectorTest
     public void testExplainAnalyzeWithDeleteWithSubquery()
     {
         assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
-                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+                .hasStackTraceContaining("This connector does not support modifying table rows");
     }
 
     @Test
@@ -1633,7 +1790,7 @@ public class TestCassandraConnectorTest
     public void testDeleteWithVarcharPredicate()
     {
         assertThatThrownBy(super::testDeleteWithVarcharPredicate)
-                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+                .hasStackTraceContaining("This connector does not support modifying table rows");
     }
 
     @Test
@@ -1649,7 +1806,7 @@ public class TestCassandraConnectorTest
     public void testRowLevelDelete()
     {
         assertThatThrownBy(super::testRowLevelDelete)
-                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+                .hasStackTraceContaining("This connector does not support modifying table rows");
     }
 
     // test polymorphic table function
