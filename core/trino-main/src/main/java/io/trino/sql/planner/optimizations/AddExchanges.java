@@ -866,12 +866,8 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitExplainAnalyze(ExplainAnalyzeNode node, PreferredProperties preferredProperties)
         {
-            PlanWithProperties child = planChild(node, PreferredProperties.any());
-
-            // if the child is already a gathering exchange, don't add another
-            if ((child.getNode() instanceof ExchangeNode) && ((ExchangeNode) child.getNode()).getType() == ExchangeNode.Type.GATHER) {
-                return rebaseAndDeriveProperties(node, child);
-            }
+            // Same PreferredProperties as OutputNode
+            PlanWithProperties child = planChild(node, PreferredProperties.undistributed());
 
             // Always add an exchange because ExplainAnalyze should be in its own stage
             child = withDerivedProperties(
