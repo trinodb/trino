@@ -49,7 +49,6 @@ import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.jdbc.JdbcClientPool;
 import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -82,7 +81,6 @@ import static org.apache.iceberg.snowflake.TrinoIcebergSnowflakeCatalogFactory.g
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@Disabled
 public class TestTrinoSnowflakeCatalog
         extends BaseTrinoCatalogTest
 {
