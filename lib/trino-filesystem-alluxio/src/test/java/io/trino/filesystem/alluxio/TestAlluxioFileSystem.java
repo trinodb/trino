@@ -65,9 +65,6 @@ public class TestAlluxioFileSystem
         this.alluxioFs = FileSystem.Factory.create(fsContext);
         this.alluxioFileSystemFactory = new AlluxioFileSystemFactory(conf);
         this.fileSystem = alluxioFileSystemFactory.create(ConnectorIdentity.ofUser("alluxio"));
-        // the SSHD container will be stopped by TestContainers on shutdown
-        // https://github.com/trinodb/trino/discussions/21969
-        System.setProperty("ReportLeakedContainers.disabled", "true");
     }
 
     @AfterAll
