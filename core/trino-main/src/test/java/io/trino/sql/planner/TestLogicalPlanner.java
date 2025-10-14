@@ -2249,7 +2249,7 @@ public class TestLogicalPlanner
                         node(ExplainAnalyzeNode.class,
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE, GATHER,
-                                                exchange(LOCAL, REPARTITION,
+                                                exchange(REMOTE, GATHER,
                                                         join(INNER, builder -> builder
                                                                 .left(tableScan("nation", ImmutableMap.of("regionkey_0", "regionkey")))
                                                                 .right(anyTree(tableScan("region", ImmutableMap.of("regionkey_1", "regionkey"))))),
