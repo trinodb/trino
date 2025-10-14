@@ -2237,6 +2237,25 @@ public class TestLogicalPlanner
                         node(ExplainAnalyzeNode.class,
                                 exchange(LOCAL, GATHER,
                                         strictTableScan("nation", ImmutableMap.of("regionkey", "regionkey"))))));
+
+        assertDistributedPlan("""
+                              EXPLAIN ANALYZE
+                              SELECT * FROM
+                                  (SELECT * from nation, region)
+                              UNION ALL
+                                  (SELECT * from nation, region)
+                              """,
+                output(
+                        node(ExplainAnalyzeNode.class,
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE, GATHER,
+                                                exchange(LOCAL, REPARTITION,
+                                                        join(INNER, builder -> builder
+                                                                .left(tableScan("nation", ImmutableMap.of("regionkey_0", "regionkey")))
+                                                                .right(anyTree(tableScan("region", ImmutableMap.of("regionkey_1", "regionkey"))))),
+                                                        join(INNER, builder -> builder
+                                                                .left(tableScan("nation", ImmutableMap.of("regionkey_2", "regionkey")))
+                                                                .right(anyTree(tableScan("region", ImmutableMap.of("regionkey_3", "regionkey")))))))))));
     }
 
     @Test
