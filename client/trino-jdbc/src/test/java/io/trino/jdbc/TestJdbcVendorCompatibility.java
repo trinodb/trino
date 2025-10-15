@@ -24,8 +24,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.oracle.OracleContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.io.Closeable;
 import java.sql.Connection;
@@ -618,7 +618,7 @@ public class TestJdbcVendorCompatibility
     private static class PostgresqlReferenceDriver
             implements ReferenceDriver
     {
-        private final PostgreSQLContainer<?> postgresqlContainer;
+        private final PostgreSQLContainer postgresqlContainer;
         private Connection connection;
         private Statement statement;
         private Optional<Optional<String>> timezoneSet = Optional.empty();
@@ -626,7 +626,7 @@ public class TestJdbcVendorCompatibility
         PostgresqlReferenceDriver()
         {
             // Use the current latest PostgreSQL version as the reference
-            postgresqlContainer = new PostgreSQLContainer<>("postgres:15");
+            postgresqlContainer = new PostgreSQLContainer("postgres:15");
             postgresqlContainer.start();
         }
 

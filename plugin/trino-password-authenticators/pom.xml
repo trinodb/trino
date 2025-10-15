@@ -170,7 +170,7 @@
 
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>toxiproxy</artifactId>
+            <artifactId>testcontainers-toxiproxy</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
