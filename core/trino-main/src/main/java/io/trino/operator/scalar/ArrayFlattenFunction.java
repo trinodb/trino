@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
@@ -76,10 +75,7 @@ public class ArrayFlattenFunction
         for (int i = 0; i < array.getPositionCount(); i++) {
             if (!array.isNull(i)) {
                 Block subArray = (Block) arrayType.getObject(array, i);
-                ValueBlock subArrayValueBlock = subArray.getUnderlyingValueBlock();
-                for (int j = 0; j < subArray.getPositionCount(); j++) {
-                    builder.append(subArrayValueBlock, subArray.getUnderlyingValuePosition(j));
-                }
+                builder.appendBlockRange(subArray, 0, subArray.getPositionCount());
             }
         }
         return builder.build();

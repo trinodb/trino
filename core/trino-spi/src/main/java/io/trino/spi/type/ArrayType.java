@@ -254,12 +254,8 @@ public class ArrayType
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         Block arrayBlock = (Block) value;
-        ValueBlock valueBlock = arrayBlock.getUnderlyingValueBlock();
-        ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
-            for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-                elementBuilder.append(valueBlock, arrayBlock.getUnderlyingValuePosition(i));
-            }
-        });
+        ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder ->
+                elementBuilder.appendBlockRange(arrayBlock, 0, arrayBlock.getPositionCount()));
     }
 
     // FLAT MEMORY LAYOUT

@@ -18,7 +18,6 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedArrayValueBuilder;
-import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
@@ -126,10 +125,7 @@ public final class ArrayConcatFunction
 
         return ((BufferedArrayValueBuilder) state).build(resultPositionCount, elementBuilder -> {
             for (Block block : blocks) {
-                ValueBlock valueBlock = block.getUnderlyingValueBlock();
-                for (int i = 0; i < block.getPositionCount(); i++) {
-                    elementBuilder.append(valueBlock, block.getUnderlyingValuePosition(i));
-                }
+                elementBuilder.appendBlockRange(block, 0, block.getPositionCount());
             }
         });
     }
