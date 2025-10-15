@@ -100,6 +100,9 @@ Trino data type mapping:
 * - `DATE`
   - `DATE`
   -
+* - `TIMESTAMP(n)`
+  - `TIMESTAMP(n)`
+  - 
 * - `HASHTYPE`
   - `VARBINARY`
   -
