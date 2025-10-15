@@ -247,6 +247,19 @@ final class TestExasolConnectorTest
         predicatePushdownTest("CHAR(7)", "'my_char'", "=", "CAST('my_char' AS CHAR(7))");
     }
 
+    @Test
+    void testPredicatePushdownForNegativeTimestamp()
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), TEST_SCHEMA + ".test_negative_timestamp_predicate", "(dt TIMESTAMP)")) {
+            // Exasol cannot store negative TIMESTAMP values, so store the positive value and filter with
+            // the corresponding negative Trino timestamp to verify predicate binding does not lose the year sign.
+            onRemoteDatabase().execute(format("INSERT INTO %s VALUES (TIMESTAMP '2013-03-11')", table.getName()));
+
+            assertThat(query(format("SELECT dt FROM %s WHERE dt = TIMESTAMP '-2013-03-11'", table.getName())))
+                    .isFullyPushedDown();
+        }
+    }
+
     private void predicatePushdownTest(String exasolType, String exasolLiteral, String operator, String filterLiteral)
     {
         String tableName = "test_pdown_" + exasolType.replaceAll("[^a-zA-Z0-9]", "");
