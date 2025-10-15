@@ -17,7 +17,6 @@ import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 
 public final class ArrayConcatUtils
@@ -28,10 +27,7 @@ public final class ArrayConcatUtils
     public static Block appendElement(Type elementType, Block block, long value)
     {
         BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
-        ValueBlock valueBlock = block.getUnderlyingValueBlock();
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            blockBuilder.append(valueBlock, block.getUnderlyingValuePosition(i));
-        }
+        blockBuilder.appendBlockRange(block, 0, block.getPositionCount());
 
         elementType.writeLong(blockBuilder, value);
 
@@ -42,10 +38,7 @@ public final class ArrayConcatUtils
     public static Block appendElement(Type elementType, Block block, boolean value)
     {
         BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
-        ValueBlock valueBlock = block.getUnderlyingValueBlock();
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            blockBuilder.append(valueBlock, block.getUnderlyingValuePosition(i));
-        }
+        blockBuilder.appendBlockRange(block, 0, block.getPositionCount());
 
         elementType.writeBoolean(blockBuilder, value);
 
@@ -56,10 +49,7 @@ public final class ArrayConcatUtils
     public static Block appendElement(Type elementType, Block block, double value)
     {
         BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
-        ValueBlock valueBlock = block.getUnderlyingValueBlock();
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            blockBuilder.append(valueBlock, block.getUnderlyingValuePosition(i));
-        }
+        blockBuilder.appendBlockRange(block, 0, block.getPositionCount());
 
         elementType.writeDouble(blockBuilder, value);
 
@@ -70,10 +60,7 @@ public final class ArrayConcatUtils
     public static Block appendElement(Type elementType, Block block, Slice value)
     {
         BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
-        ValueBlock valueBlock = block.getUnderlyingValueBlock();
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            blockBuilder.append(valueBlock, block.getUnderlyingValuePosition(i));
-        }
+        blockBuilder.appendBlockRange(block, 0, block.getPositionCount());
 
         elementType.writeSlice(blockBuilder, value);
 
@@ -84,10 +71,7 @@ public final class ArrayConcatUtils
     public static Block appendElement(Type elementType, Block block, Object value)
     {
         BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
-        ValueBlock valueBlock = block.getUnderlyingValueBlock();
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            blockBuilder.append(valueBlock, block.getUnderlyingValuePosition(i));
-        }
+        blockBuilder.appendBlockRange(block, 0, block.getPositionCount());
 
         elementType.writeObject(blockBuilder, value);
 
@@ -101,10 +85,7 @@ public final class ArrayConcatUtils
         BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
 
         elementType.writeSlice(blockBuilder, value);
-        ValueBlock valueBlock = block.getUnderlyingValueBlock();
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            blockBuilder.append(valueBlock, block.getUnderlyingValuePosition(i));
-        }
+        blockBuilder.appendBlockRange(block, 0, block.getPositionCount());
 
         return blockBuilder.build();
     }
@@ -115,10 +96,7 @@ public final class ArrayConcatUtils
         BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
 
         elementType.writeObject(blockBuilder, value);
-        ValueBlock valueBlock = block.getUnderlyingValueBlock();
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            blockBuilder.append(valueBlock, block.getUnderlyingValuePosition(i));
-        }
+        blockBuilder.appendBlockRange(block, 0, block.getPositionCount());
 
         return blockBuilder.build();
     }
@@ -129,10 +107,7 @@ public final class ArrayConcatUtils
         BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
 
         elementType.writeLong(blockBuilder, value);
-        ValueBlock valueBlock = block.getUnderlyingValueBlock();
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            blockBuilder.append(valueBlock, block.getUnderlyingValuePosition(i));
-        }
+        blockBuilder.appendBlockRange(block, 0, block.getPositionCount());
 
         return blockBuilder.build();
     }
@@ -143,10 +118,7 @@ public final class ArrayConcatUtils
         BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
 
         elementType.writeBoolean(blockBuilder, value);
-        ValueBlock valueBlock = block.getUnderlyingValueBlock();
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            blockBuilder.append(valueBlock, block.getUnderlyingValuePosition(i));
-        }
+        blockBuilder.appendBlockRange(block, 0, block.getPositionCount());
 
         return blockBuilder.build();
     }
@@ -157,10 +129,7 @@ public final class ArrayConcatUtils
         BlockBuilder blockBuilder = elementType.createBlockBuilder(null, block.getPositionCount() + 1);
 
         elementType.writeDouble(blockBuilder, value);
-        ValueBlock valueBlock = block.getUnderlyingValueBlock();
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            blockBuilder.append(valueBlock, block.getUnderlyingValuePosition(i));
-        }
+        blockBuilder.appendBlockRange(block, 0, block.getPositionCount());
 
         return blockBuilder.build();
     }

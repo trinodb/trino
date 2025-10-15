@@ -321,10 +321,8 @@ public class MapType
         Block rawValueBlock = sqlMap.getRawValueBlock();
 
         ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
-            for (int i = 0; i < sqlMap.getSize(); i++) {
-                keyBuilder.append(rawKeyBlock.getUnderlyingValueBlock(), rawKeyBlock.getUnderlyingValuePosition(rawOffset + i));
-                valueBuilder.append(rawValueBlock.getUnderlyingValueBlock(), rawValueBlock.getUnderlyingValuePosition(rawOffset + i));
-            }
+            keyBuilder.appendBlockRange(rawKeyBlock, rawOffset, sqlMap.getSize());
+            valueBuilder.appendBlockRange(rawValueBlock, rawOffset, sqlMap.getSize());
         });
     }
 
