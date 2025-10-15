@@ -48,6 +48,7 @@ import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
+import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceWriteFunction;
@@ -75,6 +76,8 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.JoinStatistics;
+import io.trino.spi.connector.JoinType;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.CharType;
@@ -252,6 +255,13 @@ public class ClickHouseClient
                 .map("$not($is_null(value))").to("value IS NOT NULL")
                 .map("$not(value: boolean)").to("NOT value")
                 .map("$is_null(value)").to("value IS NULL")
+                .map("$equal(left, right)").to("left = right")
+                .map("$not_equal(left, right)").to("left <> right")
+                .map("$less_than(left, right)").to("left < right")
+                .map("$less_than_or_equal(left, right)").to("left <= right")
+                .map("$greater_than(left, right)").to("left > right")
+                .map("$greater_than_or_equal(left, right)").to("left >= right")
+                .map("$operator$subscript(map, value)").to("map[value]")
                 .build();
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this.connectorExpressionRewriter,
@@ -279,7 +289,34 @@ public class ClickHouseClient
     @Override
     public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
+        for (ColumnHandle columnHandle : assignments.values()) {
+            JdbcColumnHandle jdbcColumnHandle = (JdbcColumnHandle) columnHandle;
+            JdbcTypeHandle typeHandle = jdbcColumnHandle.getJdbcTypeHandle();
+            String jdbcTypeName = typeHandle.jdbcTypeName()
+                    .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
+            if (jdbcColumnHandle.getColumnType() instanceof VarcharType &&
+                    getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR &&
+                    toColumnMapping(session, jdbcTypeName, typeHandle.jdbcType(), typeHandle.decimalDigits(), typeHandle.columnSize()).isEmpty()) {
+                // Column is mapped to VARCHAR using unsupported type handling, predicate pushdown may not work properly
+                return Optional.empty();
+            }
+        }
+
         return connectorExpressionRewriter.rewrite(session, expression, assignments);
+    }
+
+    @Override
+    public Optional<PreparedQuery> implementJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            PreparedQuery leftSource,
+            Map<JdbcColumnHandle, String> leftProjections,
+            PreparedQuery rightSource,
+            Map<JdbcColumnHandle, String> rightProjections,
+            List<ParameterizedExpression> joinConditions,
+            JoinStatistics statistics)
+    {
+        return Optional.empty();
     }
 
     @Override
