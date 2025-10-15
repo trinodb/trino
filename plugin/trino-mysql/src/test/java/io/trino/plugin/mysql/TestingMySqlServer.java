@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.mysql;
 
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.mysql.MySQLContainer;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -27,7 +27,7 @@ import java.time.ZoneId;
 import static io.trino.testing.containers.TestContainers.startOrReuse;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
-import static org.testcontainers.containers.MySQLContainer.MYSQL_PORT;
+import static org.testcontainers.mysql.MySQLContainer.MYSQL_PORT;
 
 public class TestingMySqlServer
         implements AutoCloseable
@@ -36,7 +36,7 @@ public class TestingMySqlServer
     public static final String DEFAULT_IMAGE = DEFAULT_IMAGE_8;
     public static final String LEGACY_IMAGE = "mysql:5.7.44"; // oldest available on RDS
 
-    private final MySQLContainer<?> container;
+    private final MySQLContainer container;
     private final Closeable cleanup;
 
     public TestingMySqlServer()
@@ -61,7 +61,7 @@ public class TestingMySqlServer
 
     public TestingMySqlServer(String dockerImageName, boolean globalTransactionEnable, ZoneId zoneId)
     {
-        MySQLContainer<?> container = new MySQLContainer<>(dockerImageName);
+        MySQLContainer container = new MySQLContainer(dockerImageName);
         container = container.withDatabaseName("tpch");
         container.addEnv("TZ", zoneId.getId());
         if (globalTransactionEnable) {
@@ -80,7 +80,7 @@ public class TestingMySqlServer
         }
     }
 
-    private void configureContainer(MySQLContainer<?> container)
+    private void configureContainer(MySQLContainer container)
     {
         // MySQL configuration provided by default by testcontainers causes MySQL to produce poor estimates in CARDINALITY column of INFORMATION_SCHEMA.STATISTICS table.
         container.addParameter("TC_MY_CNF", null);

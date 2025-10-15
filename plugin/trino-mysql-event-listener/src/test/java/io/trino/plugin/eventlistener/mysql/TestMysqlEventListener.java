@@ -40,7 +40,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.mysql.MySQLContainer;
 
 import java.net.URI;
 import java.sql.Connection;
@@ -348,7 +348,7 @@ final class TestMysqlEventListener
             Instant.now(),
             Instant.now());
 
-    private MySQLContainer<?> mysqlContainer;
+    private MySQLContainer mysqlContainer;
     private String mysqlContainerUrl;
     private EventListener eventListener;
     private JsonCodecFactory jsonCodecFactory;
@@ -356,7 +356,7 @@ final class TestMysqlEventListener
     @BeforeAll
     void setup()
     {
-        mysqlContainer = new MySQLContainer<>("mysql:8.0.36");
+        mysqlContainer = new MySQLContainer("mysql:8.0.36");
         mysqlContainer.start();
         mysqlContainerUrl = getJdbcUrl(mysqlContainer);
         eventListener = new MysqlEventListenerFactory()
@@ -376,7 +376,7 @@ final class TestMysqlEventListener
         jsonCodecFactory = null;
     }
 
-    private static String getJdbcUrl(MySQLContainer<?> container)
+    private static String getJdbcUrl(MySQLContainer container)
     {
         return format("%s?user=%s&password=%s&useSSL=false&allowPublicKeyRetrieval=true",
                 container.getJdbcUrl(),
