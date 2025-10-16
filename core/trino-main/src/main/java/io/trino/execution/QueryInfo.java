@@ -448,45 +448,4 @@ public class QueryInfo
                 .add("fieldNames", fieldNames)
                 .toString();
     }
-
-    public QueryInfo pruneDigests()
-    {
-        return new QueryInfo(
-                queryId,
-                session,
-                state,
-                self,
-                fieldNames,
-                query,
-                preparedQuery,
-                queryStats,
-                setCatalog,
-                setSchema,
-                setPath,
-                setAuthorizationUser,
-                resetAuthorizationUser,
-                setOriginalRoles,
-                setSessionProperties,
-                resetSessionProperties,
-                setRoles,
-                addedPreparedStatements,
-                deallocatedPreparedStatements,
-                startedTransactionId,
-                clearTransactionId,
-                updateType,
-                stages.map(StagesInfo::pruneDigests),
-                failureInfo,
-                errorCode,
-                warnings,
-                inputs,
-                output,
-                referencedTables,
-                routines,
-                finalQueryInfo,
-                resourceGroupId,
-                queryType,
-                retryPolicy,
-                pruned,
-                version);
-    }
 }

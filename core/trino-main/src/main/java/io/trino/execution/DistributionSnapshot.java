@@ -18,13 +18,10 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.base.MoreObjects.ToStringHelper;
 import io.trino.spi.metrics.Distribution;
 import io.trino.spi.metrics.Metric;
-import io.trino.spi.metrics.Metrics;
 
 import java.util.Locale;
-import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE) // Do not add @class property
@@ -32,20 +29,6 @@ import static java.lang.String.format;
 public record DistributionSnapshot(long total, double min, double max, double p01, double p05, double p10, double p25, double p50, double p75, double p90, double p95, double p99)
         implements Metric<DistributionSnapshot>
 {
-    public static Metrics pruneMetrics(Metrics metrics)
-    {
-        return new Metrics(metrics.getMetrics().entrySet().stream()
-                .collect(toImmutableMap(
-                        Map.Entry::getKey,
-                        entry -> {
-                            Metric<?> metric = entry.getValue();
-                            if (metric instanceof Distribution) {
-                                return new DistributionSnapshot((Distribution<?>) metric);
-                            }
-                            return metric;
-                        })));
-    }
-
     public DistributionSnapshot(Distribution<?> distribution)
     {
         this(

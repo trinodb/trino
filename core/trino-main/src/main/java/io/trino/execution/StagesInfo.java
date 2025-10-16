@@ -66,13 +66,6 @@ public class StagesInfo
         return stages;
     }
 
-    public StagesInfo pruneDigests()
-    {
-        return new StagesInfo(
-                outputStageId,
-                stages.stream().map(StageInfo::pruneDigests).collect(toImmutableList()));
-    }
-
     @JsonIgnore
     public StageInfo getOutputStage()
     {
