@@ -13,22 +13,33 @@
  */
 package io.trino.plugin.iceberg.procedure;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.IcebergTestUtils;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
+import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestIcebergOptimizeManifestsProcedure
@@ -36,6 +47,7 @@ final class TestIcebergOptimizeManifestsProcedure
 {
     private HiveMetastore metastore;
     private TrinoFileSystemFactory fileSystemFactory;
+    private TrinoCatalog catalog;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -44,6 +56,7 @@ final class TestIcebergOptimizeManifestsProcedure
         DistributedQueryRunner queryRunner = IcebergQueryRunner.builder().build();
         metastore = getHiveMetastore(queryRunner);
         fileSystemFactory = getFileSystemFactory(queryRunner);
+        catalog = getTrinoCatalog(metastore, fileSystemFactory, "iceberg");
         return queryRunner;
     }
 
@@ -215,6 +228,25 @@ final class TestIcebergOptimizeManifestsProcedure
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("VALUES 1");
         }
+    }
+
+    @Test
+    void testNoSnapshot()
+    {
+        SchemaTableName tableName = new SchemaTableName("tpch", "test_no_snapshot" + randomNameSuffix());
+
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        tableName,
+                        new Schema(Types.NestedField.required(1, "x", Types.LongType.get())),
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, tableName)),
+                        ImmutableMap.of())
+                .commitTransaction();
+        assertThat(catalog.loadTable(SESSION, tableName).currentSnapshot()).isNull();
+
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize_manifests");
     }
 
     @Test
