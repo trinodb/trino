@@ -48,6 +48,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.jdbc.JdbcClientPool;
 import org.apache.iceberg.types.Types;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -146,6 +147,12 @@ public class TestTrinoSnowflakeCatalog
             throws SQLException
     {
         server.execute(SNOWFLAKE_TEST_SCHEMA, sql);
+    }
+
+    @Override
+    protected void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> namespaceProperties)
+    {
+        Assumptions.abort("Snowflake catalog does not support creating namespaces");
     }
 
     @Override
