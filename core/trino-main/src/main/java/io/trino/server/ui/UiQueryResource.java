@@ -13,6 +13,7 @@
  */
 package io.trino.server.ui;
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.cfg.ContextAttributes;
 import com.google.common.collect.ImmutableList;
@@ -31,6 +32,7 @@ import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.metrics.Metric;
 import io.trino.spi.security.AccessDeniedException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.ForbiddenException;
@@ -172,9 +174,15 @@ public class UiQueryResource
                     .setDefaultAttributes(attrs);
             // Don't serialize TDigestHistogram.digest which isn't useful and human readable
             mapper.configOverride(TDigestHistogram.class).setIgnorals(forIgnoredProperties("digest"));
+
+            // Do not output @class property for metric types
+            mapper.addMixIn(Metric.class, DropTypeInfo.class);
             return mapper;
         }).prettyPrint();
 
         return jsonCodecFactory.jsonCodec(QueryInfo.class);
     }
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NONE)
+    public interface DropTypeInfo {}
 }
