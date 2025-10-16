@@ -109,7 +109,7 @@ public class UiQueryResource
             try {
                 checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders), queryInfo.get().getSession().toIdentity(), accessControl);
                 Response.ResponseBuilder responseBuilder = Response
-                        .ok(queryInfoCodec.toJson(queryInfo.get().pruneDigests()), APPLICATION_JSON_TYPE);
+                        .ok(queryInfoCodec.toJson(queryInfo.get()), APPLICATION_JSON_TYPE);
                 if (download) {
                     responseBuilder.header("Content-Disposition", "attachment; filename=\"query-" + queryId + ".json\"");
                 }
