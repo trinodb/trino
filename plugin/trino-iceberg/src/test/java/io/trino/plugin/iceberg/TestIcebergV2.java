@@ -1494,7 +1494,7 @@ public class TestIcebergV2
         catalog.newCreateTableTransaction(
                         SESSION,
                         schemaTableName,
-                        new Schema(Types.NestedField.of(1, true, "x", Types.LongType.get())),
+                        new Schema(Types.NestedField.optional(1, "x", Types.LongType.get())),
                         PartitionSpec.unpartitioned(),
                         SortOrder.unsorted(),
                         Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
