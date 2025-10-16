@@ -22,6 +22,7 @@ import io.airlift.json.JsonCodecFactory;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.security.AccessControl;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.DisableHttpCache;
@@ -48,6 +49,7 @@ import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
+import static com.fasterxml.jackson.annotation.JsonIgnoreProperties.Value.forIgnoredProperties;
 import static io.trino.connector.system.KillQueryProcedure.createKillQueryException;
 import static io.trino.connector.system.KillQueryProcedure.createPreemptQueryException;
 import static io.trino.security.AccessControlUtil.checkCanKillQueryOwnedBy;
@@ -164,10 +166,14 @@ public class UiQueryResource
         ContextAttributes attrs = ContextAttributes.getEmpty()
                 .withSharedAttribute(SUCCINCT_DATA_SIZE_ENABLED, Boolean.TRUE);
 
-        JsonCodecFactory jsonCodecFactory = new JsonCodecFactory(() -> objectMapper
-                .copy()
-                .setDefaultAttributes(attrs))
-                .prettyPrint();
+        JsonCodecFactory jsonCodecFactory = new JsonCodecFactory(() -> {
+            ObjectMapper mapper = objectMapper
+                    .copy()
+                    .setDefaultAttributes(attrs);
+            // Don't serialize TDigestHistogram.digest which isn't useful and human readable
+            mapper.configOverride(TDigestHistogram.class).setIgnorals(forIgnoredProperties("digest"));
+            return mapper;
+        }).prettyPrint();
 
         return jsonCodecFactory.jsonCodec(QueryInfo.class);
     }
