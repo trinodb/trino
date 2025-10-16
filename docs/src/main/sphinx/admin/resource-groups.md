@@ -203,8 +203,8 @@ documentation](https://docs.oracle.com/en/java/javase/24/docs/api/java.base/java
   - `ALTER_TABLE_EXECUTE`: Queries that execute table procedures with [ALTER
     TABLE EXECUTE](alter-table-execute).
 
-- `clientTags` (optional): list of tags. To match, every tag in this list must be in the list of
-  client-provided tags associated with the query.
+- `clientTags` (optional): list of Java regexes. To match, every regex in this list must be
+  matched with at least one of the client-provided tags associated with the query.
 
 - `group` (required): the group these queries will run in.
 
