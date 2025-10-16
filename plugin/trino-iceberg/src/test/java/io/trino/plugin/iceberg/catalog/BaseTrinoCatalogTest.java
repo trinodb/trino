@@ -168,6 +168,40 @@ public abstract class BaseTrinoCatalogTest
     }
 
     @Test
+    public void testSchemaWithInvalidProperties()
+            throws Exception
+    {
+        String namespace = "test_schema_invalid_properties" + randomNameSuffix();
+
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        createNamespaceWithProperties(catalog, namespace, ImmutableMap.of("invalid_property", "test-value"));
+        try {
+            ConnectorMetadata icebergMetadata = new IcebergMetadata(
+                    PLANNER_CONTEXT.getTypeManager(),
+                    jsonCodec(CommitTaskData.class),
+                    catalog,
+                    (_, _) -> {
+                        throw new UnsupportedOperationException();
+                    },
+                    TABLE_STATISTICS_READER,
+                    new TableStatisticsWriter(new NodeVersion("test-version")),
+                    Optional.empty(),
+                    false,
+                    _ -> false,
+                    newDirectExecutorService(),
+                    directExecutor(),
+                    newDirectExecutorService(),
+                    newDirectExecutorService());
+
+            assertThat(icebergMetadata.getSchemaProperties(SESSION, namespace))
+                    .doesNotContainKey("invalid_property");
+        }
+        finally {
+            catalog.dropNamespace(SESSION, namespace);
+        }
+    }
+
+    @Test
     public void testCreateTable()
             throws Exception
     {
@@ -535,6 +569,8 @@ public abstract class BaseTrinoCatalogTest
             assertThat(catalog.listIcebergTables(SESSION, Optional.of("non_existing"))).isEmpty();
         }
     }
+
+    protected abstract void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> properties);
 
     protected void createMaterializedView(
             ConnectorSession session,

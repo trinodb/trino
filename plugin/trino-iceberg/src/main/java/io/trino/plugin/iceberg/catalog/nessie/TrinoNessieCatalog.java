@@ -59,6 +59,7 @@ import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
@@ -125,7 +126,9 @@ public class TrinoNessieCatalog
     public Map<String, Object> loadNamespaceMetadata(ConnectorSession session, String namespace)
     {
         try {
-            return ImmutableMap.copyOf(nessieClient.loadNamespaceMetadata(Namespace.of(namespace)));
+            return nessieClient.loadNamespaceMetadata(Namespace.of(namespace)).entrySet().stream()
+                    .filter(metadata -> metadata.getKey().equals(LOCATION_PROPERTY))
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         }
         catch (NoSuchNamespaceException e) {
             throw new SchemaNotFoundException(namespace);
