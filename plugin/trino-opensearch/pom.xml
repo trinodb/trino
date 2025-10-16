@@ -386,7 +386,7 @@
         <dependency>
             <groupId>org.opensearch</groupId>
             <artifactId>opensearch-testcontainers</artifactId>
-            <version>3.0.2</version>
+            <version>4.0.0</version>
             <scope>test</scope>
         </dependency>
 
