@@ -188,12 +188,12 @@ export class QueryListItem extends React.Component {
                             </div>
                             <div className="col-xs-4 text-right">
                                 <a
-                                    href={'/ui/api/query/' + query.queryId + '?pretty'}
+                                    href={'/ui/api/query/' + query.queryId + '?download=true'}
                                     target="_blank"
                                     data-toggle="tooltip"
                                     data-placement="bottom"
                                     data-trigger="hover"
-                                    title="Query JSON"
+                                    title="Download query JSON"
                                 >
                                     <span className="glyphicon glyphicon-save-file" style={GLYPHICON_DEFAULT} />
                                 </a>

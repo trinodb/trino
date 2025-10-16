@@ -40,7 +40,6 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
-import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 
@@ -56,6 +55,7 @@ import static io.trino.security.AccessControlUtil.checkCanViewQueryOwnedBy;
 import static io.trino.security.AccessControlUtil.filterQueries;
 import static io.trino.server.DataSizeSerializer.SUCCINCT_DATA_SIZE_ENABLED;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
+import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON_TYPE;
 import static java.util.Objects.requireNonNull;
 
 @Path("/ui/api/query")
@@ -96,7 +96,7 @@ public class UiQueryResource
 
     @GET
     @Path("{queryId}")
-    public Response getQueryInfo(@PathParam("queryId") QueryId queryId, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
+    public Response getQueryInfo(@PathParam("queryId") QueryId queryId, @QueryParam("download") boolean download, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
     {
         requireNonNull(queryId, "queryId is null");
 
@@ -104,9 +104,12 @@ public class UiQueryResource
         if (queryInfo.isPresent()) {
             try {
                 checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders), queryInfo.get().getSession().toIdentity(), accessControl);
-                return Response.ok(queryInfoCodec.toJson(queryInfo.get().pruneDigests()))
-                        .type(MediaType.APPLICATION_JSON_TYPE)
-                        .build();
+                Response.ResponseBuilder responseBuilder = Response
+                        .ok(queryInfoCodec.toJson(queryInfo.get().pruneDigests()), APPLICATION_JSON_TYPE);
+                if (download) {
+                    responseBuilder.header("Content-Disposition", "attachment; filename=\"query-" + queryId + ".json\"");
+                }
+                return responseBuilder.build();
             }
             catch (AccessDeniedException e) {
                 throw new ForbiddenException();

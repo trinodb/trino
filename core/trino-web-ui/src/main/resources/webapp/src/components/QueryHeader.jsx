@@ -149,7 +149,7 @@ export class QueryHeader extends React.Component {
                                         {this.renderTab('timeline.html', 'Splits')}
                                         &nbsp;
                                         <a
-                                            href={'/ui/api/query/' + query.queryId + '?pretty'}
+                                            href={'/ui/api/query/' + query.queryId}
                                             className="btn btn-info navbar-btn"
                                             target="_blank"
                                         >
