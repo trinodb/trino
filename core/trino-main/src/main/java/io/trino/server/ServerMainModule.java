@@ -410,6 +410,9 @@ public class ServerMainModule
         jsonBinder(binder).addSerializerBinding(Slice.class).to(SliceSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Slice.class).to(SliceDeserializer.class);
 
+        // configurable DataSize serialization
+        jsonBinder(binder).addSerializerBinding(DataSize.class).to(DataSizeSerializer.class);
+
         // node version
         binder.bind(NodeVersion.class).toInstance(new NodeVersion(nodeVersion));
 

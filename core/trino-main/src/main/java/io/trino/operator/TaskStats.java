@@ -27,7 +27,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -641,55 +640,6 @@ public class TaskStats
                 fullGcCount,
                 fullGcTime,
                 summarizePipelineStats(pipelines));
-    }
-
-    public TaskStats pruneDigests()
-    {
-        return new TaskStats(
-                createTime,
-                firstStartTime,
-                lastStartTime,
-                terminatingStartTime,
-                lastEndTime,
-                endTime,
-                elapsedTime,
-                queuedTime,
-                totalDrivers,
-                queuedDrivers,
-                queuedPartitionedDrivers,
-                queuedPartitionedSplitsWeight,
-                runningDrivers,
-                runningPartitionedDrivers,
-                runningPartitionedSplitsWeight,
-                blockedDrivers,
-                completedDrivers,
-                cumulativeUserMemory,
-                userMemoryReservation,
-                peakUserMemoryReservation,
-                revocableMemoryReservation,
-                spilledDataSize,
-                totalScheduledTime,
-                totalCpuTime,
-                totalBlockedTime,
-                fullyBlocked,
-                blockedReasons,
-                physicalInputDataSize,
-                physicalInputPositions,
-                physicalInputReadTime,
-                internalNetworkInputDataSize,
-                internalNetworkInputPositions,
-                processedInputDataSize,
-                processedInputPositions,
-                inputBlockedTime,
-                outputDataSize,
-                outputPositions,
-                outputBlockedTime,
-                writerInputDataSize,
-                physicalWrittenDataSize,
-                maxWriterCount,
-                fullGcCount,
-                fullGcTime,
-                pipelines.stream().map(PipelineStats::pruneDigests).collect(toImmutableList()));
     }
 
     private static List<PipelineStats> summarizePipelineStats(List<PipelineStats> pipelines)
