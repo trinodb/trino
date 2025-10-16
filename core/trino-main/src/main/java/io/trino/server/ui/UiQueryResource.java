@@ -13,8 +13,12 @@
  */
 package io.trino.server.ui;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.cfg.ContextAttributes;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
@@ -36,6 +40,7 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 
@@ -49,6 +54,7 @@ import static io.trino.connector.system.KillQueryProcedure.createPreemptQueryExc
 import static io.trino.security.AccessControlUtil.checkCanKillQueryOwnedBy;
 import static io.trino.security.AccessControlUtil.checkCanViewQueryOwnedBy;
 import static io.trino.security.AccessControlUtil.filterQueries;
+import static io.trino.server.DataSizeSerializer.SUCCINCT_DATA_SIZE_ENABLED;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static java.util.Objects.requireNonNull;
 
@@ -57,13 +63,15 @@ import static java.util.Objects.requireNonNull;
 @DisableHttpCache
 public class UiQueryResource
 {
+    private final JsonCodec<QueryInfo> queryInfoCodec;
     private final DispatchManager dispatchManager;
     private final AccessControl accessControl;
     private final HttpRequestSessionContextFactory sessionContextFactory;
 
     @Inject
-    public UiQueryResource(DispatchManager dispatchManager, AccessControl accessControl, HttpRequestSessionContextFactory sessionContextFactory)
+    public UiQueryResource(ObjectMapper objectMapper, DispatchManager dispatchManager, AccessControl accessControl, HttpRequestSessionContextFactory sessionContextFactory)
     {
+        this.queryInfoCodec = buildQueryInfoCodec(objectMapper);
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
@@ -96,7 +104,9 @@ public class UiQueryResource
         if (queryInfo.isPresent()) {
             try {
                 checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders), queryInfo.get().getSession().toIdentity(), accessControl);
-                return Response.ok(queryInfo.get().pruneDigests()).build();
+                return Response.ok(queryInfoCodec.toJson(queryInfo.get().pruneDigests()))
+                        .type(MediaType.APPLICATION_JSON_TYPE)
+                        .build();
             }
             catch (AccessDeniedException e) {
                 throw new ForbiddenException();
@@ -143,5 +153,19 @@ public class UiQueryResource
         catch (NoSuchElementException e) {
             throw new GoneException();
         }
+    }
+
+    private JsonCodec<QueryInfo> buildQueryInfoCodec(ObjectMapper objectMapper)
+    {
+        // Enable succinct DataSize serialization for QueryInfo to make it more human friendly
+        ContextAttributes attrs = ContextAttributes.getEmpty()
+                .withSharedAttribute(SUCCINCT_DATA_SIZE_ENABLED, Boolean.TRUE);
+
+        JsonCodecFactory jsonCodecFactory = new JsonCodecFactory(() -> objectMapper
+                .copy()
+                .setDefaultAttributes(attrs))
+                .prettyPrint();
+
+        return jsonCodecFactory.jsonCodec(QueryInfo.class);
     }
 }
