@@ -818,11 +818,13 @@ public abstract class BaseFileBasedSystemAccessControlTest
 
         assertThat(accessControl.getRowFilters(
                 userGroup1Group3,
-                new CatalogSchemaTableName("some-catalog", "my_schema", "my_table"))).isEqualTo(ImmutableList.of());
+                new CatalogSchemaTableName("some-catalog", "my_schema", "my_table"),
+                ImmutableList.of())).isEqualTo(ImmutableList.of());
 
         List<ViewExpression> rowFilters = accessControl.getRowFilters(
                 userGroup3,
-                new CatalogSchemaTableName("some-catalog", "my_schema", "my_table"));
+                new CatalogSchemaTableName("some-catalog", "my_schema", "my_table"),
+                ImmutableList.of());
         assertThat(rowFilters).hasSize(1);
         assertViewExpressionEquals(
                 rowFilters.get(0),
@@ -1465,9 +1467,9 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
 
-        assertThat(accessControl.getRowFilters(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"))).isEqualTo(ImmutableList.of());
+        assertThat(accessControl.getRowFilters(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"), ImmutableList.of())).isEqualTo(ImmutableList.of());
 
-        List<ViewExpression> rowFilters = accessControl.getRowFilters(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"));
+        List<ViewExpression> rowFilters = accessControl.getRowFilters(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"), ImmutableList.of());
         assertThat(rowFilters).hasSize(1);
         assertViewExpressionEquals(
                 rowFilters.get(0),
@@ -1477,7 +1479,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
                         .expression("starts_with(value, 'filter')")
                         .build());
 
-        rowFilters = accessControl.getRowFilters(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns_with_grant"));
+        rowFilters = accessControl.getRowFilters(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns_with_grant"), ImmutableList.of());
         assertThat(rowFilters).hasSize(1);
         assertViewExpressionEquals(
                 rowFilters.get(0),

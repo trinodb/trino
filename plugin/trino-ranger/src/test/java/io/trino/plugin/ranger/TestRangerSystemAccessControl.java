@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.ranger;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.QueryId;
@@ -312,10 +313,10 @@ final class TestRangerSystemAccessControl
     @Test
     void testRowFilters()
     {
-        List<ViewExpression> retArray = accessControlManager.getRowFilters(context(ALICE), TABLE_ALICE_SCH1_TBL1);
+        List<ViewExpression> retArray = accessControlManager.getRowFilters(context(ALICE), TABLE_ALICE_SCH1_TBL1, ImmutableList.of());
         assertThat(retArray).isEmpty();
 
-        retArray = accessControlManager.getRowFilters(context(BOB), TABLE_ALICE_SCH1_TBL1);
+        retArray = accessControlManager.getRowFilters(context(BOB), TABLE_ALICE_SCH1_TBL1, ImmutableList.of());
         assertThat(retArray).isNotEmpty();
         assertThat(retArray).hasSize(1);
         assertThat(retArray.getFirst().getExpression()).isEqualTo("status = 'active'");
