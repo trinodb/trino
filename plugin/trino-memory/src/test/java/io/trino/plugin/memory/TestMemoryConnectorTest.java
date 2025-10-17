@@ -96,7 +96,6 @@ public class TestMemoryConnectorTest
                  SUPPORTS_DELETE,
                  SUPPORTS_DEREFERENCE_PUSHDOWN,
                  SUPPORTS_DROP_COLUMN,
-                 SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_MERGE,
                  SUPPORTS_PREDICATE_PUSHDOWN,
                  SUPPORTS_RENAME_FIELD,
