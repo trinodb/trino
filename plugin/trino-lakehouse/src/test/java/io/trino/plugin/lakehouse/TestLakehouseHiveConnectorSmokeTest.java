@@ -66,4 +66,13 @@ public class TestLakehouseHiveConnectorSmokeTest
                    type = 'HIVE'
                 )""");
     }
+
+    @Test
+    void testSelectMetadataTable()
+    {
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$history\""))
+                .failure().hasMessageMatching(".* Table .* does not exist");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$files\""))
+                .failure().hasMessageMatching(".* Table .* does not exist");
+    }
 }
