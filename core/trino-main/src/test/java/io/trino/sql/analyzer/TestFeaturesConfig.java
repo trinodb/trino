@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.FeaturesConfig;
+import io.trino.FeaturesConfig.BlockSerdeVectorizedNullSuppressionStrategy;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 import org.junit.jupiter.api.Test;
 
@@ -54,6 +55,7 @@ public class TestFeaturesConfig
                 .setMemoryRevokingThreshold(0.9)
                 .setMemoryRevokingTarget(0.5)
                 .setExchangeCompressionCodec(NONE)
+                .setBlockSerdeVectorizedNullSuppressionStrategy(BlockSerdeVectorizedNullSuppressionStrategy.AUTO)
                 .setExchangeDataIntegrityVerification(DataIntegrityVerification.ABORT)
                 .setPagesIndexEagerCompactionEnabled(false)
                 .setFilterAndProjectMinOutputPageSize(DataSize.of(500, KILOBYTE))
@@ -89,6 +91,7 @@ public class TestFeaturesConfig
                 .put("memory-revoking-threshold", "0.2")
                 .put("memory-revoking-target", "0.8")
                 .put("exchange.compression-codec", "ZSTD")
+                .put("experimental.blockserde-vectorized-null-suppression-strategy", "NONE")
                 .put("exchange.data-integrity-verification", "RETRY")
                 .put("pages-index.eager-compaction-enabled", "true")
                 .put("filter-and-project-min-output-page-size", "1MB")
@@ -121,6 +124,7 @@ public class TestFeaturesConfig
                 .setMemoryRevokingThreshold(0.2)
                 .setMemoryRevokingTarget(0.8)
                 .setExchangeCompressionCodec(ZSTD)
+                .setBlockSerdeVectorizedNullSuppressionStrategy(BlockSerdeVectorizedNullSuppressionStrategy.NONE)
                 .setExchangeDataIntegrityVerification(DataIntegrityVerification.RETRY)
                 .setPagesIndexEagerCompactionEnabled(true)
                 .setFilterAndProjectMinOutputPageSize(DataSize.of(1, MEGABYTE))
