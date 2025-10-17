@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.procedure.Procedure;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 
@@ -51,6 +52,7 @@ public class LakehouseConnector
     private final LakehouseSessionProperties sessionProperties;
     private final LakehouseTableProperties tableProperties;
     private final IcebergMaterializedViewProperties materializedViewProperties;
+    private final Set<Procedure> procedures;
 
     @Inject
     public LakehouseConnector(
@@ -62,7 +64,8 @@ public class LakehouseConnector
             LakehouseNodePartitioningProvider nodePartitioningProvider,
             LakehouseSessionProperties sessionProperties,
             LakehouseTableProperties tableProperties,
-            IcebergMaterializedViewProperties materializedViewProperties)
+            IcebergMaterializedViewProperties materializedViewProperties,
+            Set<Procedure> procedures)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -73,6 +76,7 @@ public class LakehouseConnector
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
         this.materializedViewProperties = requireNonNull(materializedViewProperties, "materializedViewProperties is null");
+        this.procedures = requireNonNull(procedures, "procedures is null");
     }
 
     @Override
@@ -146,6 +150,12 @@ public class LakehouseConnector
     public List<PropertyMetadata<?>> getMaterializedViewProperties()
     {
         return materializedViewProperties.getMaterializedViewProperties();
+    }
+
+    @Override
+    public Set<Procedure> getProcedures()
+    {
+        return procedures;
     }
 
     @Override
