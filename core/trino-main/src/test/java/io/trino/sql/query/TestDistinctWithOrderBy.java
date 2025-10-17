@@ -72,6 +72,52 @@ public class TestDistinctWithOrderBy
         assertThat(assertions.query("SELECT DISTINCT a, b a FROM (VALUES (2, 10), (1, 20), (2, 10)) T(a, b) ORDER BY T.a"))
                 .ordered()
                 .matches("VALUES (1, 20), (2, 10)");
+
+        // tests with delimited and lower case identifiers
+        assertThat(assertions.query("SELECT DISTINCT a as x FROM (VALUES 2, 1, 2) t(a) ORDER BY \"x\""))
+                .matches("VALUES 1, 2");
+
+        assertThat(assertions.query("SELECT DISTINCT a as \"x\" FROM (VALUES 2, 1, 2) t(a) ORDER BY x"))
+                .matches("VALUES 1, 2");
+
+        assertThat(assertions.query("SELECT DISTINCT a as \"x\" FROM (VALUES 2, 1, 2) t(a) ORDER BY \"x\""))
+                .matches("VALUES 1, 2");
+
+        // tests with delimited and upper case identifiers
+        assertThat(assertions.query("SELECT DISTINCT a as X FROM (VALUES 2, 1, 2) t(a) ORDER BY \"X\""))
+                .matches("VALUES 1, 2");
+
+        assertThat(assertions.query("SELECT DISTINCT a as \"X\" FROM (VALUES 2, 1, 2) t(a) ORDER BY X"))
+                .matches("VALUES 1, 2");
+
+        assertThat(assertions.query("SELECT DISTINCT a as \"X\" FROM (VALUES 2, 1, 2) t(a) ORDER BY \"X\""))
+                .matches("VALUES 1, 2");
+
+        // tests with mixed lower (in SELECT DISTINCT) and upper (in ORDER BY) case identifiers
+        assertThat(assertions.query("SELECT DISTINCT a as x FROM (VALUES 2, 1, 2) t(a) ORDER BY X"))
+                .matches("VALUES 1, 2");
+
+        assertThat(assertions.query("SELECT DISTINCT a as x FROM (VALUES 2, 1, 2) t(a) ORDER BY \"X\""))
+                .matches("VALUES 1, 2");
+
+        assertThat(assertions.query("SELECT DISTINCT a as \"x\" FROM (VALUES 2, 1, 2) t(a) ORDER BY X"))
+                .matches("VALUES 1, 2");
+
+        assertThat(assertions.query("SELECT DISTINCT a as \"x\" FROM (VALUES 2, 1, 2) t(a) ORDER BY \"X\""))
+                .matches("VALUES 1, 2");
+
+        // tests with mixed upper (in SELECT DISTINCT) and lower (in ORDER BY) case identifiers
+        assertThat(assertions.query("SELECT DISTINCT a as X FROM (VALUES 2, 1, 2) t(a) ORDER BY x"))
+                .matches("VALUES 1, 2");
+
+        assertThat(assertions.query("SELECT DISTINCT a as X FROM (VALUES 2, 1, 2) t(a) ORDER BY \"x\""))
+                .matches("VALUES 1, 2");
+
+        assertThat(assertions.query("SELECT DISTINCT a as \"X\" FROM (VALUES 2, 1, 2) t(a) ORDER BY x"))
+                .matches("VALUES 1, 2");
+
+        assertThat(assertions.query("SELECT DISTINCT a as \"X\" FROM (VALUES 2, 1, 2) t(a) ORDER BY \"x\""))
+                .matches("VALUES 1, 2");
     }
 
     @Test
