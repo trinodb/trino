@@ -5600,6 +5600,33 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    void testPathConstraintSplitPruning()
+    {
+        String tableName = "test_path_constraint_split_pruning_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id bigint, data varchar)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+
+        try {
+            Set<String> files = getTableFiles(tableName);
+            assertThat(files).hasSizeGreaterThanOrEqualTo(2);
+            String fileName = files.stream().findAny().orElseThrow();
+            String query = "SELECT * FROM " + tableName + " WHERE \"$path\" LIKE '%" + fileName + "%'";
+            assertQueryStats(
+                    getSession(),
+                    query,
+                    queryStats -> {
+                        assertThat(queryStats.getTotalDrivers()).isEqualTo(1);
+                        assertThat(queryStats.getPhysicalInputPositions()).isEqualTo(3);
+                    },
+                    results -> assertThat(results.getRowCount()).isEqualTo(3));
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
     public void testSchemaMismatchesWithDereferenceProjections()
     {
         testWithAllStorageFormats(this::testSchemaMismatchesWithDereferenceProjections);
