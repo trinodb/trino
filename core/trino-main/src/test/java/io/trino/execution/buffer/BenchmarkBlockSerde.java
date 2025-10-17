@@ -81,7 +81,7 @@ public class BenchmarkBlockSerde
 {
     private static final DecimalType LONG_DECIMAL_TYPE = createDecimalType(30, 5);
 
-    public static final int ROWS = 10_000_000;
+    public static final int ROWS = 8192;
 
     @Benchmark
     public Object serializeLongDecimal(LongDecimalBenchmarkData data)
