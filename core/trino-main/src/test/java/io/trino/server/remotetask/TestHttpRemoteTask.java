@@ -32,6 +32,7 @@ import io.airlift.json.JsonModule;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
@@ -61,6 +62,7 @@ import io.trino.server.DynamicFilterService;
 import io.trino.server.FailTaskRequest;
 import io.trino.server.HttpRemoteTaskFactory;
 import io.trino.server.TaskUpdateRequest;
+import io.trino.simd.BlockEncodingSimdSupport;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.Block;
@@ -118,6 +120,7 @@ import java.util.function.BooleanSupplier;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.Scopes.SINGLETON;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.tracing.SpanSerialization.SpanDeserializer;
@@ -676,6 +679,9 @@ public class TestHttpRemoteTask
                         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
                         jsonCodecBinder(binder).bindJsonCodec(FailTaskRequest.class);
 
+                        configBinder(binder).bindConfig(FeaturesConfig.class);
+
+                        binder.bind(BlockEncodingSimdSupport.class).in(SINGLETON);
                         binder.bind(TypeManager.class).toInstance(TESTING_TYPE_MANAGER);
                         binder.bind(BlockEncodingManager.class).in(SINGLETON);
                         binder.bind(BlockEncodingSerde.class).to(InternalBlockEncodingSerde.class).in(SINGLETON);
