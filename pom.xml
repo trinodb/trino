@@ -2561,6 +2561,8 @@
                                     <exclude>javax.inject:javax.inject</exclude>
                                     <!-- use Jakarta version -->
                                     <exclude>javax.annotation:javax.annotation-api</exclude>
+                                    <!-- Amazon SDK v1 is deprecated, use v2 -->
+                                    <exclude>com.amazonaws:*</exclude>
                                 </excludes>
                                 <includes combine.children="append">
                                     <!-- 2.x versions are not affected by CVE-2022-1471 -->
