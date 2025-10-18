@@ -23,4 +23,6 @@ public interface Distribution<T>
     double getMax();
 
     double getPercentile(double percentile);
+
+    double[] getPercentiles(double... percentiles);
 }

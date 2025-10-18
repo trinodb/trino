@@ -37,7 +37,7 @@ class TestDistributionSnapshot
         digest.add(7.0);
 
         TDigestHistogram histogram = new TDigestHistogram(digest);
-        DistributionSnapshot snapshot = new DistributionSnapshot(histogram);
+        DistributionSnapshot snapshot = DistributionSnapshot.fromDistribution(histogram);
 
         assertThat(snapshot.total()).isEqualTo(9);
         assertThat(snapshot.min()).isEqualTo(1.0);

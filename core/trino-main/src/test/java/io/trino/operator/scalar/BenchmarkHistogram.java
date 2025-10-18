@@ -51,7 +51,7 @@ public class BenchmarkHistogram
     public void benchmarkTDigestSnapshot(BenchmarkData data, Blackhole bh)
     {
         for (TDigest digest : data.tDigests()) {
-            bh.consume(new DistributionSnapshot(new TDigestHistogram(digest)));
+            bh.consume(DistributionSnapshot.fromDistribution(new TDigestHistogram(digest)));
         }
     }
 
