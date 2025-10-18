@@ -14,6 +14,7 @@
     <description>Trino - Lance table connector</description>
 
     <properties>
+        <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}
             --add-opens=java.base/java.nio=ALL-UNNAMED
             --sun-misc-unsafe-memory-access=allow</air.test.jvm.additional-arguments>
@@ -79,6 +80,11 @@
         <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.weakref</groupId>
+            <artifactId>jmxutils</artifactId>
         </dependency>
 
         <dependency>

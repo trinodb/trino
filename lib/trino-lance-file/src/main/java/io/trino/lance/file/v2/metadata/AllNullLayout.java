@@ -13,18 +13,16 @@
  */
 package io.trino.lance.file.v2.metadata;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.List;
 
-import static java.util.Objects.requireNonNull;
-
-public final class AllNullLayout
+public record AllNullLayout(List<RepDefLayer> layers)
         implements PageLayout
 {
-    public final List<RepDefLayer> layers;
-
-    public AllNullLayout(List<RepDefLayer> layers)
+    public AllNullLayout
     {
-        this.layers = requireNonNull(layers, "layers is null");
+        layers = ImmutableList.copyOf(layers);
     }
 
     public static AllNullLayout fromProto(build.buf.gen.lance.encodings21.AllNullLayout proto)

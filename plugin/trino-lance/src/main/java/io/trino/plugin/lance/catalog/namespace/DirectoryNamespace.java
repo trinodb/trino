@@ -37,13 +37,13 @@ public class DirectoryNamespace
 {
     public static final String DEFAULT_NAMESPACE = "default";
     private final TrinoFileSystemFactory fileSystemFactory;
-    private final String warehouseLocation;
+    private final Location warehouseLocation;
 
     @Inject
     public DirectoryNamespace(TrinoFileSystemFactory fileSystemFactory, DirectoryNamespaceConfig config)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.warehouseLocation = requireNonNull(config.getWarehouseLocation(), "warehouseLocation config is not set");
+        this.warehouseLocation = Location.of(config.getWarehouseLocation());
     }
 
     private static String directoryName(Location directory, Location location)
@@ -68,12 +68,11 @@ public class DirectoryNamespace
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> namespace)
     {
         checkArgument(namespace.isEmpty() || namespace.get().equals(DEFAULT_NAMESPACE));
-        Location directory = Location.of(warehouseLocation);
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
         try {
-            for (Location location : fileSystem.listDirectories(directory)) {
-                String directoryName = directoryName(directory, location);
+            for (Location location : fileSystem.listDirectories(warehouseLocation)) {
+                String directoryName = directoryName(warehouseLocation, location);
                 if (directoryName.endsWith(BaseTable.LANCE_SUFFIX)) {
                     String tableName = directoryName.substring(0, directoryName.length() - BaseTable.LANCE_SUFFIX.length());
                     builder.add(new SchemaTableName(DEFAULT_NAMESPACE, tableName));
@@ -91,7 +90,7 @@ public class DirectoryNamespace
     public Optional<BaseTable> loadTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         checkArgument(schemaTableName.getSchemaName().equals(DEFAULT_NAMESPACE));
-        Location tableLocation = Location.of(warehouseLocation).appendPath(schemaTableName.getTableName() + BaseTable.LANCE_SUFFIX);
+        Location tableLocation = warehouseLocation.appendPath(schemaTableName.getTableName() + BaseTable.LANCE_SUFFIX);
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
             Optional<Boolean> tableExists = fileSystem.directoryExists(tableLocation);

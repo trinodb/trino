@@ -29,9 +29,9 @@ public class LancePageSource
 {
     private final LanceReader reader;
     private final LanceDataSource dataSource;
-    private boolean closed;
-
     private final AggregatedMemoryContext memoryContext;
+
+    private boolean closed;
 
     public LancePageSource(
             LanceReader reader,

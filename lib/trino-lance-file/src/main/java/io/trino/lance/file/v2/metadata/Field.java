@@ -13,8 +13,6 @@
  */
 package io.trino.lance.file.v2.metadata;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import io.trino.spi.type.ArrayType;
@@ -39,33 +37,13 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
-public class Field
+public record Field(String name, int id, int parentId, String logicalType, Map<String, String> metadata, boolean nullable, List<Field> children)
 {
-    private final String name;
-    private final int id;
-    private final int parentId;
-    private final String logicalType;
-    private final Map<String, String> metadata;
-    private final boolean nullable;
-    private final List<Field> children;
-
-    @JsonCreator
-    public Field(
-            @JsonProperty("name") String name,
-            @JsonProperty("id") int id,
-            @JsonProperty("parent") int parentId,
-            @JsonProperty("logicalType") String logicalType,
-            @JsonProperty("metadata") Map<String, String> metadata,
-            @JsonProperty("nullable") boolean nullable,
-            @JsonProperty("children") List<Field> children)
+    public Field
     {
-        this.name = requireNonNull(name, "name is null");
-        this.id = id;
-        this.parentId = parentId;
-        this.logicalType = requireNonNull(logicalType, "logicalType is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.nullable = nullable;
-        this.children = requireNonNull(children, "children is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(logicalType, "logicalType is null");
+        metadata = ImmutableMap.copyOf(metadata);
     }
 
     public static Field fromProto(build.buf.gen.lance.file.Field proto)
@@ -87,48 +65,6 @@ public class Field
     public void addChild(Field child)
     {
         this.children.add(child);
-    }
-
-    @JsonProperty
-    public int getId()
-    {
-        return id;
-    }
-
-    @JsonProperty
-    public String getName()
-    {
-        return name;
-    }
-
-    @JsonProperty
-    public int getParentId()
-    {
-        return parentId;
-    }
-
-    @JsonProperty
-    public String getLogicalType()
-    {
-        return logicalType;
-    }
-
-    @JsonProperty
-    public Map<String, String> getMetadata()
-    {
-        return metadata;
-    }
-
-    @JsonProperty
-    public boolean isNullable()
-    {
-        return nullable;
-    }
-
-    @JsonProperty
-    public List<Field> getChildren()
-    {
-        return children;
     }
 
     public boolean isLeaf()

@@ -30,38 +30,37 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class BaseLanceConnectorTest
+final class TestLanceConnectorTest
         extends BaseConnectorTest
 {
-    private Path catalogDir;
-
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_INSERT,
-                 SUPPORTS_DELETE,
-                 SUPPORTS_UPDATE,
-                 SUPPORTS_MERGE,
-                 SUPPORTS_PREDICATE_PUSHDOWN,
-                 SUPPORTS_DYNAMIC_FILTER_PUSHDOWN,
-                 SUPPORTS_TOPN_PUSHDOWN,
-                 SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR,
+            case SUPPORTS_ADD_COLUMN,
+                 SUPPORTS_ADD_FIELD,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
-                 SUPPORTS_JOIN_PUSHDOWN,
-                 SUPPORTS_DEREFERENCE_PUSHDOWN,
+                 SUPPORTS_COMMENT_ON_TABLE,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_CREATE_OR_REPLACE_TABLE,
                  SUPPORTS_CREATE_SCHEMA,
                  SUPPORTS_CREATE_TABLE,
-                 SUPPORTS_CREATE_OR_REPLACE_TABLE,
-                 SUPPORTS_RENAME_TABLE,
-                 SUPPORTS_ADD_COLUMN,
-                 SUPPORTS_ADD_FIELD,
-                 SUPPORTS_DROP_FIELD,
-                 SUPPORTS_RENAME_COLUMN,
-                 SUPPORTS_COMMENT_ON_TABLE,
                  SUPPORTS_CREATE_VIEW,
-                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                 SUPPORTS_NATIVE_QUERY -> false;
+                 SUPPORTS_DELETE,
+                 SUPPORTS_DEREFERENCE_PUSHDOWN,
+                 SUPPORTS_DROP_FIELD,
+                 SUPPORTS_DYNAMIC_FILTER_PUSHDOWN,
+                 SUPPORTS_INSERT,
+                 SUPPORTS_JOIN_PUSHDOWN,
+                 SUPPORTS_LIMIT_PUSHDOWN,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_NATIVE_QUERY,
+                 SUPPORTS_PREDICATE_PUSHDOWN,
+                 SUPPORTS_RENAME_COLUMN,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR,
+                 SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -70,7 +69,7 @@ public class BaseLanceConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        catalogDir = Files.createTempDirectory("lance-catalog");
+        Path catalogDir = Files.createTempDirectory("lance-catalog");
         return LanceQueryRunner.builder(catalogDir.toString())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
@@ -80,7 +79,7 @@ public class BaseLanceConnectorTest
     @Override
     public void testDescribeTable()
     {
-        // Exasol reports bigint columns as decimal(19,0)
+        // Lance only supports variable width VARCHAR
         MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
@@ -102,8 +101,8 @@ public class BaseLanceConnectorTest
     {
         String catalog = getSession().getCatalog().orElseThrow();
         String schema = getSession().getSchema().orElseThrow();
+        // Lance only supports variable width VARCHAR
         assertThat(computeScalar("SHOW CREATE TABLE orders"))
-                // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
                 .isEqualTo(format(
                         """
                         CREATE TABLE %s.%s.orders (
@@ -124,9 +123,10 @@ public class BaseLanceConnectorTest
 
     @Override
     protected Session getSession() {
+        // Lance only supports variable width VARCHAR
         return Session.builder(super.getSession())
                 .setCatalog(LANCE_CATALOG)
-                .setSchema(DEFAULT_NAMESPACE) // Hardcode to your default schema name
+                .setSchema(DEFAULT_NAMESPACE)
                 .build();
     }
 }

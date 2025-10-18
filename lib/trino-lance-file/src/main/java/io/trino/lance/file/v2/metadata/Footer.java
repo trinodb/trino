@@ -35,7 +35,14 @@ public final class Footer
     private final short majorVersion;
     private final short minorVersion;
 
-    public Footer(long columnMetadataStart, long columnMetadataOffsetsStart, long globalBuffOffsetStart, int numGlobalBuffers, int numColumns, short majorVersion, short minorVersion)
+    public Footer(
+            long columnMetadataStart,
+            long columnMetadataOffsetsStart,
+            long globalBuffOffsetStart,
+            int numGlobalBuffers,
+            int numColumns,
+            short majorVersion,
+            short minorVersion)
     {
         this.columnMetadataStart = columnMetadataStart;
         this.columnMetadataOffsetsStart = columnMetadataOffsetsStart;

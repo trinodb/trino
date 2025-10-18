@@ -13,24 +13,22 @@
  */
 package io.trino.plugin.lance;
 
-import io.trino.plugin.lance.metadata.Manifest;
-import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.SchemaTableName;
+import com.google.common.collect.ImmutableMap;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.testing.TestingConnectorContext;
+import org.junit.jupiter.api.Test;
 
-import static java.util.Objects.requireNonNull;
-
-public record LanceTableHandle(SchemaTableName name, Manifest manifest, String tablePath)
-        implements ConnectorTableHandle
+final class TestLancePlugin
 {
-    public LanceTableHandle
+    @Test
+    void testDictionaryNamespace()
     {
-        requireNonNull(name, "name is null");
-        requireNonNull(manifest, "manifest is null");
-    }
-
-    @Override
-    public String toString()
-    {
-        return name.toString();
+        ConnectorFactory factory = new LanceConnectorFactory();
+        factory.create(
+                "test",
+                ImmutableMap.of("lance.namespace.type", "directory",
+                        "lance.namespace.directory.warehouse.location", "s3://test-bucket/"),
+                new TestingConnectorContext())
+                .shutdown();
     }
 }

@@ -13,6 +13,7 @@
  */
 package io.trino.lance.file.v2.metadata;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.lance.file.v2.encoding.LanceEncoding;
 
 import java.util.List;
@@ -21,37 +22,26 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public record MiniBlockLayout(LanceEncoding valueEncoding,
-                              Optional<LanceEncoding> repetitionEncoding,
-                              Optional<LanceEncoding> definitionEncoding,
-                              Optional<LanceEncoding> dictionaryEncoding,
-                              Optional<Long> numDictionaryItems,
-                              List<RepDefLayer> layers,
-                              long numBuffers,
-                              int repIndexDepth,
-                              long numItems)
+public record MiniBlockLayout(
+        LanceEncoding valueEncoding,
+        Optional<LanceEncoding> repetitionEncoding,
+        Optional<LanceEncoding> definitionEncoding,
+        Optional<LanceEncoding> dictionaryEncoding,
+        Optional<Long> numDictionaryItems,
+        List<RepDefLayer> layers,
+        long numBuffers,
+        int repIndexDepth,
+        long numItems)
         implements PageLayout
 {
-    public MiniBlockLayout(
-            LanceEncoding valueEncoding,
-            Optional<LanceEncoding> repetitionEncoding,
-            Optional<LanceEncoding> definitionEncoding,
-            Optional<LanceEncoding> dictionaryEncoding,
-            Optional<Long> numDictionaryItems,
-            List<RepDefLayer> layers,
-            long numBuffers,
-            int repIndexDepth,
-            long numItems)
+    public MiniBlockLayout
     {
-        this.valueEncoding = requireNonNull(valueEncoding, "valueEncoding is null");
-        this.repetitionEncoding = requireNonNull(repetitionEncoding, "repetitionEncoding is null");
-        this.definitionEncoding = requireNonNull(definitionEncoding, "definitionEncoding is null");
-        this.dictionaryEncoding = requireNonNull(dictionaryEncoding, "dictionaryEncoding is null");
-        this.numDictionaryItems = requireNonNull(numDictionaryItems, "numDictionaryItems is null");
-        this.layers = requireNonNull(layers, "layers is null");
-        this.numBuffers = numBuffers;
-        this.repIndexDepth = repIndexDepth;
-        this.numItems = numItems;
+        requireNonNull(valueEncoding, "valueEncoding is null");
+        requireNonNull(repetitionEncoding, "repetitionEncoding is null");
+        requireNonNull(definitionEncoding, "definitionEncoding is null");
+        requireNonNull(dictionaryEncoding, "dictionaryEncoding is null");
+        requireNonNull(numDictionaryItems, "numDictionaryItems is null");
+        layers = ImmutableList.copyOf(layers);
     }
 
     public static MiniBlockLayout fromProto(build.buf.gen.lance.encodings21.MiniBlockLayout proto)

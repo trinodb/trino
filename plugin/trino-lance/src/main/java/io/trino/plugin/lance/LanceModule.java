@@ -19,6 +19,8 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.lance.catalog.LanceNamespaceModule;
 
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
+
 public class LanceModule
         extends AbstractConfigurationAwareModule
 {
@@ -29,7 +31,9 @@ public class LanceModule
         binder.bind(LanceMetadata.class).in(Scopes.SINGLETON);
         binder.bind(LanceSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(LancePageSourceProvider.class).in(Scopes.SINGLETON);
+
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
 
         install(new LanceNamespaceModule());
     }

@@ -13,17 +13,17 @@
  */
 package io.trino.lance.file.v2.metadata;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
 public record PageMetadata(long numRows, long priority, PageLayout layout, List<DiskRange> bufferOffsets)
 {
-    public PageMetadata(long numRows, long priority, PageLayout layout, List<DiskRange> bufferOffsets)
+    public PageMetadata
     {
-        this.numRows = numRows;
-        this.priority = priority;
-        this.layout = requireNonNull(layout, "layout is null");
-        this.bufferOffsets = requireNonNull(bufferOffsets, "bufferOffsets is null");
+        requireNonNull(layout, "layout is null");
+        bufferOffsets = ImmutableList.copyOf(bufferOffsets);
     }
 }

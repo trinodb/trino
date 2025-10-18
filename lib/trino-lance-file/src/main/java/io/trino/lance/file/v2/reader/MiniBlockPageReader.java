@@ -93,11 +93,11 @@ public class MiniBlockPageReader
             // bufferOffset[1] = value buffer
             DiskRange chunkMetadataBuf = bufferOffsets.get(0);
             DiskRange valueBuf = bufferOffsets.get(1);
-            Slice chunkMetadataSlice = dataSource.readFully(chunkMetadataBuf.getPosition(), toIntExact(chunkMetadataBuf.getLength()));
+            Slice chunkMetadataSlice = dataSource.readFully(chunkMetadataBuf.position(), toIntExact(chunkMetadataBuf.length()));
             int numWords = chunkMetadataSlice.length() / 2;
             ImmutableList.Builder<ChunkMetadata> chunkMetadataBuilder = ImmutableList.builder();
             long count = 0;
-            long offset = valueBuf.getPosition();
+            long offset = valueBuf.position();
             for (int i = 0; i < numWords; i++) {
                 int word = chunkMetadataSlice.getUnsignedShort(i * 2);
                 int logNumValues = word & 0xF;
@@ -113,7 +113,7 @@ public class MiniBlockPageReader
             // load dictionary
             if (dictionaryEncoding.isPresent()) {
                 DiskRange dictionaryRange = bufferOffsets.get(2);
-                Slice dictionarySlice = dataSource.readFully(dictionaryRange.getPosition(), toIntExact(dictionaryRange.getLength()));
+                Slice dictionarySlice = dataSource.readFully(dictionaryRange.position(), toIntExact(dictionaryRange.length()));
                 ValueBlock dictionary = dictionaryEncoding.get().decodeBlock(dictionarySlice, toIntExact(numDictionaryItems.get()));
                 // if a block is nullable, we append null to the end of dictionary
                 if (layers.stream().anyMatch(layer -> (layer == NULLABLE_ITEM))) {
@@ -129,8 +129,8 @@ public class MiniBlockPageReader
             // load repetition index
             if (repetitionIndexDepth > 0) {
                 DiskRange repetitionIndexRange = bufferOffsets.getLast();
-                verify(repetitionIndexRange.getLength() % 8 == 0);
-                Slice repetitionIndexSlice = dataSource.readFully(repetitionIndexRange.getPosition(), toIntExact(repetitionIndexRange.getLength()));
+                verify(repetitionIndexRange.length() % 8 == 0);
+                Slice repetitionIndexSlice = dataSource.readFully(repetitionIndexRange.position(), toIntExact(repetitionIndexRange.length()));
                 repetitionIndex = RepetitionIndex.from(repetitionIndexSlice, repetitionIndexDepth);
             }
             else {
@@ -279,7 +279,7 @@ public class MiniBlockPageReader
                 }
                 // chunk is entirely preamble
                 if (firstRowStart == -1) {
-                    return new SelectedRanges(Range.of(0, numItems), Range.of(0, rep.length));
+                    return new SelectedRanges(new Range(0, numItems), new Range(0, rep.length));
                 }
                 break;
             }
@@ -291,7 +291,7 @@ public class MiniBlockPageReader
 
         // handle preamble only blocks
         if (rowRange.start() == rowRange.end()) {
-            return new SelectedRanges(Range.of(0, itemsInPreamble), Range.of(0, firstRowStart));
+            return new SelectedRanges(new Range(0, itemsInPreamble), new Range(0, firstRowStart));
         }
 
         // we are reading at least 1 full row if we reach here
@@ -351,7 +351,7 @@ public class MiniBlockPageReader
                 newStart = 0;
             }
 
-            return new SelectedRanges(Range.of(newStart, newEnd), Range.of(newLevelsStart, newLevelsEnd));
+            return new SelectedRanges(new Range(newStart, newEnd), new Range(newLevelsStart, newLevelsEnd));
         }
         else {
             if (rowRange.start() > 0) {
@@ -380,7 +380,7 @@ public class MiniBlockPageReader
             if (preambleAction == PreambleAction.TAKE) {
                 newStart = 0;
             }
-            return new SelectedRanges(Range.of(newStart, end), Range.of(newStart, end));
+            return new SelectedRanges(new Range(newStart, end), new Range(newStart, end));
         }
     }
 
@@ -389,7 +389,7 @@ public class MiniBlockPageReader
         try {
             ChunkReader chunkReader = new ChunkReader(dataSource.readFully(chunk.offsetBytes(), toIntExact(chunk.chunkSizeBytes())), toIntExact(chunk.numValues()), valueBufferAdapter);
 
-            SelectedRanges selectedRanges = mapRange(Range.of(rowsToSkip, rowsToSkip + rowsToTake + (takeTrailer ? 1 : 0)),
+            SelectedRanges selectedRanges = mapRange(new Range(rowsToSkip, rowsToSkip + rowsToTake + (takeTrailer ? 1 : 0)),
                     chunkReader.readRepetitionLevels(),
                     chunkReader.readDefinitionLevels(),
                     toIntExact(layers.stream().filter(RepDefLayer::isList).count()),

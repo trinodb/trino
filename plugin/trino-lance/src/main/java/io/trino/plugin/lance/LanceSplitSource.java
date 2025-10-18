@@ -85,14 +85,14 @@ public class LanceSplitSource
                 return null;
             }
             Fragment fragment = fragments.get(fragmentIndex);
-            long rowsLeft = fragment.getPhysicalRows() - offsetInFragment;
+            long rowsLeft = fragment.physicalRows() - offsetInFragment;
             long length = Math.min(rowsLeft, MAX_ROWS_PER_SPLIT);
 
             long start = offsetInFragment;
             long end = offsetInFragment + length; // exclusive
 
             offsetInFragment += length;
-            if (offsetInFragment >= fragment.getPhysicalRows()) {
+            if (offsetInFragment >= fragment.physicalRows()) {
                 fragmentIndex++;
                 offsetInFragment = 0;
             }

@@ -62,7 +62,7 @@ public class PrimitiveColumnReader
         requireNonNull(field, "field is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
         this.type = field.toTrinoType();
-        this.pages = requireNonNull(columnMetadata.getPages(), "pages is null");
+        this.pages = requireNonNull(columnMetadata.pages(), "pages is null");
         this.ranges = requireNonNull(ranges, "ranges is null");
         this.aggregatedMemoryContext = requireNonNull(memoryContext, "memoryContext is null");
 
@@ -105,7 +105,7 @@ public class PrimitiveColumnReader
                 long startInPage = start - globalRowOffset;
                 long endInPage = min(startInPage + min(currentRange.length() - rangeOffset, remaining), currentPage.numRows());
                 boolean lastInPage = (endInPage + globalRowOffset) >= currentRange.end();
-                builder.add(Range.of(startInPage, endInPage));
+                builder.add(new Range(startInPage, endInPage));
                 remaining -= endInPage - startInPage;
                 pageOffset = endInPage - globalRowOffset;
                 rangeOffset = endInPage - currentRange.start();
@@ -141,16 +141,16 @@ public class PrimitiveColumnReader
             // merge all decoded pages
             List<RepetitionDefinitionUnraveler> unravelers = new ArrayList<>();
             for (DecodedPage decodedPage : decodedPages) {
-                Block block = decodedPage.getBlock();
+                Block block = decodedPage.block();
                 for (int i = 0; i < block.getPositionCount(); i++) {
                     if (block.isNull(i)) {
                         blockBuilder.appendNull();
                     }
                     else {
-                        type.appendTo(block, i, blockBuilder);
+                        blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(i));
                     }
                 }
-                unravelers.add(decodedPage.getUnraveler());
+                unravelers.add(decodedPage.unraveler());
             }
 
             return new DecodedPage(blockBuilder.build(), new CompositeUnraveler(unravelers));

@@ -16,7 +16,6 @@ package io.trino.plugin.lance;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -30,9 +29,7 @@ import java.util.List;
 
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.lance.catalog.BaseTable.LANCE_SUFFIX;
-import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -42,27 +39,13 @@ public class LanceQueryRunner
 {
     public static final String LANCE_CATALOG = "lance";
 
-    private LanceQueryRunner() {}
-
     private static final Logger log = Logger.get(LanceQueryRunner.class);
+
+    private LanceQueryRunner() {}
 
     public static Builder builder(String warehousePath)
     {
         return new Builder(warehousePath);
-    }
-
-    public static void main(String[] args)
-            throws Exception
-    {
-        Path warehousePath = createTempDirectory(null);
-        QueryRunner queryRunner = LanceQueryRunner.builder(warehousePath.toString())
-                .addCoordinatorProperty("http-server.http.port", "8080")
-                .setInitialTables(TpchTable.getTables())
-                .build();
-
-        Logger log = Logger.get(LanceQueryRunner.class);
-        log.info("======== SERVER STARTED ========");
-        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 
     public static class Builder
@@ -89,7 +72,7 @@ public class LanceQueryRunner
             Path tablePath = Paths.get(warehousePath, table.getTableName() + LANCE_SUFFIX);
             log.info("Running import for %s", table.getTableName());
             LanceLoader tpchLoader = new LanceLoader(trinoClient.getServer(), trinoClient.getDefaultSession(), tablePath.toString());
-            tpchLoader.execute(format("SELECT * from %s", new QualifiedObjectName("tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH))));
+            tpchLoader.execute("SELECT * FROM tpch.tiny." + table.getTableName().toLowerCase(ENGLISH));
             log.info("Imported %s to %s in %s", table.getTableName(), tablePath, nanosSince(start).convertToMostSuccinctTimeUnit());
         }
 
@@ -124,5 +107,22 @@ public class LanceQueryRunner
                 throw e;
             }
         }
+    }
+
+    // LanceQueryRunner requires the following additional JVM options:
+    //   - --add-opens=java.base/java.nio=ALL-UNNAMED
+    //   - --sun-misc-unsafe-memory-access=allow
+    public static void main(String[] args)
+            throws Exception
+    {
+        Path warehousePath = createTempDirectory(null);
+        QueryRunner queryRunner = LanceQueryRunner.builder(warehousePath.toString())
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .setInitialTables(TpchTable.getTables())
+                .build();
+
+        Logger log = Logger.get(LanceQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }

@@ -28,10 +28,10 @@ import static io.trino.lance.file.v2.metadata.RepDefLayer.NULLABLE_ITEM;
 import static io.trino.lance.file.v2.metadata.RepDefLayer.NULLABLE_LIST;
 import static org.assertj.core.api.Assertions.assertThat;
 
-class TestRepDefUnravler
+final class TestRepDefUnravler
 {
     @Test
-    public void testBasicRepDef()
+    void testBasicRepDef()
     {
         // [[I], [I, I]], NULL, [[NULL, NULL], NULL, [NULL, I, I, NULL]]
         BaseUnraveler unraveler = new BaseUnraveler(new int[] {2, 1, 0, 2, 2, 0, 1, 1, 0, 0, 0},
@@ -49,7 +49,7 @@ class TestRepDefUnravler
     }
 
     @Test
-    public void testEmptyListNoNull()
+    void testEmptyListNoNull()
     {
         BaseUnraveler unraveler = new BaseUnraveler(new int[] {1, 0, 0, 0, 1, 1, 1, 0}, new int[] {0, 0, 0, 0, 1, 1, 0, 0}, new RepDefLayer[] {ALL_VALID_ITEM,
                 EMPTYABLE_LIST});
@@ -61,7 +61,7 @@ class TestRepDefUnravler
     }
 
     @Test
-    public void testNullList()
+    void testNullList()
     {
         // nullable list
         BaseUnraveler unraveler = new BaseUnraveler(new int[] {1, 0, 1, 1, 0, 0}, new int[] {0, 0, 2, 0, 1, 0}, new RepDefLayer[] {NULLABLE_ITEM, NULLABLE_LIST});
@@ -73,7 +73,7 @@ class TestRepDefUnravler
     }
 
     @Test
-    public void testEmptyableList()
+    void testEmptyableList()
     {
         // emptyable list
         BaseUnraveler unraveler = new BaseUnraveler(new int[] {1, 0, 1, 1, 0, 0}, new int[] {0, 0, 2, 0, 1, 0}, new RepDefLayer[] {NULLABLE_ITEM, EMPTYABLE_LIST});
@@ -85,7 +85,7 @@ class TestRepDefUnravler
     }
 
     @Test
-    public void testEmptyListAtEnd()
+    void testEmptyListAtEnd()
     {
         // last item is an empty list
         BaseUnraveler unraveler = new BaseUnraveler(new int[] {1, 0, 1, 0, 0, 1}, new int[] {0, 0, 0, 1, 0, 2}, new RepDefLayer[] {NULLABLE_ITEM, EMPTYABLE_LIST});
@@ -97,7 +97,7 @@ class TestRepDefUnravler
     }
 
     @Test
-    public void testAllValid()
+    void testAllValid()
     {
         BaseUnraveler unraveler = new BaseUnraveler(new int[] {2, 1, 0, 2, 0, 2, 0, 1, 0},
                 new int[0],
@@ -111,7 +111,7 @@ class TestRepDefUnravler
     }
 
     @Test
-    public void testOnlyEmptyLists()
+    void testOnlyEmptyLists()
     {
         BaseUnraveler unraveler = new BaseUnraveler(new int[] {1, 0, 0, 0, 1, 1, 1, 0},
                 new int[] {0, 0, 0, 0, 1, 1, 0, 0},
@@ -123,7 +123,7 @@ class TestRepDefUnravler
     }
 
     @Test
-    public void testOnlyNullLists()
+    void testOnlyNullLists()
     {
         BaseUnraveler unraveler = new BaseUnraveler(new int[] {1, 0, 0, 0, 1, 1, 1, 0},
                 new int[] {0, 0, 0, 0, 1, 1, 0, 0},
@@ -135,7 +135,7 @@ class TestRepDefUnravler
     }
 
     @Test
-    public void testNullAndEmptyLists()
+    void testNullAndEmptyLists()
     {
         BaseUnraveler unraveler = new BaseUnraveler(new int[] {1, 0, 0, 0, 1, 1, 1, 0},
                 new int[] {0, 0, 0, 0, 1, 2, 0, 0},
@@ -147,7 +147,7 @@ class TestRepDefUnravler
     }
 
     @Test
-    public void testNoRep()
+    void testNoRep()
     {
         BaseUnraveler unraveler = new BaseUnraveler(new int[0], new int[] {2, 2, 0, 0, 1}, new RepDefLayer[] {NULLABLE_ITEM, NULLABLE_ITEM, ALL_VALID_ITEM});
         Optional<boolean[]> innerNulls = unraveler.calculateNulls();
@@ -161,7 +161,7 @@ class TestRepDefUnravler
     }
 
     @Test
-    public void testNullsInStruct()
+    void testNullsInStruct()
     {
         BaseUnraveler unraveler = new BaseUnraveler(new int[] {1, 1, 1}, new int[] {1, 2, 1}, new RepDefLayer[] {ALL_VALID_ITEM, NULLABLE_LIST, NULLABLE_ITEM});
         Optional<boolean[]> innerNulls = unraveler.calculateNulls();
@@ -174,7 +174,7 @@ class TestRepDefUnravler
     }
 
     @Test
-    public void testListEndsWithNull()
+    void testListEndsWithNull()
     {
         BaseUnraveler unraveler = new BaseUnraveler(new int[] {2, 2, 2}, new int[] {0, 1, 2}, new RepDefLayer[] {ALL_VALID_ITEM, NULLABLE_LIST, NULLABLE_LIST});
         Optional<boolean[]> innerNulls = unraveler.calculateNulls();
@@ -186,7 +186,7 @@ class TestRepDefUnravler
     }
 
     @Test
-    public void testCompositeUnravel()
+    void testCompositeUnravel()
     {
         CompositeUnraveler unraveler = new CompositeUnraveler(ImmutableList.of(
                 new BaseUnraveler(new int[] {1, 0, 1, 1, 0, 0}, new int[] {0, 0, 1, 0, 0, 0}, new RepDefLayer[] {ALL_VALID_ITEM, NULLABLE_LIST}),
@@ -200,7 +200,7 @@ class TestRepDefUnravler
         assertThat(positions.nulls().get()).isEqualTo(new boolean[] {false, true, false, false, false, false, false, false});
     }
 
-    public void assertBlockPositionsEqual(BlockPositions expected, BlockPositions actual)
+    private static void assertBlockPositionsEqual(BlockPositions expected, BlockPositions actual)
     {
         assertThat(actual.nulls().isPresent()).isEqualTo(expected.nulls().isPresent());
         if (expected.nulls().isPresent()) {

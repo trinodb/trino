@@ -13,6 +13,7 @@
     <description>Trino - Lance file format</description>
 
     <properties>
+        <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}
             --add-opens=java.base/java.nio=ALL-UNNAMED
             --sun-misc-unsafe-memory-access=allow</air.test.jvm.additional-arguments>
@@ -22,11 +23,6 @@
         <dependency>
             <groupId>build.buf.gen</groupId>
             <artifactId>lancedb_lance_protocolbuffers_java</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
         </dependency>
 
         <dependency>
@@ -47,6 +43,7 @@
         <dependency>
             <groupId>io.github.luohao</groupId>
             <artifactId>fastlanes-java</artifactId>
+            <version>1</version>
         </dependency>
 
         <dependency>

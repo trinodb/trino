@@ -33,7 +33,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 
-public class TestLanceReader
+final class TestLanceReader
 {
     private final LanceTester tester = new LanceTester();
 
@@ -60,77 +60,77 @@ public class TestLanceReader
     }
 
     @Test
-    public void testSmallNumericShortSequence()
+    void testSmallNumericShortSequence()
             throws Exception
     {
         testRoundTripNumeric(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17, 19, 23, 27)), 7));
     }
 
     @Test
-    public void testSmallNumericLongSequence()
+    void testSmallNumericLongSequence()
             throws Exception
     {
         testRoundTripNumeric(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17, 19, 23, 27)), 30_000));
     }
 
     @Test
-    public void testLargeNumeric()
+    void testLargeNumeric()
             throws Exception
     {
         testRoundTripNumeric(limit(cycle(ImmutableList.of(Long.MAX_VALUE, Long.MAX_VALUE - 1, Long.MAX_VALUE - 2)), 30_000));
     }
 
     @Test
-    public void testDoubleSequence()
+    void testDoubleSequence()
             throws Exception
     {
         tester.testRoundTrip(DOUBLE, doubleSequence(0, 0.1, 30_000));
     }
 
     @Test
-    public void testFloatSequence()
+    void testFloatSequence()
             throws Exception
     {
         tester.testRoundTrip(REAL, floatSequence(0.0f, 0.1f, 30_000));
     }
 
     @Test
-    public void testStringLargeDictionary()
+    void testStringLargeDictionary()
             throws Exception
     {
         tester.testRoundTrip(VARCHAR, newArrayList(limit(cycle(doubleSequence(1.0, 0.001, 257)), 30_000)).stream().map(Object::toString).collect(toList()));
     }
 
     @Test
-    public void testStringSequence()
+    void testStringSequence()
             throws Exception
     {
         tester.testRoundTrip(VARCHAR, newArrayList(doubleSequence(1.0, 10.01, 30_000)).stream().map(Object::toString).collect(toList()));
     }
 
     @Test
-    public void testStringDictionarySequence()
+    void testStringDictionarySequence()
             throws Exception
     {
         tester.testRoundTrip(VARCHAR, newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream().map(Object::toString).collect(toList()));
     }
 
     @Test
-    public void testStringStrideDictionary()
+    void testStringStrideDictionary()
             throws Exception
     {
         tester.testRoundTrip(VARCHAR, newArrayList(concat(ImmutableList.of("a"), nCopies(9999, "123"), ImmutableList.of("b"), nCopies(9999, "123"))));
     }
 
     @Test
-    public void testStringConstant()
+    void testStringConstant()
             throws Exception
     {
         tester.testRoundTrip(VARCHAR, newArrayList(nCopies(99999, "123")));
     }
 
     @Test
-    public void testLongList()
+    void testLongList()
             throws Exception
     {
         // test preamble only chunks
