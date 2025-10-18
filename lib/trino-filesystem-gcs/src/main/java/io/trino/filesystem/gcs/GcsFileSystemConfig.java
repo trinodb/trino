@@ -21,7 +21,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import jakarta.annotation.Nullable;
-import jakarta.validation.constraints.AssertFalse;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -158,20 +157,6 @@ public class GcsFileSystemConfig
         return this;
     }
 
-    @Deprecated
-    public boolean isUseGcsAccessToken()
-    {
-        return useGcsAccessToken.orElse(false);
-    }
-
-    @Deprecated
-    @Config("gcs.use-access-token")
-    public GcsFileSystemConfig setUseGcsAccessToken(boolean useGcsAccessToken)
-    {
-        this.useGcsAccessToken = Optional.of(useGcsAccessToken);
-        return this;
-    }
-
     @Nullable
     public String getJsonKey()
     {
@@ -302,11 +287,5 @@ public class GcsFileSystemConfig
         }
 
         return (jsonKey == null) ^ (jsonKeyFilePath == null);
-    }
-
-    @AssertFalse(message = "Cannot set both gcs.use-access-token and gcs.auth-type")
-    public boolean isAuthTypeAndGcsAccessTokenConfigured()
-    {
-        return authType.isPresent() && useGcsAccessToken.isPresent();
     }
 }
