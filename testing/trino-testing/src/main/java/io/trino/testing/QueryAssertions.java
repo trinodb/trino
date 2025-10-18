@@ -470,7 +470,7 @@ public final class QueryAssertions
         }
     }
 
-    protected static void assertQueryReturnsEmptyResult(QueryRunner queryRunner, Session session, @Language("SQL") String sql)
+    public static void assertQueryReturnsEmptyResult(QueryRunner queryRunner, Session session, @Language("SQL") String sql)
     {
         QueryId queryId = null;
         try {
