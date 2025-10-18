@@ -100,7 +100,7 @@ public class StageStats
     private final Duration failedInputBlockedTime;
 
     private final DataSize bufferedDataSize;
-    private final Optional<io.trino.execution.DistributionSnapshot> outputBufferUtilization;
+    private final Optional<io.trino.plugin.base.metrics.DistributionSnapshot> outputBufferUtilization;
     private final DataSize outputDataSize;
     private final DataSize failedOutputDataSize;
     private final long outputPositions;
@@ -174,7 +174,7 @@ public class StageStats
             @JsonProperty("failedInputBlockedTime") Duration failedInputBlockedTime,
 
             @JsonProperty("bufferedDataSize") DataSize bufferedDataSize,
-            @JsonProperty("outputBufferUtilization") Optional<io.trino.execution.DistributionSnapshot> outputBufferUtilization,
+            @JsonProperty("outputBufferUtilization") Optional<io.trino.plugin.base.metrics.DistributionSnapshot> outputBufferUtilization,
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("failedOutputDataSize") DataSize failedOutputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
@@ -543,7 +543,7 @@ public class StageStats
     }
 
     @JsonProperty
-    public Optional<io.trino.execution.DistributionSnapshot> getOutputBufferUtilization()
+    public Optional<io.trino.plugin.base.metrics.DistributionSnapshot> getOutputBufferUtilization()
     {
         return outputBufferUtilization;
     }

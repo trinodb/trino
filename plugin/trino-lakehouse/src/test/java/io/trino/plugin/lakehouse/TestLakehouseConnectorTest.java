@@ -13,21 +13,30 @@
  */
 package io.trino.plugin.lakehouse;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.spi.metrics.Metrics;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.TestingSession;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static io.trino.SystemSessionProperties.ITERATIVE_OPTIMIZER_TIMEOUT;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -36,8 +45,10 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -79,6 +90,29 @@ public class TestLakehouseConnectorTest
         computeActual(createSchemaSql("tpch"));
         computeActual(createSchemaSql("functions"));
         copyTpchTables(getQueryRunner(), "tpch", TINY_SCHEMA_NAME, REQUIRED_TPCH_TABLES);
+    }
+
+    @BeforeAll
+    public void initMockMetricsCatalog()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String mockConnector = "mock_metrics";
+        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                .withName(mockConnector)
+                .withListSchemaNames(_ -> ImmutableList.of("default"))
+                .withGetTableStatistics(_ -> {
+                    try {
+                        Thread.sleep(110);
+                    }
+                    catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException(e);
+                    }
+                    return TableStatistics.empty();
+                })
+                .build()));
+
+        queryRunner.createCatalog("mock_metrics", mockConnector);
     }
 
     @Override
@@ -364,5 +398,37 @@ public class TestLakehouseConnectorTest
                    location = \\E's3://test-bucket-.*/tpch/orders-.*'\\Q,
                    type = 'ICEBERG'
                 )\\E""");
+    }
+
+    @Test
+    public void testCatalogMetadataMetrics()
+    {
+        QueryRunner.MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(
+                getSession(),
+                "SELECT count(*) FROM region r, nation n WHERE r.regionkey = n.regionkey");
+        Map<String, Metrics> metrics = getCatalogMetadataMetrics(result.queryId());
+        assertCountMetricExists(metrics, "lakehouse", "iceberg.metastore.all.time.total");
+        assertDistributionMetricExists(metrics, "lakehouse", "iceberg.metastore.all.time.distribution");
+        assertCountMetricExists(metrics, "lakehouse", "iceberg.metastore.getTable.time.total");
+        assertDistributionMetricExists(metrics, "lakehouse", "iceberg.metastore.getTable.time.distribution");
+    }
+
+    @Test
+    public void testCatalogMetadataMetricsWithOptimizerTimeoutExceeded()
+    {
+        String query = "SELECT count(*) FROM region r, nation n, mock_metrics.default.mock_table m WHERE r.regionkey = n.regionkey";
+        try {
+            Session smallOptimizerTimeout = TestingSession.testSessionBuilder(getSession())
+                    .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "100ms")
+                    .build();
+            QueryRunner.MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(smallOptimizerTimeout, query);
+            fail(format("Expected query to fail: %s [QueryId: %s]", query, result.queryId()));
+        }
+        catch (QueryFailedException e) {
+            assertThat(e.getMessage()).contains("The optimizer exhausted the time limit");
+            Map<String, Metrics> metrics = getCatalogMetadataMetrics(e.getQueryId());
+            assertCountMetricExists(metrics, "lakehouse", "iceberg.metastore.all.time.total");
+            assertCountMetricExists(metrics, "lakehouse", "iceberg.metastore.getTable.time.total");
+        }
     }
 }

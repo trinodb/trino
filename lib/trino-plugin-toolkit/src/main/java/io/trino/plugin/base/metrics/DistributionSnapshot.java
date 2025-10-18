@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution;
+package io.trino.plugin.base.metrics;
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
@@ -29,21 +29,22 @@ import static java.lang.String.format;
 public record DistributionSnapshot(long total, double min, double max, double p01, double p05, double p10, double p25, double p50, double p75, double p90, double p95, double p99)
         implements Metric<DistributionSnapshot>
 {
-    public DistributionSnapshot(Distribution<?> distribution)
+    public static DistributionSnapshot fromDistribution(Distribution<?> distribution)
     {
-        this(
+        double[] percentiles = distribution.getPercentiles(1, 5, 10, 25, 50, 75, 90, 95, 99);
+        return new DistributionSnapshot(
                 distribution.getTotal(),
                 distribution.getMin(),
                 distribution.getMax(),
-                distribution.getPercentile(1),
-                distribution.getPercentile(5),
-                distribution.getPercentile(10),
-                distribution.getPercentile(25),
-                distribution.getPercentile(50),
-                distribution.getPercentile(75),
-                distribution.getPercentile(90),
-                distribution.getPercentile(95),
-                distribution.getPercentile(99));
+                percentiles[0],
+                percentiles[1],
+                percentiles[2],
+                percentiles[3],
+                percentiles[4],
+                percentiles[5],
+                percentiles[6],
+                percentiles[7],
+                percentiles[8]);
     }
 
     @Override

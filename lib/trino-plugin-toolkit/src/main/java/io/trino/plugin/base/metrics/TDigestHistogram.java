@@ -185,6 +185,16 @@ public class TDigestHistogram
     }
 
     @Override
+    public synchronized double[] getPercentiles(double... percentiles)
+    {
+        double[] digestPercentiles = new double[percentiles.length];
+        for (int i = 0; i < percentiles.length; i++) {
+            digestPercentiles[i] = percentiles[i] / 100.0;
+        }
+        return digest.valuesAt(digestPercentiles);
+    }
+
+    @Override
     public String toString()
     {
         ToStringHelper helper = toStringHelper("")

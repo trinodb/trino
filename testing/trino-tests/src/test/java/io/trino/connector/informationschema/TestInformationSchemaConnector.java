@@ -16,6 +16,7 @@ package io.trino.connector.informationschema;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
+import com.google.common.collect.Multisets;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -30,6 +31,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.Objects;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -410,6 +412,8 @@ public class TestInformationSchemaConnector
             assertQuery(actualSql, expectedSql);
         });
 
+        // Every query involves some number of ConnectorMetadata.getMetrics calls, so ignore them.
+        actualMetadataCallsCount = Multisets.filter(actualMetadataCallsCount, e -> !Objects.equals(e, "ConnectorMetadata.getMetrics"));
         assertMultisetsEqual(actualMetadataCallsCount, expectedMetadataCallsCount);
     }
 }
