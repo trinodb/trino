@@ -152,17 +152,6 @@ public final class SmallintType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            ((ShortArrayBlockBuilder) blockBuilder).writeShort(getShort(block, position));
-        }
-    }
-
-    @Override
     public long getLong(Block block, int position)
     {
         return getShort(block, position);

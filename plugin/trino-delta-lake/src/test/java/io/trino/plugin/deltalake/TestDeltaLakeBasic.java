@@ -103,6 +103,7 @@ import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryConte
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnsMetadata;
 import static io.trino.plugin.deltalake.transactionlog.TemporalTimeTravelUtil.findLatestVersionUsingTemporal;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -140,6 +141,7 @@ public class TestDeltaLakeBasic
             new ResourceTable("liquid_clustering", "deltalake/liquid_clustering"),
             new ResourceTable("region_91_lts", "databricks91/region"),
             new ResourceTable("region_104_lts", "databricks104/region"),
+            new ResourceTable("region_113_lts", "databricks113/region"),
             new ResourceTable("timestamp_ntz", "databricks131/timestamp_ntz"),
             new ResourceTable("timestamp_ntz_partition", "databricks131/timestamp_ntz_partition"),
             new ResourceTable("uniform_hudi", "deltalake/uniform_hudi"),
@@ -238,6 +240,14 @@ public class TestDeltaLakeBasic
     void testDatabricks104()
     {
         assertThat(query("SELECT * FROM region_104_lts"))
+                .skippingTypesCheck() // name and comment columns are unbounded varchar in Delta Lake and bounded varchar in TPCH
+                .matches("SELECT * FROM tpch.tiny.region");
+    }
+
+    @Test
+    void testDatabricks113()
+    {
+        assertThat(query("SELECT * FROM region_113_lts"))
                 .skippingTypesCheck() // name and comment columns are unbounded varchar in Delta Lake and bounded varchar in TPCH
                 .matches("SELECT * FROM tpch.tiny.region");
     }
@@ -404,7 +414,7 @@ public class TestDeltaLakeBasic
             assertThat(partitionValuesParsedType.getFields().stream().collect(onlyElement()).getName().orElseThrow()).isEqualTo(physicalColumnName);
 
             TrinoParquetDataSource dataSource = new TrinoParquetDataSource(new LocalInputFile(checkpoint.toFile()), ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats());
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
             try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, ImmutableList.of(addEntryType), List.of("add"))) {
                 List<Object> actual = new ArrayList<>();
                 SourcePage page = reader.nextPage();
@@ -482,7 +492,8 @@ public class TestDeltaLakeBasic
         // Verify optimized parquet file contains the expected physical id and name
         TrinoInputFile inputFile = new LocalInputFile(tableLocation.resolve(addFileEntry.getPath()).toFile());
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(
-                new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats()));
+                new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats()),
+                Optional.empty());
         FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
         PrimitiveType physicalType = getOnlyElement(fileMetaData.getSchema().getColumns().iterator()).getPrimitiveType();
         assertThat(physicalType.getName()).isEqualTo(physicalName);
@@ -1612,6 +1623,9 @@ public class TestDeltaLakeBasic
         assertQueryFails("INSERT INTO variant VALUES (2, null, null, null, null, 'new data')", "Unsupported writer features: .*");
     }
 
+    /**
+     * @see databricks154.test_variant_null
+     */
     @Test
     public void testVariantReadNull()
             throws Exception
@@ -1625,11 +1639,22 @@ public class TestDeltaLakeBasic
                 .matches("VALUES 3");
 
         assertThat(query("SELECT * FROM " + tableName + " WHERE id = 3"))
-                .matches("VALUES (3, JSON 'null')");
+                .skippingTypesCheck()
+                .matches("VALUES (3, JSON 'null', NULL)");
         assertThat(query("SELECT * FROM " + tableName + " WHERE id = 4"))
-                .matches("VALUES (4, CAST(NULL AS JSON))");
+                .skippingTypesCheck()
+                .matches("VALUES (4, NULL, NULL)");
         assertThat(query("SELECT id FROM " + tableName + " WHERE x IS NULL"))
                 .matches("VALUES 4");
+
+        assertThat(query("TABLE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                         "(1, JSON '{\"a\":1}', MAP(ARRAY['key1'], ARRAY[NULL]))," +
+                         "(2, JSON '{\"a\":2}', MAP(ARRAY['key1'], ARRAY[JSON '{\"key\":\"value\"}']))," +
+                         "(3, JSON 'null', NULL)," +
+                         "(4, NULL, NULL)," +
+                         "(5, JSON '{\"a\":5}', NULL)");
     }
 
     /**
@@ -2765,7 +2790,8 @@ public class TestDeltaLakeBasic
     private static List<DeltaLakeTransactionLogEntry> getEntriesFromJson(long entryNumber, String transactionLogDir)
             throws IOException
     {
-        return TransactionLogTail.getEntriesFromJson(entryNumber, transactionLogDir, FILE_SYSTEM, DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE)
+
+        return TransactionLogTail.getEntriesFromJson(entryNumber, FILE_SYSTEM.newInputFile(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber)), DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE)
                 .orElseThrow()
                 .getEntriesList(FILE_SYSTEM);
     }

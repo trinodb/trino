@@ -179,7 +179,7 @@ public class PreAggregateCaseAggregations
                 context);
         AggregationNode preAggregation = createPreAggregation(
                 preProjection,
-                preGroupingExpressions.getOutputs(),
+                preGroupingExpressions.outputs(),
                 preAggregations,
                 context);
         Map<CaseAggregation, Symbol> newProjectionSymbols = getNewProjectionSymbols(aggregations, context);
@@ -247,7 +247,7 @@ public class PreAggregateCaseAggregations
 
     private AggregationNode createPreAggregation(
             PlanNode source,
-            List<Symbol> groupingKeys,
+            Set<Symbol> groupingKeys,
             Map<PreAggregationKey, PreAggregation> preAggregations,
             Context context)
     {

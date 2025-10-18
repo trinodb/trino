@@ -53,7 +53,6 @@ public class TestOperatorStats
             new Duration(5, NANOSECONDS),
             DataSize.ofBytes(52),
             522,
-            DataSize.ofBytes(5),
             DataSize.ofBytes(6),
             7,
             8d,
@@ -103,7 +102,6 @@ public class TestOperatorStats
             new Duration(5, NANOSECONDS),
             DataSize.ofBytes(52),
             522,
-            DataSize.ofBytes(5),
             DataSize.ofBytes(6),
             7,
             8d,
@@ -161,7 +159,6 @@ public class TestOperatorStats
         assertThat(actual.getPhysicalInputReadTime()).isEqualTo(new Duration(5, NANOSECONDS));
         assertThat(actual.getInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(52));
         assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(522);
-        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(5));
         assertThat(actual.getInputDataSize()).isEqualTo(DataSize.ofBytes(6));
         assertThat(actual.getInputPositions()).isEqualTo(7);
         assertThat(actual.getSumSquaredInputPositions()).isEqualTo(8.0);
@@ -213,7 +210,6 @@ public class TestOperatorStats
         assertThat(actual.getPhysicalInputReadTime()).isEqualTo(new Duration(3 * 5, NANOSECONDS));
         assertThat(actual.getInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 52));
         assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(3 * 522);
-        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 5));
         assertThat(actual.getInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 6));
         assertThat(actual.getInputPositions()).isEqualTo(3 * 7);
         assertThat(actual.getSumSquaredInputPositions()).isEqualTo(3 * 8.0);
@@ -263,7 +259,6 @@ public class TestOperatorStats
         assertThat(actual.getPhysicalInputReadTime()).isEqualTo(new Duration(3 * 5, NANOSECONDS));
         assertThat(actual.getInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 52));
         assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(3 * 522);
-        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 5));
         assertThat(actual.getInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 6));
         assertThat(actual.getInputPositions()).isEqualTo(3 * 7);
         assertThat(actual.getSumSquaredInputPositions()).isEqualTo(3 * 8.0);

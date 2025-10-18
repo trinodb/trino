@@ -24,6 +24,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -182,9 +183,9 @@ public class BenchmarkArraySort
         });
 
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, block.getPositionCount());
-
+        ValueBlock valueBlock = block.getUnderlyingValueBlock();
         for (int position : positions) {
-            VARCHAR.appendTo(block, position, blockBuilder);
+            blockBuilder.append(valueBlock, block.getUnderlyingValuePosition(position));
         }
 
         return blockBuilder.build();

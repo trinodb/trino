@@ -94,6 +94,7 @@ public class HiveConnectorFactory
         ClassLoader classLoader = HiveConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
+                    "io.trino.bootstrap.catalog." + catalogName,
                     new CatalogNameModule(catalogName),
                     new MBeanModule(),
                     new ConnectorObjectNameGeneratorModule("io.trino.plugin.hive", "trino.plugin.hive"),

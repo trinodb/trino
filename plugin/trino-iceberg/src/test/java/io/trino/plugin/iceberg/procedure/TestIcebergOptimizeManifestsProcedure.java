@@ -13,22 +13,33 @@
  */
 package io.trino.plugin.iceberg.procedure;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.IcebergTestUtils;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
+import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestIcebergOptimizeManifestsProcedure
@@ -36,6 +47,7 @@ final class TestIcebergOptimizeManifestsProcedure
 {
     private HiveMetastore metastore;
     private TrinoFileSystemFactory fileSystemFactory;
+    private TrinoCatalog catalog;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -44,6 +56,7 @@ final class TestIcebergOptimizeManifestsProcedure
         DistributedQueryRunner queryRunner = IcebergQueryRunner.builder().build();
         metastore = getHiveMetastore(queryRunner);
         fileSystemFactory = getFileSystemFactory(queryRunner);
+        catalog = getTrinoCatalog(metastore, fileSystemFactory, "iceberg");
         return queryRunner;
     }
 
@@ -66,7 +79,7 @@ final class TestIcebergOptimizeManifestsProcedure
             assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
 
             assertThat(manifestFiles(table.getName()))
-                    .hasSize(2)
+                    .hasSize(1)
                     .doesNotContainAnyElementsOf(manifestFiles);
 
             assertThat(query("SELECT * FROM " + table.getName()))
@@ -138,7 +151,7 @@ final class TestIcebergOptimizeManifestsProcedure
 
             assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
             assertThat(manifestFiles(table.getName()))
-                    .hasSize(2)
+                    .hasSize(1)
                     .doesNotContainAnyElementsOf(manifestFiles);
 
             assertThat(query("SELECT * FROM " + table.getName()))
@@ -147,24 +160,40 @@ final class TestIcebergOptimizeManifestsProcedure
     }
 
     @Test
-    void testFirstPartitionField()
+    void testMultiplePartitioningColumns()
     {
         try (TestTable table = newTrinoTable("test_partition", "(id int, part int, nested int) WITH (partitioning = ARRAY['part', 'nested'])")) {
-            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 10, 100)", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 10, 200)", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 20, 300)", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " VALUES (4, 20, 400)", 1);
+            for (int i = 0; i < 30; i++) {
+                assertUpdate("INSERT INTO " + table.getName() + " VALUES (%d, %d, %d)".formatted(i, i % 10, i % 3), 1);
+            }
 
             Set<String> manifestFiles = manifestFiles(table.getName());
-            assertThat(manifestFiles).hasSize(4);
+            assertThat(manifestFiles).hasSize(30);
 
             assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
-            assertThat(manifestFiles(table.getName()))
+            Set<String> currentManifestFiles = manifestFiles(table.getName());
+            assertThat(currentManifestFiles)
+                    .hasSize(1)
+                    .doesNotContainAnyElementsOf(manifestFiles);
+
+            assertThat(query("SELECT COUNT(*) FROM " + table.getName()))
+                    .matches("VALUES BIGINT '30'");
+
+            // Set small target size to force split
+            BaseTable icebergTable = loadTable(table.getName());
+            icebergTable.updateProperties()
+                    .set("commit.manifest.target-size-bytes", "8000")
+                    .commit();
+            manifestFiles = currentManifestFiles;
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
+
+            currentManifestFiles = manifestFiles(table.getName());
+            assertThat(currentManifestFiles)
                     .hasSize(2)
                     .doesNotContainAnyElementsOf(manifestFiles);
 
-            assertThat(query("SELECT * FROM " + table.getName()))
-                    .matches("VALUES (1, 10, 100), (2, 10, 200), (3, 20, 300), (4, 20, 400)");
+            assertThat(query("SELECT COUNT(*) FROM " + table.getName()))
+                    .matches("VALUES BIGINT '30'");
         }
     }
 
@@ -199,6 +228,25 @@ final class TestIcebergOptimizeManifestsProcedure
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("VALUES 1");
         }
+    }
+
+    @Test
+    void testNoSnapshot()
+    {
+        SchemaTableName tableName = new SchemaTableName("tpch", "test_no_snapshot" + randomNameSuffix());
+
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        tableName,
+                        new Schema(Types.NestedField.required(1, "x", Types.LongType.get())),
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, tableName)),
+                        ImmutableMap.of())
+                .commitTransaction();
+        assertThat(catalog.loadTable(SESSION, tableName).currentSnapshot()).isNull();
+
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize_manifests");
     }
 
     @Test

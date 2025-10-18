@@ -50,15 +50,15 @@ public class TestClusterMemoryLeakDetector
         assertThat(leakDetector.getNumberOfLeakedQueries()).isEqualTo(0);
 
         // the leak detector should report no leaked queries as the query is still running
-        leakDetector.checkForMemoryLeaks(() -> ImmutableList.of(createQueryInfo(testQuery.getId(), RUNNING)), ImmutableMap.of(testQuery, 1L));
+        leakDetector.checkForMemoryLeaks(() -> ImmutableList.of(createQueryInfo(testQuery.id(), RUNNING)), ImmutableMap.of(testQuery, 1L));
         assertThat(leakDetector.getNumberOfLeakedQueries()).isEqualTo(0);
 
         // the leak detector should report exactly one leaked query since the query is finished, and its end time is way in the past
-        leakDetector.checkForMemoryLeaks(() -> ImmutableList.of(createQueryInfo(testQuery.getId(), FINISHED)), ImmutableMap.of(testQuery, 1L));
+        leakDetector.checkForMemoryLeaks(() -> ImmutableList.of(createQueryInfo(testQuery.id(), FINISHED)), ImmutableMap.of(testQuery, 1L));
         assertThat(leakDetector.getNumberOfLeakedQueries()).isEqualTo(1);
 
         // the leak detector should report no leaked queries as the query doesn't have any memory reservation
-        leakDetector.checkForMemoryLeaks(() -> ImmutableList.of(createQueryInfo(testQuery.getId(), FINISHED)), ImmutableMap.of(testQuery, 0L));
+        leakDetector.checkForMemoryLeaks(() -> ImmutableList.of(createQueryInfo(testQuery.id(), FINISHED)), ImmutableMap.of(testQuery, 0L));
         assertThat(leakDetector.getNumberOfLeakedQueries()).isEqualTo(0);
 
         // the leak detector should report exactly one leaked query since the coordinator doesn't know of any query
@@ -90,7 +90,6 @@ public class TestClusterMemoryLeakDetector
                         15,
                         100,
                         0,
-                        DataSize.valueOf("21GB"),
                         22,
                         DataSize.valueOf("23GB"),
                         DataSize.valueOf("23GB"),

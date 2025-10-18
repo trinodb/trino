@@ -83,8 +83,6 @@ public class TestIcebergMemoryCacheFileOperations
                 ImmutableMultiset.<CacheOperation>builder()
                         .addCopies(new CacheOperation("Input.readTail", DATA), 2)
                         .addCopies(new CacheOperation("FileSystemCache.cacheInput", DATA), 2)
-                        .add(new CacheOperation("Input.readTail", METADATA_JSON))
-                        .add(new CacheOperation("InputFile.length", METADATA_JSON))
                         .add(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON))
                         .add(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT))
                         .add(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT))
@@ -111,8 +109,6 @@ public class TestIcebergMemoryCacheFileOperations
                 ImmutableMultiset.<CacheOperation>builder()
                         .addCopies(new CacheOperation("Input.readTail", DATA), 3)
                         .addCopies(new CacheOperation("FileSystemCache.cacheInput", DATA), 5)
-                        .add(new CacheOperation("Input.readTail", METADATA_JSON))
-                        .add(new CacheOperation("InputFile.length", METADATA_JSON))
                         .add(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON))
                         .add(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT))
                         .add(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT))
@@ -193,7 +189,7 @@ public class TestIcebergMemoryCacheFileOperations
     {
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         queryRunner.executeWithPlan(queryRunner.getDefaultSession(), query);
-        assertMultisetsEqual(expectedCacheAccesses, getCacheOperations());
+        assertMultisetsEqual(getCacheOperations(), expectedCacheAccesses);
     }
 
     private Multiset<CacheOperation> getCacheOperations()

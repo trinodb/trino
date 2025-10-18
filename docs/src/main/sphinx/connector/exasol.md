@@ -16,7 +16,7 @@ The Exasol connector allows querying an [Exasol](https://www.exasol.com/) databa
 
 To connect to Exasol, you need:
 
-* Exasol database version 7.1 or higher.
+* Exasol database version 8.34.0 or higher.
 * Network access from the Trino coordinator and workers to Exasol.
   Port 8563 is the default port.
 
@@ -75,33 +75,35 @@ each direction.
 Trino supports selecting Exasol database types. This table shows the Exasol to
 Trino data type mapping:
 
-```{eval-rst}
-.. list-table:: Exasol to Trino type mapping
-  :widths: 25, 25, 50
-  :header-rows: 1
+:::{list-table} Exasol to Trino type mapping
+:widths: 25, 25, 50
+:header-rows: 1
 
-  * - Exasol database type
-    - Trino type
-    - Notes
-  * - ``BOOLEAN``
-    - ``BOOLEAN``
-    -
-  * - ``DOUBLE PRECISION``
-    - ``REAL``
-    -
-  * - ``DECIMAL(p, s)``
-    - ``DECIMAL(p, s)``
-    -  See :ref:`exasol-number-mapping`
-  * - ``CHAR(n)``
-    - ``CHAR(n)``
-    -
-  * - ``VARCHAR(n)``
-    - ``VARCHAR(n)``
-    -
-  * - ``DATE``
-    - ``DATE``
-    -
-```
+* - Exasol database type
+  - Trino type
+  - Notes
+* - `BOOLEAN`
+  - `BOOLEAN`
+  -
+* - `DOUBLE PRECISION`
+  - `REAL`
+  -
+* - `DECIMAL(p, s)`
+  - `DECIMAL(p, s)`
+  -  See {ref}`exasol-number-mapping`
+* - `CHAR(n)`
+  - `CHAR(n)`
+  -
+* - `VARCHAR(n)`
+  - `VARCHAR(n)`
+  -
+* - `DATE`
+  - `DATE`
+  -
+* - `HASHTYPE`
+  - `VARBINARY`
+  -
+:::
 
 No other types are supported.
 
@@ -206,3 +208,16 @@ FROM
 
 ```{include} query-table-function-ordering.fragment
 ```
+
+## Performance
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+(exasol-pushdown)=
+### Pushdown
+
+The connector supports pushdown for a number of operations:
+
+- {ref}`limit-pushdown`
+- {ref}`topn-pushdown`

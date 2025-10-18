@@ -72,8 +72,7 @@ public class MultipleDistinctAggregationToMarkDistinct
 
     public static boolean canUseMarkDistinct(AggregationNode aggregationNode)
     {
-        return hasNoDistinctWithFilterOrMask(aggregationNode) &&
-               (hasMultipleDistincts(aggregationNode) || hasMixedDistinctAndNonDistincts(aggregationNode));
+        return hasNoDistinctWithFilterOrMask(aggregationNode) && (hasMultipleDistincts(aggregationNode) || hasMixedDistinctAndNonDistincts(aggregationNode));
     }
 
     private static boolean hasNoDistinctWithFilterOrMask(AggregationNode aggregationNode)

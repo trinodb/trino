@@ -316,9 +316,8 @@ public class PagesIndex
             // append the row
             pageBuilder.declarePosition();
             for (int channel = 0; channel < channels.length; channel++) {
-                Type type = types.get(channel);
                 Block block = channels[channel].get(blockIndex);
-                type.appendTo(block, blockPosition, pageBuilder.getBlockBuilder(channel));
+                pageBuilder.getBlockBuilder(channel).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(blockPosition));
             }
 
             position++;
@@ -331,10 +330,9 @@ public class PagesIndex
     {
         long pageAddress = valueAddresses.getLong(position);
 
-        Type type = types.get(channel);
         Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
-        type.appendTo(block, blockPosition, output);
+        output.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(blockPosition));
     }
 
     public boolean isNull(int channel, int position)
@@ -518,7 +516,7 @@ public class PagesIndex
     {
         // TODO probably shouldn't copy to reduce memory and for memory accounting's sake
         List<ObjectArrayList<Block>> channels = ImmutableList.copyOf(this.channels);
-        return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, radiusChannel, constantRadius, partitionChannel, spatialRelationshipTest, filterFunctionFactory, partitions);
+        return new PagesSpatialIndexSupplier(session, valueAddresses, outputChannels, channels, geometryChannel, radiusChannel, constantRadius, partitionChannel, spatialRelationshipTest, filterFunctionFactory, partitions);
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(

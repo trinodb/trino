@@ -13,8 +13,6 @@
  */
 package io.trino.operator.window.pattern;
 
-import io.trino.operator.DriverYieldSignal;
-import io.trino.operator.Work;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.window.matcher.ArrayView;
 import io.trino.spi.Page;
@@ -52,28 +50,19 @@ public class MeasureComputation
     // are not used)
     private final Block[] nulls;
 
-    // result type
-    private final Type type;
-
     // mapping from int representation to label name
     private final List<String> labelNames;
 
     private final ConnectorSession session;
 
-    public MeasureComputation(PageProjection projection, List<PhysicalValueAccessor> expectedLayout, List<MatchAggregation> aggregations, Type type, List<String> labelNames, ConnectorSession session)
+    public MeasureComputation(PageProjection projection, List<PhysicalValueAccessor> expectedLayout, List<MatchAggregation> aggregations, List<String> labelNames, ConnectorSession session)
     {
         this.projection = requireNonNull(projection, "projection is null");
         this.expectedLayout = requireNonNull(expectedLayout, "expectedLayout is null");
         this.aggregations = aggregations.toArray(new MatchAggregation[] {});
         this.nulls = precomputeNulls(expectedLayout);
-        this.type = requireNonNull(type, "type is null");
         this.labelNames = requireNonNull(labelNames, "labelNames is null");
         this.session = requireNonNull(session, "session is null");
-    }
-
-    public Type getType()
-    {
-        return type;
     }
 
     public Block compute(int currentRow, ArrayView matchedLabels, int partitionStart, int searchStart, int searchEnd, int patternStart, long matchNumber, ProjectingPagesWindowIndex windowIndex)
@@ -108,12 +97,7 @@ public class MeasureComputation
         SourcePage page = SourcePage.create(new Page(1, blocks));
 
         // evaluate expression
-        Work<Block> work = projection.project(session, new DriverYieldSignal(), projection.getInputChannels().getInputChannels(page), positionsRange(0, 1));
-        boolean done = false;
-        while (!done) {
-            done = work.process();
-        }
-        return work.getResult();
+        return projection.project(session, projection.getInputChannels().getInputChannels(page), positionsRange(0, 1));
     }
 
     // TODO This method allocates an intermediate block and passes it as the input to the pre-compiled expression.
@@ -178,12 +162,7 @@ public class MeasureComputation
         SourcePage page = SourcePage.create(new Page(1, blocks));
 
         // evaluate expression
-        Work<Block> work = projection.project(session, new DriverYieldSignal(), projection.getInputChannels().getInputChannels(page), positionsRange(0, 1));
-        boolean done = false;
-        while (!done) {
-            done = work.process();
-        }
-        return work.getResult();
+        return projection.project(session, projection.getInputChannels().getInputChannels(page), positionsRange(0, 1));
     }
 
     public static Block[] precomputeNulls(List<PhysicalValueAccessor> expectedLayout)
@@ -202,22 +181,20 @@ public class MeasureComputation
     {
         private final Supplier<PageProjection> projection;
         private final List<PhysicalValueAccessor> expectedLayout;
-        private final Type type;
         private final List<String> labelNames;
         private final ConnectorSession session;
 
-        public MeasureComputationSupplier(Supplier<PageProjection> projection, List<PhysicalValueAccessor> expectedLayout, Type type, List<String> labelNames, ConnectorSession session)
+        public MeasureComputationSupplier(Supplier<PageProjection> projection, List<PhysicalValueAccessor> expectedLayout, List<String> labelNames, ConnectorSession session)
         {
             this.projection = requireNonNull(projection, "projection is null");
             this.expectedLayout = requireNonNull(expectedLayout, "expectedLayout is null");
-            this.type = requireNonNull(type, "type is null");
             this.labelNames = requireNonNull(labelNames, "labelNames is null");
             this.session = requireNonNull(session, "session is null");
         }
 
         public MeasureComputation get(List<MatchAggregation> aggregations)
         {
-            return new MeasureComputation(projection.get(), expectedLayout, aggregations, type, labelNames, session);
+            return new MeasureComputation(projection.get(), expectedLayout, aggregations, labelNames, session);
         }
     }
 }

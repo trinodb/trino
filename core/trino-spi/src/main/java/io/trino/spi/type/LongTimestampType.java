@@ -107,19 +107,6 @@ final class LongTimestampType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
-            int valuePosition = block.getUnderlyingValuePosition(position);
-            ((Fixed12BlockBuilder) blockBuilder).writeFixed12(getEpochMicros(valueBlock, valuePosition), getFraction(valueBlock, valuePosition));
-        }
-    }
-
-    @Override
     public Object getObject(Block block, int position)
     {
         Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();

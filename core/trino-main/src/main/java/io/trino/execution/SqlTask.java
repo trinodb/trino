@@ -28,6 +28,7 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -41,7 +42,6 @@ import io.trino.operator.PipelineContext;
 import io.trino.operator.PipelineStatus;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -555,8 +555,8 @@ public class SqlTask
 
             taskSpan.set(tracer.spanBuilder("task")
                     .setParent(Context.current().with(stageSpan))
-                    .setAttribute(TrinoAttributes.QUERY_ID, taskId.getQueryId().toString())
-                    .setAttribute(TrinoAttributes.STAGE_ID, taskId.getStageId().toString())
+                    .setAttribute(TrinoAttributes.QUERY_ID, taskId.queryId().toString())
+                    .setAttribute(TrinoAttributes.STAGE_ID, taskId.stageId().toString())
                     .setAttribute(TrinoAttributes.TASK_ID, taskId.toString())
                     .startSpan());
 

@@ -251,8 +251,6 @@ public class TestStageStateMachine
         assertThat(stats.getPhysicalInputPositions()).isEqualTo(expectedStatsValue);
         assertThat(stats.getPhysicalInputReadTime()).isEqualTo(succinctDuration(expectedStatsValue, MILLISECONDS));
         assertThat(stats.getPhysicalInputPositions()).isEqualTo(expectedStatsValue);
-        assertThat(stats.getRawInputDataSize()).isEqualTo(succinctBytes(0));
-        assertThat(stats.getRawInputPositions()).isEqualTo(0);
         assertThat(stats.getCumulativeUserMemory()).isEqualTo(expectedStatsValue);
         assertThat(stats.getFailedCumulativeUserMemory()).isEqualTo(1);
         assertThat(stats.getTotalMemoryReservation()).isEqualTo(succinctBytes(expectedStatsValue * 2L));
@@ -305,8 +303,6 @@ public class TestStageStateMachine
                 DataSize.ofBytes(baseValue),
                 baseValue,
                 new Duration(baseValue, MILLISECONDS),
-                DataSize.ofBytes(baseValue),
-                baseValue,
                 DataSize.ofBytes(baseValue),
                 baseValue,
                 DataSize.ofBytes(baseValue),

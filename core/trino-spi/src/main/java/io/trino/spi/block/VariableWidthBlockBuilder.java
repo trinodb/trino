@@ -244,12 +244,15 @@ public class VariableWidthBlockBuilder
         boolean[] rawValueIsNull = variableWidthBlock.getRawValueIsNull();
         if (rawValueIsNull != null) {
             for (int i = 0; i < length; i++) {
-                if (rawValueIsNull[rawArrayBase + offset + i]) {
-                    valueIsNull[positionCount + i] = true;
-                    hasNullValue = true;
+                boolean isNull = rawValueIsNull[rawArrayBase + offset + i];
+                hasNullValue |= isNull;
+                hasNonNullValue |= !isNull;
+                if (hasNullValue & hasNonNullValue) {
+                    System.arraycopy(rawValueIsNull, rawArrayBase + offset + i, valueIsNull, positionCount + i, length - i);
+                    break;
                 }
                 else {
-                    hasNonNullValue = true;
+                    valueIsNull[positionCount + i] = isNull;
                 }
             }
         }

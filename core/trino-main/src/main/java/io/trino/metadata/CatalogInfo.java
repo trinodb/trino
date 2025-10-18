@@ -13,17 +13,22 @@
  */
 package io.trino.metadata;
 
-import io.trino.spi.connector.CatalogHandle;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorName;
 
 import static java.util.Objects.requireNonNull;
 
-public record CatalogInfo(String catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
+public record CatalogInfo(
+        String catalogName,
+        CatalogHandle catalogHandle,
+        ConnectorName connectorName,
+        CatalogStatus catalogStatus)
 {
     public CatalogInfo
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(catalogHandle, "catalogHandle is null");
         requireNonNull(connectorName, "connectorName is null");
+        requireNonNull(catalogStatus, "catalogStatus is null");
     }
 }

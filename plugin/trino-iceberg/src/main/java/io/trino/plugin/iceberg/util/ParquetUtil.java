@@ -14,8 +14,6 @@
 
 package io.trino.plugin.iceberg.util;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
@@ -41,13 +39,12 @@ import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotat
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -70,7 +67,7 @@ public final class ParquetUtil
     private ParquetUtil() {}
 
     public static Metrics footerMetrics(ParquetMetadata metadata, Stream<FieldMetrics<?>> fieldMetrics, MetricsConfig metricsConfig)
-            throws ParquetCorruptionException
+            throws IOException
     {
         return footerMetrics(metadata, fieldMetrics, metricsConfig, null);
     }
@@ -80,7 +77,7 @@ public final class ParquetUtil
             Stream<FieldMetrics<?>> fieldMetrics,
             MetricsConfig metricsConfig,
             NameMapping nameMapping)
-            throws ParquetCorruptionException
+            throws IOException
     {
         requireNonNull(fieldMetrics, "fieldMetrics should not be null");
 
@@ -156,18 +153,6 @@ public final class ParquetUtil
                 createNanValueCounts(fieldMetricsMap.values().stream(), metricsConfig, fileSchema),
                 toBufferMap(fileSchema, lowerBounds),
                 toBufferMap(fileSchema, upperBounds));
-    }
-
-    public static List<Long> getSplitOffsets(ParquetMetadata metadata)
-            throws ParquetCorruptionException
-    {
-        List<BlockMetadata> blocks = metadata.getBlocks();
-        List<Long> splitOffsets = new ArrayList<>(blocks.size());
-        for (BlockMetadata blockMetaData : blocks) {
-            splitOffsets.add(blockMetaData.getStartingPos());
-        }
-        Collections.sort(splitOffsets);
-        return ImmutableList.copyOf(splitOffsets);
     }
 
     private static void updateFromFieldMetrics(

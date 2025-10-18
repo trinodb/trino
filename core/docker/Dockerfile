@@ -34,8 +34,8 @@ RUN \
     mkdir -p /tmp/overlay/usr/libexec/ && \
     touch /tmp/overlay/usr/libexec/grepconf.sh && \
     chmod +x /tmp/overlay/usr/libexec/grepconf.sh && \
-    yum update -y && \
-    yum install --installroot /tmp/overlay --setopt install_weak_deps=false --nodocs -y \
+    dnf update -y && \
+    dnf install --installroot /tmp/overlay --setopt install_weak_deps=false --nodocs -y \
       less \
       libstdc++ `# required by snappy and duckdb` \
       curl-minimal grep `# required by health-check` \

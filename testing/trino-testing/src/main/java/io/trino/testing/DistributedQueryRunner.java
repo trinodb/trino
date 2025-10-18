@@ -297,7 +297,7 @@ public final class DistributedQueryRunner
     private static void setupLogging()
     {
         Logging logging = Logging.initialize();
-        logging.setLevel("Bootstrap", WARN);
+        logging.setLevel("io.trino.bootstrap", WARN);
         logging.setLevel("org.glassfish", ERROR);
         logging.setLevel("org.eclipse.jetty.server", WARN);
         logging.setLevel("org.hibernate.validator.internal.util.Version", WARN);
@@ -938,6 +938,8 @@ public final class DistributedQueryRunner
                 // create smaller number of segments
                 addExtraProperty("protocol.spooling.initial-segment-size", "16MB");
                 addExtraProperty("protocol.spooling.max-segment-size", "32MB");
+                // Disable inlining to test spooling
+                addExtraProperty("protocol.spooling.inlining.enabled", "false");
                 addExtraProperty("protocol.spooling.shared-secret-key", randomAESKey());
                 // LocalSpoolingManager doesn't support direct storage access
                 addExtraProperty("protocol.spooling.retrieval-mode", "coordinator_proxy");

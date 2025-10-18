@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,13 +66,6 @@ public class StagesInfo
         return stages;
     }
 
-    public StagesInfo pruneDigests()
-    {
-        return new StagesInfo(
-                outputStageId,
-                stages.stream().map(StageInfo::pruneDigests).collect(toImmutableList()));
-    }
-
     @JsonIgnore
     public StageInfo getOutputStage()
     {
@@ -92,13 +86,13 @@ public class StagesInfo
     }
 
     @JsonIgnore
-    public List<StageInfo> getSubStagesDeepPreOrder(StageId stageId)
+    public List<StageInfo> getSubStagesDeep(StageId stageId)
     {
-        return getSubStagesDeepPreOrder(stageId, false);
+        return getSubStagesDeep(stageId, false);
     }
 
     @JsonIgnore
-    public List<StageInfo> getSubStagesDeepPreOrder(StageId root, boolean includeRoot)
+    public List<StageInfo> getSubStagesDeep(StageId root, boolean includeRoot)
     {
         StageInfo stageInfo = stagesById.get(root);
         checkArgument(stageInfo != null, "stage %s not found", root);
@@ -112,7 +106,7 @@ public class StagesInfo
         return subStagesIds.build().stream().map(stagesById::get).collect(toImmutableList());
     }
 
-    private void collectSubStageIdsPreOrder(StageInfo stageInfo, ImmutableSet.Builder collector)
+    private void collectSubStageIdsPreOrder(StageInfo stageInfo, ImmutableSet.Builder<StageId> collector)
     {
         stageInfo.getSubStages().stream().forEach(subStageId -> {
             collector.add(subStageId);
@@ -122,33 +116,29 @@ public class StagesInfo
     }
 
     @JsonIgnore
-    public List<StageInfo> getSubStagesDeepPostOrder(StageId stageId)
+    public List<StageInfo> getSubStagesDeepTopological(StageId root, boolean includeRoot)
     {
-        return getSubStagesDeepPostOrder(stageId, false);
+        ImmutableList.Builder<StageInfo> builder = ImmutableList.builder();
+        getSubStagesDeepTopologicalInner(root, builder, new HashSet<>(), includeRoot);
+
+        return builder.build().reverse();
     }
 
-    @JsonIgnore
-    public List<StageInfo> getSubStagesDeepPostOrder(StageId root, boolean includeRoot)
+    private void getSubStagesDeepTopologicalInner(StageId stageId, ImmutableList.Builder<StageInfo> builder, Set<StageId> visitedFragments, boolean includeRoot)
     {
-        StageInfo stageInfo = stagesById.get(root);
-        checkArgument(stageInfo != null, "stage %s not found", root);
-
-        ImmutableSet.Builder<StageId> subStagesIds = ImmutableSet.builder();
-        collectSubStageIdsPostOrder(stageInfo, subStagesIds);
-        if (includeRoot) {
-            subStagesIds.add(root);
+        if (visitedFragments.contains(stageId)) {
+            return;
         }
 
-        return subStagesIds.build().stream().map(stagesById::get).collect(toImmutableList());
-    }
+        StageInfo stageInfo = stagesById.get(stageId);
 
-    private void collectSubStageIdsPostOrder(StageInfo stageInfo, ImmutableSet.Builder collector)
-    {
-        stageInfo.getSubStages().stream().forEach(subStageId -> {
-            StageInfo subStage = stagesById.get(subStageId);
-            collectSubStageIdsPostOrder(subStage, collector);
-            collector.add(subStageId);
-        });
+        for (StageId childId : stageInfo.getSubStages().reversed()) {
+            getSubStagesDeepTopologicalInner(childId, builder, visitedFragments, true);
+        }
+        if (includeRoot) {
+            builder.add(stageInfo);
+        }
+        visitedFragments.add(stageId);
     }
 
     public static List<StageInfo> getAllStages(Optional<StagesInfo> stages)

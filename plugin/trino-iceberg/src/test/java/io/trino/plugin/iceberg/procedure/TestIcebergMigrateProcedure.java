@@ -30,6 +30,8 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
+import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
+import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -290,11 +292,18 @@ public class TestIcebergMigrateProcedure
     @Test
     public void testMigratePartitionedTable()
     {
+        testMigratePartitionedTable(PARQUET);
+        testMigratePartitionedTable(ORC);
+        testMigratePartitionedTable(AVRO);
+    }
+
+    private void testMigratePartitionedTable(IcebergFileFormat format)
+    {
         String tableName = "test_migrate_partitioned_" + randomNameSuffix();
         String hiveTableName = "hive.tpch." + tableName;
         String icebergTableName = "iceberg.tpch." + tableName;
 
-        assertUpdate("CREATE TABLE " + hiveTableName + " WITH (partitioned_by = ARRAY['part_col']) AS SELECT 1 id, 'part1' part_col", 1);
+        assertUpdate("CREATE TABLE " + hiveTableName + " WITH (format = '" + format + "', partitioned_by = ARRAY['part_col']) AS SELECT 1 id, 'part1' part_col", 1);
         assertQueryFails("SELECT * FROM " + icebergTableName, "Not an Iceberg table: .*");
 
         assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");

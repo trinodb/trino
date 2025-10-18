@@ -34,14 +34,10 @@ import io.trino.spi.function.AggregationImplementation.AccumulatorStateDescripto
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.FunctionDependencies;
-import io.trino.spi.function.FunctionDependency;
 import io.trino.spi.function.InOut;
 import io.trino.spi.function.InputFunction;
-import io.trino.spi.function.LiteralParameter;
-import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.Signature;
-import io.trino.spi.function.TypeParameter;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.type.TypeSignature;
 
@@ -318,10 +314,7 @@ public final class AggregationFromAnnotationsParser
     {
         Annotation[][] parameterAnnotations = function.getParameterAnnotations();
         return IntStream.range(0, function.getParameterCount())
-                .filter(i -> Arrays.stream(parameterAnnotations[i]).noneMatch(TypeParameter.class::isInstance))
-                .filter(i -> Arrays.stream(parameterAnnotations[i]).noneMatch(LiteralParameter.class::isInstance))
-                .filter(i -> Arrays.stream(parameterAnnotations[i]).noneMatch(OperatorDependency.class::isInstance))
-                .filter(i -> Arrays.stream(parameterAnnotations[i]).noneMatch(FunctionDependency.class::isInstance));
+                .filter(i -> Arrays.stream(parameterAnnotations[i]).noneMatch(ImplementationDependency::isImplementationDependencyAnnotation));
     }
 
     private static List<Class<?>> getNonDependencyParameterTypes(Method function)

@@ -222,8 +222,7 @@ class Query
             // Wait for the query info to become available and close the exchange client if there is no output stage for the query results to be pulled from.
             // This listener also makes sure the exchange client is always properly closed upon query failure.
             if (state.isDone() || state == FINISHING) {
-                QueryInfo queryInfo = queryManager.getFullQueryInfo(result.getQueryId());
-                result.closeExchangeIfNecessary(new ResultQueryInfo(queryInfo));
+                result.closeExchangeIfNecessary(queryManager.getResultQueryInfo(result.getQueryId()));
             }
         });
 
@@ -524,7 +523,7 @@ class Query
 
         // first time through, self is null
         QueryResults queryResults = new QueryResults(
-                queryId.toString(),
+                queryId.id(),
                 getQueryInfoUri(queryInfoUrl, queryId, externalUriInfo),
                 partialCancelUri,
                 nextResultsUri,
@@ -715,7 +714,7 @@ class Query
     {
         return externalUriInfo.baseUriBuilder()
                 .path("/v1/statement/executing")
-                .path(queryId.toString())
+                .path(queryId.id())
                 .path(slug.makeSlug(EXECUTING_QUERY, nextToken))
                 .path(String.valueOf(nextToken))
                 .build();
@@ -725,7 +724,7 @@ class Query
     {
         return externalUriInfo.baseUriBuilder()
                 .path("/v1/statement/executing/partialCancel")
-                .path(queryId.toString())
+                .path(queryId.id())
                 .path(String.valueOf(stage))
                 .path(slug.makeSlug(EXECUTING_QUERY, nextToken))
                 .path(String.valueOf(nextToken))
@@ -761,7 +760,7 @@ class Query
         }
 
         // no matching sub stage, so return this stage
-        return Optional.of(stage.getStageId().getId());
+        return Optional.of(stage.getStageId().id());
     }
 
     private static QueryError toQueryError(ResultQueryInfo queryInfo, Optional<Throwable> exception)

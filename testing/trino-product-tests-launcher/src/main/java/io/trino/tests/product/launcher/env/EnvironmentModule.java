@@ -22,6 +22,7 @@ import io.trino.tests.product.launcher.env.common.Hadoop;
 import io.trino.tests.product.launcher.env.common.HadoopKerberos;
 import io.trino.tests.product.launcher.env.common.HadoopKerberosKms;
 import io.trino.tests.product.launcher.env.common.HadoopKerberosKmsWithImpersonation;
+import io.trino.tests.product.launcher.env.common.Hive4WithMinio;
 import io.trino.tests.product.launcher.env.common.HttpProxy;
 import io.trino.tests.product.launcher.env.common.HttpsProxy;
 import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
@@ -36,8 +37,8 @@ import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TaskRetriesMultinode;
 import io.trino.tests.product.launcher.env.environment.SpoolingMinio;
-import io.trino.tests.product.launcher.env.jdk.DistributionDownloadingJdkProvider;
 import io.trino.tests.product.launcher.env.jdk.JdkProvider;
+import io.trino.tests.product.launcher.env.jdk.TemurinJdkProvider;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import java.io.File;
@@ -99,6 +100,7 @@ public final class EnvironmentModule
         binder.bind(OpenLdapReferral.class).in(SINGLETON);
         binder.bind(HttpProxy.class).in(SINGLETON);
         binder.bind(HttpsProxy.class).in(SINGLETON);
+        binder.bind(Hive4WithMinio.class).in(SINGLETON);
 
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);
         findEnvironmentsByBasePackage(ENVIRONMENT_PACKAGE).forEach(clazz -> environments.addBinding(nameForEnvironmentClass(clazz)).to(clazz).in(SINGLETON));
@@ -123,9 +125,9 @@ public final class EnvironmentModule
     @Singleton
     public JdkProvider provideJdk(Map<String, JdkProvider> jdkProviders, EnvironmentOptions options)
     {
-        String version = firstNonNull(options.jdkVersion, "").trim().toLowerCase(ENGLISH);
+        String version = firstNonNull(options.trinoJdkRelease, "").trim().toLowerCase(ENGLISH);
         if (version.isBlank()) {
-            throw new IllegalArgumentException("Expected non-empty --trino-jdk-version");
+            throw new IllegalArgumentException("Expected non-empty --trino-jdk-release");
         }
 
         JdkProvider jdkProvider = jdkProviders.get(canonicalJdkProviderName(version));
@@ -133,7 +135,7 @@ public final class EnvironmentModule
             return jdkProvider;
         }
 
-        return new DistributionDownloadingJdkProvider(requireNonNull(options.jdkDistributions, "--trino-jdk-paths is empty"), version, options.jdkDownloadPath);
+        return new TemurinJdkProvider(version, options.jdkDownloadPath);
     }
 
     @Provides

@@ -27,7 +27,7 @@ Versions before 350 are not supported.
 (jdbc-installation)=
 ## Installation
 
-Download {maven_download}`jdbc` and add it to the classpath of your Java application.
+Download {download_mc}`jdbc` and add it to the classpath of your Java application.
 
 The driver is also available from Maven Central:
 
@@ -248,7 +248,10 @@ may not be specified using both methods.
     different users, the first registered token is stored and authenticates all
     users.
 * - `disableCompression`
-  -  Whether compression should be enabled.
+  -  Whether HTTP compression should be disabled. Defaults to `false`.
+* - `disallowLocalRedirect`
+  -  Whether client should reject redirects to localhost, link or site local
+     IP addresses. Defaults to `false`.
 * - `assumeLiteralUnderscoreInMetadataCallsForNonConformingClients`
   - When enabled, the name patterns passed to `DatabaseMetaData` methods are
     treated as underscores. You can use this as a workaround for applications

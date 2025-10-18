@@ -31,6 +31,14 @@ with ORC files performed by supported object storage connectors:
 [](file-compression) is automatically performed and some details can be
 configured.
 
+## ORC support limitations
+
+[Trino ignores Calendar entry in ORC file metadata.](https://github.com/trinodb/trino/issues/26865)
+As a result Trino always treats dates and timestamps as values written using
+proleptic Gregorian calendar. This causes incorrect values read when reading
+date/time values before Oct 15, 1582 that were written using hybrid
+Julian-Gregorian calendar.
+
 (parquet-format-configuration)=
 ## Parquet format configuration properties
 

@@ -115,17 +115,6 @@ public abstract class AbstractIntType
     }
 
     @Override
-    public final void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            writeInt(blockBuilder, getInt(block, position));
-        }
-    }
-
-    @Override
     public int getFlatFixedSize()
     {
         return Integer.BYTES;

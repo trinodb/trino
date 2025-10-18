@@ -56,8 +56,6 @@ public class QueryStatistics
     private final long processedInputRows;
     private final long internalNetworkBytes;
     private final long internalNetworkRows;
-    private final long totalBytes;
-    private final long totalRows;
     private final long outputBytes;
     private final long outputRows;
     private final long writtenBytes;
@@ -119,8 +117,6 @@ public class QueryStatistics
             long processedInputRows,
             long internalNetworkBytes,
             long internalNetworkRows,
-            long totalBytes,
-            long totalRows,
             long outputBytes,
             long outputRows,
             long writtenBytes,
@@ -167,8 +163,6 @@ public class QueryStatistics
                 processedInputRows,
                 internalNetworkBytes,
                 internalNetworkRows,
-                totalBytes,
-                totalRows,
                 outputBytes,
                 outputRows,
                 writtenBytes,
@@ -216,8 +210,6 @@ public class QueryStatistics
             long processedInputRows,
             long internalNetworkBytes,
             long internalNetworkRows,
-            long totalBytes,
-            long totalRows,
             long outputBytes,
             long outputRows,
             long writtenBytes,
@@ -263,8 +255,6 @@ public class QueryStatistics
         this.processedInputRows = processedInputRows;
         this.internalNetworkBytes = internalNetworkBytes;
         this.internalNetworkRows = internalNetworkRows;
-        this.totalBytes = totalBytes;
-        this.totalRows = totalRows;
         this.outputBytes = outputBytes;
         this.outputRows = outputRows;
         this.writtenBytes = writtenBytes;
@@ -439,18 +429,6 @@ public class QueryStatistics
     public long getInternalNetworkRows()
     {
         return internalNetworkRows;
-    }
-
-    @JsonProperty
-    public long getTotalBytes()
-    {
-        return totalBytes;
-    }
-
-    @JsonProperty
-    public long getTotalRows()
-    {
-        return totalRows;
     }
 
     @JsonProperty

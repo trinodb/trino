@@ -687,12 +687,11 @@ public class UnaliasSymbolReferences
         {
             Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
             SymbolMapper mapper = symbolMapper(mapping);
-            Symbol newOutput = mapper.map(node.getOutput());
 
             return new PlanAndMappings(
                     new SimpleTableExecuteNode(
                             node.getId(),
-                            newOutput,
+                            mapper.map(node.getOutputSymbols()),
                             node.getExecuteHandle()),
                     mapping);
         }
@@ -847,7 +846,7 @@ public class UnaliasSymbolReferences
             // Those symbols are supposed to represent constant semantics throughout the plan.
 
             Assignments assignments = node.getAssignments();
-            Set<Symbol> newlyAssignedSymbols = assignments.filter(output -> !assignments.isIdentity(output)).getSymbols();
+            Set<Symbol> newlyAssignedSymbols = assignments.filter(output -> !assignments.isIdentity(output)).outputs();
             Set<Symbol> symbolsInSourceMapping = ImmutableSet.<Symbol>builder()
                     .addAll(rewrittenSource.getMappings().keySet())
                     .addAll(rewrittenSource.getMappings().values())

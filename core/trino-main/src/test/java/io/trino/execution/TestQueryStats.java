@@ -58,7 +58,6 @@ public class TestQueryStats
                     succinctBytes(182L),
                     1822,
                     succinctBytes(18L),
-                    succinctBytes(19L),
                     110L,
                     111.0,
                     112L,
@@ -100,7 +99,6 @@ public class TestQueryStats
                     succinctBytes(282L),
                     2822,
                     succinctBytes(28L),
-                    succinctBytes(29L),
                     210L,
                     211.0,
                     212L,
@@ -142,7 +140,6 @@ public class TestQueryStats
                     succinctBytes(382L),
                     3822,
                     succinctBytes(38L),
-                    succinctBytes(39L),
                     310L,
                     311.0,
                     312L,
@@ -243,11 +240,6 @@ public class TestQueryStats
             DataSize.ofBytes(243),
             253,
             254,
-
-            DataSize.ofBytes(35),
-            DataSize.ofBytes(36),
-            37,
-            38,
 
             DataSize.ofBytes(39),
             DataSize.ofBytes(40),
@@ -354,11 +346,6 @@ public class TestQueryStats
         assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(253);
         assertThat(actual.getFailedInternalNetworkInputPositions()).isEqualTo(254);
 
-        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(35));
-        assertThat(actual.getFailedRawInputDataSize()).isEqualTo(DataSize.ofBytes(36));
-        assertThat(actual.getRawInputPositions()).isEqualTo(37);
-        assertThat(actual.getFailedRawInputPositions()).isEqualTo(38);
-
         assertThat(actual.getProcessedInputDataSize()).isEqualTo(DataSize.ofBytes(39));
         assertThat(actual.getFailedProcessedInputDataSize()).isEqualTo(DataSize.ofBytes(40));
         assertThat(actual.getProcessedInputPositions()).isEqualTo(41);
@@ -389,7 +376,7 @@ public class TestQueryStats
         assertThat(gcStatistics.getAverageFullGcSec()).isEqualTo(107);
 
         assertThat(420).isEqualTo(actual.getWrittenPositions());
-        assertThat(58).isEqualTo(actual.getLogicalWrittenDataSize().toBytes());
+        assertThat(56).isEqualTo(actual.getLogicalWrittenDataSize().toBytes());
 
         assertThat(DynamicFiltersStats.EMPTY).isEqualTo(actual.getDynamicFiltersStats());
         assertThat(actual.getOptimizerRulesSummaries()).hasSize(optimizerRulesSummaries.size());

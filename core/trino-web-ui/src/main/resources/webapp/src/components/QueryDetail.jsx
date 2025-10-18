@@ -142,17 +142,22 @@ class TaskList extends React.Component {
                     <Td column="state" value={TaskList.formatState(task.taskStatus.state, task.stats.fullyBlocked)}>
                         {TaskList.formatState(task.taskStatus.state, task.stats.fullyBlocked)}
                     </Td>
-                    <Td column="rows" value={task.stats.rawInputPositions}>
-                        {formatCount(task.stats.rawInputPositions)}
+                    <Td column="rows" value={task.stats.processedInputPositions}>
+                        {formatCount(task.stats.processedInputPositions)}
                     </Td>
-                    <Td column="rowsSec" value={computeRate(task.stats.rawInputPositions, elapsedTime)}>
-                        {formatCount(computeRate(task.stats.rawInputPositions, elapsedTime))}
+                    <Td column="rowsSec" value={computeRate(task.stats.processedInputPositions, elapsedTime)}>
+                        {formatCount(computeRate(task.stats.processedInputPositions, elapsedTime))}
                     </Td>
-                    <Td column="bytes" value={parseDataSize(task.stats.rawInputDataSize)}>
-                        {formatDataSizeBytes(parseDataSize(task.stats.rawInputDataSize))}
+                    <Td column="bytes" value={parseDataSize(task.stats.processedInputDataSize)}>
+                        {formatDataSizeBytes(parseDataSize(task.stats.processedInputDataSize))}
                     </Td>
-                    <Td column="bytesSec" value={computeRate(parseDataSize(task.stats.rawInputDataSize), elapsedTime)}>
-                        {formatDataSizeBytes(computeRate(parseDataSize(task.stats.rawInputDataSize), elapsedTime))}
+                    <Td
+                        column="bytesSec"
+                        value={computeRate(parseDataSize(task.stats.processedInputDataSize), elapsedTime)}
+                    >
+                        {formatDataSizeBytes(
+                            computeRate(parseDataSize(task.stats.processedInputDataSize), elapsedTime)
+                        )}
                     </Td>
                     <Td column="splitsPending" value={task.stats.queuedDrivers}>
                         {task.stats.queuedDrivers}

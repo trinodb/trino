@@ -1426,7 +1426,16 @@ public final class GeoFunctions
     @ScalarFunction("to_geojson_geometry")
     @Description("Returns GeoJSON string based on the input spherical geography")
     @SqlType(VARCHAR)
-    public static Slice toGeoJsonGeometry(@SqlType(StandardTypes.SPHERICAL_GEOGRAPHY) Slice input)
+    public static Slice geographyToGeoJson(@SqlType(StandardTypes.SPHERICAL_GEOGRAPHY) Slice input)
+    {
+        return Slices.utf8Slice(jsonFromJtsGeometry(JtsGeometrySerde.deserialize(input)));
+    }
+
+    @SqlNullable
+    @ScalarFunction("to_geojson_geometry")
+    @Description("Returns GeoJSON string based on the input geometry")
+    @SqlType(VARCHAR)
+    public static Slice geometryToGeoJson(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
         return Slices.utf8Slice(jsonFromJtsGeometry(JtsGeometrySerde.deserialize(input)));
     }

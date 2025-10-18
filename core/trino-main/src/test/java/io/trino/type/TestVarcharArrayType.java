@@ -51,7 +51,7 @@ public class TestVarcharArrayType
         Block block = (Block) value;
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, block.getPositionCount() + 1);
         for (int i = 0; i < block.getPositionCount(); i++) {
-            VARCHAR.appendTo(block, i, blockBuilder);
+            blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(i));
         }
         VARCHAR.writeSlice(blockBuilder, utf8Slice("_"));
 

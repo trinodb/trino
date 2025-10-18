@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>477-SNAPSHOT</version>
+        <version>478-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,7 +15,7 @@
     <description>Trino - Apache Ranger access control</description>
 
     <properties>
-        <dep.graalvm.version>24.2.2</dep.graalvm.version>
+        <dep.graalvm.version>25.0.0</dep.graalvm.version>
         <dep.ranger.version>2.7.0</dep.ranger.version>
     </properties>
 

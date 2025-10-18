@@ -51,13 +51,13 @@ public class TestOllamaFunctions
                 .hasSize(1).first()
                 .extracting(SpanData::getAttributes, ATTRIBUTES)
                 .containsEntry("gen_ai.operation.name", "chat")
-                .containsEntry("gen_ai.system", "openai")
+                .containsEntry("gen_ai.provider.name", "openai")
                 .containsEntry("gen_ai.request.model", "llama3.3")
                 .containsEntry("gen_ai.request.seed", 0)
                 .containsEntry("gen_ai.response.id", "chatcmpl-487")
                 .containsEntry("gen_ai.response.model", "llama3.3")
-                .doesNotContainKey("gen_ai.openai.response.service_tier")
-                .containsEntry("gen_ai.openai.response.system_fingerprint", "fp_ollama")
+                .doesNotContainKey("openai.response.service_tier")
+                .containsEntry("openai.response.system_fingerprint", "fp_ollama")
                 .containsEntry("gen_ai.usage.input_tokens", 17)
                 .containsEntry("gen_ai.usage.output_tokens", 8);
 

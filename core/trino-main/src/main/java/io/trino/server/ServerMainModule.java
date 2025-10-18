@@ -38,7 +38,6 @@ import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
 import io.trino.connector.system.SystemConnectorModule;
 import io.trino.dispatcher.DispatchManager;
-import io.trino.event.SplitMonitor;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.ExplainAnalyzeContext;
 import io.trino.execution.FailureInjector;
@@ -128,7 +127,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.analyzer.SessionTimeProvider;
 import io.trino.sql.analyzer.StatementAnalyzerFactory;
-import io.trino.sql.gen.CursorProcessorCompiler;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
@@ -204,6 +202,7 @@ public class ServerMainModule
 
         configBinder(binder).bindConfigDefaults(HttpServerConfig.class, httpServerConfig -> {
             httpServerConfig.setHttp2MaxConcurrentStreams(32 * 1024); // from the default 16K
+            httpServerConfig.setCompressionEnabled(false); // https://github.com/jetty/jetty.project/issues/13679
         });
 
         binder.bind(PreparedStatementEncoder.class).in(Scopes.SINGLETON);
@@ -277,8 +276,6 @@ public class ServerMainModule
         newExporter(binder).export(PageFunctionCompiler.class).withGeneratedName();
         binder.bind(ColumnarFilterCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ColumnarFilterCompiler.class).withGeneratedName();
-        binder.bind(CursorProcessorCompiler.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(CursorProcessorCompiler.class).withGeneratedName();
         configBinder(binder).bindConfig(TaskManagerConfig.class);
 
         // TODO: use conditional module
@@ -413,8 +410,8 @@ public class ServerMainModule
         jsonBinder(binder).addSerializerBinding(Slice.class).to(SliceSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Slice.class).to(SliceDeserializer.class);
 
-        // split monitor
-        binder.bind(SplitMonitor.class).in(Scopes.SINGLETON);
+        // configurable DataSize serialization
+        jsonBinder(binder).addSerializerBinding(DataSize.class).to(DataSizeSerializer.class);
 
         // node version
         binder.bind(NodeVersion.class).toInstance(new NodeVersion(nodeVersion));

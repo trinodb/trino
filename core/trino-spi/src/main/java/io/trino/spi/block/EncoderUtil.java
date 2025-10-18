@@ -29,43 +29,43 @@ final class EncoderUtil
      * Append null values for the block as a stream of bits.
      */
     @SuppressWarnings({"NarrowingCompoundAssignment", "ImplicitNumericConversion"})
-    public static void encodeNullsAsBits(SliceOutput sliceOutput, Block block)
+    public static void encodeNullsAsBits(SliceOutput sliceOutput, @Nullable boolean[] isNull, int offset, int length)
     {
-        boolean mayHaveNull = block.mayHaveNull();
-        sliceOutput.writeBoolean(mayHaveNull);
-        if (!mayHaveNull) {
+        sliceOutput.writeBoolean(isNull != null);
+        if (isNull == null) {
             return;
         }
-
-        int positionCount = block.getPositionCount();
-        byte[] packedIsNull = new byte[((positionCount & ~0b111) + 1) / 8];
-        int currentByte = 0;
-
-        for (int position = 0; position < (positionCount & ~0b111); position += 8, currentByte++) {
-            byte value = 0;
-            value |= block.isNull(position) ? 0b1000_0000 : 0;
-            value |= block.isNull(position + 1) ? 0b0100_0000 : 0;
-            value |= block.isNull(position + 2) ? 0b0010_0000 : 0;
-            value |= block.isNull(position + 3) ? 0b0001_0000 : 0;
-            value |= block.isNull(position + 4) ? 0b0000_1000 : 0;
-            value |= block.isNull(position + 5) ? 0b0000_0100 : 0;
-            value |= block.isNull(position + 6) ? 0b0000_0010 : 0;
-            value |= block.isNull(position + 7) ? 0b0000_0001 : 0;
-            packedIsNull[currentByte] = value;
+        // inlined from Objects.checkFromIndexSize
+        if ((length | offset) < 0 || length > isNull.length - offset) {
+            throw new IndexOutOfBoundsException("Invalid offset: %s, length: %s for size: %s".formatted(offset, length, isNull.length));
         }
-
-        sliceOutput.writeBytes(packedIsNull);
+        byte[] packedIsNull = new byte[(length + 7) / 8];
+        int currentByte = 0;
+        for (int position = 0; position < (length & ~0b111); position += 8) {
+            byte value = 0;
+            value |= (isNull[position + offset] ? 1 : 0) << 7;
+            value |= (isNull[position + offset + 1] ? 1 : 0) << 6;
+            value |= (isNull[position + offset + 2] ? 1 : 0) << 5;
+            value |= (isNull[position + offset + 3] ? 1 : 0) << 4;
+            value |= (isNull[position + offset + 4] ? 1 : 0) << 3;
+            value |= (isNull[position + offset + 5] ? 1 : 0) << 2;
+            value |= (isNull[position + offset + 6] ? 1 : 0) << 1;
+            value |= (isNull[position + offset + 7] ? 1 : 0);
+            packedIsNull[currentByte++] = value;
+        }
 
         // write last null bits
-        if ((positionCount & 0b111) > 0) {
+        if ((length & 0b111) > 0) {
             byte value = 0;
             int mask = 0b1000_0000;
-            for (int position = positionCount & ~0b111; position < positionCount; position++) {
-                value |= block.isNull(position) ? mask : 0;
+            for (int position = length & ~0b111; position < length; position++) {
+                value |= isNull[position + offset] ? mask : 0;
                 mask >>>= 1;
             }
-            sliceOutput.appendByte(value);
+            packedIsNull[currentByte++] = value;
         }
+
+        sliceOutput.writeBytes(packedIsNull, 0, currentByte);
     }
 
     /**

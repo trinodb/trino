@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.plugin.deltalake.functions.tablechanges.TableChangesSplitSource;
@@ -57,6 +56,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.filesystem.cache.CachingHostAddressProvider.getSplitKey;
 import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.AnalyzeMode.FULL_REFRESH;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.createStatisticsPredicate;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getDynamicFilteringWaitTimeout;
@@ -84,7 +84,7 @@ public class DeltaLakeSplitManager
     private final int maxSplitsPerSecond;
     private final int maxOutstandingSplits;
     private final double minimumAssignedSplitWeight;
-    private final TrinoFileSystemFactory fileSystemFactory;
+    private final DeltaLakeFileSystemFactory fileSystemFactory;
     private final DeltaLakeTransactionManager deltaLakeTransactionManager;
     private final CachingHostAddressProvider cachingHostAddressProvider;
 
@@ -94,7 +94,7 @@ public class DeltaLakeSplitManager
             TransactionLogAccess transactionLogAccess,
             @ForDeltaLakeSplitManager ExecutorService executor,
             DeltaLakeConfig config,
-            TrinoFileSystemFactory fileSystemFactory,
+            DeltaLakeFileSystemFactory fileSystemFactory,
             DeltaLakeTransactionManager deltaLakeTransactionManager,
             CachingHostAddressProvider cachingHostAddressProvider)
     {
@@ -329,7 +329,7 @@ public class DeltaLakeSplitManager
                     Optional.empty(),
                     addFileEntry.getModificationTime(),
                     addFileEntry.getDeletionVector(),
-                    cachingHostAddressProvider.getHosts(splitPath, ImmutableList.of()),
+                    cachingHostAddressProvider.getHosts(getSplitKey(splitPath, currentOffset, splitSize), ImmutableList.of()),
                     SplitWeight.fromProportion(clamp((double) splitSize / maxSplitSize, minimumAssignedSplitWeight, 1.0)),
                     statisticsPredicate,
                     partitionKeys));

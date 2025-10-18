@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.transactionlog.writer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.filesystem.Location;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CdcEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
@@ -32,11 +33,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
-import static org.apache.parquet.Preconditions.checkState;
 
 public class FileSystemTransactionLogWriter
         implements TransactionLogWriter
@@ -48,12 +49,14 @@ public class FileSystemTransactionLogWriter
     private final TransactionLogSynchronizer logSynchronizer;
     private final ConnectorSession session;
     private final String tableLocation;
+    private final VendedCredentialsHandle credentialsHandle;
 
-    public FileSystemTransactionLogWriter(ConnectorSession session, TransactionLogSynchronizer logSynchronizer, String tableLocation)
+    public FileSystemTransactionLogWriter(ConnectorSession session, TransactionLogSynchronizer logSynchronizer, String tableLocation, VendedCredentialsHandle credentialsHandle)
     {
         this.logSynchronizer = requireNonNull(logSynchronizer, "logSynchronizer is null");
         this.session = requireNonNull(session, "session is null");
         this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
+        this.credentialsHandle = requireNonNull(credentialsHandle, "credentialsHandle is null");
     }
 
     @Override
@@ -121,7 +124,7 @@ public class FileSystemTransactionLogWriter
             }
 
             String clusterId = commitInfoEntry.get().getCommitInfo().clusterId();
-            logSynchronizer.write(session, clusterId, logEntry, bos.toByteArray());
+            logSynchronizer.write(session, credentialsHandle, clusterId, logEntry, bos.toByteArray());
         }
     }
 

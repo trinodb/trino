@@ -14,6 +14,7 @@
 package io.trino.client.uri;
 
 import io.trino.client.ClientException;
+import io.trino.client.DisallowLocalRedirectInterceptor;
 import io.trino.client.DnsResolver;
 import io.trino.client.auth.external.CompositeRedirectHandler;
 import io.trino.client.auth.external.ExternalAuthenticator;
@@ -124,6 +125,10 @@ public class HttpClientFactory
         setupHttpProxy(builder, uri.getHttpProxy());
         setupTimeouts(builder, toIntExact(uri.getTimeout().toMillis()), TimeUnit.MILLISECONDS);
         setupHttpLogging(builder, uri.getHttpLoggingLevel());
+
+        if (uri.isLocalRedirectDisallowed()) {
+            builder.addNetworkInterceptor(new DisallowLocalRedirectInterceptor());
+        }
 
         if (uri.isUseSecureConnection()) {
             ConnectionProperties.SslVerificationMode sslVerificationMode = uri.getSslVerification();

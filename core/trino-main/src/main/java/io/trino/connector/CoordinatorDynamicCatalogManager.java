@@ -28,8 +28,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.catalog.CatalogStore;
-import io.trino.spi.connector.CatalogHandle;
-import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.connector.ConnectorName;
 import jakarta.annotation.PreDestroy;
 
@@ -52,11 +51,11 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.metadata.Catalog.failedCatalog;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
-import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.util.Executors.executeUntilFailure;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -139,16 +138,16 @@ public class CoordinatorDynamicCatalogManager
                                 CatalogProperties catalog = null;
                                 try {
                                     catalog = storedCatalog.loadProperties();
-                                    verify(catalog.catalogHandle().getCatalogName().equals(storedCatalog.name()), "Catalog name does not match catalog handle");
+                                    verify(catalog.name().equals(storedCatalog.name()), "Catalog name does not match catalog properties");
                                     CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
                                     activeCatalogs.put(storedCatalog.name(), newCatalog.getCatalog());
-                                    allCatalogs.put(catalog.catalogHandle(), newCatalog);
+                                    allCatalogs.put(newCatalog.getCatalogHandle(), newCatalog);
                                     log.debug("-- Added catalog %s using connector %s --", storedCatalog.name(), catalog.connectorName());
                                 }
                                 catch (Throwable e) {
-                                    CatalogHandle catalogHandle = catalog != null ? catalog.catalogHandle() : createRootCatalogHandle(storedCatalog.name(), new CatalogVersion("failed"));
+                                    CatalogVersion catalogVersion = catalog != null ? catalog.version() : new CatalogVersion("failed");
                                     ConnectorName connectorName = catalog != null ? catalog.connectorName() : new ConnectorName("unknown");
-                                    activeCatalogs.put(storedCatalog.name(), failedCatalog(storedCatalog.name(), catalogHandle, connectorName));
+                                    activeCatalogs.put(storedCatalog.name(), failedCatalog(storedCatalog.name(), catalogVersion, connectorName));
                                     log.error(e, "-- Failed to load catalog %s using connector %s --", storedCatalog.name(), connectorName);
                                 }
                                 return null;
@@ -184,7 +183,7 @@ public class CoordinatorDynamicCatalogManager
     public void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs)
     {
         List<CatalogProperties> missingCatalogs = catalogs.stream()
-                .filter(catalog -> !allCatalogs.containsKey(catalog.catalogHandle()))
+                .filter(catalog -> !allCatalogs.containsKey(createRootCatalogHandle(catalog.name(), catalog.version())))
                 .collect(toImmutableList());
 
         if (!missingCatalogs.isEmpty()) {
@@ -274,8 +273,8 @@ public class CoordinatorDynamicCatalogManager
 
             // get or create catalog for the handle
             CatalogConnector catalog = allCatalogs.computeIfAbsent(
-                    catalogProperties.catalogHandle(),
-                    handle -> catalogFactory.createCatalog(catalogProperties));
+                    createRootCatalogHandle(catalogName, catalogProperties.version()),
+                    _ -> catalogFactory.createCatalog(catalogProperties));
             catalogStore.addOrReplaceCatalog(catalogProperties);
             activeCatalogs.put(catalogName, catalog.getCatalog());
 

@@ -72,9 +72,6 @@ public class TestPipelineStats
             DataSize.ofBytes(142),
             152,
 
-            DataSize.ofBytes(14),
-            15,
-
             DataSize.ofBytes(16),
             17,
 
@@ -124,8 +121,8 @@ public class TestPipelineStats
 
         assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(7));
 
-        assertThat(actual.getQueuedTime().getCount()).isEqualTo(8.0);
-        assertThat(actual.getElapsedTime().getCount()).isEqualTo(9.0);
+        assertThat(actual.getQueuedTime().count()).isEqualTo(8.0);
+        assertThat(actual.getElapsedTime().count()).isEqualTo(9.0);
 
         assertThat(actual.getTotalScheduledTime()).isEqualTo(new Duration(10, NANOSECONDS));
         assertThat(actual.getTotalCpuTime()).isEqualTo(new Duration(11, NANOSECONDS));
@@ -137,9 +134,6 @@ public class TestPipelineStats
 
         assertThat(actual.getInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(142));
         assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(152);
-
-        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(14));
-        assertThat(actual.getRawInputPositions()).isEqualTo(15);
 
         assertThat(actual.getProcessedInputDataSize()).isEqualTo(DataSize.ofBytes(16));
         assertThat(actual.getProcessedInputPositions()).isEqualTo(17);

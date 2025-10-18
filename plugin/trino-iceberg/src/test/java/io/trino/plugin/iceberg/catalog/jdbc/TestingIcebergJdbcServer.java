@@ -15,7 +15,7 @@ package io.trino.plugin.iceberg.catalog.jdbc;
 
 import org.apache.iceberg.jdbc.TestingTrinoIcebergJdbcUtil;
 import org.intellij.lang.annotations.Language;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.io.Closeable;
 import java.sql.Connection;
@@ -33,12 +33,12 @@ public class TestingIcebergJdbcServer
     public static final String PASSWORD = "test";
     private static final String DATABASE = "tpch";
 
-    private final PostgreSQLContainer<?> dockerContainer;
+    private final PostgreSQLContainer dockerContainer;
 
     public TestingIcebergJdbcServer()
     {
         // TODO: Use Iceberg docker image once the community provides it
-        dockerContainer = new PostgreSQLContainer<>("postgres:12.10")
+        dockerContainer = new PostgreSQLContainer("postgres:12.10")
                 .withDatabaseName(DATABASE)
                 .withUsername(USER)
                 .withPassword(PASSWORD);

@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake;
 import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler;
@@ -45,7 +44,7 @@ import static java.util.Objects.requireNonNull;
 public class DeltaLakeMetadataFactory
 {
     private final HiveMetastoreFactory hiveMetastoreFactory;
-    private final TrinoFileSystemFactory fileSystemFactory;
+    private final DeltaLakeFileSystemFactory fileSystemFactory;
     private final TransactionLogAccess transactionLogAccess;
     private final TypeManager typeManager;
     private final JsonCodec<DataFileInfo> dataFileInfoCodec;
@@ -70,7 +69,7 @@ public class DeltaLakeMetadataFactory
     @Inject
     public DeltaLakeMetadataFactory(
             HiveMetastoreFactory hiveMetastoreFactory,
-            TrinoFileSystemFactory fileSystemFactory,
+            DeltaLakeFileSystemFactory fileSystemFactory,
             TransactionLogAccess transactionLogAccess,
             TypeManager typeManager,
             DeltaLakeConfig deltaLakeConfig,

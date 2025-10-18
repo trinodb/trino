@@ -293,7 +293,6 @@ public class TestHiveMetastoreAccessOperations
                         .addCopies(GET_TABLE, 1)
                         .add(GET_PARTITION_NAMES_BY_FILTER)
                         .add(GET_PARTITIONS_BY_NAMES)
-                        .add(GET_PARTITION_COLUMN_STATISTICS)
                         .add(UPDATE_PARTITION_STATISTICS)
                         .build());
 
@@ -304,7 +303,6 @@ public class TestHiveMetastoreAccessOperations
                         .add(GET_TABLE)
                         .add(GET_PARTITION_NAMES_BY_FILTER)
                         .add(GET_PARTITIONS_BY_NAMES)
-                        .add(GET_PARTITION_COLUMN_STATISTICS)
                         .add(UPDATE_PARTITION_STATISTICS)
                         .build());
     }

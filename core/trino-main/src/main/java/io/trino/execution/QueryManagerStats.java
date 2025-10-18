@@ -73,11 +73,11 @@ public class QueryManagerStats
     {
         completedQueries.update(1);
 
-        long rawInputBytes = info.getQueryStats().getRawInputDataSize().toBytes();
+        long rawInputBytes = info.getQueryStats().getPhysicalInputDataSize().toBytes() + info.getQueryStats().getInternalNetworkInputDataSize().toBytes();
 
         consumedCpuTimeSecs.update((long) info.getQueryStats().getTotalCpuTime().getValue(SECONDS));
-        consumedInputBytes.update(info.getQueryStats().getRawInputDataSize().toBytes());
-        consumedInputRows.update(info.getQueryStats().getRawInputPositions());
+        consumedInputBytes.update(rawInputBytes);
+        consumedInputRows.update(info.getQueryStats().getProcessedInputPositions());
         executionTime.add(info.getQueryStats().getExecutionTime());
         queuedTime.add(info.getQueryStats().getQueuedTime());
 

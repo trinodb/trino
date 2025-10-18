@@ -165,11 +165,18 @@ The object storage location to use for spooling segments. Must be accessible by
 the coordinator and all workers. With the `protocol.spooling.retrieval-mode`
 retrieval modes `STORAGE` and `COORDINATOR_STORAGE_REDIRECT` the location must
 also be accessible by all clients. Valid location values vary by object storage
-type, and typically follow a pattern of `scheme://bucketName/path/`.
+type, and follow these patterns:
 
 Examples:
 
-* `s3://my-spooling-bucket/my-segments/`
+* **S3:** `s3://my-spooling-bucket/my-segments/`
+* **Azure Storage:** `abfss://my-spooling-container@account.dfs.core.windows.net/my-segments/`
+* **Google Cloud Storage:** `gs://my-spooling-bucket/my-segments/`
+
+:::{note}
+For Azure Storage, use the ABFS format with hierarchical namespace enabled. 
+The legacy WASB format (`wasbs://` or `wasb://`) is also supported but deprecated.
+:::
 
 :::{caution}
 The specified object storage location must not be used for spooling for another
@@ -177,9 +184,9 @@ Trino cluster or any object storage catalog. When using the same object storage
 for multiple services, you must use separate locations for each one. For
 example:
 
-* `s3://my-spooling-bucket/my-segments/cluster1-spooling`
-* `s3://my-spooling-bucket/my-segments/cluster2-spooling`
-* `s3://my-spooling-bucket/my-segments/iceberg-catalog`
+* `s3://my-spooling-bucket/my-segments/cluster1-spooling/`
+* `s3://my-spooling-bucket/my-segments/cluster2-spooling/`
+* `s3://my-spooling-bucket/my-segments/iceberg-catalog/`
 :::
 
 ### `fs.segment.ttl`
@@ -230,7 +237,7 @@ Interval to prune expired segments.
 
 ### `fs.segment.pruning.batch-size`
 
-- **Type:** integer
+- **Type:** [](prop-type-integer)
 - **Default value:** `250`
 
 Number of expired segments to prune as a single batch operation.
@@ -259,4 +266,3 @@ size limits.
 Prepared statement compression is not applied if the size gain is less than the
 configured value. Smaller statements do not benefit from compression, and are
 left uncompressed.
-

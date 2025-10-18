@@ -26,7 +26,7 @@ import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
@@ -58,7 +58,7 @@ public class UnityCatalogContainer
 
     private final String catalogName;
     private final String schemaName;
-    private final PostgreSQLContainer<?> postgreSql;
+    private final PostgreSQLContainer postgreSql;
     private final GenericContainer<?> unityCatalog;
     private final QueryRunner queryRunner;
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
@@ -72,8 +72,7 @@ public class UnityCatalogContainer
         Network network = Network.newNetwork();
         closer.register(network);
 
-        //noinspection resource
-        postgreSql = new PostgreSQLContainer<>(DockerImageName.parse("postgres"))
+        postgreSql = new PostgreSQLContainer(DockerImageName.parse("postgres"))
                 .withNetwork(network)
                 .withNetworkAliases("postgres");
         postgreSql.start();

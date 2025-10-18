@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedArrayValueBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -36,9 +37,7 @@ public final class ArrayReverseFunction
 
     @TypeParameter("E")
     @SqlType("array(E)")
-    public Block reverse(
-            @TypeParameter("E") Type type,
-            @SqlType("array(E)") Block block)
+    public Block reverse(@SqlType("array(E)") Block block)
     {
         int arrayLength = block.getPositionCount();
 
@@ -47,8 +46,9 @@ public final class ArrayReverseFunction
         }
 
         return arrayValueBuilder.build(arrayLength, elementBuilder -> {
+            ValueBlock valueBlock = block.getUnderlyingValueBlock();
             for (int i = arrayLength - 1; i >= 0; i--) {
-                type.appendTo(block, i, elementBuilder);
+                elementBuilder.append(valueBlock, block.getUnderlyingValuePosition(i));
             }
         });
     }

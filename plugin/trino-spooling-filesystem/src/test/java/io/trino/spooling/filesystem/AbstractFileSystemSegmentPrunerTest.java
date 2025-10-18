@@ -146,10 +146,10 @@ abstract class AbstractFileSystemSegmentPrunerTest
     private Location writeDataSegment(TrinoFileSystem fileSystem, QueryId queryId, Instant ttl)
     {
         SpoolingContext context = new SpoolingContext("encoding", queryId, 100, 1000);
-        FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.random(ThreadLocalRandom.current(), context, ttl);
+        FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.random(ThreadLocalRandom.current(), "nodeId", context, ttl);
         Location location = layout().location(TEST_LOCATION, handle);
         try (OutputStream stream = fileSystem.newOutputFile(location).create()) {
-            stream.write(queryId.toString().getBytes(UTF_8));
+            stream.write(queryId.id().getBytes(UTF_8));
             return location;
         }
         catch (IOException e) {
@@ -166,7 +166,7 @@ abstract class AbstractFileSystemSegmentPrunerTest
             while (iterator.hasNext()) {
                 FileEntry entry = iterator.next();
                 try (TrinoInputStream stream = fileSystem.newInputFile(entry.location()).newStream()) {
-                    if (Arrays.equals(stream.readAllBytes(), queryId.toString().getBytes(UTF_8))) {
+                    if (Arrays.equals(stream.readAllBytes(), queryId.id().getBytes(UTF_8))) {
                         files.add(entry.location());
                     }
                 }

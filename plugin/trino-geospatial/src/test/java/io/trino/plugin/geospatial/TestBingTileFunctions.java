@@ -554,6 +554,10 @@ public class TestBingTileFunctions
                     .binding("geometry", "ST_GeometryFromText('%s')".formatted(wkt))
                     .binding("zoom", Integer.toString(zoomLevel)))
                     .isEqualTo(tileCount);
+            assertThat(assertions.expression("ST_Within(geometry, geometry_union(transform(geometry_to_bing_tiles(geometry, zoom), bing_tile -> bing_tile_polygon(bing_tile))))")
+                    .binding("geometry", "ST_GeometryFromText('%s')".formatted(wkt))
+                    .binding("zoom", Integer.toString(zoomLevel)))
+                    .isEqualTo(true);
         }
     }
 

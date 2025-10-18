@@ -15,9 +15,11 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
+import com.google.inject.multibindings.Multibinder;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
+import io.trino.parquet.crypto.DecryptionKeyRetriever;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -40,11 +42,11 @@ public class TestingHiveConnectorFactory
 
     public TestingHiveConnectorFactory(Path localFileSystemRootPath)
     {
-        this(localFileSystemRootPath, Optional.empty());
+        this(localFileSystemRootPath, Optional.empty(), Optional.empty());
     }
 
     @Deprecated
-    public TestingHiveConnectorFactory(Path localFileSystemRootPath, Optional<HiveMetastore> metastore)
+    public TestingHiveConnectorFactory(Path localFileSystemRootPath, Optional<HiveMetastore> metastore, Optional<DecryptionKeyRetriever> decryptionKeyRetriever)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
 
@@ -53,6 +55,12 @@ public class TestingHiveConnectorFactory
             newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
                     .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
             configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, config -> config.setCatalogDirectory("local:///"));
+
+            decryptionKeyRetriever.ifPresent(retriever -> {
+                Multibinder<DecryptionKeyRetriever> retrieverBinder =
+                        Multibinder.newSetBinder(binder, DecryptionKeyRetriever.class);
+                retrieverBinder.addBinding().toInstance(retriever);
+            });
         };
     }
 

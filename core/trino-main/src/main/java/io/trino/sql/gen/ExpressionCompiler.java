@@ -15,7 +15,6 @@ package io.trino.sql.gen;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
-import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
@@ -38,21 +37,14 @@ import static java.util.Objects.requireNonNull;
 
 public class ExpressionCompiler
 {
-    private final CursorProcessorCompiler cursorProcessorCompiler;
     private final PageFunctionCompiler pageFunctionCompiler;
     private final ColumnarFilterCompiler columnarFilterCompiler;
 
     @Inject
-    public ExpressionCompiler(CursorProcessorCompiler cursorProcessorCompiler, PageFunctionCompiler pageFunctionCompiler, ColumnarFilterCompiler columnarFilterCompiler)
+    public ExpressionCompiler(PageFunctionCompiler pageFunctionCompiler, ColumnarFilterCompiler columnarFilterCompiler)
     {
-        this.cursorProcessorCompiler = requireNonNull(cursorProcessorCompiler, "cursorProcessorCompiler is null");
         this.pageFunctionCompiler = requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
         this.columnarFilterCompiler = requireNonNull(columnarFilterCompiler, "columnarFilterCompiler is null");
-    }
-
-    public Supplier<CursorProcessor> compileCursorProcessor(Optional<RowExpression> filter, List<RowExpression> projections, Object uniqueKey)
-    {
-        return cursorProcessorCompiler.compileCursorProcessor(filter, projections, uniqueKey);
     }
 
     public Function<DynamicFilter, PageProcessor> compilePageProcessor(

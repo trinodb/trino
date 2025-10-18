@@ -149,6 +149,7 @@ public class IcebergPageSink
             List<TrinoSortField> sortOrder,
             DataSize sortingFileWriterBufferSize,
             int sortingFileWriterMaxOpenFiles,
+            Optional<String> sortedWritingLocalStagingPath,
             TypeManager typeManager,
             PageSorter pageSorter)
     {
@@ -171,12 +172,16 @@ public class IcebergPageSink
         this.sortedWritingEnabled = isSortedWritingEnabled(session);
         this.sortingFileWriterBufferSize = requireNonNull(sortingFileWriterBufferSize, "sortingFileWriterBufferSize is null");
         this.sortingFileWriterMaxOpenFiles = sortingFileWriterMaxOpenFiles;
-        this.tempDirectory = Location.of(locationProvider.newDataLocation("trino-tmp-files"));
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.columnTypes = getTopLevelColumns(outputSchema, typeManager).stream()
                 .map(IcebergColumnHandle::getType)
                 .collect(toImmutableList());
+
+        this.tempDirectory = sortedWritingLocalStagingPath
+                .map(path -> path.replace("${USER}", session.getIdentity().getUser()))
+                .map(IcebergPageSink::createLocalSchemeIfAbsent)
+                .orElseGet(() -> Location.of(locationProvider.newDataLocation("trino-tmp-files")));
 
         if (sortedWritingEnabled) {
             ImmutableList.Builder<Integer> sortColumnIndexes = ImmutableList.builder();
@@ -589,6 +594,15 @@ public class IcebergPageSink
             }
         }
         throw new IllegalArgumentException("Could not find field " + fieldId + " in schema");
+    }
+
+    private static Location createLocalSchemeIfAbsent(String path)
+    {
+        Location location = Location.of(path);
+        if (location.scheme().isPresent()) {
+            return location;
+        }
+        return Location.of("local:///" + location.path());
     }
 
     private static class WriteContext

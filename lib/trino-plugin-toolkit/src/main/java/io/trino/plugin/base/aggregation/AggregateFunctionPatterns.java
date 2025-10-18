@@ -14,9 +14,9 @@
 package io.trino.plugin.base.aggregation;
 
 import io.trino.matching.Captures;
+import io.trino.matching.CustomPattern;
 import io.trino.matching.Match;
 import io.trino.matching.Pattern;
-import io.trino.matching.PatternVisitor;
 import io.trino.matching.Property;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.ConnectorExpression;
@@ -82,8 +82,7 @@ public final class AggregateFunctionPatterns
 
     public static Pattern<List<Variable>> variables()
     {
-        return new Pattern<>(Optional.empty())
-        {
+        return new CustomPattern<>(Optional.empty()) {
             @Override
             public <C> Stream<Match> accept(Object object, Captures captures, C context)
             {
@@ -99,7 +98,10 @@ public final class AggregateFunctionPatterns
             }
 
             @Override
-            public void accept(PatternVisitor patternVisitor) {}
+            public String print()
+            {
+                return "variables()";
+            }
         };
     }
 }

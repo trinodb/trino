@@ -25,6 +25,7 @@ import io.trino.operator.PartitionFunction;
 import io.trino.operator.SpillContext;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
@@ -136,8 +137,8 @@ public class GenericPartitioningSpiller
             PageBuilder pageBuilder = pageBuilders.get(partition);
             pageBuilder.declarePosition();
             for (int channel = 0; channel < types.size(); channel++) {
-                Type type = types.get(channel);
-                type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
+                Block block = page.getBlock(channel);
+                pageBuilder.getBlockBuilder(channel).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
             }
         }
 

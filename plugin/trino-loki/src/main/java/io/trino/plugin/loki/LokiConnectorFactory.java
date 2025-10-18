@@ -45,6 +45,7 @@ public class LokiConnectorFactory
         try {
             // A plugin is not required to use Guice; it is just very convenient
             Bootstrap app = new Bootstrap(
+                    "io.trino.bootstrap.catalog." + catalogName,
                     new JsonModule(),
                     new TypeDeserializerModule(context.getTypeManager()),
                     new LokiModule());

@@ -3,6 +3,7 @@
     {
       "name": "global",
       "softMemoryLimit": "80%",
+      "hardPhysicalDataScanLimit": "50TB",
       "hardConcurrencyLimit": 100,
       "maxQueued": 1000,
       "schedulingPolicy": "weighted",
@@ -34,7 +35,8 @@
                   "name": "${USER}",
                   "softMemoryLimit": "10%",
                   "hardConcurrencyLimit": 1,
-                  "maxQueued": 100
+                  "maxQueued": 100,
+                  "hardPhysicalDataScanLimit": "10GB"
                 }
               ]
             },
@@ -118,5 +120,6 @@
       "group": "global.adhoc.other.${USER}"
     }
   ],
-  "cpuQuotaPeriod": "1h"
+  "cpuQuotaPeriod": "1h",
+  "physicalDataScanQuotaPeriod": "1h"
 }

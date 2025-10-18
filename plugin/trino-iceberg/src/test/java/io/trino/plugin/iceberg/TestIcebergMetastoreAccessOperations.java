@@ -128,8 +128,7 @@ public class TestIcebergMetastoreAccessOperations
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_DATABASE)
                         .add(CREATE_TABLE)
-                        .addCopies(GET_TABLE, 4)
-                        .add(REPLACE_TABLE)
+                        .add(GET_TABLE)
                         .build());
     }
 
@@ -141,16 +140,15 @@ public class TestIcebergMetastoreAccessOperations
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_DATABASE)
                         .add(CREATE_TABLE)
-                        .addCopies(GET_TABLE, 4)
-                        .add(REPLACE_TABLE)
+                        .add(GET_TABLE)
                         .build());
 
         assertMetastoreInvocations(
                 "CREATE OR REPLACE TABLE test_cortas AS SELECT 1 AS age",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_DATABASE)
-                        .addCopies(GET_TABLE, 3)
-                        .addCopies(REPLACE_TABLE, 2)
+                        .add(GET_TABLE)
+                        .add(REPLACE_TABLE)
                         .build());
     }
 

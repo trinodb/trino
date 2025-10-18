@@ -24,7 +24,7 @@ $(document).ready(function () {
         tasks = []
 
         data.stages.stages.forEach((stage) => {
-            tasks.push.apply(stage.tasks)
+            Array.prototype.push.apply(tasks, stage.tasks)
         })
 
         tasks = tasks.map(function (task) {

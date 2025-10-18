@@ -22,7 +22,6 @@ import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
@@ -40,7 +39,6 @@ public final class ArraysOverlapFunction
     @TypeParameter("E")
     @SqlType(StandardTypes.BOOLEAN)
     public static Boolean arraysOverlap(
-            @TypeParameter("E") Type type,
             @OperatorDependency(
                     operator = IDENTICAL,
                     argumentTypes = {"E", "E"},
@@ -67,7 +65,7 @@ public final class ArraysOverlapFunction
             return false;
         }
 
-        BlockSet smallerSet = new BlockSet(type, elementIdentical, elementHashCode, smallerPositionCount);
+        BlockSet smallerSet = new BlockSet(elementIdentical, elementHashCode, smallerPositionCount);
         for (int position = 0; position < smallerPositionCount; position++) {
             smallerSet.add(smaller, position);
         }

@@ -176,7 +176,7 @@ public class RangerSystemAccessControl
     @Override
     public void checkCanExecuteQuery(Identity identity, QueryId queryId)
     {
-        if (!hasPermission(RangerTrinoResource.forQueryId(queryId.getId()), identity, queryId, EXECUTE, "ExecuteQuery")) {
+        if (!hasPermission(RangerTrinoResource.forQueryId(queryId.id()), identity, queryId, EXECUTE, "ExecuteQuery")) {
             denyExecuteQuery();
         }
     }
@@ -916,22 +916,22 @@ public class RangerSystemAccessControl
 
     private Optional<String> getClientAddress(QueryId queryId)
     {
-        return queryId != null ? eventListener.getClientAddress(queryId.getId()) : Optional.empty();
+        return queryId != null ? eventListener.getClientAddress(queryId.id()) : Optional.empty();
     }
 
     private Optional<String> getClientType(QueryId queryId)
     {
-        return queryId != null ? eventListener.getClientType(queryId.getId()) : Optional.empty();
+        return queryId != null ? eventListener.getClientType(queryId.id()) : Optional.empty();
     }
 
     private Optional<String> getQueryText(QueryId queryId)
     {
-        return queryId != null ? eventListener.getQueryText(queryId.getId()) : Optional.empty();
+        return queryId != null ? eventListener.getQueryText(queryId.id()) : Optional.empty();
     }
 
     private Optional<Instant> getQueryTime(QueryId queryId)
     {
-        return queryId != null ? eventListener.getQueryTime(queryId.getId()) : Optional.empty();
+        return queryId != null ? eventListener.getQueryTime(queryId.id()) : Optional.empty();
     }
 
     private Optional<String> getClientAddress(SystemSecurityContext context)

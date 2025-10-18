@@ -256,8 +256,6 @@ public class HashAggregationOperator
     private final FlatHashStrategyCompiler flatHashStrategyCompiler;
     private final AggregationMetrics aggregationMetrics = new AggregationMetrics();
 
-    private final List<Type> types;
-
     private HashAggregationBuilder aggregationBuilder;
     private final LocalMemoryContext memoryContext;
     private WorkProcessor<Page> outputPages;
@@ -305,7 +303,6 @@ public class HashAggregationOperator
         this.produceDefaultOutput = produceDefaultOutput;
         this.expectedGroups = expectedGroups;
         this.maxPartialMemory = requireNonNull(maxPartialMemory, "maxPartialMemory is null");
-        this.types = toTypes(groupByTypes, aggregatorFactories);
         this.spillEnabled = spillEnabled;
         this.memoryLimitForMerge = requireNonNull(memoryLimitForMerge, "memoryLimitForMerge is null");
         this.memoryLimitForMergeWithMemory = requireNonNull(memoryLimitForMergeWithMemory, "memoryLimitForMergeWithMemory is null");
@@ -540,7 +537,7 @@ public class HashAggregationOperator
     {
         // global aggregation output page will only be constructed once,
         // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
-        PageBuilder output = new PageBuilder(globalAggregationGroupIds.size(), types);
+        PageBuilder output = new PageBuilder(globalAggregationGroupIds.size(), toTypes(groupByTypes, aggregatorFactories));
 
         for (int groupId : globalAggregationGroupIds) {
             output.declarePosition();

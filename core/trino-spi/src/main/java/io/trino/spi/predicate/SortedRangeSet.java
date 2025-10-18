@@ -641,7 +641,7 @@ public final class SortedRangeSet
 
             Optional<RangeView> intersect = thisCurrent.tryIntersect(thatCurrent);
             if (intersect.isPresent()) {
-                writeRange(type, blockBuilder, inclusive, resultRangeIndex, intersect.get());
+                writeRange(blockBuilder, inclusive, resultRangeIndex, intersect.get());
                 resultRangeIndex++;
             }
             int compare = thisCurrent.compareHighBound(thatCurrent);
@@ -728,7 +728,7 @@ public final class SortedRangeSet
                 if (probeIndex == insertionStartIndex || probeIndex + 1 >= intersectionEndIndex) {
                     Optional<RangeView> intersect = probeRange.tryIntersect(current);
                     if (intersect.isPresent()) {
-                        writeRange(type, blockBuilder, inclusive, resultIndex, intersect.get());
+                        writeRange(blockBuilder, inclusive, resultIndex, intersect.get());
                         resultIndex++;
                     }
                     probeIndex++;
@@ -1026,7 +1026,7 @@ public final class SortedRangeSet
                     current = merged.get();
                 }
                 else {
-                    writeRange(type, blockBuilder, inclusive, resultRangeIndex, current);
+                    writeRange(blockBuilder, inclusive, resultRangeIndex, current);
                     resultRangeIndex++;
                     current = next;
                 }
@@ -1036,7 +1036,7 @@ public final class SortedRangeSet
             }
         }
         if (current != null) {
-            writeRange(type, blockBuilder, inclusive, resultRangeIndex, current);
+            writeRange(blockBuilder, inclusive, resultRangeIndex, current);
             resultRangeIndex++;
         }
 
@@ -1207,7 +1207,7 @@ public final class SortedRangeSet
             inclusive[2 * resultRangeIndex] = false;
             inclusive[2 * resultRangeIndex + 1] = !first.lowInclusive;
             blockBuilder.appendNull();
-            type.appendTo(first.lowValueBlock, first.lowValuePosition, blockBuilder);
+            blockBuilder.append(first.lowValueBlock.getUnderlyingValueBlock(), first.lowValueBlock.getUnderlyingValuePosition(first.lowValuePosition));
             resultRangeIndex++;
         }
 
@@ -1217,8 +1217,8 @@ public final class SortedRangeSet
 
             inclusive[2 * resultRangeIndex] = !previous.highInclusive;
             inclusive[2 * resultRangeIndex + 1] = !current.lowInclusive;
-            type.appendTo(previous.highValueBlock, previous.highValuePosition, blockBuilder);
-            type.appendTo(current.lowValueBlock, current.lowValuePosition, blockBuilder);
+            blockBuilder.append(previous.highValueBlock.getUnderlyingValueBlock(), previous.highValueBlock.getUnderlyingValuePosition(previous.highValuePosition));
+            blockBuilder.append(current.lowValueBlock.getUnderlyingValueBlock(), current.lowValueBlock.getUnderlyingValuePosition(current.lowValuePosition));
             resultRangeIndex++;
 
             previous = current;
@@ -1227,7 +1227,7 @@ public final class SortedRangeSet
         if (!last.isHighUnbounded()) {
             inclusive[2 * resultRangeIndex] = !last.highInclusive;
             inclusive[2 * resultRangeIndex + 1] = false;
-            type.appendTo(last.highValueBlock, last.highValuePosition, blockBuilder);
+            blockBuilder.append(last.highValueBlock.getUnderlyingValueBlock(), last.highValueBlock.getUnderlyingValuePosition(last.highValuePosition));
             blockBuilder.appendNull();
             resultRangeIndex++;
         }
@@ -1529,12 +1529,12 @@ public final class SortedRangeSet
         writeNativeValue(type, blockBuilder, range.getHighValue().orElse(null));
     }
 
-    private static void writeRange(Type type, BlockBuilder blockBuilder, boolean[] inclusive, int rangeIndex, RangeView range)
+    private static void writeRange(BlockBuilder blockBuilder, boolean[] inclusive, int rangeIndex, RangeView range)
     {
         inclusive[2 * rangeIndex] = range.lowInclusive;
         inclusive[2 * rangeIndex + 1] = range.highInclusive;
-        type.appendTo(range.lowValueBlock, range.lowValuePosition, blockBuilder);
-        type.appendTo(range.highValueBlock, range.highValuePosition, blockBuilder);
+        blockBuilder.append(range.lowValueBlock.getUnderlyingValueBlock(), range.lowValueBlock.getUnderlyingValuePosition(range.lowValuePosition));
+        blockBuilder.append(range.highValueBlock.getUnderlyingValueBlock(), range.highValueBlock.getUnderlyingValuePosition(range.highValuePosition));
     }
 
     private static void checkNotNaN(Type type, Object value)

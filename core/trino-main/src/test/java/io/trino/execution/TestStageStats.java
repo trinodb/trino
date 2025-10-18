@@ -83,11 +83,6 @@ public class TestStageStats
             203,
             204,
 
-            DataSize.ofBytes(26),
-            DataSize.ofBytes(27),
-            28,
-            29,
-
             DataSize.ofBytes(30),
             DataSize.ofBytes(31),
             32,
@@ -136,7 +131,7 @@ public class TestStageStats
     {
         assertThat(actual.getSchedulingComplete().toEpochMilli()).isEqualTo(0);
 
-        assertThat(actual.getGetSplitDistribution().get(new PlanNodeId("1")).getCount()).isEqualTo(1.0);
+        assertThat(actual.getGetSplitDistribution().get(new PlanNodeId("1")).count()).isEqualTo(1.0);
 
         assertThat(actual.getTotalTasks()).isEqualTo(4);
         assertThat(actual.getRunningTasks()).isEqualTo(5);
@@ -176,11 +171,6 @@ public class TestStageStats
         assertThat(actual.getFailedInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(194));
         assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(203);
         assertThat(actual.getFailedInternalNetworkInputPositions()).isEqualTo(204);
-
-        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(26));
-        assertThat(actual.getFailedRawInputDataSize()).isEqualTo(DataSize.ofBytes(27));
-        assertThat(actual.getRawInputPositions()).isEqualTo(28);
-        assertThat(actual.getFailedRawInputPositions()).isEqualTo(29);
 
         assertThat(actual.getProcessedInputDataSize()).isEqualTo(DataSize.ofBytes(30));
         assertThat(actual.getFailedProcessedInputDataSize()).isEqualTo(DataSize.ofBytes(31));

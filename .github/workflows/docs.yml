@@ -48,9 +48,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
-        timeout-minutes: 10
+        timeout-minutes: 15
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -74,11 +74,11 @@ jobs:
           - ":trino-tests"
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
       - uses: ./.github/actions/setup
-        timeout-minutes: 10
+        timeout-minutes: 15
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"

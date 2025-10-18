@@ -372,6 +372,9 @@ public class MockConnector
     }
 
     @Override
+    public void shutdown() {}
+
+    @Override
     public Set<Procedure> getProcedures()
     {
         return procedures;
@@ -748,20 +751,13 @@ public class MockConnector
         }
 
         @Override
-        public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, RetryMode retryMode, RefreshType refreshType)
+        public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, RetryMode retryMode, RefreshType refreshType)
         {
             return new MockConnectorInsertTableHandle(((MockConnectorTableHandle) tableHandle).getTableName());
         }
 
         @Override
-        public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
-                ConnectorSession session,
-                ConnectorTableHandle tableHandle,
-                ConnectorInsertTableHandle insertHandle,
-                Collection<Slice> fragments,
-                Collection<ComputedStatistics> computedStatistics,
-                List<ConnectorTableHandle> sourceTableHandles,
-                List<String> sourceTableFunctions)
+        public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, boolean hasSourceTableFunctions)
         {
             return Optional.empty();
         }
@@ -886,7 +882,10 @@ public class MockConnector
         }
 
         @Override
-        public void executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle) {}
+        public Map<String, Long> executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+        {
+            return ImmutableMap.of();
+        }
 
         @Override
         public void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState) {}

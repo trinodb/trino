@@ -49,6 +49,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
@@ -75,6 +76,7 @@ import static io.airlift.bytecode.Access.STATIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
+import static io.airlift.bytecode.expression.BytecodeExpressions.add;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantClass;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
@@ -93,7 +95,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
-import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
@@ -237,7 +238,7 @@ public class JoinCompiler
         generateConstructor(classDefinition, joinChannels, sizeField, instanceSizeField, channelFields, joinChannelFields);
         generateGetChannelCountMethod(classDefinition, outputChannels.size());
         generateGetSizeInBytesMethod(classDefinition, sizeField);
-        generateAppendToMethod(classDefinition, callSiteBinder, types, outputChannels, channelFields);
+        generateAppendToMethod(classDefinition, outputChannels, channelFields);
         generateHashPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generateHashRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
         generateRowEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
@@ -322,7 +323,7 @@ public class JoinCompiler
                 .retLong();
     }
 
-    private static void generateAppendToMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> types, List<Integer> outputChannels, List<FieldDefinition> channelFields)
+    private static void generateAppendToMethod(ClassDefinition classDefinition, List<Integer> outputChannels, List<FieldDefinition> channelFields)
     {
         Parameter blockIndex = arg("blockIndex", int.class);
         Parameter blockPosition = arg("blockPosition", int.class);
@@ -334,26 +335,23 @@ public class JoinCompiler
         BytecodeBlock appendToBody = appendToMethod.getBody();
 
         int pageBuilderOutputChannel = 0;
+        Variable block = appendToMethod.getScope().declareVariable(Block.class, "block");
         for (int outputChannel : outputChannels) {
-            Type type = types.get(outputChannel);
-            BytecodeExpression typeExpression = constantType(callSiteBinder, type);
+            appendToBody.append(block.set(
+                    thisVariable.getField(channelFields.get(outputChannel))
+                            .invoke("get", Object.class, blockIndex)
+                            .cast(Block.class)));
 
-            BytecodeExpression block = thisVariable
-                    .getField(channelFields.get(outputChannel))
-                    .invoke("get", Object.class, blockIndex)
-                    .cast(Block.class);
-
+            BytecodeExpression blockBuilderExpression = pageBuilder
+                    .invoke("getBlockBuilder", BlockBuilder.class, add(outputChannelOffset, constantInt(pageBuilderOutputChannel)));
             appendToBody
-                    .comment("%s.appendTo(channel_%s.get(outputChannel), blockPosition, pageBuilder.getBlockBuilder(outputChannelOffset + %s));", type.getClass(), outputChannel, pageBuilderOutputChannel)
-                    .append(typeExpression)
-                    .append(block)
-                    .append(blockPosition)
-                    .append(pageBuilder)
-                    .append(outputChannelOffset)
-                    .push(pageBuilderOutputChannel++)
-                    .append(OpCode.IADD)
-                    .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class)
-                    .invokeInterface(Type.class, "appendTo", void.class, Block.class, int.class, BlockBuilder.class);
+                    .comment("pageBuilder.getBlockBuilder(outputChannelOffset + %s).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(blockPosition));", pageBuilderOutputChannel)
+                    .append(blockBuilderExpression.invoke(
+                            "append",
+                            void.class,
+                            block.invoke("getUnderlyingValueBlock", ValueBlock.class),
+                            block.invoke("getUnderlyingValuePosition", int.class, blockPosition)));
+            pageBuilderOutputChannel++;
         }
         appendToBody.ret();
     }

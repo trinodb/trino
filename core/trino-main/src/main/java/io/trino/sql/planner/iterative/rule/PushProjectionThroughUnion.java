@@ -90,7 +90,7 @@ public class PushProjectionThroughUnion
     private static boolean nonTrivialProjection(ProjectNode project)
     {
         return !project.getAssignments()
-                .getExpressions().stream()
+                .expressions().stream()
                 .allMatch(Reference.class::isInstance);
     }
 }

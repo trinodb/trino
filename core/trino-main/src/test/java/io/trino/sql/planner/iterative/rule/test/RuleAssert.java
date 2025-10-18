@@ -94,7 +94,7 @@ public class RuleAssert
                         """,
                         rule,
                         textLogicalPlan(plan, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), StatsAndCosts.empty(), session, 2, false),
-                        textLogicalPlan(ruleApplication.result.getTransformedPlan().get(), planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), StatsAndCosts.empty(), session, 2, false)));
+                        textLogicalPlan(ruleApplication.result.transformedPlan().get(), planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), StatsAndCosts.empty(), session, 2, false)));
             }
         }
         finally {
@@ -253,7 +253,7 @@ public class RuleAssert
 
         public PlanNode getTransformedPlan()
         {
-            return result.getTransformedPlan().orElseThrow(() -> new IllegalStateException("Rule did not produce transformed plan"));
+            return result.transformedPlan().orElseThrow(() -> new IllegalStateException("Rule did not produce transformed plan"));
         }
     }
 }

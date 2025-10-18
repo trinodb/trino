@@ -28,8 +28,8 @@ TRINO_VERSION=
 TAG_PREFIX=trino
 SERVER_ARTIFACT=trino-server
 
-JDK_RELEASE=$(cat "${SOURCE_DIR}/core/jdk/current")
-JDKS_PATH="${SOURCE_DIR}/core/jdk"
+TEMURIN_RELEASE=$(cat "${SOURCE_DIR}/core/.temurin-release")
+TEMURIN_DOWNLOAD_URL="https://api.adoptium.net/v3/binary/version/{release_name}/linux/{arch}/jdk/hotspot/normal/eclipse?project=jdk"
 
 SKIP_TESTS=false
 
@@ -72,10 +72,6 @@ while getopts ":a:h:r:p:t:j:x" o; do
 done
 shift $((OPTIND - 1))
 
-function prop {
-    grep "^${1}=" "${2}" | cut -d'=' -f2-
-}
-
 function check_environment() {
     if ! command -v jq &> /dev/null; then
         echo >&2 "Please install jq"
@@ -83,16 +79,22 @@ function check_environment() {
     fi
 }
 
-function jdk_download_link() {
-  local RELEASE_PATH="${1}"
+function temurin_download_uri() {
+  local RELEASE_NAME="${1}"
   local ARCH="${2}"
 
-  if [ -f "${RELEASE_PATH}/${ARCH}" ]; then
-    prop "distributionUrl" "${RELEASE_PATH}/${ARCH}"
-  else
-     echo "${ARCH} is not supported for JDK release ${RELEASE_PATH}"
-     exit 1
-  fi
+  case "${ARCH}" in
+      "arm64")
+        echo "${TEMURIN_DOWNLOAD_URL}" | sed -e "s/{release_name}/${RELEASE_NAME}/" -e "s/{arch}/aarch64/" ;;
+      "amd64")
+        echo "${TEMURIN_DOWNLOAD_URL}" | sed -e "s/{release_name}/${RELEASE_NAME}/" -e "s/{arch}/x64/" ;;
+      "ppc64le")
+        echo "${TEMURIN_DOWNLOAD_URL}" | sed -e "s/{release_name}/${RELEASE_NAME}/" -e "s/{arch}/ppc64le/" ;;
+      *)
+        echo "Unsupported architecture: ${ARCH}" >&2
+        exit 1
+        ;;
+  esac
 }
 
 check_environment
@@ -129,14 +131,15 @@ fi
 TAG="${TAG_PREFIX}:${TRINO_VERSION}"
 
 for arch in "${ARCHITECTURES[@]}"; do
-    echo "🫙  Building the image for $arch with JDK ${JDK_RELEASE}"
+    JDK_DOWNLOAD_LINK="$(temurin_download_uri "${TEMURIN_RELEASE}" "${arch}")"
+    echo "🫙  Building the image for $arch with JDK ${JDK_DOWNLOAD_LINK}"
     docker build \
         "${WORK_DIR}" \
         --progress=plain \
         --pull \
         --build-arg ARCH="${arch}" \
-        --build-arg JDK_VERSION="${JDK_RELEASE}" \
-        --build-arg JDK_DOWNLOAD_LINK="$(jdk_download_link "${JDKS_PATH}/${JDK_RELEASE}" "${arch}")" \
+        --build-arg JDK_VERSION="${TEMURIN_RELEASE}" \
+        --build-arg JDK_DOWNLOAD_LINK="${JDK_DOWNLOAD_LINK}" \
         --platform "linux/$arch" \
         -f Dockerfile \
         -t "${TAG}-$arch"

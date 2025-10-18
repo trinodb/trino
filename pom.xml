@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>282</version>
+        <version>317</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>477-SNAPSHOT</version>
+    <version>478-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -150,7 +150,7 @@
     <properties>
         <project.build.targetJdk>24</project.build.targetJdk>
         <!-- for reproducible build support, updated by release plugin -->
-        <project.build.outputTimestamp>2025-06-06T03:29:47Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2025-09-24T23:09:23Z</project.build.outputTimestamp>
         <!-- TODO remove this property when no module overrides it -->
         <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
 
@@ -177,43 +177,43 @@
             <!-- # Allow loading dynamic agent used by JOL -->
             -XX:+EnableDynamicAgentLoading
             ${extraJavaVectorArgs}
+            --sun-misc-unsafe-memory-access=allow
         </air.test.jvm.additional-arguments.default>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>342</dep.airlift.version>
+        <dep.airlift.version>367</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
-        <dep.avro.version>1.12.0</dep.avro.version>
-        <dep.aws-sdk.version>1.12.788</dep.aws-sdk.version>
+        <dep.avro.version>1.12.1</dep.avro.version>
+        <dep.aws-sdk.version>1.12.792</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.8.0</dep.confluent.version>
-        <dep.checkstyle.version>10.23.1</dep.checkstyle.version>
-        <dep.docker.images.version>116</dep.docker.images.version>
-        <dep.drift.version>1.23</dep.drift.version>
-        <dep.flyway.version>11.10.5</dep.flyway.version>
-        <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
+        <dep.docker.images.version>119</dep.docker.images.version>
+        <dep.drift.version>1.24</dep.drift.version>
+        <dep.flyway.version>11.14.1</dep.flyway.version>
+        <dep.frontend-maven-plugin.version>1.15.4</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
-        <dep.gib.version>4.5.4</dep.gib.version>
-        <dep.httpcore5.version>5.3.4</dep.httpcore5.version>
-        <dep.iceberg.version>1.9.2</dep.iceberg.version>
-        <dep.jna.version>5.17.0</dep.jna.version>
-        <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
+        <dep.gib.version>4.5.6</dep.gib.version>
+        <dep.httpcore5.version>5.3.6</dep.httpcore5.version>
+        <dep.iceberg.version>1.10.0</dep.iceberg.version>
+        <dep.jna.version>5.18.1</dep.jna.version>
+        <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
-        <dep.kafka-clients.version>4.0.0</dep.kafka-clients.version>
-        <dep.okhttp.version>5.1.0</dep.okhttp.version>
-        <dep.okio.version>3.16.0</dep.okio.version>
-        <dep.parquet.version>1.15.2</dep.parquet.version>
+        <dep.kafka-clients.version>4.1.0</dep.kafka-clients.version>
+        <dep.okhttp.version>5.2.1</dep.okhttp.version>
+        <dep.okio.version>3.16.2</dep.okio.version>
+        <dep.parquet.version>1.16.0</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.8</dep.protobuf.version>
-        <dep.snowflake.version>3.25.1</dep.snowflake.version>
-        <dep.swagger.version>2.2.35</dep.swagger.version>
+        <dep.snowflake.version>3.27.0</dep.snowflake.version>
+        <dep.swagger.version>2.2.39</dep.swagger.version>
         <dep.takari.version>2.3.2</dep.takari.version>
-        <dep.tcnative.version>2.0.72.Final</dep.tcnative.version>
+        <dep.tcnative.version>2.0.74.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
         <dep.wire.version>5.2.1</dep.wire.version>
-        <dep.zookeeper.version>3.9.3</dep.zookeeper.version>
+        <dep.zookeeper.version>3.9.4</dep.zookeeper.version>
         <extraJavaVectorArgs>--add-modules=jdk.incubator.vector</extraJavaVectorArgs>
         <!--
         Instructs Provisio to write runtime dependencies in the format groupId_artifactId-version.jar.
@@ -228,7 +228,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.37</version>
+                <version>1.3.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -236,7 +236,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.65.0</version>
+                <version>26.70.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -268,7 +268,7 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
-                <version>4.2.3.Final</version>
+                <version>4.2.7.Final</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -284,7 +284,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.49.5</version>
+                <version>3.49.6</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -292,7 +292,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.21.3</version>
+                <version>2.0.1</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -300,7 +300,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.32.14</version>
+                <version>2.35.9</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -308,34 +308,12 @@
             <dependency>
                 <groupId>com.adobe.testing</groupId>
                 <artifactId>s3mock-testcontainers</artifactId>
-                <version>4.7.0</version>
+                <version>4.9.1</version>
             </dependency>
 
             <dependency>
                 <groupId>com.amazonaws</groupId>
                 <artifactId>aws-java-sdk-core</artifactId>
-                <version>${dep.aws-sdk.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>commons-logging</groupId>
-                        <artifactId>commons-logging</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>joda-time</groupId>
-                        <artifactId>joda-time</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.amazonaws</groupId>
-                <artifactId>aws-java-sdk-dynamodb</artifactId>
-                <version>${dep.aws-sdk.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.amazonaws</groupId>
-                <artifactId>aws-java-sdk-glue</artifactId>
                 <version>${dep.aws-sdk.version}</version>
                 <exclusions>
                     <exclusion>
@@ -384,7 +362,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-core-tracing-opentelemetry</artifactId>
-                <version>1.0.0-beta.42</version>
+                <version>1.0.0-beta.61</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.azure</groupId>
@@ -421,7 +399,7 @@
             <dependency>
                 <groupId>com.exasol</groupId>
                 <artifactId>exasol-jdbc</artifactId>
-                <version>25.2.4</version>
+                <version>25.2.5</version>
             </dependency>
 
             <dependency>
@@ -445,19 +423,19 @@
             <dependency>
                 <groupId>com.github.docker-java</groupId>
                 <artifactId>docker-java-api</artifactId>
-                <version>3.5.3</version>
+                <version>3.6.0</version>
             </dependency>
 
             <dependency>
                 <groupId>com.github.luben</groupId>
                 <artifactId>zstd-jni</artifactId>
-                <version>1.5.7-4</version>
+                <version>1.5.7-5</version>
             </dependency>
 
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>6.8.2</version>
+                <version>6.9.0</version>
             </dependency>
 
             <dependency>
@@ -469,7 +447,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>3.1.3</version>
+                <version>3.1.9</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
@@ -483,7 +461,7 @@
             <dependency>
                 <groupId>com.google.code.gson</groupId>
                 <artifactId>gson</artifactId>
-                <version>2.13.1</version>
+                <version>2.13.2</version>
             </dependency>
 
             <dependency>
@@ -519,19 +497,19 @@
             <dependency>
                 <groupId>com.h2database</groupId>
                 <artifactId>h2</artifactId>
-                <version>2.3.232</version>
+                <version>2.4.240</version>
             </dependency>
 
             <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>12.10.1.jre11</version>
+                <version>13.2.1.jre11</version>
             </dependency>
 
             <dependency>
                 <groupId>com.mysql</groupId>
                 <artifactId>mysql-connector-j</artifactId>
-                <version>9.2.0</version>
+                <version>9.4.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.google.protobuf</groupId>
@@ -543,14 +521,13 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
-                <version>10.4</version>
+                <version>10.5</version>
             </dependency>
 
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>11.27</version>
-                <classifier>jdk11</classifier>
+                <version>11.30</version>
             </dependency>
 
             <dependency>
@@ -620,6 +597,12 @@
             </dependency>
 
             <dependency>
+                <groupId>eu.rekawek.toxiproxy</groupId>
+                <artifactId>toxiproxy-java</artifactId>
+                <version>2.1.11</version>
+            </dependency>
+
+            <dependency>
                 <groupId>info.picocli</groupId>
                 <artifactId>picocli</artifactId>
                 <version>4.7.7</version>
@@ -659,7 +642,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>units</artifactId>
-                <version>1.10</version>
+                <version>1.12</version>
             </dependency>
 
             <dependency>
@@ -802,7 +785,7 @@
             <dependency>
                 <groupId>io.dropwizard.metrics</groupId>
                 <artifactId>metrics-core</artifactId>
-                <version>4.2.33</version>
+                <version>4.2.37</version>
             </dependency>
 
             <dependency>
@@ -826,7 +809,7 @@
             <dependency>
                 <groupId>io.minio</groupId>
                 <artifactId>minio</artifactId>
-                <version>8.5.17</version>
+                <version>8.6.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.github.spotbugs</groupId>
@@ -858,6 +841,13 @@
                 <artifactId>netty-tcnative</artifactId>
                 <version>${dep.tcnative.version}</version>
                 <classifier>linux-aarch_64-fedora</classifier>
+            </dependency>
+
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-tcnative</artifactId>
+                <version>${dep.tcnative.version}</version>
+                <classifier>osx-aarch_64</classifier>
             </dependency>
 
             <dependency>
@@ -917,13 +907,13 @@
             <dependency>
                 <groupId>io.projectreactor</groupId>
                 <artifactId>reactor-core</artifactId>
-                <version>3.7.8</version>
+                <version>3.7.12</version>
             </dependency>
 
             <dependency>
                 <groupId>io.projectreactor.netty</groupId>
                 <artifactId>reactor-netty-core</artifactId>
-                <version>1.1.31</version>
+                <version>1.2.11</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
@@ -1694,7 +1684,7 @@
             <dependency>
                 <groupId>it.unimi.dsi</groupId>
                 <artifactId>fastutil</artifactId>
-                <version>8.5.16</version>
+                <version>8.5.18</version>
             </dependency>
 
             <dependency>
@@ -1911,7 +1901,7 @@
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-lang3</artifactId>
-                <version>3.18.0</version>
+                <version>3.19.0</version>
             </dependency>
 
             <dependency>
@@ -1947,7 +1937,7 @@
             <dependency>
                 <groupId>org.apache.httpcomponents.client5</groupId>
                 <artifactId>httpclient5</artifactId>
-                <version>5.5</version>
+                <version>5.5.1</version>
             </dependency>
 
             <dependency>
@@ -2056,7 +2046,7 @@
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
                 <artifactId>log4j-api</artifactId>
-                <version>2.25.1</version>
+                <version>2.25.2</version>
             </dependency>
 
             <dependency>
@@ -2068,7 +2058,7 @@
             <dependency>
                 <groupId>org.apache.orc</groupId>
                 <artifactId>orc-format</artifactId>
-                <version>1.1.0</version>
+                <version>1.1.1</version>
                 <classifier>shaded-protobuf</classifier>
             </dependency>
 
@@ -2223,13 +2213,13 @@
             <dependency>
                 <groupId>org.bouncycastle</groupId>
                 <artifactId>bcprov-jdk18on</artifactId>
-                <version>1.81</version>
+                <version>1.82</version>
             </dependency>
 
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.49.5</version>
+                <version>3.51.1</version>
             </dependency>
 
             <dependency>
@@ -2284,7 +2274,7 @@
             <dependency>
                 <groupId>org.jetbrains</groupId>
                 <artifactId>annotations</artifactId>
-                <version>26.0.2</version>
+                <version>26.0.2-1</version>
             </dependency>
 
             <dependency>
@@ -2334,7 +2324,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.7.7</version>
+                <version>42.7.8</version>
             </dependency>
 
             <dependency>
@@ -2377,7 +2367,7 @@
             <dependency>
                 <groupId>org.yaml</groupId>
                 <artifactId>snakeyaml</artifactId>
-                <version>2.4</version>
+                <version>2.5</version>
             </dependency>
 
             <dependency>
@@ -2479,12 +2469,6 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-wrapper-plugin</artifactId>
-                    <version>3.3.2</version>
-                </plugin>
-
-                <plugin>
                     <groupId>org.skife.maven</groupId>
                     <artifactId>really-executable-jar-maven-plugin</artifactId>
                     <version>2.1.1</version>
@@ -2493,7 +2477,7 @@
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>exec-maven-plugin</artifactId>
-                    <version>3.5.1</version>
+                    <version>3.6.1</version>
                 </plugin>
 
                 <plugin>
@@ -2663,6 +2647,21 @@
                             <exception>
                                 <conflictingDependencies>
                                     <dependency>
+                                        <groupId>com.github.docker-java</groupId>
+                                        <artifactId>docker-java-transport-zerodep</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.apache.httpcomponents.client5</groupId>
+                                        <artifactId>httpclient5</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <resources>
+                                    <resource>org/publicsuffix/list/effective_tld_names.dat</resource>
+                                </resources>
+                            </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
                                         <groupId>com.google.api</groupId>
                                         <artifactId>gax</artifactId>
                                     </dependency>
@@ -2797,6 +2796,24 @@
                                     </dependency>
                                 </conflictingDependencies>
                             </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>com.nimbusds</groupId>
+                                        <artifactId>oauth2-oidc-sdk</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>net.snowflake</groupId>
+                                        <artifactId>snowflake-jdbc</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <resources>
+                                    <resource>iso3166_1alpha-2-3-map.properties</resource>
+                                    <resource>iso3166_1alpha2-codes.properties</resource>
+                                    <resource>iso3166_1alpha3-codes.properties</resource>
+                                    <resource>iso3166_3-codes.properties</resource>
+                                </resources>
+                            </exception>
                         </exceptions>
                     </configuration>
                 </plugin>
@@ -2874,6 +2891,11 @@
     <profiles>
         <profile>
             <id>errorprone-compiler</id>
+            <properties>
+                <!-- set java target to 25 to enable incubator linking -->
+                <project.build.targetJdk>25</project.build.targetJdk>
+                <air.java.version>25.0.0</air.java.version>
+            </properties>
             <build>
                 <plugins>
                     <plugin>

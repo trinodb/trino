@@ -282,6 +282,13 @@ public abstract class AbstractTestTrinoFileSystem
             try (TrinoInputStream inputStream = inputFile.newStream()) {
                 assertThat(inputStream.read()).isEqualTo(-1);
             }
+
+            try (TrinoInput input = inputFile.newInput()) {
+                assertThat(input.readFully(0, 0))
+                        .extracting(Slice::length).isEqualTo(0);
+                assertThat(input.readTail(13))
+                        .extracting(Slice::length).isEqualTo(0);
+            }
         }
     }
 
@@ -475,6 +482,10 @@ public abstract class AbstractTestTrinoFileSystem
                 assertThatThrownBy(() -> inputStream.read(new byte[1], 1, 3))
                         .isInstanceOf(IndexOutOfBoundsException.class);
 
+                // negative seek is not allowed
+                assertThatThrownBy(() -> inputStream.seek(-1))
+                        .isInstanceOf(IOException.class);
+
                 // verify all the methods throw after close
                 inputStream.close();
                 assertThatThrownBy(inputStream::available)
@@ -532,6 +543,10 @@ public abstract class AbstractTestTrinoFileSystem
                 for (int i = 0; i < 9; i++) {
                     assertThat(slice.getInt(4 + i * 4)).isEqualTo(totalPositions - 9 + i);
                 }
+
+                // negative position is not allowed
+                assertThatThrownBy(() -> trinoInput.readFully(-1, 10))
+                        .isInstanceOf(IOException.class);
 
                 // verify all the methods throw after close
                 trinoInput.close();
@@ -1032,19 +1047,24 @@ public abstract class AbstractTestTrinoFileSystem
             }
 
             Optional<UriLocation> directLocation = getFileSystem()
-                    .preSignedUri(location, new Duration(3, SECONDS));
+                    .preSignedUri(location, new Duration(30, SECONDS));
+
+            Optional<UriLocation> expiredDirectLocation = getFileSystem()
+                    .preSignedUri(location, new Duration(1, SECONDS));
 
             assertThat(directLocation).isPresent();
-            assertThat(retrieveUri(directLocation.get()))
-                    .isEqualTo(TEST_BLOB_CONTENT_PREFIX + location);
+
+            assertEventually(new Duration(5, SECONDS), () -> assertThat(retrieveUri(directLocation.get()))
+                    .isEqualTo(TEST_BLOB_CONTENT_PREFIX + location));
 
             // Check if it can be retrieved more than once
-            assertThat(retrieveUri(directLocation.get()))
-                    .isEqualTo(TEST_BLOB_CONTENT_PREFIX + location);
+            assertEventually(new Duration(5, SECONDS), () -> assertThat(retrieveUri(directLocation.get()))
+                    .isEqualTo(TEST_BLOB_CONTENT_PREFIX + location));
 
             // Check if after a timeout the pre-signed URI is no longer valid
-            assertEventually(new Duration(5, SECONDS), new Duration(1, SECONDS), () -> assertThatThrownBy(() -> retrieveUri(directLocation.get()))
-                    .isInstanceOf(IOException.class));
+            assertEventually(new Duration(5, SECONDS), new Duration(1, SECONDS), () -> assertThatThrownBy(() -> retrieveUri(expiredDirectLocation.get()))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("Failed to retrieve"));
         }
     }
 
@@ -1214,7 +1234,7 @@ public abstract class AbstractTestTrinoFileSystem
             throws IOException
     {
         try (Closer closer = Closer.create()) {
-            List<TempBlob> blobs = randomBlobs(closer);
+            List<TempBlob> blobs = randomBlobs(closer, 100);
 
             List<Location> sortedLocations = blobs.stream()
                         .map(TempBlob::location)
@@ -1538,11 +1558,11 @@ public abstract class AbstractTestTrinoFileSystem
         return tempBlob;
     }
 
-    private List<TempBlob> randomBlobs(Closer closer)
+    protected List<TempBlob> randomBlobs(Closer closer, int count)
     {
         char[] chars = new char[] {'a', 'b', 'c', 'd', 'A', 'B', 'C', 'D'};
         ImmutableList.Builder<TempBlob> names = ImmutableList.builder();
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < count; i++) {
             StringBuilder name = new StringBuilder();
             for (int j = 0; j < 10; j++) {
                 name.append(chars[ThreadLocalRandom.current().nextInt(chars.length)]);
