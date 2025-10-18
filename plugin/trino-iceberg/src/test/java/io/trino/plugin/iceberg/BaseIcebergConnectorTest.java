@@ -6110,6 +6110,95 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testOptimizeActivatesTablePartitioning()
+    {
+        try (TestTable table = newTrinoTable("test_optimize_partitioning", "(id int, part int) WITH (partitioning = ARRAY['bucket(part, 3)'])")) {
+            // Insert data into multiple partitions to create several files
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 10), (2, 20), (3, 30)", 3);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (4, 10), (5, 20), (6, 30)", 3);
+
+            // Verify initial state - multiple files per partition
+            Set<Object> filesInBucket0Before = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=0'").getOnlyColumnAsSet();
+            Set<Object> filesInBucket1Before = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=1'").getOnlyColumnAsSet();
+            Set<Object> filesInBucket2Before = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=2'").getOnlyColumnAsSet();
+
+            assertThat(filesInBucket0Before).hasSize(2);
+            assertThat(filesInBucket1Before).hasSize(2);
+            assertThat(filesInBucket2Before).hasSize(2);
+
+            // POSITIVE TEST: Execute OPTIMIZE with bucket execution enabled (default)
+            MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
+                    withSingleWriterPerTask(getSession()),
+                    "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE");
+
+            // Extract TableScanNode from the plan to access the IcebergTableHandle
+            List<TableScanNode> tableScanNodes = searchFrom(result.queryPlan().orElseThrow().getRoot())
+                    .where(node -> node instanceof TableScanNode)
+                    .findAll().stream()
+                    .map(TableScanNode.class::cast)
+                    .collect(toImmutableList());
+
+            // Verify that table partitioning is activated during OPTIMIZE (positive test)
+            assertThat(tableScanNodes).isNotEmpty();
+            for (TableScanNode tableScanNode : tableScanNodes) {
+                IcebergTableHandle tableHandle = (IcebergTableHandle) tableScanNode.getTable().connectorHandle();
+                assertThat(tableHandle.getTablePartitioning()).isPresent();
+
+                IcebergTablePartitioning tablePartitioning = tableHandle.getTablePartitioning().orElseThrow();
+                // This is the key assertion for the new change - partitioning should be active
+                assertThat(tablePartitioning.active()).isTrue();
+                assertThat(tablePartitioning.partitioningColumns()).isNotEmpty();
+            }
+
+            // Verify the result - data integrity is maintained and files are optimized per partition
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (1, 10), (2, 20), (3, 30), (4, 10), (5, 20), (6, 30)");
+
+            // Verify that files were optimized (should be fewer files per partition after OPTIMIZE)
+            Set<Object> filesInBucket0After = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=0'").getOnlyColumnAsSet();
+            Set<Object> filesInBucket1After = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=1'").getOnlyColumnAsSet();
+            Set<Object> filesInBucket2After = computeActual("SELECT \"$path\" FROM " + table.getName() + " WHERE \"$partition\" = 'part_bucket=2'").getOnlyColumnAsSet();
+
+            // Each partition should have been optimized to fewer files
+            assertThat(filesInBucket0After).hasSize(1).doesNotContain(filesInBucket0Before);
+            assertThat(filesInBucket1After).hasSize(1).doesNotContain(filesInBucket1Before);
+            assertThat(filesInBucket2After).hasSize(1).doesNotContain(filesInBucket2Before);
+
+            // NEGATIVE TEST: Execute OPTIMIZE with bucket execution disabled
+            Session noBucketExecution = Session.builder(getSession())
+                    .setCatalogSessionProperty("iceberg", BUCKET_EXECUTION_ENABLED, "false")
+                    .build();
+
+            // Insert more data to create a fresh state for the negative test
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (7, 10), (8, 20), (9, 30)", 3);
+
+            // Execute OPTIMIZE with bucket execution disabled
+            MaterializedResultWithPlan resultDisabled = getDistributedQueryRunner().executeWithPlan(
+                    withSingleWriterPerTask(noBucketExecution),
+                    "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE");
+
+            // Extract TableScanNode from the plan to access the IcebergTableHandle
+            List<TableScanNode> tableScanNodesDisabled = searchFrom(resultDisabled.queryPlan().orElseThrow().getRoot())
+                    .where(node -> node instanceof TableScanNode)
+                    .findAll().stream()
+                    .map(TableScanNode.class::cast)
+                    .collect(toImmutableList());
+
+            // Verify that table partitioning is NOT present when bucket execution is disabled
+            assertThat(tableScanNodesDisabled).isNotEmpty();
+            for (TableScanNode tableScanNode : tableScanNodesDisabled) {
+                IcebergTableHandle tableHandle = (IcebergTableHandle) tableScanNode.getTable().connectorHandle();
+                // This is the key assertion for the negative test - partitioning should NOT be present
+                assertThat(tableHandle.getTablePartitioning()).isEmpty();
+            }
+
+            // Verify data integrity is still maintained even without bucket execution
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (1, 10), (2, 20), (3, 30), (4, 10), (5, 20), (6, 30), (7, 10), (8, 20), (9, 30)");
+        }
+    }
+
+    @Test
     public void testPathHiddenColumn()
     {
         String tableName = "test_path_" + randomNameSuffix();
