@@ -113,7 +113,8 @@ public class UiQueryResource
             try {
                 checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders), queryInfo.get().getSession().toIdentity(), accessControl);
 
-                if (servletRequest.getQueryString().contains("pretty")) {
+                String queryString = servletRequest.getQueryString();
+                if (queryString != null && queryString.contains("pretty")) {
                     // Use pretty JSON codec that reduces noise
                     return Response.ok(prettyQueryInfoCodec.toJson(queryInfo.get()), APPLICATION_JSON_TYPE).build();
                 }
