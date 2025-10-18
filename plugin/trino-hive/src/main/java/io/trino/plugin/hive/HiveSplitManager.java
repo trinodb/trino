@@ -263,6 +263,7 @@ public class HiveSplitManager
                 table,
                 hivePartitions,
                 hiveTable.getCompactEffectivePredicate(),
+                constraint,
                 dynamicFilter,
                 getDynamicFilteringWaitTimeout(session),
                 typeManager,
