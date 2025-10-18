@@ -28,11 +28,13 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.catalog.CatalogStore;
+import io.trino.spi.catalog.CatalogStore.StoredCatalog;
 import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.connector.ConnectorName;
 import jakarta.annotation.PreDestroy;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -93,6 +95,7 @@ public class CoordinatorDynamicCatalogManager
         this.catalogStore = requireNonNull(catalogStore, "catalogStore is null");
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.executor = requireNonNull(executor, "executor is null");
+        catalogStore.setCatalogManager(this);
     }
 
     @PreDestroy
@@ -328,5 +331,71 @@ public class CoordinatorDynamicCatalogManager
         }
         // Do not shut down the catalog, because there may still be running queries using this catalog.
         // Catalog shutdown logic will be added later.
+    }
+
+    /**
+     * Refresh catalogs from the configured catalog store.
+     * This method is called by catalog stores when they detect external changes.
+     */
+    @Override
+    public void refreshCatalogsFromStore()
+    {
+        catalogsUpdateLock.lock();
+        try {
+            if (state != State.INITIALIZED) {
+                return;
+            }
+
+            // Get desired state from the catalog store
+            Collection<StoredCatalog> desiredCatalogs = catalogStore.getCatalogs();
+            Set<CatalogName> desiredNames = desiredCatalogs.stream()
+                    .map(StoredCatalog::name)
+                    .collect(toImmutableSet());
+
+            Set<CatalogName> currentNames = ImmutableSet.copyOf(activeCatalogs.keySet());
+
+            // Remove catalogs that should no longer exist
+            for (CatalogName catalogName : currentNames) {
+                if (!desiredNames.contains(catalogName)) {
+                    activeCatalogs.remove(catalogName);
+                    // Note: CatalogPruneTask will handle actual connector shutdown
+                }
+            }
+
+            // Add or update catalogs that should exist
+            for (StoredCatalog desiredCatalog : desiredCatalogs) {
+                CatalogName desiredCatalogName = desiredCatalog.name();
+                try {
+                    CatalogProperties catalogProperties = desiredCatalog.loadProperties();
+
+                    // Check if catalog exists and if version has changed
+                    Catalog existingCatalog = activeCatalogs.get(desiredCatalogName);
+                    boolean needsReload = existingCatalog == null ||
+                            !existingCatalog.getCatalogHandle().getVersion().equals(catalogProperties.version());
+
+                    if (needsReload) {
+                        log.debug("Loading/reloading catalog during refresh: %s", desiredCatalogName);
+
+                        // Remove old version if it exists
+                        if (existingCatalog != null) {
+                            activeCatalogs.remove(desiredCatalogName);
+                        }
+
+                        // Create new catalog
+                        CatalogConnector newCatalog = catalogFactory.createCatalog(catalogProperties);
+                        activeCatalogs.put(desiredCatalogName, newCatalog.getCatalog());
+                        allCatalogs.put(newCatalog.getCatalogHandle(), newCatalog);
+                    }
+                }
+                catch (Throwable e) {
+                    log.error(e, "Failed to load catalog %s during refresh", desiredCatalogName);
+                }
+            }
+
+            log.debug("Catalog refresh completed. Active catalogs: %s", activeCatalogs.keySet());
+        }
+        finally {
+            catalogsUpdateLock.unlock();
+        }
     }
 }
