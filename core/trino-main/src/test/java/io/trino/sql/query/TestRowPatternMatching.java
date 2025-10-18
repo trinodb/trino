@@ -1020,8 +1020,8 @@ public class TestRowPatternMatching
 
         assertThat(assertions.query(format(query, "FIRST(value, 2)")))
                 .matches("VALUES " +
-                        "     (1, 30), " +
-                        "     (2, 30), " +
+                        "     (1, null), " +
+                        "     (2, null), " +
                         "     (3, 30) ");
 
         assertThat(assertions.query(format(query, "LAST(value, 10)")))
