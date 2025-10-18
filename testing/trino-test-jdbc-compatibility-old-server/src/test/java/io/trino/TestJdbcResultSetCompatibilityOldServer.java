@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import io.trino.jdbc.BaseTestJdbcResultSet;
 import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.TrinoContainer;
+import org.testcontainers.trino.TrinoContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
