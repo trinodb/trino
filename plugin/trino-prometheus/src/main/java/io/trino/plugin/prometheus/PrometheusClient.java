@@ -28,7 +28,6 @@ import jakarta.annotation.Nullable;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
-import okhttp3.OkHttpClient.Builder;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
@@ -74,7 +73,8 @@ public class PrometheusClient
         requireNonNull(metricCodec, "metricCodec is null");
         requireNonNull(typeManager, "typeManager is null");
 
-        Builder clientBuilder = new Builder().readTimeout(Duration.ofMillis(config.getReadTimeout().toMillis()));
+        OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder().readTimeout(
+                Duration.ofMillis(config.getReadTimeout().toMillis()));
         setupBasicAuth(clientBuilder, config.getUser(), config.getPassword());
         setupTokenAuth(clientBuilder, getBearerAuthInfoFromFile(config.getBearerTokenFile()), config.getHttpAuthHeaderName());
         clientBuilder.addInterceptor(addAdditionalHeaders(config.getAdditionalHeaders()));
