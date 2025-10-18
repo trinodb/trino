@@ -14,11 +14,13 @@
 package io.trino.plugin.lance.catalog.namespace;
 
 import io.airlift.configuration.Config;
+import jakarta.validation.constraints.NotEmpty;
 
 public class DirectoryNamespaceConfig
 {
     private String warehouseLocation;
 
+    @NotEmpty
     public String getWarehouseLocation()
     {
         return warehouseLocation;

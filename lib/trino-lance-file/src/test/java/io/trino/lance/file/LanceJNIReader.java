@@ -150,7 +150,7 @@ public class LanceJNIReader
         }
     }
 
-    private void writeSlice(BlockBuilder output, Type type, FieldVector vector, int index)
+    private static void writeSlice(BlockBuilder output, Type type, FieldVector vector, int index)
     {
         if (type instanceof VarcharType) {
             byte[] slice = ((VarCharVector) vector).get(index);
@@ -165,7 +165,7 @@ public class LanceJNIReader
         }
     }
 
-    private void writeVectorValues(BlockBuilder output, FieldVector vector, Consumer<Integer> consumer, int offset, int length)
+    private static void writeVectorValues(BlockBuilder output, FieldVector vector, Consumer<Integer> consumer, int offset, int length)
     {
         for (int i = offset; i < offset + length; i++) {
             if (vector.isNull(i)) {

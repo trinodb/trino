@@ -42,8 +42,8 @@ public class ListColumnReader
             AggregatedMemoryContext memoryContext)
     {
         requireNonNull(field, "field is null");
-        checkArgument(field.getChildren().size() == 1, "list should have only one child filed");
-        this.childColumnReader = ColumnReader.createColumnReader(dataSource, field.getChildren().getFirst(), columnMetadata, ranges, memoryContext);
+        checkArgument(field.children().size() == 1, "list should have only one child filed");
+        this.childColumnReader = ColumnReader.createColumnReader(dataSource, field.children().getFirst(), columnMetadata, ranges, memoryContext);
     }
 
     @Override
@@ -57,10 +57,10 @@ public class ListColumnReader
     public DecodedPage read()
     {
         DecodedPage decodedChild = childColumnReader.read();
-        RepetitionDefinitionUnraveler unraveler = decodedChild.getUnraveler();
+        RepetitionDefinitionUnraveler unraveler = decodedChild.unraveler();
         BlockPositions positions = unraveler.calculateOffsets();
         verify(nextBatchSize == positions.offsets().length - 1);
-        Block arrayBlock = ArrayBlock.fromElementBlock(nextBatchSize, positions.nulls(), positions.offsets(), decodedChild.getBlock());
+        Block arrayBlock = ArrayBlock.fromElementBlock(nextBatchSize, positions.nulls(), positions.offsets(), decodedChild.block());
         return new DecodedPage(arrayBlock, unraveler);
     }
 }

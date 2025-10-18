@@ -797,12 +797,6 @@
             </dependency>
 
             <dependency>
-                <groupId>io.github.luohao</groupId>
-                <artifactId>fastlanes-java</artifactId>
-                <version>1</version>
-            </dependency>
-
-            <dependency>
                 <groupId>io.jsonwebtoken</groupId>
                 <artifactId>jjwt-api</artifactId>
                 <version>${dep.jsonwebtoken.version}</version>
@@ -1216,6 +1210,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-kafka-event-listener</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-lance</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

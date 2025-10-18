@@ -23,10 +23,10 @@ import java.util.function.Function;
 import static io.trino.lance.file.v2.reader.MiniBlockPageReader.mapRange;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestMiniblockMapRange
+final class TestMiniblockMapRange
 {
     @Test
-    public void testMiddleNull()
+    void testMiddleNull()
     {
         // NULL in the middle
         // [[A, B, C], [D, E], NULL, [F, G, H]]
@@ -37,22 +37,22 @@ public class TestMiniblockMapRange
         int totalItems = 8;
         Function<Range, SelectedRanges> calculate = range -> mapRange(range, repetitions, definitions, maxRepetitionLevel, maxVisibleDef, totalItems, PreambleAction.ABSENT);
 
-        assertThat(calculate.apply(Range.of(0, 1))).isEqualTo(new SelectedRanges(Range.of(0, 3), Range.of(0, 3)));
-        assertThat(calculate.apply(Range.of(1, 2))).isEqualTo(new SelectedRanges(Range.of(3, 5), Range.of(3, 5)));
-        assertThat(calculate.apply(Range.of(2, 3))).isEqualTo(new SelectedRanges(Range.of(5, 5), Range.of(5, 6)));
-        assertThat(calculate.apply(Range.of(3, 4))).isEqualTo(new SelectedRanges(Range.of(5, 8), Range.of(6, 9)));
-        assertThat(calculate.apply(Range.of(3, 4))).isEqualTo(new SelectedRanges(Range.of(5, 8), Range.of(6, 9)));
-        assertThat(calculate.apply(Range.of(0, 2))).isEqualTo(new SelectedRanges(Range.of(0, 5), Range.of(0, 5)));
-        assertThat(calculate.apply(Range.of(0, 2))).isEqualTo(new SelectedRanges(Range.of(0, 5), Range.of(0, 5)));
-        assertThat(calculate.apply(Range.of(1, 3))).isEqualTo(new SelectedRanges(Range.of(3, 5), Range.of(3, 6)));
-        assertThat(calculate.apply(Range.of(2, 4))).isEqualTo(new SelectedRanges(Range.of(5, 8), Range.of(5, 9)));
-        assertThat(calculate.apply(Range.of(0, 3))).isEqualTo(new SelectedRanges(Range.of(0, 5), Range.of(0, 6)));
-        assertThat(calculate.apply(Range.of(1, 4))).isEqualTo(new SelectedRanges(Range.of(3, 8), Range.of(3, 9)));
-        assertThat(calculate.apply(Range.of(0, 4))).isEqualTo(new SelectedRanges(Range.of(0, 8), Range.of(0, 9)));
+        assertThat(calculate.apply(new Range(0, 1))).isEqualTo(new SelectedRanges(new Range(0, 3), new Range(0, 3)));
+        assertThat(calculate.apply(new Range(1, 2))).isEqualTo(new SelectedRanges(new Range(3, 5), new Range(3, 5)));
+        assertThat(calculate.apply(new Range(2, 3))).isEqualTo(new SelectedRanges(new Range(5, 5), new Range(5, 6)));
+        assertThat(calculate.apply(new Range(3, 4))).isEqualTo(new SelectedRanges(new Range(5, 8), new Range(6, 9)));
+        assertThat(calculate.apply(new Range(3, 4))).isEqualTo(new SelectedRanges(new Range(5, 8), new Range(6, 9)));
+        assertThat(calculate.apply(new Range(0, 2))).isEqualTo(new SelectedRanges(new Range(0, 5), new Range(0, 5)));
+        assertThat(calculate.apply(new Range(0, 2))).isEqualTo(new SelectedRanges(new Range(0, 5), new Range(0, 5)));
+        assertThat(calculate.apply(new Range(1, 3))).isEqualTo(new SelectedRanges(new Range(3, 5), new Range(3, 6)));
+        assertThat(calculate.apply(new Range(2, 4))).isEqualTo(new SelectedRanges(new Range(5, 8), new Range(5, 9)));
+        assertThat(calculate.apply(new Range(0, 3))).isEqualTo(new SelectedRanges(new Range(0, 5), new Range(0, 6)));
+        assertThat(calculate.apply(new Range(1, 4))).isEqualTo(new SelectedRanges(new Range(3, 8), new Range(3, 9)));
+        assertThat(calculate.apply(new Range(0, 4))).isEqualTo(new SelectedRanges(new Range(0, 8), new Range(0, 9)));
     }
 
     @Test
-    public void testLeadingNull()
+    void testLeadingNull()
     {
         // NULL at the begining
         // [NULL, [A, B], [C]]
@@ -63,16 +63,16 @@ public class TestMiniblockMapRange
         int totalItems = 3;
         Function<Range, SelectedRanges> calculate = range -> mapRange(range, repetitions, definitions, maxRepetitionLevel, maxVisibleDef, totalItems, PreambleAction.ABSENT);
 
-        assertThat(calculate.apply(Range.of(0, 1))).isEqualTo(new SelectedRanges(Range.of(0, 0), Range.of(0, 1)));
-        assertThat(calculate.apply(Range.of(1, 2))).isEqualTo(new SelectedRanges(Range.of(0, 2), Range.of(1, 3)));
-        assertThat(calculate.apply(Range.of(2, 3))).isEqualTo(new SelectedRanges(Range.of(2, 3), Range.of(3, 4)));
-        assertThat(calculate.apply(Range.of(0, 2))).isEqualTo(new SelectedRanges(Range.of(0, 2), Range.of(0, 3)));
-        assertThat(calculate.apply(Range.of(1, 3))).isEqualTo(new SelectedRanges(Range.of(0, 3), Range.of(1, 4)));
-        assertThat(calculate.apply(Range.of(0, 3))).isEqualTo(new SelectedRanges(Range.of(0, 3), Range.of(0, 4)));
+        assertThat(calculate.apply(new Range(0, 1))).isEqualTo(new SelectedRanges(new Range(0, 0), new Range(0, 1)));
+        assertThat(calculate.apply(new Range(1, 2))).isEqualTo(new SelectedRanges(new Range(0, 2), new Range(1, 3)));
+        assertThat(calculate.apply(new Range(2, 3))).isEqualTo(new SelectedRanges(new Range(2, 3), new Range(3, 4)));
+        assertThat(calculate.apply(new Range(0, 2))).isEqualTo(new SelectedRanges(new Range(0, 2), new Range(0, 3)));
+        assertThat(calculate.apply(new Range(1, 3))).isEqualTo(new SelectedRanges(new Range(0, 3), new Range(1, 4)));
+        assertThat(calculate.apply(new Range(0, 3))).isEqualTo(new SelectedRanges(new Range(0, 3), new Range(0, 4)));
     }
 
     @Test
-    public void testTrailingNull()
+    void testTrailingNull()
     {
         // Null at end
         // [[A], [B, C], NULL]
@@ -83,15 +83,15 @@ public class TestMiniblockMapRange
         int totalItems = 3;
         Function<Range, SelectedRanges> calculate = range -> mapRange(range, repetitions, definitions, maxRepetitionLevel, maxVisibleDef, totalItems, PreambleAction.ABSENT);
 
-        assertThat(calculate.apply(Range.of(1, 2))).isEqualTo(new SelectedRanges(Range.of(1, 3), Range.of(1, 3)));
-        assertThat(calculate.apply(Range.of(2, 3))).isEqualTo(new SelectedRanges(Range.of(3, 3), Range.of(3, 4)));
-        assertThat(calculate.apply(Range.of(0, 2))).isEqualTo(new SelectedRanges(Range.of(0, 3), Range.of(0, 3)));
-        assertThat(calculate.apply(Range.of(1, 3))).isEqualTo(new SelectedRanges(Range.of(1, 3), Range.of(1, 4)));
-        assertThat(calculate.apply(Range.of(0, 3))).isEqualTo(new SelectedRanges(Range.of(0, 3), Range.of(0, 4)));
+        assertThat(calculate.apply(new Range(1, 2))).isEqualTo(new SelectedRanges(new Range(1, 3), new Range(1, 3)));
+        assertThat(calculate.apply(new Range(2, 3))).isEqualTo(new SelectedRanges(new Range(3, 3), new Range(3, 4)));
+        assertThat(calculate.apply(new Range(0, 2))).isEqualTo(new SelectedRanges(new Range(0, 3), new Range(0, 3)));
+        assertThat(calculate.apply(new Range(1, 3))).isEqualTo(new SelectedRanges(new Range(1, 3), new Range(1, 4)));
+        assertThat(calculate.apply(new Range(0, 3))).isEqualTo(new SelectedRanges(new Range(0, 3), new Range(0, 4)));
     }
 
     @Test
-    public void testNoNulls()
+    void testNoNulls()
     {
         // No nulls, with repetition
         // [[A, B], [C, D], [E, F]]
@@ -102,16 +102,16 @@ public class TestMiniblockMapRange
         int totalItems = 6;
         Function<Range, SelectedRanges> calculate = range -> mapRange(range, repetitions, definitions, maxRepetitionLevel, maxVisibleDef, totalItems, PreambleAction.ABSENT);
 
-        assertThat(calculate.apply(Range.of(0, 1))).isEqualTo(new SelectedRanges(Range.of(0, 2), Range.of(0, 2)));
-        assertThat(calculate.apply(Range.of(1, 2))).isEqualTo(new SelectedRanges(Range.of(2, 4), Range.of(2, 4)));
-        assertThat(calculate.apply(Range.of(2, 3))).isEqualTo(new SelectedRanges(Range.of(4, 6), Range.of(4, 6)));
-        assertThat(calculate.apply(Range.of(0, 2))).isEqualTo(new SelectedRanges(Range.of(0, 4), Range.of(0, 4)));
-        assertThat(calculate.apply(Range.of(1, 3))).isEqualTo(new SelectedRanges(Range.of(2, 6), Range.of(2, 6)));
-        assertThat(calculate.apply(Range.of(0, 3))).isEqualTo(new SelectedRanges(Range.of(0, 6), Range.of(0, 6)));
+        assertThat(calculate.apply(new Range(0, 1))).isEqualTo(new SelectedRanges(new Range(0, 2), new Range(0, 2)));
+        assertThat(calculate.apply(new Range(1, 2))).isEqualTo(new SelectedRanges(new Range(2, 4), new Range(2, 4)));
+        assertThat(calculate.apply(new Range(2, 3))).isEqualTo(new SelectedRanges(new Range(4, 6), new Range(4, 6)));
+        assertThat(calculate.apply(new Range(0, 2))).isEqualTo(new SelectedRanges(new Range(0, 4), new Range(0, 4)));
+        assertThat(calculate.apply(new Range(1, 3))).isEqualTo(new SelectedRanges(new Range(2, 6), new Range(2, 6)));
+        assertThat(calculate.apply(new Range(0, 3))).isEqualTo(new SelectedRanges(new Range(0, 6), new Range(0, 6)));
     }
 
     @Test
-    public void testNoRepetitions()
+    void testNoRepetitions()
     {
         // No repetition, with nulls
         // [A, B, NULL, C]
@@ -122,16 +122,16 @@ public class TestMiniblockMapRange
         int totalItems = 4;
         Function<Range, SelectedRanges> calculate = range -> mapRange(range, repetitions, definitions, maxRepetitionLevel, maxVisibleDef, totalItems, PreambleAction.ABSENT);
 
-        assertThat(calculate.apply(Range.of(0, 1))).isEqualTo(new SelectedRanges(Range.of(0, 1), Range.of(0, 1)));
-        assertThat(calculate.apply(Range.of(1, 2))).isEqualTo(new SelectedRanges(Range.of(1, 2), Range.of(1, 2)));
-        assertThat(calculate.apply(Range.of(2, 3))).isEqualTo(new SelectedRanges(Range.of(2, 3), Range.of(2, 3)));
-        assertThat(calculate.apply(Range.of(0, 2))).isEqualTo(new SelectedRanges(Range.of(0, 2), Range.of(0, 2)));
-        assertThat(calculate.apply(Range.of(1, 3))).isEqualTo(new SelectedRanges(Range.of(1, 3), Range.of(1, 3)));
-        assertThat(calculate.apply(Range.of(0, 3))).isEqualTo(new SelectedRanges(Range.of(0, 3), Range.of(0, 3)));
+        assertThat(calculate.apply(new Range(0, 1))).isEqualTo(new SelectedRanges(new Range(0, 1), new Range(0, 1)));
+        assertThat(calculate.apply(new Range(1, 2))).isEqualTo(new SelectedRanges(new Range(1, 2), new Range(1, 2)));
+        assertThat(calculate.apply(new Range(2, 3))).isEqualTo(new SelectedRanges(new Range(2, 3), new Range(2, 3)));
+        assertThat(calculate.apply(new Range(0, 2))).isEqualTo(new SelectedRanges(new Range(0, 2), new Range(0, 2)));
+        assertThat(calculate.apply(new Range(1, 3))).isEqualTo(new SelectedRanges(new Range(1, 3), new Range(1, 3)));
+        assertThat(calculate.apply(new Range(0, 3))).isEqualTo(new SelectedRanges(new Range(0, 3), new Range(0, 3)));
     }
 
     @Test
-    public void testTrailingNullWithPreamble()
+    void testTrailingNullWithPreamble()
     {
         // [[..., A] [B, C], NULL]
         int[] repetitions = new int[] {0, 1, 0, 1};
@@ -141,14 +141,14 @@ public class TestMiniblockMapRange
         int totalItems = 3;
         BiFunction<Range, PreambleAction, SelectedRanges> calculate = (range, preambleAction) -> mapRange(range, repetitions, definitions, maxRepetitionLevel, maxVisibleDef, totalItems, preambleAction);
 
-        assertThat(calculate.apply(Range.of(0, 1), PreambleAction.TAKE)).isEqualTo(new SelectedRanges(Range.of(0, 3), Range.of(0, 3)));
-        assertThat(calculate.apply(Range.of(0, 2), PreambleAction.TAKE)).isEqualTo(new SelectedRanges(Range.of(0, 3), Range.of(0, 4)));
-        assertThat(calculate.apply(Range.of(1, 2), PreambleAction.SKIP)).isEqualTo(new SelectedRanges(Range.of(3, 3), Range.of(3, 4)));
-        assertThat(calculate.apply(Range.of(0, 2), PreambleAction.SKIP)).isEqualTo(new SelectedRanges(Range.of(1, 3), Range.of(1, 4)));
+        assertThat(calculate.apply(new Range(0, 1), PreambleAction.TAKE)).isEqualTo(new SelectedRanges(new Range(0, 3), new Range(0, 3)));
+        assertThat(calculate.apply(new Range(0, 2), PreambleAction.TAKE)).isEqualTo(new SelectedRanges(new Range(0, 3), new Range(0, 4)));
+        assertThat(calculate.apply(new Range(1, 2), PreambleAction.SKIP)).isEqualTo(new SelectedRanges(new Range(3, 3), new Range(3, 4)));
+        assertThat(calculate.apply(new Range(0, 2), PreambleAction.SKIP)).isEqualTo(new SelectedRanges(new Range(1, 3), new Range(1, 4)));
     }
 
     @Test
-    public void testPreambleWithMiddleNull()
+    void testPreambleWithMiddleNull()
     {
         // [[..., A], NULL, [D, E]]
         int[] repetitions = new int[] {0, 1, 1, 0};
@@ -158,15 +158,15 @@ public class TestMiniblockMapRange
         int totalItems = 4;
         BiFunction<Range, PreambleAction, SelectedRanges> calculate = (range, preambleAction) -> mapRange(range, repetitions, definitions, maxRepetitionLevel, maxVisibleDef, totalItems, preambleAction);
 
-        assertThat(calculate.apply(Range.of(0, 1), PreambleAction.TAKE)).isEqualTo(new SelectedRanges(Range.of(0, 1), Range.of(0, 2)));
-        assertThat(calculate.apply(Range.of(0, 2), PreambleAction.TAKE)).isEqualTo(new SelectedRanges(Range.of(0, 3), Range.of(0, 4)));
-        assertThat(calculate.apply(Range.of(0, 1), PreambleAction.SKIP)).isEqualTo(new SelectedRanges(Range.of(1, 1), Range.of(1, 2)));
-        assertThat(calculate.apply(Range.of(1, 2), PreambleAction.SKIP)).isEqualTo(new SelectedRanges(Range.of(1, 3), Range.of(2, 4)));
-        assertThat(calculate.apply(Range.of(0, 2), PreambleAction.SKIP)).isEqualTo(new SelectedRanges(Range.of(1, 3), Range.of(1, 4)));
+        assertThat(calculate.apply(new Range(0, 1), PreambleAction.TAKE)).isEqualTo(new SelectedRanges(new Range(0, 1), new Range(0, 2)));
+        assertThat(calculate.apply(new Range(0, 2), PreambleAction.TAKE)).isEqualTo(new SelectedRanges(new Range(0, 3), new Range(0, 4)));
+        assertThat(calculate.apply(new Range(0, 1), PreambleAction.SKIP)).isEqualTo(new SelectedRanges(new Range(1, 1), new Range(1, 2)));
+        assertThat(calculate.apply(new Range(1, 2), PreambleAction.SKIP)).isEqualTo(new SelectedRanges(new Range(1, 3), new Range(2, 4)));
+        assertThat(calculate.apply(new Range(0, 2), PreambleAction.SKIP)).isEqualTo(new SelectedRanges(new Range(1, 3), new Range(1, 4)));
     }
 
     @Test
-    public void testPreambleWithoutDefinition()
+    void testPreambleWithoutDefinition()
     {
         // [[..., A] [B, C], [D]]
         int[] repetitions = new int[] {0, 1, 0, 1};
@@ -176,15 +176,15 @@ public class TestMiniblockMapRange
         int totalItems = 4;
         BiFunction<Range, PreambleAction, SelectedRanges> calculate = (range, preambleAction) -> mapRange(range, repetitions, definitions, maxRepetitionLevel, maxVisibleDef, totalItems, preambleAction);
 
-        assertThat(calculate.apply(Range.of(0, 1), PreambleAction.TAKE)).isEqualTo(new SelectedRanges(Range.of(0, 3), Range.of(0, 3)));
-        assertThat(calculate.apply(Range.of(0, 2), PreambleAction.TAKE)).isEqualTo(new SelectedRanges(Range.of(0, 4), Range.of(0, 4)));
-        assertThat(calculate.apply(Range.of(0, 1), PreambleAction.SKIP)).isEqualTo(new SelectedRanges(Range.of(1, 3), Range.of(1, 3)));
-        assertThat(calculate.apply(Range.of(1, 2), PreambleAction.SKIP)).isEqualTo(new SelectedRanges(Range.of(3, 4), Range.of(3, 4)));
-        assertThat(calculate.apply(Range.of(0, 2), PreambleAction.SKIP)).isEqualTo(new SelectedRanges(Range.of(1, 4), Range.of(1, 4)));
+        assertThat(calculate.apply(new Range(0, 1), PreambleAction.TAKE)).isEqualTo(new SelectedRanges(new Range(0, 3), new Range(0, 3)));
+        assertThat(calculate.apply(new Range(0, 2), PreambleAction.TAKE)).isEqualTo(new SelectedRanges(new Range(0, 4), new Range(0, 4)));
+        assertThat(calculate.apply(new Range(0, 1), PreambleAction.SKIP)).isEqualTo(new SelectedRanges(new Range(1, 3), new Range(1, 3)));
+        assertThat(calculate.apply(new Range(1, 2), PreambleAction.SKIP)).isEqualTo(new SelectedRanges(new Range(3, 4), new Range(3, 4)));
+        assertThat(calculate.apply(new Range(0, 2), PreambleAction.SKIP)).isEqualTo(new SelectedRanges(new Range(1, 4), new Range(1, 4)));
     }
 
     @Test
-    public void testEmptyList()
+    void testEmptyList()
     {
         // [[] [A], [B, C]]
         int[] repetitions = new int[] {1, 1, 1, 0};
@@ -194,11 +194,11 @@ public class TestMiniblockMapRange
         int totalItems = 3;
         Function<Range, SelectedRanges> calculate = (range) -> mapRange(range, repetitions, definitions, maxRepetitionLevel, maxVisibleDef, totalItems, PreambleAction.ABSENT);
 
-        assertThat(calculate.apply(Range.of(0, 1))).isEqualTo(new SelectedRanges(Range.of(0, 0), Range.of(0, 1)));
-        assertThat(calculate.apply(Range.of(1, 2))).isEqualTo(new SelectedRanges(Range.of(0, 1), Range.of(1, 2)));
-        assertThat(calculate.apply(Range.of(2, 3))).isEqualTo(new SelectedRanges(Range.of(1, 3), Range.of(2, 4)));
-        assertThat(calculate.apply(Range.of(0, 2))).isEqualTo(new SelectedRanges(Range.of(0, 1), Range.of(0, 2)));
-        assertThat(calculate.apply(Range.of(1, 3))).isEqualTo(new SelectedRanges(Range.of(0, 3), Range.of(1, 4)));
-        assertThat(calculate.apply(Range.of(0, 3))).isEqualTo(new SelectedRanges(Range.of(0, 3), Range.of(0, 4)));
+        assertThat(calculate.apply(new Range(0, 1))).isEqualTo(new SelectedRanges(new Range(0, 0), new Range(0, 1)));
+        assertThat(calculate.apply(new Range(1, 2))).isEqualTo(new SelectedRanges(new Range(0, 1), new Range(1, 2)));
+        assertThat(calculate.apply(new Range(2, 3))).isEqualTo(new SelectedRanges(new Range(1, 3), new Range(2, 4)));
+        assertThat(calculate.apply(new Range(0, 2))).isEqualTo(new SelectedRanges(new Range(0, 1), new Range(0, 2)));
+        assertThat(calculate.apply(new Range(1, 3))).isEqualTo(new SelectedRanges(new Range(0, 3), new Range(1, 4)));
+        assertThat(calculate.apply(new Range(0, 3))).isEqualTo(new SelectedRanges(new Range(0, 3), new Range(0, 4)));
     }
 }

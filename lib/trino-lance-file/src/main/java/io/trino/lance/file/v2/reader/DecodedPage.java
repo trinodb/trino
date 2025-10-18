@@ -17,24 +17,11 @@ import io.trino.spi.block.Block;
 
 import static java.util.Objects.requireNonNull;
 
-public class DecodedPage
+public record DecodedPage(Block block, RepetitionDefinitionUnraveler unraveler)
 {
-    private final Block block;
-    private final RepetitionDefinitionUnraveler unraveler;
-
-    public DecodedPage(Block block, RepetitionDefinitionUnraveler unraveler)
+    public DecodedPage
     {
-        this.block = requireNonNull(block, "block is null");
-        this.unraveler = requireNonNull(unraveler, "unraveler is null");
-    }
-
-    public Block getBlock()
-    {
-        return block;
-    }
-
-    public RepetitionDefinitionUnraveler getUnraveler()
-    {
-        return unraveler;
+        requireNonNull(block, "block is null");
+        requireNonNull(unraveler, "unraveler is null");
     }
 }

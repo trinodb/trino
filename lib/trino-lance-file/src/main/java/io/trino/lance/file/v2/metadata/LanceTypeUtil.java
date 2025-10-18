@@ -23,9 +23,9 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.lance.file.v2.metadata.LogicalType.LogicalTypeKind.STRUCT;
 
-public class TypeUtil
+public final class LanceTypeUtil
 {
-    private TypeUtil() {}
+    private LanceTypeUtil() {}
 
     public static class FieldVisitor<T>
     {
@@ -47,7 +47,7 @@ public class TypeUtil
 
     public static <T> T visit(Field field, FieldVisitor<T> visitor)
     {
-        return switch (LogicalType.from(field.getLogicalType())) {
+        return switch (LogicalType.from(field.logicalType())) {
             case LogicalType.Int8Type _,
                  LogicalType.Int16Type _,
                  LogicalType.Int32Type _,
@@ -58,15 +58,15 @@ public class TypeUtil
                  LogicalType.BinaryType _,
                  LogicalType.DateType _ -> visitor.primitive(field);
             case LogicalType.StructType _ -> {
-                List<T> results = new ArrayList<>(field.getChildren().size());
-                for (Field child : field.getChildren()) {
+                List<T> results = new ArrayList<>(field.children().size());
+                for (Field child : field.children()) {
                     results.add(visit(child, visitor));
                 }
                 yield visitor.struct(field, results);
             }
             case LogicalType.ListType _ -> {
-                verify(field.getChildren().size() == 1);
-                T result = visit(field.getChildren().get(0), visitor);
+                verify(field.children().size() == 1);
+                T result = visit(field.children().get(0), visitor);
                 yield visitor.list(field, result);
             }
             case LogicalType.FixedSizeListType _ -> throw new UnsupportedOperationException("FIXED LIST TYPES not yet supported");
@@ -87,7 +87,7 @@ public class TypeUtil
         @Override
         public Map<Integer, Integer> primitive(Field primitive)
         {
-            return ImmutableMap.of(primitive.getId(), current++);
+            return ImmutableMap.of(primitive.id(), current++);
         }
 
         @Override

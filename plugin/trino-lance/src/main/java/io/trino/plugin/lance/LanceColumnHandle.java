@@ -13,46 +13,17 @@
  */
 package io.trino.plugin.lance;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
 
 import static java.util.Objects.requireNonNull;
 
-public class LanceColumnHandle
+public record LanceColumnHandle(int id, String name, Type type)
         implements ColumnHandle
 {
-    private final int id;
-    private final String name;
-    private final Type type;
-
-    @JsonCreator
-    public LanceColumnHandle(
-            @JsonProperty("id") int id,
-            @JsonProperty("name") String name,
-            @JsonProperty("type") Type type)
+    public LanceColumnHandle
     {
-        this.id = id;
-        this.name = requireNonNull(name, "name is null");
-        this.type = requireNonNull(type, "type is null");
-    }
-
-    @JsonProperty
-    public int getId()
-    {
-        return id;
-    }
-
-    @JsonProperty
-    public String getName()
-    {
-        return name;
-    }
-
-    @JsonProperty
-    public Type getType()
-    {
-        return type;
+        requireNonNull(name, "name is null");
+        requireNonNull(type, "type is null");
     }
 }

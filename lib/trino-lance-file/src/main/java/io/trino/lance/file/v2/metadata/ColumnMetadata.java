@@ -23,19 +23,13 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Objects.requireNonNull;
 
-public class ColumnMetadata
+public record ColumnMetadata(int index, List<PageMetadata> pages, List<DiskRange> bufferOffsets)
 {
-    private final int index;
-    private final List<PageMetadata> pages;
-    private final List<DiskRange> bufferOffsets;
-
-    public ColumnMetadata(int index, List<PageMetadata> pages, List<DiskRange> bufferOffsets)
+    public ColumnMetadata
     {
-        this.index = index;
-        this.pages = requireNonNull(pages, "pages is null");
-        this.bufferOffsets = requireNonNull(bufferOffsets, "bufferOffsets is null");
+        pages = ImmutableList.copyOf(pages);
+        bufferOffsets = ImmutableList.copyOf(bufferOffsets);
     }
 
     public static ColumnMetadata from(int columnIndex, Slice data)
@@ -56,15 +50,21 @@ public class ColumnMetadata
                     long priority = page.getPriority();
                     int bufferCount = page.getBufferOffsetsList().size();
                     List<DiskRange> buffers = IntStream.range(0, bufferCount).boxed()
-                            .map(i -> DiskRange.of(page.getBufferOffsets(i), page.getBufferSizes(i)))
+                            .map(i -> {
+                                long position = page.getBufferOffsets(i);
+                                return new DiskRange(position, page.getBufferSizes(i));
+                            })
                             .collect(toImmutableList());
                     return new PageMetadata(numRows, priority, getPageLayout(page), buffers);
                 })
                 .collect(toImmutableList());
 
         int bufferCount = proto.getBufferOffsetsList().size();
-        ImmutableList<DiskRange> buffers = IntStream.range(0, bufferCount).boxed()
-                .map(index -> DiskRange.of(proto.getBufferOffsets(index), proto.getBufferSizes(index)))
+        List<DiskRange> buffers = IntStream.range(0, bufferCount).boxed()
+                .map(index -> {
+                    long position = proto.getBufferOffsets(index);
+                    return new DiskRange(position, proto.getBufferSizes(index));
+                })
                 .collect(toImmutableList());
         return new ColumnMetadata(columnIndex, pages, buffers);
     }
@@ -87,20 +87,5 @@ public class ColumnMetadata
             case INDIRECT -> throw new UnsupportedOperationException("Indirect encoding not supported");
             default -> throw new UnsupportedOperationException("Invalid encoding: " + encoding);
         };
-    }
-
-    public int getIndex()
-    {
-        return index;
-    }
-
-    public List<PageMetadata> getPages()
-    {
-        return pages;
-    }
-
-    public List<DiskRange> getBufferOffsets()
-    {
-        return bufferOffsets;
     }
 }

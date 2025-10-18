@@ -22,7 +22,7 @@ import io.trino.lance.file.v2.metadata.DiskRange;
 import io.trino.lance.file.v2.metadata.Field;
 import io.trino.lance.file.v2.metadata.FileVersion;
 import io.trino.lance.file.v2.metadata.Footer;
-import io.trino.lance.file.v2.metadata.TypeUtil;
+import io.trino.lance.file.v2.metadata.LanceTypeUtil;
 import io.trino.lance.file.v2.reader.ColumnReader;
 import io.trino.lance.file.v2.reader.Range;
 import io.trino.memory.context.AggregatedMemoryContext;
@@ -82,7 +82,7 @@ public class LanceReader
         // read Global Buffer Offset Table
         Slice bufferOffsetTableSlice = dataSource.readFully(footer.getGlobalBuffOffsetStart(), footer.getNumGlobalBuffers() * BUFFER_DESCRIPTOR_SIZE);
         List<DiskRange> bufferOffsets = IntStream.range(0, footer.getNumGlobalBuffers()).boxed()
-                .map(i -> DiskRange.of(bufferOffsetTableSlice.getLong(BUFFER_DESCRIPTOR_SIZE * i), bufferOffsetTableSlice.getLong(BUFFER_DESCRIPTOR_SIZE * i + 8)))
+                .map(i -> new DiskRange(bufferOffsetTableSlice.getLong(BUFFER_DESCRIPTOR_SIZE * i), bufferOffsetTableSlice.getLong(BUFFER_DESCRIPTOR_SIZE * i + 8)))
                 .collect(toImmutableList());
         if (bufferOffsets.size() == 0) {
             throw new RuntimeException("File did not contain any buffers");
@@ -91,40 +91,43 @@ public class LanceReader
         // read global schema
         DiskRange schemaBufferLocation = bufferOffsets.get(0);
         // prefetch all metadata
-        Slice metadataSlice = dataSource.readTail(toIntExact(dataSource.getEstimatedSize() - schemaBufferLocation.getPosition()));
+        Slice metadataSlice = dataSource.readTail(toIntExact(dataSource.getEstimatedSize() - schemaBufferLocation.position()));
         // read file descriptor
-        Slice schemaSlice = metadataSlice.slice(0, toIntExact(schemaBufferLocation.getLength()));
+        Slice schemaSlice = metadataSlice.slice(0, toIntExact(schemaBufferLocation.length()));
         build.buf.gen.lance.file.FileDescriptor fileDescriptor = build.buf.gen.lance.file.FileDescriptor.parseFrom(schemaSlice.toByteBuffer());
         checkArgument(fileDescriptor.hasSchema(), "FileDescriptor does not contain a schema");
         this.fields = toFields(fileDescriptor.getSchema());
-        List<Range> ranges = requestRanges.orElse(ImmutableList.of(Range.of(0, fileDescriptor.getLength())));
+        List<Range> ranges = requestRanges.orElse(ImmutableList.of(new Range(0, fileDescriptor.getLength())));
         this.numRows = ranges.stream()
                 .mapToLong(Range::length)
                 .sum();
         // read Column Metadata Offset Table
-        Slice columnMetadataOffsetsSlice = metadataSlice.slice(toIntExact(footer.getColumnMetadataOffsetsStart() - schemaBufferLocation.getPosition()), toIntExact(footer.getGlobalBuffOffsetStart() - footer.getColumnMetadataOffsetsStart()));
+        Slice columnMetadataOffsetsSlice = metadataSlice.slice(toIntExact(footer.getColumnMetadataOffsetsStart() - schemaBufferLocation.position()), toIntExact(footer.getGlobalBuffOffsetStart() - footer.getColumnMetadataOffsetsStart()));
         List<DiskRange> columnMetadataOffsets = IntStream.range(0, footer.getNumColumns()).boxed()
-                .map(i -> DiskRange.of(columnMetadataOffsetsSlice.getLong(i * BUFFER_DESCRIPTOR_SIZE), columnMetadataOffsetsSlice.getLong(i * BUFFER_DESCRIPTOR_SIZE + 8)))
+                .map(i -> {
+                    long position = columnMetadataOffsetsSlice.getLong(i * BUFFER_DESCRIPTOR_SIZE);
+                    return new DiskRange(position, columnMetadataOffsetsSlice.getLong(i * BUFFER_DESCRIPTOR_SIZE + 8));
+                })
                 .collect(toImmutableList());
 
         // read Column Metadata
-        Slice columnMetadataSlice = metadataSlice.slice(toIntExact(footer.getColumnMetadataStart() - schemaBufferLocation.getPosition()), toIntExact(footer.getColumnMetadataOffsetsStart() - footer.getColumnMetadataStart()));
+        Slice columnMetadataSlice = metadataSlice.slice(toIntExact(footer.getColumnMetadataStart() - schemaBufferLocation.position()), toIntExact(footer.getColumnMetadataOffsetsStart() - footer.getColumnMetadataStart()));
         List<ColumnMetadata> metadata = IntStream.range(0, footer.getNumColumns()).boxed()
                 .map(i -> {
                     DiskRange offset = columnMetadataOffsets.get(i);
-                    Slice message = columnMetadataSlice.slice(toIntExact(offset.getPosition() - footer.getColumnMetadataStart()), toIntExact(offset.getLength()));
+                    Slice message = columnMetadataSlice.slice(toIntExact(offset.position() - footer.getColumnMetadataStart()), toIntExact(offset.length()));
                     return ColumnMetadata.from(i, message);
                 })
                 .collect(toImmutableList());
 
-        Map<Integer, Integer> fieldIdMap = TypeUtil.visit(fields, new TypeUtil.FieldIdToColumnIndexVisitor());
+        Map<Integer, Integer> fieldIdMap = LanceTypeUtil.visit(fields, new LanceTypeUtil.FieldIdToColumnIndexVisitor());
         this.columnMetadata = fieldIdMap.entrySet().stream()
                 .collect(toImmutableMap(
                         Map.Entry::getKey,
                         entry -> metadata.get(entry.getValue())));
 
         this.columnReaders = fields.stream()
-                .filter(field -> columnIds.contains(field.getId()))
+                .filter(field -> columnIds.contains(field.id()))
                 .map(field ->
                         ColumnReader.createColumnReader(
                                 dataSource,
@@ -149,7 +152,7 @@ public class LanceReader
         }
         List<Field> fields = new ArrayList<>();
         for (Map.Entry<Integer, Field> entry : fieldMap.entrySet()) {
-            int parentId = fieldMap.get(entry.getKey()).getParentId();
+            int parentId = fieldMap.get(entry.getKey()).parentId();
             Field field = entry.getValue();
             if (parentId == -1) {
                 fields.add(field);
@@ -299,7 +302,7 @@ public class LanceReader
 
             Block block = blocks[channel];
             if (block == null) {
-                block = columnReaders[channel].read().getBlock();
+                block = columnReaders[channel].read().block();
                 block = selectedPositions.apply(block);
             }
             blocks[channel] = block;

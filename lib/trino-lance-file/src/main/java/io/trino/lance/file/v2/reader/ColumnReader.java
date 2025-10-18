@@ -30,7 +30,7 @@ public interface ColumnReader
             List<Range> readRanges,
             AggregatedMemoryContext memoryContext)
     {
-        return switch (LogicalType.from(field.getLogicalType())) {
+        return switch (LogicalType.from(field.logicalType())) {
             case LogicalType.Int8Type _,
                  LogicalType.Int16Type _,
                  LogicalType.Int32Type _,
@@ -39,10 +39,10 @@ public interface ColumnReader
                  LogicalType.DoubleType _,
                  LogicalType.StringType _,
                  LogicalType.BinaryType _,
-                 LogicalType.DateType _ -> new PrimitiveColumnReader(dataSource, field, columnMetadata.get(field.getId()), readRanges, memoryContext);
+                 LogicalType.DateType _ -> new PrimitiveColumnReader(dataSource, field, columnMetadata.get(field.id()), readRanges, memoryContext);
             case LogicalType.ListType _ -> new ListColumnReader(dataSource, field, columnMetadata, readRanges, memoryContext);
             case LogicalType.StructType _ -> new StructColumnReader(dataSource, field, columnMetadata, readRanges, memoryContext);
-            default -> throw new RuntimeException("Unsupported logical type: " + field.getLogicalType());
+            default -> throw new RuntimeException("Unsupported logical type: " + field.logicalType());
         };
     }
 

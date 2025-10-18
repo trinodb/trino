@@ -33,7 +33,7 @@ public enum LanceErrorCode
 
     LanceErrorCode(int code, ErrorType errorType)
     {
-        errorCode = new ErrorCode(code + 0x0524_0000, name(), errorType, errorType == USER_ERROR);
+        errorCode = new ErrorCode(code + 0x0514_0000, name(), errorType, errorType == USER_ERROR);
     }
 
     @Override

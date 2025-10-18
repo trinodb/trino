@@ -34,9 +34,9 @@ public class StructColumnReader
 
     public StructColumnReader(LanceDataSource dataSource, Field field, Map<Integer, ColumnMetadata> columnMetadata, List<Range> ranges, AggregatedMemoryContext memoryContext)
     {
-        ColumnReader[] childReaders = new ColumnReader[field.getChildren().size()];
+        ColumnReader[] childReaders = new ColumnReader[field.children().size()];
         for (int i = 0; i < childReaders.length; i++) {
-            childReaders[i] = ColumnReader.createColumnReader(dataSource, field.getChildren().get(i), columnMetadata, ranges, memoryContext);
+            childReaders[i] = ColumnReader.createColumnReader(dataSource, field.children().get(i), columnMetadata, ranges, memoryContext);
         }
         this.childColumnReaders = childReaders;
     }
@@ -55,9 +55,9 @@ public class StructColumnReader
     {
         List<DecodedPage> decodedPages = Arrays.stream(childColumnReaders).map(ColumnReader::read).collect(toImmutableList());
 
-        Block[] fieldBlocks = decodedPages.stream().map(DecodedPage::getBlock).toArray(Block[]::new);
+        Block[] fieldBlocks = decodedPages.stream().map(DecodedPage::block).toArray(Block[]::new);
         // repetition/definition levels should be identical across all children
-        RepetitionDefinitionUnraveler unraveler = decodedPages.getFirst().getUnraveler();
+        RepetitionDefinitionUnraveler unraveler = decodedPages.getFirst().unraveler();
         if (unraveler.isAllValid()) {
             unraveler.skipValidity();
             return new DecodedPage(RowBlock.fromFieldBlocks(nextBatchSize, fieldBlocks), unraveler);

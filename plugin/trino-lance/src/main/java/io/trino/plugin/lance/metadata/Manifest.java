@@ -13,8 +13,7 @@
  */
 package io.trino.plugin.lance.metadata;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.airlift.slice.Slice;
 import io.trino.lance.file.v2.metadata.Field;
@@ -29,29 +28,16 @@ import static io.trino.lance.file.LanceReader.toFields;
 import static io.trino.plugin.lance.LanceErrorCode.LANCE_INVALID_METADATA;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.US_ASCII;
-import static java.util.Objects.requireNonNull;
 
-public class Manifest
+public record Manifest(List<Field> fields, List<Fragment> fragments, long version, long maxFragmentId)
 {
     private static final int MIN_FILE_SIZE = 16;
     private static final byte[] MAGIC = "LANC".getBytes(US_ASCII);
 
-    private final List<Field> fields;
-    private final List<Fragment> fragments;
-    private final long version;
-    private final long maxFragmentId;
-
-    @JsonCreator
-    public Manifest(
-            @JsonProperty("fields") List<Field> fields,
-            @JsonProperty("fragments") List<Fragment> fragments,
-            @JsonProperty("version") long version,
-            @JsonProperty("maxFragmentId") long maxFragmentId)
+    public Manifest
     {
-        this.fields = requireNonNull(fields, "fields is null");
-        this.fragments = requireNonNull(fragments, "fragments is null");
-        this.version = version;
-        this.maxFragmentId = maxFragmentId;
+        fields = ImmutableList.copyOf(fields);
+        fragments = ImmutableList.copyOf(fragments);
     }
 
     public static Manifest from(Slice slice)
@@ -83,29 +69,5 @@ public class Manifest
                 fragments,
                 proto.getVersion(),
                 proto.getMaxFragmentId());
-    }
-
-    @JsonProperty
-    public List<Field> getFields()
-    {
-        return fields;
-    }
-
-    @JsonProperty
-    public List<Fragment> getFragments()
-    {
-        return fragments;
-    }
-
-    @JsonProperty
-    public long getVersion()
-    {
-        return version;
-    }
-
-    @JsonProperty
-    public long getMaxFragmentId()
-    {
-        return maxFragmentId;
     }
 }

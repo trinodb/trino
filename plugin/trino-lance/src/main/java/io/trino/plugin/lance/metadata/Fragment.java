@@ -13,30 +13,20 @@
  */
 package io.trino.plugin.lance.metadata;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class Fragment
+public record Fragment(long id, List<DataFile> files, long physicalRows)
 {
-    private final long id;
-    private final List<DataFile> files;
-    private final long physicalRows;
     // TODO: support deletion files
 
-    @JsonCreator
-    public Fragment(
-            @JsonProperty("id") long id,
-            @JsonProperty("files") List<DataFile> files,
-            @JsonProperty("physicalRows") long physicalRows)
+    public Fragment
     {
-        this.id = id;
-        this.files = requireNonNull(files, "files is null");
-        this.physicalRows = physicalRows;
+        files = ImmutableList.copyOf(files);
     }
 
     public static Fragment from(build.buf.gen.lance.table.DataFragment proto)
@@ -48,24 +38,6 @@ public class Fragment
                 .map(DataFile::from)
                 .collect(toImmutableList());
         return new Fragment(proto.getId(), files, proto.getPhysicalRows());
-    }
-
-    @JsonProperty
-    public long getId()
-    {
-        return id;
-    }
-
-    @JsonProperty
-    public List<DataFile> getFiles()
-    {
-        return files;
-    }
-
-    @JsonProperty
-    public long getPhysicalRows()
-    {
-        return physicalRows;
     }
 
     public record DataFile(String path, List<Integer> fields, List<Integer> columnIndices, long fileMajorVersion, long fileMinorVersion)

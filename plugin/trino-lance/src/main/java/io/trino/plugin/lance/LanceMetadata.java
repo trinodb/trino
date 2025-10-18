@@ -39,7 +39,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -49,8 +48,6 @@ import static java.util.Objects.requireNonNull;
 public class LanceMetadata
         implements ConnectorMetadata
 {
-    public static final int GET_METADATA_BATCH_SIZE = 1000;
-
     private final TrinoCatalog catalog;
 
     @Inject
@@ -108,7 +105,7 @@ public class LanceMetadata
             Optional<BaseTable> table = catalog.loadTable(session, tableName);
             if (table.isPresent()) {
                 Manifest manifest = table.get().loadManifest(Optional.empty());
-                List<ColumnMetadata> columns = manifest.getFields().stream().map(field -> new ColumnMetadata(field.getName(), field.toTrinoType())).collect(toImmutableList());
+                List<ColumnMetadata> columns = manifest.fields().stream().map(field -> new ColumnMetadata(field.name(), field.toTrinoType())).collect(toImmutableList());
                 relationColumns.put(tableName, RelationColumnsMetadata.forTable(tableName, columns));
             }
         }
@@ -142,26 +139,23 @@ public class LanceMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        checkArgument(tableHandle instanceof LanceTableHandle);
         LanceTableHandle table = (LanceTableHandle) tableHandle;
 
-        List<ColumnMetadata> columns = table.manifest().getFields().stream().map(field -> new ColumnMetadata(field.getName(), field.toTrinoType())).collect(toImmutableList());
+        List<ColumnMetadata> columns = table.manifest().fields().stream().map(field -> new ColumnMetadata(field.name(), field.toTrinoType())).collect(toImmutableList());
         return new ConnectorTableMetadata(table.name(), columns);
     }
 
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        checkArgument(tableHandle instanceof LanceTableHandle);
         LanceTableHandle table = (LanceTableHandle) tableHandle;
-        return table.manifest().getFields().stream().collect(toImmutableMap(Field::getName, field -> new LanceColumnHandle(field.getId(), field.getName(), field.toTrinoType())));
+        return table.manifest().fields().stream().collect(toImmutableMap(Field::name, field -> new LanceColumnHandle(field.id(), field.name(), field.toTrinoType())));
     }
 
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        checkArgument(tableHandle instanceof LanceTableHandle);
         LanceColumnHandle column = (LanceColumnHandle) columnHandle;
-        return new ColumnMetadata(column.getName(), column.getType());
+        return new ColumnMetadata(column.name(), column.type());
     }
 }

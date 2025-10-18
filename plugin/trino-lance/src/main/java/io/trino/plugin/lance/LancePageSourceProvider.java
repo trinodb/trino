@@ -82,10 +82,10 @@ public class LancePageSourceProvider
             lanceDataSource = new TrinoLanceDataSource(inputFile, stats);
             List<Integer> readColumnIds = columns.stream()
                     .map(LanceColumnHandle.class::cast)
-                    .map(LanceColumnHandle::getId)
+                    .map(LanceColumnHandle::id)
                     .collect(toImmutableList());
             AggregatedMemoryContext memoryUsage = newSimpleAggregatedMemoryContext();
-            LanceReader reader = new LanceReader(lanceDataSource, readColumnIds, Optional.of(ImmutableList.of(Range.of(start, end))), memoryUsage);
+            LanceReader reader = new LanceReader(lanceDataSource, readColumnIds, Optional.of(ImmutableList.of(new Range(start, end))), memoryUsage);
             return new LancePageSource(reader, lanceDataSource, memoryUsage);
         }
         catch (IOException e) {
@@ -101,8 +101,8 @@ public class LancePageSourceProvider
             long end)
     {
         // TODO: support multiple files in a fragment
-        checkArgument(fragment.getFiles().size() == 1, "only one file per fragment is supported");
-        Fragment.DataFile dataFile = fragment.getFiles().getFirst();
+        checkArgument(fragment.files().size() == 1, "only one file per fragment is supported");
+        Fragment.DataFile dataFile = fragment.files().getFirst();
         return createFilePageSource(session, Location.of(Joiner.on("/").join(table.tablePath(), DATA_DIR, dataFile.path())), columns, start, end);
     }
 

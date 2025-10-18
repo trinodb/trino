@@ -22,8 +22,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 public class LanceSplitManager
         implements ConnectorSplitManager
 {
@@ -35,9 +33,8 @@ public class LanceSplitManager
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
-        checkArgument(tableHandle instanceof LanceTableHandle);
         LanceTableHandle table = (LanceTableHandle) tableHandle;
-        LanceSplitSource splitSource = new LanceSplitSource(table.manifest().getFragments());
+        LanceSplitSource splitSource = new LanceSplitSource(table.manifest().fragments());
         return new ClassLoaderSafeConnectorSplitSource(splitSource, LanceSplitManager.class.getClassLoader());
     }
 }

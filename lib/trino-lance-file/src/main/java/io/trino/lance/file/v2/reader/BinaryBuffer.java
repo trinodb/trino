@@ -24,7 +24,6 @@ import static java.util.Objects.requireNonNull;
 
 public class BinaryBuffer
 {
-    public static final BinaryBuffer EMPTY_VARIABLE_BINARY_BUFFER = new BinaryBuffer(0);
     private final List<Slice> chunks;
     private final int[] offsets;
 

@@ -128,22 +128,14 @@ public sealed interface LogicalType
     }
 
     record FixedSizeListType(LogicalTypeKind kind, int size)
-            implements LogicalType
-    {
-    }
+            implements LogicalType {}
 
     record ListType()
-            implements LogicalType
-    {
-    }
+            implements LogicalType {}
 
     record StructType()
-            implements LogicalType
-    {
-    }
+            implements LogicalType {}
 
     record DateType()
-            implements LogicalType
-    {
-    }
+            implements LogicalType {}
 }
