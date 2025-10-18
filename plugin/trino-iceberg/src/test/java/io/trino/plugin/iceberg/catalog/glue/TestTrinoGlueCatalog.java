@@ -74,6 +74,15 @@ public class TestTrinoGlueCatalog
         return createGlueTrinoCatalog(useUniqueTableLocations, false);
     }
 
+    @Override
+    protected void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> properties)
+    {
+        try (GlueClient glueClient = GlueClient.create()) {
+            glueClient.createDatabase(database -> database
+                    .databaseInput(input -> input.name(namespace).parameters(properties)));
+        }
+    }
+
     private TrinoCatalog createGlueTrinoCatalog(boolean useUniqueTableLocations, boolean useSystemSecurity)
     {
         GlueClient glueClient = GlueClient.create();
