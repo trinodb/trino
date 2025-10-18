@@ -27,7 +27,10 @@ Versions before 350 are not supported.
 (jdbc-installation)=
 ## Installation
 
-Download {download_mc}`jdbc` and add it to the classpath of your Java application.
+<!-- Download {download_mc}`jdbc` and add it to the classpath of your Java application. -->
+Download
+[trino-jdbc-477.jar](https://repo1.maven.org/maven2/io/trino/trino-jdbc/477/trino-jdbc-477.jar)
+and add it to the classpath of your Java application.
 
 The driver is also available from Maven Central:
 
