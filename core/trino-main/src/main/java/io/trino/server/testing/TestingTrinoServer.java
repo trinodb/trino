@@ -438,10 +438,6 @@ public class TestingTrinoServer
         spoolingConfiguration.ifPresent(config ->
                 spoolingManagerRegistry.loadSpoolingManager(config.factoryName(), config.configuration()));
 
-        catalogStoreManager.ifPresent(CatalogStoreManager::loadConfiguredCatalogStore);
-        ConnectorServicesProvider connectorServicesProvider = injector.getInstance(ConnectorServicesProvider.class);
-        connectorServicesProvider.loadInitialCatalogs();
-
         EventListenerManager eventListenerManager = injector.getInstance(EventListenerManager.class);
         eventListeners.forEach(eventListenerManager::addEventListener);
 
