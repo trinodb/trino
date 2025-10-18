@@ -319,6 +319,14 @@
                                     <old>method long[] io.trino.spi.PageSorter::sort(java.util.List&lt;io.trino.spi.type.Type&gt;, java.util.List&lt;io.trino.spi.Page&gt;, java.util.List&lt;java.lang.Integer&gt;, java.util.List&lt;io.trino.spi.connector.SortOrder&gt;, int)</old>
                                     <new>method java.util.Iterator&lt;io.trino.spi.Page&gt; io.trino.spi.PageSorter::sort(java.util.List&lt;io.trino.spi.type.Type&gt;, java.util.List&lt;io.trino.spi.Page&gt;, java.util.List&lt;java.lang.Integer&gt;, java.util.List&lt;io.trino.spi.connector.SortOrder&gt;, int)</new>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method double io.trino.spi.metrics.Distribution&lt;T&gt;::getPercentile(double)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method double[] io.trino.spi.metrics.Distribution&lt;T&gt;::getPercentiles(double[])</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

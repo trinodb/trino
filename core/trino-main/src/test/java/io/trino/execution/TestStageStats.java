@@ -92,7 +92,7 @@ public class TestStageStats
             new Duration(202, NANOSECONDS),
 
             DataSize.ofBytes(34),
-            Optional.of(new io.trino.plugin.base.metrics.DistributionSnapshot(getTDigestHistogram(10))),
+            Optional.of(io.trino.plugin.base.metrics.DistributionSnapshot.fromDistribution(getTDigestHistogram(10))),
             DataSize.ofBytes(35),
             DataSize.ofBytes(36),
             37,

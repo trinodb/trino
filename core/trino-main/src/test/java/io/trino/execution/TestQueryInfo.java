@@ -319,7 +319,7 @@ public class TestQueryInfo
                 Duration.succinctDuration(value, SECONDS),
                 Duration.succinctDuration(value, SECONDS),
                 succinctBytes(value),
-                Optional.of(new DistributionSnapshot(new TDigestHistogram(new TDigest()))),
+                Optional.of(DistributionSnapshot.fromDistribution(new TDigestHistogram(new TDigest()))),
                 succinctBytes(value),
                 succinctBytes(value),
                 value,
