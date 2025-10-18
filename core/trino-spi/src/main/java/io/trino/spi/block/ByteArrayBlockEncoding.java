@@ -28,6 +28,12 @@ public class ByteArrayBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "BYTE_ARRAY";
+    private final boolean enableVectorizedNullSuppression;
+
+    public ByteArrayBlockEncoding(boolean enableVectorizedNullSuppression)
+    {
+        this.enableVectorizedNullSuppression = enableVectorizedNullSuppression;
+    }
 
     @Override
     public String getName()
@@ -60,15 +66,12 @@ public class ByteArrayBlockEncoding
             sliceOutput.writeBytes(rawValues, rawOffset, positionCount);
         }
         else {
-            byte[] valuesWithoutNull = new byte[positionCount];
-            int nonNullPositionCount = 0;
-            for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = rawValues[i + rawOffset];
-                nonNullPositionCount += isNull[i + rawOffset] ? 0 : 1;
+            if (enableVectorizedNullSuppression) {
+                EncoderUtil.compressBytesWithNullsVectorized(sliceOutput, rawValues, isNull, rawOffset, positionCount);
             }
-
-            sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeBytes(valuesWithoutNull, 0, nonNullPositionCount);
+            else {
+                EncoderUtil.compressBytesWithNullsScalar(sliceOutput, rawValues, isNull, rawOffset, positionCount);
+            }
         }
     }
 
