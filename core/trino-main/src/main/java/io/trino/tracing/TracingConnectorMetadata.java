@@ -579,6 +579,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean tableReplace)
+    {
+        Span span = startSpan("getStatisticsCollectionMetadataForWrite", tableMetadata.getTable());
+        try (var _ = scopedSpan(span)) {
+            return delegate.getStatisticsCollectionMetadataForWrite(session, tableMetadata, tableReplace);
+        }
+    }
+
+    @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         Span span = startSpan("getStatisticsCollectionMetadataForWrite", tableMetadata.getTable());
