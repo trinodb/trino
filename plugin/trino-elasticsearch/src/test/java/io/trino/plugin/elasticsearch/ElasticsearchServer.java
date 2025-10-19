@@ -73,6 +73,7 @@ public class ElasticsearchServer
         container = new ElasticsearchContainer(dockerImageName);
         container.withNetwork(network);
         container.withNetworkAliases("elasticsearch-server");
+        container.withEnv("ES_JAVA_OPTS", "-Des.cgroups.enable=false");
         container.withStartupTimeout(Duration.ofMinutes(5));
 
         configurationPath = createTempDirectory(null);

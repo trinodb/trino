@@ -48,6 +48,7 @@ public class OpenSearchServer
     {
         container = new OpenSearchContainer<>(image);
         container.withNetwork(network);
+        container.withEnv("OPENSEARCH_JAVA_OPTS", "-Djdk.internal.platform.cgroupv2.disable=true");
         if (secured) {
             container.withSecurityEnabled();
         }
