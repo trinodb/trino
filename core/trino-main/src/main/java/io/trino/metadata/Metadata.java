@@ -353,7 +353,7 @@ public interface Metadata
     /**
      * Describes statistics that must be collected during a write.
      */
-    TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata);
+    TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata, boolean tableReplace);
 
     /**
      * Describe statistics that must be collected during a statistics collection

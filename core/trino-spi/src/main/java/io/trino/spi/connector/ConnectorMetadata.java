@@ -684,7 +684,20 @@ public interface ConnectorMetadata
 
     /**
      * Describes statistics that must be collected during a write.
+     *
+     * @param tableReplace if true, replace old statistics
      */
+    default TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean tableReplace)
+    {
+        return getStatisticsCollectionMetadataForWrite(session, tableMetadata);
+    }
+
+    /**
+     * Describes statistics that must be collected during a write.
+     *
+     * @deprecated use {@link #getStatisticsCollectionMetadataForWrite(ConnectorSession, ConnectorTableMetadata, boolean)}
+     */
+    @Deprecated
     default TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         return TableStatisticsMetadata.empty();

@@ -477,9 +477,15 @@ public class LakehouseMetadata
     }
 
     @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean tableReplace)
+    {
+        return forProperties(tableMetadata.getProperties()).getStatisticsCollectionMetadataForWrite(session, unwrapTableMetadata(tableMetadata), tableReplace);
+    }
+
+    @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        return forProperties(tableMetadata.getProperties()).getStatisticsCollectionMetadataForWrite(session, unwrapTableMetadata(tableMetadata));
+        throw new UnsupportedOperationException("This variant of getStatisticsCollectionMetadataForWrite is unsupported");
     }
 
     @Override

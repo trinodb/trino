@@ -630,11 +630,11 @@ public class TracingMetadata
     }
 
     @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata)
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata, boolean tableReplace)
     {
         Span span = startSpan("getStatisticsCollectionMetadataForWrite", catalogHandle.getCatalogName().toString(), tableMetadata);
         try (var _ = scopedSpan(span)) {
-            return delegate.getStatisticsCollectionMetadataForWrite(session, catalogHandle, tableMetadata);
+            return delegate.getStatisticsCollectionMetadataForWrite(session, catalogHandle, tableMetadata, tableReplace);
         }
     }
 
