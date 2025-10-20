@@ -15,7 +15,7 @@ package io.trino.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
-import io.trino.tests.product.launcher.env.environment.EnvMultinodeLance;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeLanceMinio;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
@@ -31,7 +31,7 @@ public class SuiteLance
     public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
     {
         return ImmutableList.of(
-                SuiteTestRun.testOnEnvironment(EnvMultinodeLance.class)
+                SuiteTestRun.testOnEnvironment(EnvMultinodeLanceMinio.class)
                         .withGroups(CONFIGURED_FEATURES, LANCE)
                         .build());
     }
