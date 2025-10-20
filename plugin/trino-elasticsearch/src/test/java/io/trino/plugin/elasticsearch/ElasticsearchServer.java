@@ -54,7 +54,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class ElasticsearchServer
         implements Closeable
 {
-    public static final String ELASTICSEARCH_7_IMAGE = "elasticsearch:7.16.2";
+    public static final String ELASTICSEARCH_7_IMAGE = "elasticsearch:7.17.28";
     public static final String ELASTICSEARCH_8_IMAGE = "elasticsearch:8.11.3";
 
     private final Path configurationPath;
@@ -74,6 +74,7 @@ public class ElasticsearchServer
         container.withNetwork(network);
         container.withNetworkAliases("elasticsearch-server");
         container.withStartupTimeout(Duration.ofMinutes(5));
+        container.withEnv("ES_JAVA_OPTS", "-Xmx256m -Xms256m -Dlog4j2.disableJmx=true -Dlog4j2.disable.jmx=true -XX:-UseContainerSupport"); // Disable CGroups
 
         configurationPath = createTempDirectory(null);
         Map<String, String> configurationFiles = ImmutableMap.<String, String>builder()

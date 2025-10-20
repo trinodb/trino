@@ -48,6 +48,7 @@ public class OpenSearchServer
     {
         container = new OpenSearchContainer<>(image);
         container.withNetwork(network);
+        container.withEnv("OPENSEARCH_JAVA_OPTS", "-XX:-UseContainerSupport"); // Disable CGroups
         if (secured) {
             container.withSecurityEnabled();
         }
