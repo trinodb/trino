@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.DiscoveryModule;
+import io.airlift.discovery.client.ForDiscoveryClient;
 import io.airlift.discovery.server.DynamicAnnouncementResource;
 import io.airlift.discovery.server.EmbeddedDiscoveryModule;
 import io.airlift.discovery.server.ServiceResource;
@@ -75,6 +76,6 @@ public class AirliftNodeInventoryModule
                 .addProperty("coordinator", String.valueOf(coordinator));
 
         // internal communication setup for discovery http client
-        install(new InternalCommunicationForDiscoveryModule());
+        install(new InternalCommunicationForDiscoveryModule(ForDiscoveryClient.class));
     }
 }
