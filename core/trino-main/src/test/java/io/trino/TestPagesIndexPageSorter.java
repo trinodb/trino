@@ -18,7 +18,6 @@ import com.google.common.primitives.Ints;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
 import io.trino.spi.Page;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.testing.MaterializedResult;
@@ -149,29 +148,10 @@ public class TestPagesIndexPageSorter
 
     private static void assertSorted(List<Page> inputPages, List<Page> expectedPages, List<Type> types, List<Integer> sortChannels, List<SortOrder> sortOrders, int expectedPositions)
     {
-        long[] sortedAddresses = sorter.sort(types, inputPages, sortChannels, sortOrders, expectedPositions);
-        List<Page> outputPages = createOutputPages(types, inputPages, sortedAddresses);
+        List<Page> outputPages = ImmutableList.copyOf(sorter.sort(types, inputPages, sortChannels, sortOrders, expectedPositions));
 
         MaterializedResult expected = toMaterializedResult(TEST_SESSION, types, expectedPages);
         MaterializedResult actual = toMaterializedResult(TEST_SESSION, types, outputPages);
         assertThat(actual.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
-    }
-
-    private static List<Page> createOutputPages(List<Type> types, List<Page> inputPages, long[] sortedAddresses)
-    {
-        PageBuilder pageBuilder = new PageBuilder(types);
-        pageBuilder.reset();
-        for (long address : sortedAddresses) {
-            int index = sorter.decodePageIndex(address);
-            int position = sorter.decodePositionIndex(address);
-
-            Page page = inputPages.get(index);
-            for (int i = 0; i < types.size(); i++) {
-                Type type = types.get(i);
-                type.appendTo(page.getBlock(i), position, pageBuilder.getBlockBuilder(i));
-            }
-            pageBuilder.declarePosition();
-        }
-        return ImmutableList.of(pageBuilder.build());
     }
 }

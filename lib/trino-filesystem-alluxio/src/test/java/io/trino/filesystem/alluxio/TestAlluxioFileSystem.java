@@ -24,6 +24,7 @@ import alluxio.grpc.DeletePOptions;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -57,31 +58,38 @@ public class TestAlluxioFileSystem
     void setup()
     {
         alluxioMaster = createAlluxioMasterContainer();
+        alluxioMaster.start();
         alluxioWorker = createAlluxioWorkerContainer();
+        alluxioWorker.start();
         this.rootLocation = Location.of("alluxio:///");
         InstancedConfiguration conf = Configuration.copyGlobal();
         FileSystemContext fsContext = FileSystemContext.create(conf);
         this.alluxioFs = FileSystem.Factory.create(fsContext);
         this.alluxioFileSystemFactory = new AlluxioFileSystemFactory(conf);
         this.fileSystem = alluxioFileSystemFactory.create(ConnectorIdentity.ofUser("alluxio"));
-        // the SSHD container will be stopped by TestContainers on shutdown
-        // https://github.com/trinodb/trino/discussions/21969
-        System.setProperty("ReportLeakedContainers.disabled", "true");
     }
 
     @AfterAll
     void tearDown()
+            throws Exception
     {
-        if (alluxioMaster != null) {
-            alluxioMaster.close();
+        try (AutoCloseableCloser closer = AutoCloseableCloser.create()) {
+            if (alluxioMaster != null) {
+                closer.register(alluxioMaster);
+                alluxioMaster = null;
+            }
+            if (alluxioWorker != null) {
+                closer.register(alluxioWorker);
+                alluxioWorker = null;
+            }
+            fileSystem = null;
+            if (alluxioFs != null) {
+                closer.register(alluxioFs);
+                alluxioFs = null;
+            }
+            rootLocation = null;
+            alluxioFileSystemFactory = null;
         }
-        if (alluxioWorker != null) {
-            alluxioWorker.close();
-        }
-        fileSystem = null;
-        alluxioFs = null;
-        rootLocation = null;
-        alluxioFileSystemFactory = null;
     }
 
     @AfterEach
@@ -140,8 +148,7 @@ public class TestAlluxioFileSystem
 
     private static GenericContainer<?> createAlluxioMasterContainer()
     {
-        GenericContainer<?> container = new GenericContainer<>(ALLUXIO_IMAGE);
-        container.withCommand("master-only")
+        return new GenericContainer<>(ALLUXIO_IMAGE).withCommand("master-only")
                 .withEnv("ALLUXIO_JAVA_OPTS",
                         "-Dalluxio.security.authentication.type=NOSASL "
                                 + "-Dalluxio.master.hostname=localhost "
@@ -154,15 +161,12 @@ public class TestAlluxioFileSystem
                 .withAccessToHost(true)
                 .waitingFor(new LogMessageWaitStrategy()
                         .withRegEx(".*Primary started*\n")
-                        .withStartupTimeout(Duration.ofMinutes(3)));
-        container.start();
-        return container;
+                        .withStartupTimeout(Duration.ofMinutes(5)));
     }
 
     private static GenericContainer<?> createAlluxioWorkerContainer()
     {
-        GenericContainer<?> container = new GenericContainer<>(ALLUXIO_IMAGE);
-        container.withCommand("worker-only")
+        return new GenericContainer<>(ALLUXIO_IMAGE).withCommand("worker-only")
                 .withNetworkMode("host")
                 .withEnv("ALLUXIO_JAVA_OPTS",
                         "-Dalluxio.security.authentication.type=NOSASL "
@@ -175,7 +179,5 @@ public class TestAlluxioFileSystem
                                 + "-Dalluxio.security.authorization.plugins.enabled=false ")
                 .withAccessToHost(true)
                 .waitingFor(Wait.forLogMessage(".*Alluxio worker started.*\n", 1));
-        container.start();
-        return container;
     }
 }

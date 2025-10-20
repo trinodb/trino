@@ -15,28 +15,25 @@ package io.trino.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
-import io.trino.tests.product.launcher.env.environment.EnvSinglenodeDeltaLakeDatabricks113;
-import io.trino.tests.product.launcher.suite.SuiteDeltaLakeDatabricks;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeHive4;
+import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
 import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_113;
+import static io.trino.tests.product.TestGroups.HIVE4;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
-public class SuiteDeltaLakeDatabricks113
-        extends SuiteDeltaLakeDatabricks
+public class SuiteHive4
+        extends Suite
 {
     @Override
     public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
     {
         return ImmutableList.of(
-                testOnEnvironment(EnvSinglenodeDeltaLakeDatabricks113.class)
-                        .withGroups(CONFIGURED_FEATURES, DELTA_LAKE_DATABRICKS)
-                        .withExcludedGroups(DELTA_LAKE_EXCLUDE_113)
-                        .withExcludedTests(getExcludedTests())
+                testOnEnvironment(EnvMultinodeHive4.class)
+                        .withGroups(HIVE4, CONFIGURED_FEATURES)
                         .build());
     }
 }

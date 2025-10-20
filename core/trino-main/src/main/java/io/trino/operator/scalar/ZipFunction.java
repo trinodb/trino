@@ -104,12 +104,12 @@ public final class ZipFunction
         RowType rowType = RowType.anonymous(types);
         RowBlockBuilder outputBuilder = rowType.createBlockBuilder(null, biggestCardinality);
         for (int outputPosition = 0; outputPosition < biggestCardinality; outputPosition++) {
-            buildRow(types, outputBuilder, outputPosition, arrays);
+            buildRow(outputBuilder, outputPosition, arrays);
         }
         return outputBuilder.build();
     }
 
-    private static void buildRow(List<Type> types, RowBlockBuilder outputBuilder, int outputPosition, Block[] arrays)
+    private static void buildRow(RowBlockBuilder outputBuilder, int outputPosition, Block[] arrays)
     {
         outputBuilder.buildEntry(fieldBuilders -> {
             for (int fieldIndex = 0; fieldIndex < arrays.length; fieldIndex++) {
@@ -117,7 +117,8 @@ public final class ZipFunction
                     fieldBuilders.get(fieldIndex).appendNull();
                 }
                 else {
-                    types.get(fieldIndex).appendTo(arrays[fieldIndex], outputPosition, fieldBuilders.get(fieldIndex));
+                    Block block = arrays[fieldIndex];
+                    fieldBuilders.get(fieldIndex).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(outputPosition));
                 }
             }
         });

@@ -793,7 +793,7 @@ public class SqlTaskManager
      * <li>We find long-running splits; we get A, B, C.</li>
      * <li>None of those is actually running JONI code.</li>
      * <li>just before when we investigate stack trace for A, the underlying thread already switched to some other unrelated split D; and D is actually running JONI</li>
-     * we get the stacktrace for what we believe is A, but it is for D, and we decide we should kill the task that A belongs to</li>
+     * <li>we get the stacktrace for what we believe is A, but it is for D, and we decide we should kill the task that A belongs to</li>
      * <li>(clash!!!) wrong decision is made</li>
      * </ol>
      * A proposed fix and more details of this issue are at: <a href="https://github.com/trinodb/trino/pull/13272">pull/13272</a>.

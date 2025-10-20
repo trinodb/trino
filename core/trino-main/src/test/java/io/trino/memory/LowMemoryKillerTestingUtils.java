@@ -73,7 +73,7 @@ public final class LowMemoryKillerTestingUtils
                     ImmutableMap.of(),
                     tasksMemoryInfoForNode(entry.getKey().getNodeIdentifier(), tasks),
                     ImmutableMap.of());
-            result.add(new MemoryInfo(7, memoryPoolInfo));
+            result.add(new MemoryInfo(7, 0, memoryPoolInfo));
         }
         return result.build();
     }

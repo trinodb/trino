@@ -28,6 +28,7 @@ import io.trino.transaction.TransactionId;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
+import static io.trino.metadata.CatalogStatus.FAILING;
 import static io.trino.spi.StandardErrorCode.CATALOG_UNAVAILABLE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -40,7 +41,7 @@ public class Catalog
     private final ConnectorServices catalogConnector;
     private final ConnectorServices informationSchemaConnector;
     private final ConnectorServices systemConnector;
-    private final boolean loaded;
+    private final CatalogStatus catalogStatus;
 
     public Catalog(
             CatalogName catalogName,
@@ -49,7 +50,7 @@ public class Catalog
             ConnectorServices catalogConnector,
             ConnectorServices informationSchemaConnector,
             ConnectorServices systemConnector,
-            boolean loaded)
+            CatalogStatus catalogStatus)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
@@ -58,15 +59,15 @@ public class Catalog
         this.catalogConnector = requireNonNull(catalogConnector, "catalogConnector is null");
         this.informationSchemaConnector = requireNonNull(informationSchemaConnector, "informationSchemaConnector is null");
         this.systemConnector = requireNonNull(systemConnector, "systemConnector is null");
-        this.loaded = loaded;
+        this.catalogStatus = requireNonNull(catalogStatus, "catalogStatus is null");
     }
 
     public static Catalog failedCatalog(CatalogName catalogName, CatalogVersion catalogVersion, ConnectorName connectorName)
     {
-        return new Catalog(catalogName, createRootCatalogHandle(catalogName, catalogVersion), connectorName, false);
+        return new Catalog(catalogName, createRootCatalogHandle(catalogName, catalogVersion), connectorName, FAILING);
     }
 
-    private Catalog(CatalogName catalogName, CatalogHandle catalogHandle, ConnectorName connectorName, boolean loaded)
+    private Catalog(CatalogName catalogName, CatalogHandle catalogHandle, ConnectorName connectorName, CatalogStatus catalogStatus)
     {
         this.catalogName = catalogName;
         this.catalogHandle = catalogHandle;
@@ -74,7 +75,7 @@ public class Catalog
         this.catalogConnector = null;
         this.informationSchemaConnector = null;
         this.systemConnector = null;
-        this.loaded = loaded;
+        this.catalogStatus = catalogStatus;
     }
 
     public CatalogName getCatalogName()
@@ -92,9 +93,9 @@ public class Catalog
         return connectorName;
     }
 
-    public boolean isLoaded()
+    public CatalogStatus getCatalogStatus()
     {
-        return loaded;
+        return catalogStatus;
     }
 
     public boolean isFailed()

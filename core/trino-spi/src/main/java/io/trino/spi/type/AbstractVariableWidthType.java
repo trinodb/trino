@@ -89,22 +89,6 @@ public abstract class AbstractVariableWidthType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
-            position = block.getUnderlyingValuePosition(position);
-            Slice slice = variableWidthBlock.getRawSlice();
-            int offset = variableWidthBlock.getRawSliceOffset(position);
-            int length = variableWidthBlock.getSliceLength(position);
-            ((VariableWidthBlockBuilder) blockBuilder).writeEntry(slice, offset, length);
-        }
-    }
-
-    @Override
     public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
     {
         return DEFAULT_READ_OPERATORS;

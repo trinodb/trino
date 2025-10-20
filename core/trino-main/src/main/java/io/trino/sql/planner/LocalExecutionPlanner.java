@@ -1494,7 +1494,7 @@ public class LocalExecutionPlanner
                 measureComputationsAggregationArguments.addAll(valueAccessors.getAggregationArguments());
 
                 // build measure computation
-                measuresBuilder.add(new MeasureComputationSupplier(pageProjectionSupplier, valueAccessors.getValueAccessors(), measure.getType(), labelNames, connectorSession));
+                measuresBuilder.add(new MeasureComputationSupplier(pageProjectionSupplier, valueAccessors.getValueAccessors(), labelNames, connectorSession));
             }
             List<MeasureComputationSupplier> measureComputations = measuresBuilder.build();
 
@@ -3476,7 +3476,8 @@ public class LocalExecutionPlanner
                             node.getId(),
                             metadata,
                             session,
-                            node.getExecuteHandle());
+                            node.getExecuteHandle(),
+                            getSymbolTypes(node.getOutputSymbols()));
 
             return new PhysicalOperation(operatorFactory, makeLayout(node));
         }

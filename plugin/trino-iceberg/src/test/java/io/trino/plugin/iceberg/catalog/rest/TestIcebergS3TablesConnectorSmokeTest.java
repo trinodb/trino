@@ -24,6 +24,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.apache.iceberg.BaseTable;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -292,4 +293,9 @@ final class TestIcebergS3TablesConnectorSmokeTest
     @Test
     @Override // The procedure is unsupported in S3 Tables
     public void testUnregisterTableAccessControl() {}
+
+    @Test
+    @Override
+    @Disabled // TODO https://github.com/trinodb/trino/issues/25129 Fix flaky test
+    public void testSelectInformationSchemaTables() {}
 }

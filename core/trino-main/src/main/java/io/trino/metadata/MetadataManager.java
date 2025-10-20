@@ -155,6 +155,7 @@ import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.CONNECTOR;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.SYSTEM;
+import static io.trino.metadata.CatalogStatus.OPERATIONAL;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.LanguageFunctionManager.isTrinoSqlLanguageFunction;
@@ -367,11 +368,11 @@ public final class MetadataManager
     }
 
     @Override
-    public void executeTableExecute(Session session, TableExecuteHandle tableExecuteHandle)
+    public Map<String, Long> executeTableExecute(Session session, TableExecuteHandle tableExecuteHandle)
     {
         CatalogHandle catalogHandle = tableExecuteHandle.catalogHandle();
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
-        metadata.executeTableExecute(session.toConnectorSession(catalogHandle), tableExecuteHandle.connectorHandle());
+        return metadata.executeTableExecute(session.toConnectorSession(catalogHandle), tableExecuteHandle.connectorHandle());
     }
 
     @Override
@@ -812,7 +813,9 @@ public final class MetadataManager
     public void dropCatalog(Session session, CatalogName catalog, boolean cascade)
     {
         Optional<CatalogMetadata> catalogMetadata = Optional.empty();
-        if (catalogManager.getCatalog(catalog).isPresent()) {
+        // there is a potential race condition here, TODO: https://github.com/trinodb/trino/issues/26927
+        Optional<Catalog> optionalCatalog = catalogManager.getCatalog(catalog);
+        if (optionalCatalog.isPresent() && optionalCatalog.get().getCatalogStatus() == OPERATIONAL) {
             catalogMetadata = Optional.of(getCatalogMetadataForWrite(session, catalog.toString()));
         }
         catalogManager.dropCatalog(catalog, cascade);

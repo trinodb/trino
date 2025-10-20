@@ -299,6 +299,8 @@ this table:
   - `TIMESTAMP(6)`
 * - `TIMESTAMP`
   - `TIMESTAMP(3) WITH TIME ZONE`
+* - `VARIANT`
+  - `JSON`
 * - `ARRAY`
   - `ARRAY`
 * - `MAP`

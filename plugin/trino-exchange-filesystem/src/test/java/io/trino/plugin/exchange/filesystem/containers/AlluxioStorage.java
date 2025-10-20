@@ -34,10 +34,9 @@ public class AlluxioStorage
     public void start()
     {
         alluxioMaster = createAlluxioMasterContainer();
+        alluxioMaster.start();
         alluxioWorker = createAlluxioWorkerContainer();
-        // the SSHD container will be stopped by TestContainers on shutdown
-        // https://github.com/trinodb/trino/discussions/21969
-        System.setProperty("ReportLeakedContainers.disabled", "true");
+        alluxioWorker.start();
     }
 
     private static GenericContainer<?> createAlluxioMasterContainer()

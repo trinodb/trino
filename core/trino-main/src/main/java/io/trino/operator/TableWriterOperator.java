@@ -414,7 +414,9 @@ public class TableWriterOperator
     {
         long pageSinkMemoryUsage = pageSink.getMemoryUsage();
         pageSinkMemoryContext.setBytes(pageSinkMemoryUsage);
-        pageSinkPeakMemoryUsage.accumulateAndGet(pageSinkMemoryUsage, Math::max);
+        if (pageSinkMemoryUsage > pageSinkPeakMemoryUsage.get()) {
+            pageSinkPeakMemoryUsage.accumulateAndGet(pageSinkMemoryUsage, Math::max);
+        }
     }
 
     @VisibleForTesting

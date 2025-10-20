@@ -95,19 +95,6 @@ final class LongTimeWithTimeZoneType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
-            int valuePosition = block.getUnderlyingValuePosition(position);
-            write(blockBuilder, getPicos(valueBlock, valuePosition), getOffsetMinutes(valueBlock, valuePosition));
-        }
-    }
-
-    @Override
     public LongTimeWithTimeZone getObject(Block block, int position)
     {
         Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();

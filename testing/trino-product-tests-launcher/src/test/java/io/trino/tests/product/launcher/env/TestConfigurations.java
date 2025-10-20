@@ -14,7 +14,7 @@
 package io.trino.tests.product.launcher.env;
 
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeSqlserver;
-import io.trino.tests.product.launcher.env.jdk.BuiltInJdkProvider;
+import io.trino.tests.product.launcher.env.jdk.TemurinJdkProvider;
 import io.trino.tests.product.launcher.suite.suites.Suite1;
 import io.trino.tests.product.launcher.suite.suites.Suite6NonGeneric;
 import io.trino.tests.product.launcher.suite.suites.SuiteTpcds;
@@ -61,7 +61,7 @@ public class TestConfigurations
     @Test
     public void testJdkProviderName()
     {
-        assertThat(nameForJdkProviderName(BuiltInJdkProvider.class)).isEqualTo("builtin");
+        assertThat(nameForJdkProviderName(TemurinJdkProvider.class)).isEqualTo("temurin");
         assertThat(canonicalJdkProviderName("BuiltIN")).isEqualTo("builtin");
         assertThat(canonicalJdkProviderName("built-IN")).isEqualTo("builtin");
     }

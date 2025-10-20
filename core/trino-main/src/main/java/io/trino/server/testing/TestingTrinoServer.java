@@ -275,7 +275,10 @@ public class TestingTrinoServer
                 .put("exchange.client-threads", "4")
                 // Reduce memory footprint in tests
                 .put("exchange.max-buffer-size", "4MB")
-                .put("internal-communication.shared-secret", "internal-shared-secret");
+                .put("internal-communication.shared-secret", "internal-shared-secret")
+                .put("plugin.dir", baseDataDir
+                        .orElseGet(TestingTrinoServer::tempDirectory)
+                        .toString());
 
         if (coordinator) {
             if (catalogMangerKind == CatalogMangerKind.DYNAMIC) {
@@ -434,6 +437,10 @@ public class TestingTrinoServer
 
         spoolingConfiguration.ifPresent(config ->
                 spoolingManagerRegistry.loadSpoolingManager(config.factoryName(), config.configuration()));
+
+        catalogStoreManager.ifPresent(CatalogStoreManager::loadConfiguredCatalogStore);
+        ConnectorServicesProvider connectorServicesProvider = injector.getInstance(ConnectorServicesProvider.class);
+        connectorServicesProvider.loadInitialCatalogs();
 
         EventListenerManager eventListenerManager = injector.getInstance(EventListenerManager.class);
         eventListeners.forEach(eventListenerManager::addEventListener);

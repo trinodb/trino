@@ -1047,19 +1047,24 @@ public abstract class AbstractTestTrinoFileSystem
             }
 
             Optional<UriLocation> directLocation = getFileSystem()
-                    .preSignedUri(location, new Duration(3, SECONDS));
+                    .preSignedUri(location, new Duration(30, SECONDS));
+
+            Optional<UriLocation> expiredDirectLocation = getFileSystem()
+                    .preSignedUri(location, new Duration(1, SECONDS));
 
             assertThat(directLocation).isPresent();
-            assertThat(retrieveUri(directLocation.get()))
-                    .isEqualTo(TEST_BLOB_CONTENT_PREFIX + location);
+
+            assertEventually(new Duration(5, SECONDS), () -> assertThat(retrieveUri(directLocation.get()))
+                    .isEqualTo(TEST_BLOB_CONTENT_PREFIX + location));
 
             // Check if it can be retrieved more than once
-            assertThat(retrieveUri(directLocation.get()))
-                    .isEqualTo(TEST_BLOB_CONTENT_PREFIX + location);
+            assertEventually(new Duration(5, SECONDS), () -> assertThat(retrieveUri(directLocation.get()))
+                    .isEqualTo(TEST_BLOB_CONTENT_PREFIX + location));
 
             // Check if after a timeout the pre-signed URI is no longer valid
-            assertEventually(new Duration(5, SECONDS), new Duration(1, SECONDS), () -> assertThatThrownBy(() -> retrieveUri(directLocation.get()))
-                    .isInstanceOf(IOException.class));
+            assertEventually(new Duration(5, SECONDS), new Duration(1, SECONDS), () -> assertThatThrownBy(() -> retrieveUri(expiredDirectLocation.get()))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("Failed to retrieve"));
         }
     }
 

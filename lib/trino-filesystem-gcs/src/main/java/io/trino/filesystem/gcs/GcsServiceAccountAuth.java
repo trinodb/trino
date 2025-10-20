@@ -26,13 +26,13 @@ import java.util.Optional;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-public class GcsDefaultAuth
+public class GcsServiceAccountAuth
         implements GcsAuth
 {
     private final Optional<GoogleCredentials> jsonGoogleCredential;
 
     @Inject
-    public GcsDefaultAuth(GcsFileSystemConfig config)
+    public GcsServiceAccountAuth(GcsFileSystemConfig config)
             throws IOException
     {
         String jsonKey = config.getJsonKey();

@@ -71,6 +71,11 @@ execution on a Trino cluster:
     fault-tolerant execution and typically only to deactivate with `NONE`, since
     switching between modes on a cluster is not tested.
   - `NONE`
+* - `retry-policy.allowed`
+  - List of retry policies that are allowed to be configured for a cluster.
+    This property is used to prevent a user from configuring a retry policy that
+    is not meant to be used on the given cluster.
+  - `NONE`, `QUERY`, `TASK` 
 * - `exchange.deduplication-buffer-size`
   - [Data size](prop-type-data-size) of the coordinator's in-memory buffer used
     by fault-tolerant execution to store output of query

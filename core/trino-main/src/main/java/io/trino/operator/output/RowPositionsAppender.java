@@ -31,7 +31,7 @@ import static io.trino.operator.output.PositionsAppenderUtil.calculateNewArraySi
 import static io.trino.spi.block.RowBlock.fromNotNullSuppressedFieldBlocks;
 import static java.util.Objects.requireNonNull;
 
-public class RowPositionsAppender
+public final class RowPositionsAppender
         implements PositionsAppender
 {
     private static final int INSTANCE_SIZE = instanceSize(RowPositionsAppender.class);
@@ -112,6 +112,47 @@ public class RowPositionsAppender
         }
 
         positionCount += positions.size();
+        resetSize();
+    }
+
+    @Override
+    public void appendRange(ValueBlock block, int offset, int length)
+    {
+        checkArgument(block instanceof RowBlock, "Block must be instance of %s", RowBlock.class);
+        if (length == 0) {
+            return;
+        }
+
+        RowBlock sourceRowBlock = (RowBlock) block;
+        ensureCapacity(length);
+
+        Block[] rawFieldBlocks = sourceRowBlock.getRawFieldBlocks();
+        int startOffset = sourceRowBlock.getOffsetBase();
+
+        for (int i = 0; i < fieldAppenders.length; i++) {
+            fieldAppenders[i].appendRange(rawFieldBlocks[i], startOffset + offset, length);
+        }
+
+        boolean[] rawRowIsNull = sourceRowBlock.getRawRowIsNull();
+        if (rawRowIsNull != null) {
+            for (int i = 0; i < length; i++) {
+                boolean isNull = rawRowIsNull[startOffset + offset + i];
+                hasNullRow |= isNull;
+                hasNonNullRow |= !isNull;
+                if (hasNullRow & hasNonNullRow) {
+                    System.arraycopy(rawRowIsNull, startOffset + offset + i, rowIsNull, positionCount + i, length - i);
+                    break;
+                }
+                else {
+                    rowIsNull[positionCount + i] = isNull;
+                }
+            }
+        }
+        else {
+            hasNonNullRow = true;
+        }
+
+        positionCount += length;
         resetSize();
     }
 

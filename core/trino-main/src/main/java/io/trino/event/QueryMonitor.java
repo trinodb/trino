@@ -569,7 +569,7 @@ public class QueryMonitor
 
     private static Optional<TaskInfo> findFailedTask(StagesInfo stages)
     {
-        for (StageInfo stageInfo : stages.getSubStagesDeepPostOrder(stages.getOutputStageId(), true)) {
+        for (StageInfo stageInfo : stages.getSubStagesDeep(stages.getOutputStageId(), true)) {
             Optional<TaskInfo> failedTaskInfo = stageInfo.getTasks().stream()
                     .filter(taskInfo -> taskInfo.taskStatus().getState() == TaskState.FAILED)
                     .findFirst();

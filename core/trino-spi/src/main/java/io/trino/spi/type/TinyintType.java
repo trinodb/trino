@@ -148,17 +148,6 @@ public final class TinyintType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            writeByte(blockBuilder, getByte(block, position));
-        }
-    }
-
-    @Override
     public long getLong(Block block, int position)
     {
         return getByte(block, position);

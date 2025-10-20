@@ -23,7 +23,6 @@ import java.nio.file.Path;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.trino.tests.product.launcher.env.jdk.BuiltInJdkProvider.BUILT_IN_NAME;
 import static java.util.Locale.ENGLISH;
 import static picocli.CommandLine.Option;
 
@@ -60,11 +59,8 @@ public final class EnvironmentOptions
     @Option(names = "--launcher-bin", paramLabel = "<launcher bin>", description = "Launcher bin path (used to display run commands)", defaultValue = "${launcher.bin}", hidden = true)
     public String launcherBin;
 
-    @Option(names = "--trino-jdk-version", paramLabel = "<release-name>", description = "JDK release to run Trino with " + DEFAULT_VALUE, defaultValue = "${jdk.current}")
-    public String jdkVersion = BUILT_IN_NAME;
-
-    @Option(names = "--trino-jdk-paths", paramLabel = "<path>", description = "Path to JDK distributions " + DEFAULT_VALUE, defaultValue = "${jdk.distributions}")
-    public String jdkDistributions;
+    @Option(names = "--trino-jdk-release", paramLabel = "<release-name>", description = "JDK release to run Trino with " + DEFAULT_VALUE, defaultValue = "${jdk.current.release}")
+    public String trinoJdkRelease = "${jdk.current.release}";
 
     @Option(names = "--jdk-tmp-download-path", paramLabel = "<jdk-tmp-download-path>", defaultValue = "${env:PTL_TMP_DOWNLOAD_PATH:-${sys:java.io.tmpdir}/ptl-tmp-download}", description = "Path to use to download JDK distributions " + DEFAULT_VALUE)
     @Nullable

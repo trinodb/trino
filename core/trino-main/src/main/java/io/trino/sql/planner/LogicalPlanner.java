@@ -966,7 +966,9 @@ public class LogicalPlanner
         if (!analysis.isTableExecuteReadsData()) {
             SimpleTableExecuteNode node = new SimpleTableExecuteNode(
                     idAllocator.getNextId(),
-                    symbolAllocator.newSymbol("rows", BIGINT),
+                    ImmutableList.of(
+                            symbolAllocator.newSymbol("metricName", VARCHAR),
+                            symbolAllocator.newSymbol("metricValue", BIGINT)),
                     executeHandle);
             return new RelationPlan(node, analysis.getRootScope(), node.getOutputSymbols(), Optional.empty());
         }

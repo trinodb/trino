@@ -32,7 +32,7 @@ final class TestGcsStorageFactory
         // No credentials options are set
         GcsFileSystemConfig config = new GcsFileSystemConfig();
 
-        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new GcsDefaultAuth(config));
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new GcsServiceAccountAuth(config));
 
         Credentials actualCredentials;
         try (Storage storage = storageFactory.create(ConnectorIdentity.ofUser("test"))) {

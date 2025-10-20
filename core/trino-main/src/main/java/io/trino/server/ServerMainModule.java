@@ -202,6 +202,7 @@ public class ServerMainModule
 
         configBinder(binder).bindConfigDefaults(HttpServerConfig.class, httpServerConfig -> {
             httpServerConfig.setHttp2MaxConcurrentStreams(32 * 1024); // from the default 16K
+            httpServerConfig.setCompressionEnabled(false); // https://github.com/jetty/jetty.project/issues/13679
         });
 
         binder.bind(PreparedStatementEncoder.class).in(Scopes.SINGLETON);
@@ -408,6 +409,9 @@ public class ServerMainModule
         // slice
         jsonBinder(binder).addSerializerBinding(Slice.class).to(SliceSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Slice.class).to(SliceDeserializer.class);
+
+        // configurable DataSize serialization
+        jsonBinder(binder).addSerializerBinding(DataSize.class).to(DataSizeSerializer.class);
 
         // node version
         binder.bind(NodeVersion.class).toInstance(new NodeVersion(nodeVersion));

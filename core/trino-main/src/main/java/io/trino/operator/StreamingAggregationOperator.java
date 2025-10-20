@@ -313,8 +313,7 @@ public class StreamingAggregationOperator
             pageBuilder.declarePosition();
             for (int i = 0; i < groupByTypes.size(); i++) {
                 Block block = page.getBlock(groupByChannels[i]);
-                Type type = groupByTypes.get(i);
-                type.appendTo(block, position, pageBuilder.getBlockBuilder(i));
+                pageBuilder.getBlockBuilder(i).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
             }
             int offset = groupByTypes.size();
             for (int i = 0; i < aggregates.size(); i++) {

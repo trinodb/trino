@@ -127,17 +127,6 @@ final class ShortDecimalType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            writeLong(blockBuilder, getLong(block, position));
-        }
-    }
-
-    @Override
     public long getLong(Block block, int position)
     {
         return read((LongArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));

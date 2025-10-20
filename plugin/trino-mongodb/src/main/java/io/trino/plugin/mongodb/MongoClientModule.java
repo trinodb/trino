@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.mongodb;
 
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
@@ -76,10 +78,12 @@ public class MongoClientModule
     @Provides
     public static MongoSession createMongoSession(TypeManager typeManager, MongoClientConfig config, Set<MongoClientSettingConfigurator> configurators, OpenTelemetry openTelemetry)
     {
-        MongoClientSettings.Builder options = MongoClientSettings.builder();
-        configurators.forEach(configurator -> configurator.configure(options));
-        options.addCommandListener(MongoTelemetry.builder(openTelemetry).build().newCommandListener());
-        MongoClient client = MongoClients.create(options.build());
+        Supplier<MongoClient> client = Suppliers.memoize(() -> {
+            MongoClientSettings.Builder options = MongoClientSettings.builder();
+            configurators.forEach(configurator -> configurator.configure(options));
+            options.addCommandListener(MongoTelemetry.builder(openTelemetry).build().newCommandListener());
+            return MongoClients.create(options.build());
+        });
 
         return new MongoSession(
                 typeManager,

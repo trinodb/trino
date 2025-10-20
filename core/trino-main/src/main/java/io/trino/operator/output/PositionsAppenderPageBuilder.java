@@ -27,7 +27,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class PositionsAppenderPageBuilder
+public final class PositionsAppenderPageBuilder
 {
     private static final int DEFAULT_INITIAL_EXPECTED_ENTRIES = 8;
     @VisibleForTesting
@@ -70,6 +70,17 @@ public class PositionsAppenderPageBuilder
         channelAppenders = new UnnestingPositionsAppender[types.size()];
         for (int i = 0; i < channelAppenders.length; i++) {
             channelAppenders[i] = positionsAppenderFactory.create(types.get(i), initialExpectedEntries, maxPageSizeInBytes);
+        }
+    }
+
+    public void appendToOutputPartition(Page page)
+    {
+        int positionCount = page.getPositionCount();
+        declarePositions(positionCount);
+
+        for (int channel = 0; channel < channelAppenders.length; channel++) {
+            Block block = page.getBlock(channel);
+            channelAppenders[channel].appendRange(block, 0, positionCount);
         }
     }
 
