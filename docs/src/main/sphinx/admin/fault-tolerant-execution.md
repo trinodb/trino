@@ -414,6 +414,11 @@ the property may be configured for:
     store spooling data.
   -
   - Any
+* - `exchange.max-page-storage-size`
+  - Max storage size of a page written to a sink, including the page itself
+    and its size.
+  - `16MB`
+  - Any
 * - `exchange.sink-buffer-pool-min-size`
   - The minimum buffer pool size for an exchange sink. The larger the buffer
     pool size, the larger the write parallelism and memory usage.
@@ -426,7 +431,7 @@ the property may be configured for:
   - Any
 * - `exchange.sink-max-file-size`
   - Max [data size](prop-type-data-size) of files written by exchange sinks.
-  - ``1GB``
+  - `1GB`
   - Any
 * - `exchange.source-concurrent-readers`
   - Number of concurrent readers to read from spooling storage. The larger the
