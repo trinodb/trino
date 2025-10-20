@@ -217,6 +217,7 @@ jobs:
         timeout-minutes: 15
         with:
           cache: restore
+          cleanup-node: 'true'
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
