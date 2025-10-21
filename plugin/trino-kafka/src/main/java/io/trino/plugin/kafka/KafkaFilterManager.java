@@ -76,13 +76,14 @@ public class KafkaFilterManager
         this.kafkaInternalFieldManager = requireNonNull(kafkaInternalFieldManager, "kafkaInternalFieldManager is null");
     }
 
-    public KafkaFilteringResult getKafkaFilterResult(
+    public KafkaPartitionInputs getKafkaFilterResult(
             ConnectorSession session,
             KafkaTableHandle kafkaTableHandle,
-            List<PartitionInfo> partitionInfos,
-            Map<TopicPartition, Long> partitionBeginOffsets,
-            Map<TopicPartition, Long> partitionEndOffsets)
+            KafkaPartitionInputs partitionResult)
     {
+        List<PartitionInfo> partitionInfos = partitionResult.partitionInfos();
+        Map<TopicPartition, Long> partitionBeginOffsets = partitionResult.partitionBeginOffsets();
+        Map<TopicPartition, Long> partitionEndOffsets = partitionResult.partitionEndOffsets();
         requireNonNull(session, "session is null");
         requireNonNull(kafkaTableHandle, "kafkaTableHandle is null");
         requireNonNull(partitionInfos, "partitionInfos is null");
@@ -145,9 +146,9 @@ public class KafkaFilterManager
             List<PartitionInfo> partitionFilteredInfos = partitionInfos.stream()
                     .filter(partitionInfo -> partitionIdsFiltered.contains((long) partitionInfo.partition()))
                     .collect(toImmutableList());
-            return new KafkaFilteringResult(partitionFilteredInfos, partitionBeginOffsets, partitionEndOffsets);
+            return new KafkaPartitionInputs(partitionFilteredInfos, partitionBeginOffsets, partitionEndOffsets);
         }
-        return new KafkaFilteringResult(partitionInfos, partitionBeginOffsets, partitionEndOffsets);
+        return partitionResult;
     }
 
     private Optional<Domain> getDomain(InternalFieldId internalFieldId, Map<String, Domain> columnNameToDomain)

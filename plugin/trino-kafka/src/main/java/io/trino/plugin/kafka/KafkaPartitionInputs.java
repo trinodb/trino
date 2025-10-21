@@ -23,12 +23,12 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public record KafkaFilteringResult(
+public record KafkaPartitionInputs(
         List<PartitionInfo> partitionInfos,
         Map<TopicPartition, Long> partitionBeginOffsets,
         Map<TopicPartition, Long> partitionEndOffsets)
 {
-    public KafkaFilteringResult
+    public KafkaPartitionInputs
     {
         partitionInfos = ImmutableList.copyOf(requireNonNull(partitionInfos, "partitionInfos is null"));
         partitionBeginOffsets = ImmutableMap.copyOf(requireNonNull(partitionBeginOffsets, "partitionBeginOffsets is null"));

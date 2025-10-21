@@ -90,7 +90,7 @@ org.apache.kafka=WARN
 The following configuration properties are available:
 
 | Property name                                         | Description                                                                                                                                                                                                                 |
-| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|-------------------------------------------------------| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `kafka.default-schema`                                | Default schema name for tables.                                                                                                                                                                                             |
 | `kafka.nodes`                                         | List of nodes in the Kafka cluster.                                                                                                                                                                                         |
 | `kafka.buffer-size`                                   | Kafka read buffer size.                                                                                                                                                                                                     |
@@ -109,6 +109,7 @@ The following configuration properties are available:
 | `kafka.ssl.key.password`                              | Password for the private key in the keystore file.                                                                                                                                                                          |
 | `kafka.ssl.endpoint-identification-algorithm`         | Endpoint identification algorithm used by clients to validate server host name; defaults to `https`.                                                                                                                        |
 | `kafka.config.resources`                              | A comma-separated list of Kafka client configuration files. These files must exist on the machines running Trino. Only specify this if absolutely necessary to access Kafka. Example: `/etc/kafka-configuration.properties` |
+| `kafka.override-topic-partition-offsets`              | Whether to allow overriding offsets to read for a particular kafka partition. Offsets are set with session parameter: `kafka.kafka_topic_partition_offset_overrides`.                                                         |
 
 In addition, you must configure {ref}`table schema and schema registry usage
 <kafka-table-schema-registry>` with the relevant properties.
@@ -217,6 +218,17 @@ The endpoint identification algorithm used by clients to validate server host na
 Kafka uses `https` as default. Use `disabled` to disable server host name validation.
 
 This property is optional; default is `https`.
+
+### `kafka.override-topic-partition-offsets`
+
+If enabled, a user may override the offsets to read for a particular kafka topic-partition to achieve snapshot read semantics.
+
+This property is optional; default is `false`.
+
+The name of the session property to use is `kafka_topic_partition_offset_overrides`.
+
+To read offsets 0 to 10 (exclusive) on partition 0 and 5 to 20 (exclusive) on partition 1 of topic x:
+`SET SESSION kafka.kafka_topic_partition_offset_overrides = 'x-0=0-10,x-1=5-20';`
 
 ## Internal columns
 

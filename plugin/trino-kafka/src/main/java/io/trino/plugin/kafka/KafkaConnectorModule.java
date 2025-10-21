@@ -15,7 +15,9 @@ package io.trino.plugin.kafka;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
@@ -70,6 +72,18 @@ public class KafkaConnectorModule
         bindTopicSchemaProviderModule(ConfluentSchemaRegistryTableDescriptionSupplier.NAME, new ConfluentModule(typeManager));
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(KafkaSessionProperties.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
+    }
+
+    @Provides
+    @Singleton
+    public TopicPartitionOffsetProvider topicPartitionOffsetProvider(KafkaConfig kafkaConfig)
+    {
+        if (kafkaConfig.isOverrideTopicPartitionOffsets()) {
+            return new OverriddenTopicPartitionOffsetProvider(new CurrentTopicPartitionOffsetProvider());
+        }
+        else {
+            return new CurrentTopicPartitionOffsetProvider();
+        }
     }
 
     public void bindTopicSchemaProviderModule(String name, Module module)
