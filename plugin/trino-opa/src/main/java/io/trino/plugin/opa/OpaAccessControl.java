@@ -45,6 +45,7 @@ import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.security.ViewSecurity;
 
 import java.security.Principal;
 import java.util.Collection;
@@ -465,7 +466,7 @@ public sealed class OpaAccessControl
     }
 
     @Override
-    public void checkCanCreateView(SystemSecurityContext context, CatalogSchemaTableName view)
+    public void checkCanCreateView(SystemSecurityContext context, CatalogSchemaTableName view, Optional<ViewSecurity> security)
     {
         checkTableOperation(context, "CreateView", view, AccessDeniedException::denyCreateView);
     }

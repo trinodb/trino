@@ -27,6 +27,7 @@ import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.security.ViewSecurity;
 
 import java.security.Principal;
 import java.util.Collection;
@@ -337,7 +338,7 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName)
+    public void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName, Optional<ViewSecurity> security)
     {
         denyCreateView(viewName.toString());
     }

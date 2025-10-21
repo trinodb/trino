@@ -19,6 +19,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.security.ViewSecurity;
 
 import java.util.Map;
 import java.util.Optional;
@@ -172,7 +173,7 @@ public class ReadOnlyAccessControl
     }
 
     @Override
-    public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
+    public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName, Optional<ViewSecurity> security)
     {
         denyCreateView(viewName.toString());
     }
