@@ -1782,6 +1782,14 @@
                         <artifactId>jetcd-core</artifactId>
                     </exclusion>
                     <exclusion>
+                        <groupId>io.prometheus</groupId>
+                        <artifactId>prometheus-metrics-exporter-servlet-jakarta</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.prometheus</groupId>
+                        <artifactId>prometheus-metrics-instrumentation-jvm</artifactId>
+                    </exclusion>
+                    <exclusion>
                         <groupId>io.swagger</groupId>
                         <artifactId>swagger-annotations</artifactId>
                     </exclusion>
