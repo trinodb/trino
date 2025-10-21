@@ -94,7 +94,7 @@ public class MockConnectorFactory
         implements ConnectorFactory
 {
     private final String name;
-    private final List<PropertyMetadata<?>> sessionProperty;
+    private final List<PropertyMetadata<?>> sessionProperties;
     private final Function<ConnectorMetadata, ConnectorMetadata> metadataWrapper;
     private final Function<ConnectorSession, List<String>> listSchemaNames;
     private final BiFunction<ConnectorSession, String, List<String>> listTables;
@@ -152,7 +152,7 @@ public class MockConnectorFactory
 
     private MockConnectorFactory(
             String name,
-            List<PropertyMetadata<?>> sessionProperty,
+            List<PropertyMetadata<?>> sessionProperties,
             Function<ConnectorMetadata, ConnectorMetadata> metadataWrapper,
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<String>> listTables,
@@ -206,7 +206,7 @@ public class MockConnectorFactory
             boolean allowSplittingReadIntoMultipleSubQueries)
     {
         this.name = requireNonNull(name, "name is null");
-        this.sessionProperty = ImmutableList.copyOf(requireNonNull(sessionProperty, "sessionProperty is null"));
+        this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
         this.metadataWrapper = requireNonNull(metadataWrapper, "metadataWrapper is null");
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
@@ -270,8 +270,8 @@ public class MockConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         return new MockConnector(
+                sessionProperties,
                 metadataWrapper,
-                sessionProperty,
                 listSchemaNames,
                 listTables,
                 streamTableColumns,
