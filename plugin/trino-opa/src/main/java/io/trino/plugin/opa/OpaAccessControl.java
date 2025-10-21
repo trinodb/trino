@@ -468,7 +468,7 @@ public sealed class OpaAccessControl
     @Override
     public void checkCanCreateView(SystemSecurityContext context, CatalogSchemaTableName view, Optional<ViewSecurity> security)
     {
-        checkTableOperation(context, "CreateView", view, AccessDeniedException::denyCreateView);
+        checkViewOperation(context, "CreateView", view, security, AccessDeniedException::denyCreateView);
     }
 
     @Override
@@ -778,6 +778,17 @@ public sealed class OpaAccessControl
                 actionName,
                 () -> deny.accept(table.toString(), columns),
                 OpaQueryInputResource.builder().table(new TrinoTable(table).withColumns(columns)).build());
+    }
+
+    private void checkViewOperation(SystemSecurityContext context, String actionName, CatalogSchemaTableName view, Optional<ViewSecurity> security, Consumer<String> deny)
+    {
+        OpaQueryInputResource.Builder opaQueryInputResourceBuilder = OpaQueryInputResource.builder().table(new TrinoTable(view));
+        security.ifPresent(opaQueryInputResourceBuilder::security);
+        opaHighLevelClient.queryAndEnforce(
+                buildQueryContext(context),
+                actionName,
+                () -> deny.accept(view.toString()),
+                opaQueryInputResourceBuilder.build());
     }
 
     private <T> void enforcePermissionManagementOperation(Consumer<T> deny, T arg)

@@ -211,23 +211,15 @@ final class TestOpaAccessControl
     }
 
     @Test
-    public void testViewResourceActions()
-    {
-        testViewResourceActions("CreateView", OpaAccessControl::checkCanCreateView);
-    }
-
-    private void testViewResourceActions(
-            String actionName,
-            FunctionalHelpers.Consumer4<OpaAccessControl, SystemSecurityContext, CatalogSchemaTableName, Optional<ViewSecurity>> callable)
+    public void testCreateViewWithoutSecurity()
     {
         CatalogSchemaTableName viewName = new CatalogSchemaTableName("my_catalog", "my_schema", "my_view");
-        Optional<ViewSecurity> security = Optional.of(ViewSecurity.INVOKER);
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
-                accessControl -> callable.accept(accessControl, TEST_SECURITY_CONTEXT, viewName, security));
+                accessControl -> accessControl.checkCanCreateView(TEST_SECURITY_CONTEXT, viewName, Optional.empty()));
         String expectedRequest =
                 """
                 {
-                    "operation": "%s",
+                    "operation": "CreateView",
                     "resource": {
                         "table": {
                             "catalogName": "%s",
@@ -237,10 +229,37 @@ final class TestOpaAccessControl
                     }
                 }
                 """.formatted(
-                        actionName,
                         viewName.getCatalogName(),
                         viewName.getSchemaTableName().getSchemaName(),
                         viewName.getSchemaTableName().getTableName());
+        assertAccessControlMethodBehaviour(wrappedMethod, ImmutableSet.of(expectedRequest));
+    }
+
+    @Test
+    public void testCreateViewWithInvokerSecurity()
+    {
+        CatalogSchemaTableName viewName = new CatalogSchemaTableName("my_catalog", "my_schema", "my_view");
+        Optional<ViewSecurity> security = Optional.of(ViewSecurity.INVOKER);
+        ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
+                accessControl -> accessControl.checkCanCreateView(TEST_SECURITY_CONTEXT, viewName, security));
+        String expectedRequest =
+                """
+                {
+                    "operation": "CreateView",
+                    "resource": {
+                        "table": {
+                            "catalogName": "%s",
+                            "schemaName": "%s",
+                            "tableName": "%s"
+                        },
+                        "security": "%s"
+                    }
+                }
+                """.formatted(
+                        viewName.getCatalogName(),
+                        viewName.getSchemaTableName().getSchemaName(),
+                        viewName.getSchemaTableName().getTableName(),
+                        security.get());
         assertAccessControlMethodBehaviour(wrappedMethod, ImmutableSet.of(expectedRequest));
     }
 
