@@ -181,7 +181,7 @@ public class ConnectorServices
         this.accessControl = Optional.ofNullable(accessControl);
 
         List<PropertyMetadata<?>> sessionProperties = connector.getSessionProperties();
-        requireNonNull(sessionProperties, format("Connector '%s' returned a null system properties set", catalogHandle));
+        requireNonNull(sessionProperties, format("Connector '%s' returned a null session properties set", catalogHandle));
         this.sessionProperties = Maps.uniqueIndex(sessionProperties, PropertyMetadata::getName);
 
         List<PropertyMetadata<?>> tableProperties = connector.getTableProperties();
