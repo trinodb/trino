@@ -18,11 +18,11 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 public class OptimizerStats
 {
-    private final AtomicLong failures = new AtomicLong();
+    private final LongAdder failures = new LongAdder();
     private final TimeDistribution time = new TimeDistribution(TimeUnit.MICROSECONDS);
 
     public void record(long nanos)
@@ -32,7 +32,7 @@ public class OptimizerStats
 
     public void recordFailure()
     {
-        failures.incrementAndGet();
+        failures.increment();
     }
 
     @Managed
@@ -45,6 +45,6 @@ public class OptimizerStats
     @Managed
     public long getFailures()
     {
-        return failures.get();
+        return failures.sum();
     }
 }
