@@ -13,9 +13,8 @@
  */
 package io.trino.client;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.StreamReadConstraints;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.StreamReadConstraints;
 
 import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static java.lang.String.format;
@@ -60,7 +59,6 @@ public class TestQueryResults
 
     @Test
     public void testCompatibility()
-            throws JsonProcessingException
     {
         QueryResults results = QUERY_RESULTS_CODEC.fromJson(format(GOLDEN_VALUE, "\"123\""));
         assertThat(results.getId()).isEqualTo("20160128_214710_00012_rk68b");
@@ -68,7 +66,6 @@ public class TestQueryResults
 
     @Test
     public void testReadLongColumn()
-            throws JsonProcessingException
     {
         String longString = "a".repeat(StreamReadConstraints.DEFAULT_MAX_STRING_LEN + 1);
         QueryResults results = QUERY_RESULTS_CODEC.fromJson(format(GOLDEN_VALUE, '"' + longString + '"'));

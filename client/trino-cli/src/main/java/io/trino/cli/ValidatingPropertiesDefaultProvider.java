@@ -80,12 +80,12 @@ public class ValidatingPropertiesDefaultProvider
 
     private static Stream<String> getOptionNamesFromSpec(CommandLine.Model.ArgSpec argSpec)
     {
-        if (argSpec instanceof CommandLine.Model.OptionSpec) {
-            return getOptionNames((CommandLine.Model.OptionSpec) argSpec);
+        if (argSpec instanceof CommandLine.Model.OptionSpec optionSpec) {
+            return getOptionNames(optionSpec);
         }
 
-        if (argSpec instanceof CommandLine.Model.PositionalParamSpec) {
-            return getOptionNames((CommandLine.Model.PositionalParamSpec) argSpec);
+        if (argSpec instanceof CommandLine.Model.PositionalParamSpec positionalParamSpec) {
+            return getOptionNames(positionalParamSpec);
         }
 
         throw new RuntimeException("Unknown option " + argSpec);

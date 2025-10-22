@@ -13,7 +13,6 @@
  */
 package io.trino.client;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import io.airlift.units.DataSize;
 import jakarta.annotation.Nullable;
 import okhttp3.Call;
@@ -22,6 +21,7 @@ import okhttp3.MediaType;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
+import tools.jackson.core.JacksonException;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -123,7 +123,7 @@ public final class JsonResponse<T>
                     T value = codec.fromJson(stream);
                     return new JsonResponse<>(response.code(), response.headers(), stream.getHeadString(responseBody.contentType().charset()), value, null);
                 }
-                catch (JsonProcessingException e) {
+                catch (JacksonException e) {
                     return new JsonResponse<>(
                             response.code(),
                             response.headers(),

@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.kafka.encoder.json;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.kafka.encoder.AbstractRowEncoder;
@@ -33,6 +30,9 @@ import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -239,7 +239,7 @@ public class JsonRowEncoder
             resetColumnIndex(); // reset currentColumnIndex to prepare for next row
             return jsonMapper.writeValueAsBytes(node);
         }
-        catch (JsonProcessingException e) {
+        catch (JacksonException e) {
             throw new RuntimeException(e);
         }
     }

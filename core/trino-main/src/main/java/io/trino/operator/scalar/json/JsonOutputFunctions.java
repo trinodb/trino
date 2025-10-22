@@ -13,15 +13,6 @@
  */
 package io.trino.operator.scalar.json;
 
-import com.fasterxml.jackson.core.JsonEncoding;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.util.ByteArrayBuilder;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
@@ -29,8 +20,17 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonEncoding;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.util.ByteArrayBuilder;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.JsonNodeFactory;
+import tools.jackson.databind.node.ObjectNode;
 
-import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
@@ -64,18 +64,18 @@ public final class JsonOutputFunctions
     private static final EncodingSpecificConstants UTF_8 = new EncodingSpecificConstants(
             JsonEncoding.UTF8,
             StandardCharsets.UTF_8,
-            Slices.copiedBuffer(new ArrayNode(JsonNodeFactory.instance).asText(), StandardCharsets.UTF_8),
-            Slices.copiedBuffer(new ObjectNode(JsonNodeFactory.instance).asText(), StandardCharsets.UTF_8));
+            Slices.copiedBuffer(new ArrayNode(JsonNodeFactory.instance).toString(), StandardCharsets.UTF_8),
+            Slices.copiedBuffer(new ObjectNode(JsonNodeFactory.instance).toString(), StandardCharsets.UTF_8));
     private static final EncodingSpecificConstants UTF_16 = new EncodingSpecificConstants(
             JsonEncoding.UTF16_LE,
             StandardCharsets.UTF_16LE,
-            Slices.copiedBuffer(new ArrayNode(JsonNodeFactory.instance).asText(), StandardCharsets.UTF_16LE),
-            Slices.copiedBuffer(new ObjectNode(JsonNodeFactory.instance).asText(), StandardCharsets.UTF_16LE));
+            Slices.copiedBuffer(new ArrayNode(JsonNodeFactory.instance).toString(), StandardCharsets.UTF_16LE),
+            Slices.copiedBuffer(new ObjectNode(JsonNodeFactory.instance).toString(), StandardCharsets.UTF_16LE));
     private static final EncodingSpecificConstants UTF_32 = new EncodingSpecificConstants(
             JsonEncoding.UTF32_LE,
             StandardCharsets.UTF_32LE,
-            Slices.copiedBuffer(new ArrayNode(JsonNodeFactory.instance).asText(), StandardCharsets.UTF_32LE),
-            Slices.copiedBuffer(new ObjectNode(JsonNodeFactory.instance).asText(), StandardCharsets.UTF_32LE));
+            Slices.copiedBuffer(new ArrayNode(JsonNodeFactory.instance).toString(), StandardCharsets.UTF_32LE),
+            Slices.copiedBuffer(new ObjectNode(JsonNodeFactory.instance).toString(), StandardCharsets.UTF_32LE));
 
     private JsonOutputFunctions() {}
 
@@ -121,15 +121,15 @@ public final class JsonOutputFunctions
 
     private static Slice serialize(JsonNode json, EncodingSpecificConstants constants, long errorBehavior, boolean omitQuotes)
     {
-        if (omitQuotes && json.isTextual()) {
-            return Slices.copiedBuffer(json.asText(), constants.charset);
+        if (omitQuotes && json.isString()) {
+            return Slices.copiedBuffer(json.asString(), constants.charset);
         }
 
         ByteArrayBuilder builder = new ByteArrayBuilder();
         try (JsonGenerator generator = MAPPER.createGenerator(builder, constants.jsonEncoding)) {
             MAPPER.writeTree(generator, json);
         }
-        catch (JsonProcessingException e) {
+        catch (JacksonException e) {
             if (errorBehavior == NULL.ordinal()) {
                 return null;
             }
@@ -144,7 +144,7 @@ public final class JsonOutputFunctions
             }
             throw new IllegalStateException("unexpected behavior");
         }
-        catch (IOException e) {
+        catch (UncheckedIOException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
         return wrappedBuffer(builder.toByteArray());

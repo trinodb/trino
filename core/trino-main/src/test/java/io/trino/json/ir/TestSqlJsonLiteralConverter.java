@@ -13,27 +13,28 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.BigIntegerNode;
-import com.fasterxml.jackson.databind.node.BinaryNode;
-import com.fasterxml.jackson.databind.node.BooleanNode;
-import com.fasterxml.jackson.databind.node.DecimalNode;
-import com.fasterxml.jackson.databind.node.DoubleNode;
-import com.fasterxml.jackson.databind.node.FloatNode;
-import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.LongNode;
-import com.fasterxml.jackson.databind.node.MissingNode;
-import com.fasterxml.jackson.databind.node.NullNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.ShortNode;
-import com.fasterxml.jackson.databind.node.TextNode;
 import io.trino.spi.type.Int128;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.RecursiveComparisonAssert;
 import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguration;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.BigIntegerNode;
+import tools.jackson.databind.node.BinaryNode;
+import tools.jackson.databind.node.BooleanNode;
+import tools.jackson.databind.node.DecimalNode;
+import tools.jackson.databind.node.DoubleNode;
+import tools.jackson.databind.node.FloatNode;
+import tools.jackson.databind.node.IntNode;
+import tools.jackson.databind.node.JsonNodeFactory;
+import tools.jackson.databind.node.LongNode;
+import tools.jackson.databind.node.MissingNode;
+import tools.jackson.databind.node.NullNode;
+import tools.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.node.ShortNode;
+import tools.jackson.databind.node.StringNode;
+import tools.jackson.databind.node.ValueNode;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -114,13 +115,13 @@ public class TestSqlJsonLiteralConverter
     public void testCharacterStringToJson()
     {
         assertThat(json(new TypedValue(VARCHAR, utf8Slice("abc"))))
-                .isEqualTo(TextNode.valueOf("abc"));
+                .isEqualTo(StringNode.valueOf("abc"));
 
         assertThat(json(new TypedValue(createVarcharType(10), utf8Slice("abc"))))
-                .isEqualTo(TextNode.valueOf("abc"));
+                .isEqualTo(StringNode.valueOf("abc"));
 
         assertThat(json(new TypedValue(createCharType(10), utf8Slice("abc"))))
-                .isEqualTo(TextNode.valueOf("abc       "));
+                .isEqualTo(StringNode.valueOf("abc       "));
     }
 
     @Test
@@ -197,7 +198,7 @@ public class TestSqlJsonLiteralConverter
     @Test
     public void testJsonToCharacterString()
     {
-        assertThat(typedValueResult(TextNode.valueOf("abc   ")))
+        assertThat(typedValueResult(StringNode.valueOf("abc   ")))
                 .isEqualTo(new TypedValue(VARCHAR, utf8Slice("abc   ")));
     }
 
@@ -214,7 +215,7 @@ public class TestSqlJsonLiteralConverter
     @Test
     public void testJsonToIncompatibleType()
     {
-        assertThat(getNumericTypedValue(TextNode.valueOf("abc")))
+        assertThat(getNumericTypedValue(StringNode.valueOf("abc")))
                 .isEqualTo(Optional.empty());
 
         assertThat(getTextTypedValue(NullNode.instance))
@@ -244,7 +245,7 @@ public class TestSqlJsonLiteralConverter
         return getJsonNode(value).orElseThrow();
     }
 
-    private static AssertProvider<? extends RecursiveComparisonAssert<?>> typedValueResult(JsonNode node)
+    private static AssertProvider<? extends RecursiveComparisonAssert<?>> typedValueResult(ValueNode node)
     {
         return () -> new RecursiveComparisonAssert<>(getTypedValue(node).orElseThrow(), COMPARISON_CONFIGURATION);
     }

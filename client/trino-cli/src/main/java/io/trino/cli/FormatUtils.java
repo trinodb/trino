@@ -272,20 +272,20 @@ public final class FormatUtils
             return nullValue;
         }
 
-        if (o instanceof Map) {
-            return formatMap((Map<?, ?>) o);
+        if (o instanceof Map<?, ?> map) {
+            return formatMap(map);
         }
 
-        if (o instanceof List) {
-            return formatList((List<?>) o);
+        if (o instanceof List<?> list) {
+            return formatList(list);
         }
 
-        if (o instanceof Row) {
-            return formatRow(((Row) o));
+        if (o instanceof Row row) {
+            return formatRow(row);
         }
 
-        if (o instanceof byte[]) {
-            return formatHexDump((byte[]) o, bytesPerLine);
+        if (o instanceof byte[] bytes) {
+            return formatHexDump(bytes, bytesPerLine);
         }
 
         return o.toString();

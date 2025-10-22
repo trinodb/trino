@@ -13,7 +13,6 @@
  */
 package io.trino.spi.predicate;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slices;
@@ -24,6 +23,7 @@ import io.trino.spi.type.TestingTypeDeserializer;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Map;
 
@@ -522,7 +522,6 @@ class TestDomain
 
     @Test
     public void testJsonSerialization()
-            throws Exception
     {
         JsonMapper mapper = new JsonMapperProvider()
                 .withJsonDeserializers(Map.of(

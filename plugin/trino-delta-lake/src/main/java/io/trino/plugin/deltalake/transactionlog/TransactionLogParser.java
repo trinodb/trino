@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import dev.failsafe.Failsafe;
@@ -33,6 +30,9 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.exc.JacksonIOException;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -274,7 +274,6 @@ public final class TransactionLogParser
     }
 
     private static Optional<LastCheckpoint> tryReadLastCheckpoint(TrinoFileSystem fileSystem, String tableLocation)
-            throws JsonParseException, JsonMappingException
     {
         Location checkpointPath = Location.of(getTransactionLogDir(tableLocation)).appendPath(LAST_CHECKPOINT_FILENAME);
         TrinoInputFile inputFile = fileSystem.newInputFile(checkpointPath);
@@ -282,15 +281,11 @@ public final class TransactionLogParser
             // Note: there apparently is 8K buffering applied and _last_checkpoint should be much smaller.
             return Optional.of(JsonUtils.parseJson(JSON_MAPPER, lastCheckpointInput, LastCheckpoint.class));
         }
-        catch (JsonParseException | JsonMappingException e) {
-            // The _last_checkpoint file is malformed, it's probably in the middle of a rewrite (file rewrites on Azure are NOT atomic)
-            throw e;
-        }
-        catch (IOException | UncheckedIOException e) {
+        catch (JacksonIOException e) {
             // _last_checkpoint file was not found, we need to find latest checkpoint manually
             // ideally, we'd detect the condition by catching FileNotFoundException, but some file system implementations
             // will throw different exceptions if the checkpoint is not found
-            if (isFileNotFoundException(e)) {
+            if (isFileNotFoundException(e.getCause())) {
                 return Optional.empty();
             }
             // it could be situation, like access deny or other permission failure error, which actually should not trigger manual check point read
@@ -298,6 +293,16 @@ public final class TransactionLogParser
             // TODO after we collect more of such situations we could add exclusion rules here
             log.warn(e, "Failed to read Delta Lake last checkpoint file %s, falling back to manual checkpoint discovery", checkpointPath);
             return Optional.empty();
+        }
+        catch (FileNotFoundException e) {
+            return Optional.empty();
+        }
+        catch (JacksonException e) {
+            // The _last_checkpoint file is malformed, it's probably in the middle of a rewrite (file rewrites on Azure are NOT atomic)
+            throw e;
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 

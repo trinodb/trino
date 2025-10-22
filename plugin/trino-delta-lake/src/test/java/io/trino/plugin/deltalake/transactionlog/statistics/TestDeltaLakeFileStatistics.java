@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake.transactionlog.statistics;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.filesystem.TrinoInputFile;
@@ -38,6 +37,7 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.File;
 import java.math.BigDecimal;

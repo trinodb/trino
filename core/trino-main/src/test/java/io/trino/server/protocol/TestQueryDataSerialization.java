@@ -13,8 +13,6 @@
  */
 package io.trino.server.protocol;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
@@ -32,6 +30,7 @@ import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.EncodedQueryData;
 import io.trino.server.protocol.spooling.ServerQueryDataJacksonModule;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.net.URI;
 import java.util.List;
@@ -298,7 +297,7 @@ public class TestQueryDataSerialization
         try {
             return CLIENT_CODEC.fromJson(serialized).getData();
         }
-        catch (JsonProcessingException e) {
+        catch (Exception e) {
             throw new RuntimeException(e);
         }
     }

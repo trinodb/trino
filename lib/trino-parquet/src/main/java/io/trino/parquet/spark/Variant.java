@@ -13,10 +13,9 @@
  */
 package io.trino.parquet.spark;
 
-import com.fasterxml.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonGenerator;
 
 import java.io.CharArrayWriter;
-import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -164,9 +163,6 @@ public final class Variant
             generator.writeString(value);
             generator.flush();
             return writer.toString();
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
         }
     }
 }

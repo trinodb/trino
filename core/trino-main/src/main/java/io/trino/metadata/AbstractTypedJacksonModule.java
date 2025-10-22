@@ -13,32 +13,31 @@
  */
 package io.trino.metadata;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo.As;
-import com.fasterxml.jackson.annotation.JsonTypeInfo.Id;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.Version;
-import com.fasterxml.jackson.databind.DatabindContext;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JavaType;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
-import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
-import com.fasterxml.jackson.databind.jsontype.TypeIdResolver;
-import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
-import com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeDeserializer;
-import com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeSerializer;
-import com.fasterxml.jackson.databind.jsontype.impl.TypeIdResolverBase;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.databind.ser.BeanSerializerFactory;
-import com.fasterxml.jackson.databind.ser.std.StdSerializer;
-import com.fasterxml.jackson.databind.type.TypeFactory;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.cache.CacheBuilder;
 import io.trino.cache.NonEvictableCache;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.Version;
+import tools.jackson.databind.DatabindContext;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.JavaType;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.ValueSerializer;
+import tools.jackson.databind.deser.std.StdDeserializer;
+import tools.jackson.databind.jsontype.TypeDeserializer;
+import tools.jackson.databind.jsontype.TypeIdResolver;
+import tools.jackson.databind.jsontype.TypeSerializer;
+import tools.jackson.databind.jsontype.impl.AsPropertyTypeDeserializer;
+import tools.jackson.databind.jsontype.impl.AsPropertyTypeSerializer;
+import tools.jackson.databind.jsontype.impl.TypeIdResolverBase;
+import tools.jackson.databind.module.SimpleModule;
+import tools.jackson.databind.ser.BeanSerializerFactory;
+import tools.jackson.databind.ser.std.StdSerializer;
+import tools.jackson.databind.type.TypeFactory;
 
-import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
@@ -50,6 +49,8 @@ import static java.util.Objects.requireNonNull;
 public abstract class AbstractTypedJacksonModule<T>
         extends SimpleModule
 {
+    private static final TypeFactory TYPE_FACTORY = new ObjectMapper().getTypeFactory();
+
     private static final String TYPE_PROPERTY = "@type";
 
     protected AbstractTypedJacksonModule(
@@ -74,19 +75,18 @@ public abstract class AbstractTypedJacksonModule<T>
         {
             super(baseClass);
             this.typeDeserializer = new AsPropertyTypeDeserializer(
-                    TypeFactory.defaultInstance().constructType(baseClass),
+                    TYPE_FACTORY.constructType(baseClass),
                     typeIdResolver,
                     TYPE_PROPERTY,
                     false,
                     null,
-                    As.PROPERTY,
+                    JsonTypeInfo.As.PROPERTY,
                     true);
         }
 
         @SuppressWarnings("unchecked")
         @Override
         public T deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
-                throws IOException
         {
             return (T) typeDeserializer.deserializeTypedFromAny(jsonParser, deserializationContext);
         }
@@ -96,7 +96,7 @@ public abstract class AbstractTypedJacksonModule<T>
             extends StdSerializer<T>
     {
         private final TypeSerializer typeSerializer;
-        private final NonEvictableCache<Class<?>, JsonSerializer<T>> serializerCache = buildNonEvictableCache(CacheBuilder.newBuilder());
+        private final NonEvictableCache<Class<?>, ValueSerializer<T>> serializerCache = buildNonEvictableCache(CacheBuilder.newBuilder());
 
         public InternalTypeSerializer(Class<T> baseClass, TypeIdResolver typeIdResolver)
         {
@@ -105,34 +105,32 @@ public abstract class AbstractTypedJacksonModule<T>
         }
 
         @Override
-        public void serialize(T value, JsonGenerator generator, SerializerProvider provider)
-                throws IOException
+        public void serialize(T value, JsonGenerator generator, SerializationContext context)
         {
             if (value == null) {
-                provider.defaultSerializeNull(generator);
+                context.defaultSerializeNullValue(generator);
                 return;
             }
 
             try {
                 Class<?> type = value.getClass();
-                JsonSerializer<T> serializer = serializerCache.get(type, () -> createSerializer(provider, type));
-                serializer.serializeWithType(value, generator, provider, typeSerializer);
+                ValueSerializer<T> serializer = serializerCache.get(type, () -> createSerializer(context, type));
+                serializer.serializeWithType(value, generator, context, typeSerializer);
             }
             catch (ExecutionException e) {
                 Throwable cause = e.getCause();
                 if (cause != null) {
-                    throwIfInstanceOf(cause, IOException.class);
+                    throwIfInstanceOf(cause, UncheckedIOException.class);
                 }
                 throw new RuntimeException(e);
             }
         }
 
         @SuppressWarnings("unchecked")
-        private static <T> JsonSerializer<T> createSerializer(SerializerProvider provider, Class<?> type)
-                throws JsonMappingException
+        private static <T> ValueSerializer<T> createSerializer(SerializationContext context, Class<?> type)
         {
-            JavaType javaType = provider.constructType(type);
-            return (JsonSerializer<T>) BeanSerializerFactory.instance.createSerializer(provider, javaType);
+            JavaType javaType = context.constructType(type);
+            return (ValueSerializer<T>) BeanSerializerFactory.instance.createSerializer(context, javaType);
         }
     }
 
@@ -149,13 +147,13 @@ public abstract class AbstractTypedJacksonModule<T>
         }
 
         @Override
-        public String idFromValue(Object value)
+        public String idFromValue(DatabindContext context, Object value)
         {
-            return idFromValueAndType(value, value.getClass());
+            return idFromValueAndType(context, value, value.getClass());
         }
 
         @Override
-        public String idFromValueAndType(Object value, Class<?> suggestedType)
+        public String idFromValueAndType(DatabindContext context, Object value, Class<?> suggestedType)
         {
             requireNonNull(value, "value is null");
             String type = nameResolver.apply(value);
@@ -173,9 +171,9 @@ public abstract class AbstractTypedJacksonModule<T>
         }
 
         @Override
-        public Id getMechanism()
+        public JsonTypeInfo.Id getMechanism()
         {
-            return Id.NAME;
+            return JsonTypeInfo.Id.NAME;
         }
     }
 }

@@ -73,12 +73,12 @@ public class SegmentsIterator
 
     private CloseableIterator<List<Object>> iterate(Segment segment)
     {
-        if (segment instanceof InlineSegment) {
-            return new InlineSegmentIterator((InlineSegment) segment, decoder);
+        if (segment instanceof InlineSegment inlineSegment) {
+            return new InlineSegmentIterator(inlineSegment, decoder);
         }
 
-        if (segment instanceof SpooledSegment) {
-            return new SpooledSegmentIterator((SpooledSegment) segment, loader, decoder);
+        if (segment instanceof SpooledSegment spooledSegment) {
+            return new SpooledSegmentIterator(spooledSegment, loader, decoder);
         }
 
         throw new UnsupportedOperationException("Unsupported segment type: " + segment.getClass().getName());

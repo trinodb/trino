@@ -239,8 +239,8 @@ abstract class AbstractTrinoResultSet
             return true;
         }
         catch (RuntimeException e) {
-            if (e.getCause() instanceof SQLException) {
-                throw (SQLException) e.getCause();
+            if (e.getCause() instanceof SQLException sqlException) {
+                throw sqlException;
             }
             throw new SQLException("Error fetching results", e);
         }
@@ -276,8 +276,8 @@ abstract class AbstractTrinoResultSet
         if (value == null) {
             return false;
         }
-        if (value instanceof Boolean) {
-            return (Boolean) value;
+        if (value instanceof Boolean booleanValue) {
+            return booleanValue;
         }
         throw new SQLException("Value is not a boolean: " + value);
     }
@@ -343,8 +343,8 @@ abstract class AbstractTrinoResultSet
         if (value == null) {
             return null;
         }
-        if (value instanceof byte[]) {
-            return (byte[]) value;
+        if (value instanceof byte[] bytes) {
+            return bytes;
         }
         throw new SQLException("Value is not a byte array: " + value);
     }
@@ -487,12 +487,12 @@ abstract class AbstractTrinoResultSet
         if (value == null) {
             return null;
         }
-        if (!(value instanceof String)) {
+        if (!(value instanceof String stringValue)) {
             throw new SQLException("Value is not a string: " + value);
         }
         // TODO: a stream returned here should get implicitly closed
         //  on any subsequent invocation of a ResultSet getter method.
-        return new ByteArrayInputStream(((String) value).getBytes(StandardCharsets.US_ASCII));
+        return new ByteArrayInputStream(stringValue.getBytes(StandardCharsets.US_ASCII));
     }
 
     @Override
@@ -1943,18 +1943,18 @@ abstract class AbstractTrinoResultSet
         if (value == null) {
             return 0;
         }
-        if (value instanceof Number) {
-            return (Number) value;
+        if (value instanceof Number number) {
+            return number;
         }
-        if (value instanceof Boolean) {
-            return ((Boolean) value) ? 1 : 0;
+        if (value instanceof Boolean booleanValue) {
+            return booleanValue ? 1 : 0;
         }
-        if (value instanceof String) {
-            Optional<BigDecimal> bigDecimal = toBigDecimal((String) value);
+        if (value instanceof String stringValue) {
+            Optional<BigDecimal> bigDecimal = toBigDecimal(stringValue);
             if (bigDecimal.isPresent()) {
                 return bigDecimal.get();
             }
-            switch ((String) value) {
+            switch (stringValue) {
                 case "NaN":
                     return Double.NaN;
                 case "+Infinity":

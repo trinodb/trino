@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonMapperProvider;
@@ -34,6 +31,9 @@ import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type.Repetition;
 import org.apache.parquet.schema.Types;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
 import java.util.Optional;
@@ -126,12 +126,12 @@ public final class DeltaLakeParquetSchemas
         Types.MessageTypeBuilder builder = Types.buildMessage();
         ImmutableMap.Builder<List<String>, Type> primitiveTypesBuilder = ImmutableMap.builder();
         try {
-            stream(JSON_MAPPER.readTree(jsonSchema).get("fields").elements())
-                    .filter(fieldNode -> !partitionColumnNames.contains(fieldNode.get("name").asText()))
+            stream(JSON_MAPPER.readTree(jsonSchema).get("fields").iterator())
+                    .filter(fieldNode -> !partitionColumnNames.contains(fieldNode.get("name").asString()))
                     .map(fieldNode -> buildType(fieldNode, typeManager, columnMappingMode, ImmutableList.of(), primitiveTypesBuilder))
                     .forEach(builder::addField);
         }
-        catch (JsonProcessingException e) {
+        catch (JacksonException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, getLocation(e), "Failed to parse serialized schema: " + jsonSchema, e);
         }
         if (addChangeDataFeedFields) {
@@ -154,19 +154,19 @@ public final class DeltaLakeParquetSchemas
 
         switch (columnMappingMode) {
             case ID -> {
-                String columnMappingId = fieldNode.get("metadata").get("delta.columnMapping.id").asText();
+                String columnMappingId = fieldNode.get("metadata").get("delta.columnMapping.id").asString();
                 verify(!isNullOrEmpty(columnMappingId), "id is null or empty");
                 fieldId = OptionalInt.of(Integer.parseInt(columnMappingId));
                 // Databricks stores column statistics with physical name
-                physicalName = fieldNode.get("metadata").get("delta.columnMapping.physicalName").asText();
+                physicalName = fieldNode.get("metadata").get("delta.columnMapping.physicalName").asString();
                 verify(!isNullOrEmpty(physicalName), "physicalName is null or empty");
             }
             case NAME -> {
-                physicalName = fieldNode.get("metadata").get("delta.columnMapping.physicalName").asText();
+                physicalName = fieldNode.get("metadata").get("delta.columnMapping.physicalName").asString();
                 verify(!isNullOrEmpty(physicalName), "physicalName is null or empty");
             }
             case NONE -> {
-                physicalName = fieldNode.get("name").asText();
+                physicalName = fieldNode.get("name").asString();
                 verify(!isNullOrEmpty(physicalName), "name is null or empty");
             }
             default -> throw new UnsupportedOperationException("Unsupported parameter columnMappingMode");
@@ -185,11 +185,11 @@ public final class DeltaLakeParquetSchemas
             List<String> parent,
             ImmutableMap.Builder<List<String>, Type> primitiveTypesBuilder)
     {
-        if (typeNode.isContainerNode()) {
+        if (typeNode.isContainer()) {
             return buildContainerType(typeNode, typeManager, repetition, name, id, columnMappingMode, parent, primitiveTypesBuilder);
         }
 
-        String primitiveType = typeNode.asText();
+        String primitiveType = typeNode.asString();
         return buildPrimitiveType(primitiveType, typeManager, repetition, name, id, parent, primitiveTypesBuilder);
     }
 
@@ -299,7 +299,7 @@ public final class DeltaLakeParquetSchemas
             List<String> parent,
             ImmutableMap.Builder<List<String>, Type> primitiveTypesBuilder)
     {
-        String containerType = typeNode.get("type").asText();
+        String containerType = typeNode.get("type").asString();
         return switch (containerType) {
             case "array" -> buildArrayType(typeNode, typeManager, repetition, name, id, columnMappingMode, parent, primitiveTypesBuilder);
             case "map" -> buildMapType(typeNode, typeManager, repetition, name, id, columnMappingMode, parent, primitiveTypesBuilder);
@@ -323,7 +323,7 @@ public final class DeltaLakeParquetSchemas
         JsonNode elementTypeNode = typeNode.get("elementType");
         org.apache.parquet.schema.Type elementType;
 
-        if (elementTypeNode.isContainerNode()) {
+        if (elementTypeNode.isContainer()) {
             elementType = buildContainerType(elementTypeNode, typeManager, OPTIONAL, "element", OptionalInt.empty(), columnMappingMode, parent, primitiveTypesBuilder);
         }
         else {
@@ -358,7 +358,7 @@ public final class DeltaLakeParquetSchemas
 
         JsonNode keyTypeNode = typeNode.get("keyType");
         org.apache.parquet.schema.Type keyType;
-        if (keyTypeNode.isContainerNode()) {
+        if (keyTypeNode.isContainer()) {
             keyType = buildContainerType(keyTypeNode, typeManager, REQUIRED, "key", OptionalInt.empty(), columnMappingMode, parent, primitiveTypesBuilder);
         }
         else {
@@ -366,7 +366,7 @@ public final class DeltaLakeParquetSchemas
         }
         JsonNode valueTypeNode = typeNode.get("valueType");
         org.apache.parquet.schema.Type valueType;
-        if (valueTypeNode.isContainerNode()) {
+        if (valueTypeNode.isContainer()) {
             valueType = buildContainerType(valueTypeNode, typeManager, OPTIONAL, "value", OptionalInt.empty(), columnMappingMode, parent, primitiveTypesBuilder);
         }
         else {
@@ -394,13 +394,13 @@ public final class DeltaLakeParquetSchemas
             builder.id(id.getAsInt());
         }
         List<String> currentParent = ImmutableList.<String>builder().addAll(parent).add(name).build();
-        stream(typeNode.get("fields").elements())
+        stream(typeNode.get("fields").iterator())
                 .map(node -> buildType(node, typeManager, columnMappingMode, currentParent, primitiveTypesBuilder))
                 .forEach(builder::addField);
         return builder.named(name);
     }
 
-    private static Optional<Location> getLocation(JsonProcessingException e)
+    private static Optional<Location> getLocation(JacksonException e)
     {
         return Optional.ofNullable(e.getLocation()).map(location -> new Location(location.getLineNr(), location.getColumnNr()));
     }

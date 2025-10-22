@@ -312,12 +312,12 @@ public final class OkHttpUtil
                 continue;
             }
             Certificate certificate = keyStore.getCertificate(alias);
-            if (!(certificate instanceof X509Certificate)) {
+            if (!(certificate instanceof X509Certificate x509Certificate)) {
                 continue;
             }
 
             try {
-                ((X509Certificate) certificate).checkValidity();
+                x509Certificate.checkValidity();
             }
             catch (CertificateExpiredException e) {
                 throw new CertificateExpiredException("KeyStore certificate is expired: " + e.getMessage());
@@ -501,10 +501,10 @@ public final class OkHttpUtil
         {
             // work around the JDK TLS implementation not allowing single label domains
             // see: sun.security.ssl.Utilities.rawToSNIHostName
-            if (socket instanceof SSLSocket && host != null && !InetAddresses.isInetAddress(host) && !host.contains(".")) {
-                SSLParameters params = ((SSLSocket) socket).getSSLParameters();
+            if (socket instanceof SSLSocket sslSocket && host != null && !InetAddresses.isInetAddress(host) && !host.contains(".")) {
+                SSLParameters params = sslSocket.getSSLParameters();
                 params.setServerNames(ImmutableList.of(new SNIHostName(host)));
-                ((SSLSocket) socket).setSSLParameters(params);
+                sslSocket.setSSLParameters(params);
             }
         }
     }

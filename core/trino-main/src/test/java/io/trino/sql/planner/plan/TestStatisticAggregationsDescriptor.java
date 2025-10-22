@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.plan;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
@@ -31,6 +30,7 @@ import io.trino.sql.planner.SymbolKeyDeserializer;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
 

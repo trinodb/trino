@@ -13,12 +13,12 @@
  */
 package io.trino.operator.scalar.json;
 
-import com.fasterxml.jackson.databind.node.NullNode;
 import io.trino.json.ir.TypedValue;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.type.Json2016Type;
+import tools.jackson.databind.node.NullNode;
 
 import static io.trino.json.JsonEmptySequenceNode.EMPTY_SEQUENCE;
 import static io.trino.spi.type.TypeUtils.readNativeValue;

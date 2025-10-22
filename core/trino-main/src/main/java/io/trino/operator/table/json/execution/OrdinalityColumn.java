@@ -13,8 +13,8 @@
  */
 package io.trino.operator.table.json.execution;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import io.trino.spi.Page;
+import tools.jackson.databind.JsonNode;
 
 public class OrdinalityColumn
         implements Column

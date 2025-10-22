@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.filesystem.TrinoFileSystem;
@@ -23,6 +21,8 @@ import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -107,23 +107,23 @@ public class TestDeltaLakeColumnMapping
         assertThat(metadata.getConfiguration()).containsEntry("delta.columnMapping.maxColumnId", "3"); // 3 comes from a_int + a_row + a_row.x
 
         JsonNode schema = JSON_MAPPER.readTree(metadata.getSchemaString());
-        List<JsonNode> fields = ImmutableList.copyOf(schema.get("fields").elements());
+        List<JsonNode> fields = ImmutableList.copyOf(schema.get("fields").iterator());
         assertThat(fields).hasSize(2);
         JsonNode intColumn = fields.get(0);
         JsonNode rowColumn = fields.get(1);
-        List<JsonNode> rowFields = ImmutableList.copyOf(rowColumn.get("type").get("fields").elements());
+        List<JsonNode> rowFields = ImmutableList.copyOf(rowColumn.get("type").get("fields").iterator());
         assertThat(rowFields).hasSize(1);
         JsonNode nestedInt = rowFields.get(0);
 
         // Verify delta.columnMapping.id and delta.columnMapping.physicalName values
         assertThat(intColumn.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(1);
-        assertThat(intColumn.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+        assertThat(intColumn.get("metadata").get("delta.columnMapping.physicalName").asString()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
 
         assertThat(rowColumn.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(3);
-        assertThat(rowColumn.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+        assertThat(rowColumn.get("metadata").get("delta.columnMapping.physicalName").asString()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
 
         assertThat(nestedInt.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(2);
-        assertThat(nestedInt.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+        assertThat(nestedInt.get("metadata").get("delta.columnMapping.physicalName").asString()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
 
         assertUpdate("DROP TABLE " + tableName);
     }

@@ -13,14 +13,14 @@
  */
 package io.trino.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
+import tools.jackson.databind.JsonNode;
 
 import java.util.List;
 import java.util.stream.Stream;
 
-import static com.fasterxml.jackson.databind.node.JsonNodeType.ARRAY;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static tools.jackson.databind.node.JsonNodeType.ARRAY;
 
 public final class PathEvaluationUtil
 {
@@ -31,7 +31,7 @@ public final class PathEvaluationUtil
         return sequence.stream()
                 .flatMap(object -> {
                     if (object instanceof JsonNode node && node.getNodeType() == ARRAY) {
-                        return ImmutableList.copyOf(node.elements()).stream();
+                        return ImmutableList.copyOf(node.iterator()).stream();
                     }
                     return Stream.of(object);
                 })

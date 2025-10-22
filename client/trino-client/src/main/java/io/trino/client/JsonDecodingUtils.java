@@ -13,10 +13,9 @@
  */
 package io.trino.client;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.util.Base64;
@@ -26,8 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.client.ClientStandardTypes.ARRAY;
@@ -68,6 +65,11 @@ import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
+import static tools.jackson.core.JsonToken.END_ARRAY;
+import static tools.jackson.core.JsonToken.START_ARRAY;
+import static tools.jackson.core.JsonToken.START_OBJECT;
+import static tools.jackson.core.JsonToken.VALUE_NULL;
+import static tools.jackson.core.JsonToken.VALUE_STRING;
 
 public final class JsonDecodingUtils
 {
@@ -280,7 +282,7 @@ public final class JsonDecodingUtils
         public Object decode(JsonParser parser)
                 throws IOException
         {
-            if (requireNonNull(parser.currentToken()) != JsonToken.VALUE_STRING) {
+            if (requireNonNull(parser.currentToken()) != VALUE_STRING) {
                 throw illegalToken(parser);
             }
             return parser.getValueAsString();
@@ -314,7 +316,7 @@ public final class JsonDecodingUtils
         public Object decode(JsonParser parser)
                 throws IOException
         {
-            if (requireNonNull(parser.currentToken()) != JsonToken.START_ARRAY) {
+            if (requireNonNull(parser.currentToken()) != START_ARRAY) {
                 throw illegalToken(parser);
             }
 
@@ -359,9 +361,9 @@ public final class JsonDecodingUtils
             while (true) {
                 switch (parser.nextToken()) {
                     // The original JSON encoding, always converts a key to a String to use it in the JSON object
-                    case FIELD_NAME:
+                    case PROPERTY_NAME:
                         Object name = decodeKey(parser.getValueAsString());
-                        if (requireNonNull(parser.nextToken()) == JsonToken.VALUE_NULL) {
+                        if (requireNonNull(parser.nextToken()) == VALUE_NULL) {
                             values.put(name, null);
                         }
                         else {
@@ -452,7 +454,7 @@ public final class JsonDecodingUtils
             }
             Row.Builder row = Row.builderWithExpectedSize(fieldDecoders.length);
             for (int i = 0; i < fieldDecoders.length; i++) {
-                if (requireNonNull(parser.nextToken()) == JsonToken.VALUE_NULL) {
+                if (requireNonNull(parser.nextToken()) == VALUE_NULL) {
                     row.addField(fieldNames.get(i), null);
                 }
                 else {

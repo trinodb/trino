@@ -16,13 +16,13 @@ package io.trino.plugin.deltalake.transactionlog;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import io.airlift.log.Logger;
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
 import jakarta.annotation.Nullable;
+import tools.jackson.core.JacksonException;
 
 import java.util.Map;
 import java.util.Objects;
@@ -104,7 +104,7 @@ public class AddFileEntry
             try {
                 resultParsedStats = Optional.ofNullable(DeltaLakeJsonFileStatistics.create(stats.get()));
             }
-            catch (JsonProcessingException e) {
+            catch (JacksonException e) {
                 LOG.debug(
                         e,
                         "File level stats could not be parsed and will be ignored. The JSON string was: %s",
@@ -166,7 +166,7 @@ public class AddFileEntry
         try {
             return Optional.of(serializeStatsAsJson(parsedStats.get()));
         }
-        catch (JsonProcessingException e) {
+        catch (JacksonException e) {
             return Optional.empty();
         }
     }

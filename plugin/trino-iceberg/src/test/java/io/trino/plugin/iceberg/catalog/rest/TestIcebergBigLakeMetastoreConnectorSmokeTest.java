@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonMapperProvider;
 import io.trino.filesystem.Location;
@@ -30,6 +29,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import org.apache.iceberg.BaseTable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -77,7 +77,7 @@ final class TestIcebergBigLakeMetastoreConnectorSmokeTest
         Path gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json");
         gcpCredentialsFile.toFile().deleteOnExit();
         Files.write(gcpCredentialsFile, GCS_JSON_KEY_BYTES);
-        String projectId = JSON_MAPPER.readTree(GCS_JSON_KEY_BYTES).get("project_id").asText();
+        String projectId = JSON_MAPPER.readTree(GCS_JSON_KEY_BYTES).get("project_id").asString();
 
         return IcebergQueryRunner.builder(SCHEMA)
                 .addIcebergProperty("iceberg.file-format", format.name())

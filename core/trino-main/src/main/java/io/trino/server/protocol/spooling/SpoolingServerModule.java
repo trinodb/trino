@@ -26,6 +26,7 @@ import io.trino.SystemSessionPropertiesProvider;
 import io.trino.server.ServerConfig;
 import io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode;
 import io.trino.spi.spool.SpoolingManager;
+import tools.jackson.databind.JacksonModule;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -71,7 +72,7 @@ public class SpoolingServerModule
     @ProvidesIntoSet
     @Singleton
     // Fully qualified so not to confuse with Guice's Module
-    public static com.fasterxml.jackson.databind.Module queryDataJacksonModule()
+    public static JacksonModule queryDataJacksonModule()
     {
         return new ServerQueryDataJacksonModule();
     }

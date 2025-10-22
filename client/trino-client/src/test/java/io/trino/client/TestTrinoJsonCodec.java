@@ -12,9 +12,8 @@
  * limitations under the License.
  */
 package io.trino.client;
-
-import com.fasterxml.jackson.core.JsonParseException;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.JacksonException;
 
 import java.io.ByteArrayInputStream;
 
@@ -27,7 +26,6 @@ public class TestTrinoJsonCodec
 {
     @Test
     public void testTrailingContent()
-            throws Exception
     {
         TrinoJsonCodec<ClientTypeSignature> codec = jsonCodec(ClientTypeSignature.class);
 
@@ -36,20 +34,20 @@ public class TestTrinoJsonCodec
 
         String jsonWithTrailingContent = json + " trailer";
         assertThatThrownBy(() -> codec.fromJson(jsonWithTrailingContent))
-                .isInstanceOf(JsonParseException.class)
+                .isInstanceOf(JacksonException.class)
                 .hasMessageStartingWith("Unrecognized token 'trailer': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')");
 
         assertThatThrownBy(() -> codec.fromJson(new ByteArrayInputStream(jsonWithTrailingContent.getBytes(UTF_8))))
-                .isInstanceOf(JsonParseException.class)
+                .isInstanceOf(JacksonException.class)
                 .hasMessageStartingWith("Unrecognized token 'trailer': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')");
 
         String jsonWithTrailingJsonContent = json + " \"valid json value\"";
         assertThatThrownBy(() -> codec.fromJson(jsonWithTrailingJsonContent))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Found characters after the expected end of input");
+                .isInstanceOf(JacksonException.class)
+                .hasMessageStartingWith("Trailing token (`JsonToken.VALUE_STRING`) found after value");
 
         assertThatThrownBy(() -> codec.fromJson(new ByteArrayInputStream(jsonWithTrailingJsonContent.getBytes(UTF_8))))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Found characters after the expected end of input");
+                .isInstanceOf(JacksonException.class)
+                .hasMessageStartingWith("Trailing token (`JsonToken.VALUE_STRING`) found after value");
     }
 }

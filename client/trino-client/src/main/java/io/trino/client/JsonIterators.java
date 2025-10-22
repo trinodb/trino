@@ -13,15 +13,15 @@
  */
 package io.trino.client;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.io.Closer;
 import io.trino.client.JsonDecodingUtils.TypeDecoder;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.json.JsonFactory;
+import tools.jackson.core.json.JsonFactoryBuilder;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -29,15 +29,16 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.fasterxml.jackson.core.JsonParser.Feature.AUTO_CLOSE_SOURCE;
-import static com.fasterxml.jackson.core.JsonParser.Feature.USE_FAST_BIG_NUMBER_PARSER;
-import static com.fasterxml.jackson.core.JsonParser.Feature.USE_FAST_DOUBLE_PARSER;
-import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.google.common.base.Verify.verify;
 import static io.trino.client.JsonDecodingUtils.createTypeDecoders;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
+import static tools.jackson.core.JsonToken.END_ARRAY;
+import static tools.jackson.core.JsonToken.START_ARRAY;
+import static tools.jackson.core.JsonToken.VALUE_NULL;
+import static tools.jackson.core.StreamReadFeature.AUTO_CLOSE_SOURCE;
+import static tools.jackson.core.StreamReadFeature.USE_FAST_BIG_NUMBER_PARSER;
+import static tools.jackson.core.StreamReadFeature.USE_FAST_DOUBLE_PARSER;
 
 public final class JsonIterators
 {
@@ -114,7 +115,7 @@ public final class JsonIterators
             try {
                 List<Object> row = new ArrayList<>(decoders.length);
                 for (TypeDecoder decoder : decoders) {
-                    if (requireNonNull(parser.nextToken()) == JsonToken.VALUE_NULL) {
+                    if (requireNonNull(parser.nextToken()) == VALUE_NULL) {
                         row.add(null);
                     }
                     else {
@@ -153,9 +154,10 @@ public final class JsonIterators
     @SuppressModernizer // There is no JsonFactory in the client module
     static JsonFactory createJsonFactory()
     {
-        return new JsonFactory()
+        return new JsonFactoryBuilder()
                 .enable(USE_FAST_DOUBLE_PARSER)
                 .enable(USE_FAST_BIG_NUMBER_PARSER)
-                .disable(AUTO_CLOSE_SOURCE); // We want to close source explicitly
+                .disable(AUTO_CLOSE_SOURCE) // We want to close source explicitly
+                .build();
     }
 }

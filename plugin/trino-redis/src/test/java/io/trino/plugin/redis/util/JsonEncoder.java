@@ -13,10 +13,7 @@
  */
 package io.trino.plugin.redis.util;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-
-import java.io.UncheckedIOException;
+import tools.jackson.databind.json.JsonMapper;
 
 public class JsonEncoder
 {
@@ -24,11 +21,6 @@ public class JsonEncoder
 
     public String toString(Object o)
     {
-        try {
-            return jsonMapper.writeValueAsString(o);
-        }
-        catch (JsonProcessingException e) {
-            throw new UncheckedIOException(e);
-        }
+        return jsonMapper.writeValueAsString(o);
     }
 }

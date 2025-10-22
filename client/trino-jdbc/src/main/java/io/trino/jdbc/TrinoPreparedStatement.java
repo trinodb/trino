@@ -308,18 +308,18 @@ public class TrinoPreparedStatement
             throws SQLException
     {
         requireNonNull(value, "value is null");
-        if (value instanceof java.util.Date) {
-            return DATE_FORMATTER.print(((java.util.Date) value).getTime());
+        if (value instanceof java.util.Date dateValue) {
+            return DATE_FORMATTER.print(dateValue.getTime());
         }
-        if (value instanceof LocalDate) {
-            return ISO_LOCAL_DATE.format(((LocalDate) value));
+        if (value instanceof LocalDate localDate) {
+            return ISO_LOCAL_DATE.format(localDate);
         }
-        if (value instanceof LocalDateTime) {
-            return ISO_LOCAL_DATE.format(((LocalDateTime) value));
+        if (value instanceof LocalDateTime localDateTime) {
+            return ISO_LOCAL_DATE.format(localDateTime);
         }
-        if (value instanceof String) {
+        if (value instanceof String string) {
             // TODO validate proper format
-            return (String) value;
+            return string;
         }
         throw invalidConversion(value, "date");
     }
@@ -349,18 +349,18 @@ public class TrinoPreparedStatement
     private String toTimeLiteral(Object value)
             throws SQLException
     {
-        if (value instanceof java.util.Date) {
-            return TIME_FORMATTER.print(((java.util.Date) value).getTime());
+        if (value instanceof java.util.Date dateValue) {
+            return TIME_FORMATTER.print(dateValue.getTime());
         }
-        if (value instanceof LocalTime) {
-            return ISO_LOCAL_TIME.format((LocalTime) value);
+        if (value instanceof LocalTime localTime) {
+            return ISO_LOCAL_TIME.format(localTime);
         }
-        if (value instanceof LocalDateTime) {
-            return ISO_LOCAL_TIME.format((LocalDateTime) value);
+        if (value instanceof LocalDateTime localDateTime) {
+            return ISO_LOCAL_TIME.format(localDateTime);
         }
-        if (value instanceof String) {
+        if (value instanceof String string) {
             // TODO validate proper format
-            return (String) value;
+            return string;
         }
         throw invalidConversion(value, "time");
     }
@@ -377,12 +377,12 @@ public class TrinoPreparedStatement
     private String toTimeWithTimeZoneLiteral(Object value)
             throws SQLException
     {
-        if (value instanceof OffsetTime) {
-            return OFFSET_TIME_FORMATTER.format((OffsetTime) value);
+        if (value instanceof OffsetTime offsetTime) {
+            return OFFSET_TIME_FORMATTER.format(offsetTime);
         }
-        if (value instanceof String) {
+        if (value instanceof String string) {
             // TODO validate proper format
-            return (String) value;
+            return string;
         }
         throw invalidConversion(value, "time with time zone");
     }
@@ -412,15 +412,15 @@ public class TrinoPreparedStatement
     private String toTimestampLiteral(Object value)
             throws SQLException
     {
-        if (value instanceof java.util.Date) {
-            return TIMESTAMP_FORMATTER.print(((java.util.Date) value).getTime());
+        if (value instanceof java.util.Date date) {
+            return TIMESTAMP_FORMATTER.print(date.getTime());
         }
-        if (value instanceof LocalDateTime) {
-            return LOCAL_DATE_TIME_FORMATTER.format(((LocalDateTime) value));
+        if (value instanceof LocalDateTime localDateTime) {
+            return LOCAL_DATE_TIME_FORMATTER.format(localDateTime);
         }
-        if (value instanceof String) {
+        if (value instanceof String string) {
             // TODO validate proper format
-            return (String) value;
+            return string;
         }
         throw invalidConversion(value, "timestamp");
     }
@@ -438,12 +438,12 @@ public class TrinoPreparedStatement
             throws SQLException
     {
         // TODO (https://github.com/trinodb/trino/issues/6299) support ZonedDateTime
-        if (value instanceof String) {
+        if (value instanceof String string) {
             // TODO validate proper format
-            return (String) value;
+            return string;
         }
-        else if (value instanceof Instant) {
-            return OFFSET_DATE_TIME_FORMATTER.format(((Instant) value).atOffset(ZoneOffset.UTC));
+        else if (value instanceof Instant instant) {
+            return OFFSET_DATE_TIME_FORMATTER.format(instant.atOffset(ZoneOffset.UTC));
         }
         throw invalidConversion(value, "timestamp with time zone");
     }
@@ -575,57 +575,57 @@ public class TrinoPreparedStatement
         if (x == null) {
             setNull(parameterIndex, Types.NULL);
         }
-        else if (x instanceof Boolean) {
-            setBoolean(parameterIndex, (Boolean) x);
+        else if (x instanceof Boolean value) {
+            setBoolean(parameterIndex, value);
         }
-        else if (x instanceof Byte) {
-            setByte(parameterIndex, (Byte) x);
+        else if (x instanceof Byte value) {
+            setByte(parameterIndex, value);
         }
-        else if (x instanceof Short) {
-            setShort(parameterIndex, (Short) x);
+        else if (x instanceof Short value) {
+            setShort(parameterIndex, value);
         }
-        else if (x instanceof Integer) {
-            setInt(parameterIndex, (Integer) x);
+        else if (x instanceof Integer value) {
+            setInt(parameterIndex, value);
         }
-        else if (x instanceof Long) {
-            setLong(parameterIndex, (Long) x);
+        else if (x instanceof Long value) {
+            setLong(parameterIndex, value);
         }
-        else if (x instanceof Float) {
-            setFloat(parameterIndex, (Float) x);
+        else if (x instanceof Float value) {
+            setFloat(parameterIndex, value);
         }
-        else if (x instanceof Double) {
-            setDouble(parameterIndex, (Double) x);
+        else if (x instanceof Double value) {
+            setDouble(parameterIndex, value);
         }
-        else if (x instanceof BigDecimal) {
-            setBigDecimal(parameterIndex, (BigDecimal) x);
+        else if (x instanceof BigDecimal value) {
+            setBigDecimal(parameterIndex, value);
         }
-        else if (x instanceof String) {
-            setString(parameterIndex, (String) x);
+        else if (x instanceof String value) {
+            setString(parameterIndex, value);
         }
-        else if (x instanceof byte[]) {
-            setBytes(parameterIndex, (byte[]) x);
+        else if (x instanceof byte[] value) {
+            setBytes(parameterIndex, value);
         }
-        else if (x instanceof Date) {
-            setDate(parameterIndex, (Date) x);
+        else if (x instanceof Date value) {
+            setDate(parameterIndex, value);
         }
-        else if (x instanceof LocalDate) {
-            setAsDate(parameterIndex, x);
+        else if (x instanceof LocalDate value) {
+            setAsDate(parameterIndex, value);
         }
-        else if (x instanceof LocalDateTime) {
-            setAsTimestamp(parameterIndex, x);
+        else if (x instanceof LocalDateTime value) {
+            setAsTimestamp(parameterIndex, value);
         }
-        else if (x instanceof Instant) {
-            setAsTimestampWithTimeZone(parameterIndex, x);
+        else if (x instanceof Instant value) {
+            setAsTimestampWithTimeZone(parameterIndex, value);
         }
-        else if (x instanceof Time) {
-            setTime(parameterIndex, (Time) x);
+        else if (x instanceof Time value) {
+            setTime(parameterIndex, value);
         }
         // TODO (https://github.com/trinodb/trino/issues/6299) LocalTime -> setAsTime
-        else if (x instanceof OffsetTime) {
-            setAsTimeWithTimeZone(parameterIndex, x);
+        else if (x instanceof OffsetTime value) {
+            setAsTimeWithTimeZone(parameterIndex, value);
         }
-        else if (x instanceof Timestamp) {
-            setTimestamp(parameterIndex, (Timestamp) x);
+        else if (x instanceof Timestamp value) {
+            setTimestamp(parameterIndex, value);
         }
         else {
             throw new SQLException("Unsupported object type: " + x.getClass().getName());

@@ -13,7 +13,6 @@
  */
 package io.trino.metadata;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
@@ -24,6 +23,7 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureDeserializer;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;

@@ -102,8 +102,8 @@ public class OkHttpSegmentLoader
     @Override
     public void close()
     {
-        if (callFactory instanceof OkHttpClient) {
-            ((OkHttpClient) callFactory).dispatcher().executorService().shutdown();
+        if (callFactory instanceof OkHttpClient okHttpClient) {
+            okHttpClient.dispatcher().executorService().shutdown();
         }
     }
 }

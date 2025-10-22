@@ -13,7 +13,6 @@
  */
 package io.trino.client;
 
-import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.CountingInputStream;
@@ -24,6 +23,7 @@ import io.trino.client.spooling.Segment;
 import io.trino.client.spooling.SegmentLoader;
 import io.trino.client.spooling.SpooledSegment;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.JsonParser;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;

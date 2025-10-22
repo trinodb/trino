@@ -34,23 +34,19 @@ final class ObjectCasts
     public static boolean castToBoolean(Object x, int targetSqlType)
             throws SQLException
     {
-        if (x instanceof Boolean) {
-            return (Boolean) x;
+        if (x instanceof Boolean value) {
+            return value;
         }
         try {
-            if (x instanceof Number) {
-                return ((Number) x).intValue() != 0;
+            if (x instanceof Number value) {
+                return value.intValue() != 0;
             }
-            if (x instanceof String) {
-                switch (((String) x).toLowerCase(ENGLISH)) {
-                    case "0":
-                    case "false":
-                        return false;
-                    case "1":
-                    case "true":
-                        return true;
-                }
-                throw new IllegalArgumentException("Invalid boolean value: " + x);
+            if (x instanceof String value) {
+                return switch (value.toLowerCase(ENGLISH)) {
+                    case "0", "false" -> false;
+                    case "1", "true" -> true;
+                    default -> throw new IllegalArgumentException("Invalid boolean value: " + x);
+                };
             }
         }
         catch (RuntimeException e) {
@@ -62,15 +58,15 @@ final class ObjectCasts
     public static byte castToByte(Object x, int targetSqlType)
             throws SQLException
     {
-        if (x instanceof Boolean) {
-            return (byte) (((Boolean) x) ? 1 : 0);
+        if (x instanceof Boolean value) {
+            return (byte) (value ? 1 : 0);
         }
         try {
-            if (x instanceof Number) {
-                return ((Number) x).byteValue();
+            if (x instanceof Number value) {
+                return value.byteValue();
             }
-            if (x instanceof String) {
-                return parseByte((String) x);
+            if (x instanceof String value) {
+                return parseByte(value);
             }
         }
         catch (RuntimeException e) {
@@ -82,15 +78,15 @@ final class ObjectCasts
     public static short castToShort(Object x, int targetSqlType)
             throws SQLException
     {
-        if (x instanceof Boolean) {
-            return (short) (((Boolean) x) ? 1 : 0);
+        if (x instanceof Boolean value) {
+            return (short) (value ? 1 : 0);
         }
         try {
-            if (x instanceof Number) {
-                return ((Number) x).shortValue();
+            if (x instanceof Number value) {
+                return value.shortValue();
             }
-            if (x instanceof String) {
-                return parseShort((String) x);
+            if (x instanceof String value) {
+                return parseShort(value);
             }
         }
         catch (RuntimeException e) {
@@ -102,15 +98,15 @@ final class ObjectCasts
     public static int castToInt(Object x, int targetSqlType)
             throws SQLException
     {
-        if (x instanceof Boolean) {
-            return (((Boolean) x) ? 1 : 0);
+        if (x instanceof Boolean value) {
+            return (value ? 1 : 0);
         }
         try {
-            if (x instanceof Number) {
-                return ((Number) x).intValue();
+            if (x instanceof Number value) {
+                return value.intValue();
             }
-            if (x instanceof String) {
-                return parseInt((String) x);
+            if (x instanceof String value) {
+                return parseInt(value);
             }
         }
         catch (RuntimeException e) {
@@ -122,15 +118,15 @@ final class ObjectCasts
     public static long castToLong(Object x, int targetSqlType)
             throws SQLException
     {
-        if (x instanceof Boolean) {
-            return (((Boolean) x) ? 1 : 0);
+        if (x instanceof Boolean value) {
+            return (value ? 1 : 0);
         }
         try {
-            if (x instanceof Number) {
-                return ((Number) x).longValue();
+            if (x instanceof Number value) {
+                return value.longValue();
             }
-            if (x instanceof String) {
-                return parseLong((String) x);
+            if (x instanceof String value) {
+                return parseLong(value);
             }
         }
         catch (RuntimeException e) {
@@ -142,15 +138,15 @@ final class ObjectCasts
     public static float castToFloat(Object x, int targetSqlType)
             throws SQLException
     {
-        if (x instanceof Boolean) {
-            return (((Boolean) x) ? 1 : 0);
+        if (x instanceof Boolean value) {
+            return value ? 1 : 0;
         }
         try {
-            if (x instanceof Number) {
-                return ((Number) x).floatValue();
+            if (x instanceof Number value) {
+                return value.floatValue();
             }
-            if (x instanceof String) {
-                return parseFloat((String) x);
+            if (x instanceof String value) {
+                return parseFloat(value);
             }
         }
         catch (RuntimeException e) {
@@ -162,15 +158,15 @@ final class ObjectCasts
     public static double castToDouble(Object x, int targetSqlType)
             throws SQLException
     {
-        if (x instanceof Boolean) {
-            return (((Boolean) x) ? 1 : 0);
+        if (x instanceof Boolean value) {
+            return value ? 1 : 0;
         }
         try {
-            if (x instanceof Number) {
-                return ((Number) x).doubleValue();
+            if (x instanceof Number value) {
+                return value.doubleValue();
             }
-            if (x instanceof String) {
-                return parseDouble((String) x);
+            if (x instanceof String value) {
+                return parseDouble(value);
             }
         }
         catch (RuntimeException e) {
@@ -182,14 +178,14 @@ final class ObjectCasts
     public static BigDecimal castToBigDecimal(Object x, int targetSqlType)
             throws SQLException
     {
-        if (x instanceof Boolean) {
-            return BigDecimal.valueOf(((Boolean) x) ? 1 : 0);
+        if (x instanceof Boolean value) {
+            return BigDecimal.valueOf(value ? 1 : 0);
         }
-        if (x instanceof BigInteger) {
-            return new BigDecimal((BigInteger) x);
+        if (x instanceof BigInteger value) {
+            return new BigDecimal(value);
         }
-        if (x instanceof BigDecimal) {
-            return (BigDecimal) x;
+        if (x instanceof BigDecimal value) {
+            return value;
         }
         try {
             if ((x instanceof Byte) || (x instanceof Short) || (x instanceof Integer) || (x instanceof Long)) {
@@ -198,8 +194,8 @@ final class ObjectCasts
             if ((x instanceof Float) || (x instanceof Double)) {
                 return BigDecimal.valueOf(((Number) x).doubleValue());
             }
-            if (x instanceof String) {
-                return new BigDecimal((String) x);
+            if (x instanceof String value) {
+                return new BigDecimal(value);
             }
         }
         catch (RuntimeException e) {
@@ -211,11 +207,11 @@ final class ObjectCasts
     public static byte[] castToBinary(Object x, int targetSqlType)
             throws SQLException
     {
-        if (x instanceof byte[]) {
-            return (byte[]) x;
+        if (x instanceof byte[] bytes) {
+            return bytes;
         }
-        if (x instanceof String) {
-            return ((String) x).getBytes(UTF_8);
+        if (x instanceof String value) {
+            return value.getBytes(UTF_8);
         }
         throw invalidConversion(x, targetSqlType);
     }

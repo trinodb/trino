@@ -79,26 +79,23 @@ public class ResultRowsDecoder
         }
 
         verify(columns != null && !columns.isEmpty(), "Columns must be set when decoding data");
-        if (data instanceof TypedQueryData) {
-            TypedQueryData rawData = (TypedQueryData) data;
+        if (data instanceof TypedQueryData typedQueryData) {
             // RawQueryData is always typed
-            return wrapIterator(closeable(rawData.getIterable().iterator()), rawData.getRowsCount());
+            return wrapIterator(closeable(typedQueryData.getIterable().iterator()), typedQueryData.getRowsCount());
         }
 
-        if (data instanceof JsonQueryData) {
-            JsonQueryData jsonData = (JsonQueryData) data;
+        if (data instanceof JsonQueryData jsonQueryData) {
             try {
-                return wrapIterator(JsonIterators.forJsonParser(jsonData.getJsonParser(), columns), jsonData.getRowsCount());
+                return wrapIterator(JsonIterators.forJsonParser(jsonQueryData.getJsonParser(), columns), jsonQueryData.getRowsCount());
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
         }
 
-        if (data instanceof EncodedQueryData) {
-            EncodedQueryData encodedData = (EncodedQueryData) data;
-            setEncoding(columns, encodedData.getEncoding());
-            return wrapIterator(new SegmentsIterator(loader, decoder, encodedData.getSegments()), encodedData.getRowsCount());
+        if (data instanceof EncodedQueryData encodedQueryData) {
+            setEncoding(columns, encodedQueryData.getEncoding());
+            return wrapIterator(new SegmentsIterator(loader, decoder, encodedQueryData.getSegments()), encodedQueryData.getRowsCount());
         }
 
         throw new UnsupportedOperationException("Unsupported data type: " + data.getClass().getName());

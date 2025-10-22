@@ -13,7 +13,6 @@
  */
 package io.trino.server;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.inject.Key;
 import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.HttpClient;
@@ -39,6 +38,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.net.URI;
 import java.util.List;
@@ -59,6 +59,7 @@ import static io.airlift.tracing.SpanSerialization.SpanSerializer;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.RUNNING;
+import static io.trino.server.TrinoJsonResponseHandler.createTrinoJsonResponseHandler;
 import static io.trino.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static io.trino.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
@@ -122,7 +123,7 @@ public class TestQueryResource
                 .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
                 .build();
 
-        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+        QueryResults queryResults = client.execute(request, createTrinoJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
         URI uri = queryResults.getNextUri();
         while (uri != null) {
             QueryResults attempt1 = client.execute(
@@ -130,14 +131,14 @@ public class TestQueryResource
                             .setHeader(REQUEST_USER_HEADER, "user")
                             .setUri(uri)
                             .build(),
-                    createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+                    createTrinoJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
 
             QueryResults attempt2 = client.execute(
                     prepareGet()
                             .setHeader(REQUEST_USER_HEADER, "user")
                             .setUri(uri)
                             .build(),
-                    createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+                    createTrinoJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
 
             assertDataEquals(attempt1.getColumns(), attempt2.getData(), attempt1.getData());
             uri = attempt1.getNextUri();
@@ -315,13 +316,13 @@ public class TestQueryResource
                 .setUri(uri)
                 .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
                 .build();
-        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+        QueryResults queryResults = client.execute(request, createTrinoJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
         while (queryResults.getNextUri() != null) {
             request = prepareGet()
                     .setHeader(REQUEST_USER_HEADER, "user")
                     .setUri(queryResults.getNextUri())
                     .build();
-            queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+            queryResults = client.execute(request, createTrinoJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
         }
         return queryResults.getId();
     }
@@ -334,13 +335,13 @@ public class TestQueryResource
                 .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
                 .setHeader(REQUEST_USER_HEADER, "user")
                 .build();
-        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+        QueryResults queryResults = client.execute(request, createTrinoJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
         while (queryResults.getNextUri() != null && !queryResults.getStats().getState().equals(RUNNING.toString())) {
             request = prepareGet()
                     .setHeader(REQUEST_USER_HEADER, "user")
                     .setUri(queryResults.getNextUri())
                     .build();
-            queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+            queryResults = client.execute(request, createTrinoJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
         }
         return queryResults.getId();
     }

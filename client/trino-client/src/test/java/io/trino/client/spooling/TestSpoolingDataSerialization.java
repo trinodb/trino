@@ -13,7 +13,6 @@
  */
 package io.trino.client.spooling;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.client.QueryData;
@@ -38,7 +37,6 @@ public class TestSpoolingDataSerialization
 
     @Test
     void testEncodedDataSerializationRoundTrip()
-            throws JsonProcessingException
     {
         DataAttributes attributes = DataAttributes.builder()
                 .set(SCHEMA, "<schema>")
@@ -54,7 +52,6 @@ public class TestSpoolingDataSerialization
 
     @Test
     void testInlineSegmentSerializationRoundTrip()
-            throws JsonProcessingException
     {
         assertThat(SEGMENT_CODEC.fromJson(SEGMENT_CODEC.toJson(inlineSegment())))
                 .isEqualTo(inlineSegment());
@@ -68,7 +65,6 @@ public class TestSpoolingDataSerialization
 
     @Test
     void testSpooledSegmentSerializationRoundTrip()
-            throws JsonProcessingException
     {
         assertThat(SEGMENT_CODEC.fromJson(SEGMENT_CODEC.toJson(spooledSegment())))
                 .isEqualTo(spooledSegment());

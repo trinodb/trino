@@ -13,7 +13,6 @@
  */
 package io.trino.testing;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -220,6 +219,7 @@ import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureDeserializer;
 import io.trino.util.FinalizerService;
 import org.intellij.lang.annotations.Language;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.Closeable;
 import java.io.IOException;

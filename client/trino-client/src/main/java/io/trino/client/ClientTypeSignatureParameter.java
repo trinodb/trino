@@ -15,15 +15,14 @@ package io.trino.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.errorprone.annotations.Immutable;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ValueDeserializer;
+import tools.jackson.databind.annotation.JsonDeserialize;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.io.IOException;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -163,13 +162,12 @@ public class ClientTypeSignatureParameter
     }
 
     public static class ClientTypeSignatureParameterDeserializer
-            extends JsonDeserializer<ClientTypeSignatureParameter>
+            extends ValueDeserializer<ClientTypeSignatureParameter>
     {
         private static final JsonMapper MAPPER = TrinoJsonCodec.JSON_MAPPER_SUPPLIER.get();
 
         @Override
         public ClientTypeSignatureParameter deserialize(JsonParser parser, DeserializationContext context)
-                throws IOException
         {
             JsonNode node = context.readTree(parser);
             ParameterKind kind = MAPPER.readValue(MAPPER.treeAsTokens(node.get("kind")), ParameterKind.class);

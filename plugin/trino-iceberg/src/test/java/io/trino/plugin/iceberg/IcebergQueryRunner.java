@@ -303,7 +303,7 @@ public final class IcebergQueryRunner
             Path gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json");
             gcpCredentialsFile.toFile().deleteOnExit();
             Files.write(gcpCredentialsFile, jsonKeyBytes);
-            String projectId = new JsonMapperProvider().get().readTree(jsonKeyBytes).get("project_id").asText();
+            String projectId = new JsonMapperProvider().get().readTree(jsonKeyBytes).get("project_id").asString();
 
             @SuppressWarnings("resource")
             DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()

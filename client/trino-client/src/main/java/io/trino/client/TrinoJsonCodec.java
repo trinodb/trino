@@ -13,27 +13,25 @@
  */
 package io.trino.client;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.StreamReadConstraints;
-import com.fasterxml.jackson.core.StreamReadFeature;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JavaType;
-import com.fasterxml.jackson.databind.MapperFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.StreamReadConstraints;
+import tools.jackson.core.StreamReadFeature;
+import tools.jackson.core.json.JsonFactory;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.JavaType;
+import tools.jackson.databind.MapperFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
-import java.io.UncheckedIOException;
 import java.lang.reflect.Type;
 import java.util.function.Supplier;
 
-import static com.fasterxml.jackson.core.JsonFactory.Feature.INTERN_FIELD_NAMES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static tools.jackson.core.TokenStreamFactory.Feature.INTERN_PROPERTY_NAMES;
 
 public class TrinoJsonCodec<T>
 {
@@ -52,7 +50,7 @@ public class TrinoJsonCodec<T>
                  *
                  * @see <a href="https://github.com/FasterXML/jackson-core/issues/332">Jackson issue on InternCache contention</a>
                  */
-                .disable(INTERN_FIELD_NAMES)
+                .disable(INTERN_PROPERTY_NAMES)
                 .streamReadConstraints(StreamReadConstraints.builder()
                     .maxStringLength(Integer.MAX_VALUE)
                     .maxNestingDepth(Integer.MAX_VALUE)
@@ -64,17 +62,17 @@ public class TrinoJsonCodec<T>
                 .enable(StreamReadFeature.USE_FAST_DOUBLE_PARSER)
                 .enable(StreamReadFeature.USE_FAST_BIG_NUMBER_PARSER)
                 .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-                .disable(MapperFeature.AUTO_DETECT_CREATORS)
-                .disable(MapperFeature.AUTO_DETECT_FIELDS)
-                .disable(MapperFeature.AUTO_DETECT_SETTERS)
-                .disable(MapperFeature.AUTO_DETECT_GETTERS)
-                .disable(MapperFeature.AUTO_DETECT_IS_GETTERS)
+                .changeDefaultVisibility(handler -> handler
+                        .withCreatorVisibility(JsonAutoDetect.Visibility.NONE)
+                        .withFieldVisibility(JsonAutoDetect.Visibility.NONE)
+                        .withSetterVisibility(JsonAutoDetect.Visibility.NONE)
+                        .withGetterVisibility(JsonAutoDetect.Visibility.NONE)
+                        .withIsGetterVisibility(JsonAutoDetect.Visibility.NONE))
                 .disable(MapperFeature.USE_GETTERS_AS_SETTERS)
                 .disable(MapperFeature.CAN_OVERRIDE_ACCESS_MODIFIERS)
                 .disable(MapperFeature.INFER_PROPERTY_MUTATORS)
                 .disable(MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS)
                 .disable(StreamReadFeature.AUTO_CLOSE_SOURCE)
-                .addModule(new Jdk8Module())
                 .addModule(new QueryDataJacksonModule())
                 .build();
     };
@@ -101,18 +99,11 @@ public class TrinoJsonCodec<T>
     }
 
     public T fromJson(String json)
-            throws JsonProcessingException
     {
         try (JsonParser parser = mapper.createParser(json)) {
             T value = mapper.readerFor(javaType).readValue(parser);
             checkArgument(parser.nextToken() == null, "Found characters after the expected end of input");
             return value;
-        }
-        catch (JsonProcessingException e) {
-            throw e;
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
         }
     }
 
@@ -138,11 +129,6 @@ public class TrinoJsonCodec<T>
 
     public String toJson(T instance)
     {
-        try {
-            return mapper.writerFor(javaType).writeValueAsString(instance);
-        }
-        catch (IOException exception) {
-            throw new IllegalArgumentException(String.format("%s could not be converted to JSON", instance.getClass().getName()), exception);
-        }
+        return mapper.writerFor(javaType).writeValueAsString(instance);
     }
 }

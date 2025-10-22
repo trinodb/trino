@@ -13,10 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.MappingJsonFactory;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.util.JsonTypeUtil;
@@ -30,36 +26,35 @@ import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.type.JsonPathType;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.LinkedList;
 import java.util.List;
 
-import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
-import static com.fasterxml.jackson.core.JsonParser.NumberType;
-import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
-import static com.fasterxml.jackson.core.JsonToken.VALUE_FALSE;
-import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_FLOAT;
-import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT;
-import static com.fasterxml.jackson.core.JsonToken.VALUE_STRING;
-import static com.fasterxml.jackson.core.JsonToken.VALUE_TRUE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.util.JsonUtil.createJsonParser;
 import static io.trino.util.JsonUtil.truncateIfNecessaryForErrorMessage;
+import static tools.jackson.core.JsonToken.END_ARRAY;
+import static tools.jackson.core.JsonToken.START_ARRAY;
+import static tools.jackson.core.JsonToken.START_OBJECT;
+import static tools.jackson.core.JsonToken.VALUE_FALSE;
+import static tools.jackson.core.JsonToken.VALUE_NUMBER_FLOAT;
+import static tools.jackson.core.JsonToken.VALUE_NUMBER_INT;
+import static tools.jackson.core.JsonToken.VALUE_STRING;
+import static tools.jackson.core.JsonToken.VALUE_TRUE;
+import static tools.jackson.core.TokenStreamFactory.Feature.CANONICALIZE_PROPERTY_NAMES;
 
 public final class JsonFunctions
 {
     private static final JsonMapper JSON_MAPPER = new JsonMapper(jsonFactoryBuilder()
-            .disable(CANONICALIZE_FIELD_NAMES)
-            .build());
-
-    private static final JsonMapper MAPPING_JSON_MAPPER = new JsonMapper(MappingJsonFactory.builder()
-            .disable(CANONICALIZE_FIELD_NAMES)
+            .disable(CANONICALIZE_PROPERTY_NAMES)
             .build());
 
     private JsonFunctions() {}
@@ -113,7 +108,7 @@ public final class JsonFunctions
             }
             return true;
         }
-        catch (IOException e) {
+        catch (UncheckedIOException | JacksonException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: " + truncateIfNecessaryForErrorMessage(json));
         }
     }
@@ -165,7 +160,7 @@ public final class JsonFunctions
                 length++;
             }
         }
-        catch (IOException e) {
+        catch (UncheckedIOException e) {
             return null;
         }
     }
@@ -205,7 +200,7 @@ public final class JsonFunctions
                 }
             }
         }
-        catch (IOException e) {
+        catch (UncheckedIOException | JacksonException e) {
             return null;
         }
     }
@@ -240,13 +235,13 @@ public final class JsonFunctions
                 parser.skipChildren();
 
                 if ((token == VALUE_NUMBER_INT) &&
-                        ((parser.getNumberType() == NumberType.INT) || (parser.getNumberType() == NumberType.LONG)) &&
+                        ((parser.getNumberType() == JsonParser.NumberType.INT) || (parser.getNumberType() == JsonParser.NumberType.LONG)) &&
                         (parser.getLongValue() == value)) {
                     return true;
                 }
             }
         }
-        catch (IOException e) {
+        catch (UncheckedIOException | JacksonException e) {
             return null;
         }
     }
@@ -291,7 +286,7 @@ public final class JsonFunctions
                 }
             }
         }
-        catch (IOException e) {
+        catch (UncheckedIOException | JacksonException e) {
             return null;
         }
     }
@@ -333,7 +328,7 @@ public final class JsonFunctions
                 }
             }
         }
-        catch (IOException e) {
+        catch (UncheckedIOException | JacksonException e) {
             return null;
         }
     }
@@ -357,7 +352,7 @@ public final class JsonFunctions
             return null;
         }
 
-        try (JsonParser parser = createJsonParser(MAPPING_JSON_MAPPER, json)) {
+        try (JsonParser parser = createJsonParser(JSON_MAPPER, json)) {
             if (parser.nextToken() != START_ARRAY) {
                 return null;
             }
@@ -404,7 +399,7 @@ public final class JsonFunctions
                 count++;
             }
         }
-        catch (IOException e) {
+        catch (UncheckedIOException | JacksonException e) {
             return null;
         }
     }

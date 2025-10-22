@@ -13,7 +13,7 @@
  */
 package io.trino.hdfs.s3;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 
 import static io.trino.plugin.base.util.JsonUtils.jsonTreeToValue;
 import static io.trino.plugin.base.util.JsonUtils.parseJson;

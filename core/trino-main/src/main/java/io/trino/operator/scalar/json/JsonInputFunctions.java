@@ -13,16 +13,15 @@
  */
 package io.trino.operator.scalar.json;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 
@@ -104,13 +103,13 @@ public final class JsonInputFunctions
         try {
             return MAPPER.readTree(reader);
         }
-        catch (JsonProcessingException e) {
+        catch (JacksonException e) {
             if (failOnError) {
                 throw new JsonInputConversionException(e);
             }
             return JSON_ERROR;
         }
-        catch (IOException e) {
+        catch (RuntimeException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }

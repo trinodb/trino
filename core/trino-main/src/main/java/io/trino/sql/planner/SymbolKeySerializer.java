@@ -13,20 +13,17 @@
  */
 package io.trino.sql.planner;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
-
-import java.io.IOException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.ValueSerializer;
 
 public class SymbolKeySerializer
-        extends JsonSerializer<Symbol>
+        extends ValueSerializer<Symbol>
 {
     @Override
-    public void serialize(Symbol value, JsonGenerator generator, SerializerProvider serializers)
-            throws IOException
+    public void serialize(Symbol value, JsonGenerator generator, SerializationContext context)
     {
         String type = value.type().getTypeId().getId();
-        generator.writeFieldName(type.length() + "|" + type + "|" + value.name());
+        generator.writeName(type.length() + "|" + type + "|" + value.name());
     }
 }

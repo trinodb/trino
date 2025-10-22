@@ -13,7 +13,6 @@
  */
 package io.trino.spi.predicate;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.Slice;
@@ -26,6 +25,7 @@ import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.assertj.core.api.AssertProvider;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Arrays;
 import java.util.List;
@@ -807,7 +807,6 @@ class TestSortedRangeSet
 
     @Test
     public void testJsonSerialization()
-            throws Exception
     {
         JsonMapper mapper = new JsonMapperProvider()
                 .withJsonDeserializers(Map.of(

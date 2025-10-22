@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.base.util;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.json.JsonMapperProvider;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -28,25 +26,25 @@ import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.SqlVarbinary;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.StringJoiner;
 
-import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
-import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static tools.jackson.core.TokenStreamFactory.Feature.CANONICALIZE_PROPERTY_NAMES;
+import static tools.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 
 public final class JsonTypeUtil
 {
     private static final JsonMapper JSON_MAPPER = new JsonMapper(jsonFactoryBuilder()
-            .disable(CANONICALIZE_FIELD_NAMES)
+            .disable(CANONICALIZE_PROPERTY_NAMES)
             .build());
 
     private static final JsonMapper SORTED_MAPPER = new JsonMapperProvider().get()
@@ -62,7 +60,7 @@ public final class JsonTypeUtil
         // cast(json_parse(x) AS t)` will be optimized into `$internal$json_string_to_array/map/row_cast` in ExpressionOptimizer
         // If you make changes to this function (e.g. use parse JSON string into some internal representation),
         // make sure `$internal$json_string_to_array/map/row_cast` is changed accordingly.
-        try (JsonParser parser = createJsonParser(JSON_MAPPER, slice)) {
+        try (JsonParser parser = createJsonParser(slice)) {
             SliceOutput output = new DynamicSliceOutput(slice.length());
             SORTED_MAPPER.writeValue((OutputStream) output, SORTED_MAPPER.readValue(parser, Object.class));
             // At this point, the end of input should be reached. nextToken() has three possible results:
@@ -101,11 +99,9 @@ public final class JsonTypeUtil
         return Slices.utf8Slice(joiner.toString());
     }
 
-    private static JsonParser createJsonParser(JsonMapper mapper, Slice json)
+    private static JsonParser createJsonParser(Slice json)
             throws IOException
     {
-        // Jackson tries to detect the character encoding automatically when
-        // using InputStream, so we pass an InputStreamReader instead.
-        return mapper.createParser(new InputStreamReader(json.getInput(), UTF_8));
+        return JSON_MAPPER.createParser(json.byteArray(), json.byteArrayOffset(), json.length());
     }
 }

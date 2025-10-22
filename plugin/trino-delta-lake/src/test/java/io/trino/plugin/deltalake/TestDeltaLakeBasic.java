@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -61,6 +58,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.io.File;
 import java.io.IOException;
@@ -315,12 +315,12 @@ public class TestDeltaLakeBasic
                 "6"); // +5 comes from second_col + second_col.a + second_col.b + second_col.c + second_col.c.field
 
         JsonNode schema = JSON_MAPPER.readTree(metadata.getSchemaString());
-        List<JsonNode> fields = ImmutableList.copyOf(schema.get("fields").elements());
+        List<JsonNode> fields = ImmutableList.copyOf(schema.get("fields").iterator());
         assertThat(fields).hasSize(2);
         JsonNode columnX = fields.get(0);
         JsonNode columnY = fields.get(1);
 
-        List<JsonNode> rowFields = ImmutableList.copyOf(columnY.get("type").get("fields").elements());
+        List<JsonNode> rowFields = ImmutableList.copyOf(columnY.get("type").get("fields").iterator());
         assertThat(rowFields).hasSize(3);
         JsonNode nestedArray = rowFields.get(0);
         JsonNode nestedMap = rowFields.get(1);
@@ -328,26 +328,26 @@ public class TestDeltaLakeBasic
 
         // Verify delta.columnMapping.id and delta.columnMapping.physicalName values
         assertThat(columnX.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(1);
-        assertThat(columnX.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+        assertThat(columnX.get("metadata").get("delta.columnMapping.physicalName").asString()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
         assertThat(columnY.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(6);
-        assertThat(columnY.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+        assertThat(columnY.get("metadata").get("delta.columnMapping.physicalName").asString()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
 
         assertThat(nestedArray.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(2);
-        assertThat(nestedArray.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+        assertThat(nestedArray.get("metadata").get("delta.columnMapping.physicalName").asString()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
 
         assertThat(nestedMap.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(3);
-        assertThat(nestedMap.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+        assertThat(nestedMap.get("metadata").get("delta.columnMapping.physicalName").asString()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
 
         assertThat(nestedRow.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(5);
-        assertThat(nestedRow.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
-        assertThat(getOnlyElement(nestedRow.get("type").get("fields").elements()).get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(4);
-        assertThat(getOnlyElement(nestedRow.get("type").get("fields").elements()).get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+        assertThat(nestedRow.get("metadata").get("delta.columnMapping.physicalName").asString()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+        assertThat(getOnlyElement(nestedRow.get("type").get("fields").iterator()).get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(4);
+        assertThat(getOnlyElement(nestedRow.get("type").get("fields").iterator()).get("metadata").get("delta.columnMapping.physicalName").asString()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
 
         // Repeat adding a new column and verify the existing fields are preserved
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN third_col row(a array(integer), b map(integer, integer), c row(field integer))");
         MetadataEntry thirdMetadata = loadMetadataEntry(2, tableLocation);
         JsonNode latestSchema = JSON_MAPPER.readTree(thirdMetadata.getSchemaString());
-        List<JsonNode> latestFields = ImmutableList.copyOf(latestSchema.get("fields").elements());
+        List<JsonNode> latestFields = ImmutableList.copyOf(latestSchema.get("fields").iterator());
         assertThat(latestFields).hasSize(3);
         JsonNode latestColumnX = latestFields.get(0);
         JsonNode latestColumnY = latestFields.get(1);
@@ -654,10 +654,10 @@ public class TestDeltaLakeBasic
 
         MetadataEntry originalMetadata = loadMetadataEntry(0, tableLocation);
         JsonNode schema = JSON_MAPPER.readTree(originalMetadata.getSchemaString());
-        List<JsonNode> fields = ImmutableList.copyOf(schema.get("fields").elements());
+        List<JsonNode> fields = ImmutableList.copyOf(schema.get("fields").iterator());
         assertThat(fields).hasSize(1);
         JsonNode column = fields.get(0);
-        String physicalName = column.get("metadata").get("delta.columnMapping.physicalName").asText();
+        String physicalName = column.get("metadata").get("delta.columnMapping.physicalName").asString();
         int id = column.get("metadata").get("delta.columnMapping.id").asInt();
 
         assertUpdate("INSERT INTO " + tableName + " VALUES 10", 1);
@@ -731,10 +731,10 @@ public class TestDeltaLakeBasic
                 .containsPattern("(delta\\.columnMapping\\.physicalName.*?){6}");
 
         JsonNode schema = JSON_MAPPER.readTree(metadata.getSchemaString());
-        List<JsonNode> fields = ImmutableList.copyOf(schema.get("fields").elements());
+        List<JsonNode> fields = ImmutableList.copyOf(schema.get("fields").iterator());
         assertThat(fields).hasSize(2);
         JsonNode nestedColumn = fields.get(1);
-        List<JsonNode> rowFields = ImmutableList.copyOf(nestedColumn.get("type").get("fields").elements());
+        List<JsonNode> rowFields = ImmutableList.copyOf(nestedColumn.get("type").get("fields").iterator());
         assertThat(rowFields).hasSize(3);
 
         // Drop 'x' column and verify that nested metadata and table configuration are preserved
@@ -742,7 +742,7 @@ public class TestDeltaLakeBasic
 
         MetadataEntry droppedMetadata = loadMetadataEntry(2, tableLocation);
         JsonNode droppedSchema = JSON_MAPPER.readTree(droppedMetadata.getSchemaString());
-        List<JsonNode> droppedFields = ImmutableList.copyOf(droppedSchema.get("fields").elements());
+        List<JsonNode> droppedFields = ImmutableList.copyOf(droppedSchema.get("fields").iterator());
         assertThat(droppedFields).hasSize(1);
         assertThat(droppedFields.get(0)).isEqualTo(nestedColumn);
 
@@ -784,11 +784,11 @@ public class TestDeltaLakeBasic
                 .containsPattern("(delta\\.columnMapping\\.physicalName.*?){6}");
 
         JsonNode schema = JSON_MAPPER.readTree(metadata.getSchemaString());
-        List<JsonNode> fields = ImmutableList.copyOf(schema.get("fields").elements());
+        List<JsonNode> fields = ImmutableList.copyOf(schema.get("fields").iterator());
         assertThat(fields).hasSize(2);
         JsonNode integerColumn = fields.get(0);
         JsonNode nestedColumn = fields.get(1);
-        List<JsonNode> rowFields = ImmutableList.copyOf(nestedColumn.get("type").get("fields").elements());
+        List<JsonNode> rowFields = ImmutableList.copyOf(nestedColumn.get("type").get("fields").iterator());
         assertThat(rowFields).hasSize(3);
 
         // Rename 'second_col' column and verify that nested metadata are same except for 'name' field and the table configuration are preserved
@@ -796,7 +796,7 @@ public class TestDeltaLakeBasic
 
         MetadataEntry renamedMetadata = loadMetadataEntry(2, tableLocation);
         JsonNode renamedSchema = JSON_MAPPER.readTree(renamedMetadata.getSchemaString());
-        List<JsonNode> renamedFields = ImmutableList.copyOf(renamedSchema.get("fields").elements());
+        List<JsonNode> renamedFields = ImmutableList.copyOf(renamedSchema.get("fields").iterator());
         assertThat(renamedFields).hasSize(2);
         assertThat(renamedFields.get(0)).isEqualTo(integerColumn);
         assertThat(renamedFields.get(1)).isNotEqualTo(nestedColumn);

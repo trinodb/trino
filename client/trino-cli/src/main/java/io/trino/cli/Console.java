@@ -210,8 +210,8 @@ public class Console
 
     private static Optional<PropertyName> getMapping(Object userObject)
     {
-        if (userObject instanceof Field) {
-            return Optional.ofNullable(((Field) userObject).getAnnotation(PropertyMapping.class))
+        if (userObject instanceof Field field) {
+            return Optional.ofNullable(field.getAnnotation(PropertyMapping.class))
                     .map(PropertyMapping::value);
         }
 

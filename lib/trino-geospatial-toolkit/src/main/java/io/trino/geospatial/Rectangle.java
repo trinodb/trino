@@ -49,25 +49,25 @@ public final class Rectangle
         this.yMax = yMax;
     }
 
-    @JsonProperty
+    @JsonProperty("xmin")
     public double getXMin()
     {
         return xMin;
     }
 
-    @JsonProperty
+    @JsonProperty("ymin")
     public double getYMin()
     {
         return yMin;
     }
 
-    @JsonProperty
+    @JsonProperty("xmax")
     public double getXMax()
     {
         return xMax;
     }
 
-    @JsonProperty
+    @JsonProperty("ymax")
     public double getYMax()
     {
         return yMax;

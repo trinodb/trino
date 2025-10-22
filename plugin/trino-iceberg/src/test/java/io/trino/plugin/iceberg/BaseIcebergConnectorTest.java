@@ -13,10 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -76,11 +72,15 @@ import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.io.FileIO;
-import org.apache.iceberg.util.JsonUtil;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import tools.jackson.core.json.JsonFactory;
+import tools.jackson.core.json.JsonFactoryBuilder;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -192,6 +192,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.offset;
 import static org.assertj.core.api.Fail.fail;
+import static tools.jackson.core.TokenStreamFactory.Feature.FAIL_ON_SYMBOL_HASH_OVERFLOW;
+import static tools.jackson.core.TokenStreamFactory.Feature.INTERN_PROPERTY_NAMES;
 
 public abstract class BaseIcebergConnectorTest
         extends BaseConnectorTest
@@ -199,6 +201,11 @@ public abstract class BaseIcebergConnectorTest
     private static final DateTimeFormatter SQL_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss");
     private static final String ICEBERG_TIMESTAMP_PRECISION_FAILURE = "Timestamp precision \\(3\\) not supported for Iceberg. Use \"timestamp\\(6\\)\"(?: or \"timestamp\\(9\\)\")? instead";
     private static final Pattern WITH_CLAUSE_EXTRACTOR = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
+
+    private static final JsonFactory JSON_FACTORY = new JsonFactoryBuilder()
+            .configure(INTERN_PROPERTY_NAMES, false)
+            .configure(FAIL_ON_SYMBOL_HASH_OVERFLOW, false)
+            .build();
 
     protected final IcebergFileFormat format;
     protected final int formatVersion;
@@ -8611,10 +8618,10 @@ public abstract class BaseIcebergConnectorTest
         String tableLocation = getTableLocation(tableName);
         String metadataFileLocation = getLatestMetadataLocation(fileSystem, tableLocation);
 
-        JsonMapper mapper = new JsonMapper(JsonUtil.factory());
+        JsonMapper mapper = new JsonMapper(JSON_FACTORY);
         JsonNode jsonNode = mapper.readValue(fileSystem.newInputFile(Location.of(metadataFileLocation)).newStream(), JsonNode.class);
         ArrayNode fieldsNode = (ArrayNode) jsonNode.get("schemas").get(0).get("fields");
-        ObjectNode newFieldNode = fieldsNode.get(0).deepCopy();
+        JsonNode newFieldNode = fieldsNode.get(0).deepCopy();
         // Add duplicate field to produce validation error while reading the metadata file
         fieldsNode.add(newFieldNode);
 

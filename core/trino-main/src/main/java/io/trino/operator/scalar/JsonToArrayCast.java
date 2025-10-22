@@ -13,9 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
@@ -31,6 +28,9 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TypeSignature;
 import io.trino.util.JsonCastException;
 import io.trino.util.JsonUtil.BlockBuilderAppender;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.lang.invoke.MethodHandle;
 
@@ -90,14 +90,14 @@ public class JsonToArrayCast
     {
         try (JsonParser jsonParser = createJsonParser(JSON_MAPPER, json)) {
             jsonParser.nextToken();
-            if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {
+            if (jsonParser.currentToken() == JsonToken.VALUE_NULL) {
                 return null;
             }
 
             BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 1);
             arrayAppender.append(jsonParser, blockBuilder);
             if (jsonParser.nextToken() != null) {
-                throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));
+                throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getString()));
             }
             Block block = blockBuilder.build();
             return arrayType.getObject(block, 0);

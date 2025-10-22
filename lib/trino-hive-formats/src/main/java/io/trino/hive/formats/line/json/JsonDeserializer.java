@@ -13,9 +13,6 @@
  */
 package io.trino.hive.formats.line.json;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -41,10 +38,18 @@ import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.core.ObjectReadContext;
+import tools.jackson.core.exc.StreamReadException;
+import tools.jackson.core.json.JsonFactory;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
 import java.util.Arrays;
@@ -58,12 +63,6 @@ import java.util.function.IntUnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.fasterxml.jackson.core.JsonFactory.Feature.INTERN_FIELD_NAMES;
-import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
-import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
-import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
-import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveFormatUtils.createTimestampParser;
@@ -90,6 +89,12 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeZone.UTC;
+import static tools.jackson.core.JsonToken.END_OBJECT;
+import static tools.jackson.core.JsonToken.PROPERTY_NAME;
+import static tools.jackson.core.JsonToken.START_ARRAY;
+import static tools.jackson.core.JsonToken.START_OBJECT;
+import static tools.jackson.core.JsonToken.VALUE_NULL;
+import static tools.jackson.core.TokenStreamFactory.Feature.INTERN_PROPERTY_NAMES;
 
 /**
  * Deserializer that is bug for bug compatible with Hive JsonSerDe where possible. Known exceptions are:
@@ -112,7 +117,7 @@ public class JsonDeserializer
         implements LineDeserializer
 {
     private static final JsonFactory JSON_FACTORY = jsonFactoryBuilder()
-            .disable(INTERN_FIELD_NAMES)
+            .disable(INTERN_PROPERTY_NAMES)
             .build();
 
     private final List<Type> types;
@@ -153,7 +158,7 @@ public class JsonDeserializer
     public void deserialize(LineBuffer lineBuffer, PageBuilder builder)
             throws IOException
     {
-        JsonParser parser = JSON_FACTORY.createParser(lineBuffer.getBuffer(), 0, lineBuffer.getLength());
+        JsonParser parser = JSON_FACTORY.createParser(ObjectReadContext.empty(), lineBuffer.getBuffer(), 0, lineBuffer.getLength());
         parser.nextToken();
 
         rowDecoder.decode(parser, builder);
@@ -234,7 +239,6 @@ public class JsonDeserializer
         }
 
         public final void decode(JsonParser parser, BlockBuilder builder)
-                throws IOException
         {
             JsonToken currentToken = parser.currentToken();
             if (currentToken == VALUE_NULL) {
@@ -248,8 +252,7 @@ public class JsonDeserializer
             decodeValue(parser, builder);
         }
 
-        abstract void decodeValue(JsonParser parser, BlockBuilder builder)
-                throws IOException;
+        abstract void decodeValue(JsonParser parser, BlockBuilder builder);
 
         private static boolean isScalarType(Type type)
         {
@@ -267,11 +270,10 @@ public class JsonDeserializer
 
         @Override
         void decodeValue(JsonParser parser, BlockBuilder builder)
-                throws IOException
         {
             // this does not use parser.getBoolean, because it only works with JSON boolean
             // literals, and the original Hive code implicitly converts any JSON type to boolean
-            BOOLEAN.writeBoolean(builder, Boolean.parseBoolean(parser.getText()));
+            BOOLEAN.writeBoolean(builder, Boolean.parseBoolean(parser.getString()));
         }
     }
 
@@ -285,7 +287,6 @@ public class JsonDeserializer
 
         @Override
         void decodeValue(JsonParser parser, BlockBuilder builder)
-                throws IOException
         {
             BIGINT.writeLong(builder, parser.getLongValue());
         }
@@ -301,7 +302,6 @@ public class JsonDeserializer
 
         @Override
         void decodeValue(JsonParser parser, BlockBuilder builder)
-                throws IOException
         {
             INTEGER.writeLong(builder, parser.getIntValue());
         }
@@ -317,7 +317,6 @@ public class JsonDeserializer
 
         @Override
         void decodeValue(JsonParser parser, BlockBuilder builder)
-                throws IOException
         {
             SMALLINT.writeLong(builder, parser.getShortValue());
         }
@@ -333,7 +332,6 @@ public class JsonDeserializer
 
         @Override
         void decodeValue(JsonParser parser, BlockBuilder builder)
-                throws IOException
         {
             TINYINT.writeLong(builder, parser.getByteValue());
         }
@@ -352,9 +350,8 @@ public class JsonDeserializer
 
         @Override
         void decodeValue(JsonParser parser, BlockBuilder builder)
-                throws IOException
         {
-            String value = parser.getText();
+            String value = parser.getString();
             BigDecimal bigDecimal;
             try {
                 bigDecimal = HiveFormatUtils.parseDecimal(value, decimalType);
@@ -387,7 +384,6 @@ public class JsonDeserializer
 
         @Override
         void decodeValue(JsonParser parser, BlockBuilder builder)
-                throws IOException
         {
             REAL.writeLong(builder, floatToRawIntBits(parser.getFloatValue()));
         }
@@ -403,7 +399,6 @@ public class JsonDeserializer
 
         @Override
         void decodeValue(JsonParser parser, BlockBuilder builder)
-                throws IOException
         {
             DOUBLE.writeDouble(builder, parser.getDoubleValue());
         }
@@ -419,9 +414,8 @@ public class JsonDeserializer
 
         @Override
         void decodeValue(JsonParser parser, BlockBuilder builder)
-                throws IOException
         {
-            DATE.writeLong(builder, toIntExact(parseHiveDate(parser.getText()).toEpochDay()));
+            DATE.writeLong(builder, toIntExact(parseHiveDate(parser.getString()).toEpochDay()));
         }
     }
 
@@ -440,9 +434,8 @@ public class JsonDeserializer
 
         @Override
         void decodeValue(JsonParser parser, BlockBuilder builder)
-                throws IOException
         {
-            DecodedTimestamp timestamp = timestampParser.apply(parser.getText());
+            DecodedTimestamp timestamp = timestampParser.apply(parser.getString());
             createTimestampEncoder(timestampType, UTC).write(timestamp, builder);
         }
     }
@@ -460,13 +453,17 @@ public class JsonDeserializer
 
         @Override
         void decodeValue(JsonParser parser, BlockBuilder builder)
-                throws IOException
         {
-            VARBINARY.writeSlice(builder, parseBinary(parser.getText(), charsetDecoder));
+            try {
+                VARBINARY.writeSlice(builder, parseBinary(parser.getString(), charsetDecoder));
+            }
+            catch (CharacterCodingException e) {
+                throw new UncheckedIOException(e);
+            }
         }
 
         private static Slice parseBinary(String value, CharsetDecoder charsetDecoder)
-                throws IOException
+                throws CharacterCodingException
         {
             byte[] utf8 = value.getBytes(UTF_8);
             // This corrupts the data, but this is exactly what Hive does, so we get the same result as Hive
@@ -495,9 +492,8 @@ public class JsonDeserializer
 
         @Override
         void decodeValue(JsonParser parser, BlockBuilder builder)
-                throws IOException
         {
-            varcharType.writeSlice(builder, truncateToLength(Slices.utf8Slice(parser.getText()), varcharType));
+            varcharType.writeSlice(builder, truncateToLength(Slices.utf8Slice(parser.getString()), varcharType));
         }
     }
 
@@ -514,9 +510,8 @@ public class JsonDeserializer
 
         @Override
         void decodeValue(JsonParser parser, BlockBuilder builder)
-                throws IOException
         {
-            charType.writeSlice(builder, truncateToLengthAndTrimSpaces(Slices.utf8Slice(parser.getText()), charType));
+            charType.writeSlice(builder, truncateToLengthAndTrimSpaces(Slices.utf8Slice(parser.getString()), charType));
         }
     }
 
@@ -533,7 +528,6 @@ public class JsonDeserializer
 
         @Override
         void decodeValue(JsonParser parser, BlockBuilder builder)
-                throws IOException
         {
             ((ArrayBlockBuilder) builder).buildEntry(elementBuilder -> {
                 if (parser.currentToken() != START_ARRAY) {
@@ -575,7 +569,6 @@ public class JsonDeserializer
 
         @Override
         void decodeValue(JsonParser parser, BlockBuilder builder)
-                throws IOException
         {
             if (parser.currentToken() != START_OBJECT) {
                 throw invalidJson("start of object expected");
@@ -583,7 +576,7 @@ public class JsonDeserializer
 
             // buffer the keys and values
             while (nextObjectField(parser)) {
-                String keyText = parser.getText();
+                String keyText = parser.getString();
                 serializeMapKey(keyText, keyType, keyBlockBuilder);
                 parser.nextToken();
                 valueDecoder.decode(parser, valueBlockBuilder);
@@ -609,7 +602,6 @@ public class JsonDeserializer
         }
 
         private void serializeMapKey(String value, Type type, BlockBuilder builder)
-                throws IOException
         {
             if (BOOLEAN.equals(type)) {
                 type.writeBoolean(builder, Boolean.parseBoolean(value));
@@ -643,7 +635,12 @@ public class JsonDeserializer
                 createTimestampEncoder(timestampType, UTC).write(timestamp, builder);
             }
             else if (VARBINARY.equals(type)) {
-                type.writeSlice(builder, VarbinaryDecoder.parseBinary(value, charsetDecoder));
+                try {
+                    type.writeSlice(builder, VarbinaryDecoder.parseBinary(value, charsetDecoder));
+                }
+                catch (CharacterCodingException e) {
+                    throw new UncheckedIOException(e);
+                }
             }
             else if (type instanceof VarcharType varcharType) {
                 type.writeSlice(builder, truncateToLength(Slices.utf8Slice(value), varcharType));
@@ -694,13 +691,11 @@ public class JsonDeserializer
 
         @Override
         void decodeValue(JsonParser parser, BlockBuilder builder)
-                throws IOException
         {
             ((RowBlockBuilder) builder).buildEntry(fieldBuilders -> decodeValue(parser, builder.getPositionCount(), fieldBuilders::get));
         }
 
         private void decodeValue(JsonParser parser, int currentPosition, IntFunction<BlockBuilder> fieldBuilders)
-                throws IOException
         {
             if (parser.currentToken() != START_OBJECT) {
                 throw invalidJson("start of object expected");
@@ -709,7 +704,7 @@ public class JsonDeserializer
             Arrays.fill(fieldWritten, false);
 
             while (nextObjectField(parser)) {
-                String fieldName = parser.getText();
+                String fieldName = parser.getString();
                 int rowIndex = getFieldPosition(fieldName);
                 if (rowIndex < 0) {
                     skipNextValue(parser);
@@ -754,7 +749,6 @@ public class JsonDeserializer
     }
 
     private static void skipNextValue(JsonParser parser)
-            throws IOException
     {
         JsonToken valueToken = parser.nextToken();
         if ((valueToken == START_ARRAY) || (valueToken == START_OBJECT)) {
@@ -768,10 +762,9 @@ public class JsonDeserializer
     }
 
     private static boolean nextObjectField(JsonParser parser)
-            throws IOException
     {
         JsonToken token = nextTokenRequired(parser);
-        if (token == FIELD_NAME) {
+        if (token == PROPERTY_NAME) {
             return true;
         }
         if (token == END_OBJECT) {
@@ -781,7 +774,6 @@ public class JsonDeserializer
     }
 
     private static JsonToken nextTokenRequired(JsonParser parser)
-            throws IOException
     {
         JsonToken token = parser.nextToken();
         if (token == null) {
@@ -790,8 +782,8 @@ public class JsonDeserializer
         return token;
     }
 
-    private static IOException invalidJson(String message)
+    private static JacksonException invalidJson(String message)
     {
-        return new IOException("Invalid JSON: " + message);
+        return new StreamReadException("Invalid JSON: " + message);
     }
 }

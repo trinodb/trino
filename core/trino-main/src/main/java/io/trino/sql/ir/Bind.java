@@ -14,11 +14,11 @@
 
 package io.trino.sql.ir;
 
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
 import io.trino.type.FunctionType;
+import tools.jackson.databind.annotation.JsonSerialize;
 
 import java.util.List;
 import java.util.stream.Collectors;

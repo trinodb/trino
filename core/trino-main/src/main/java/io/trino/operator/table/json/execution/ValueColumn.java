@@ -13,10 +13,10 @@
  */
 package io.trino.operator.table.json.execution;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
+import tools.jackson.databind.JsonNode;
 
 import java.lang.invoke.MethodHandle;
 

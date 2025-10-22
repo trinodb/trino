@@ -13,10 +13,10 @@
  */
 package io.trino.sql.planner;
 
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
+import tools.jackson.databind.annotation.JsonSerialize;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;

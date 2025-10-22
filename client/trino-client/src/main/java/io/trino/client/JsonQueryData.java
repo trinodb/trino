@@ -13,8 +13,9 @@
  */
 package io.trino.client;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.ObjectReadContext;
+import tools.jackson.databind.JsonNode;
 
 import static java.util.Objects.requireNonNull;
 
@@ -38,7 +39,7 @@ public class JsonQueryData
 
     public JsonParser getJsonParser()
     {
-        return node.traverse();
+        return node.traverse(ObjectReadContext.empty());
     }
 
     @Override

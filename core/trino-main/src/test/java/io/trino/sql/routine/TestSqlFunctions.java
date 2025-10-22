@@ -13,7 +13,6 @@
  */
 package io.trino.sql.routine;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
 import io.airlift.json.JsonCodec;
@@ -45,6 +44,7 @@ import io.trino.type.TypeSignatureKeyDeserializer;
 import org.assertj.core.api.ThrowingConsumer;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.lang.invoke.MethodHandle;
 import java.time.temporal.ChronoField;

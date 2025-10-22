@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.tpch;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -69,6 +68,7 @@ import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchColumnType;
 import io.trino.tpch.TpchEntity;
 import io.trino.tpch.TpchTable;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDate;
 import java.util.Collection;

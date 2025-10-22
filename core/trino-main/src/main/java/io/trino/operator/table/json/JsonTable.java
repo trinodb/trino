@@ -13,7 +13,6 @@
  */
 package io.trino.operator.table.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
@@ -29,6 +28,7 @@ import io.trino.spi.function.table.TableFunctionProcessorState;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import tools.jackson.databind.JsonNode;
 
 import java.util.Arrays;
 import java.util.List;

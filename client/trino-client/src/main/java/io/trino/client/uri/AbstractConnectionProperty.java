@@ -154,8 +154,8 @@ abstract class AbstractConnectionProperty<V, T>
         if (value == null) {
             return true;
         }
-        if (value instanceof String) {
-            return ((String) value).isEmpty();
+        if (value instanceof String stringValue) {
+            return stringValue.isEmpty();
         }
         return false;
     }

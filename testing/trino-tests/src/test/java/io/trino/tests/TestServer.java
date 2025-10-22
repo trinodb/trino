@@ -13,7 +13,6 @@
  */
 package io.trino.tests;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.base.Splitter;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableList;
@@ -46,6 +45,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.net.URI;
 import java.util.Collections;

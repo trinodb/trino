@@ -13,18 +13,19 @@
  */
 package io.trino.plugin.base.util;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonFactoryBuilder;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.StreamReadConstraints;
-import com.fasterxml.jackson.core.StreamReadFeature;
-import com.fasterxml.jackson.core.StreamWriteFeature;
-import com.fasterxml.jackson.core.util.JsonRecyclerPools;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.airlift.json.JsonMapperProvider;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.StreamReadConstraints;
+import tools.jackson.core.StreamReadFeature;
+import tools.jackson.core.StreamWriteFeature;
+import tools.jackson.core.json.JsonFactory;
+import tools.jackson.core.json.JsonFactoryBuilder;
+import tools.jackson.core.util.JsonRecyclerPools;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.exc.MismatchedInputException;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,19 +33,21 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
-import static com.fasterxml.jackson.databind.MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.nio.file.Files.exists;
 import static java.nio.file.Files.isReadable;
 import static java.util.Objects.requireNonNull;
+import static tools.jackson.databind.DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES;
+import static tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
+import static tools.jackson.databind.MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS;
 
 public final class JsonUtils
 {
     private static final JsonMapper JSON_MAPPER = new JsonMapperProvider().get()
             .rebuild()
             .enable(FAIL_ON_UNKNOWN_PROPERTIES)
+            .disable(FAIL_ON_NULL_FOR_PRIMITIVES)
             .enable(ACCEPT_CASE_INSENSITIVE_ENUMS)
             .build();
 
@@ -109,8 +112,8 @@ public final class JsonUtils
             checkArgument(parser.nextToken() == null, "Found characters after the expected end of input");
             return value;
         }
-        catch (IOException e) {
-            throw new UncheckedIOException("Could not parse JSON", e);
+        catch (MismatchedInputException e) {
+            throw new IllegalArgumentException("Found characters after the expected end of input");
         }
     }
 
@@ -119,8 +122,8 @@ public final class JsonUtils
         try {
             return JSON_MAPPER.treeToValue(treeNode, javaType);
         }
-        catch (JsonProcessingException e) {
-            throw new UncheckedIOException("Failed to convert JSON tree node", e);
+        catch (JacksonException e) {
+            throw new UncheckedIOException("Failed to convert JSON tree node", new IOException(e.getMessage(), e.getCause()));
         }
     }
 
@@ -167,7 +170,6 @@ public final class JsonUtils
 
     private interface ParserConstructor<I>
     {
-        JsonParser createParser(JsonMapper mapper, I input)
-                throws IOException;
+        JsonParser createParser(JsonMapper mapper, I input);
     }
 }

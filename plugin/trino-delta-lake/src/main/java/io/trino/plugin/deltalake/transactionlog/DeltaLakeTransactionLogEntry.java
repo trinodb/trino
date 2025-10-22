@@ -165,7 +165,7 @@ public class DeltaLakeTransactionLogEntry
     }
 
     @Nullable
-    @JsonProperty
+    @JsonProperty("cdc")
     public CdcEntry getCDC()
     {
         return cdcEntry;

@@ -321,10 +321,9 @@ public class TestJdbcWarnings
             if (this == other) {
                 return true;
             }
-            if (!(other instanceof WarningEntry)) {
+            if (!(other instanceof WarningEntry that)) {
                 return false;
             }
-            WarningEntry that = (WarningEntry) other;
             return vendorCode == that.vendorCode && sqlState.equals(that.sqlState) && message.equals(that.message);
         }
 

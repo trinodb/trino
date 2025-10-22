@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner;
 
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
@@ -53,6 +52,7 @@ import io.trino.type.InternalTypeManager;
 import io.trino.type.JsonPath2016Type;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureDeserializer;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.ArrayList;
 import java.util.List;

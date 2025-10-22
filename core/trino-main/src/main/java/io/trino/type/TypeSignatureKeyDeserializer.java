@@ -12,10 +12,9 @@
  * limitations under the License.
  */
 package io.trino.type;
-
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.KeyDeserializer;
 import com.google.common.collect.ImmutableSet;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.KeyDeserializer;
 
 import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 

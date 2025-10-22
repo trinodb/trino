@@ -223,7 +223,7 @@ public final class EsriDeserializer
             throw new UnsupportedTypeException(columnType, columnName);
         }
 
-        if (parser.getCurrentToken() == VALUE_NULL) {
+        if (parser.currentToken() == VALUE_NULL) {
             builder.appendNull();
             return;
         }

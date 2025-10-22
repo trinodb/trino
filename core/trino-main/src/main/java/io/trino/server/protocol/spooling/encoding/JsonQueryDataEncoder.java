@@ -13,8 +13,6 @@
  */
 package io.trino.server.protocol.spooling.encoding;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.io.CountingOutputStream;
 import com.google.inject.Inject;
 import io.trino.Session;
@@ -25,6 +23,8 @@ import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncodingConfig;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.json.JsonFactory;
 
 import java.io.IOException;
 import java.io.OutputStream;

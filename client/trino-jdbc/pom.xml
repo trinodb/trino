@@ -14,7 +14,7 @@
     <description>Trino - JDBC driver</description>
 
     <properties>
-        <project.build.targetJdk>11</project.build.targetJdk>
+        <project.build.targetJdk>17</project.build.targetJdk>
         <shadeBase>io.trino.jdbc.\$internal</shadeBase>
     </properties>
 
@@ -109,7 +109,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
+            <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <scope>runtime</scope>
         </dependency>
@@ -408,6 +408,7 @@
                                 </excludes>
                             </requireUpperBoundDeps>
                             <enforceBytecodeVersion>
+                                <ignoredScopes>test,runtime</ignoredScopes>
                                 <excludes combine.children="append">
                                     <!-- Used reflectively on JDK22+ for native decompression -->
                                     <exclude>io.airlift:aircompressor-v3</exclude>
@@ -484,6 +485,10 @@
                                     <shadedPattern>${shadeBase}.jackson</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>tools.jackson</pattern>
+                                    <shadedPattern>${shadeBase}.jackson</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>com.google.common</pattern>
                                     <shadedPattern>${shadeBase}.guava</shadedPattern>
                                 </relocation>
@@ -540,7 +545,7 @@
                                         <exclude>com/google/errorprone/**</exclude>
                                         <exclude>META-INF/maven/**</exclude>
                                         <exclude>META-INF/licenses/**</exclude>
-                                        <exclude>META-INF/services/com.fasterxml.**</exclude>
+                                        <exclude>META-INF/services/tools.jackson.**</exclude>
                                         <exclude>META-INF/proguard/**</exclude>
                                         <exclude>LICENSE</exclude>
                                         <exclude>META-INF/**.kotlin_module</exclude>
