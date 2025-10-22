@@ -58,6 +58,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
@@ -100,7 +101,7 @@ public class HiveConnectorFactory
                     new MBeanModule(),
                     new ConnectorObjectNameGeneratorModule("io.trino.plugin.hive", "trino.plugin.hive"),
                     new JsonModule(),
-                    new TypeDeserializerModule(context.getTypeManager()),
+                    new TypeDeserializerModule(),
                     new HiveModule(),
                     new HiveMetastoreModule(metastore),
                     new HiveSecurityModule(),
@@ -120,6 +121,7 @@ public class HiveConnectorFactory
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                         binder.bind(PageSorter.class).toInstance(context.getPageSorter());
                         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
+                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     },
                     binder -> newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(HiveSessionProperties.class).in(Scopes.SINGLETON),
                     module);

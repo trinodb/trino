@@ -60,7 +60,7 @@ public class KafkaConnectorFactory
                 ImmutableList.<Module>builder()
                         .add(new CatalogNameModule(catalogName))
                         .add(new JsonModule())
-                        .add(new TypeDeserializerModule(context.getTypeManager()))
+                        .add(new TypeDeserializerModule())
                         .add(new KafkaConnectorModule(context.getTypeManager()))
                         .add(new KafkaClientsModule())
                         .add(new KafkaSecurityModule())
