@@ -20,6 +20,7 @@ import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
 
@@ -44,7 +45,8 @@ public class ExampleConnectorFactory
         // A plugin is not required to use Guice; it is just very convenient
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
-                new TypeDeserializerModule(context.getTypeManager()),
+                new TypeDeserializerModule(),
+                binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),
                 new ExampleModule());
 
         Injector injector = app

@@ -24,6 +24,7 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
@@ -55,11 +56,12 @@ public class OpenSearchConnectorFactory
                 new MBeanServerModule(),
                 new ConnectorObjectNameGeneratorModule("io.trino.plugin.opensearch", "trino.plugin.opensearch"),
                 new JsonModule(),
-                new TypeDeserializerModule(context.getTypeManager()),
+                new TypeDeserializerModule(),
                 new OpenSearchConnectorModule(),
                 binder -> {
                     binder.bind(Node.class).toInstance(context.getCurrentNode());
                     binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
+                    binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                 });
 
         Injector injector = app

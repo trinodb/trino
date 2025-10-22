@@ -24,6 +24,7 @@ import io.trino.plugin.pinot.auth.PinotAuthenticationModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
@@ -59,7 +60,8 @@ public class PinotConnectorFactory
                 .add(new JsonModule())
                 .add(new MBeanModule())
                 .add(new MBeanServerModule())
-                .add(new TypeDeserializerModule(context.getTypeManager()))
+                .add(new TypeDeserializerModule())
+                .add(binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()))
                 .add(new PinotModule(catalogName))
                 .add(new PinotAuthenticationModule());
 

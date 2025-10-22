@@ -20,6 +20,7 @@ import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
 
@@ -47,7 +48,8 @@ public class PrometheusConnectorFactory
             Bootstrap app = new Bootstrap(
                     "io.trino.bootstrap.catalog." + catalogName,
                     new JsonModule(),
-                    new TypeDeserializerModule(context.getTypeManager()),
+                    new TypeDeserializerModule(),
+                    binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),
                     new PrometheusModule());
 
             Injector injector = app
