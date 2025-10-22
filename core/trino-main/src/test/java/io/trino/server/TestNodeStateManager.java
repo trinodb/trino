@@ -137,7 +137,7 @@ class TestNodeStateManager
         ticker.increment(1, SECONDS);
         executor.run();
         // 2 gracePeriods or more
-        await().atMost(2 * GRACE_PERIOD_MILLIS + 100, SECONDS)
+        await().atMost(2 * GRACE_PERIOD_MILLIS + 100, MILLISECONDS)
                 .untilAsserted(() -> assertThat(nodeStateManager.getServerState()).isEqualTo(DRAINED));
 
         // now test the shutdown from the DRAINED state
