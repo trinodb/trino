@@ -41,6 +41,7 @@ import io.trino.plugin.hive.security.HiveSecurityModule;
 import io.trino.plugin.hive.security.SystemTableAwareAccessControl;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;

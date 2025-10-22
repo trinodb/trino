@@ -58,6 +58,7 @@ import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.PageSorter;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
