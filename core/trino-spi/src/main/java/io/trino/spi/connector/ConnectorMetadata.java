@@ -685,7 +685,7 @@ public interface ConnectorMetadata
     /**
      * Describes statistics that must be collected during a write.
      *
-     * @param tableReplace if true, replace old statistics
+     * @param tableReplace indicates whether this is for table replace operation and statistics of an existing table (if any) should be ignored
      */
     default TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean tableReplace)
     {
