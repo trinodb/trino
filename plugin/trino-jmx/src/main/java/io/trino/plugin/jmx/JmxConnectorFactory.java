@@ -48,7 +48,7 @@ public class JmxConnectorFactory
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
                 new MBeanServerModule(),
-                new ConnectorContextModule(context),
+                new ConnectorContextModule(catalogName, context),
                 binder -> {
                     configBinder(binder).bindConfig(JmxConnectorConfig.class);
                     binder.bind(JmxConnector.class).in(Scopes.SINGLETON);

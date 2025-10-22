@@ -19,7 +19,6 @@ import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
 import io.trino.plugin.jdbc.JdbcModule;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -46,8 +45,7 @@ public class RedshiftConnectorFactory
 
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
-                new ConnectorContextModule(context),
-                binder -> binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName)),
+                new ConnectorContextModule(catalogName, context),
                 new JdbcModule(),
                 new CredentialProviderModule(),
                 new ExtraCredentialsBasedIdentityCacheMappingModule(),

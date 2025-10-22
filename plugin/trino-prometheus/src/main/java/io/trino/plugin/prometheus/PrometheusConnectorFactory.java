@@ -49,7 +49,7 @@ public class PrometheusConnectorFactory
                     "io.trino.bootstrap.catalog." + catalogName,
                     new JsonModule(),
                     new TypeDeserializerModule(),
-                    new ConnectorContextModule(context),
+                    new ConnectorContextModule(catalogName, context),
                     new PrometheusModule());
 
             Injector injector = app

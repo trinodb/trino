@@ -55,7 +55,7 @@ public class MongoConnectorFactory
                 "io.trino.bootstrap.catalog." + catalogName,
                 new JsonModule(),
                 new MongoClientModule(),
-                new ConnectorContextModule(context));
+                new ConnectorContextModule(catalogName, context));
 
         Injector injector = app.doNotInitializeLogging()
                 .setRequiredConfigurationProperties(config)

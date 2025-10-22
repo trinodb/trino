@@ -21,7 +21,6 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
 import io.trino.filesystem.manager.FileSystemModule;
-import io.trino.plugin.base.CatalogNameModule;
 import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorAccessControl;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
@@ -33,7 +32,6 @@ import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -90,16 +88,12 @@ public class DeltaLakeConnectorFactory
                     new ConnectorObjectNameGeneratorModule("io.trino.plugin.deltalake", "trino.plugin.deltalake"),
                     new JsonModule(),
                     new MBeanServerModule(),
-                    new CatalogNameModule(catalogName),
                     metastoreModule.orElse(new DeltaLakeMetastoreModule()),
                     new DeltaLakeModule(),
                     new DeltaLakeSecurityModule(),
                     new DeltaLakeSynchronizerModule(),
                     new FileSystemModule(catalogName, context, false),
-                    new ConnectorContextModule(context),
-                    binder -> {
-                        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
-                    },
+                    new ConnectorContextModule(catalogName, context),
                     module);
 
             Injector injector = app

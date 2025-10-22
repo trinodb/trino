@@ -37,7 +37,6 @@ import io.trino.plugin.deltalake.DeltaLakeModule;
 import io.trino.plugin.deltalake.DeltaLakeSecurityModule;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.spi.TrinoException;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -113,10 +112,7 @@ public class TestDeltaLakeGlueMetastore
         Bootstrap app = new Bootstrap(
                 // connector dependencies
                 new JsonModule(),
-                new ConnectorContextModule(context),
-                binder -> {
-                    binder.bind(CatalogName.class).toInstance(new CatalogName("test"));
-                },
+                new ConnectorContextModule("test", context),
                 // connector modules
                 new DeltaLakeMetastoreModule(),
                 new DeltaLakeModule(),

@@ -23,6 +23,7 @@ import io.trino.spi.NodeVersion;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.type.TypeManager;
@@ -32,16 +33,20 @@ import static java.util.Objects.requireNonNull;
 public class ConnectorContextModule
         implements Module
 {
+    private final String catalogName;
     private final ConnectorContext context;
 
-    public ConnectorContextModule(ConnectorContext context)
+    public ConnectorContextModule(String catalogName, ConnectorContext context)
     {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.context = requireNonNull(context, "context is null");
     }
 
     @Override
     public void configure(Binder binder)
     {
+        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
+
         binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
         binder.bind(Tracer.class).toInstance(context.getTracer());
         binder.bind(Node.class).toInstance(context.getCurrentNode());

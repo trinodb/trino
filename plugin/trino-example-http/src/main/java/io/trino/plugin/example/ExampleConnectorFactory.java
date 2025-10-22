@@ -46,7 +46,7 @@ public class ExampleConnectorFactory
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
                 new TypeDeserializerModule(),
-                new ConnectorContextModule(context),
+                new ConnectorContextModule(catalogName, context),
                 new ExampleModule());
 
         Injector injector = app

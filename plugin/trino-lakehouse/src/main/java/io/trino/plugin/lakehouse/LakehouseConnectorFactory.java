@@ -21,7 +21,6 @@ import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.hive.security.HiveSecurityModule;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -60,10 +59,7 @@ public class LakehouseConnectorFactory
                     new LakehouseHudiModule(),
                     new HiveSecurityModule(),
                     new LakehouseFileSystemModule(catalogName, context),
-                    new ConnectorContextModule(context),
-                    binder -> {
-                        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
-                    });
+                    new ConnectorContextModule(catalogName, context));
 
             Injector injector = app
                     .doNotInitializeLogging()

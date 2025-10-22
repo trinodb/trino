@@ -18,7 +18,6 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.trino.plugin.base.CatalogNameModule;
 import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.plugin.kafka.security.KafkaSecurityModule;
@@ -58,13 +57,12 @@ public class KafkaConnectorFactory
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
                 ImmutableList.<Module>builder()
-                        .add(new CatalogNameModule(catalogName))
                         .add(new JsonModule())
                         .add(new TypeDeserializerModule())
                         .add(new KafkaConnectorModule(context.getTypeManager()))
                         .add(new KafkaClientsModule())
                         .add(new KafkaSecurityModule())
-                        .add(new ConnectorContextModule(context))
+                        .add(new ConnectorContextModule(catalogName, context))
                         .add(binder -> {
                             binder.bind(ClassLoader.class).toInstance(KafkaConnectorFactory.class.getClassLoader());
                         })
