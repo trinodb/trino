@@ -16,14 +16,11 @@ package io.trino.plugin.jdbc;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
-import io.opentelemetry.api.OpenTelemetry;
-import io.trino.spi.Node;
-import io.trino.spi.VersionEmbedder;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
 import java.util.function.Supplier;
@@ -60,10 +57,7 @@ public class JdbcConnectorFactory
 
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
-                binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),
-                binder -> binder.bind(Node.class).toInstance(context.getCurrentNode()),
-                binder -> binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder()),
-                binder -> binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry()),
+                new ConnectorContextModule(context),
                 binder -> binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName)),
                 new JdbcModule(),
                 module.get());

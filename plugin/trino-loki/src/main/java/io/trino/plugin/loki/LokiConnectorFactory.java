@@ -16,11 +16,11 @@ package io.trino.plugin.loki;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
 
@@ -49,7 +49,7 @@ public class LokiConnectorFactory
                     "io.trino.bootstrap.catalog." + catalogName,
                     new JsonModule(),
                     new TypeDeserializerModule(),
-                    binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),
+                    new ConnectorContextModule(context),
                     new LokiModule());
 
             Injector injector = app

@@ -22,8 +22,6 @@ import com.google.inject.Key;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
-import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.metastore.Column;
 import io.trino.metastore.Database;
@@ -31,22 +29,19 @@ import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Table;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.DeltaLakeModule;
 import io.trino.plugin.deltalake.DeltaLakeSecurityModule;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
-import io.trino.spi.Node;
-import io.trino.spi.NodeVersion;
-import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
-import io.trino.spi.type.TypeManager;
 import io.trino.testing.TestingConnectorContext;
 import io.trino.testing.TestingConnectorSession;
 import org.junit.jupiter.api.AfterAll;
@@ -118,14 +113,9 @@ public class TestDeltaLakeGlueMetastore
         Bootstrap app = new Bootstrap(
                 // connector dependencies
                 new JsonModule(),
+                new ConnectorContextModule(context),
                 binder -> {
                     binder.bind(CatalogName.class).toInstance(new CatalogName("test"));
-                    binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                    binder.bind(Node.class).toInstance(context.getCurrentNode());
-                    binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
-                    binder.bind(NodeVersion.class).toInstance(new NodeVersion("test_version"));
-                    binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
-                    binder.bind(Tracer.class).toInstance(context.getTracer());
                 },
                 // connector modules
                 new DeltaLakeMetastoreModule(),

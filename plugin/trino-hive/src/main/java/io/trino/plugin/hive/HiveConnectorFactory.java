@@ -20,12 +20,11 @@ import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
-import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.base.CatalogNameModule;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorAccessControl;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
@@ -39,12 +38,6 @@ import io.trino.plugin.hive.metastore.HiveMetastoreModule;
 import io.trino.plugin.hive.procedure.HiveProcedureModule;
 import io.trino.plugin.hive.security.HiveSecurityModule;
 import io.trino.plugin.hive.security.SystemTableAwareAccessControl;
-import io.trino.spi.Node;
-import io.trino.spi.NodeManager;
-import io.trino.spi.NodeVersion;
-import io.trino.spi.PageIndexerFactory;
-import io.trino.spi.PageSorter;
-import io.trino.spi.VersionEmbedder;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
@@ -55,10 +48,8 @@ import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
-import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.procedure.Procedure;
-import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
@@ -110,18 +101,9 @@ public class HiveConnectorFactory
                             .orElseGet(() -> new FileSystemModule(catalogName, context, false)),
                     new HiveProcedureModule(),
                     new MBeanServerModule(),
+                    new ConnectorContextModule(context),
                     binder -> {
-                        binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
-                        binder.bind(Tracer.class).toInstance(context.getTracer());
-                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getCurrentNode().getVersion()));
-                        binder.bind(Node.class).toInstance(context.getCurrentNode());
-                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                        binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder());
-                        binder.bind(MetadataProvider.class).toInstance(context.getMetadataProvider());
-                        binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
-                        binder.bind(PageSorter.class).toInstance(context.getPageSorter());
                         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     },
                     binder -> newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(HiveSessionProperties.class).in(Scopes.SINGLETON),
                     module);
