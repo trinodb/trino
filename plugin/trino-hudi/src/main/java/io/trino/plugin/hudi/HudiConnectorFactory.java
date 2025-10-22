@@ -28,7 +28,6 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.metastore.HiveMetastoreModule;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -78,10 +77,7 @@ public class HudiConnectorFactory
                     new FileSystemModule(catalogName, context, false),
                     new MBeanServerModule(),
                     module.orElse(EMPTY_MODULE),
-                    new ConnectorContextModule(context),
-                    binder -> {
-                        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
-                    });
+                    new ConnectorContextModule(catalogName, context));
 
             Injector injector = app
                     .doNotInitializeLogging()

@@ -23,7 +23,6 @@ import io.airlift.json.JsonModule;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.metastore.HiveMetastore;
-import io.trino.plugin.base.CatalogNameModule;
 import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorAccessControl;
@@ -38,7 +37,6 @@ import io.trino.plugin.hive.metastore.HiveMetastoreModule;
 import io.trino.plugin.hive.procedure.HiveProcedureModule;
 import io.trino.plugin.hive.security.HiveSecurityModule;
 import io.trino.plugin.hive.security.SystemTableAwareAccessControl;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -88,7 +86,6 @@ public class HiveConnectorFactory
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     "io.trino.bootstrap.catalog." + catalogName,
-                    new CatalogNameModule(catalogName),
                     new MBeanModule(),
                     new ConnectorObjectNameGeneratorModule("io.trino.plugin.hive", "trino.plugin.hive"),
                     new JsonModule(),
@@ -101,10 +98,7 @@ public class HiveConnectorFactory
                             .orElseGet(() -> new FileSystemModule(catalogName, context, false)),
                     new HiveProcedureModule(),
                     new MBeanServerModule(),
-                    new ConnectorContextModule(context),
-                    binder -> {
-                        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
-                    },
+                    new ConnectorContextModule(catalogName, context),
                     binder -> newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(HiveSessionProperties.class).in(Scopes.SINGLETON),
                     module);
 

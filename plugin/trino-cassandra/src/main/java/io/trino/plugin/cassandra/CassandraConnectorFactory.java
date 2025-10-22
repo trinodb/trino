@@ -45,7 +45,7 @@ public class CassandraConnectorFactory
 
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
-                new ConnectorContextModule(context),
+                new ConnectorContextModule(catalogName, context),
                 new MBeanModule(),
                 new JsonModule(),
                 new CassandraClientModule(context.getTypeManager()),

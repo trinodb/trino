@@ -38,7 +38,6 @@ import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.spi.TrinoException;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -187,10 +186,7 @@ public class TestDeltaLakeMetadata
         Bootstrap app = new Bootstrap(
                 // connector dependencies
                 new JsonModule(),
-                new ConnectorContextModule(context),
-                binder -> {
-                    binder.bind(CatalogName.class).toInstance(new CatalogName("test"));
-                },
+                new ConnectorContextModule("test", context),
                 // connector modules
                 new DeltaLakeSecurityModule(),
                 new DeltaLakeMetastoreModule(),

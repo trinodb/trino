@@ -28,7 +28,6 @@ import io.trino.hdfs.s3.HiveS3Module;
 import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorContext;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -62,10 +61,7 @@ public final class HdfsFileSystemManager
         modules.add(new HdfsModule());
         modules.add(new HdfsAuthenticationModule());
         modules.add(new HiveCosModule());
-        modules.add(new ConnectorContextModule(context));
-        modules.add(binder -> {
-            binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
-        });
+        modules.add(new ConnectorContextModule(catalogName, context));
 
         if (azureEnabled) {
             modules.add(new HiveAzureModule());

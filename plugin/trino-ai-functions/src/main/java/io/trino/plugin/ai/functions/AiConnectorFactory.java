@@ -16,7 +16,6 @@ package io.trino.plugin.ai.functions;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.trino.plugin.base.ConnectorContextModule;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -42,10 +41,7 @@ public class AiConnectorFactory
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
                 new AiModule(),
-                new ConnectorContextModule(context),
-                binder -> {
-                    binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
-                });
+                new ConnectorContextModule(catalogName, context));
 
         Injector injector = app
                 .doNotInitializeLogging()

@@ -59,7 +59,7 @@ public class RedisConnectorFactory
                 "io.trino.bootstrap.catalog." + catalogName,
                 new JsonModule(),
                 new TypeDeserializerModule(),
-                new ConnectorContextModule(context),
+                new ConnectorContextModule(catalogName, context),
                 new RedisConnectorModule(),
                 binder -> {
                     if (tableDescriptionSupplier.isPresent()) {

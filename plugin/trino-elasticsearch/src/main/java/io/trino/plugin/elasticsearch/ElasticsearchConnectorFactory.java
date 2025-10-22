@@ -20,7 +20,6 @@ import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -57,10 +56,7 @@ public class ElasticsearchConnectorFactory
                 new JsonModule(),
                 new TypeDeserializerModule(),
                 new ElasticsearchConnectorModule(),
-                new ConnectorContextModule(context),
-                binder -> {
-                    binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
-                });
+                new ConnectorContextModule(catalogName, context));
 
         Injector injector = app
                 .doNotInitializeLogging()
