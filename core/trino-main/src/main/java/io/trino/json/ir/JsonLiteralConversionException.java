@@ -13,8 +13,8 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import io.trino.spi.TrinoException;
+import tools.jackson.databind.JsonNode;
 
 import static io.trino.spi.StandardErrorCode.INVALID_JSON_LITERAL;
 import static java.lang.String.format;

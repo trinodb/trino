@@ -13,12 +13,6 @@
  */
 package io.trino.spi.predicate;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
@@ -31,8 +25,12 @@ import io.trino.spi.type.TestingTypeDeserializer;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ValueDeserializer;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -48,6 +46,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static tools.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS;
 
 public class TestTupleDomain
 {
@@ -667,20 +666,24 @@ public class TestTupleDomain
         TestingTypeManager typeManager = new TestingTypeManager();
         TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
 
-        ObjectMapper mapper = new ObjectMapperProvider().get()
-                .registerModule(new SimpleModule()
-                        .addDeserializer(ColumnHandle.class, new JsonDeserializer<>()
+        ObjectMapper mapper = new ObjectMapperProvider()
+                .withJsonDeserializers(ImmutableMap.of(
+                        ColumnHandle.class, new ValueDeserializer<ColumnHandle>()
                         {
                             @Override
                             public ColumnHandle deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
-                                    throws IOException
                             {
-                                return new ObjectMapperProvider().get().readValue(jsonParser, TestingColumnHandle.class);
+                                return new ObjectMapperProvider().get()
+                                        .rebuild()
+                                        .disable(FAIL_ON_TRAILING_TOKENS)
+                                        .build()
+                                        .readValue(jsonParser, TestingColumnHandle.class);
                             }
-                        })
-                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
-                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
-                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
+                        },
+                        Type.class, new TestingTypeDeserializer(typeManager),
+                        Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)))
+                .withJsonSerializers(ImmutableMap.of(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde)))
+                .get();
 
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.all();
         assertThat(tupleDomain).isEqualTo(mapper.readValue(mapper.writeValueAsString(tupleDomain), new TypeReference<TupleDomain<ColumnHandle>>() { }));

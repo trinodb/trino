@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.iceberg.util;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.base.util.JsonUtils;
 import io.trino.plugin.iceberg.system.IcebergPartitionColumn;
@@ -30,10 +28,11 @@ import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Type.PrimitiveType;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types.NestedField;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.ObjectWriteContext;
+import tools.jackson.core.json.JsonFactory;
 
-import java.io.IOException;
 import java.io.StringWriter;
-import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -112,68 +111,63 @@ public final class SystemTableUtil
     public static String readableMetricsToJson(MetricsUtil.ReadableMetricsStruct readableMetrics, List<NestedField> primitiveFields)
     {
         StringWriter writer = new StringWriter();
-        try {
-            JsonGenerator generator = JSON_FACTORY.createGenerator(writer);
+        JsonGenerator generator = JSON_FACTORY.createGenerator(ObjectWriteContext.empty(), writer);
+        generator.writeStartObject();
+
+        for (int i = 0; i < readableMetrics.size(); i++) {
+            NestedField field = primitiveFields.get(i);
+            generator.writeName(field.name());
+
             generator.writeStartObject();
+            MetricsUtil.ReadableColMetricsStruct columnMetrics = readableMetrics.get(i, MetricsUtil.ReadableColMetricsStruct.class);
 
-            for (int i = 0; i < readableMetrics.size(); i++) {
-                NestedField field = primitiveFields.get(i);
-                generator.writeFieldName(field.name());
-
-                generator.writeStartObject();
-                MetricsUtil.ReadableColMetricsStruct columnMetrics = readableMetrics.get(i, MetricsUtil.ReadableColMetricsStruct.class);
-
-                generator.writeFieldName("column_size");
-                Long columnSize = columnMetrics.get(0, Long.class);
-                if (columnSize == null) {
-                    generator.writeNull();
-                }
-                else {
-                    generator.writeNumber(columnSize);
-                }
-
-                generator.writeFieldName("value_count");
-                Long valueCount = columnMetrics.get(1, Long.class);
-                if (valueCount == null) {
-                    generator.writeNull();
-                }
-                else {
-                    generator.writeNumber(valueCount);
-                }
-
-                generator.writeFieldName("null_value_count");
-                Long nullValueCount = columnMetrics.get(2, Long.class);
-                if (nullValueCount == null) {
-                    generator.writeNull();
-                }
-                else {
-                    generator.writeNumber(nullValueCount);
-                }
-
-                generator.writeFieldName("nan_value_count");
-                Long nanValueCount = columnMetrics.get(3, Long.class);
-                if (nanValueCount == null) {
-                    generator.writeNull();
-                }
-                else {
-                    generator.writeNumber(nanValueCount);
-                }
-
-                generator.writeFieldName("lower_bound");
-                SingleValueParser.toJson(field.type(), columnMetrics.get(4, Object.class), generator);
-
-                generator.writeFieldName("upper_bound");
-                SingleValueParser.toJson(field.type(), columnMetrics.get(5, Object.class), generator);
-
-                generator.writeEndObject();
+            generator.writeName("column_size");
+            Long columnSize = columnMetrics.get(0, Long.class);
+            if (columnSize == null) {
+                generator.writeNull();
+            }
+            else {
+                generator.writeNumber(columnSize);
             }
 
+            generator.writeName("value_count");
+            Long valueCount = columnMetrics.get(1, Long.class);
+            if (valueCount == null) {
+                generator.writeNull();
+            }
+            else {
+                generator.writeNumber(valueCount);
+            }
+
+            generator.writeName("null_value_count");
+            Long nullValueCount = columnMetrics.get(2, Long.class);
+            if (nullValueCount == null) {
+                generator.writeNull();
+            }
+            else {
+                generator.writeNumber(nullValueCount);
+            }
+
+            generator.writeName("nan_value_count");
+            Long nanValueCount = columnMetrics.get(3, Long.class);
+            if (nanValueCount == null) {
+                generator.writeNull();
+            }
+            else {
+                generator.writeNumber(nanValueCount);
+            }
+
+            generator.writeName("lower_bound");
+            generator.writeRawValue(SingleValueParser.toJson(field.type(), columnMetrics.get(4, Object.class)));
+
+            generator.writeName("upper_bound");
+            generator.writeRawValue(SingleValueParser.toJson(field.type(), columnMetrics.get(5, Object.class)));
+
             generator.writeEndObject();
-            generator.flush();
-            return writer.toString();
         }
-        catch (IOException e) {
-            throw new UncheckedIOException("JSON conversion failed for: " + readableMetrics, e);
-        }
+
+        generator.writeEndObject();
+        generator.flush();
+        return writer.toString();
     }
 }

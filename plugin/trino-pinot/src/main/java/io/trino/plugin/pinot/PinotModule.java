@@ -13,11 +13,6 @@
  */
 package io.trino.plugin.pinot;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -33,8 +28,14 @@ import io.trino.plugin.pinot.client.PinotHostMapper;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.utils.DataSchema;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ValueDeserializer;
+import tools.jackson.databind.node.ArrayNode;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -97,37 +98,40 @@ public class PinotModule
     }
 
     public static final class DataSchemaDeserializer
-            extends JsonDeserializer<DataSchema>
+            extends ValueDeserializer<DataSchema>
     {
         @Override
         public DataSchema deserialize(JsonParser p, DeserializationContext ctxt)
-                throws IOException
         {
             JsonNode jsonNode = ctxt.readTree(p);
             ArrayNode columnDataTypes = (ArrayNode) jsonNode.get("columnDataTypes");
             DataSchema.ColumnDataType[] columnTypes = new DataSchema.ColumnDataType[columnDataTypes.size()];
             for (int i = 0; i < columnDataTypes.size(); i++) {
-                columnTypes[i] = DataSchema.ColumnDataType.valueOf(columnDataTypes.get(i).asText().toUpperCase(ENGLISH));
+                columnTypes[i] = DataSchema.ColumnDataType.valueOf(columnDataTypes.get(i).asString().toUpperCase(ENGLISH));
             }
             ArrayNode columnNamesJson = (ArrayNode) jsonNode.get("columnNames");
             String[] columnNames = new String[columnNamesJson.size()];
             for (int i = 0; i < columnNamesJson.size(); i++) {
-                columnNames[i] = columnNamesJson.get(i).asText();
+                columnNames[i] = columnNamesJson.get(i).asString();
             }
             return new DataSchema(columnNames, columnTypes);
         }
     }
 
     public static class BrokerResponseNativeDeserializer
-            extends JsonDeserializer<BrokerResponseNative>
+            extends ValueDeserializer<BrokerResponseNative>
     {
         @Override
         public BrokerResponseNative deserialize(JsonParser p, DeserializationContext ctxt)
-                throws IOException
         {
             JsonNode jsonNode = ctxt.readTree(p);
             String value = jsonNode.toString();
-            return BrokerResponseNative.fromJsonString(value);
+            try {
+                return BrokerResponseNative.fromJsonString(value);
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
         }
     }
 

@@ -13,12 +13,12 @@
  */
 package io.trino.operator.table.json.execution;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import io.trino.json.JsonPathEvaluator;
 import io.trino.json.PathEvaluationException;
 import io.trino.json.ir.TypedValue;
 import io.trino.operator.scalar.json.JsonOutputConversionException;
+import tools.jackson.databind.JsonNode;
 
 import java.util.List;
 import java.util.Optional;

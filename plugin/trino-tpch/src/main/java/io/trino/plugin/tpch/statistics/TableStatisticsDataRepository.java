@@ -13,13 +13,14 @@
  */
 package io.trino.plugin.tpch.statistics;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchTable;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -77,8 +78,8 @@ public class TableStatisticsDataRepository
         if (resource == null) {
             return Optional.empty();
         }
-        try {
-            return Optional.of(parseJson(objectMapper, resource, TableStatisticsData.class));
+        try (InputStream stream = resource.openStream()) {
+            return Optional.of(parseJson(objectMapper, stream, TableStatisticsData.class));
         }
         catch (Exception e) {
             throw new RuntimeException(format("Failed to parse stats from resource [%s]", resourcePath), e);

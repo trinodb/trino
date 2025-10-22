@@ -13,17 +13,6 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.BigIntegerNode;
-import com.fasterxml.jackson.databind.node.BooleanNode;
-import com.fasterxml.jackson.databind.node.DecimalNode;
-import com.fasterxml.jackson.databind.node.DoubleNode;
-import com.fasterxml.jackson.databind.node.FloatNode;
-import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.JsonNodeType;
-import com.fasterxml.jackson.databind.node.LongNode;
-import com.fasterxml.jackson.databind.node.ShortNode;
-import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.common.primitives.Shorts;
 import io.airlift.slice.Slice;
 import io.trino.spi.type.CharType;
@@ -31,6 +20,17 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.BigIntegerNode;
+import tools.jackson.databind.node.BooleanNode;
+import tools.jackson.databind.node.DecimalNode;
+import tools.jackson.databind.node.DoubleNode;
+import tools.jackson.databind.node.FloatNode;
+import tools.jackson.databind.node.IntNode;
+import tools.jackson.databind.node.JsonNodeType;
+import tools.jackson.databind.node.LongNode;
+import tools.jackson.databind.node.ShortNode;
+import tools.jackson.databind.node.StringNode;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -119,10 +119,10 @@ public final class SqlJsonLiteralConverter
             return Optional.of(BooleanNode.valueOf(typedValue.getBooleanValue()));
         }
         if (type instanceof CharType charType) {
-            return Optional.of(TextNode.valueOf(padSpaces((Slice) typedValue.getObjectValue(), charType).toStringUtf8()));
+            return Optional.of(StringNode.valueOf(padSpaces((Slice) typedValue.getObjectValue(), charType).toStringUtf8()));
         }
         if (type instanceof VarcharType) {
-            return Optional.of(TextNode.valueOf(((Slice) typedValue.getObjectValue()).toStringUtf8()));
+            return Optional.of(StringNode.valueOf(((Slice) typedValue.getObjectValue()).toStringUtf8()));
         }
         if (type.equals(BIGINT)) {
             return Optional.of(LongNode.valueOf(typedValue.getLongValue()));
