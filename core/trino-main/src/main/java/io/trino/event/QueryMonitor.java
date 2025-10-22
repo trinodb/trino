@@ -241,6 +241,7 @@ public class QueryMonitor
                         ImmutableList.of(),
                         ImmutableList.of(),
                         ImmutableList.of(),
+                        ImmutableMap.of(),
                         Optional.empty()),
                 createQueryContext(
                         queryInfo.getSession(),
@@ -357,6 +358,7 @@ public class QueryMonitor
                 getDynamicFilterDomainStats(queryInfo),
                 memoize(() -> operatorStats.stream().map(operatorStatsCodec::toJson).toList()),
                 ImmutableList.copyOf(queryInfo.getQueryStats().getOptimizerRulesSummaries()),
+                ImmutableMap.copyOf(queryInfo.getQueryStats().getCatalogMetadataMetrics()),
                 serializedPlanNodeStatsAndCosts);
     }
 

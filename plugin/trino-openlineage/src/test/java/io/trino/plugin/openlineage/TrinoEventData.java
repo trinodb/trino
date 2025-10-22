@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.openlineage;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryContext;
@@ -137,6 +138,7 @@ public class TrinoEventData
                 Collections.emptyList(),
                 Collections.emptyList(),
                 Collections.emptyList(),
+                ImmutableMap.of(),
                 Optional.empty());
 
         queryCompleteEvent = new QueryCompletedEvent(
