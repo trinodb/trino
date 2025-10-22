@@ -592,6 +592,7 @@ public class TestTransactionLogAccess
                                     tableDir.toURI().toString(), // the location should keep the same as the previous test cases
                                     metadataEntry,
                                     protocolEntry,
+                                    Optional.empty(),
                                     TupleDomain.none(),
                                     TupleDomain.none(),
                                     false,

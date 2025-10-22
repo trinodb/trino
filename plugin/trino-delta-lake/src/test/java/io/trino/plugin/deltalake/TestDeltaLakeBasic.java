@@ -156,6 +156,9 @@ public class TestDeltaLakeBasic
             new ResourceTable("type_widening_nested", "databricks153/type_widening_nested"),
             new ResourceTable("in_commit_timestamp_history_read", "deltalake/in_commit_timestamp_history_read"));
 
+    private static final List<ResourceTable> CLUSTERED_TABLES = ImmutableList.of(
+            new ResourceTable("clustered_table_1", "deltalake/liquid_clustering"));
+
     // The col-{uuid} pattern for delta.columnMapping.physicalName
     private static final Pattern PHYSICAL_COLUMN_NAME_PATTERN = Pattern.compile("^col-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
@@ -185,7 +188,7 @@ public class TestDeltaLakeBasic
     @BeforeAll
     public void registerTables()
     {
-        for (ResourceTable table : Iterables.concat(PERSON_TABLES, OTHER_TABLES)) {
+        for (ResourceTable table : Iterables.concat(PERSON_TABLES, OTHER_TABLES, CLUSTERED_TABLES)) {
             String dataPath = getResourceLocation(table.resourcePath()).toExternalForm();
             getQueryRunner().execute(
                     format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", table.tableName(), dataPath));

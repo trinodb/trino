@@ -83,6 +83,7 @@ public class TableSnapshot
 
     private Optional<MetadataEntry> cachedMetadata = Optional.empty();
     private Optional<ProtocolEntry> cachedProtocol = Optional.empty();
+    private Optional<List<String>> cachedClusteredColumns = Optional.empty();
 
     private TableSnapshot(
             SchemaTableName table,
@@ -189,6 +190,11 @@ public class TableSnapshot
         return cachedProtocol;
     }
 
+    public Optional<List<String>> getCachedClusteredColumns()
+    {
+        return cachedClusteredColumns;
+    }
+
     public String getTableLocation()
     {
         return tableLocation;
@@ -202,6 +208,11 @@ public class TableSnapshot
     public void setCachedProtocol(Optional<ProtocolEntry> cachedProtocol)
     {
         this.cachedProtocol = cachedProtocol;
+    }
+
+    public void setCachedClusteredColumns(Optional<List<String>> cachedClusteredColumns)
+    {
+        this.cachedClusteredColumns = cachedClusteredColumns;
     }
 
     public List<DeltaLakeTransactionLogEntry> getJsonTransactionLogEntries(TrinoFileSystem fileSystem)

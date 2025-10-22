@@ -93,6 +93,7 @@ public class TestDeltaLakeSplitManager
             TABLE_PATH,
             metadataEntry,
             new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
+            Optional.empty(),
             TupleDomain.all(),
             TupleDomain.all(),
             false,
