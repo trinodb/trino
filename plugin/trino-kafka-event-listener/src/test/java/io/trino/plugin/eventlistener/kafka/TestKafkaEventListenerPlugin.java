@@ -14,9 +14,6 @@
 
 package io.trino.plugin.eventlistener.kafka;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.base.eventlistener.testing.TestingEventListenerContext;
@@ -31,6 +28,8 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -65,7 +64,6 @@ final class TestKafkaEventListenerPlugin
 
     @Test
     void testEventListenerEndToEnd()
-            throws JsonProcessingException
     {
         KafkaEventListenerPlugin plugin = new KafkaEventListenerPlugin();
 
@@ -94,7 +92,7 @@ final class TestKafkaEventListenerPlugin
             assertThat(jsonEvent).isNotNull();
             assertThat(jsonEvent.get("context")).isNotNull();
             assertThat(jsonEvent.get("metadata")).isNotNull();
-            assertThat(jsonEvent.get("metadata").get("queryId").textValue()).isEqualTo(TestUtils.queryCreatedEvent.getMetadata().getQueryId());
+            assertThat(jsonEvent.get("metadata").get("queryId").stringValue()).isEqualTo(TestUtils.queryCreatedEvent.getMetadata().getQueryId());
 
             // produce and consume a test completed event
             eventListener.queryCompleted(TestUtils.queryCompletedEvent);
@@ -109,7 +107,7 @@ final class TestKafkaEventListenerPlugin
             assertThat(jsonEvent.get("warnings")).isNotNull();
             // ioMetadata is excluded via config
             assertThat(jsonEvent.get("ioMetadata")).isNull();
-            assertThat(jsonEvent.get("metadata").get("queryId").textValue()).isEqualTo(TestUtils.queryCompletedEvent.getMetadata().getQueryId());
+            assertThat(jsonEvent.get("metadata").get("queryId").stringValue()).isEqualTo(TestUtils.queryCompletedEvent.getMetadata().getQueryId());
         }
         finally {
             eventListener.shutdown();

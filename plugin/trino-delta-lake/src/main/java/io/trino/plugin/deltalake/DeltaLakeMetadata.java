@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.base.Throwables;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.Comparators;
@@ -161,6 +160,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
+import tools.jackson.core.JacksonException;
 
 import java.io.IOException;
 import java.net.URI;
@@ -2175,7 +2175,6 @@ public class DeltaLakeMetadata
     }
 
     private static void appendAddFileEntries(TransactionLogWriter transactionLogWriter, List<DataFileInfo> dataFileInfos, List<String> partitionColumnNames, List<String> originalColumnNames, boolean dataChange)
-            throws JsonProcessingException
     {
         appendAddFileEntries(transactionLogWriter, dataFileInfos, partitionColumnNames, originalColumnNames, dataChange, Optional.empty());
     }
@@ -2187,7 +2186,6 @@ public class DeltaLakeMetadata
             List<String> originalColumnNames,
             boolean dataChange,
             Optional<String> cloneSourceLocation)
-            throws JsonProcessingException
     {
         Map<String, String> toOriginalColumnNames = originalColumnNames.stream()
                 .collect(toImmutableMap(name -> name.toLowerCase(ENGLISH), identity()));
@@ -4008,7 +4006,7 @@ public class DeltaLakeMetadata
                     addFileEntry.getTags(),
                     addFileEntry.getDeletionVector());
         }
-        catch (JsonProcessingException e) {
+        catch (JacksonException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Statistics serialization error", e);
         }
     }

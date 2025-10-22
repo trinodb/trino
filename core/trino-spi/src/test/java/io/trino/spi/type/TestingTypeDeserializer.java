@@ -13,8 +13,8 @@
  */
 package io.trino.spi.type;
 
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.deser.std.FromStringDeserializer;
 
 import static java.util.Objects.requireNonNull;
 

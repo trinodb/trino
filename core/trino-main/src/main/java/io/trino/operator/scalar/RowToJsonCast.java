@@ -13,8 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -30,8 +28,9 @@ import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TypeSignature;
 import io.trino.util.JsonUtil.JsonGeneratorWriter;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.json.JsonFactory;
 
-import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
@@ -96,22 +95,17 @@ public class RowToJsonCast
     @UsedByGeneratedCode
     public static Slice toJsonObject(List<String> fieldNames, List<JsonGeneratorWriter> fieldWriters, SqlRow sqlRow)
     {
-        try {
-            int rawIndex = sqlRow.getRawIndex();
-            SliceOutput output = new DynamicSliceOutput(40);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
-                jsonGenerator.writeStartObject();
-                for (int i = 0; i < sqlRow.getFieldCount(); i++) {
-                    jsonGenerator.writeFieldName(fieldNames.get(i));
-                    Block fieldBlock = sqlRow.getRawFieldBlock(i);
-                    fieldWriters.get(i).writeJsonValue(jsonGenerator, fieldBlock, rawIndex);
-                }
-                jsonGenerator.writeEndObject();
+        int rawIndex = sqlRow.getRawIndex();
+        SliceOutput output = new DynamicSliceOutput(40);
+        try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+            jsonGenerator.writeStartObject();
+            for (int i = 0; i < sqlRow.getFieldCount(); i++) {
+                jsonGenerator.writeName(fieldNames.get(i));
+                Block fieldBlock = sqlRow.getRawFieldBlock(i);
+                fieldWriters.get(i).writeJsonValue(jsonGenerator, fieldBlock, rawIndex);
             }
-            return output.slice();
+            jsonGenerator.writeEndObject();
         }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        return output.slice();
     }
 }

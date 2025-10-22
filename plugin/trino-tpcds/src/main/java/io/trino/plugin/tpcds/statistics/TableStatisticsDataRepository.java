@@ -14,10 +14,9 @@
 
 package io.trino.plugin.tpcds.statistics;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.common.io.Resources;
 import io.trino.tpcds.Table;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -34,8 +33,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class TableStatisticsDataRepository
 {
-    private final ObjectMapper objectMapper = new ObjectMapper()
-            .registerModule(new Jdk8Module());
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public void save(
             String schemaName,

@@ -13,9 +13,6 @@
  */
 package io.trino.type;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
@@ -35,8 +32,11 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import io.trino.util.JsonCastException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.json.JsonFactory;
 
-import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -562,7 +562,7 @@ public final class DecimalCasts
             }
             return dynamicSliceOutput.slice();
         }
-        catch (IOException e) {
+        catch (UncheckedIOException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%f' to %s", bigDecimal, StandardTypes.JSON));
         }
     }
@@ -576,7 +576,7 @@ public final class DecimalCasts
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to DECIMAL(%s,%s)", precision, scale); // check no trailing token
             return result;
         }
-        catch (IOException | NumberFormatException | JsonCastException e) {
+        catch (UncheckedIOException | NumberFormatException | JsonCastException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", json.toStringUtf8(), precision, scale), e);
         }
     }
@@ -590,7 +590,7 @@ public final class DecimalCasts
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to DECIMAL(%s,%s)", precision, scale); // check no trailing token
             return result;
         }
-        catch (IOException | NumberFormatException | JsonCastException e) {
+        catch (UncheckedIOException | NumberFormatException | JsonCastException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", json.toStringUtf8(), precision, scale), e);
         }
     }

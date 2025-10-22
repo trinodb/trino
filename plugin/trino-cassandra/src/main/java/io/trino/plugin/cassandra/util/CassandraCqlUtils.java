@@ -16,11 +16,11 @@ package io.trino.plugin.cassandra.util;
 import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
 import com.datastax.oss.driver.api.querybuilder.select.Select;
 import com.datastax.oss.driver.api.querybuilder.select.SelectFrom;
-import com.fasterxml.jackson.core.io.JsonStringEncoder;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.cassandra.CassandraColumnHandle;
 import io.trino.plugin.cassandra.CassandraNamedRelationHandle;
 import io.trino.plugin.cassandra.CassandraPartition;
+import tools.jackson.core.io.JsonStringEncoder;
 
 import java.util.ArrayList;
 import java.util.List;

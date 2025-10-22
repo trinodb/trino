@@ -13,13 +13,12 @@
  */
 package io.trino.plugin.prometheus;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.trino.spi.TrinoException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.core.ObjectReadContext;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -42,26 +41,24 @@ public class PrometheusQueryResponseParse
             throws IOException
     {
         ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());
-        JsonParser parser = jsonFactory().createParser(response);
+        JsonParser parser = jsonFactory().createParser(ObjectReadContext.empty(), response);
         while (!parser.isClosed()) {
             JsonToken jsonToken = parser.nextToken();
-            if (JsonToken.FIELD_NAME.equals(jsonToken)) {
+            if (JsonToken.PROPERTY_NAME.equals(jsonToken)) {
                 if (parser.currentName().equals("status")) {
                     parser.nextToken();
                     if (parser.getValueAsString().equals("success")) {
                         this.status = true;
                         while (!parser.isClosed()) {
-                            parser.nextToken();
-                            if (JsonToken.FIELD_NAME.equals(jsonToken)) {
+                            jsonToken = parser.nextToken();
+                            if (JsonToken.PROPERTY_NAME.equals(jsonToken)) {
                                 if (parser.currentName().equals("resultType")) {
                                     parser.nextToken();
                                     resultType = parser.getValueAsString();
                                 }
                                 if (parser.currentName().equals("result")) {
                                     parser.nextToken();
-                                    ArrayNode node = mapper.readTree(parser);
-                                    result = node.toString();
+                                    result = mapper.readTree(parser).toString();
                                     break;
                                 }
                             }

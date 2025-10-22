@@ -13,25 +13,22 @@
  */
 package io.trino.client;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
 import io.trino.spi.type.StandardTypes;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestClientTypeSignature
 {
-    public static final JsonCodec<ClientTypeSignature> CLIENT_TYPE_SIGNATURE_CODEC;
+    public static final TrinoJsonCodec<ClientTypeSignature> CLIENT_TYPE_SIGNATURE_CODEC;
 
     static {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        JsonCodecFactory codecFactory = new JsonCodecFactory(provider);
-        CLIENT_TYPE_SIGNATURE_CODEC = codecFactory.jsonCodec(ClientTypeSignature.class);
+        CLIENT_TYPE_SIGNATURE_CODEC = jsonCodec(ClientTypeSignature.class);
     }
 
     @Test
@@ -71,8 +68,13 @@ public class TestClientTypeSignature
 
     private static void assertJsonRoundTrip(ClientTypeSignature signature)
     {
-        String json = CLIENT_TYPE_SIGNATURE_CODEC.toJson(signature);
-        ClientTypeSignature copy = CLIENT_TYPE_SIGNATURE_CODEC.fromJson(json);
-        assertThat(copy).isEqualTo(signature);
+        try {
+            String json = CLIENT_TYPE_SIGNATURE_CODEC.toJson(signature);
+            ClientTypeSignature copy = CLIENT_TYPE_SIGNATURE_CODEC.fromJson(json);
+            assertThat(copy).isEqualTo(signature);
+        }
+        catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

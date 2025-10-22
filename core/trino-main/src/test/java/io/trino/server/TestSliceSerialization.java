@@ -13,8 +13,6 @@
  */
 package io.trino.server;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
@@ -24,6 +22,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -54,7 +53,6 @@ public class TestSliceSerialization
 
     @Test
     public void testRoundTrip()
-            throws JsonProcessingException
     {
         testRoundTrip(new byte[] {});
         testRoundTrip(new byte[] {1});
@@ -66,7 +64,6 @@ public class TestSliceSerialization
     }
 
     private void testRoundTrip(byte[] bytes)
-            throws JsonProcessingException
     {
         testRoundTrip(Slices.wrappedBuffer(bytes));
 
@@ -80,7 +77,6 @@ public class TestSliceSerialization
     }
 
     private void testRoundTrip(Slice slice)
-            throws JsonProcessingException
     {
         ObjectMapper objectMapper = provider.get();
         Container expected = new Container(slice);

@@ -13,10 +13,6 @@
  */
 package io.trino.plugin.druid;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.io.Closer;
 import com.google.common.io.MoreFiles;
 import okhttp3.OkHttpClient;
@@ -28,6 +24,10 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.io.Closeable;
 import java.io.File;
@@ -275,7 +275,7 @@ public class TestingDruidServer
                     .put("filter", fileName.orElse(targetDataSource) + ".tsv");
             return mapper.writeValueAsString(jsonNode);
         }
-        catch (JsonProcessingException e) {
+        catch (JacksonException e) {
             throw new RuntimeException(e);
         }
     }

@@ -13,24 +13,26 @@
  */
 package io.trino.plugin.base.util;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonFactoryBuilder;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.StreamReadConstraints;
-import com.fasterxml.jackson.core.StreamReadFeature;
-import com.fasterxml.jackson.core.StreamWriteFeature;
-import com.fasterxml.jackson.core.util.JsonRecyclerPools;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.MapperFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.json.ObjectMapperProvider;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.StreamReadConstraints;
+import tools.jackson.core.StreamReadFeature;
+import tools.jackson.core.StreamWriteFeature;
+import tools.jackson.core.exc.JacksonIOException;
+import tools.jackson.core.json.JsonFactory;
+import tools.jackson.core.json.JsonFactoryBuilder;
+import tools.jackson.core.util.JsonRecyclerPools;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.MapperFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.exc.MismatchedInputException;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -43,8 +45,10 @@ import static java.util.Objects.requireNonNull;
 public final class JsonUtils
 {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get()
+            .rebuild()
             .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS);
+            .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS)
+            .build();
 
     private JsonUtils() {}
 
@@ -96,6 +100,16 @@ public final class JsonUtils
         return parseJson(mapper, ObjectMapper::createParser, inputStream, javaType);
     }
 
+    public static <T> T parseJson(URL url, Class<T> javaType)
+    {
+        try (InputStream stream = url.openStream()) {
+            return parseJson(OBJECT_MAPPER, stream, javaType);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     private static <I, T> T parseJson(ObjectMapper mapper, ParserConstructor<I> parserConstructor, I input, Class<T> javaType)
     {
         requireNonNull(mapper, "mapper is null");
@@ -107,8 +121,8 @@ public final class JsonUtils
             checkArgument(parser.nextToken() == null, "Found characters after the expected end of input");
             return value;
         }
-        catch (IOException e) {
-            throw new UncheckedIOException("Could not parse JSON", e);
+        catch (MismatchedInputException e) {
+            throw new IllegalArgumentException("Found characters after the expected end of input");
         }
     }
 
@@ -117,8 +131,8 @@ public final class JsonUtils
         try {
             return OBJECT_MAPPER.treeToValue(treeNode, javaType);
         }
-        catch (JsonProcessingException e) {
-            throw new UncheckedIOException("Failed to convert JSON tree node", e);
+        catch (JacksonIOException e) {
+            throw new UncheckedIOException("Failed to convert JSON tree node", e.getCause());
         }
     }
 
@@ -165,7 +179,6 @@ public final class JsonUtils
 
     private interface ParserConstructor<I>
     {
-        JsonParser createParser(ObjectMapper mapper, I input)
-                throws IOException;
+        JsonParser createParser(ObjectMapper mapper, I input);
     }
 }

@@ -13,13 +13,12 @@
  */
 package io.trino.spi.type;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.SortedSet;
 
@@ -234,7 +233,6 @@ final class TestTimeZoneKey
 
     @Test
     public void testRoundTripSerialization()
-            throws IOException
     {
         ObjectMapper mapper = new ObjectMapper();
 

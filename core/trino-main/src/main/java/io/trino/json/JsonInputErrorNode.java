@@ -13,31 +13,22 @@
  */
 package io.trino.json;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonPointer;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.ObjectCodec;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
-import com.fasterxml.jackson.databind.node.JsonNodeType;
-
-import java.io.IOException;
-import java.util.List;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonPointer;
+import tools.jackson.core.JsonToken;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.jsontype.TypeSerializer;
+import tools.jackson.databind.node.JsonNodeType;
+import tools.jackson.databind.node.ValueNode;
 
 public class JsonInputErrorNode
-        extends JsonNode
+        extends ValueNode
 {
     public static final JsonInputErrorNode JSON_ERROR = new JsonInputErrorNode();
 
     private JsonInputErrorNode() {}
-
-    @Override
-    public <T extends JsonNode> T deepCopy()
-    {
-        throw new UnsupportedOperationException();
-    }
 
     @Override
     public JsonToken asToken()
@@ -47,36 +38,6 @@ public class JsonInputErrorNode
 
     @Override
     public JsonParser.NumberType numberType()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonNode get(int index)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonNode path(String fieldName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonNode path(int index)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonParser traverse()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonParser traverse(ObjectCodec codec)
     {
         throw new UnsupportedOperationException();
     }
@@ -94,49 +55,13 @@ public class JsonInputErrorNode
     }
 
     @Override
-    public String asText()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonNode findValue(String fieldName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonNode findPath(String fieldName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonNode findParent(String fieldName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<JsonNode> findValues(String fieldName, List<JsonNode> foundSoFar)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<String> findValuesAsText(String fieldName, List<String> foundSoFar)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<JsonNode> findParents(String fieldName, List<JsonNode> foundSoFar)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public String toString()
+    {
+        return "JSON_ERROR";
+    }
+
+    @Override
+    protected String _valueDesc()
     {
         return "JSON_ERROR";
     }
@@ -154,15 +79,13 @@ public class JsonInputErrorNode
     }
 
     @Override
-    public void serialize(JsonGenerator gen, SerializerProvider serializers)
-            throws IOException
+    public void serialize(JsonGenerator gen, SerializationContext serializers)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void serializeWithType(JsonGenerator gen, SerializerProvider serializers, TypeSerializer typeSer)
-            throws IOException
+    public void serializeWithType(JsonGenerator gen, SerializationContext context, TypeSerializer typeSer)
     {
         throw new UnsupportedOperationException();
     }

@@ -14,30 +14,34 @@
 package io.trino.hive.formats.esri;
 
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.io.Closer;
 import com.google.common.io.CountingInputStream;
 import io.trino.spi.PageBuilder;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.INTERN_FIELD_NAMES;
+import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static io.trino.hive.formats.esri.EsriDeserializer.invalidJson;
 import static io.trino.hive.formats.esri.EsriDeserializer.nextObjectField;
 import static io.trino.hive.formats.esri.EsriDeserializer.nextTokenRequired;
 import static io.trino.hive.formats.esri.EsriDeserializer.skipCurrentValue;
-import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static java.util.Objects.requireNonNull;
 
+@SuppressModernizer
 public final class EsriReader
         implements Closeable
 {
-    private static final JsonFactory JSON_FACTORY = jsonFactoryBuilder()
+    private static final JsonFactory JSON_FACTORY = new JsonFactoryBuilder()
             .disable(INTERN_FIELD_NAMES)
             .build();
+
     private static final String FEATURES_NAME = "features";
 
     private final CountingInputStream inputStream;
@@ -54,7 +58,7 @@ public final class EsriReader
         this.esriDeserializer = requireNonNull(esriDeserializer, "esriDeserializer is null");
 
         parser = JSON_FACTORY.createParser(this.inputStream);
-        if (nextTokenRequired(parser) != JsonToken.START_OBJECT) {
+        if (nextTokenRequired(parser) != START_OBJECT) {
             throw invalidJson("File must start with a JSON object");
         }
 

@@ -13,8 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -29,8 +27,9 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.json.JsonFactory;
 
-import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 import java.util.TreeMap;
@@ -92,30 +91,25 @@ public class MapToJsonCast
     @UsedByGeneratedCode
     public static Slice toJson(ObjectKeyProvider provider, JsonGeneratorWriter writer, SqlMap map)
     {
-        try {
-            int rawOffset = map.getRawOffset();
-            Block rawKeyBlock = map.getRawKeyBlock();
-            Block rawValueBlock = map.getRawValueBlock();
+        int rawOffset = map.getRawOffset();
+        Block rawKeyBlock = map.getRawKeyBlock();
+        Block rawValueBlock = map.getRawValueBlock();
 
-            Map<String, Integer> orderedKeyToValuePosition = new TreeMap<>();
-            for (int i = 0; i < map.getSize(); i++) {
-                String objectKey = provider.getObjectKey(rawKeyBlock, rawOffset + i);
-                orderedKeyToValuePosition.put(objectKey, i);
-            }
+        Map<String, Integer> orderedKeyToValuePosition = new TreeMap<>();
+        for (int i = 0; i < map.getSize(); i++) {
+            String objectKey = provider.getObjectKey(rawKeyBlock, rawOffset + i);
+            orderedKeyToValuePosition.put(objectKey, i);
+        }
 
-            SliceOutput output = new DynamicSliceOutput(40);
-            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
-                jsonGenerator.writeStartObject();
-                for (Map.Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
-                    jsonGenerator.writeFieldName(entry.getKey());
-                    writer.writeJsonValue(jsonGenerator, rawValueBlock, rawOffset + entry.getValue());
-                }
-                jsonGenerator.writeEndObject();
+        SliceOutput output = new DynamicSliceOutput(40);
+        try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+            jsonGenerator.writeStartObject();
+            for (Map.Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
+                jsonGenerator.writeName(entry.getKey());
+                writer.writeJsonValue(jsonGenerator, rawValueBlock, rawOffset + entry.getValue());
             }
-            return output.slice();
+            jsonGenerator.writeEndObject();
         }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        return output.slice();
     }
 }

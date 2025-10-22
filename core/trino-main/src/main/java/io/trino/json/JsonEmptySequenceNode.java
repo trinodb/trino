@@ -13,76 +13,22 @@
  */
 package io.trino.json;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonPointer;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.ObjectCodec;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
-import com.fasterxml.jackson.databind.node.JsonNodeType;
-
-import java.io.IOException;
-import java.util.List;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonToken;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.jsontype.TypeSerializer;
+import tools.jackson.databind.node.JsonNodeType;
+import tools.jackson.databind.node.ValueNode;
 
 public class JsonEmptySequenceNode
-        extends JsonNode
+        extends ValueNode
 {
     public static final JsonEmptySequenceNode EMPTY_SEQUENCE = new JsonEmptySequenceNode();
 
     private JsonEmptySequenceNode() {}
 
     @Override
-    public <T extends JsonNode> T deepCopy()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public JsonToken asToken()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonParser.NumberType numberType()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonNode get(int index)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonNode path(String fieldName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonNode path(int index)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonParser traverse()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonParser traverse(ObjectCodec codec)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    protected JsonNode _at(JsonPointer ptr)
     {
         throw new UnsupportedOperationException();
     }
@@ -94,49 +40,13 @@ public class JsonEmptySequenceNode
     }
 
     @Override
-    public String asText()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonNode findValue(String fieldName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonNode findPath(String fieldName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public JsonNode findParent(String fieldName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<JsonNode> findValues(String fieldName, List<JsonNode> foundSoFar)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<String> findValuesAsText(String fieldName, List<String> foundSoFar)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<JsonNode> findParents(String fieldName, List<JsonNode> foundSoFar)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public String toString()
+    {
+        return "EMPTY_SEQUENCE";
+    }
+
+    @Override
+    protected String _valueDesc()
     {
         return "EMPTY_SEQUENCE";
     }
@@ -154,15 +64,13 @@ public class JsonEmptySequenceNode
     }
 
     @Override
-    public void serialize(JsonGenerator gen, SerializerProvider serializers)
-            throws IOException
+    public void serialize(JsonGenerator gen, SerializationContext context)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void serializeWithType(JsonGenerator gen, SerializerProvider serializers, TypeSerializer typeSer)
-            throws IOException
+    public void serializeWithType(JsonGenerator gen, SerializationContext context, TypeSerializer typeSer)
     {
         throw new UnsupportedOperationException();
     }

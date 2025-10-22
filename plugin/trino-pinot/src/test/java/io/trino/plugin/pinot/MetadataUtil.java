@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.pinot;
 
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
@@ -25,6 +22,9 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.utils.DataSchema;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.ValueDeserializer;
+import tools.jackson.databind.deser.std.FromStringDeserializer;
 
 import java.util.Map;
 
@@ -72,7 +72,7 @@ public class MetadataUtil
 
     static {
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>builder()
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, ValueDeserializer<?>>builder()
                 .put(Type.class, new TestingTypeDeserializer())
                 .put(DataSchema.class, new PinotModule.DataSchemaDeserializer())
                 .put(BrokerResponseNative.class, new PinotModule.BrokerResponseNativeDeserializer())

@@ -14,11 +14,11 @@
 package io.trino.plugin.cassandra;
 
 import com.datastax.oss.driver.api.core.type.DataTypes;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 
@@ -51,7 +51,7 @@ public class TestCassandraTypeManager
     {
         boolean valid = false;
         try {
-            JsonParser parser = new ObjectMapper().getFactory()
+            JsonParser parser = new ObjectMapper()
                     .createParser(json);
             continueWhileNotNull(parser, parser.nextToken());
             valid = true;

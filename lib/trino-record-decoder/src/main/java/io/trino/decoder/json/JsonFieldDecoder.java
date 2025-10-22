@@ -13,8 +13,8 @@
  */
 package io.trino.decoder.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import io.trino.decoder.FieldValueProvider;
+import tools.jackson.databind.JsonNode;
 
 public interface JsonFieldDecoder
 {

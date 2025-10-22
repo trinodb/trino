@@ -113,6 +113,16 @@ public class TrinoJsonCodec<T>
         }
     }
 
+    public T fromJson(byte[] bytes)
+            throws IOException
+    {
+        try (JsonParser parser = mapper.createParser(bytes)) {
+            T value = mapper.readerFor(javaType).readValue(parser);
+            checkArgument(parser.nextToken() == null, "Found characters after the expected end of input");
+            return value;
+        }
+    }
+
     public T fromJson(Reader inputReader)
             throws IOException
     {

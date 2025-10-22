@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner;
 
-import com.fasterxml.jackson.databind.KeyDeserializer;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodec;
@@ -22,6 +21,7 @@ import io.airlift.json.ObjectMapperProvider;
 import io.trino.spi.type.Type;
 import io.trino.type.TypeDeserializer;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.KeyDeserializer;
 
 import java.util.Map;
 

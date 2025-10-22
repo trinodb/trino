@@ -13,7 +13,6 @@
  */
 package io.trino.server.protocol;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
@@ -295,7 +294,7 @@ public class TestQueryDataSerialization
         try {
             return CLIENT_CODEC.fromJson(serialized).getData();
         }
-        catch (JsonProcessingException e) {
+        catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
