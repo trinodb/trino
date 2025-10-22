@@ -18,12 +18,12 @@ import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
 import java.util.Optional;
@@ -59,7 +59,7 @@ public class RedisConnectorFactory
                 "io.trino.bootstrap.catalog." + catalogName,
                 new JsonModule(),
                 new TypeDeserializerModule(),
-                binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),
+                new ConnectorContextModule(context),
                 new RedisConnectorModule(),
                 binder -> {
                     if (tableDescriptionSupplier.isPresent()) {

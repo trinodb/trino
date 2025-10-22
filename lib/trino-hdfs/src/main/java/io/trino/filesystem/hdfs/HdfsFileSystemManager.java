@@ -18,7 +18,6 @@ import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.configuration.ConfigPropertyMetadata;
-import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsModule;
 import io.trino.hdfs.authentication.HdfsAuthenticationModule;
@@ -26,6 +25,7 @@ import io.trino.hdfs.azure.HiveAzureModule;
 import io.trino.hdfs.cos.HiveCosModule;
 import io.trino.hdfs.gcs.HiveGcsModule;
 import io.trino.hdfs.s3.HiveS3Module;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.catalog.CatalogName;
@@ -62,8 +62,8 @@ public final class HdfsFileSystemManager
         modules.add(new HdfsModule());
         modules.add(new HdfsAuthenticationModule());
         modules.add(new HiveCosModule());
+        modules.add(new ConnectorContextModule(context));
         modules.add(binder -> {
-            binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
             binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
         });
 

@@ -22,7 +22,6 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
@@ -32,21 +31,17 @@ import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.RawHiveMetastoreFactory;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
-import io.trino.spi.Node;
-import io.trino.spi.NodeManager;
-import io.trino.spi.NodeVersion;
-import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -63,7 +58,6 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.TestingConnectorContext;
 import io.trino.tests.BogusType;
@@ -189,18 +183,13 @@ public class TestDeltaLakeMetadata
                 .put("hive.metastore.catalog.dir", temporaryCatalogDirectory.getPath())
                 .buildOrThrow();
 
+        TestingConnectorContext context = new TestingConnectorContext();
         Bootstrap app = new Bootstrap(
                 // connector dependencies
                 new JsonModule(),
+                new ConnectorContextModule(context),
                 binder -> {
-                    ConnectorContext context = new TestingConnectorContext();
-                    binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getCurrentNode().getVersion()));
-                    binder.bind(Node.class).toInstance(context.getCurrentNode());
                     binder.bind(CatalogName.class).toInstance(new CatalogName("test"));
-                    binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                    binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                    binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
-                    binder.bind(Tracer.class).toInstance(context.getTracer());
                 },
                 // connector modules
                 new DeltaLakeSecurityModule(),

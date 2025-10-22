@@ -19,12 +19,12 @@ import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.CatalogNameModule;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.plugin.kafka.security.KafkaSecurityModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.type.TypeManager;
 
 import java.util.List;
 import java.util.Map;
@@ -64,9 +64,9 @@ public class KafkaConnectorFactory
                         .add(new KafkaConnectorModule(context.getTypeManager()))
                         .add(new KafkaClientsModule())
                         .add(new KafkaSecurityModule())
+                        .add(new ConnectorContextModule(context))
                         .add(binder -> {
                             binder.bind(ClassLoader.class).toInstance(KafkaConnectorFactory.class.getClassLoader());
-                            binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         })
                         .addAll(extensions)
                         .build());
