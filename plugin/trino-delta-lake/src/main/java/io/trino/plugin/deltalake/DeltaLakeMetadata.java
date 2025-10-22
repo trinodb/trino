@@ -242,6 +242,7 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SC
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_TABLE;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getHiveCatalogName;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isCollectExtendedStatisticsColumnStatisticsOnWrite;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isEnableClusteringInfo;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isQueryPartitionFilterRequired;
@@ -250,6 +251,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isTableStatis
 import static io.trino.plugin.deltalake.DeltaLakeSplitManager.buildSplitPath;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHANGE_DATA_FEED_ENABLED_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHECKPOINT_INTERVAL_PROPERTY;
+import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CLUSTER_BY_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.COLUMN_MAPPING_MODE_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.DELETION_VECTORS_ENABLED_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.LOCATION_PROPERTY;
@@ -295,6 +297,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.se
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.validateType;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.verifySupportedColumnMapping;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.CLUSTERED_TABLES_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.unsupportedReaderFeatures;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.unsupportedWriterFeatures;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY;
@@ -649,6 +652,11 @@ public class DeltaLakeMetadata
         return snapshotId;
     }
 
+    public static int getTemporalTimeTravelLinearSearchMaxSize()
+    {
+        return TEMPORAL_TIME_TRAVEL_LINEAR_SEARCH_MAX_SIZE;
+    }
+
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
@@ -742,6 +750,12 @@ public class DeltaLakeMetadata
             LOG.debug("Skip %s because the reader version is unsupported: %d", tableName, protocolEntry.minReaderVersion());
             return null;
         }
+
+        Optional<List<String>> clusteredColumns = Optional.empty();
+        if (isEnableClusteringInfo(session) && protocolEntry.writerFeaturesContains(CLUSTERED_TABLES_FEATURE_NAME)) {
+            clusteredColumns = transactionLogAccess.getClusteredColumns(fileSystem, tableSnapshot);
+        }
+
         Set<String> unsupportedReaderFeatures = unsupportedReaderFeatures(protocolEntry.readerFeatures().orElse(ImmutableSet.of()));
         if (!unsupportedReaderFeatures.isEmpty()) {
             LOG.debug("Skip %s because the table contains unsupported reader features: %s", tableName, unsupportedReaderFeatures);
@@ -760,6 +774,7 @@ public class DeltaLakeMetadata
                 tableLocation,
                 metadataEntry,
                 protocolEntry,
+                clusteredColumns,
                 TupleDomain.all(),
                 TupleDomain.all(),
                 Optional.empty(),
@@ -840,6 +855,10 @@ public class DeltaLakeMetadata
         List<String> partitionColumnNames = metadataEntry.getLowercasePartitionColumns();
         if (!partitionColumnNames.isEmpty()) {
             properties.put(PARTITIONED_BY_PROPERTY, partitionColumnNames);
+        }
+
+        if (tableHandle.getClusteredColumns().isPresent() && !tableHandle.getClusteredColumns().get().isEmpty()) {
+            properties.put(CLUSTER_BY_PROPERTY, tableHandle.getClusteredColumns().get());
         }
 
         Optional<Long> checkpointInterval = metadataEntry.getCheckpointInterval();
@@ -3495,6 +3514,7 @@ public class DeltaLakeMetadata
                 tableHandle.getLocation(),
                 tableHandle.getMetadataEntry(),
                 tableHandle.getProtocolEntry(),
+                tableHandle.getClusteredColumns(),
                 // Do not simplify the enforced constraint, the connector is guaranteeing the constraint will be applied as is.
                 // The unenforced constraint will still be checked by the engine.
                 tableHandle.getEnforcedPartitionConstraint()
@@ -3795,6 +3815,7 @@ public class DeltaLakeMetadata
                 handle.getLocation(),
                 metadata,
                 handle.getProtocolEntry(),
+                handle.getClusteredColumns(),
                 TupleDomain.all(),
                 TupleDomain.all(),
                 Optional.empty(),
