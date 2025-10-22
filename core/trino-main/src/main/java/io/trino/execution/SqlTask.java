@@ -363,10 +363,10 @@ public class SqlTask
             TaskContext taskContext = taskHolder.getTaskExecution().getTaskContext();
             for (PipelineContext pipelineContext : taskContext.getPipelineContexts()) {
                 PipelineStatus pipelineStatus = pipelineContext.getPipelineStatus();
-                queuedPartitionedDrivers += pipelineStatus.getQueuedPartitionedDrivers();
-                queuedPartitionedSplitsWeight += pipelineStatus.getQueuedPartitionedSplitsWeight();
-                runningPartitionedDrivers += pipelineStatus.getRunningPartitionedDrivers();
-                runningPartitionedSplitsWeight += pipelineStatus.getRunningPartitionedSplitsWeight();
+                queuedPartitionedDrivers += pipelineStatus.queuedPartitionedDrivers();
+                queuedPartitionedSplitsWeight += pipelineStatus.queuedPartitionedSplitsWeight();
+                runningPartitionedDrivers += pipelineStatus.runningPartitionedDrivers();
+                runningPartitionedSplitsWeight += pipelineStatus.runningPartitionedSplitsWeight();
                 physicalWrittenBytes += pipelineContext.getPhysicalWrittenDataSize();
             }
             writerInputDataSize = succinctBytes(taskContext.getWriterInputDataSize());
