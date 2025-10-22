@@ -39,6 +39,7 @@ public class DeltaLakeTableProperties
 {
     public static final String LOCATION_PROPERTY = "location";
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
+    public static final String CLUSTER_BY_PROPERTY = "clustered_by";
     public static final String CHECKPOINT_INTERVAL_PROPERTY = "checkpoint_interval";
     public static final String CHANGE_DATA_FEED_ENABLED_PROPERTY = "change_data_feed_enabled";
     public static final String COLUMN_MAPPING_MODE_PROPERTY = "column_mapping_mode";
@@ -94,6 +95,17 @@ public class DeltaLakeTableProperties
                         "Enables deletion vectors",
                         config.isDeletionVectorsEnabled(),
                         false))
+                .add(new PropertyMetadata<>(
+                        CLUSTER_BY_PROPERTY,
+                        "Liquid cluster columns",
+                        new ArrayType(VARCHAR),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ((Collection<String>) value).stream()
+                                .map(name -> name.toLowerCase(ENGLISH))
+                                .collect(toImmutableList()),
+                        value -> value))
                 .build();
     }
 
@@ -111,6 +123,12 @@ public class DeltaLakeTableProperties
     {
         List<String> partitionedBy = (List<String>) tableProperties.get(PARTITIONED_BY_PROPERTY);
         return partitionedBy == null ? ImmutableList.of() : ImmutableList.copyOf(partitionedBy);
+    }
+
+    public static List<String> getClusteredBy(Map<String, Object> tableProperties)
+    {
+        List<String> clusteredBy = (List<String>) tableProperties.get(CLUSTER_BY_PROPERTY);
+        return clusteredBy == null ? ImmutableList.of() : ImmutableList.copyOf(clusteredBy);
     }
 
     public static Optional<Long> getCheckpointInterval(Map<String, Object> tableProperties)

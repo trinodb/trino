@@ -508,6 +508,7 @@ public class TestDeltaLakeMetadata
                 "test_location",
                 createMetadataEntry(),
                 new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
+                Optional.empty(),
                 createConstrainedColumnsTuple(constrainedColumns),
                 TupleDomain.all(),
                 Optional.of(DeltaLakeTableHandle.WriteType.UPDATE),
