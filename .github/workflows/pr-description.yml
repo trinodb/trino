@@ -1,0 +1,35 @@
+name: "PR Description Check"
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-description:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run validation script tests
+        run: |
+          .github/bin/test/pr-description/run-tests.sh
+
+      - name: Get PR description
+        id: pr-description
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          echo "$PR_BODY" > pr_description.txt
+
+      - name: Validate PR description
+        run: |
+          python3 .github/bin/validate-pr-description.py pr_description.txt
