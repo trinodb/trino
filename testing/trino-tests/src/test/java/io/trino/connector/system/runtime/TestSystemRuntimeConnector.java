@@ -303,7 +303,7 @@ public class TestSystemRuntimeConnector
     public void testNonExistentTable()
     {
         assertThat(query("SELECT * FROM system.runtime.non_existent_table"))
-                .failure().hasMessage("ConnectorMetadata getTableHandle() is not implemented");
+                .failure().hasMessageContaining("Table 'system.runtime.non_existent_table' does not exist");
     }
 
     private static void run(int repetitions, double successRate, Runnable test)

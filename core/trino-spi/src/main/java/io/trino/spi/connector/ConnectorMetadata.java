@@ -112,7 +112,11 @@ public interface ConnectorMetadata
             Optional<ConnectorTableVersion> startVersion,
             Optional<ConnectorTableVersion> endVersion)
     {
-        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is not implemented");
+        if (listTables(session, Optional.of(tableName.getSchemaName())).isEmpty()) {
+            // This is a correct default implementation meant primarily for connectors that do not have any tables.
+            return null;
+        }
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata listTables() is implemented without getTableHandle()");
     }
 
     /**

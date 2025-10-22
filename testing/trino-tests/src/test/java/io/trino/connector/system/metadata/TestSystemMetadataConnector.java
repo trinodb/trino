@@ -411,7 +411,7 @@ public class TestSystemMetadataConnector
     public void testNonExistentTable()
     {
         assertThat(query("SELECT * FROM system.metadata.non_existent_table"))
-                .failure().hasMessage("ConnectorMetadata getTableHandle() is not implemented");
+                .failure().hasMessageContaining("Table 'system.metadata.non_existent_table' does not exist");
     }
 
     private void assertMetadataCalls(@Language("SQL") String actualSql, @Language("SQL") String expectedSql, Multiset<String> expectedMetadataCallsCount)
