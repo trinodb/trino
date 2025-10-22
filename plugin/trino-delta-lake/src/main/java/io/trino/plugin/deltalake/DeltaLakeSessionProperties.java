@@ -65,6 +65,7 @@ public final class DeltaLakeSessionProperties
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
     private static final String IDLE_WRITER_MIN_FILE_SIZE = "idle_writer_min_file_size";
     private static final String COMPRESSION_CODEC = "compression_codec";
+    private static final String ENABLE_CLUSTERING_INFO = "enable_clustering_info";
     // This property is not supported by Delta Lake and exists solely for technical reasons.
     @Deprecated
     private static final String TIMESTAMP_PRECISION = "timestamp_precision";
@@ -218,6 +219,11 @@ public final class DeltaLakeSessionProperties
                         },
                         false),
                 booleanProperty(
+                        ENABLE_CLUSTERING_INFO,
+                        "If show clustered columns in table metadata",
+                        deltaLakeConfig.isEnableClusteringInfo(),
+                        false),
+                booleanProperty(
                         PROJECTION_PUSHDOWN_ENABLED,
                         "Read only required fields from a row type",
                         deltaLakeConfig.isProjectionPushdownEnabled(),
@@ -338,6 +344,11 @@ public final class DeltaLakeSessionProperties
     public static HiveCompressionOption getCompressionCodec(ConnectorSession session)
     {
         return session.getProperty(COMPRESSION_CODEC, HiveCompressionOption.class);
+    }
+
+    public static boolean isEnableClusteringInfo(ConnectorSession session)
+    {
+        return session.getProperty(ENABLE_CLUSTERING_INFO, Boolean.class);
     }
 
     public static boolean isProjectionPushdownEnabled(ConnectorSession session)
