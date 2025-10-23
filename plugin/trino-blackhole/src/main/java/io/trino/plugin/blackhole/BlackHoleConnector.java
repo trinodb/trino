@@ -49,6 +49,8 @@ public class BlackHoleConnector
     public static final String DISTRIBUTED_ON = "distributed_on";
     public static final String PAGE_PROCESSING_DELAY = "page_processing_delay";
 
+    // code change
+
     private final BlackHoleMetadata metadata;
     private final BlackHoleSplitManager splitManager;
     private final BlackHolePageSourceProvider pageSourceProvider;
