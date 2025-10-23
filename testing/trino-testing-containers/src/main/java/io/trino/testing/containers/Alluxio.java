@@ -67,9 +67,11 @@ public class Alluxio
                                 + "-Dalluxio.security.authorization.plugins.enabled=false ")
                 .withNetworkMode("host")
                 .withAccessToHost(true)
+                .withStartupAttempts(10)
+                .withStartupTimeout(Duration.ofMinutes(10))
                 .waitingFor(new LogMessageWaitStrategy()
                         .withRegEx(".*Primary started*\n")
-                        .withStartupTimeout(Duration.ofMinutes(5)));
+                        .withStartupTimeout(Duration.ofMinutes(3)));
     }
 
     private static GenericContainer<?> createAlluxioWorkerContainer()
@@ -86,6 +88,8 @@ public class Alluxio
                                 + "-Dalluxio.security.authorization.permission.enabled=false "
                                 + "-Dalluxio.security.authorization.plugins.enabled=false ")
                 .withAccessToHost(true)
+                .withStartupAttempts(10)
+                .withStartupTimeout(Duration.ofMinutes(10))
                 .waitingFor(Wait.forLogMessage(".*Alluxio worker started.*\n", 1));
     }
 }
