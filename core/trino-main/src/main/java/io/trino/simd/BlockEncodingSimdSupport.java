@@ -16,7 +16,6 @@ package io.trino.simd;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import io.trino.FeaturesConfig;
-import io.trino.spi.SimdSupport;
 import io.trino.util.MachineInfo;
 import jdk.incubator.vector.ByteVector;
 import jdk.incubator.vector.IntVector;
@@ -34,9 +33,21 @@ import static java.util.Locale.ENGLISH;
 @Singleton
 public final class BlockEncodingSimdSupport
 {
+    public record SimdSupport(
+            boolean expandAndCompressByte,
+            boolean expandAndCompressShort,
+            boolean expandAndCompressInt,
+            boolean expandAndCompressLong)
+    {
+        public static final SimdSupport NONE = new SimdSupport(false, false, false, false);
+        public static final SimdSupport ALL = new SimdSupport(true, true, true, true);
+    }
+
     public static final int MINIMUM_SIMD_LENGTH = 512;
     private final SimdSupport simdSupport;
     private static final SimdSupport AUTO_DETECTED_SUPPORT = detectSimd();
+
+    public static final BlockEncodingSimdSupport TESTING_BLOCK_ENCODING_SIMD_SUPPORT = new BlockEncodingSimdSupport(true);
 
     @Inject
     public BlockEncodingSimdSupport(
@@ -88,9 +99,14 @@ public final class BlockEncodingSimdSupport
         }
 
         return new SimdSupport(
-                (ByteVector.SPECIES_PREFERRED.vectorBitSize() >= MINIMUM_SIMD_LENGTH) && (x86Flags.contains(X86SimdInstructionSet.avx512vbmi2)),
-                (ShortVector.SPECIES_PREFERRED.vectorBitSize() >= MINIMUM_SIMD_LENGTH) && (x86Flags.contains(X86SimdInstructionSet.avx512vbmi2)),
-                (IntVector.SPECIES_PREFERRED.vectorBitSize() >= MINIMUM_SIMD_LENGTH) && (x86Flags.contains(X86SimdInstructionSet.avx512f)),
-                (LongVector.SPECIES_PREFERRED.vectorBitSize() >= MINIMUM_SIMD_LENGTH) && (x86Flags.contains(X86SimdInstructionSet.avx512f)));
+                (ByteVector.SPECIES_PREFERRED.vectorBitSize() >= MINIMUM_SIMD_LENGTH) && x86Flags.contains(X86SimdInstructionSet.avx512vbmi2),
+                (ShortVector.SPECIES_PREFERRED.vectorBitSize() >= MINIMUM_SIMD_LENGTH) && x86Flags.contains(X86SimdInstructionSet.avx512vbmi2),
+                (IntVector.SPECIES_PREFERRED.vectorBitSize() >= MINIMUM_SIMD_LENGTH) && x86Flags.contains(X86SimdInstructionSet.avx512f),
+                (LongVector.SPECIES_PREFERRED.vectorBitSize() >= MINIMUM_SIMD_LENGTH) && x86Flags.contains(X86SimdInstructionSet.avx512f));
+    }
+
+    public SimdSupport getSimdSupport()
+    {
+        return simdSupport;
     }
 }

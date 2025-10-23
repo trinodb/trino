@@ -27,6 +27,12 @@ public class IntArrayBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "INT_ARRAY";
+    private final boolean enableVectorizedNullSuppression;
+
+    public IntArrayBlockEncoding(boolean enableVectorizedNullSuppression)
+    {
+        this.enableVectorizedNullSuppression = enableVectorizedNullSuppression;
+    }
 
     @Override
     public String getName()
@@ -59,15 +65,12 @@ public class IntArrayBlockEncoding
             sliceOutput.writeInts(rawValues, rawOffset, positionCount);
         }
         else {
-            int[] valuesWithoutNull = new int[positionCount];
-            int nonNullPositionCount = 0;
-            for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = rawValues[i + rawOffset];
-                nonNullPositionCount += isNull[i + rawOffset] ? 0 : 1;
+            if (enableVectorizedNullSuppression) {
+                EncoderUtil.compressIntsWithNullsVectorized(sliceOutput, rawValues, isNull, rawOffset, positionCount);
             }
-
-            sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeInts(valuesWithoutNull, 0, nonNullPositionCount);
+            else {
+                EncoderUtil.compressIntsWithNullsScalar(sliceOutput, rawValues, isNull, rawOffset, positionCount);
+            }
         }
     }
 
