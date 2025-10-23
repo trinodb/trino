@@ -82,6 +82,7 @@ final class TestingResourceGroups
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty(),
                         groupIdTemplate));
     }
 
@@ -113,6 +114,7 @@ final class TestingResourceGroups
                             spec.getQueryType(),
                             spec.getClientTags(),
                             spec.getResourceEstimate(),
+                            spec.isExecuteImmediate(),
                             spec.getGroup()));
         }
 
@@ -128,6 +130,7 @@ final class TestingResourceGroups
                             spec.getQueryType(),
                             spec.getClientTags(),
                             spec.getResourceEstimate(),
+                            spec.isExecuteImmediate(),
                             spec.getGroup()));
         }
 
@@ -143,6 +146,7 @@ final class TestingResourceGroups
                             spec.getQueryType(),
                             spec.getClientTags(),
                             spec.getResourceEstimate(),
+                            spec.isExecuteImmediate(),
                             spec.getGroup()));
         }
 
@@ -158,6 +162,7 @@ final class TestingResourceGroups
                             spec.getQueryType(),
                             spec.getClientTags(),
                             spec.getResourceEstimate(),
+                            spec.isExecuteImmediate(),
                             spec.getGroup()));
         }
     }

@@ -90,7 +90,7 @@ public class TestDbResourceGroupConfigurationManager
         assertEqualsResourceGroup(prodGlobal, "10MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1), "5MB");
         assertThat(manager.getSelectors()).hasSize(1);
         ResourceGroupSelector prodSelector = manager.getSelectors().get(0);
-        ResourceGroupId prodResourceGroupId = prodSelector.match(new SelectionCriteria(true, "prod_user", ImmutableSet.of(), "prod_user", Optional.empty(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty())).get().getResourceGroupId();
+        ResourceGroupId prodResourceGroupId = prodSelector.match(new SelectionCriteria(true, "prod_user", ImmutableSet.of(), "prod_user", Optional.empty(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty(), false)).get().getResourceGroupId();
         assertThat(prodResourceGroupId.toString()).isEqualTo("prod_global");
 
         // check the dev configuration
@@ -101,7 +101,7 @@ public class TestDbResourceGroupConfigurationManager
         assertEqualsResourceGroup(devGlobal, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1), "5MB");
         assertThat(manager.getSelectors()).hasSize(1);
         ResourceGroupSelector devSelector = manager.getSelectors().get(0);
-        ResourceGroupId devResourceGroupId = devSelector.match(new SelectionCriteria(true, "dev_user", ImmutableSet.of(), "dev_user", Optional.empty(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty())).get().getResourceGroupId();
+        ResourceGroupId devResourceGroupId = devSelector.match(new SelectionCriteria(true, "dev_user", ImmutableSet.of(), "dev_user", Optional.empty(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty(), false)).get().getResourceGroupId();
         assertThat(devResourceGroupId.toString()).isEqualTo("dev_global");
     }
 
@@ -516,7 +516,7 @@ public class TestDbResourceGroupConfigurationManager
 
     private static SelectionCriteria userGroupsSelectionCriteria(String... groups)
     {
-        return new SelectionCriteria(true, "test_user", ImmutableSet.copyOf(groups), "test_user", Optional.empty(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
+        return new SelectionCriteria(true, "test_user", ImmutableSet.copyOf(groups), "test_user", Optional.empty(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty(), false);
     }
 
     private static SelectionCriteria userAndUserGroupsSelectionCriteria(String user, String group, String... groups)
@@ -532,11 +532,12 @@ public class TestDbResourceGroupConfigurationManager
                 Optional.empty(),
                 ImmutableSet.of(),
                 EMPTY_RESOURCE_ESTIMATES,
-                Optional.empty());
+                Optional.empty(),
+                false);
     }
 
     private static SelectionCriteria identitySelectionCriteria(String user, String originalUser, Optional<String> authenticatedUser)
     {
-        return new SelectionCriteria(true, user, ImmutableSet.of(), originalUser, authenticatedUser, Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
+        return new SelectionCriteria(true, user, ImmutableSet.of(), originalUser, authenticatedUser, Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty(), false);
     }
 }

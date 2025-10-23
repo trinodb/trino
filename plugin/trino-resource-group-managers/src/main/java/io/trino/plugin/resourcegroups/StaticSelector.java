@@ -54,6 +54,7 @@ public class StaticSelector
             Optional<List<String>> clientTags,
             Optional<SelectorResourceEstimate> selectorResourceEstimate,
             Optional<String> queryType,
+            Optional<Boolean> isExecuteImmediate,
             ResourceGroupIdTemplate group)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
@@ -64,6 +65,7 @@ public class StaticSelector
         requireNonNull(clientTags, "clientTags is null");
         requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
         requireNonNull(queryType, "queryType is null");
+        requireNonNull(isExecuteImmediate, "isExecuteImmediate is null");
         this.group = requireNonNull(group, "group is null");
 
         HashSet<String> variableNames = new HashSet<>(ImmutableList.of(USER_VARIABLE, SOURCE_VARIABLE));
@@ -92,6 +94,8 @@ public class StaticSelector
                             new BasicMatcher(criteria -> selectorResourceEstimateValue.match(criteria.getResourceEstimates()))))
                 .add(clientTags.map(clientTagsValue ->
                             new BasicMatcher(criteria -> criteria.getTags().containsAll(clientTagsValue))))
+                .add(isExecuteImmediate.map(isExecuteImmediateValue ->
+                        new BasicMatcher(criteria -> isExecuteImmediateValue == criteria.isExecuteImmediate())))
                 .build()
                 .stream()
                 .flatMap(Optional::stream) // remove any empty optionals
