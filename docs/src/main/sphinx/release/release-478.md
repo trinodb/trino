@@ -13,8 +13,7 @@
 * Improve performance of queries with joins which spill to disk. ({issue}`26076`)
 * Fix potential incorrect results when reading `row` type. ({issue}`26806`)
 * Return all catalogs, including uninitialized ones, for queries from `metadata.catalogs`. ({issue}`26918`)
-* Ensure that queries with and without `EXPLAIN ANALYZE` are planned identically.
-  way. ({issue}`26938`)
+* Ensure that queries with and without `EXPLAIN ANALYZE` are planned identically. ({issue}`26938`)
 * In row pattern matching, restrict logical navigations to current match in running semantics. ({issue}`26981`)
 
 ## Security
