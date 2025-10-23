@@ -5,9 +5,6 @@ on:
     branches:
       - master
   pull_request:
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
   repository_dispatch:
     types: [test-with-secrets-command]
 
