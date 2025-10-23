@@ -124,12 +124,12 @@ final class TestIcebergAddFilesProcedure
         String hiveTableName = "test_add_files_" + randomNameSuffix();
         String icebergTableName = "test_add_files_" + randomNameSuffix();
 
-        assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " WITH (format = '" + icebergFormat + "') AS SELECT 1 x", 1);
-        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (format = '" + hiveFormat + "') AS SELECT 2 x", 1);
+        assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " WITH (format = '" + icebergFormat + "') AS SELECT 1 x, 2 y", 1);
+        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (format = '" + hiveFormat + "') AS SELECT 3 x, 4 y", 1);
 
         assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "')");
 
-        assertQuery("SELECT * FROM " + icebergTableName, "VALUES 1, 2");
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1, 2), (3, 4)");
 
         assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
         assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);

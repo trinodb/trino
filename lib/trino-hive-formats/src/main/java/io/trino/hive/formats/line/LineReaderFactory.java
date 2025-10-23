@@ -13,6 +13,8 @@
  */
 package io.trino.hive.formats.line;
 
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 
 import java.io.IOException;
@@ -31,4 +33,10 @@ public interface LineReaderFactory
             int headerCount,
             int footerCount)
             throws IOException;
+
+    TrinoInputFile newInputFile(
+            TrinoFileSystem trinoFileSystem,
+            Location path,
+            long estimatedFileSize,
+            long fileModifiedTime);
 }

@@ -739,7 +739,7 @@ class RelationPlanner
         }
 
         Set<IrLabel> skipToLabels = skipTo.flatMap(SkipTo::getIdentifier)
-                .map(Identifier::getValue)
+                .map(analysis::getResolvedLabel)
                 .map(label -> rewrittenSubsets.getOrDefault(new IrLabel(label), ImmutableSet.of(new IrLabel(label))))
                 .orElse(ImmutableSet.of());
 

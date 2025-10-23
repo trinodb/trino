@@ -22,6 +22,7 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.context.Context;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CachingTableStatsProvider;
@@ -46,7 +47,6 @@ import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -489,7 +489,7 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogHandle, tableMetadata);
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogHandle, tableMetadata, create.isReplace());
 
         return createTableWriterPlan(
                 analysis,
@@ -600,7 +600,7 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, tableHandle.catalogHandle(), tableMetadata.metadata());
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, tableHandle.catalogHandle(), tableMetadata.metadata(), false);
 
         if (materializedViewRefreshWriterTarget.isPresent()) {
             RefreshType refreshType = IncrementalRefreshVisitor.canIncrementallyRefresh(plan.getRoot());
@@ -966,7 +966,9 @@ public class LogicalPlanner
         if (!analysis.isTableExecuteReadsData()) {
             SimpleTableExecuteNode node = new SimpleTableExecuteNode(
                     idAllocator.getNextId(),
-                    symbolAllocator.newSymbol("rows", BIGINT),
+                    ImmutableList.of(
+                            symbolAllocator.newSymbol("metricName", VARCHAR),
+                            symbolAllocator.newSymbol("metricValue", BIGINT)),
                     executeHandle);
             return new RelationPlan(node, analysis.getRootScope(), node.getOutputSymbols(), Optional.empty());
         }

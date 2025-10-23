@@ -66,6 +66,7 @@ public class TestFeaturesConfig
                 .setHideInaccessibleColumns(false)
                 .setForceSpillingJoin(false)
                 .setColumnarFilterEvaluationEnabled(true)
+                .setLegacyArithmeticDecimalOperators(false)
                 .setFaultTolerantExecutionExchangeEncryptionEnabled(true));
     }
 
@@ -100,6 +101,7 @@ public class TestFeaturesConfig
                 .put("hide-inaccessible-columns", "true")
                 .put("force-spilling-join-operator", "true")
                 .put("experimental.columnar-filter-evaluation.enabled", "false")
+                .put("deprecated.legacy-arithmetic-decimal-operators", "true")
                 .put("fault-tolerant-execution-exchange-encryption-enabled", "false")
                 .buildOrThrow();
 
@@ -131,6 +133,7 @@ public class TestFeaturesConfig
                 .setHideInaccessibleColumns(true)
                 .setForceSpillingJoin(true)
                 .setColumnarFilterEvaluationEnabled(false)
+                .setLegacyArithmeticDecimalOperators(true)
                 .setFaultTolerantExecutionExchangeEncryptionEnabled(false);
         assertFullMapping(properties, expected);
     }

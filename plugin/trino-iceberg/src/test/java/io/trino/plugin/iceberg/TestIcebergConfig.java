@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionOption;
 import jakarta.validation.constraints.AssertFalse;
+import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -47,7 +48,7 @@ public class TestIcebergConfig
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
                 .setFileFormat(PARQUET)
                 .setCompressionCodec(ZSTD)
-                .setMaxCommitRetry(4)
+                .setMaxCommitRetry(null)
                 .setUseFileSizeFromMetadata(true)
                 .setMaxPartitionsPerWriter(100)
                 .setUniqueTableLocation(true)
@@ -70,6 +71,7 @@ public class TestIcebergConfig
                 .setRegisterTableProcedureEnabled(false)
                 .setAddFilesProcedureEnabled(false)
                 .setSortedWritingEnabled(true)
+                .setSortedWritingLocalStagingPath(null)
                 .setQueryPartitionFilterRequired(false)
                 .setQueryPartitionFilterRequiredSchemas(ImmutableSet.of())
                 .setSplitManagerThreads(Integer.toString(Math.min(Runtime.getRuntime().availableProcessors() * 2, 32)))
@@ -114,6 +116,7 @@ public class TestIcebergConfig
                 .put("iceberg.register-table-procedure.enabled", "true")
                 .put("iceberg.add-files-procedure.enabled", "true")
                 .put("iceberg.sorted-writing-enabled", "false")
+                .put("iceberg.sorted-writing.local-staging-path", "/tmp/trino")
                 .put("iceberg.query-partition-filter-required", "true")
                 .put("iceberg.query-partition-filter-required-schemas", "bronze,silver")
                 .put("iceberg.split-manager-threads", "42")
@@ -154,6 +157,7 @@ public class TestIcebergConfig
                 .setRegisterTableProcedureEnabled(true)
                 .setAddFilesProcedureEnabled(true)
                 .setSortedWritingEnabled(false)
+                .setSortedWritingLocalStagingPath("/tmp/trino")
                 .setQueryPartitionFilterRequired(true)
                 .setQueryPartitionFilterRequiredSchemas(ImmutableSet.of("bronze", "silver"))
                 .setSplitManagerThreads("42")
@@ -181,5 +185,12 @@ public class TestIcebergConfig
                 "storageSchemaSetWhenHidingIsEnabled",
                 "iceberg.materialized-views.storage-schema may only be set when iceberg.materialized-views.hide-storage-table is set to false",
                 AssertFalse.class);
+
+        assertFailsValidation(
+                new IcebergConfig()
+                        .setSortedWritingLocalStagingPath("s3://bucket/path"),
+                "sortedWritingLocalStagingPathValid",
+                "iceberg.sorted-writing.local-staging-path must not use any prefix other than file:// or local://",
+                AssertTrue.class);
     }
 }

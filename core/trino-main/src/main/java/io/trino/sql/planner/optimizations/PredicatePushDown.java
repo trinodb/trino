@@ -296,7 +296,7 @@ public class PredicatePushDown
                     .collect(Collectors.partitioningBy(expression -> isInliningCandidate(expression, node)));
 
             List<Expression> inlinedDeterministicConjuncts = inlineConjuncts.get(true).stream()
-                    .map(entry -> inlineSymbols(node.getAssignments().getMap(), entry))
+                    .map(entry -> inlineSymbols(node.getAssignments().assignments(), entry))
                     .map(conjunct -> canonicalizeExpression(conjunct, plannerContext)) // normalize expressions to a form that unwrapCasts understands
                     .map(conjunct -> unwrapCasts(session, plannerContext, conjunct))
                     .collect(Collectors.toList());

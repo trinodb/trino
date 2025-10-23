@@ -51,7 +51,7 @@ public class TestSmallintArrayType
         Block block = (Block) value;
         BlockBuilder blockBuilder = SMALLINT.createFixedSizeBlockBuilder(block.getPositionCount() + 1);
         for (int i = 0; i < block.getPositionCount(); i++) {
-            SMALLINT.appendTo(block, i, blockBuilder);
+            blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(i));
         }
         SMALLINT.writeLong(blockBuilder, 1L);
 

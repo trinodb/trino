@@ -16,7 +16,7 @@ import {
     Box,
     Button,
     Checkbox,
-    Grid2 as Grid,
+    Grid,
     Link,
     Paper,
     Stack,

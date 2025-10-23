@@ -48,7 +48,7 @@ public class FakerConnectorFactory
         requireNonNull(context, "context is null");
         checkStrictSpiVersionMatch(context, this);
 
-        Bootstrap app = new Bootstrap(new FakerModule(context.getTypeManager()));
+        Bootstrap app = new Bootstrap("io.trino.bootstrap.catalog." + catalogName, new FakerModule(context.getTypeManager()));
 
         Injector injector = app
                 .doNotInitializeLogging()

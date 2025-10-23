@@ -13,7 +13,7 @@
  */
 package io.trino.metadata;
 
-import io.trino.spi.connector.CatalogHandle;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;

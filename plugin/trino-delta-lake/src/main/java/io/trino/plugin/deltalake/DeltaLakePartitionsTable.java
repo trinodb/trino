@@ -15,7 +15,9 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -80,9 +82,11 @@ public class DeltaLakePartitionsTable
     private final List<DeltaLakeColumnHandle> regularColumns;
     private final Optional<RowType> dataColumnType;
     private final List<RowType> columnMetricTypes;
+    private final VendedCredentialsHandle credentialsHandle;
 
     public DeltaLakePartitionsTable(
             ConnectorSession session,
+            DeltaLakeFileSystemFactory fileSystemFactory,
             DeltaMetastoreTable table,
             TransactionLogAccess transactionLogAccess,
             TypeManager typeManager)
@@ -98,8 +102,9 @@ public class DeltaLakePartitionsTable
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting snapshot from location: " + table.location(), e);
         }
 
-        this.metadataEntry = transactionLogAccess.getMetadataEntry(session, tableSnapshot);
-        this.protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, table);
+        this.metadataEntry = transactionLogAccess.getMetadataEntry(session, fileSystem, tableSnapshot);
+        this.protocolEntry = transactionLogAccess.getProtocolEntry(session, fileSystem, tableSnapshot);
         this.schema = extractSchema(metadataEntry, protocolEntry, typeManager);
 
         this.partitionColumns = getPartitionColumns();
@@ -133,6 +138,7 @@ public class DeltaLakePartitionsTable
         }
 
         this.tableMetadata = new ConnectorTableMetadata(table.schemaTableName(), columnMetadataBuilder.build());
+        this.credentialsHandle = VendedCredentialsHandle.of(table);
     }
 
     @Override
@@ -162,7 +168,7 @@ public class DeltaLakePartitionsTable
         PageListBuilder pageListBuilder = PageListBuilder.forTable(tableMetadata);
 
         Map<Map<String, Optional<String>>, DeltaLakePartitionStatistics> statisticsByPartition;
-        try (Stream<AddFileEntry> activeFiles = transactionLogAccess.loadActiveFiles(session, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+        try (Stream<AddFileEntry> activeFiles = transactionLogAccess.loadActiveFiles(session, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue(), credentialsHandle)) {
             statisticsByPartition = getStatisticsByPartition(activeFiles);
         }
 

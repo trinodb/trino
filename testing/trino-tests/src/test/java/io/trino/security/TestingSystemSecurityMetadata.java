@@ -20,6 +20,7 @@ import io.trino.metadata.QualifiedObjectPrefix;
 import io.trino.metadata.QualifiedSchemaPrefix;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.SystemSecurityMetadata;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.EntityKindAndName;
@@ -271,6 +272,12 @@ class TestingSystemSecurityMetadata
                                 .collect(toImmutableSet()))
                         .build());
     }
+
+    @Override
+    public void catalogCreated(Session session, CatalogName catalog) {}
+
+    @Override
+    public void catalogDropped(Session session, CatalogName catalog) {}
 
     @Override
     public void functionCreated(Session session, CatalogSchemaFunctionName function)

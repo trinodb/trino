@@ -42,6 +42,7 @@ public class MemoryConnectorFactory
 
         // A plugin is not required to use Guice; it is just very convenient
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.catalog." + catalogName,
                 new JsonModule(),
                 new MemoryModule(context.getTypeManager(), context.getCurrentNode(), context.getNodeManager()));
 

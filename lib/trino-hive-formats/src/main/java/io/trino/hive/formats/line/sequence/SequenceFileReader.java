@@ -32,6 +32,7 @@ import io.trino.hive.formats.line.LineReader;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -43,6 +44,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.hive.formats.ReadWriteUtils.findFirstSyncPosition;
 import static io.trino.hive.formats.ReadWriteUtils.readVInt;
 import static io.trino.hive.formats.compression.CompressionKind.LZOP;
+import static io.trino.hive.formats.line.sequence.ValueType.TEXT;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -108,7 +110,9 @@ public final class SequenceFileReader
 
             keyClassName = readLengthPrefixedString(input).toStringUtf8();
             valueClassName = readLengthPrefixedString(input).toStringUtf8();
-            verify("org.apache.hadoop.io.Text".equals(valueClassName), "Sequence File %s value class %s is not supported", location, valueClassName);
+
+            ValueType valueType = Arrays.stream(ValueType.values()).filter(v -> v.getClassName().equals(valueClassName)).findFirst().orElse(null);
+            verify(valueType != null, "Sequence File %s value class %s is not supported", location, valueClassName);
             compressed = input.readBoolean();
 
             // block compression not supported yet
@@ -158,10 +162,10 @@ public final class SequenceFileReader
             }
 
             if (blockCompression) {
-                valueReader = new BlockCompressedValueReader(location, fileSize, input, decompressor, end, syncFirst, syncSecond);
+                valueReader = new BlockCompressedValueReader(location, fileSize, input, decompressor, end, syncFirst, syncSecond, valueType);
             }
             else {
-                valueReader = new SingleValueReader(location, fileSize, input, decompressor, end, syncFirst, syncSecond);
+                valueReader = new SingleValueReader(location, fileSize, input, decompressor, end, syncFirst, syncSecond, valueType);
             }
         }
         catch (Throwable e) {
@@ -292,6 +296,7 @@ public final class SequenceFileReader
 
         private final DynamicSliceOutput compressedBuffer = new DynamicSliceOutput(0);
         private final DynamicSliceOutput uncompressedBuffer = new DynamicSliceOutput(0);
+        private final ValueType valueType;
 
         public SingleValueReader(
                 Location location,
@@ -300,7 +305,8 @@ public final class SequenceFileReader
                 ValueDecompressor decompressor,
                 long end,
                 long syncFirst,
-                long syncSecond)
+                long syncSecond,
+                ValueType valueType)
         {
             this.location = requireNonNull(location, "location is null");
             this.fileSize = fileSize;
@@ -309,6 +315,7 @@ public final class SequenceFileReader
             this.end = end;
             this.syncFirst = syncFirst;
             this.syncSecond = syncSecond;
+            this.valueType = valueType;
         }
 
         @Override
@@ -363,10 +370,9 @@ public final class SequenceFileReader
 
             int compressedValueLength = recordLength - keyLength;
             if (decompressor == null) {
-                // NOTE: this length is not part of the SequenceFile specification, and instead comes from Text readFields
                 long expectedValueEnd = input.getPos() + compressedValueLength;
-                int textLength = toIntExact(readVInt(input));
-                input.readFully(lineBuffer, textLength);
+                int length = valueType.readLengthField(input);
+                input.readFully(lineBuffer, length);
                 // verify all value bytes were consumed
                 verify(expectedValueEnd == input.getPos(), "Raw value larger than text value");
                 return true;
@@ -379,10 +385,9 @@ public final class SequenceFileReader
             uncompressedBuffer.reset();
             decompressor.decompress(compressed, uncompressedBuffer);
 
-            // NOTE: this length is not part of the SequenceFile specification, and instead comes from Text readFields
             SliceInput uncompressed = uncompressedBuffer.slice().getInput();
-            int textLength = toIntExact(readVInt(uncompressed));
-            lineBuffer.write(uncompressed, textLength);
+            int length = valueType.readLengthField(uncompressed);
+            lineBuffer.write(uncompressed, length);
             // verify all value bytes were consumed
             verify(uncompressed.available() == 0, "Raw value larger than text value");
             return true;
@@ -401,6 +406,7 @@ public final class SequenceFileReader
 
         private final long syncFirst;
         private final long syncSecond;
+        private final ValueType valueType;
 
         private final ReadBuffer valueBuffer;
         private final ReadBuffer lengthsBuffer;
@@ -414,7 +420,8 @@ public final class SequenceFileReader
                 ValueDecompressor decompressor,
                 long end,
                 long syncFirst,
-                long syncSecond)
+                long syncSecond,
+                ValueType valueType)
         {
             this.location = requireNonNull(location, "location is null");
             this.fileSize = fileSize;
@@ -423,6 +430,7 @@ public final class SequenceFileReader
             this.end = end;
             this.syncFirst = syncFirst;
             this.syncSecond = syncSecond;
+            this.valueType = valueType;
 
             this.valueBuffer = new ReadBuffer(input, decompressor);
             this.lengthsBuffer = new ReadBuffer(input, decompressor);
@@ -485,7 +493,7 @@ public final class SequenceFileReader
             int valueLength = readVIntLength("values");
             Slice values = valueBuffer.readBlock(valueLength);
 
-            valuesBlock = new ValuesBlock(blockRecordCount, valueLengths.getInput(), values.getInput());
+            valuesBlock = new ValuesBlock(blockRecordCount, valueLengths.getInput(), values.getInput(), valueType);
             return valuesBlock.readLine(lineBuffer);
         }
 
@@ -501,18 +509,20 @@ public final class SequenceFileReader
         {
             private static final int INSTANCE_SIZE = instanceSize(ValuesBlock.class);
 
-            public static final ValuesBlock EMPTY_VALUES_BLOCK = new ValuesBlock(0, EMPTY_SLICE.getInput(), EMPTY_SLICE.getInput());
+            public static final ValuesBlock EMPTY_VALUES_BLOCK = new ValuesBlock(0, EMPTY_SLICE.getInput(), EMPTY_SLICE.getInput(), TEXT);
 
             private final SliceInput lengthsInput;
             private final SliceInput dataInput;
+            private final ValueType valueType;
             private int remainingRows;
 
-            public ValuesBlock(int rowCount, SliceInput lengthsInput, SliceInput dataInput)
+            public ValuesBlock(int rowCount, SliceInput lengthsInput, SliceInput dataInput, ValueType valueType)
             {
                 checkArgument(rowCount >= 0, "rowCount is negative");
                 this.remainingRows = rowCount;
                 this.lengthsInput = requireNonNull(lengthsInput, "lengthsInput is null");
                 this.dataInput = requireNonNull(dataInput, "dataInput is null");
+                this.valueType = requireNonNull(valueType, "valueType is null");
             }
 
             public long getRetainedSize()
@@ -530,11 +540,10 @@ public final class SequenceFileReader
 
                 int valueLength = toIntExact(readVInt(lengthsInput));
                 verify(valueLength >= 0, "Value length is negative");
-                // NOTE: this length is not part of the SequenceFile specification, and instead comes from Text readFields
                 long expectedValueEnd = dataInput.position() + valueLength;
-                int textLength = (int) readVInt(dataInput);
-                verify(textLength >= 0 && textLength <= valueLength, "Invalid text length: %s", textLength);
-                lineBuffer.write(dataInput, textLength);
+                int length = valueType.readLengthField(dataInput);
+                verify(length >= 0 && length <= valueLength, "Invalid text length: %s", length);
+                lineBuffer.write(dataInput, length);
                 // verify all value bytes were consumed
                 verify(expectedValueEnd == dataInput.position(), "Raw value larger than text value");
                 return true;

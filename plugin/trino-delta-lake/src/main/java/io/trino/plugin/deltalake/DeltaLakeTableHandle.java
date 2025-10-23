@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.spi.connector.SchemaTableName;
@@ -241,6 +242,12 @@ public class DeltaLakeTableHandle
     public String location()
     {
         return getLocation();
+    }
+
+    @Override
+    public VendedCredentialsHandle toCredentialsHandle()
+    {
+        return new VendedCredentialsHandle(false, managed, location, Optional.empty());
     }
 
     @JsonProperty

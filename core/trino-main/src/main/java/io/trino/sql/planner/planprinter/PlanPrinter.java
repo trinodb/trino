@@ -428,7 +428,7 @@ public class PlanPrinter
             Anonymizer anonymizer,
             NodeVersion version)
     {
-        return textDistributedPlan(stages.getStages(), queryStats, valuePrinter, verbose, anonymizer, version);
+        return textDistributedPlan(stages.getSubStagesDeepTopological(stages.getOutputStageId(), true), queryStats, valuePrinter, verbose, anonymizer, version);
     }
 
     public static String textDistributedPlan(
@@ -618,7 +618,7 @@ public class PlanPrinter
 
         Map<PlanNodeId, Long> getSplitsTotalTimeNanos = stageInfo.map(info -> info.getStageStats().getGetSplitDistribution()
                         .entrySet().stream()
-                        .collect(toImmutableMap(Entry::getKey, entry -> (long) entry.getValue().getTotal())))
+                        .collect(toImmutableMap(Entry::getKey, entry -> (long) entry.getValue().total())))
                 .orElse(ImmutableMap.of());
         Map<PlanNodeId, Metrics> splitSourceMetrics = stageInfo.map(info -> info.getStageStats().getSplitSourceMetrics())
                 .orElse(ImmutableMap.of());
@@ -2007,7 +2007,7 @@ public class PlanPrinter
 
         private void printAssignments(NodeRepresentation nodeOutput, Assignments assignments)
         {
-            for (Entry<Symbol, Expression> entry : assignments.getMap().entrySet()) {
+            for (Entry<Symbol, Expression> entry : assignments.assignments().entrySet()) {
                 if (entry.getValue() instanceof Reference && ((Reference) entry.getValue()).name().equals(entry.getKey().name())) {
                     // skip identity assignments
                     continue;

@@ -14,6 +14,7 @@
 package io.trino.plugin.tpch;
 
 import com.google.inject.Inject;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -28,14 +29,16 @@ import static java.util.Objects.requireNonNull;
 public class TpchConnector
         implements Connector
 {
+    private final LifeCycleManager lifeCycleManager;
     private final ConnectorMetadata metadata;
     private final ConnectorSplitManager splitManager;
     private final ConnectorNodePartitioningProvider nodePartitioningProvider;
     private final ConnectorPageSourceProvider pageSourceProvider;
 
     @Inject
-    public TpchConnector(ConnectorMetadata metadata, ConnectorSplitManager splitManager, ConnectorNodePartitioningProvider nodePartitioningProvider, ConnectorPageSourceProvider pageSourceProvider)
+    public TpchConnector(LifeCycleManager lifeCycleManager, ConnectorMetadata metadata, ConnectorSplitManager splitManager, ConnectorNodePartitioningProvider nodePartitioningProvider, ConnectorPageSourceProvider pageSourceProvider)
     {
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
@@ -70,5 +73,11 @@ public class TpchConnector
     public ConnectorNodePartitioningProvider getNodePartitioningProvider()
     {
         return nodePartitioningProvider;
+    }
+
+    @Override
+    public void shutdown()
+    {
+        lifeCycleManager.stop();
     }
 }

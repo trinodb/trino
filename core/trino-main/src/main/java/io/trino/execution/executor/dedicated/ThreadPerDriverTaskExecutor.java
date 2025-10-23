@@ -143,10 +143,12 @@ public class ThreadPerDriverTaskExecutor
     }
 
     @Override
-    public synchronized void removeTask(TaskHandle handle)
+    public void removeTask(TaskHandle handle)
     {
         TaskEntry entry = (TaskEntry) handle;
-        tasks.remove(entry.taskId());
+        synchronized (this) {
+            tasks.remove(entry.taskId());
+        }
         if (!entry.isDestroyed()) {
             entry.destroy();
         }

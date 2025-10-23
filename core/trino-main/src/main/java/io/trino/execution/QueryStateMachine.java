@@ -46,6 +46,7 @@ import io.trino.server.ResultQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.TrinoWarning;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.eventlistener.TableInfo;
@@ -92,6 +93,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isSpoolingEnabled;
+import static io.trino.SystemSessionProperties.isSpoolingUnsupportedWarningEnabled;
 import static io.trino.execution.BasicStageStats.EMPTY_STAGE_STATS;
 import static io.trino.execution.QueryState.DISPATCHING;
 import static io.trino.execution.QueryState.FAILED;
@@ -108,6 +110,7 @@ import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
+import static io.trino.spi.connector.StandardWarningCode.SPOOLING_NOT_SUPPORTED;
 import static io.trino.spi.resourcegroups.QueryType.SELECT;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static io.trino.util.Ciphers.serializeAesEncryptionKey;
@@ -317,13 +320,20 @@ public class QueryStateMachine
             session = session.withExchangeEncryption(serializeAesEncryptionKey(createRandomAesEncryptionKey()));
         }
 
-        if (!queryType.map(SELECT::equals).orElse(false) || !isSpoolingEnabled(session)) {
+        boolean isSelectQuery = queryType.map(SELECT::equals).orElse(false);
+
+        if (!isSelectQuery || !isSpoolingEnabled(session)) {
             session = session.withoutSpooling();
         }
 
         // Apply WITH SESSION properties which require transaction to be started to resolve catalog handles
         if (sessionPropertiesApplier.isPresent()) {
             session = sessionPropertiesApplier.orElseThrow().apply(session);
+        }
+
+        // This needs to be applied after the WITH SESSION properties are applied
+        if (isSelectQuery && isSpoolingEnabled(session) && isSpoolingUnsupportedWarningEnabled(session) && session.getQueryDataEncoding().isEmpty()) {
+            warningCollector.add(new TrinoWarning(SPOOLING_NOT_SUPPORTED, "The server supports the spooling protocol but the current client connection is not using it. Switch to the spooling protocol and/or upgrade your client library for improved performance."));
         }
 
         Span querySpan = session.getQuerySpan();
@@ -439,15 +449,27 @@ public class QueryStateMachine
             long taskRevocableMemoryInBytes,
             long taskTotalMemoryInBytes)
     {
-        currentUserMemory.addAndGet(deltaUserMemoryInBytes);
-        currentRevocableMemory.addAndGet(deltaRevocableMemoryInBytes);
-        currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
-        peakUserMemory.updateAndGet(currentPeakValue -> Math.max(currentUserMemory.get(), currentPeakValue));
-        peakRevocableMemory.updateAndGet(currentPeakValue -> Math.max(currentRevocableMemory.get(), currentPeakValue));
-        peakTotalMemory.updateAndGet(currentPeakValue -> Math.max(currentTotalMemory.get(), currentPeakValue));
-        peakTaskUserMemory.accumulateAndGet(taskUserMemoryInBytes, Math::max);
-        peakTaskRevocableMemory.accumulateAndGet(taskRevocableMemoryInBytes, Math::max);
-        peakTaskTotalMemory.accumulateAndGet(taskTotalMemoryInBytes, Math::max);
+        long currentUserMemory = this.currentUserMemory.addAndGet(deltaUserMemoryInBytes);
+        long currentRevocableMemory = this.currentRevocableMemory.addAndGet(deltaRevocableMemoryInBytes);
+        long currentTotalMemory = this.currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
+        if (currentUserMemory > peakUserMemory.get()) {
+            peakUserMemory.accumulateAndGet(currentUserMemory, Math::max);
+        }
+        if (currentRevocableMemory > peakRevocableMemory.get()) {
+            peakRevocableMemory.accumulateAndGet(currentRevocableMemory, Math::max);
+        }
+        if (currentTotalMemory > peakTotalMemory.get()) {
+            peakTotalMemory.accumulateAndGet(currentTotalMemory, Math::max);
+        }
+        if (taskUserMemoryInBytes > peakTaskUserMemory.get()) {
+            peakTaskUserMemory.accumulateAndGet(taskUserMemoryInBytes, Math::max);
+        }
+        if (taskRevocableMemoryInBytes > peakTaskRevocableMemory.get()) {
+            peakTaskRevocableMemory.accumulateAndGet(taskRevocableMemoryInBytes, Math::max);
+        }
+        if (taskTotalMemoryInBytes > peakTaskTotalMemory.get()) {
+            peakTaskTotalMemory.accumulateAndGet(taskTotalMemoryInBytes, Math::max);
+        }
     }
 
     public BasicQueryInfo getBasicQueryInfo(Optional<BasicStageStats> rootStage)
@@ -556,8 +578,7 @@ public class QueryStateMachine
                 stageStats.getCompletedDrivers(),
                 stageStats.getBlockedDrivers(),
 
-                stageStats.getRawInputDataSize(),
-                stageStats.getRawInputPositions(),
+                stageStats.getProcessedInputPositions(),
                 stageStats.getSpilledDataSize(),
                 stageStats.getPhysicalInputDataSize(),
                 stageStats.getPhysicalWrittenDataSize(),
@@ -689,11 +710,6 @@ public class QueryStateMachine
         long internalNetworkInputPositions = 0;
         long failedInternalNetworkInputPositions = 0;
 
-        long rawInputDataSize = 0;
-        long failedRawInputDataSize = 0;
-        long rawInputPositions = 0;
-        long failedRawInputPositions = 0;
-
         long processedInputDataSize = 0;
         long failedProcessedInputDataSize = 0;
         long processedInputPositions = 0;
@@ -762,11 +778,6 @@ public class QueryStateMachine
 
             PlanFragment plan = stageInfo.getPlan();
             if (plan != null && plan.containsTableScanNode()) {
-                rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
-                failedRawInputDataSize += stageStats.getFailedRawInputDataSize().toBytes();
-                rawInputPositions += stageStats.getRawInputPositions();
-                failedRawInputPositions += stageStats.getFailedRawInputPositions();
-
                 processedInputDataSize += stageStats.getProcessedInputDataSize().toBytes();
                 failedProcessedInputDataSize += stageStats.getFailedProcessedInputDataSize().toBytes();
                 processedInputPositions += stageStats.getProcessedInputPositions();
@@ -916,10 +927,6 @@ public class QueryStateMachine
                 succinctBytes(failedInternalNetworkInputDataSize),
                 internalNetworkInputPositions,
                 failedInternalNetworkInputPositions,
-                succinctBytes(rawInputDataSize),
-                succinctBytes(failedRawInputDataSize),
-                rawInputPositions,
-                failedRawInputPositions,
                 succinctBytes(processedInputDataSize),
                 succinctBytes(failedProcessedInputDataSize),
                 processedInputPositions,
@@ -1538,10 +1545,6 @@ public class QueryStateMachine
                 queryStats.getFailedInternalNetworkInputDataSize(),
                 queryStats.getInternalNetworkInputPositions(),
                 queryStats.getFailedInternalNetworkInputPositions(),
-                queryStats.getRawInputDataSize(),
-                queryStats.getFailedRawInputDataSize(),
-                queryStats.getRawInputPositions(),
-                queryStats.getFailedRawInputPositions(),
                 queryStats.getProcessedInputDataSize(),
                 queryStats.getFailedProcessedInputDataSize(),
                 queryStats.getProcessedInputPositions(),

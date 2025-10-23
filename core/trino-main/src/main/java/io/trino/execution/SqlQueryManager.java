@@ -176,7 +176,7 @@ public class SqlQueryManager
     @Override
     public void outputTaskFailed(TaskId taskId, Throwable failure)
     {
-        queryTracker.getQuery(taskId.getQueryId()).outputTaskFailed(taskId, failure);
+        queryTracker.getQuery(taskId.queryId()).outputTaskFailed(taskId, failure);
     }
 
     @Override
@@ -311,7 +311,7 @@ public class SqlQueryManager
 
         log.debug("Cancel stage %s", stageId);
 
-        queryTracker.tryGetQuery(stageId.getQueryId())
+        queryTracker.tryGetQuery(stageId.queryId())
                 .ifPresent(query -> query.cancelStage(stageId));
     }
 

@@ -53,6 +53,7 @@ export const Texts = {
             Settings: 'Settings',
             Profile: 'Profile',
             Logout: 'Logout',
+            ClassicUi: 'Classic UI',
         },
         Drawer: {
             Dashboard: 'Dashboard',
@@ -67,7 +68,7 @@ export const Texts = {
         Filter: {
             Search: 'Search',
             SearchPlaceholder:
-                'User, source, query ID, query state, resource group, error name, query text or client tags',
+                'User, source, query ID, state, resource group, error name, query text, client tags or trace token',
             State: 'State',
             Type: {
                 RUNNING: 'Running',

@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -73,9 +72,6 @@ public class PipelineStats
 
     private final DataSize internalNetworkInputDataSize;
     private final long internalNetworkInputPositions;
-
-    private final DataSize rawInputDataSize;
-    private final long rawInputPositions;
 
     private final DataSize processedInputDataSize;
     private final long processedInputPositions;
@@ -133,9 +129,6 @@ public class PipelineStats
 
             @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
             @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
-
-            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
-            @JsonProperty("rawInputPositions") long rawInputPositions,
 
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
             @JsonProperty("processedInputPositions") long processedInputPositions,
@@ -202,10 +195,6 @@ public class PipelineStats
         this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
         checkArgument(internalNetworkInputPositions >= 0, "internalNetworkInputPositions is negative");
         this.internalNetworkInputPositions = internalNetworkInputPositions;
-
-        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
-        checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
-        this.rawInputPositions = rawInputPositions;
 
         this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
@@ -403,18 +392,6 @@ public class PipelineStats
     }
 
     @JsonProperty
-    public DataSize getRawInputDataSize()
-    {
-        return rawInputDataSize;
-    }
-
-    @JsonProperty
-    public long getRawInputPositions()
-    {
-        return rawInputPositions;
-    }
-
-    @JsonProperty
     public DataSize getProcessedInputDataSize()
     {
         return processedInputDataSize;
@@ -507,8 +484,6 @@ public class PipelineStats
                 physicalInputReadTime,
                 internalNetworkInputDataSize,
                 internalNetworkInputPositions,
-                rawInputDataSize,
-                rawInputPositions,
                 processedInputDataSize,
                 processedInputPositions,
                 inputBlockedTime,
@@ -518,54 +493,6 @@ public class PipelineStats
                 physicalWrittenDataSize,
                 summarizeOperatorStats(operatorSummaries),
                 ImmutableList.of());
-    }
-
-    public PipelineStats pruneDigests()
-    {
-        return new PipelineStats(
-                pipelineId,
-                firstStartTime,
-                lastStartTime,
-                lastEndTime,
-                inputPipeline,
-                outputPipeline,
-                totalDrivers,
-                queuedDrivers,
-                queuedPartitionedDrivers,
-                queuedPartitionedSplitsWeight,
-                runningDrivers,
-                runningPartitionedDrivers,
-                runningPartitionedSplitsWeight,
-                blockedDrivers,
-                completedDrivers,
-                userMemoryReservation,
-                revocableMemoryReservation,
-                spilledDataSize,
-                queuedTime,
-                elapsedTime,
-                totalScheduledTime,
-                totalCpuTime,
-                totalBlockedTime,
-                fullyBlocked,
-                blockedReasons,
-                physicalInputDataSize,
-                physicalInputPositions,
-                physicalInputReadTime,
-                internalNetworkInputDataSize,
-                internalNetworkInputPositions,
-                rawInputDataSize,
-                rawInputPositions,
-                processedInputDataSize,
-                processedInputPositions,
-                inputBlockedTime,
-                outputDataSize,
-                outputPositions,
-                outputBlockedTime,
-                physicalWrittenDataSize,
-                operatorSummaries.stream()
-                        .map(OperatorStats::pruneDigests)
-                        .collect(toImmutableList()),
-                drivers);
     }
 
     private static List<OperatorStats> summarizeOperatorStats(List<OperatorStats> operatorSummaries)

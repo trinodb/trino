@@ -44,6 +44,7 @@ public class CatalogSystemTable
             .column("catalog_name", createUnboundedVarcharType())
             .column("connector_id", createUnboundedVarcharType())
             .column("connector_name", createUnboundedVarcharType())
+            .column("state", createUnboundedVarcharType())
             .build();
     private final Metadata metadata;
     private final AccessControl accessControl;
@@ -76,7 +77,8 @@ public class CatalogSystemTable
             table.addRow(
                     catalogInfo.catalogName(),
                     catalogInfo.catalogName(),
-                    catalogInfo.connectorName().toString());
+                    catalogInfo.connectorName().toString(),
+                    catalogInfo.catalogStatus().toString());
         }
         return table.build().cursor();
     }

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.cost.ScalarStatsCalculator;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.ResolvedFunction;
@@ -32,7 +33,6 @@ import io.trino.plugin.iceberg.IcebergConnector;
 import io.trino.plugin.iceberg.IcebergPlugin;
 import io.trino.plugin.iceberg.IcebergTableHandle;
 import io.trino.plugin.iceberg.TestingIcebergConnectorFactory;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -157,7 +157,6 @@ public class TestConnectorPushdownRulesWithIceberg
                 .build();
 
         IcebergTableHandle icebergTable = new IcebergTableHandle(
-                CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                 SCHEMA_NAME,
                 tableName,
                 DATA,
@@ -242,7 +241,6 @@ public class TestConnectorPushdownRulesWithIceberg
         PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), false);
 
         IcebergTableHandle icebergTable = new IcebergTableHandle(
-                CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                 SCHEMA_NAME,
                 tableName,
                 DATA,
@@ -294,7 +292,6 @@ public class TestConnectorPushdownRulesWithIceberg
         PruneTableScanColumns pruneTableScanColumns = new PruneTableScanColumns(tester().getMetadata());
 
         IcebergTableHandle icebergTable = new IcebergTableHandle(
-                CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                 SCHEMA_NAME,
                 tableName,
                 DATA,
@@ -356,7 +353,6 @@ public class TestConnectorPushdownRulesWithIceberg
                 new ScalarStatsCalculator(tester().getPlannerContext()));
 
         IcebergTableHandle icebergTable = new IcebergTableHandle(
-                CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                 SCHEMA_NAME,
                 tableName,
                 DATA,

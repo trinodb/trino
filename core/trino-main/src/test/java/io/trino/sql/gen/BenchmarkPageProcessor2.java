@@ -21,12 +21,8 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
-import io.trino.operator.index.PageRecordSet;
-import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
-import io.trino.spi.PageBuilder;
-import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
@@ -95,13 +91,10 @@ public class BenchmarkPageProcessor2
     private static final Map<String, Type> TYPE_MAP = ImmutableMap.of("bigint", BIGINT, "varchar", VARCHAR);
     private static final int POSITIONS = 1024;
 
-    private final DriverYieldSignal yieldSignal = new DriverYieldSignal();
     private final Map<Symbol, Integer> sourceLayout = new HashMap<>();
 
-    private CursorProcessor cursorProcessor;
     private PageProcessor pageProcessor;
     private Page inputPage;
-    private RecordSet recordSet;
     private List<Type> types;
 
     @Param({"2", "4", "8", "16", "32", "1024", "4000"})
@@ -127,23 +120,11 @@ public class BenchmarkPageProcessor2
         types = projections.stream().map(RowExpression::type).collect(toList());
 
         FunctionManager functionManager = createTestingFunctionManager();
-        CursorProcessorCompiler cursorProcessorCompiler = new CursorProcessorCompiler(functionManager);
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
         ColumnarFilterCompiler columnarFilterCompiler = new ColumnarFilterCompiler(functionManager, 0);
 
         inputPage = createPage(types, dictionaryBlocks);
-        pageProcessor = new ExpressionCompiler(cursorProcessorCompiler, pageFunctionCompiler, columnarFilterCompiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
-
-        recordSet = new PageRecordSet(types, inputPage);
-        cursorProcessor = new ExpressionCompiler(cursorProcessorCompiler, pageFunctionCompiler, columnarFilterCompiler).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
-    }
-
-    @Benchmark
-    public Page rowOriented()
-    {
-        PageBuilder pageBuilder = new PageBuilder(types);
-        cursorProcessor.process(null, yieldSignal, recordSet.cursor(), pageBuilder);
-        return pageBuilder.build();
+        pageProcessor = new ExpressionCompiler(pageFunctionCompiler, columnarFilterCompiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
     }
 
     @Benchmark
@@ -217,7 +198,6 @@ public class BenchmarkPageProcessor2
                     benchmark.type = type;
 
                     benchmark.setup();
-                    benchmark.rowOriented();
                     benchmark.columnOriented();
                 }
             }

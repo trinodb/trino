@@ -86,6 +86,6 @@ public class TestQueryCompletedEvent
         assertThat(query.getState()).isEqualTo(FINISHED);
         assertEventually(() -> assertThat(queryCompletedQueryIds)
                 .describedAs("query '%s'", sql)
-                .contains(result.queryId().getId()));
+                .contains(result.queryId().id()));
     }
 }

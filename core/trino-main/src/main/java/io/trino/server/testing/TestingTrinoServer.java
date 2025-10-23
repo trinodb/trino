@@ -41,6 +41,7 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.trino.Session;
 import io.trino.SystemSessionPropertiesProvider;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.CatalogStoreManager;
@@ -91,7 +92,6 @@ import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.catalog.CatalogName;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorName;
 import io.trino.spi.eventlistener.EventListener;
@@ -275,7 +275,10 @@ public class TestingTrinoServer
                 .put("exchange.client-threads", "4")
                 // Reduce memory footprint in tests
                 .put("exchange.max-buffer-size", "4MB")
-                .put("internal-communication.shared-secret", "internal-shared-secret");
+                .put("internal-communication.shared-secret", "internal-shared-secret")
+                .put("plugin.dir", baseDataDir
+                        .orElseGet(TestingTrinoServer::tempDirectory)
+                        .toString());
 
         if (coordinator) {
             if (catalogMangerKind == CatalogMangerKind.DYNAMIC) {
@@ -352,7 +355,7 @@ public class TestingTrinoServer
 
         modules.add(additionalModule);
 
-        Bootstrap app = new Bootstrap(modules.build());
+        Bootstrap app = new Bootstrap("io.trino.bootstrap.engine", modules.build());
 
         Map<String, String> optionalProperties = new HashMap<>();
         environment.ifPresent(env -> optionalProperties.put("node.environment", env));
@@ -755,6 +758,19 @@ public class TestingTrinoServer
                     .putAll(properties)
                     .put(name, value)
                     .buildOrThrow();
+            return this;
+        }
+
+        public Builder overrideProperties(Map<String, String> properties)
+        {
+            ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+            this.properties.forEach((k, v) -> {
+                if (!properties.containsKey(k)) {
+                    builder.put(k, v);
+                }
+            });
+            builder.putAll(properties);
+            this.properties = builder.buildOrThrow();
             return this;
         }
 

@@ -19,6 +19,7 @@ import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.local.LocalFileSystemFactory;
+import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
@@ -43,6 +44,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -87,6 +89,17 @@ public class TestTrinoHiveCatalogWithFileMetastore
             throws IOException
     {
         deleteRecursively(tempDir, ALLOW_INSECURE);
+    }
+
+    @Override
+    protected void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> properties)
+    {
+        metastore.createDatabase(Database.builder()
+                .setDatabaseName(namespace)
+                .setOwnerName(Optional.of("test"))
+                .setOwnerType(Optional.of(PrincipalType.USER))
+                .setParameters(properties)
+                .build());
     }
 
     @Override

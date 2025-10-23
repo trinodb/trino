@@ -34,7 +34,6 @@ import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.classloader.ThreadContextClassLoader;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -75,6 +74,7 @@ public class IcebergConnectorFactory
         ClassLoader classLoader = IcebergConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
+                    "io.trino.bootstrap.catalog." + catalogName,
                     new MBeanModule(),
                     new ConnectorObjectNameGeneratorModule("io.trino.plugin.iceberg", "trino.plugin.iceberg"),
                     new JsonModule(),
@@ -92,7 +92,6 @@ public class IcebergConnectorFactory
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
-                        binder.bind(CatalogHandle.class).toInstance(context.getCatalogHandle());
                         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                         binder.bind(PageSorter.class).toInstance(context.getPageSorter());
                     },
@@ -116,11 +115,11 @@ public class IcebergConnectorFactory
         private final boolean isCoordinator;
         private final OpenTelemetry openTelemetry;
 
-        public IcebergFileSystemModule(String catalogName, boolean isCoordinator, OpenTelemetry openTelemetry1)
+        public IcebergFileSystemModule(String catalogName, boolean isCoordinator, OpenTelemetry openTelemetry)
         {
             this.catalogName = requireNonNull(catalogName, "catalogName is null");
             this.isCoordinator = isCoordinator;
-            this.openTelemetry = openTelemetry1;
+            this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         }
 
         @Override

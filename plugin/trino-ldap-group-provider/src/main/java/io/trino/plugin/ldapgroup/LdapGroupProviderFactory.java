@@ -38,6 +38,7 @@ public class LdapGroupProviderFactory
         requireNonNull(requiredConfig, "config is null");
 
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.groups." + getName(),
                 new LdapClientModule(),
                 new LdapGroupProviderModule());
 

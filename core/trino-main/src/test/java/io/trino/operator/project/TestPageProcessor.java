@@ -21,16 +21,13 @@ import io.airlift.units.Duration;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.CompletedWork;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.TestingSourcePage;
-import io.trino.operator.Work;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
-import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionProfiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.PageFilterEvaluator;
@@ -131,7 +128,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.of(new PageFilterEvaluator(new TestingPageFilter(positionsRange(25, 50)))),
                 Optional.empty(),
-                ImmutableList.of(new InputPageProjection(0, BIGINT)),
+                ImmutableList.of(new InputPageProjection(0)),
                 OptionalInt.of(MAX_BATCH_SIZE));
 
         SourcePage inputPage = SourcePage.create(createLongSequenceBlock(0, 100));
@@ -149,7 +146,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.of(new PageFilterEvaluator(new SelectAllFilter())),
                 Optional.empty(),
-                ImmutableList.of(new InputPageProjection(0, BIGINT)),
+                ImmutableList.of(new InputPageProjection(0)),
                 OptionalInt.of(MAX_BATCH_SIZE));
 
         SourcePage inputPage = SourcePage.create(createLongSequenceBlock(0, 100));
@@ -164,7 +161,7 @@ public class TestPageProcessor
     @Test
     public void testSelectNoneFilter()
     {
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectNoneFilter())), ImmutableList.of(new InputPageProjection(0, BIGINT)));
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectNoneFilter())), ImmutableList.of(new InputPageProjection(0)));
 
         SourcePage inputPage = SourcePage.create(createLongSequenceBlock(0, 100));
 
@@ -179,7 +176,7 @@ public class TestPageProcessor
     @Test
     public void testProjectEmptyPage()
     {
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectAllFilter())), ImmutableList.of(new InputPageProjection(0, BIGINT)));
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectAllFilter())), ImmutableList.of(new InputPageProjection(0)));
 
         SourcePage inputPage = SourcePage.create(createLongSequenceBlock(0, 0));
 
@@ -195,7 +192,7 @@ public class TestPageProcessor
     @Test
     public void testSelectNoneFilterLazyLoad()
     {
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectNoneFilter())), ImmutableList.of(new InputPageProjection(1, BIGINT)));
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectNoneFilter())), ImmutableList.of(new InputPageProjection(1)));
 
         // if channel 1 is loaded, test will fail
         SourcePage inputPage = new TestingSourcePage(100, createLongSequenceBlock(0, 100), null);
@@ -233,7 +230,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(new InputPageProjection(0, BIGINT)),
+                ImmutableList.of(new InputPageProjection(0)),
                 OptionalInt.of(MAX_BATCH_SIZE));
 
         SourcePage inputPage = SourcePage.create(createLongSequenceBlock(0, (int) (MAX_BATCH_SIZE * 2.5)));
@@ -256,7 +253,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(new InputPageProjection(0, VARCHAR)),
+                ImmutableList.of(new InputPageProjection(0)),
                 OptionalInt.of(MAX_BATCH_SIZE));
 
         // process large page which will reduce batch size
@@ -297,8 +294,8 @@ public class TestPageProcessor
     @Test
     public void testOptimisticProcessing()
     {
-        InvocationCountPageProjection firstProjection = new InvocationCountPageProjection(new InputPageProjection(0, VARCHAR));
-        InvocationCountPageProjection secondProjection = new InvocationCountPageProjection(new InputPageProjection(0, VARCHAR));
+        InvocationCountPageProjection firstProjection = new InvocationCountPageProjection(new InputPageProjection(0));
+        InvocationCountPageProjection secondProjection = new InvocationCountPageProjection(new InputPageProjection(0));
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.empty(),
                 Optional.empty(),
@@ -345,7 +342,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.of(new PageFilterEvaluator(new SelectAllFilter())),
                 Optional.empty(),
-                ImmutableList.of(new InputPageProjection(0, VARCHAR), new InputPageProjection(1, VARCHAR)),
+                ImmutableList.of(new InputPageProjection(0), new InputPageProjection(1)),
                 OptionalInt.of(MAX_BATCH_SIZE));
 
         // create 2 columns X 800 rows of strings with each string's size = 30KB
@@ -369,7 +366,7 @@ public class TestPageProcessor
     @Test
     public void testYieldProjection()
     {
-        // each projection can finish without yield
+        // each projection will finish without yield
         // while between two projections, there is a yield
         int rows = 128;
         int columns = 20;
@@ -377,7 +374,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.empty(),
                 Optional.empty(),
-                Collections.nCopies(columns, new YieldPageProjection(new InputPageProjection(0, VARCHAR))),
+                Collections.nCopies(columns, new InputPageProjection(0)),
                 OptionalInt.of(MAX_BATCH_SIZE));
 
         Slice[] slices = new Slice[rows];
@@ -387,21 +384,21 @@ public class TestPageProcessor
         Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, yieldSignal, inputPage);
 
         // Test yield signal works for page processor.
-        // The purpose of this test is NOT to test the yield signal in page projection; we have other tests to cover that.
+        // The purpose of this test is NOT to test the yield signal in page projection.
         // In page processor, we check yield signal after a column has been completely processed.
         // So we would like to set yield signal when the column has just finished processing in order to let page processor capture the yield signal when the block is returned.
-        // Also, we would like to reset the yield signal before starting to process the next column in order NOT to yield per position inside the column.
+        yieldSignal.forceYieldForTesting();
         for (int i = 0; i < columns - 1; i++) {
             assertThat(output.hasNext()).isTrue();
             assertThat(output.next().orElse(null)).isNull();
             assertThat(yieldSignal.isSet()).isTrue();
-            yieldSignal.reset();
         }
+
+        yieldSignal.resetYieldForTesting();
         assertThat(output.hasNext()).isTrue();
         Page actualPage = output.next().orElse(null);
         assertThat(actualPage).isNotNull();
-        assertThat(yieldSignal.isSet()).isTrue();
-        yieldSignal.reset();
+        assertThat(yieldSignal.isSet()).isFalse();
 
         Block[] blocks = new Block[columns];
         Arrays.fill(blocks, createSlicesBlock(Arrays.copyOfRange(slices, 0, rows)));
@@ -427,7 +424,6 @@ public class TestPageProcessor
         ExpressionProfiler profiler = new ExpressionProfiler(testingTicker, SPLIT_RUN_QUANTA);
         for (int i = 0; i < 100; i++) {
             profiler.start();
-            Work<Block> work = projection.project(SESSION, new DriverYieldSignal(), page, SelectedPositions.positionsRange(0, page.getPositionCount()));
             if (i < 10) {
                 // increment the ticker with a large value to mark the expression as expensive
                 testingTicker.increment(10, SECONDS);
@@ -439,7 +435,7 @@ public class TestPageProcessor
                 profiler.stop(page.getPositionCount());
                 assertThat(profiler.isExpressionExpensive()).isFalse();
             }
-            work.process();
+            projection.project(SESSION, page, SelectedPositions.positionsRange(0, page.getPositionCount()));
         }
     }
 
@@ -454,7 +450,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(new InputPageProjection(0, BIGINT)),
+                ImmutableList.of(new InputPageProjection(0)),
                 OptionalInt.of(1),
                 profiler);
 
@@ -489,7 +485,7 @@ public class TestPageProcessor
         PageProcessor pageProcessor = new PageProcessor(
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(new InputPageProjection(0, BIGINT)),
+                ImmutableList.of(new InputPageProjection(0)),
                 OptionalInt.of(512),
                 profiler);
 
@@ -546,12 +542,6 @@ public class TestPageProcessor
         }
 
         @Override
-        public Type getType()
-        {
-            return delegate.getType();
-        }
-
-        @Override
         public boolean isDeterministic()
         {
             return delegate.isDeterministic();
@@ -564,10 +554,10 @@ public class TestPageProcessor
         }
 
         @Override
-        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
+        public Block project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
         {
             setInvocationCount(getInvocationCount() + 1);
-            return delegate.project(session, yieldSignal, page, selectedPositions);
+            return delegate.project(session, page, selectedPositions);
         }
 
         public int getInvocationCount()
@@ -581,58 +571,9 @@ public class TestPageProcessor
         }
     }
 
-    private class YieldPageProjection
-            extends InvocationCountPageProjection
-    {
-        public YieldPageProjection(PageProjection delegate)
-        {
-            super(delegate);
-        }
-
-        @Override
-        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
-        {
-            return new YieldPageProjectionWork(session, yieldSignal, page, selectedPositions);
-        }
-
-        private class YieldPageProjectionWork
-                implements Work<Block>
-        {
-            private final DriverYieldSignal yieldSignal;
-            private final Work<Block> work;
-
-            public YieldPageProjectionWork(ConnectorSession session, DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
-            {
-                this.yieldSignal = yieldSignal;
-                this.work = delegate.project(session, yieldSignal, page, selectedPositions);
-            }
-
-            @Override
-            public boolean process()
-            {
-                assertThat(work.process()).isTrue();
-                yieldSignal.setWithDelay(1, executor);
-                yieldSignal.forceYieldForTesting();
-                return true;
-            }
-
-            @Override
-            public Block getResult()
-            {
-                return work.getResult();
-            }
-        }
-    }
-
     public static class LazyPagePageProjection
             implements PageProjection
     {
-        @Override
-        public Type getType()
-        {
-            return BIGINT;
-        }
-
         @Override
         public boolean isDeterministic()
         {
@@ -646,9 +587,9 @@ public class TestPageProcessor
         }
 
         @Override
-        public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
+        public Block project(ConnectorSession session, SourcePage page, SelectedPositions selectedPositions)
         {
-            return new CompletedWork<>(page.getBlock(0));
+            return page.getBlock(0);
         }
     }
 

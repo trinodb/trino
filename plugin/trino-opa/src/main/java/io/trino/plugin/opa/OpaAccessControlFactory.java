@@ -66,6 +66,7 @@ public class OpaAccessControlFactory
         requireNonNull(context, "context is null");
 
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.access.opa",
                 new JsonModule(),
                 binder -> {
                     jsonCodecBinder(binder).bindJsonCodec(OpaQuery.class);

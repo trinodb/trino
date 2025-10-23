@@ -181,11 +181,11 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public void executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    public Map<String, Long> executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         Span span = startSpan("executeTableExecute", tableExecuteHandle);
         try (var _ = scopedSpan(span)) {
-            delegate.executeTableExecute(session, tableExecuteHandle);
+            return delegate.executeTableExecute(session, tableExecuteHandle);
         }
     }
 
@@ -579,6 +579,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean tableReplace)
+    {
+        Span span = startSpan("getStatisticsCollectionMetadataForWrite", tableMetadata.getTable());
+        try (var _ = scopedSpan(span)) {
+            return delegate.getStatisticsCollectionMetadataForWrite(session, tableMetadata, tableReplace);
+        }
+    }
+
+    @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         Span span = startSpan("getStatisticsCollectionMetadataForWrite", tableMetadata.getTable());
@@ -702,27 +711,20 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, RetryMode retryMode, RefreshType refreshType)
+    public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, RetryMode retryMode, RefreshType refreshType)
     {
         Span span = startSpan("beginRefreshMaterializedView", tableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.beginRefreshMaterializedView(session, tableHandle, sourceTableHandles, retryMode, refreshType);
+            return delegate.beginRefreshMaterializedView(session, tableHandle, sourceTableHandles, hasForeignSourceTables, retryMode, refreshType);
         }
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
-            ConnectorSession session,
-            ConnectorTableHandle tableHandle,
-            ConnectorInsertTableHandle insertHandle,
-            Collection<Slice> fragments,
-            Collection<ComputedStatistics> computedStatistics,
-            List<ConnectorTableHandle> sourceTableHandles,
-            List<String> sourceTableFunctions)
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, boolean hasSourceTableFunctions)
     {
         Span span = startSpan("finishRefreshMaterializedView", tableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.finishRefreshMaterializedView(session, tableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles, sourceTableFunctions);
+            return delegate.finishRefreshMaterializedView(session, tableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles, hasForeignSourceTables, hasSourceTableFunctions);
         }
     }
 

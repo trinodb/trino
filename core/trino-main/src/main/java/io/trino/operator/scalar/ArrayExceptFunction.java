@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.OperatorDependency;
@@ -58,14 +59,16 @@ public final class ArrayExceptFunction
             return leftArray;
         }
 
-        BlockSet set = new BlockSet(type, identicalOperator, elementHashCode, rightPositionCount + leftPositionCount);
+        BlockSet set = new BlockSet(identicalOperator, elementHashCode, rightPositionCount + leftPositionCount);
         for (int i = 0; i < rightPositionCount; i++) {
             set.add(rightArray, i);
         }
         BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(null, leftPositionCount);
+        ValueBlock leftValueBlock = leftArray.getUnderlyingValueBlock();
         for (int i = 0; i < leftPositionCount; i++) {
-            if (set.add(leftArray, i)) {
-                type.appendTo(leftArray, i, distinctElementBlockBuilder);
+            int leftPosition = leftArray.getUnderlyingValuePosition(i);
+            if (set.add(leftValueBlock, leftPosition)) {
+                distinctElementBlockBuilder.append(leftValueBlock, leftPosition);
             }
         }
         return distinctElementBlockBuilder.build();

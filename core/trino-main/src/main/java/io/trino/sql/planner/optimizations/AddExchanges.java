@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.connector.CatalogHandle;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsCalculator;
@@ -29,7 +30,6 @@ import io.trino.cost.TableStatsProvider;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.metadata.Metadata;
 import io.trino.operator.RetryPolicy;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
@@ -866,12 +866,8 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitExplainAnalyze(ExplainAnalyzeNode node, PreferredProperties preferredProperties)
         {
-            PlanWithProperties child = planChild(node, PreferredProperties.any());
-
-            // if the child is already a gathering exchange, don't add another
-            if ((child.getNode() instanceof ExchangeNode) && ((ExchangeNode) child.getNode()).getType() == ExchangeNode.Type.GATHER) {
-                return rebaseAndDeriveProperties(node, child);
-            }
+            // Same PreferredProperties as OutputNode
+            PlanWithProperties child = planChild(node, PreferredProperties.undistributed());
 
             // Always add an exchange because ExplainAnalyze should be in its own stage
             child = withDerivedProperties(
@@ -1530,7 +1526,7 @@ public class AddExchanges
     private static Map<Symbol, Symbol> computeIdentityTranslations(Assignments assignments)
     {
         Map<Symbol, Symbol> outputToInput = new HashMap<>();
-        for (Map.Entry<Symbol, Expression> assignment : assignments.getMap().entrySet()) {
+        for (Map.Entry<Symbol, Expression> assignment : assignments.assignments().entrySet()) {
             if (assignment.getValue() instanceof Reference) {
                 outputToInput.put(assignment.getKey(), Symbol.from(assignment.getValue()));
             }

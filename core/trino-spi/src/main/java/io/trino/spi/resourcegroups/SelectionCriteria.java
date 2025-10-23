@@ -55,31 +55,6 @@ public final class SelectionCriteria
         this.queryType = requireNonNull(queryType, "queryType is null");
     }
 
-    /**
-     * @deprecated Use {@link #SelectionCriteria(boolean, String, Set, String, Optional, Optional, Set, ResourceEstimates, Optional)} instead.
-     */
-    @Deprecated(since = "474", forRemoval = true)
-    public SelectionCriteria(
-            boolean authenticated,
-            String user,
-            Set<String> userGroups,
-            Optional<String> source,
-            Set<String> clientTags,
-            ResourceEstimates resourceEstimates,
-            Optional<String> queryType)
-    {
-        this(
-                authenticated,
-                user,
-                userGroups,
-                user,
-                Optional.empty(),
-                source,
-                clientTags,
-                resourceEstimates,
-                queryType);
-    }
-
     public boolean isAuthenticated()
     {
         return authenticated;

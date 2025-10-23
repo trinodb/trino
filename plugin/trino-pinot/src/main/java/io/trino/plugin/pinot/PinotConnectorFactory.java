@@ -65,7 +65,7 @@ public class PinotConnectorFactory
 
         extension.ifPresent(modulesBuilder::add);
 
-        Bootstrap app = new Bootstrap(modulesBuilder.build());
+        Bootstrap app = new Bootstrap("io.trino.bootstrap.catalog." + catalogName, modulesBuilder.build());
 
         Injector injector = app
                 .doNotInitializeLogging()

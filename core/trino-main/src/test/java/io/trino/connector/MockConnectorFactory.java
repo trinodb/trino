@@ -78,6 +78,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
@@ -94,8 +95,9 @@ public class MockConnectorFactory
         implements ConnectorFactory
 {
     private final String name;
-    private final List<PropertyMetadata<?>> sessionProperty;
+    private final List<PropertyMetadata<?>> sessionProperties;
     private final Function<ConnectorMetadata, ConnectorMetadata> metadataWrapper;
+    private final Consumer<ConnectorSession> cleanupQuery;
     private final Function<ConnectorSession, List<String>> listSchemaNames;
     private final BiFunction<ConnectorSession, String, List<String>> listTables;
     private final Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns;
@@ -152,8 +154,9 @@ public class MockConnectorFactory
 
     private MockConnectorFactory(
             String name,
-            List<PropertyMetadata<?>> sessionProperty,
+            List<PropertyMetadata<?>> sessionProperties,
             Function<ConnectorMetadata, ConnectorMetadata> metadataWrapper,
+            Consumer<ConnectorSession> cleanupQuery,
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<String>> listTables,
             Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns,
@@ -206,8 +209,9 @@ public class MockConnectorFactory
             boolean allowSplittingReadIntoMultipleSubQueries)
     {
         this.name = requireNonNull(name, "name is null");
-        this.sessionProperty = ImmutableList.copyOf(requireNonNull(sessionProperty, "sessionProperty is null"));
+        this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
         this.metadataWrapper = requireNonNull(metadataWrapper, "metadataWrapper is null");
+        this.cleanupQuery = requireNonNull(cleanupQuery, "cleanupQuery is null");
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
         this.streamTableColumns = requireNonNull(streamTableColumns, "streamTableColumns is null");
@@ -270,8 +274,9 @@ public class MockConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         return new MockConnector(
+                sessionProperties,
                 metadataWrapper,
-                sessionProperty,
+                cleanupQuery,
                 listSchemaNames,
                 listTables,
                 streamTableColumns,
@@ -421,6 +426,7 @@ public class MockConnectorFactory
     {
         private String name = "mock";
         private final List<PropertyMetadata<?>> sessionProperties = new ArrayList<>();
+        private Consumer<ConnectorSession> cleanupQuery = session -> {};
         private Function<ConnectorMetadata, ConnectorMetadata> metadataWrapper = identity();
         private Function<ConnectorSession, List<String>> listSchemaNames = defaultListSchemaNames();
         private BiFunction<ConnectorSession, String, List<String>> listTables = defaultListTables();
@@ -498,6 +504,12 @@ public class MockConnectorFactory
             for (PropertyMetadata<?> sessionProperty : sessionProperties) {
                 withSessionProperty(sessionProperty);
             }
+            return this;
+        }
+
+        public Builder withCleanupQuery(Consumer<ConnectorSession> cleanupQuery)
+        {
+            this.cleanupQuery = cleanupQuery;
             return this;
         }
 
@@ -843,6 +855,7 @@ public class MockConnectorFactory
                     name,
                     sessionProperties,
                     metadataWrapper,
+                    cleanupQuery,
                     listSchemaNames,
                     listTables,
                     streamTableColumns,

@@ -47,7 +47,6 @@ public final class ArrayIntersectFunction
     @TypeParameter("E")
     @SqlType("array(E)")
     public Block intersect(
-            @TypeParameter("E") Type type,
             @OperatorDependency(
                     operator = IDENTICAL,
                     argumentTypes = {"E", "E"},
@@ -72,13 +71,13 @@ public final class ArrayIntersectFunction
             return rightArray;
         }
 
-        BlockSet rightSet = new BlockSet(type, elementIdentical, elementHashCode, rightPositionCount);
+        BlockSet rightSet = new BlockSet(elementIdentical, elementHashCode, rightPositionCount);
         for (int i = 0; i < rightPositionCount; i++) {
             rightSet.add(rightArray, i);
         }
 
         // The intersected set can have at most rightPositionCount elements
-        BlockSet intersectSet = new BlockSet(type, elementIdentical, elementHashCode, rightSet.size());
+        BlockSet intersectSet = new BlockSet(elementIdentical, elementHashCode, rightSet.size());
         for (int i = 0; i < leftPositionCount; i++) {
             if (rightSet.contains(leftArray, i)) {
                 intersectSet.add(leftArray, i);

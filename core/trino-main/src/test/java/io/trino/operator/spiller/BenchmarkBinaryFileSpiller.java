@@ -117,6 +117,7 @@ public class BenchmarkBinaryFileSpiller
                     BLOCK_ENCODING_SERDE,
                     spillerStats,
                     ImmutableList.of(SPILL_PATH),
+                    1,
                     1.0,
                     compressionCodec,
                     encryptionEnabled);

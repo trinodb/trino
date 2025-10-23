@@ -14,19 +14,28 @@
 package io.trino.filesystem.gcs;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.configuration.SwitchModule.switchModule;
 
 public class GcsFileSystemModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(GcsFileSystemConfig.class);
         binder.bind(GcsStorageFactory.class).in(Scopes.SINGLETON);
         binder.bind(GcsFileSystemFactory.class).in(Scopes.SINGLETON);
+
+        install(switchModule(
+                GcsFileSystemConfig.class,
+                GcsFileSystemConfig::getAuthType,
+                type -> switch (type) {
+                    case ACCESS_TOKEN -> _ -> binder.bind(GcsAuth.class).to(GcsAccessTokenAuth.class).in(Scopes.SINGLETON);
+                    case SERVICE_ACCOUNT -> _ -> binder.bind(GcsAuth.class).to(GcsServiceAccountAuth.class).in(Scopes.SINGLETON);
+                }));
     }
 }

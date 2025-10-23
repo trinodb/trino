@@ -17,7 +17,7 @@ import {
     Button,
     Container,
     CssBaseline,
-    Grid2 as Grid,
+    Grid,
     Link,
     ThemeProvider,
     Typography,

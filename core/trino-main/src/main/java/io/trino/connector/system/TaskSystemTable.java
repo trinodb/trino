@@ -63,8 +63,7 @@ public class TaskSystemTable
             .column("split_cpu_time_ms", BIGINT)
             .column("split_blocked_time_ms", BIGINT)
 
-            .column("raw_input_bytes", BIGINT)
-            .column("raw_input_rows", BIGINT)
+            .column("internal_network_input_bytes", BIGINT)
 
             .column("processed_input_bytes", BIGINT)
             .column("processed_input_rows", BIGINT)
@@ -114,8 +113,8 @@ public class TaskSystemTable
                     nodeId,
 
                     taskStatus.getTaskId().toString(),
-                    taskStatus.getTaskId().getStageId().toString(),
-                    taskStatus.getTaskId().getQueryId().toString(),
+                    taskStatus.getTaskId().stageId().toString(),
+                    taskStatus.getTaskId().queryId().toString(),
                     taskStatus.getState().toString(),
 
                     (long) stats.getTotalDrivers(),
@@ -127,8 +126,7 @@ public class TaskSystemTable
                     toMillis(stats.getTotalCpuTime()),
                     toMillis(stats.getTotalBlockedTime()),
 
-                    toBytes(stats.getRawInputDataSize()),
-                    stats.getRawInputPositions(),
+                    toBytes(stats.getInternalNetworkInputDataSize()),
 
                     toBytes(stats.getProcessedInputDataSize()),
                     stats.getProcessedInputPositions(),

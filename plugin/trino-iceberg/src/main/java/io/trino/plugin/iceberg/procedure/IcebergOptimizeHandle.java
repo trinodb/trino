@@ -34,8 +34,7 @@ public record IcebergOptimizeHandle(
         List<TrinoSortField> sortOrder,
         IcebergFileFormat fileFormat,
         Map<String, String> tableStorageProperties,
-        DataSize maxScannedFileSize,
-        boolean retriesEnabled)
+        DataSize maxScannedFileSize)
         implements IcebergProcedureHandle
 {
     public IcebergOptimizeHandle

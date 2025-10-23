@@ -31,7 +31,6 @@ import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.IcebergSessionProperties;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -69,6 +68,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -140,12 +140,12 @@ public abstract class BaseTrinoCatalogTest
             // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
             ConnectorMetadata icebergMetadata = new IcebergMetadata(
                     PLANNER_CONTEXT.getTypeManager(),
-                    CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                     jsonCodec(CommitTaskData.class),
                     catalog,
                     (connectorIdentity, fileIoProperties) -> {
                         throw new UnsupportedOperationException();
                     },
+                    TABLE_STATISTICS_READER,
                     new TableStatisticsWriter(new NodeVersion("test-version")),
                     Optional.empty(),
                     false,
@@ -161,6 +161,40 @@ public abstract class BaseTrinoCatalogTest
             assertThat(icebergMetadata.listSchemaNames(SESSION)).as("icebergMetadata.listSchemaNames")
                     .doesNotContain(namespace)
                     .contains(schema);
+        }
+        finally {
+            catalog.dropNamespace(SESSION, namespace);
+        }
+    }
+
+    @Test
+    public void testSchemaWithInvalidProperties()
+            throws Exception
+    {
+        String namespace = "test_schema_invalid_properties" + randomNameSuffix();
+
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        createNamespaceWithProperties(catalog, namespace, ImmutableMap.of("invalid_property", "test-value"));
+        try {
+            ConnectorMetadata icebergMetadata = new IcebergMetadata(
+                    PLANNER_CONTEXT.getTypeManager(),
+                    jsonCodec(CommitTaskData.class),
+                    catalog,
+                    (_, _) -> {
+                        throw new UnsupportedOperationException();
+                    },
+                    TABLE_STATISTICS_READER,
+                    new TableStatisticsWriter(new NodeVersion("test-version")),
+                    Optional.empty(),
+                    false,
+                    _ -> false,
+                    newDirectExecutorService(),
+                    directExecutor(),
+                    newDirectExecutorService(),
+                    newDirectExecutorService());
+
+            assertThat(icebergMetadata.getSchemaProperties(SESSION, namespace))
+                    .doesNotContainKey("invalid_property");
         }
         finally {
             catalog.dropNamespace(SESSION, namespace);
@@ -535,6 +569,8 @@ public abstract class BaseTrinoCatalogTest
             assertThat(catalog.listIcebergTables(SESSION, Optional.of("non_existing"))).isEmpty();
         }
     }
+
+    protected abstract void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> properties);
 
     protected void createMaterializedView(
             ConnectorSession session,

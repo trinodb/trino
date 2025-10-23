@@ -13,6 +13,7 @@
  */
 package io.trino.spooling.filesystem;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.azam.ulidj.ULID;
 import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.spi.spool.SpooledSegmentHandle;
@@ -29,26 +30,15 @@ import static java.util.Objects.requireNonNull;
 public record FileSystemSpooledSegmentHandle(
         @Override String encoding,
         byte[] uuid,
+        String nodeIdentifier,
         Optional<EncryptionKey> encryptionKey)
         implements SpooledSegmentHandle
 {
     public FileSystemSpooledSegmentHandle
     {
         requireNonNull(encryptionKey, "encryptionKey is null");
+        requireNonNull(nodeIdentifier, "nodeIdentifier is null");
         verify(uuid.length == 16, "uuid must be 128 bits");
-    }
-
-    public static FileSystemSpooledSegmentHandle random(Random random, SpoolingContext context, Instant expireAt)
-    {
-        return random(random, context, expireAt, Optional.empty());
-    }
-
-    public static FileSystemSpooledSegmentHandle random(Random random, SpoolingContext context, Instant expireAt, Optional<EncryptionKey> encryptionKey)
-    {
-        return new FileSystemSpooledSegmentHandle(
-                context.encoding(),
-                ULID.generateBinary(expireAt.toEpochMilli(), entropy(random)),
-                encryptionKey);
     }
 
     @Override
@@ -70,6 +60,22 @@ public record FileSystemSpooledSegmentHandle(
     public String identifier()
     {
         return ULID.fromBinary(uuid);
+    }
+
+    @VisibleForTesting
+    static FileSystemSpooledSegmentHandle random(Random random, String nodeIdentifier, SpoolingContext context, Instant expireAt)
+    {
+        return random(random, nodeIdentifier, context, expireAt, Optional.empty());
+    }
+
+    @VisibleForTesting
+    static FileSystemSpooledSegmentHandle random(Random random, String nodeIdentifier, SpoolingContext context, Instant expireAt, Optional<EncryptionKey> encryptionKey)
+    {
+        return new FileSystemSpooledSegmentHandle(
+                context.encoding(),
+                ULID.generateBinary(expireAt.toEpochMilli(), entropy(random)),
+                nodeIdentifier,
+                encryptionKey);
     }
 
     private static byte[] entropy(Random random)

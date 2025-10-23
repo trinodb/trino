@@ -13,6 +13,8 @@
  */
 package io.trino.parquet;
 
+import io.airlift.slice.Slice;
+
 public abstract class Page
 {
     protected final int uncompressedSize;
@@ -26,4 +28,6 @@ public abstract class Page
     {
         return uncompressedSize;
     }
+
+    public abstract Slice getSlice();
 }

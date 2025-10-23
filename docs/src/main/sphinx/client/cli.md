@@ -25,7 +25,7 @@ Versions before 350 are not supported.
 (cli-installation)=
 ## Installation
 
-Download {maven_download}`cli`, rename it to `trino`, make it executable with
+Download {download_gh}`cli`, rename it to `trino`, make it executable with
 `chmod +x`, and run it to show the version of the CLI:
 
 ```text
@@ -468,7 +468,7 @@ history by scrolling or searching. Use the up and down arrows to scroll and
 press {kbd}`Enter`.
 
 By default, you can locate the Trino history file in `~/.trino_history`.
-Use the `--history-file` option or the `` `TRINO_HISTORY_FILE `` environment variable
+Use the `--history-file` option or the `TRINO_HISTORY_FILE` environment variable
 to change the default.
 
 ### Auto suggestion

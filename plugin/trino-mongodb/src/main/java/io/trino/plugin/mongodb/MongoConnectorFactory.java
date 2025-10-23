@@ -53,6 +53,7 @@ public class MongoConnectorFactory
         checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.catalog." + catalogName,
                 new JsonModule(),
                 new MongoClientModule(),
                 binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),

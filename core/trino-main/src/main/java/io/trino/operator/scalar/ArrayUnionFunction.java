@@ -58,7 +58,6 @@ public final class ArrayUnionFunction
             @SqlType("array(E)") Block rightArray)
     {
         BlockSet set = new BlockSet(
-                type,
                 elementIdentical,
                 elementHashCode,
                 leftArray.getPositionCount() + rightArray.getPositionCount());

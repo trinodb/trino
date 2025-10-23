@@ -574,7 +574,8 @@ public class IcebergPageSourceProvider
                     fileSchema,
                     nameMapping,
                     partition,
-                    dataColumns);
+                    dataColumns,
+                    partitionKeys);
         };
     }
 
@@ -916,7 +917,7 @@ public class IcebergPageSourceProvider
         ParquetDataSource dataSource = null;
         try {
             dataSource = createDataSource(inputFile, OptionalLong.of(fileSize), options, memoryContext, fileFormatDataSourceStats);
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options.getMaxFooterReadSize());
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options.getMaxFooterReadSize(), Optional.empty());
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
             if (nameMapping.isPresent() && !ParquetSchemaUtil.hasIds(fileSchema)) {
@@ -1027,6 +1028,7 @@ public class IcebergPageSourceProvider
                     options,
                     exception -> handleException(dataSourceId, exception),
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.empty());
 
             ConnectorPageSource pageSource = new ParquetPageSource(parquetReader);
@@ -1112,7 +1114,8 @@ public class IcebergPageSourceProvider
             Schema fileSchema,
             Optional<NameMapping> nameMapping,
             String partition,
-            List<IcebergColumnHandle> columns)
+            List<IcebergColumnHandle> columns,
+            Map<Integer, Optional<String>> partitionKeys)
     {
         InputFile file = new ForwardingInputFile(inputFile);
         OptionalLong fileModifiedTime = OptionalLong.empty();
@@ -1145,7 +1148,13 @@ public class IcebergPageSourceProvider
 
             int nextOrdinal = 0;
             for (IcebergColumnHandle column : columns) {
-                if (column.isPartitionColumn()) {
+                if (partitionKeys.containsKey(column.getId())) {
+                    Type trinoType = column.getType();
+                    transforms.constantValue(nativeValueToBlock(
+                            trinoType,
+                            deserializePartitionValue(trinoType, partitionKeys.get(column.getId()).orElse(null), column.getName())));
+                }
+                else if (column.isPartitionColumn()) {
                     transforms.constantValue(nativeValueToBlock(PARTITION.getType(), utf8Slice(partition)));
                 }
                 else if (column.isPathColumn()) {

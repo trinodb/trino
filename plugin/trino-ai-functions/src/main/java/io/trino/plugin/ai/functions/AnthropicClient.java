@@ -36,14 +36,14 @@ import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.opentelemetry.api.trace.StatusCode.ERROR;
 import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_OPERATION_NAME;
+import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_PROVIDER_NAME;
 import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_REQUEST_MODEL;
 import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_RESPONSE_ID;
 import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_RESPONSE_MODEL;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_SYSTEM;
 import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_USAGE_INPUT_TOKENS;
 import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GEN_AI_USAGE_OUTPUT_TOKENS;
 import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GenAiOperationNameIncubatingValues.CHAT;
-import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GenAiSystemIncubatingValues.ANTHROPIC;
+import static io.opentelemetry.semconv.incubating.GenAiIncubatingAttributes.GenAiProviderNameIncubatingValues.ANTHROPIC;
 import static io.trino.plugin.ai.functions.AiErrorCode.AI_ERROR;
 import static java.util.Objects.requireNonNull;
 
@@ -88,7 +88,7 @@ public class AnthropicClient
 
         Span span = tracer.spanBuilder(CHAT + " " + model)
                 .setAttribute(GEN_AI_OPERATION_NAME, CHAT)
-                .setAttribute(GEN_AI_SYSTEM, ANTHROPIC)
+                .setAttribute(GEN_AI_PROVIDER_NAME, ANTHROPIC)
                 .setAttribute(GEN_AI_REQUEST_MODEL, model)
                 .setSpanKind(SpanKind.CLIENT)
                 .startSpan();

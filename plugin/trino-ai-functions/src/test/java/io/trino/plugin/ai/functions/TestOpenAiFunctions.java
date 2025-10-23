@@ -52,13 +52,13 @@ public class TestOpenAiFunctions
                 .hasSize(1).first()
                 .extracting(SpanData::getAttributes, ATTRIBUTES)
                 .containsEntry("gen_ai.operation.name", "chat")
-                .containsEntry("gen_ai.system", "openai")
+                .containsEntry("gen_ai.provider.name", "openai")
                 .containsEntry("gen_ai.request.model", "gpt-4o-mini")
                 .containsEntry("gen_ai.request.seed", 0)
                 .containsEntry("gen_ai.response.id", "chatcmpl-AyyfeFHICsf6xiGSzc9w2t0nhqmZd")
                 .containsEntry("gen_ai.response.model", "gpt-4o-mini-2024-07-18")
-                .containsEntry("gen_ai.openai.response.service_tier", "default")
-                .containsEntry("gen_ai.openai.response.system_fingerprint", "fp_72ed7ab54c")
+                .containsEntry("openai.response.service_tier", "default")
+                .containsEntry("openai.response.system_fingerprint", "fp_72ed7ab54c")
                 .containsEntry("gen_ai.usage.input_tokens", 14)
                 .containsEntry("gen_ai.usage.output_tokens", 8);
 

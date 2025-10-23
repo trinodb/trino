@@ -111,10 +111,6 @@ public class TestBasicQueryInfo
                                 DataSize.valueOf("272GB"),
                                 282,
                                 282,
-                                DataSize.valueOf("39GB"),
-                                DataSize.valueOf("40GB"),
-                                41,
-                                42,
                                 DataSize.valueOf("43GB"),
                                 DataSize.valueOf("44GB"),
                                 45,
@@ -169,7 +165,7 @@ public class TestBasicQueryInfo
                         false,
                         new NodeVersion("test")));
 
-        assertThat(basicInfo.getQueryId().getId()).isEqualTo("0");
+        assertThat(basicInfo.getQueryId().id()).isEqualTo("0");
         assertThat(basicInfo.getState()).isEqualTo(RUNNING);
         assertThat(basicInfo.isScheduled()).isTrue(); // from query stats
         assertThat(basicInfo.getQuery()).isEqualTo("SELECT 4");

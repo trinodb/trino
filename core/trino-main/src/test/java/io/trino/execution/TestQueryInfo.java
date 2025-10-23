@@ -35,7 +35,7 @@ import io.trino.server.ResultQueryInfo;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
-import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.resourcegroups.QueryType;
@@ -177,8 +177,6 @@ public class TestQueryInfo
         assertThat(queryStats.getCompletedDrivers()).isEqualTo(basicQueryStats.getCompletedDrivers());
         assertThat(queryStats.getRunningDrivers()).isEqualTo(basicQueryStats.getRunningDrivers());
         assertThat(queryStats.getBlockedDrivers()).isEqualTo(basicQueryStats.getBlockedDrivers());
-        assertThat(queryStats.getRawInputPositions()).isEqualTo(basicQueryStats.getRawInputPositions());
-        assertThat(queryStats.getRawInputDataSize()).isEqualTo(basicQueryStats.getRawInputDataSize());
         assertThat(queryStats.getPhysicalInputDataSize()).isEqualTo(basicQueryStats.getPhysicalInputDataSize());
         assertThat(queryStats.getPhysicalWrittenDataSize()).isEqualTo(basicQueryStats.getPhysicalWrittenDataSize());
         assertThat(queryStats.getSpilledDataSize()).isEqualTo(basicQueryStats.getSpilledDataSize());
@@ -309,10 +307,6 @@ public class TestQueryInfo
                 value,
                 Duration.succinctDuration(value, SECONDS),
                 Duration.succinctDuration(value, SECONDS),
-                succinctBytes(value),
-                succinctBytes(value),
-                value,
-                value,
                 succinctBytes(value),
                 succinctBytes(value),
                 value,

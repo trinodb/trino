@@ -21,12 +21,14 @@ public abstract sealed class DataPage
 {
     protected final int valueCount;
     private final OptionalLong firstRowIndex;
+    private final int pageIndex;
 
-    public DataPage(int uncompressedSize, int valueCount, OptionalLong firstRowIndex)
+    public DataPage(int uncompressedSize, int valueCount, OptionalLong firstRowIndex, int pageIndex)
     {
         super(uncompressedSize);
         this.valueCount = valueCount;
         this.firstRowIndex = firstRowIndex;
+        this.pageIndex = pageIndex;
     }
 
     /**
@@ -40,5 +42,10 @@ public abstract sealed class DataPage
     public int getValueCount()
     {
         return valueCount;
+    }
+
+    public int getPageIndex()
+    {
+        return pageIndex;
     }
 }

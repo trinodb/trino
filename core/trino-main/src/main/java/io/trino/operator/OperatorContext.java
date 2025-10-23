@@ -350,9 +350,15 @@ public class OperatorContext
         //   Here, the total memory used to be user+system, and sans revocable. This apparent inconsistency should be removed.
         //   Perhaps, we don't need to track "total memory" here.
         long totalMemory = userMemory;
-        peakUserMemoryReservation.accumulateAndGet(userMemory, Math::max);
-        peakRevocableMemoryReservation.accumulateAndGet(revocableMemory, Math::max);
-        peakTotalMemoryReservation.accumulateAndGet(totalMemory, Math::max);
+        if (userMemory > peakUserMemoryReservation.get()) {
+            peakUserMemoryReservation.accumulateAndGet(userMemory, Math::max);
+        }
+        if (revocableMemory > peakRevocableMemoryReservation.get()) {
+            peakRevocableMemoryReservation.accumulateAndGet(revocableMemory, Math::max);
+        }
+        if (totalMemory > peakTotalMemoryReservation.get()) {
+            peakTotalMemoryReservation.accumulateAndGet(totalMemory, Math::max);
+        }
     }
 
     public long getReservedRevocableBytes()
@@ -522,7 +528,7 @@ public class OperatorContext
         long inputPositionsCount = inputPositions.getTotalCount();
 
         return new OperatorStats(
-                driverContext.getTaskId().getStageId().getId(),
+                driverContext.getTaskId().stageId().id(),
                 driverContext.getPipelineContext().getPipelineId(),
                 operatorId,
                 planNodeId,
@@ -539,7 +545,6 @@ public class OperatorContext
                 new Duration(physicalInputReadTimeNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 DataSize.ofBytes(internalNetworkInputDataSize.getTotalCount()),
                 internalNetworkPositions.getTotalCount(),
-                DataSize.ofBytes(physicalInputDataSize.getTotalCount() + internalNetworkInputDataSize.getTotalCount()),
                 DataSize.ofBytes(inputDataSize.getTotalCount()),
                 inputPositionsCount,
                 (double) inputPositionsCount * inputPositionsCount,

@@ -19,6 +19,9 @@ import com.google.common.collect.ListMultimap;
 import io.trino.parquet.DiskRange;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.crypto.ColumnDecryptionContext;
+import io.trino.parquet.crypto.FileDecryptionContext;
+import io.trino.parquet.crypto.ModuleType;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.IndexReference;
@@ -26,6 +29,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.format.BlockCipher;
 import org.apache.parquet.format.Util;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.ColumnIndex;
@@ -47,6 +51,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetMetadataConverter.fromParquetColumnIndex;
 import static io.trino.parquet.ParquetMetadataConverter.fromParquetOffsetIndex;
+import static io.trino.parquet.crypto.AesCipherUtils.createModuleAAD;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -59,6 +64,7 @@ public class TrinoColumnIndexStore
     private final ParquetDataSource dataSource;
     private final List<ColumnIndexMetadata> columnIndexReferences;
     private final List<ColumnIndexMetadata> offsetIndexReferences;
+    private final Optional<FileDecryptionContext> decryptionContext;
 
     @Nullable
     private Map<ColumnPath, ColumnIndex> columnIndexStore;
@@ -75,9 +81,11 @@ public class TrinoColumnIndexStore
             ParquetDataSource dataSource,
             BlockMetadata block,
             Set<ColumnPath> columnsRead,
-            Set<ColumnPath> columnsFiltered)
+            Set<ColumnPath> columnsFiltered,
+            Optional<FileDecryptionContext> decryptionContext)
     {
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
+        this.decryptionContext = requireNonNull(decryptionContext, "decryptionContext is null");
         requireNonNull(block, "block is null");
         requireNonNull(columnsRead, "columnsRead is null");
         requireNonNull(columnsFiltered, "columnsFiltered is null");
@@ -90,13 +98,17 @@ public class TrinoColumnIndexStore
                 columnIndexBuilder.add(new ColumnIndexMetadata(
                         column.getColumnIndexReference(),
                         path,
-                        column.getPrimitiveType()));
+                        column.getPrimitiveType(),
+                        column.getRowGroupOrdinal(),
+                        column.getColumnOrdinal()));
             }
             if (column.getOffsetIndexReference() != null && columnsRead.contains(path)) {
                 offsetIndexBuilder.add(new ColumnIndexMetadata(
                         column.getOffsetIndexReference(),
                         path,
-                        column.getPrimitiveType()));
+                        column.getPrimitiveType(),
+                        column.getRowGroupOrdinal(),
+                        column.getColumnOrdinal()));
             }
         }
         this.columnIndexReferences = columnIndexBuilder.build();
@@ -109,14 +121,22 @@ public class TrinoColumnIndexStore
         if (columnIndexStore == null) {
             columnIndexStore = loadIndexes(dataSource, columnIndexReferences, (inputStream, columnMetadata) -> {
                 try {
-                    return fromParquetColumnIndex(columnMetadata.getPrimitiveType(), Util.readColumnIndex(inputStream));
+                    Optional<ColumnDecryptionContext> columnContext = decryptionContext.flatMap(context -> context.getColumnDecryptionContext(columnMetadata.getPath()));
+                    byte[] aad = columnContext
+                            .map(context -> createModuleAAD(context.fileAad(), ModuleType.ColumnIndex, columnMetadata.getRowGroupOrdinal(), columnMetadata.getColumnOrdinal(), -1))
+                            .orElse(null);
+                    BlockCipher.Decryptor thriftDecryptor = columnContext
+                            .map(ColumnDecryptionContext::metadataDecryptor)
+                            .orElse(null);
+                    return fromParquetColumnIndex(
+                            columnMetadata.getPrimitiveType(),
+                            Util.readColumnIndex(inputStream, thriftDecryptor, aad));
                 }
                 catch (IOException e) {
                     throw new RuntimeException(e);
                 }
             });
         }
-
         return columnIndexStore.get(column);
     }
 
@@ -126,14 +146,20 @@ public class TrinoColumnIndexStore
         if (offsetIndexStore == null) {
             offsetIndexStore = loadIndexes(dataSource, offsetIndexReferences, (inputStream, columnMetadata) -> {
                 try {
-                    return fromParquetOffsetIndex(Util.readOffsetIndex(inputStream));
+                    Optional<ColumnDecryptionContext> columnContext = decryptionContext.flatMap(context -> context.getColumnDecryptionContext(columnMetadata.getPath()));
+                    byte[] aad = columnContext
+                            .map(context -> createModuleAAD(context.fileAad(), ModuleType.OffsetIndex, columnMetadata.getRowGroupOrdinal(), columnMetadata.getColumnOrdinal(), -1))
+                            .orElse(null);
+                    BlockCipher.Decryptor thriftDecryptor = columnContext
+                            .map(ColumnDecryptionContext::metadataDecryptor)
+                            .orElse(null);
+                    return fromParquetOffsetIndex(Util.readOffsetIndex(inputStream, thriftDecryptor, aad));
                 }
                 catch (IOException e) {
                     throw new RuntimeException(e);
                 }
             });
         }
-
         return offsetIndexStore.get(column);
     }
 
@@ -142,7 +168,8 @@ public class TrinoColumnIndexStore
             BlockMetadata blockMetadata,
             Map<List<String>, ColumnDescriptor> descriptorsByPath,
             TupleDomain<ColumnDescriptor> parquetTupleDomain,
-            ParquetReaderOptions options)
+            ParquetReaderOptions options,
+            Optional<FileDecryptionContext> decryptionContext)
     {
         if (!options.isUseColumnIndex() || parquetTupleDomain.isAll() || parquetTupleDomain.isNone()) {
             return Optional.empty();
@@ -171,7 +198,7 @@ public class TrinoColumnIndexStore
                 .map(column -> ColumnPath.get(column.getPath()))
                 .collect(toImmutableSet());
 
-        return Optional.of(new TrinoColumnIndexStore(dataSource, blockMetadata, columnsReadPaths, columnsFilteredPaths));
+        return Optional.of(new TrinoColumnIndexStore(dataSource, blockMetadata, columnsReadPaths, columnsFilteredPaths, decryptionContext));
     }
 
     private static <T> Map<ColumnPath, T> loadIndexes(
@@ -202,13 +229,17 @@ public class TrinoColumnIndexStore
         private final DiskRange diskRange;
         private final ColumnPath path;
         private final PrimitiveType primitiveType;
+        private final int rowGroupOrdinal;
+        private final int columnOrdinal;
 
-        private ColumnIndexMetadata(IndexReference indexReference, ColumnPath path, PrimitiveType primitiveType)
+        private ColumnIndexMetadata(IndexReference indexReference, ColumnPath path, PrimitiveType primitiveType, int rowGroupOrdinal, int columnOrdinal)
         {
             requireNonNull(indexReference, "indexReference is null");
             this.diskRange = new DiskRange(indexReference.getOffset(), indexReference.getLength());
             this.path = requireNonNull(path, "path is null");
             this.primitiveType = requireNonNull(primitiveType, "primitiveType is null");
+            this.rowGroupOrdinal = rowGroupOrdinal;
+            this.columnOrdinal = columnOrdinal;
         }
 
         private DiskRange getDiskRange()
@@ -224,6 +255,16 @@ public class TrinoColumnIndexStore
         private PrimitiveType getPrimitiveType()
         {
             return primitiveType;
+        }
+
+        private int getRowGroupOrdinal()
+        {
+            return rowGroupOrdinal;
+        }
+
+        private int getColumnOrdinal()
+        {
+            return columnOrdinal;
         }
     }
 }

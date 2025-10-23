@@ -108,6 +108,173 @@ public class TestRowBlock
                 new ByteArrayBlock(6, Optional.of(rowIsNull), createExpectedValue(6).getBytes())}));
     }
 
+    @Test
+    public void testCopyWithAppendedNull()
+    {
+        List<Type> fieldTypes = ImmutableList.of(VARCHAR, BIGINT);
+
+        // Test without startOffset
+        List<Object>[] testRows = generateTestRows(fieldTypes, 3);
+        RowBlock rowBlock = (RowBlock) createBlockBuilderWithValues(fieldTypes, testRows).build();
+        RowBlock appendedBlock = rowBlock.copyWithAppendedNull();
+        assertThat(appendedBlock.getPositionCount()).isEqualTo(testRows.length + 1);
+        for (int i = 0; i < testRows.length; i++) {
+            assertPositionValue(appendedBlock, i, testRows[i]);
+        }
+        assertThat(appendedBlock.isNull(appendedBlock.getPositionCount() - 1)).isTrue();
+
+        // Test with existing nulls - create block with nulls manually
+        RowBlockBuilder builderWithNulls = new RowBlockBuilder(fieldTypes, null, 3);
+        builderWithNulls.buildEntry(fieldBuilders -> {
+            VARCHAR.writeString(fieldBuilders.get(0), "test1");
+            BIGINT.writeLong(fieldBuilders.get(1), 42);
+        });
+        builderWithNulls.appendNull();
+        builderWithNulls.buildEntry(fieldBuilders -> {
+            VARCHAR.writeString(fieldBuilders.get(0), "test3");
+            BIGINT.writeLong(fieldBuilders.get(1), 44);
+        });
+        RowBlock rowBlockWithNulls = builderWithNulls.buildValueBlock();
+        RowBlock appendedBlockWithNulls = rowBlockWithNulls.copyWithAppendedNull();
+        assertThat(appendedBlockWithNulls.getPositionCount()).isEqualTo(4);
+        assertThat(appendedBlockWithNulls.isNull(3)).isTrue();
+
+        // Test without existing nulls
+        List<Object>[] testRowsNoNulls = generateTestRows(fieldTypes, 2);
+        RowBlock rowBlockNoNulls = (RowBlock) createBlockBuilderWithValues(fieldTypes, testRowsNoNulls).build();
+        RowBlock appendedBlockNoNulls = rowBlockNoNulls.copyWithAppendedNull();
+        assertThat(appendedBlockNoNulls.getPositionCount()).isEqualTo(3);
+        assertThat(appendedBlockNoNulls.isNull(2)).isTrue();
+        assertThat(appendedBlockNoNulls.isNull(0)).isFalse();
+        assertThat(appendedBlockNoNulls.isNull(1)).isFalse();
+
+        List<Object>[] largerTestRows = generateTestRows(fieldTypes, 5);
+        RowBlock largerBlock = (RowBlock) createBlockBuilderWithValues(fieldTypes, largerTestRows).build();
+        RowBlock regionBlock = largerBlock.getRegion(1, 2);
+        RowBlock offsetAppendedBlock = regionBlock.copyWithAppendedNull();
+        assertThat(offsetAppendedBlock.getPositionCount()).isEqualTo(3);
+
+        assertPositionValue(offsetAppendedBlock, 0, largerTestRows[1]);
+        assertPositionValue(offsetAppendedBlock, 1, largerTestRows[2]);
+        assertThat(offsetAppendedBlock.isNull(2)).isTrue();
+    }
+
+    @Test
+    public void testGetFieldBlocks()
+    {
+        List<Type> fieldTypes = ImmutableList.of(VARCHAR, BIGINT);
+        List<Object>[] testRows = generateTestRows(fieldTypes, 3);
+        RowBlock rowBlock = (RowBlock) createBlockBuilderWithValues(fieldTypes, testRows).build();
+
+        List<Block> fieldBlocks = rowBlock.getFieldBlocks();
+        assertThat(fieldBlocks.size()).isEqualTo(2);
+
+        // Verify field values match original data
+        for (int pos = 0; pos < 3; pos++) {
+            List<Object> expectedRow = testRows[pos];
+            if (expectedRow.get(0) != null) {
+                assertThat(VARCHAR.getSlice(fieldBlocks.get(0), pos)).isEqualTo(utf8Slice((String) expectedRow.get(0)));
+            }
+            if (expectedRow.get(1) != null) {
+                assertThat(BIGINT.getLong(fieldBlocks.get(1), pos)).isEqualTo((Long) expectedRow.get(1));
+            }
+        }
+
+        // Test with offset
+        List<Object>[] largerTestRows = generateTestRows(fieldTypes, 5);
+        RowBlock originalBlock = (RowBlock) createBlockBuilderWithValues(fieldTypes, largerTestRows).build();
+        RowBlock regionBlock = originalBlock.getRegion(1, 3);
+        List<Block> fieldBlocksWithOffset = regionBlock.getFieldBlocks();
+        assertThat(fieldBlocksWithOffset.size()).isEqualTo(2);
+        assertThat(fieldBlocksWithOffset.get(0).getPositionCount()).isEqualTo(3);
+
+        // Verify values are from the correct region
+        for (int pos = 0; pos < 3; pos++) {
+            List<Object> expectedRow = largerTestRows[pos + 1];
+            if (expectedRow.get(0) != null) {
+                assertThat(VARCHAR.getSlice(fieldBlocksWithOffset.get(0), pos)).isEqualTo(utf8Slice((String) expectedRow.get(0)));
+            }
+        }
+    }
+
+    @Test
+    public void testCopyPositions()
+    {
+        List<Type> fieldTypes = ImmutableList.of(VARCHAR, BIGINT);
+        List<Object>[] testRows = generateTestRows(fieldTypes, 5);
+        RowBlock rowBlock = (RowBlock) createBlockBuilderWithValues(fieldTypes, testRows).build();
+
+        RowBlock copiedBlock = rowBlock.copyPositions(new int[] {0, 2, 4}, 0, 3);
+        assertThat(copiedBlock.getPositionCount()).isEqualTo(3);
+        assertPositionValue(copiedBlock, 0, testRows[0]);
+        assertPositionValue(copiedBlock, 1, testRows[2]);
+        assertPositionValue(copiedBlock, 2, testRows[4]);
+
+        // Test with nulls
+        List<Object>[] testRowsWithNulls = alternatingNullValues(generateTestRows(fieldTypes, 3));
+        RowBlock rowBlockWithNulls = (RowBlock) createBlockBuilderWithValues(fieldTypes, testRowsWithNulls).build().getRegion(1, testRowsWithNulls.length - 1);
+
+        RowBlock copiedBlockWithNulls = rowBlockWithNulls.copyPositions(new int[] {0, 2}, 0, 2);
+        assertThat(copiedBlockWithNulls.getPositionCount()).isEqualTo(2);
+        assertPositionValue(copiedBlockWithNulls, 0, testRowsWithNulls[1]);
+        assertPositionValue(copiedBlockWithNulls, 1, testRowsWithNulls[3]);
+
+        // Test with offset
+        RowBlock regionBlock = rowBlock.getRegion(1, 3);
+        RowBlock copiedBlockWithOffset = regionBlock.copyPositions(new int[] {0, 2}, 0, 2);
+        assertThat(copiedBlockWithOffset.getPositionCount()).isEqualTo(2);
+        assertPositionValue(copiedBlockWithOffset, 0, testRows[1]);
+        assertPositionValue(copiedBlockWithOffset, 1, testRows[3]);
+
+        // Test empty positions
+        RowBlock emptyBlock = rowBlock.copyPositions(new int[0], 0, 0);
+        assertThat(emptyBlock.getPositionCount()).isEqualTo(0);
+    }
+
+    @Test
+    public void testGetRegion()
+    {
+        List<Type> fieldTypes = ImmutableList.of(VARCHAR, BIGINT);
+        List<Object>[] testRows = generateTestRows(fieldTypes, 5);
+        RowBlock rowBlock = (RowBlock) createBlockBuilderWithValues(fieldTypes, testRows).build();
+
+        RowBlock regionBlock = rowBlock.getRegion(1, 3);
+        assertThat(regionBlock.getPositionCount()).isEqualTo(3);
+        assertPositionValue(regionBlock, 0, testRows[1]);
+        assertPositionValue(regionBlock, 1, testRows[2]);
+        assertPositionValue(regionBlock, 2, testRows[3]);
+
+        // Test zero length
+        RowBlock zeroLengthRegion = rowBlock.getRegion(1, 0);
+        assertThat(zeroLengthRegion.getPositionCount()).isEqualTo(0);
+    }
+
+    @Test
+    public void testCopyRegion()
+    {
+        List<Type> fieldTypes = ImmutableList.of(VARCHAR, BIGINT);
+        List<Object>[] testRows = generateTestRows(fieldTypes, 5);
+        RowBlock rowBlock = (RowBlock) createBlockBuilderWithValues(fieldTypes, testRows).build();
+
+        RowBlock copiedRegion = rowBlock.copyRegion(1, 3);
+        assertThat(copiedRegion.getPositionCount()).isEqualTo(3);
+        assertPositionValue(copiedRegion, 0, testRows[1]);
+        assertPositionValue(copiedRegion, 1, testRows[2]);
+        assertPositionValue(copiedRegion, 2, testRows[3]);
+
+        // Test with nulls and offset
+        List<Object>[] testRowsWithNulls = alternatingNullValues(generateTestRows(fieldTypes, 3));
+        RowBlock rowBlockWithNulls = (RowBlock) createBlockBuilderWithValues(fieldTypes, testRowsWithNulls).build().getRegion(1, testRowsWithNulls.length - 2);
+        RowBlock copiedRegionWithNulls = rowBlockWithNulls.copyRegion(0, 2);
+        assertThat(copiedRegionWithNulls.getPositionCount()).isEqualTo(2);
+        assertPositionValue(copiedRegionWithNulls, 0, testRowsWithNulls[1]);
+        assertPositionValue(copiedRegionWithNulls, 1, testRowsWithNulls[2]);
+
+        // Test zero length
+        RowBlock zeroLengthCopy = rowBlock.copyRegion(1, 0);
+        assertThat(zeroLengthCopy.getPositionCount()).isEqualTo(0);
+    }
+
     private void testWith(List<Type> fieldTypes, List<Object>[] expectedValues)
     {
         Block block = createBlockBuilderWithValues(fieldTypes, expectedValues).build();

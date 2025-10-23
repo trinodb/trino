@@ -560,7 +560,7 @@ public class BenchmarkGroupByHashOnSimulatedData
                     }
                     else {
                         int position = r.nextInt(distinctValuesCountInColumn);
-                        columnType.getType().appendTo(allValues, position, block);
+                        block.append(allValues.getUnderlyingValueBlock(), allValues.getUnderlyingValuePosition(position));
                     }
                 }
                 blocks[i] = block.build();

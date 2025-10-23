@@ -21,6 +21,7 @@ import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
+import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer;
@@ -549,6 +550,10 @@ public final class IcebergQueryRunner
                     .addIcebergProperty("hive.metastore.catalog.dir", metastoreDir.toURI().toString())
                     .setInitialTables(TpchTable.getTables())
                     .build();
+            queryRunner.installPlugin(new TestingHivePlugin(metastoreDir.toPath()));
+            queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
+                    .put("hive.security", "allow-all")
+                    .buildOrThrow());
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }

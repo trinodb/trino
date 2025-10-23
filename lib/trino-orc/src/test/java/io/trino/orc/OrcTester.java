@@ -680,13 +680,13 @@ public class OrcTester
             }
             if (TIME_MICROS.equals(mappedType)) {
                 return Optional.of(new OrcType(
-                    LONG,
-                    ImmutableList.of(),
-                    ImmutableList.of(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    ImmutableMap.of(ICEBERG_LONG_TYPE, "TIME")));
+                        LONG,
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableMap.of(ICEBERG_LONG_TYPE, "TIME")));
             }
             return Optional.empty();
         }));

@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.slice.Slice;
+import io.trino.connector.CatalogHandle;
 import io.trino.exchange.ExchangeDataSource;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.LazyExchangeDataSource;
@@ -26,8 +27,7 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.catalog.CatalogName;
-import io.trino.spi.connector.CatalogHandle;
-import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -37,7 +37,7 @@ import it.unimi.dsi.fastutil.ints.IntSet;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -96,8 +96,8 @@ public class ExchangeOperator
                 // LazyExchangeDataSource allows to choose an exchange source implementation based on the information received from a split.
                 TaskId taskId = taskContext.getTaskId();
                 exchangeDataSource = new LazyExchangeDataSource(
-                        taskId.getQueryId(),
-                        new ExchangeId(format("direct-exchange-%s-%s", taskId.getStageId().getId(), sourceId)),
+                        taskId.queryId(),
+                        new ExchangeId(format("direct-exchange-%s-%s", taskId.stageId().id(), sourceId)),
                         taskContext.getSession().getQuerySpan(),
                         directExchangeClientSupplier,
                         memoryContext,

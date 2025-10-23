@@ -14,10 +14,10 @@
 package io.trino.server;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.execution.QueryManager;
 import io.trino.execution.resourcegroups.NoOpResourceGroupManager;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
@@ -31,10 +31,10 @@ import io.trino.server.ui.WebUiAuthenticationFilter;
 import static com.google.common.reflect.Reflection.newProxy;
 
 public class WorkerModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    protected void setup(Binder binder)
     {
         // Install no-op session supplier on workers, since only coordinators create sessions.
         binder.bind(SessionSupplier.class).to(NoOpSessionSupplier.class).in(Scopes.SINGLETON);

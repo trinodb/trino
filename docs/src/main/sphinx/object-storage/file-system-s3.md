@@ -25,9 +25,9 @@ support:
   - Activate the native implementation for S3 storage support. Defaults to
     `false`. Set to `true` to use S3 and enable all other properties.
 * - `s3.endpoint`
-  - Required endpoint URL for S3.
+  - S3 service endpoint URL to communicate with.
 * - `s3.region`
-  - Required region name for S3.
+  - S3 region to communicate with.
 * - `s3.cross-region-access`
   - Enable cross region access. Defaults to `false`.
 * - `s3.path-style-access`
@@ -105,7 +105,7 @@ support:
     throttling.
 * - `s3.max-error-retries`
   - Specifies maximum number of retries the client will make on errors.
-    Defaults to `10`.
+    Defaults to `20`.
 * - `s3.use-web-identity-token-credentials-provider`
   - Set to `true` to only use the web identity token credentials provider,
     instead of the default providers chain. This can be useful when running

@@ -51,7 +51,6 @@ public final class ArrayDistinctFunction
     @TypeParameter("E")
     @SqlType("array(E)")
     public Block distinct(
-            @TypeParameter("E") Type type,
             @OperatorDependency(
                     operator = IDENTICAL,
                     argumentTypes = {"E", "E"},
@@ -75,7 +74,6 @@ public final class ArrayDistinctFunction
         }
 
         BlockSet distinctElements = new BlockSet(
-                type,
                 elementIdentical,
                 elementHashCode,
                 array.getPositionCount());

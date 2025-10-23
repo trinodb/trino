@@ -245,17 +245,6 @@ public class ArrayType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            writeObject(blockBuilder, getObject(block, position));
-        }
-    }
-
-    @Override
     public Block getObject(Block block, int position)
     {
         return read((ArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
@@ -265,11 +254,8 @@ public class ArrayType
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         Block arrayBlock = (Block) value;
-        ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
-            for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-                elementType.appendTo(arrayBlock, i, elementBuilder);
-            }
-        });
+        ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder ->
+                elementBuilder.appendBlockRange(arrayBlock, 0, arrayBlock.getPositionCount()));
     }
 
     // FLAT MEMORY LAYOUT

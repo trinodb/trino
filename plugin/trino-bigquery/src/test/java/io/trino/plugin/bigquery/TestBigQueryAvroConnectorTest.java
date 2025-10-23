@@ -74,7 +74,7 @@ public class TestBigQueryAvroConnectorTest
                 assertUpdate("INSERT INTO " + tableName + " VALUES ('test value')", 1);
                 // The storage API can't read the table, but query based API can read it
                 assertThat(query("SELECT * FROM " + tableName))
-                        .failure().hasMessageMatching("(Cannot create read|Invalid Avro schema).*(Illegal initial character|Invalid name).*");
+                        .failure().hasMessageMatching("(Cannot create read|Invalid Avro schema).*(Illegal initial character|Invalid characters in name).*");
                 assertThat(bigQuerySqlExecutor.executeQuery("SELECT * FROM " + tableName).getValues())
                         .extracting(field -> field.getFirst().getStringValue())
                         .containsExactly("test value");

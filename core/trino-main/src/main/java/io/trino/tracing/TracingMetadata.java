@@ -21,6 +21,7 @@ import io.airlift.slice.Slice;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.AnalyzeTableHandle;
 import io.trino.metadata.CatalogFunctionMetadata;
@@ -53,13 +54,13 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorCapabilities;
+import io.trino.spi.connector.ConnectorName;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.Constraint;
@@ -236,11 +237,11 @@ public class TracingMetadata
     }
 
     @Override
-    public void executeTableExecute(Session session, TableExecuteHandle handle)
+    public Map<String, Long> executeTableExecute(Session session, TableExecuteHandle handle)
     {
         Span span = startSpan("executeTableExecute", handle);
         try (var _ = scopedSpan(span)) {
-            delegate.executeTableExecute(session, handle);
+            return delegate.executeTableExecute(session, handle);
         }
     }
 
@@ -370,6 +371,24 @@ public class TracingMetadata
         Span span = startSpan("listRelationComments", new QualifiedTablePrefix(catalogName, schemaName, Optional.empty()));
         try (var _ = scopedSpan(span)) {
             return delegate.listRelationComments(session, catalogName, schemaName, relationFilter);
+        }
+    }
+
+    @Override
+    public void createCatalog(Session session, CatalogName catalog, ConnectorName connectorName, Map<String, String> properties, boolean notExists)
+    {
+        Span span = startSpan("createCatalog", catalog);
+        try (var _ = scopedSpan(span)) {
+            delegate.createCatalog(session, catalog, connectorName, properties, notExists);
+        }
+    }
+
+    @Override
+    public void dropCatalog(Session session, CatalogName catalog, boolean cascade)
+    {
+        Span span = startSpan("dropCatalog", catalog);
+        try (var _ = scopedSpan(span)) {
+            delegate.dropCatalog(session, catalog, cascade);
         }
     }
 
@@ -611,11 +630,11 @@ public class TracingMetadata
     }
 
     @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata)
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata, boolean tableReplace)
     {
         Span span = startSpan("getStatisticsCollectionMetadataForWrite", catalogHandle.getCatalogName().toString(), tableMetadata);
         try (var _ = scopedSpan(span)) {
-            return delegate.getStatisticsCollectionMetadataForWrite(session, catalogHandle, tableMetadata);
+            return delegate.getStatisticsCollectionMetadataForWrite(session, catalogHandle, tableMetadata, tableReplace);
         }
     }
 

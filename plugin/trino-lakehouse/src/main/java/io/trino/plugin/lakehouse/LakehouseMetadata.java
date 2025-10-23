@@ -39,7 +39,6 @@ import io.trino.plugin.iceberg.IcebergTableHandle;
 import io.trino.plugin.iceberg.IcebergWritableTableHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.spi.RefreshType;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -112,7 +111,6 @@ import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergTableName.isIcebergTableName;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.lakehouse.LakehouseTableProperties.getTableType;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
 public class LakehouseMetadata
@@ -200,9 +198,9 @@ public class LakehouseMetadata
     }
 
     @Override
-    public void executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    public Map<String, Long> executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
-        forHandle(tableExecuteHandle).executeTableExecute(session, tableExecuteHandle);
+        return forHandle(tableExecuteHandle).executeTableExecute(session, tableExecuteHandle);
     }
 
     @Override
@@ -479,9 +477,15 @@ public class LakehouseMetadata
     }
 
     @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean tableReplace)
+    {
+        return forProperties(tableMetadata.getProperties()).getStatisticsCollectionMetadataForWrite(session, unwrapTableMetadata(tableMetadata), tableReplace);
+    }
+
+    @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        return forProperties(tableMetadata.getProperties()).getStatisticsCollectionMetadataForWrite(session, unwrapTableMetadata(tableMetadata));
+        throw new UnsupportedOperationException("This variant of getStatisticsCollectionMetadataForWrite is unsupported");
     }
 
     @Override
@@ -545,15 +549,23 @@ public class LakehouseMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, RetryMode retryMode, RefreshType refreshType)
+    public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, RetryMode retryMode, RefreshType refreshType)
     {
-        return icebergMetadata.beginRefreshMaterializedView(session, tableHandle, sourceTableHandles, retryMode, refreshType);
+        List<ConnectorTableHandle> icebergSourceHandles = sourceTableHandles.stream()
+                .filter(IcebergTableHandle.class::isInstance)
+                .toList();
+        hasForeignSourceTables |= icebergSourceHandles.size() < sourceTableHandles.size();
+        return icebergMetadata.beginRefreshMaterializedView(session, tableHandle, icebergSourceHandles, hasForeignSourceTables, retryMode, refreshType);
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics, List<ConnectorTableHandle> sourceTableHandles, List<String> sourceTableFunctions)
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics, List<ConnectorTableHandle> sourceTableHandles, boolean hasForeignSourceTables, boolean hasSourceTableFunctions)
     {
-        return icebergMetadata.finishRefreshMaterializedView(session, tableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles, sourceTableFunctions);
+        List<ConnectorTableHandle> icebergSourceHandles = sourceTableHandles.stream()
+                .filter(IcebergTableHandle.class::isInstance)
+                .toList();
+        hasForeignSourceTables |= icebergSourceHandles.size() < sourceTableHandles.size();
+        return icebergMetadata.finishRefreshMaterializedView(session, tableHandle, insertHandle, fragments, computedStatistics, icebergSourceHandles, hasForeignSourceTables, hasSourceTableFunctions);
     }
 
     @Override
@@ -607,7 +619,7 @@ public class LakehouseMetadata
     @Override
     public void refreshView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition viewDefinition)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support refreshing view definition");
+        hiveMetadata.refreshView(session, viewName, viewDefinition);
     }
 
     @Override

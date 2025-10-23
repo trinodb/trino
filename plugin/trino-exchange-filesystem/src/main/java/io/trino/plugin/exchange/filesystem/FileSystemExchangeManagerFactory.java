@@ -45,6 +45,7 @@ public class FileSystemExchangeManagerFactory
         requireNonNull(config, "config is null");
 
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.exchange.filesystem",
                 new MBeanModule(),
                 new MBeanServerModule(),
                 new PrefixObjectNameGeneratorModule("io.trino.plugin.exchange.filesystem", "trino.plugin.exchange.filesystem"),

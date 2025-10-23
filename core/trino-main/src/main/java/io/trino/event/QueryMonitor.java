@@ -231,8 +231,6 @@ public class QueryMonitor
                         0,
                         0,
                         0,
-                        0,
-                        0,
                         ImmutableList.of(),
                         0,
                         true,
@@ -342,8 +340,6 @@ public class QueryMonitor
                 queryStats.getProcessedInputPositions(),
                 queryStats.getInternalNetworkInputDataSize().toBytes(),
                 queryStats.getInternalNetworkInputPositions(),
-                queryStats.getRawInputDataSize().toBytes(),
-                queryStats.getRawInputPositions(),
                 queryStats.getOutputDataSize().toBytes(),
                 queryStats.getOutputPositions(),
                 queryStats.getLogicalWrittenDataSize().toBytes(),
@@ -573,7 +569,7 @@ public class QueryMonitor
 
     private static Optional<TaskInfo> findFailedTask(StagesInfo stages)
     {
-        for (StageInfo stageInfo : stages.getSubStagesDeepPostOrder(stages.getOutputStageId(), true)) {
+        for (StageInfo stageInfo : stages.getSubStagesDeep(stages.getOutputStageId(), true)) {
             Optional<TaskInfo> failedTaskInfo = stageInfo.getTasks().stream()
                     .filter(taskInfo -> taskInfo.taskStatus().getState() == TaskState.FAILED)
                     .findFirst();
@@ -736,18 +732,18 @@ public class QueryMonitor
         DistributionSnapshot snapshot = cpuDistribution.snapshot();
 
         return new StageCpuDistribution(
-                stageInfo.getStageId().getId(),
+                stageInfo.getStageId().id(),
                 stageInfo.getTasks().size(),
-                (long) snapshot.getP25(),
-                (long) snapshot.getP50(),
-                (long) snapshot.getP75(),
-                (long) snapshot.getP90(),
-                (long) snapshot.getP95(),
-                (long) snapshot.getP99(),
-                (long) snapshot.getMin(),
-                (long) snapshot.getMax(),
-                (long) snapshot.getTotal(),
-                firstNonNaN(snapshot.getTotal() / snapshot.getCount(), 0.0));
+                (long) snapshot.p25(),
+                (long) snapshot.p50(),
+                (long) snapshot.p75(),
+                (long) snapshot.p90(),
+                (long) snapshot.p95(),
+                (long) snapshot.p99(),
+                (long) snapshot.min(),
+                (long) snapshot.max(),
+                (long) snapshot.total(),
+                firstNonNaN(snapshot.total() / snapshot.count(), 0.0));
     }
 
     private static List<StageOutputBufferUtilization> getStageOutputBufferUtilizations(QueryInfo queryInfo)
@@ -763,7 +759,7 @@ public class QueryMonitor
     {
         return stageInfo.getStageStats().getOutputBufferUtilization()
                 .map(utilization -> new StageOutputBufferUtilization(
-                            stageInfo.getStageId().getId(),
+                            stageInfo.getStageId().id(),
                             stageInfo.getTasks().size(),
                             // scale ratio to percentages
                             utilization.p01() * 100,
@@ -795,7 +791,7 @@ public class QueryMonitor
         if (metrics.getMetrics().isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(new StageOutputBufferMetrics(stageInfo.getStageId().getId(), metrics));
+        return Optional.of(new StageOutputBufferMetrics(stageInfo.getStageId().id(), metrics));
     }
 
     private List<StageTaskStatistics> getStageTaskStatistics(QueryInfo queryInfo)
@@ -844,29 +840,29 @@ public class QueryMonitor
                 .collect(toImmutableMap(entry -> entry.getKey().toString(), entry -> {
                     DistributionSnapshot distributionSnapshot = entry.getValue();
                     return new DoubleSymmetricDistribution(
-                            distributionSnapshot.getP01(),
-                            distributionSnapshot.getP05(),
-                            distributionSnapshot.getP10(),
-                            distributionSnapshot.getP25(),
-                            distributionSnapshot.getP50(),
-                            distributionSnapshot.getP75(),
-                            distributionSnapshot.getP90(),
-                            distributionSnapshot.getP95(),
-                            distributionSnapshot.getP99(),
-                            distributionSnapshot.getMin(),
-                            distributionSnapshot.getMax(),
-                            distributionSnapshot.getTotal(),
-                            distributionSnapshot.getCount());
+                            distributionSnapshot.p01(),
+                            distributionSnapshot.p05(),
+                            distributionSnapshot.p10(),
+                            distributionSnapshot.p25(),
+                            distributionSnapshot.p50(),
+                            distributionSnapshot.p75(),
+                            distributionSnapshot.p90(),
+                            distributionSnapshot.p95(),
+                            distributionSnapshot.p99(),
+                            distributionSnapshot.min(),
+                            distributionSnapshot.max(),
+                            distributionSnapshot.total(),
+                            distributionSnapshot.count());
                 }));
         return new StageTaskStatistics(
-                stageInfo.getStageId().getId(),
+                stageInfo.getStageId().id(),
                 stageInfo.getTasks().size(),
                 getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getTotalCpuTime().toMillis())),
                 getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getTotalScheduledTime().toMillis())),
                 getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getPeakUserMemoryReservation().toBytes())),
                 getTasksDistribution(stageInfo, taskInfo -> taskInfo.estimatedMemory().map(DataSize::toBytes)),
-                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getRawInputDataSize().toBytes())),
-                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getRawInputPositions())),
+                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getInternalNetworkInputDataSize().toBytes() + taskInfo.stats().getPhysicalInputDataSize().toBytes())),
+                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getProcessedInputPositions())),
                 getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getProcessedInputDataSize().toBytes())),
                 getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getProcessedInputPositions())),
                 getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getOutputDataSize().toBytes())),
@@ -895,16 +891,16 @@ public class QueryMonitor
         }
         DistributionSnapshot snapshot = distribution.snapshot();
         return new LongDistribution(
-                (long) snapshot.getP25(),
-                (long) snapshot.getP50(),
-                (long) snapshot.getP75(),
-                (long) snapshot.getP90(),
-                (long) snapshot.getP95(),
-                (long) snapshot.getP99(),
-                (long) snapshot.getMin(),
-                (long) snapshot.getMax(),
-                (long) snapshot.getTotal(),
-                firstNonNaN(snapshot.getTotal() / snapshot.getCount(), 0.0));
+                (long) snapshot.p25(),
+                (long) snapshot.p50(),
+                (long) snapshot.p75(),
+                (long) snapshot.p90(),
+                (long) snapshot.p95(),
+                (long) snapshot.p99(),
+                (long) snapshot.min(),
+                (long) snapshot.max(),
+                (long) snapshot.total(),
+                firstNonNaN(snapshot.total() / snapshot.count(), 0.0));
     }
 
     private static LongSymmetricDistribution getTasksSymmetricDistribution(StageInfo stageInfo, Function<TaskInfo, Optional<Long>> metricFunction)
@@ -915,19 +911,19 @@ public class QueryMonitor
         }
         DistributionSnapshot snapshot = distribution.snapshot();
         return new LongSymmetricDistribution(
-                (long) snapshot.getP01(),
-                (long) snapshot.getP05(),
-                (long) snapshot.getP10(),
-                (long) snapshot.getP25(),
-                (long) snapshot.getP50(),
-                (long) snapshot.getP75(),
-                (long) snapshot.getP90(),
-                (long) snapshot.getP95(),
-                (long) snapshot.getP99(),
-                (long) snapshot.getMin(),
-                (long) snapshot.getMax(),
-                (long) snapshot.getTotal(),
-                firstNonNaN(snapshot.getTotal() / snapshot.getCount(), 0.0));
+                (long) snapshot.p01(),
+                (long) snapshot.p05(),
+                (long) snapshot.p10(),
+                (long) snapshot.p25(),
+                (long) snapshot.p50(),
+                (long) snapshot.p75(),
+                (long) snapshot.p90(),
+                (long) snapshot.p95(),
+                (long) snapshot.p99(),
+                (long) snapshot.min(),
+                (long) snapshot.max(),
+                (long) snapshot.total(),
+                firstNonNaN(snapshot.total() / snapshot.count(), 0.0));
     }
 
     private static DoubleSymmetricDistribution scaleDistribution(LongSymmetricDistribution distribution, long scaleFactor)
@@ -945,7 +941,7 @@ public class QueryMonitor
                 (double) distribution.getMin() / scaleFactor,
                 (double) distribution.getMax() / scaleFactor,
                 (double) distribution.getTotal(),
-                (double) distribution.getAverage() / scaleFactor);
+                distribution.getAverage() / scaleFactor);
     }
 
     private static class FragmentNode

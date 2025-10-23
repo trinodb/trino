@@ -16,7 +16,7 @@ package io.trino.transaction;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
-import io.trino.spi.connector.CatalogHandle;
+import io.trino.connector.CatalogHandle;
 import io.trino.spi.transaction.IsolationLevel;
 
 import java.time.Instant;

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 
@@ -24,4 +25,6 @@ public interface LocatedTableHandle
     boolean managed();
 
     String location();
+
+    VendedCredentialsHandle toCredentialsHandle();
 }

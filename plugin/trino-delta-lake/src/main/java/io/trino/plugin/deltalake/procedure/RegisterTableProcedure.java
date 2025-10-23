@@ -19,14 +19,15 @@ import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Table;
 import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
+import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
@@ -81,7 +82,7 @@ public class RegisterTableProcedure
     private final DeltaLakeMetadataFactory metadataFactory;
     private final TransactionLogAccess transactionLogAccess;
     private final CachingExtendedStatisticsAccess statisticsAccess;
-    private final TrinoFileSystemFactory fileSystemFactory;
+    private final DeltaLakeFileSystemFactory fileSystemFactory;
     private final boolean registerTableProcedureEnabled;
 
     @Inject
@@ -89,7 +90,7 @@ public class RegisterTableProcedure
             DeltaLakeMetadataFactory metadataFactory,
             TransactionLogAccess transactionLogAccess,
             CachingExtendedStatisticsAccess statisticsAccess,
-            TrinoFileSystemFactory fileSystemFactory,
+            DeltaLakeFileSystemFactory fileSystemFactory,
             DeltaLakeConfig deltaLakeConfig)
     {
         this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
@@ -154,7 +155,7 @@ public class RegisterTableProcedure
                 throw new SchemaNotFoundException(schemaTableName.getSchemaName());
             }
 
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session, tableLocation);
             try {
                 Location transactionLogDir = Location.of(getTransactionLogDir(tableLocation));
                 if (!fileSystem.listFiles(transactionLogDir).hasNext()) {
@@ -171,8 +172,9 @@ public class RegisterTableProcedure
             TableSnapshot tableSnapshot;
             MetadataEntry metadataEntry;
             try {
-                tableSnapshot = transactionLogAccess.loadSnapshot(session, new FileSystemTransactionLogReader(tableLocation, fileSystemFactory), schemaTableName, tableLocation, Optional.empty());
-                metadataEntry = transactionLogAccess.getMetadataEntry(session, tableSnapshot);
+                VendedCredentialsHandle credentialsHandle = VendedCredentialsHandle.empty(tableLocation);
+                tableSnapshot = transactionLogAccess.loadSnapshot(session, new FileSystemTransactionLogReader(tableLocation, credentialsHandle, fileSystemFactory), schemaTableName, tableLocation, Optional.empty(), credentialsHandle);
+                metadataEntry = transactionLogAccess.getMetadataEntry(session, fileSystem, tableSnapshot);
             }
             catch (TrinoException e) {
                 throw e;

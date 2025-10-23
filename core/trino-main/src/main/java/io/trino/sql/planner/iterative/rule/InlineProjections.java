@@ -161,7 +161,7 @@ public class InlineProjections
         Set<Symbol> childOutputSet = ImmutableSet.copyOf(child.getOutputSymbols());
 
         Map<Symbol, Long> dependencies = parent.getAssignments()
-                .getExpressions().stream()
+                .expressions().stream()
                 .flatMap(expression -> SymbolsExtractor.extractAll(expression).stream())
                 .filter(childOutputSet::contains)
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));

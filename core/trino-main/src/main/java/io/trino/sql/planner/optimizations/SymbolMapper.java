@@ -58,8 +58,9 @@ import io.trino.sql.planner.rowpattern.ScalarValuePointer;
 import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 
-import java.util.HashMap;
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -140,7 +141,7 @@ public class SymbolMapper
                 .collect(toImmutableList());
     }
 
-    public List<Symbol> mapAndDistinct(List<Symbol> symbols)
+    public List<Symbol> mapAndDistinct(Collection<Symbol> symbols)
     {
         return symbols.stream()
                 .map(this::map)
@@ -216,7 +217,7 @@ public class SymbolMapper
 
     public GroupIdNode map(GroupIdNode node, PlanNode source)
     {
-        Map<Symbol, Symbol> newGroupingMappings = new HashMap<>();
+        Map<Symbol, Symbol> newGroupingMappings = new LinkedHashMap<>();
         ImmutableList.Builder<List<Symbol>> newGroupingSets = ImmutableList.builder();
 
         for (List<Symbol> groupingSet : node.getGroupingSets()) {

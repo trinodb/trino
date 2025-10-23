@@ -212,6 +212,9 @@ a few caveats:
   - Enable using Apache Arrow serialization when reading data from BigQuery.
     Read this [section](bigquery-arrow-serialization-support) before using this feature.
   - `true`
+* - `bigquery.arrow-serialization.max-allocation`
+  - The maximum amount of memory the Apache Arrow buffer allocator is allowed to use.
+  - `100MB`
 * - `bigquery.max-parallelism`
   - The max number of partitions to split the data into. Reduce this number if
     the default parallelism (number of workers x 3) is too high.

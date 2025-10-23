@@ -21,7 +21,6 @@ import io.airlift.json.JsonCodec;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
@@ -36,10 +35,10 @@ import static java.util.Objects.requireNonNull;
 public class IcebergMetadataFactory
 {
     private final TypeManager typeManager;
-    private final CatalogHandle trinoCatalogHandle;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
     private final TrinoCatalogFactory catalogFactory;
     private final IcebergFileSystemFactory fileSystemFactory;
+    private final TableStatisticsReader tableStatisticsReader;
     private final TableStatisticsWriter tableStatisticsWriter;
     private final Optional<HiveMetastoreFactory> metastoreFactory;
     private final boolean addFilesProcedureEnabled;
@@ -52,10 +51,10 @@ public class IcebergMetadataFactory
     @Inject
     public IcebergMetadataFactory(
             TypeManager typeManager,
-            CatalogHandle trinoCatalogHandle,
             JsonCodec<CommitTaskData> commitTaskCodec,
             TrinoCatalogFactory catalogFactory,
             IcebergFileSystemFactory fileSystemFactory,
+            TableStatisticsReader tableStatisticsReader,
             TableStatisticsWriter tableStatisticsWriter,
             @RawHiveMetastoreFactory Optional<HiveMetastoreFactory> metastoreFactory,
             @ForIcebergSplitManager ExecutorService icebergScanExecutor,
@@ -65,10 +64,10 @@ public class IcebergMetadataFactory
             IcebergConfig config)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.trinoCatalogHandle = requireNonNull(trinoCatalogHandle, "trinoCatalogHandle is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.tableStatisticsReader = requireNonNull(tableStatisticsReader, "tableStatisticsReader is null");
         this.tableStatisticsWriter = requireNonNull(tableStatisticsWriter, "tableStatisticsWriter is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
@@ -94,10 +93,10 @@ public class IcebergMetadataFactory
     {
         return new IcebergMetadata(
                 typeManager,
-                trinoCatalogHandle,
                 commitTaskCodec,
                 catalogFactory.create(identity),
                 fileSystemFactory,
+                tableStatisticsReader,
                 tableStatisticsWriter,
                 metastoreFactory,
                 addFilesProcedureEnabled,

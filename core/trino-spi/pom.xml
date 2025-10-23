@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>477-SNAPSHOT</version>
+        <version>478-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -217,468 +217,107 @@
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.Page io.trino.spi.Page::getLoadedPage(int[], int[])</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.block.ArrayBlock io.trino.spi.block.ArrayBlock::getLoadedBlock()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method boolean io.trino.spi.block.ArrayBlock::isLoaded()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.block.Block io.trino.spi.block.Block::getLoadedBlock()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method boolean io.trino.spi.block.Block::isLoaded()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.block.Block io.trino.spi.block.DictionaryBlock::getLoadedBlock()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method boolean io.trino.spi.block.DictionaryBlock::isLoaded()</old>
-                                </item>
-                                <item>
-                                    <code>java.class.removed</code>
-                                    <old>class io.trino.spi.block.LazyBlock</old>
-                                </item>
-                                <item>
-                                    <code>java.class.removed</code>
-                                    <old>class io.trino.spi.block.LazyBlockEncoding</old>
-                                </item>
-                                <item>
-                                    <code>java.class.removed</code>
-                                    <old>interface io.trino.spi.block.LazyBlockLoader</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.block.Block io.trino.spi.block.MapBlock::getLoadedBlock()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method boolean io.trino.spi.block.MapBlock::isLoaded()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.block.Block io.trino.spi.block.RowBlock::getLoadedBlock()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method boolean io.trino.spi.block.RowBlock::isLoaded()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.block.Block io.trino.spi.block.RunLengthEncodedBlock::getLoadedBlock()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method boolean io.trino.spi.block.RunLengthEncodedBlock::isLoaded()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.Page io.trino.spi.Page::getLoadedPage(int)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.Page io.trino.spi.Page::getLoadedPage()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.Page io.trino.spi.Page::getLoadedPage(int[])</old>
+                                    <ignore>true</ignore>
+                                    <code>java.method.noLongerDefault</code>
+                                    <old>method void io.trino.spi.connector.Connector::shutdown()</old>
+                                    <new>method void io.trino.spi.connector.Connector::shutdown()</new>
+                                    <justification>Require connector to implement shutdown to prevent leaks</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.method.returnTypeTypeParametersChanged</code>
-                                    <old>method java.util.List&lt;java.lang.String&gt; io.trino.spi.eventlistener.QueryInputMetadata::getColumns()</old>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>method void io.trino.spi.eventlistener.QueryInputMetadata::&lt;init&gt;(java.lang.String, io.trino.spi.connector.CatalogHandle.CatalogVersion, java.lang.String, java.lang.String, java.util.List&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.Object&gt;, io.trino.spi.metrics.Metrics, java.util.OptionalLong, java.util.OptionalLong)</old>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.util.Optional&lt;java.lang.Object&gt; io.trino.spi.connector.ConnectorMetadata::getInfo(io.trino.spi.connector.ConnectorTableHandle)</old>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferUtilization&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferMetrics&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageTaskStatistics&gt;, java.util.function.Supplier&lt;java.util.List&lt;java.lang.String&gt;&gt;, java.util.List&lt;io.trino.spi.eventlistener.QueryPlanOptimizerStatistics&gt;, java.util.Optional&lt;java.lang.String&gt;)</old>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.returnTypeChanged</code>
-                                    <old>method io.trino.spi.eventlistener.DoubleSymmetricDistribution io.trino.spi.eventlistener.StageTaskStatistics::getGetSplitDistribution()</old>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.parameterTypeChanged</code>
-                                    <old>method void io.trino.spi.eventlistener.StageTaskStatistics::&lt;init&gt;(int, int, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongDistribution, io.trino.spi.eventlistener.LongSymmetricDistribution, io.trino.spi.eventlistener.LongSymmetricDistribution, io.trino.spi.eventlistener.LongSymmetricDistribution, io.trino.spi.eventlistener.LongSymmetricDistribution, io.trino.spi.eventlistener.LongSymmetricDistribution, io.trino.spi.eventlistener.LongSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution, io.trino.spi.eventlistener.DoubleSymmetricDistribution)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.OptionalInt io.trino.spi.block.ArrayBlock::fixedSizeInBytesPerPosition()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method long io.trino.spi.block.ArrayBlock::getPositionsSizeInBytes(boolean[], int)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.OptionalInt io.trino.spi.block.Block::fixedSizeInBytesPerPosition()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method long io.trino.spi.block.Block::getPositionsSizeInBytes(boolean[], int)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.OptionalInt io.trino.spi.block.ByteArrayBlock::fixedSizeInBytesPerPosition()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method long io.trino.spi.block.ByteArrayBlock::getPositionsSizeInBytes(boolean[], int)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.OptionalInt io.trino.spi.block.DictionaryBlock::fixedSizeInBytesPerPosition()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method long io.trino.spi.block.DictionaryBlock::getPositionsSizeInBytes(boolean[], int)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.OptionalInt io.trino.spi.block.Fixed12Block::fixedSizeInBytesPerPosition()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method long io.trino.spi.block.Fixed12Block::getPositionsSizeInBytes(boolean[], int)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.OptionalInt io.trino.spi.block.Int128ArrayBlock::fixedSizeInBytesPerPosition()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method long io.trino.spi.block.Int128ArrayBlock::getPositionsSizeInBytes(boolean[], int)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.OptionalInt io.trino.spi.block.IntArrayBlock::fixedSizeInBytesPerPosition()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method long io.trino.spi.block.IntArrayBlock::getPositionsSizeInBytes(boolean[], int)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.OptionalInt io.trino.spi.block.LongArrayBlock::fixedSizeInBytesPerPosition()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method long io.trino.spi.block.LongArrayBlock::getPositionsSizeInBytes(boolean[], int)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.OptionalInt io.trino.spi.block.MapBlock::fixedSizeInBytesPerPosition()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method long io.trino.spi.block.MapBlock::getPositionsSizeInBytes(boolean[], int)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.OptionalInt io.trino.spi.block.RowBlock::fixedSizeInBytesPerPosition()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method long io.trino.spi.block.RowBlock::getPositionsSizeInBytes(boolean[], int)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.OptionalInt io.trino.spi.block.RunLengthEncodedBlock::fixedSizeInBytesPerPosition()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method long io.trino.spi.block.RunLengthEncodedBlock::getPositionsSizeInBytes(boolean[], int)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.OptionalInt io.trino.spi.block.ShortArrayBlock::fixedSizeInBytesPerPosition()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method long io.trino.spi.block.ShortArrayBlock::getPositionsSizeInBytes(boolean[], int)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.OptionalInt io.trino.spi.block.VariableWidthBlock::fixedSizeInBytesPerPosition()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method long io.trino.spi.block.VariableWidthBlock::getPositionsSizeInBytes(boolean[], int)</old>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.ArrayType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.ArrayType::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.BigintType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.BigintType::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.BooleanType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.BooleanType::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.CharType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.CharType::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.DateType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.DateType::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.DoubleType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.DoubleType::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.HyperLogLogType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.HyperLogLogType::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.IntegerType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.IntegerType::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.MapType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.MapType::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.P4HyperLogLogType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.P4HyperLogLogType::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.QuantileDigestType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.QuantileDigestType::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.RealType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.RealType::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.RowType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.RowType::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.SmallintType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.SmallintType::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.TimeType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.TimeType::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.TinyintType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.TinyintType::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.Type::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.Type::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.UuidType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.UuidType::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.VarbinaryType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.VarbinaryType::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method java.lang.Object io.trino.spi.type.VarcharType::getObjectValue(io.trino.spi.connector.ConnectorSession, io.trino.spi.block.Block, int)</old>
-                                    <new>method java.lang.Object io.trino.spi.type.VarcharType::getObjectValue(io.trino.spi.block.Block, int)</new>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.parameterTypeChanged</code>
-                                    <old>parameter java.lang.String io.trino.spi.predicate.AllOrNoneValueSet::toString(===io.trino.spi.connector.ConnectorSession===)</old>
-                                    <new>parameter java.lang.String io.trino.spi.predicate.AllOrNoneValueSet::toString(===int===)</new>
-                                    <parameterIndex>0</parameterIndex>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.predicate.AllOrNoneValueSet::toString(io.trino.spi.connector.ConnectorSession, int)</old>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.parameterTypeChanged</code>
-                                    <old>parameter java.lang.String io.trino.spi.predicate.Domain::toString(===io.trino.spi.connector.ConnectorSession===)</old>
-                                    <new>parameter java.lang.String io.trino.spi.predicate.Domain::toString(===int===)</new>
-                                    <parameterIndex>0</parameterIndex>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.predicate.Domain::toString(io.trino.spi.connector.ConnectorSession, int)</old>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.parameterTypeChanged</code>
-                                    <old>parameter java.lang.String io.trino.spi.predicate.EquatableValueSet::toString(===io.trino.spi.connector.ConnectorSession===)</old>
-                                    <new>parameter java.lang.String io.trino.spi.predicate.EquatableValueSet::toString(===int===)</new>
-                                    <parameterIndex>0</parameterIndex>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.predicate.EquatableValueSet::toString(io.trino.spi.connector.ConnectorSession, int)</old>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.predicate.Range::toString(io.trino.spi.connector.ConnectorSession)</old>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.parameterTypeChanged</code>
-                                    <old>parameter java.lang.String io.trino.spi.predicate.SortedRangeSet::toString(===io.trino.spi.connector.ConnectorSession===)</old>
-                                    <new>parameter java.lang.String io.trino.spi.predicate.SortedRangeSet::toString(===int===)</new>
-                                    <parameterIndex>0</parameterIndex>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.predicate.SortedRangeSet::toString(io.trino.spi.connector.ConnectorSession, int)</old>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.predicate.TupleDomain&lt;T&gt;::toString(io.trino.spi.connector.ConnectorSession)</old>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.parameterTypeChanged</code>
-                                    <old>parameter java.lang.String io.trino.spi.predicate.ValueSet::toString(===io.trino.spi.connector.ConnectorSession===)</old>
-                                    <new>parameter java.lang.String io.trino.spi.predicate.ValueSet::toString(===int===)</new>
-                                    <parameterIndex>0</parameterIndex>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.predicate.ValueSet::toString(io.trino.spi.connector.ConnectorSession, int)</old>
-                                    <justification>Type cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.lang.String io.trino.spi.NodeManager::getEnvironment()</old>
-                                    <justification>Unused</justification>
-                                </item>
-                                <item>
-                                    <code>java.class.removed</code>
-                                    <annotationType>@interface io.trino.spi.Experimental</annotationType>
+                                    <code>java.method.nowAbstract</code>
+                                    <old>method void io.trino.spi.connector.Connector::shutdown()</old>
+                                    <new>method void io.trino.spi.connector.Connector::shutdown()</new>
+                                    <justification>Require connector to implement shutdown to prevent leaks</justification>
                                 </item>
                                 <item>
                                     <code>java.annotation.removed</code>
-                                    <annotationType>io.trino.spi.Experimental</annotationType>
+                                    <old>method java.lang.String io.trino.spi.QueryId::toString()</old>
+                                    <new>method java.lang.String io.trino.spi.QueryId::toString()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
+                                    <justification>QueryId converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.kindChanged</code>
+                                    <old>class io.trino.spi.QueryId</old>
+                                    <new>class io.trino.spi.QueryId</new>
+                                    <justification>QueryId converted to a record</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
                                     <code>java.method.removed</code>
-                                    <old>method io.trino.spi.Page io.trino.spi.connector.EmptyPageSource::getNextPage()</old>
-                                    <justification>Deprecated</justification>
+                                    <old>method void io.trino.spi.resourcegroups.SelectionCriteria::&lt;init&gt;(boolean, java.lang.String, java.util.Set&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Set&lt;java.lang.String&gt;, io.trino.spi.session.ResourceEstimates, java.util.Optional&lt;java.lang.String&gt;)</old>
+                                    <justification>Remove a deprecated constructor</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.Page io.trino.spi.connector.FixedPageSource::getNextPage()</old>
-                                    <justification>Deprecated</justification>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <old>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, boolean[])</old>
+                                    <new>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, boolean[])</new>
+                                    <justification>Revapi now detects new API changes to vararg args</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <old>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, double[])</old>
+                                    <new>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, double[])</new>
+                                    <justification>Revapi now detects new API changes to vararg args</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <old>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, java.lang.String[])</old>
+                                    <new>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, java.lang.String[])</new>
+                                    <justification>Revapi now detects new API changes to vararg args</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <old>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, long[])</old>
+                                    <new>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, long[])</new>
+                                    <justification>Revapi now detects new API changes to vararg args</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <old>method io.opentelemetry.api.common.Value&lt;java.util.List&lt;io.opentelemetry.api.common.KeyValue&gt;&gt; io.opentelemetry.api.common.Value&lt;T&gt;::of(io.opentelemetry.api.common.KeyValue[])</old>
+                                    <new>method io.opentelemetry.api.common.Value&lt;java.util.List&lt;io.opentelemetry.api.common.KeyValue&gt;&gt; io.opentelemetry.api.common.Value&lt;T&gt;::of(io.opentelemetry.api.common.KeyValue[])</new>
+                                    <justification>Revapi now detects new API changes to vararg args</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
+                                    <old>method io.opentelemetry.api.common.Value&lt;java.util.List&lt;io.opentelemetry.api.common.Value&lt;?&gt;&gt;&gt; io.opentelemetry.api.common.Value&lt;T&gt;::of(io.opentelemetry.api.common.Value&lt;?&gt;[])</old>
+                                    <new>method io.opentelemetry.api.common.Value&lt;java.util.List&lt;io.opentelemetry.api.common.Value&lt;?&gt;&gt;&gt; io.opentelemetry.api.common.Value&lt;T&gt;::of(io.opentelemetry.api.common.Value&lt;?&gt;[])</new>
+                                    <justification>Revapi now detects new API changes to vararg args</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method boolean[] io.trino.spi.block.RowBlock::getRawRowIsNull()</old>
+                                    <new>method boolean[] io.trino.spi.block.RowBlock::getRawRowIsNull()</new>
+                                    <oldVisibility>package</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                    <justification>Allow direct access to isNull mask on RowBlock for performance critical sections</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method void io.trino.spi.connector.ConnectorMetadata::executeTableExecute(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableExecuteHandle)</old>
+                                    <new>method java.util.Map&lt;java.lang.String, java.lang.Long&gt; io.trino.spi.connector.ConnectorMetadata::executeTableExecute(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableExecuteHandle)</new>
+                                </item>
+                                <item>
                                     <code>java.method.removed</code>
-                                    <old>method io.trino.spi.Page io.trino.spi.connector.RecordPageSource::getNextPage()</old>
-                                    <justification>Deprecated</justification>
+                                    <old>method int io.trino.spi.PageSorter::decodePageIndex(long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.PageSorter::decodePositionIndex(long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method long[] io.trino.spi.PageSorter::sort(java.util.List&lt;io.trino.spi.type.Type&gt;, java.util.List&lt;io.trino.spi.Page&gt;, java.util.List&lt;java.lang.Integer&gt;, java.util.List&lt;io.trino.spi.connector.SortOrder&gt;, int)</old>
+                                    <new>method java.util.Iterator&lt;io.trino.spi.Page&gt; io.trino.spi.PageSorter::sort(java.util.List&lt;io.trino.spi.type.Type&gt;, java.util.List&lt;io.trino.spi.Page&gt;, java.util.List&lt;java.lang.Integer&gt;, java.util.List&lt;io.trino.spi.connector.SortOrder&gt;, int)</new>
                                 </item>
                             </differences>
                         </revapi.differences>
@@ -688,7 +327,7 @@
                     <dependency>
                         <groupId>org.revapi</groupId>
                         <artifactId>revapi-java</artifactId>
-                        <version>0.28.1</version>
+                        <version>0.28.4</version>
                     </dependency>
                 </dependencies>
                 <executions>

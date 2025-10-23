@@ -24,9 +24,13 @@ import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 
 import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
 
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class JmxConnectorFactory
         implements ConnectorFactory
@@ -43,6 +47,7 @@ public class JmxConnectorFactory
         checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.catalog." + catalogName,
                 new MBeanServerModule(),
                 binder -> {
                     configBinder(binder).bindConfig(JmxConnectorConfig.class);
@@ -54,6 +59,8 @@ public class JmxConnectorFactory
                     binder.bind(JmxSplitManager.class).in(Scopes.SINGLETON);
                     binder.bind(JmxPeriodicSampler.class).in(Scopes.SINGLETON);
                     binder.bind(JmxRecordSetProvider.class).in(Scopes.SINGLETON);
+                    binder.bind(ScheduledExecutorService.class).toInstance(newSingleThreadScheduledExecutor(daemonThreadsNamed("jmx-history-%s")));
+                    closingBinder(binder).registerExecutor(ScheduledExecutorService.class);
                 });
 
         Injector injector = app

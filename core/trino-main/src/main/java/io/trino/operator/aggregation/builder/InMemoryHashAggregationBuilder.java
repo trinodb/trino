@@ -349,7 +349,7 @@ public class InMemoryHashAggregationBuilder
         ImmutableList.Builder<Type> types = ImmutableList.builderWithExpectedSize(groupByType.size() + factories.size());
         types.addAll(groupByType);
         for (AggregatorFactory factory : factories) {
-            types.add(factory.createAggregator(new AggregationMetrics()).getType());
+            types.add(factory.getOutputType());
         }
         return types.build();
     }

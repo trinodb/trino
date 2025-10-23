@@ -285,7 +285,7 @@ public class PhasedExecutionSchedule
         }
 
         QueryId queryId = stages.stream()
-                .map(stage -> stage.getStageId().getQueryId())
+                .map(stage -> stage.getStageId().queryId())
                 .distinct()
                 .collect(onlyElement());
         List<PlanFragment> fragments = stages.stream()

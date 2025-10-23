@@ -51,7 +51,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.IsNull;
-import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.RelationPlanner.PatternRecognitionComponents;
@@ -751,9 +750,9 @@ class QueryPlanner
                 .process(merge.getTarget());
 
         // Assign a unique id to every target table row
-        Symbol uniqueIdSymbol = symbolAllocator.newSymbol("unique_id", BIGINT);
+        Symbol targetUniqueIdSymbol = symbolAllocator.newSymbol("target_unique_id", BIGINT);
         RelationPlan planWithUniqueId = new RelationPlan(
-                new AssignUniqueId(idAllocator.getNextId(), targetTablePlan.getRoot(), uniqueIdSymbol),
+                new AssignUniqueId(idAllocator.getNextId(), targetTablePlan.getRoot(), targetUniqueIdSymbol),
                 mergeAnalysis.getTargetTableScope(),
                 targetTablePlan.getFieldMappings(),
                 outerContext);
@@ -774,8 +773,16 @@ class QueryPlanner
         RelationPlan source = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .process(merge.getSource());
 
+        // Assign a unique id to every source table row
+        Symbol sourceUniqueIdSymbol = symbolAllocator.newSymbol("source_unique_id", BIGINT);
+        RelationPlan sourcePlanWithUniqueId = new RelationPlan(
+                new AssignUniqueId(idAllocator.getNextId(), source.getRoot(), sourceUniqueIdSymbol),
+                source.getScope(),
+                source.getFieldMappings(),
+                outerContext);
+
         RelationPlan joinPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
-                .planJoin(merge.getPredicate(), Join.Type.RIGHT, mergeAnalysis.getJoinScope(), planWithPresentColumn, source, analysis.getSubqueries(merge)); // TODO: ir
+                .planJoin(merge.getPredicate(), Join.Type.RIGHT, mergeAnalysis.getJoinScope(), planWithPresentColumn, sourcePlanWithUniqueId, analysis.getSubqueries(merge)); // TODO: ir
 
         PlanBuilder subPlan = newPlanBuilder(joinPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
 
@@ -864,10 +871,11 @@ class QueryPlanner
 
             List<io.trino.sql.tree.Expression> constraints = analysis.getCheckConstraints(mergeAnalysis.getTargetTable());
             if (!constraints.isEmpty()) {
-                assignments.putIdentity(uniqueIdSymbol);
+                assignments.putIdentity(targetUniqueIdSymbol);
+                assignments.putIdentity(sourceUniqueIdSymbol);
                 assignments.putIdentity(presentColumn);
                 assignments.putIdentity(rowIdSymbol);
-                assignments.putIdentities(source.getFieldMappings());
+                assignments.putIdentities(sourcePlanWithUniqueId.getFieldMappings());
                 subPlan = subPlan.withNewRoot(new ProjectNode(
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
@@ -897,7 +905,15 @@ class QueryPlanner
             Symbol symbol = planWithPresentColumn.getFieldMappings().get(fieldIndex);
             projectionAssignmentsBuilder.putIdentity(symbol);
         }
-        projectionAssignmentsBuilder.putIdentity(uniqueIdSymbol);
+
+        // Assigns a unique id to each joined row
+        // The target table unique_id for matches, and the source table unique_id for non-matches
+        // Avoid the scenario where unique_id values become null after right join due to unmatched rows.
+        // It can improve performance and parallelism when handling non-matches in a mark distinct operation.
+        Symbol uniqueIdSymbol = symbolAllocator.newSymbol("unique_id", BIGINT);
+        Expression uniqueIdExpression = new Coalesce(targetUniqueIdSymbol.toSymbolReference(), sourceUniqueIdSymbol.toSymbolReference());
+
+        projectionAssignmentsBuilder.put(uniqueIdSymbol, uniqueIdExpression);
         projectionAssignmentsBuilder.putIdentity(rowIdSymbol);
         projectionAssignmentsBuilder.put(mergeRowSymbol, caseExpression);
 
@@ -919,11 +935,10 @@ class QueryPlanner
         Symbol isDistinctSymbol = symbolAllocator.newSymbol("is_distinct", BOOLEAN);
         MarkDistinctNode markDistinctNode = new MarkDistinctNode(idAllocator.getNextId(), project, isDistinctSymbol, ImmutableList.of(uniqueIdSymbol, caseNumberSymbol));
 
-        // Raise an error if unique_id symbol is non-null and the unique_id/case_number combination was not distinct
+        // The unique_id which originates from either the source or target table will not be null
+        // Raise an error if the unique_id/case_number combination was not distinct
         Expression filter = ifExpression(
-                Logical.and(
-                        not(metadata, isDistinctSymbol.toSymbolReference()),
-                        not(metadata, new IsNull(uniqueIdSymbol.toSymbolReference()))),
+                not(metadata, isDistinctSymbol.toSymbolReference()),
                 new Cast(
                         failFunction(metadata, MERGE_TARGET_ROW_MULTIPLE_MATCHES, "One MERGE target table row matched more than one source row"),
                         BOOLEAN),
@@ -1301,7 +1316,7 @@ class QueryPlanner
             }
         }
 
-        ImmutableList.Builder<Symbol> groupingKeys = ImmutableList.builder();
+        ImmutableSet.Builder<Symbol> groupingKeys = ImmutableSet.builder();
         groupingSets.stream()
                 .flatMap(List::stream)
                 .distinct()

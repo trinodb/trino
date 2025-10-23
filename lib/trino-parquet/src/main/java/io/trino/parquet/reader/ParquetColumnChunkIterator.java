@@ -19,10 +19,14 @@ import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.Page;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.crypto.AesCipherUtils;
+import io.trino.parquet.crypto.ColumnDecryptionContext;
+import io.trino.parquet.crypto.ModuleType;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
+import org.apache.parquet.format.BlockCipher.Decryptor;
 import org.apache.parquet.format.DataPageHeader;
 import org.apache.parquet.format.DataPageHeaderV2;
 import org.apache.parquet.format.DictionaryPageHeader;
@@ -48,9 +52,13 @@ public final class ParquetColumnChunkIterator
     private final ColumnChunkMetadata metadata;
     private final ChunkedInputStream input;
     private final OffsetIndex offsetIndex;
+    private final Optional<ColumnDecryptionContext> decryptionContext;
 
     private long valueCount;
     private int dataPageCount;
+
+    private byte[] dataPageHeaderAad;
+    private boolean dictionaryWasRead;
 
     public ParquetColumnChunkIterator(
             ParquetDataSourceId dataSourceId,
@@ -58,7 +66,8 @@ public final class ParquetColumnChunkIterator
             ColumnDescriptor descriptor,
             ColumnChunkMetadata metadata,
             ChunkedInputStream input,
-            @Nullable OffsetIndex offsetIndex)
+            @Nullable OffsetIndex offsetIndex,
+            Optional<ColumnDecryptionContext> decryptionContext)
     {
         this.dataSourceId = requireNonNull(dataSourceId, "dataSourceId is null");
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
@@ -66,6 +75,7 @@ public final class ParquetColumnChunkIterator
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.input = requireNonNull(input, "input is null");
         this.offsetIndex = offsetIndex;
+        this.decryptionContext = requireNonNull(decryptionContext, "decryptionContext is null");
     }
 
     @Override
@@ -80,7 +90,16 @@ public final class ParquetColumnChunkIterator
         checkState(hasNext(), "No more data left to read in column (%s), metadata (%s), valueCount %s, dataPageCount %s", descriptor, metadata, valueCount, dataPageCount);
 
         try {
-            PageHeader pageHeader = readPageHeader();
+            byte[] pageHeaderAAD = null;
+            if (decryptionContext.isPresent()) {
+                if (!dictionaryWasRead && metadata.hasDictionaryPage()) {
+                    pageHeaderAAD = getDictionaryPageHeaderAAD();
+                }
+                else {
+                    pageHeaderAAD = getPageHeaderAAD();
+                }
+            }
+            PageHeader pageHeader = readPageHeader(decryptionContext.map(ColumnDecryptionContext::metadataDecryptor).orElse(null), pageHeaderAAD);
             int uncompressedPageSize = pageHeader.getUncompressed_page_size();
             int compressedPageSize = pageHeader.getCompressed_page_size();
             Page result = null;
@@ -90,13 +109,14 @@ public final class ParquetColumnChunkIterator
                         throw new ParquetCorruptionException(dataSourceId, "Column (%s) has a dictionary page after the first position in column chunk", descriptor);
                     }
                     result = readDictionaryPage(pageHeader, pageHeader.getUncompressed_page_size(), pageHeader.getCompressed_page_size());
+                    dictionaryWasRead = true;
                     break;
                 case DATA_PAGE:
-                    result = readDataPageV1(pageHeader, uncompressedPageSize, compressedPageSize, getFirstRowIndex(dataPageCount, offsetIndex));
+                    result = readDataPageV1(pageHeader, uncompressedPageSize, compressedPageSize, getFirstRowIndex(dataPageCount, offsetIndex), dataPageCount);
                     ++dataPageCount;
                     break;
                 case DATA_PAGE_V2:
-                    result = readDataPageV2(pageHeader, uncompressedPageSize, compressedPageSize, getFirstRowIndex(dataPageCount, offsetIndex));
+                    result = readDataPageV2(pageHeader, uncompressedPageSize, compressedPageSize, getFirstRowIndex(dataPageCount, offsetIndex), dataPageCount);
                     ++dataPageCount;
                     break;
                 default:
@@ -110,10 +130,39 @@ public final class ParquetColumnChunkIterator
         }
     }
 
-    private PageHeader readPageHeader()
+    private byte[] getPageHeaderAAD()
+    {
+        checkState(decryptionContext.isPresent());
+
+        if (dataPageHeaderAad != null) {
+            AesCipherUtils.quickUpdatePageAAD(dataPageHeaderAad, dataPageCount);
+            return dataPageHeaderAad;
+        }
+
+        dataPageHeaderAad = AesCipherUtils.createModuleAAD(
+                decryptionContext.get().fileAad(),
+                ModuleType.DataPageHeader,
+                metadata.getRowGroupOrdinal(),
+                metadata.getColumnOrdinal(),
+                dataPageCount);
+        return dataPageHeaderAad;
+    }
+
+    private byte[] getDictionaryPageHeaderAAD()
+    {
+        checkState(decryptionContext.isPresent());
+        return AesCipherUtils.createModuleAAD(
+                decryptionContext.get().fileAad(),
+                ModuleType.DictionaryPageHeader,
+                metadata.getRowGroupOrdinal(),
+                metadata.getColumnOrdinal(),
+                -1);
+    }
+
+    private PageHeader readPageHeader(Decryptor headerBlockDecryptor, byte[] pageHeaderAAD)
             throws IOException
     {
-        return Util.readPageHeader(input);
+        return Util.readPageHeader(input, headerBlockDecryptor, pageHeaderAAD);
     }
 
     private boolean hasMorePages(long valuesCountReadSoFar, int dataPageCountReadSoFar)
@@ -139,7 +188,8 @@ public final class ParquetColumnChunkIterator
             PageHeader pageHeader,
             int uncompressedPageSize,
             int compressedPageSize,
-            OptionalLong firstRowIndex)
+            OptionalLong firstRowIndex,
+            int pageIndex)
             throws IOException
     {
         DataPageHeader dataHeaderV1 = pageHeader.getData_page_header();
@@ -151,14 +201,16 @@ public final class ParquetColumnChunkIterator
                 firstRowIndex,
                 getParquetEncoding(Encoding.valueOf(dataHeaderV1.getRepetition_level_encoding().name())),
                 getParquetEncoding(Encoding.valueOf(dataHeaderV1.getDefinition_level_encoding().name())),
-                getParquetEncoding(Encoding.valueOf(dataHeaderV1.getEncoding().name())));
+                getParquetEncoding(Encoding.valueOf(dataHeaderV1.getEncoding().name())),
+                pageIndex);
     }
 
     private DataPageV2 readDataPageV2(
             PageHeader pageHeader,
             int uncompressedPageSize,
             int compressedPageSize,
-            OptionalLong firstRowIndex)
+            OptionalLong firstRowIndex,
+            int pageIndex)
             throws IOException
     {
         DataPageHeaderV2 dataHeaderV2 = pageHeader.getData_page_header_v2();
@@ -178,7 +230,8 @@ public final class ParquetColumnChunkIterator
                         fileCreatedBy,
                         Optional.ofNullable(dataHeaderV2.getStatistics()),
                         descriptor.getPrimitiveType()),
-                dataHeaderV2.isIs_compressed());
+                dataHeaderV2.isIs_compressed(),
+                pageIndex);
     }
 
     private static OptionalLong getFirstRowIndex(int pageIndex, OffsetIndex offsetIndex)

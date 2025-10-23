@@ -248,7 +248,7 @@ public final class Int128Math
         return multiply(left.getHigh(), left.getLow(), right.getHigh(), right.getLow());
     }
 
-    private static void multiply(long leftHigh, long leftLow, long rightHigh, long rightLow, long[] result, int offset)
+    public static void multiply(long leftHigh, long leftLow, long rightHigh, long rightLow, long[] result, int offset)
     {
         boolean leftNegative = leftHigh < 0;
         boolean rightNegative = rightHigh < 0;
@@ -1355,7 +1355,7 @@ public final class Int128Math
         result[1] = low;
     }
 
-    private static long signExtension(long value)
+    public static long signExtension(long value)
     {
         return value >> 63;
     }

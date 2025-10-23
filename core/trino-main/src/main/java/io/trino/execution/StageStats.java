@@ -36,9 +36,7 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.trino.execution.DistributionSnapshot.pruneMetrics;
 import static io.trino.execution.StageState.RUNNING;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -92,11 +90,6 @@ public class StageStats
     private final DataSize failedInternalNetworkInputDataSize;
     private final long internalNetworkInputPositions;
     private final long failedInternalNetworkInputPositions;
-
-    private final DataSize rawInputDataSize;
-    private final DataSize failedRawInputDataSize;
-    private final long rawInputPositions;
-    private final long failedRawInputPositions;
 
     private final DataSize processedInputDataSize;
     private final DataSize failedProcessedInputDataSize;
@@ -171,11 +164,6 @@ public class StageStats
             @JsonProperty("failedInternalNetworkInputDataSize") DataSize failedInternalNetworkInputDataSize,
             @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
             @JsonProperty("failedInternalNetworkInputPositions") long failedInternalNetworkInputPositions,
-
-            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
-            @JsonProperty("failedRawInputDataSize") DataSize failedRawInputDataSize,
-            @JsonProperty("rawInputPositions") long rawInputPositions,
-            @JsonProperty("failedRawInputPositions") long failedRawInputPositions,
 
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
             @JsonProperty("failedProcessedInputDataSize") DataSize failedProcessedInputDataSize,
@@ -260,13 +248,6 @@ public class StageStats
         checkArgument(failedInternalNetworkInputPositions >= 0, "failedInternalNetworkInputPositions is negative");
         this.failedInternalNetworkInputPositions = failedInternalNetworkInputPositions;
 
-        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
-        this.failedRawInputDataSize = requireNonNull(failedRawInputDataSize, "failedRawInputDataSize is null");
-        checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
-        this.rawInputPositions = rawInputPositions;
-        checkArgument(failedRawInputPositions >= 0, "failedRawInputPositions is negative");
-        this.failedRawInputPositions = failedRawInputPositions;
-
         this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
         this.failedProcessedInputDataSize = requireNonNull(failedProcessedInputDataSize, "failedProcessedInputDataSize is null");
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
@@ -294,9 +275,7 @@ public class StageStats
         this.failedPhysicalWrittenDataSize = requireNonNull(failedPhysicalWrittenDataSize, "failedPhysicalWrittenDataSize is null");
 
         this.gcInfo = requireNonNull(gcInfo, "gcInfo is null");
-
-        requireNonNull(operatorSummaries, "operatorSummaries is null");
-        this.operatorSummaries = operatorSummaries.stream().map(OperatorStats::pruneDigests).collect(toImmutableList());
+        this.operatorSummaries = ImmutableList.copyOf(operatorSummaries);
     }
 
     @JsonProperty
@@ -522,30 +501,6 @@ public class StageStats
     }
 
     @JsonProperty
-    public DataSize getRawInputDataSize()
-    {
-        return rawInputDataSize;
-    }
-
-    @JsonProperty
-    public DataSize getFailedRawInputDataSize()
-    {
-        return failedRawInputDataSize;
-    }
-
-    @JsonProperty
-    public long getRawInputPositions()
-    {
-        return rawInputPositions;
-    }
-
-    @JsonProperty
-    public long getFailedRawInputPositions()
-    {
-        return failedRawInputPositions;
-    }
-
-    @JsonProperty
     public DataSize getProcessedInputDataSize()
     {
         return processedInputDataSize;
@@ -686,8 +641,7 @@ public class StageStats
                 physicalWrittenDataSize,
                 internalNetworkInputDataSize,
                 internalNetworkInputPositions,
-                rawInputDataSize,
-                rawInputPositions,
+                processedInputPositions,
                 spilledDataSize,
                 (long) cumulativeUserMemory,
                 (long) failedCumulativeUserMemory,
@@ -701,73 +655,6 @@ public class StageStats
                 blockedReasons,
                 progressPercentage,
                 runningPercentage);
-    }
-
-    public StageStats pruneDigests()
-    {
-        return new StageStats(
-                schedulingComplete,
-                getSplitDistribution,
-                splitSourceMetrics,
-                totalTasks,
-                runningTasks,
-                completedTasks,
-                failedTasks,
-                totalDrivers,
-                queuedDrivers,
-                runningDrivers,
-                blockedDrivers,
-                completedDrivers,
-                cumulativeUserMemory,
-                failedCumulativeUserMemory,
-                userMemoryReservation,
-                revocableMemoryReservation,
-                totalMemoryReservation,
-                peakUserMemoryReservation,
-                peakRevocableMemoryReservation,
-                spilledDataSize,
-                totalScheduledTime,
-                failedScheduledTime,
-                totalCpuTime,
-                failedCpuTime,
-                totalBlockedTime,
-                fullyBlocked,
-                blockedReasons,
-                physicalInputDataSize,
-                failedPhysicalInputDataSize,
-                physicalInputPositions,
-                failedPhysicalInputPositions,
-                physicalInputReadTime,
-                failedPhysicalInputReadTime,
-                internalNetworkInputDataSize,
-                failedInternalNetworkInputDataSize,
-                internalNetworkInputPositions,
-                failedInternalNetworkInputPositions,
-                rawInputDataSize,
-                failedRawInputDataSize,
-                rawInputPositions,
-                failedRawInputPositions,
-                processedInputDataSize,
-                failedProcessedInputDataSize,
-                processedInputPositions,
-                failedProcessedInputPositions,
-                inputBlockedTime,
-                failedInputBlockedTime,
-                bufferedDataSize,
-                outputBufferUtilization,
-                outputDataSize,
-                failedOutputDataSize,
-                outputPositions,
-                failedOutputPositions,
-                pruneMetrics(outputBufferMetrics),
-                outputBlockedTime,
-                failedOutputBlockedTime,
-                physicalWrittenDataSize,
-                failedPhysicalWrittenDataSize,
-                gcInfo,
-                operatorSummaries.stream()
-                        .map(OperatorStats::pruneDigests)
-                        .collect(toImmutableList()));
     }
 
     public static StageStats createInitial()
@@ -808,10 +695,6 @@ public class StageStats
                 0,
                 zeroSeconds,
                 zeroSeconds,
-                zeroBytes,
-                zeroBytes,
-                0,
-                0,
                 zeroBytes,
                 zeroBytes,
                 0,

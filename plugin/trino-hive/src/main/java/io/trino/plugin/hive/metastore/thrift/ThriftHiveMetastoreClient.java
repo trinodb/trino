@@ -754,7 +754,7 @@ public class ThriftHiveMetastoreClient
                 },
                 () -> {
                     table.setWriteId(originalWriteId);
-                    client.alterTableWithEnvironmentContext(table.getDbName(), table.getTableName(), table, environmentContext);
+                    client.alterTableWithEnvironmentContext(prependCatalogToDbName(catalogName, table.getDbName()), table.getTableName(), table, environmentContext);
                     return null;
                 });
     }

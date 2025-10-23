@@ -67,9 +67,6 @@ public class TestTaskStats
             DataSize.ofBytes(192),
             202,
 
-            DataSize.ofBytes(19),
-            20,
-
             DataSize.ofBytes(21),
             22,
 
@@ -137,9 +134,6 @@ public class TestTaskStats
         assertThat(actual.getPhysicalInputReadTime()).isEqualTo(new Duration(15, NANOSECONDS));
         assertThat(actual.getInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(192));
         assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(202);
-
-        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(19));
-        assertThat(actual.getRawInputPositions()).isEqualTo(20);
 
         assertThat(actual.getProcessedInputDataSize()).isEqualTo(DataSize.ofBytes(21));
         assertThat(actual.getProcessedInputPositions()).isEqualTo(22);

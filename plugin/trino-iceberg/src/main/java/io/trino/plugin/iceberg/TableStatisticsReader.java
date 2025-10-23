@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.spi.TrinoException;
@@ -81,20 +82,30 @@ import static org.apache.iceberg.util.SnapshotUtil.schemaFor;
 
 public final class TableStatisticsReader
 {
-    private TableStatisticsReader() {}
-
     private static final Logger log = Logger.get(TableStatisticsReader.class);
 
     public static final String APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY = "ndv";
 
-    public static TableStatistics getTableStatistics(
+    private final TypeManager typeManager;
+    private final ExecutorService icebergPlanningExecutor;
+    private final IcebergFileSystemFactory fileSystemFactory;
+
+    @Inject
+    public TableStatisticsReader(
             TypeManager typeManager,
+            @ForIcebergPlanning ExecutorService icebergPlanningExecutor,
+            IcebergFileSystemFactory fileSystemFactory)
+    {
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.icebergPlanningExecutor = requireNonNull(icebergPlanningExecutor, "icebergPlanningExecutor is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+    }
+
+    public TableStatistics getTableStatistics(
             ConnectorSession session,
             IcebergTableHandle tableHandle,
             Set<IcebergColumnHandle> projectedColumns,
-            Table icebergTable,
-            ExecutorService icebergPlanningExecutor,
-            TrinoFileSystem fileSystem)
+            Table icebergTable)
     {
         return makeTableStatistics(
                 typeManager,
@@ -105,7 +116,7 @@ public final class TableStatisticsReader
                 projectedColumns,
                 isExtendedStatisticsEnabled(session),
                 icebergPlanningExecutor,
-                fileSystem);
+                fileSystemFactory.create(session.getIdentity(), icebergTable.io().properties()));
     }
 
     @VisibleForTesting

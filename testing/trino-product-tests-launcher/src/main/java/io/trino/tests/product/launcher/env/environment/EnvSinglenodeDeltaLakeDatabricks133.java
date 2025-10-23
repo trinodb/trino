@@ -33,6 +33,6 @@ public class EnvSinglenodeDeltaLakeDatabricks133
     @Override
     String databricksTestJdbcUrl()
     {
-        return requireEnv("DATABRICKS_133_JDBC_URL");
+        return requireEnv("DATABRICKS_133_JDBC_URL") + ";EnableArrow=0";
     }
 }

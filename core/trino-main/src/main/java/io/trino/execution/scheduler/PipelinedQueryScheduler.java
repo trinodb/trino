@@ -30,6 +30,7 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.exchange.DirectExchangeInput;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.BasicStagesInfo;
@@ -60,7 +61,6 @@ import io.trino.server.DynamicFilterService;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.NodePartitionMap;
 import io.trino.sql.planner.NodePartitionMap.BucketToPartition;
@@ -1341,7 +1341,7 @@ public class PipelinedQueryScheduler
                         // allow for schedule to resume scheduling (e.g. when some active stage completes
                         // and dependent stages can be started)
                         stagesScheduleResult.getRescheduleFuture().ifPresent(futures::add);
-                        try (TimeStat.BlockTimer timer = schedulerStats.getSleepTime().time()) {
+                        try (TimeStat.BlockTimer _ = schedulerStats.getSleepTime().time()) {
                             tryGetFutureValue(whenAnyComplete(futures.build()), 1, SECONDS);
                         }
                         for (ListenableFuture<Void> blockedStage : blockedStages) {
@@ -1361,17 +1361,12 @@ public class PipelinedQueryScheduler
                 fail(t, Optional.empty());
             }
             finally {
-                RuntimeException closeError = new RuntimeException();
                 for (StageScheduler scheduler : stageSchedulers.values()) {
                     try {
                         scheduler.close();
                     }
                     catch (Throwable t) {
                         fail(t, Optional.empty());
-                        // Self-suppression not permitted
-                        if (closeError != t) {
-                            closeError.addSuppressed(t);
-                        }
                     }
                 }
             }
@@ -1405,7 +1400,7 @@ public class PipelinedQueryScheduler
 
         public void reportTaskFailure(TaskId taskId, Throwable failureCause)
         {
-            StageExecution stageExecution = stageExecutions.get(taskId.getStageId());
+            StageExecution stageExecution = stageExecutions.get(taskId.stageId());
             if (stageExecution == null) {
                 return;
             }
@@ -1416,7 +1411,7 @@ public class PipelinedQueryScheduler
             }
 
             stageExecution.failTask(taskId, failureCause);
-            stateMachine.transitionToFailed(failureCause, Optional.of(taskId.getStageId()));
+            stateMachine.transitionToFailed(failureCause, Optional.of(taskId.stageId()));
             stageExecutions.values().forEach(StageExecution::abort);
         }
 
