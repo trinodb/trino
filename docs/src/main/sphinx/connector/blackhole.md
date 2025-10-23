@@ -14,6 +14,8 @@ In such cases, writes behave in the same way, but reads
 always return the specified number of some constant rows.
 You shouldn't rely on the content of such rows.
 
+This is a docs-only change
+
 ## Configuration
 
 Create `etc/catalog/example.properties` to mount the `blackhole` connector
