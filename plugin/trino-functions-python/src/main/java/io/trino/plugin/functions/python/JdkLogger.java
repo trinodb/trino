@@ -20,6 +20,8 @@ import static java.util.Objects.requireNonNull;
 final class JdkLogger
         implements Logger
 {
+    // a code change in a plugin
+
     private final java.util.logging.Logger logger;
 
     public static Logger get(Class<?> clazz)
