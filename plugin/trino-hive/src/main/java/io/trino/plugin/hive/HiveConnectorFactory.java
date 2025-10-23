@@ -71,7 +71,7 @@ public class HiveConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         checkStrictSpiVersionMatch(context, this);
-        return createConnector(catalogName, config, context, EMPTY_MODULE, Optional.empty(), Optional.empty());
+        return createConnector(catalogName, config, context, EMPTY_MODULE, Optional.empty(), false, Optional.empty());
     }
 
     public static Connector createConnector(
@@ -80,6 +80,7 @@ public class HiveConnectorFactory
             ConnectorContext context,
             Module module,
             Optional<HiveMetastore> metastore,
+            boolean metastoreImpersonationEnabled,
             Optional<TrinoFileSystemFactory> fileSystemFactory)
     {
         ClassLoader classLoader = HiveConnectorFactory.class.getClassLoader();
@@ -91,7 +92,7 @@ public class HiveConnectorFactory
                     new JsonModule(),
                     new TypeDeserializerModule(),
                     new HiveModule(),
-                    new HiveMetastoreModule(metastore),
+                    new HiveMetastoreModule(metastore, metastoreImpersonationEnabled),
                     new HiveSecurityModule(),
                     fileSystemFactory
                             .map(factory -> (Module) binder -> binder.bind(TrinoFileSystemFactory.class).toInstance(factory))
