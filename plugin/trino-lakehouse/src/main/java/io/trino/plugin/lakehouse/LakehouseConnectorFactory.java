@@ -68,7 +68,7 @@ public class LakehouseConnectorFactory
                     new LakehouseDeltaModule(),
                     new LakehouseHudiModule(),
                     new HiveSecurityModule(),
-                    new LakehouseFileSystemModule(catalogName, context.getCurrentNode().isCoordinator(), context.getOpenTelemetry()),
+                    new LakehouseFileSystemModule(catalogName, context),
                     binder -> {
                         binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
                         binder.bind(Tracer.class).toInstance(context.getTracer());
