@@ -113,8 +113,8 @@ export class PageTitle extends React.Component<Props, State> {
                                 <tbody>
                                     <tr>
                                         <td>
-                                            <a href="/ui/">
-                                                <img src="assets/logo.png" />
+                                            <a href="/ui/" aria-label="Home page">
+                                                <img alt="Starburst logo" src="assets/logo.png" />
                                             </a>
                                         </td>
                                         <td>

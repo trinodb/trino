@@ -146,31 +146,61 @@ export class ClusterHUD extends React.Component {
                 this.state.runningQueries,
                 $.extend({}, SPARKLINE_PROPERTIES, { chartRangeMin: 0 })
             )
+            // Apply ARIA attributes to the generated canvas
+            $('#running-queries-sparkline canvas').attr({
+                'aria-label': `Running queries over time. Current value: ${this.state.runningQueries[this.state.runningQueries.length - 1]} queries`,
+                'role': 'img'
+            })
             $('#blocked-queries-sparkline').sparkline(
                 this.state.blockedQueries,
                 $.extend({}, SPARKLINE_PROPERTIES, { chartRangeMin: 0 })
             )
+            // Apply ARIA attributes to the generated canvas
+            $('#blocked-queries-sparkline canvas').attr({
+                'aria-label': `Blocked queries over time. Current value: ${this.state.blockedQueries[this.state.blockedQueries.length - 1]} queries`,
+                'role': 'img'
+            })
             $('#queued-queries-sparkline').sparkline(
                 this.state.queuedQueries,
                 $.extend({}, SPARKLINE_PROPERTIES, { chartRangeMin: 0 })
             )
+            // Apply ARIA attributes to the generated canvas
+            $('#queued-queries-sparkline canvas').attr({
+                'aria-label': `Queued queries over time. Current value: ${this.state.queuedQueries[this.state.queuedQueries.length - 1]} queries`,
+                'role': 'img'
+            })
 
             $('#active-workers-sparkline').sparkline(
                 this.state.activeWorkers,
                 $.extend({}, SPARKLINE_PROPERTIES, { chartRangeMin: 0 })
             )
+            // Apply ARIA attributes to the generated canvas
+            $('#active-workers-sparkline canvas').attr({
+                'aria-label': `Active workers over time. Current value: ${this.state.activeWorkers[this.state.activeWorkers.length - 1]} workers`,
+                'role': 'img'
+            })
             $('#running-drivers-sparkline').sparkline(
                 this.state.runningDrivers,
                 $.extend({}, SPARKLINE_PROPERTIES, {
                     numberFormatter: precisionRound,
                 })
             )
+            // Apply ARIA attributes to the generated canvas
+            $('#running-drivers-sparkline canvas').attr({
+                'aria-label': `Running drivers over time. Current value: ${formatCount(this.state.runningDrivers[this.state.runningDrivers.length - 1])} drivers`,
+                'role': 'img'
+            })
             $('#reserved-memory-sparkline').sparkline(
                 this.state.reservedMemory,
                 $.extend({}, SPARKLINE_PROPERTIES, {
                     numberFormatter: formatDataSizeBytes,
                 })
             )
+            // Apply ARIA attributes to the generated canvas
+            $('#reserved-memory-sparkline canvas').attr({
+                'aria-label': `Reserved memory over time. Current value: ${formatDataSizeBytes(this.state.reservedMemory[this.state.reservedMemory.length - 1])}`,
+                'role': 'img'
+            })
 
             $('#row-input-rate-sparkline').sparkline(
                 this.state.rowInputRate,
@@ -178,18 +208,33 @@ export class ClusterHUD extends React.Component {
                     numberFormatter: formatCount,
                 })
             )
+            // Apply ARIA attributes to the generated canvas
+            $('#row-input-rate-sparkline canvas').attr({
+                'aria-label': `Row input rate over time. Current value: ${formatCount(this.state.rowInputRate[this.state.rowInputRate.length - 1])} rows per second`,
+                'role': 'img'
+            })
             $('#byte-input-rate-sparkline').sparkline(
                 this.state.byteInputRate,
                 $.extend({}, SPARKLINE_PROPERTIES, {
                     numberFormatter: formatDataSizeBytes,
                 })
             )
+            // Apply ARIA attributes to the generated canvas
+            $('#byte-input-rate-sparkline canvas').attr({
+                'aria-label': `Byte input rate over time. Current value: ${formatDataSizeBytes(this.state.byteInputRate[this.state.byteInputRate.length - 1])} per second`,
+                'role': 'img'
+            })
             $('#cpu-time-rate-sparkline').sparkline(
                 this.state.perWorkerCpuTimeRate,
                 $.extend({}, SPARKLINE_PROPERTIES, {
                     numberFormatter: precisionRound,
                 })
             )
+            // Apply ARIA attributes to the generated canvas
+            $('#cpu-time-rate-sparkline canvas').attr({
+                'aria-label': `CPU time rate per worker over time. Current value: ${formatCount(this.state.perWorkerCpuTimeRate[this.state.perWorkerCpuTimeRate.length - 1])} CPU seconds per worker per second`,
+                'role': 'img'
+            })
 
             this.setState({
                 lastRender: renderTimestamp,
