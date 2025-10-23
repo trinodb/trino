@@ -9,7 +9,7 @@
         },
         {
             "pattern": "(?<user>.+)@(?<region>.+)\\.example\\.com",
-            "user": "${user}_${region}"
+            "fooooooooobar": "${user}_${region}"
         },
         {
             "pattern": "(.*)@uppercase.com",
