@@ -33,6 +33,7 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Locale.ENGLISH;
 import static java.util.function.Predicate.not;
@@ -43,6 +44,7 @@ public class TestCiWorkflow
     private static final Logger log = Logger.get(TestCiWorkflow.class);
 
     private static final Path CI_YML_REPO_PATH = Paths.get(".github/workflows/ci.yml");
+    private static final String BUILD_SUCCESS = "build-success";
 
     @Test
     public void testUploadTestResultsCondition()
@@ -101,24 +103,22 @@ public class TestCiWorkflow
     public void testBuildSuccessDependencies()
             throws Exception
     {
-        String buildSuccessJobName = "build-success";
-
         Yaml yaml = new Yaml();
         Map<?, ?> workflow = yaml.load(new StringReader(Files.readString(findRepositoryRoot().resolve(CI_YML_REPO_PATH))));
         Map<String, ?> jobs = getMap(workflow, "jobs");
 
         Set<String> allJobNames = jobs.keySet();
-        assertThat(allJobNames).as("allJobNames").contains(buildSuccessJobName);
+        assertThat(allJobNames).as("allJobNames").contains(BUILD_SUCCESS);
         List<String> testJobNames = allJobNames.stream()
-                .filter(not(buildSuccessJobName::equals))
+                .filter(not(BUILD_SUCCESS::equals))
                 .sorted()
                 .toList();
-        Map<?, ?> buildSuccessJob = getMap(jobs, buildSuccessJobName);
+        Map<?, ?> buildSuccessJob = getMap(jobs, BUILD_SUCCESS);
 
         List<String> buildSuccessDependencies = getList(buildSuccessJob, "needs").stream()
                 .map(String.class::cast)
                 .toList();
-        assertThat(buildSuccessDependencies).as("dependencies for %s", buildSuccessJobName)
+        assertThat(buildSuccessDependencies).as("dependencies for %s", BUILD_SUCCESS)
                 .isSorted()
                 .doesNotHaveDuplicates()
                 .containsExactlyElementsOf(testJobNames);
@@ -135,6 +135,19 @@ public class TestCiWorkflow
                 .collect(onlyElement());
         assertThat(runDefinition.get("run")).as("run script")
                 .isEqualTo(expectedRunDefinition.toString());
+    }
+
+    @Test
+    public void testBuildSuccessIsLast()
+            throws Exception
+    {
+        Yaml yaml = new Yaml();
+        Map<?, ?> workflow = yaml.load(new StringReader(Files.readString(findRepositoryRoot().resolve(CI_YML_REPO_PATH))));
+        Map<String, ?> jobs = getMap(workflow, "jobs");
+        // This assumes the `jobs` map preserves source order
+        assertThat(getLast(jobs.keySet()))
+                .describedAs("The %s job is logically last and depends on all others, we want it to be last in the source file", BUILD_SUCCESS)
+                .isEqualTo(BUILD_SUCCESS);
     }
 
     private static Path findRepositoryRoot()
