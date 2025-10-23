@@ -76,6 +76,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
 
@@ -130,7 +131,7 @@ public class SqlTaskManager
     private final NonEvictableLoadingCache<QueryId, QueryContext> queryContexts;
     private final NonEvictableLoadingCache<TaskId, SqlTask> tasks;
 
-    private final SqlTaskIoStats cachedStats = new SqlTaskIoStats();
+    private final AtomicReference<SqlTaskIoStats> cachedStats = new AtomicReference<>(new SqlTaskIoStats());
     private final SqlTaskIoStats finishedTaskStats = new SqlTaskIoStats();
 
     private final long queryMaxMemoryPerNode;
@@ -345,7 +346,7 @@ public class SqlTaskManager
     @Flatten
     public SqlTaskIoStats getIoStats()
     {
-        return cachedStats;
+        return cachedStats.get();
     }
 
     @Managed(description = "Task notification executor")
@@ -715,7 +716,7 @@ public class SqlTaskManager
                 .filter(task -> !task.getTaskState().isDone())
                 .forEach(task -> tempIoStats.merge(task.getIoStats()));
 
-        cachedStats.resetTo(tempIoStats);
+        cachedStats.set(tempIoStats);
     }
 
     /**
