@@ -18,5 +18,5 @@ jobs:
           # Cancel workflow when PR closed. https://github.com/styfle/cancel-workflow-action#advanced-ignore-sha
           ignore_sha: true
           # Note: workflow_id can be a Workflow ID (number) or Workflow File Name (string) or a comma-separated list of those.
-          workflow_id: "ci.yml,docs.yml"
+          workflow_id: "ci.yml"
           access_token: ${{ github.token }}
