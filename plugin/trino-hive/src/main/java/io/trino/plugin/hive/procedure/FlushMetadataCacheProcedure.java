@@ -21,6 +21,7 @@ import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.Table;
 import io.trino.metastore.cache.CachingHiveMetastore;
+import io.trino.metastore.cache.SharedHiveMetastoreCache.ImpersonationCachingHiveMetastoreFactory;
 import io.trino.plugin.hive.HiveErrorCode;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.glue.GlueCache;
@@ -134,7 +135,7 @@ public class FlushMetadataCacheProcedure
 
     private void doFlushMetadataCache(ConnectorSession session, Optional<String> schemaName, Optional<String> tableName, List<String> partitionColumns, List<String> partitionValues)
     {
-        if (cachingHiveMetastore.isEmpty() && glueCache.isEmpty()) {
+        if (!(hiveMetadataFactory instanceof ImpersonationCachingHiveMetastoreFactory) && cachingHiveMetastore.isEmpty() && glueCache.isEmpty()) {
             // TODO this currently does not work. CachingHiveMetastore is always bound for metastores other than Glue, even when caching is disabled,
             //  so for consistency we do not discern between GlueCache NOOP and real.
             throw new TrinoException(HiveErrorCode.HIVE_METASTORE_ERROR, "Cannot flush, metastore cache is not enabled");
@@ -143,6 +144,11 @@ public class FlushMetadataCacheProcedure
         checkState(
                 partitionColumns.size() == partitionValues.size(),
                 "Parameters partition_column and partition_value should have same length");
+
+        Optional<CachingHiveMetastore> cachingHiveMetastore = this.cachingHiveMetastore;
+        if (hiveMetadataFactory instanceof ImpersonationCachingHiveMetastoreFactory impersonationCachingHiveMetastoreFactory) {
+            cachingHiveMetastore = Optional.of((CachingHiveMetastore) impersonationCachingHiveMetastoreFactory.createMetastore(Optional.of(session.getIdentity())));
+        }
 
         if (schemaName.isEmpty() && tableName.isEmpty() && partitionColumns.isEmpty()) {
             cachingHiveMetastore.ifPresent(CachingHiveMetastore::flushCache);
@@ -156,13 +162,13 @@ public class FlushMetadataCacheProcedure
             List<String> partitions;
 
             if (!partitionColumns.isEmpty()) {
-                cachingHiveMetastore.ifPresent(cachingHiveMetastore -> cachingHiveMetastore.flushPartitionCache(schemaName.get(), tableName.get(), partitionColumns, partitionValues));
+                cachingHiveMetastore.ifPresent(hiveMetastore -> hiveMetastore.flushPartitionCache(schemaName.get(), tableName.get(), partitionColumns, partitionValues));
                 glueCache.ifPresent(glueCache -> glueCache.invalidatePartition(schemaName.get(), tableName.get(), new PartitionName(partitionValues)));
 
                 partitions = ImmutableList.of(makePartName(partitionColumns, partitionValues));
             }
             else {
-                cachingHiveMetastore.ifPresent(cachingHiveMetastore -> cachingHiveMetastore.invalidateTable(schemaName.get(), tableName.get()));
+                cachingHiveMetastore.ifPresent(hiveMetastore -> hiveMetastore.invalidateTable(schemaName.get(), tableName.get()));
                 glueCache.ifPresent(glueCache -> glueCache.invalidateTable(schemaName.get(), tableName.get(), true));
 
                 List<String> partitionColumnNames = table.getPartitionColumns().stream()
