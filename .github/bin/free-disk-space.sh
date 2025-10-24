@@ -10,6 +10,7 @@ function free_up_disk_space_ubuntu()
         'google-chrome-*'
         'libmono-*'
         'llvm-*'
+        'man-db'
         'mysql-server-core-*'
         'powershell*')
 
