@@ -23,16 +23,29 @@ function free_up_disk_space_ubuntu()
     sudo apt-get autoclean -y
 
     echo  "Removing toolchains"
-    sudo rm -rf \
-      /usr/local/graalvm \
-      /usr/local/lib/android/ \
-      /usr/share/dotnet/ \
-      /opt/ghc/ \
-      /usr/local/share/boost/ \
-      "${AGENT_TOOLSDIRECTORY}"
+    directories_to_be_removed=(
+      "/usr/local/graalvm/"
+      "/usr/local/lib/android/"
+      "/usr/share/dotnet/"
+      "/opt/ghc/"
+      "/usr/local/share/boost/"
+      "${AGENT_TOOLSDIRECTORY}")
 
-      echo "Prune docker images"
-      sudo docker system prune --all -f
+    delete_directories_with_rsync "${directories_to_be_removed[@]}"
+
+    echo "Prune docker images"
+    sudo docker system prune --all -f
+}
+
+function delete_directories_with_rsync()
+{
+    sudo mkdir /tmp/empty
+    for dir in "$@"; do
+        echo "Deleting contents of $dir using rsync"
+        sudo rsync --delete -a /tmp/empty/ "$dir"
+        sudo rmdir "$dir"
+    done
+    sudo rmdir /tmp/empty
 }
 
 echo "Disk space usage before cleaning:"
