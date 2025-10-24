@@ -80,7 +80,6 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.AnalyzePropertyManager;
-import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
@@ -252,6 +251,7 @@ import static io.trino.connector.CatalogServiceProviderModule.createViewProperty
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.execution.warnings.WarningCollector.NOOP;
+import static io.trino.metadata.BlockEncodingManager.TESTING_BLOCK_ENCODING_MANAGER;
 import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
@@ -358,10 +358,9 @@ public class PlanTester
                 catalogManager,
                 notificationExecutor);
 
-        BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
         TypeRegistry typeRegistry = new TypeRegistry(typeOperators, new FeaturesConfig());
         TypeManager typeManager = new InternalTypeManager(typeRegistry);
-        InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodingManager, typeManager);
+        InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(TESTING_BLOCK_ENCODING_MANAGER, typeManager);
         SecretsResolver secretsResolver = new SecretsResolver(ImmutableMap.of());
 
         this.globalFunctionCatalog = new GlobalFunctionCatalog(
@@ -496,7 +495,7 @@ public class PlanTester
                 new GroupProviderManager(secretsResolver),
                 new SessionPropertyDefaults(nodeInfo, accessControl, secretsResolver),
                 typeRegistry,
-                blockEncodingManager,
+                TESTING_BLOCK_ENCODING_MANAGER,
                 new HandleResolver(),
                 exchangeManagerRegistry,
                 spoolingManagerRegistry);
