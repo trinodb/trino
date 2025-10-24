@@ -48,6 +48,7 @@ concurrency:
 
 jobs:
   path-filters:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       docs: ${{ steps.filter.outputs.docs }}
