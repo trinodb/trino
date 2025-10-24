@@ -39,7 +39,7 @@ public class Minio
 
     private static final String MINIO_ACCESS_KEY = "minio-access-key";
     private static final String MINIO_SECRET_KEY = "minio-secret-key";
-    private static final String MINIO_RELEASE = "RELEASE.2025-01-20T14-49-07Z";
+    private static final String MINIO_RELEASE = "latest";
 
     private static final int MINIO_PORT = 9080; // minio uses 9000 by default, which conflicts with hadoop
     private static final int MINIO_CONSOLE_PORT = 9001;
@@ -69,7 +69,7 @@ public class Minio
 
     private DockerContainer createMinioContainer()
     {
-        DockerContainer container = new DockerContainer("minio/minio:" + MINIO_RELEASE, MINIO_CONTAINER_NAME)
+        DockerContainer container = new DockerContainer("cgr.dev/chainguard/minio:" + MINIO_RELEASE, MINIO_CONTAINER_NAME)
                 .withEnv(ImmutableMap.<String, String>builder()
                         .put("MINIO_ACCESS_KEY", MINIO_ACCESS_KEY)
                         .put("MINIO_SECRET_KEY", MINIO_SECRET_KEY)
