@@ -72,6 +72,7 @@ public class TestClickHouseConnectorTest
                  SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE,
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
                  SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_MAP_TYPE,
                  SUPPORTS_TRUNCATE -> true;
             case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
@@ -79,7 +80,6 @@ public class TestClickHouseConnectorTest
                  SUPPORTS_ARRAY,
                  SUPPORTS_DELETE,
                  SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
-                 SUPPORTS_MAP_TYPE,
                  SUPPORTS_NEGATIVE_DATE,
                  SUPPORTS_ROW_TYPE,
                  SUPPORTS_SET_COLUMN_TYPE,
@@ -665,6 +665,28 @@ public class TestClickHouseConnectorTest
         }
     }
 
+    @Test
+    @Override
+    public void testInsertMap()
+    {
+        try (TestTable table = newTrinoTable("test_insert_map_", "(col map(INTEGER, BIGINT) NOT NULL)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES map(ARRAY[1], ARRAY[BIGINT '123456789'])", 1);
+            assertThat(query("SELECT col[1] FROM " + table.getName()))
+                    .matches("VALUES BIGINT '123456789'");
+        }
+    }
+
+    @Test
+    public void testMapPredicatePushdown()
+    {
+        try (TestTable table = newTrinoTable("test_map_predicate_pushdown", "(id INT, map_t map(INTEGER, BIGINT) NOT NULL)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, map(ARRAY[1], ARRAY[BIGINT '123456789']))", 1);
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE map_t[1] = BIGINT '123456789'"))
+                    .matches("VALUES 1")
+                    .isFullyPushedDown();
+        }
+    }
+
     @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
@@ -951,19 +973,19 @@ public class TestClickHouseConnectorTest
 
             assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string = a_string_alias")).isFullyPushedDown();
             assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string = a_string_alias" + withConnectorExpression)).isFullyPushedDown();
-            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string = a_enum_1")).isNotFullyPushedDown(FilterNode.class);
-            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string = a_enum_1" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string = a_enum_1")).isFullyPushedDown();
+            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string = a_enum_1" + withConnectorExpression)).isFullyPushedDown();
             assertThat(query(convertToVarchar, "SELECT some_column FROM " + table.getName() + " WHERE a_string = unsupported_1")).isNotFullyPushedDown(FilterNode.class);
             assertThat(query(convertToVarchar, "SELECT some_column FROM " + table.getName() + " WHERE a_string = unsupported_1" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
 
             assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 = 'hello'")).isNotFullyPushedDown(FilterNode.class);
-            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 = 'hello'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 = 'hello'" + withConnectorExpression)).isFullyPushedDown();
             assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 = 'not_a_value'")).isNotFullyPushedDown(FilterNode.class);
-            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 = 'not_a_value'" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 = 'not_a_value'" + withConnectorExpression)).isFullyPushedDown();
             // pushdown of a condition, both sides of the same native type, which is mapped to varchar,
             // not allowed because some operations (e.g. inequalities) may not be allowed in the native system on an unknown native types
-            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 = a_enum_2")).isNotFullyPushedDown(FilterNode.class);
-            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 = a_enum_2" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 = a_enum_2")).isFullyPushedDown();
+            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 = a_enum_2" + withConnectorExpression)).isFullyPushedDown();
 
             // pushdown of a condition, both sides of the same native type, which is mapped to varchar,
             // not allowed because some operations (e.g. inequalities) may not be allowed in the native system on an unknown native types
