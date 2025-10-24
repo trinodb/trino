@@ -242,8 +242,6 @@ public class CoordinatorModule
 
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
 
-        jaxrsBinder(binder).bind(GatewayResource.class);
-
         // node partitioning manager
         binder.bind(NodePartitioningManager.class).in(Scopes.SINGLETON);
 
