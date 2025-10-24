@@ -23,17 +23,14 @@ import static java.util.Objects.requireNonNull;
 public class MemoryInfo
 {
     private final int availableProcessors;
-    private final double systemCpuLoad;
     private final MemoryPoolInfo pool;
 
     @JsonCreator
     public MemoryInfo(
             @JsonProperty("availableProcessors") int availableProcessors,
-            @JsonProperty("systemCpuLoad") double systemCpuLoad,
             @JsonProperty("pool") MemoryPoolInfo pool)
     {
         this.availableProcessors = availableProcessors;
-        this.systemCpuLoad = systemCpuLoad;
         this.pool = requireNonNull(pool, "pool is null");
     }
 
@@ -41,12 +38,6 @@ public class MemoryInfo
     public int getAvailableProcessors()
     {
         return availableProcessors;
-    }
-
-    @JsonProperty
-    public double getSystemCpuLoad()
-    {
-        return systemCpuLoad;
     }
 
     @JsonProperty
@@ -60,7 +51,6 @@ public class MemoryInfo
     {
         return toStringHelper(this)
                 .add("availableProcessors", availableProcessors)
-                .add("systemCpuLoad", systemCpuLoad)
                 .add("pool", pool)
                 .toString();
     }
