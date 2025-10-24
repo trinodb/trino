@@ -17,7 +17,7 @@
 * Fix `EXPLAIN ANALYZE` planning so that it executes with the same plan as would be used to execute the query
   being analyzed. ({issue}`26938`)
 * Fix row pattern matching logical navigations in running semantics to be always constraint to current match.
-  Previously, a logical navigation function such as `FIRST` could return position outside of the current match.
+  Previously, a logical navigation function such as `FIRST` could return position outside the current match.
   ({issue}`26981`)
 * Return correct "Table does not exist" error when querying a non-existent table in an existing schema within
   `system` catalog. ({issue}`27047`)
