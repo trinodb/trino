@@ -179,9 +179,13 @@ public class TDigestHistogram
     }
 
     @Override
-    public synchronized double getPercentile(double percentile)
+    public synchronized double[] getPercentiles(double... percentiles)
     {
-        return digest.valueAt(percentile / 100.0);
+        double[] digestPercentiles = new double[percentiles.length];
+        for (int i = 0; i < percentiles.length; i++) {
+            digestPercentiles[i] = percentiles[i] / 100.0;
+        }
+        return digest.valuesAt(digestPercentiles);
     }
 
     @Override
