@@ -135,7 +135,13 @@ public class FlushMetadataCacheProcedure
 
     private void doFlushMetadataCache(ConnectorSession session, Optional<String> schemaName, Optional<String> tableName, List<String> partitionColumns, List<String> partitionValues)
     {
-        if (!(hiveMetadataFactory instanceof ImpersonationCachingHiveMetastoreFactory) && cachingHiveMetastore.isEmpty() && glueCache.isEmpty()) {
+        Optional<CachingHiveMetastore> cachingHiveMetastore = this.cachingHiveMetastore;
+        if (hiveMetadataFactory instanceof ImpersonationCachingHiveMetastoreFactory impersonationCachingHiveMetastoreFactory) {
+            checkState(cachingHiveMetastore.isEmpty(), "CachingHiveMetastore should not be set when using ImpersonationCachingHiveMetastoreFactory");
+            cachingHiveMetastore = Optional.of((CachingHiveMetastore) impersonationCachingHiveMetastoreFactory.createMetastore(Optional.of(session.getIdentity())));
+        }
+
+        if (cachingHiveMetastore.isEmpty() && glueCache.isEmpty()) {
             // TODO this currently does not work. CachingHiveMetastore is always bound for metastores other than Glue, even when caching is disabled,
             //  so for consistency we do not discern between GlueCache NOOP and real.
             throw new TrinoException(HiveErrorCode.HIVE_METASTORE_ERROR, "Cannot flush, metastore cache is not enabled");
@@ -144,11 +150,6 @@ public class FlushMetadataCacheProcedure
         checkState(
                 partitionColumns.size() == partitionValues.size(),
                 "Parameters partition_column and partition_value should have same length");
-
-        Optional<CachingHiveMetastore> cachingHiveMetastore = this.cachingHiveMetastore;
-        if (hiveMetadataFactory instanceof ImpersonationCachingHiveMetastoreFactory impersonationCachingHiveMetastoreFactory) {
-            cachingHiveMetastore = Optional.of((CachingHiveMetastore) impersonationCachingHiveMetastoreFactory.createMetastore(Optional.of(session.getIdentity())));
-        }
 
         if (schemaName.isEmpty() && tableName.isEmpty() && partitionColumns.isEmpty()) {
             cachingHiveMetastore.ifPresent(CachingHiveMetastore::flushCache);
