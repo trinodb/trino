@@ -25,14 +25,6 @@
 * Propagate `queryId` to the [Open Policy Agent](/security/opa-access-control)
   authorizer. ({issue}`26851`)
 
-## Web UI
-
-* Add support for filtering queries by `X-Trino-Trace-Token` value in the [](/admin/preview-web-interface). ({issue}`26447`)
-* Improve rendering performance of large query JSON in the [](/admin/preview-web-interface). ({issue}`26807`)
-* Fix rendering of large query plans in the [](/admin/preview-web-interface). ({issue}`26749`)
-* Fix rendering of the splits timeline for queued queries in the [](/admin/preview-web-interface) to prevent
-  blank screen ({issue}`26920`)
-
 ## Docker image
 
 * Run Trino on JDK 25.0.0 (build 36). ({issue}`26693`)
