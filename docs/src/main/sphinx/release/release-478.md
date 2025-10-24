@@ -20,9 +20,9 @@
   Previously, a logical navigation function such as `FIRST` could return position outside of the current match.
   ({issue}`26981`)
 * Return correct "Table does not exist" error when querying a non-existent table in an existing schema within
-  `system` catalog.
+  `system` catalog. ({issue}`27047`)
 * Avoid logging an exception when listing columns from tables from a set of catalogs that includes the `system`
-  catalog. (#27045)
+  catalog. ({issue}`27045`)
 
 ## Security
 
