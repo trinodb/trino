@@ -1344,4 +1344,12 @@ public class ClassLoaderSafeConnectorMetadata
             return delegate.getInsertWriterScalingOptions(session, tableHandle);
         }
     }
+
+    @Override
+    public String canonicalize(ConnectorSession session, String identifier, boolean delimited)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.canonicalize(session, identifier, delimited);
+        }
+    }
 }

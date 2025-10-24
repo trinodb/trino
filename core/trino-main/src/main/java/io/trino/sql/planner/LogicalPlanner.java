@@ -960,7 +960,7 @@ public class LogicalPlanner
     private RelationPlan createTableExecutePlan(Analysis analysis, TableExecute statement)
     {
         Table table = statement.getTable();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, table.getName());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, table.getName(), metadata);
         TableExecuteHandle executeHandle = analysis.getTableExecuteHandle().orElseThrow();
 
         if (!analysis.isTableExecuteReadsData()) {

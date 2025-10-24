@@ -81,7 +81,7 @@ public class SetAuthorizationTask
         // Preprocess SCHEMA, TABLE and VIEW to generate error messages in the order compatible with existing tests
         switch (statement.getOwnedEntityKind()) {
             case "SCHEMA" -> {
-                CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()));
+                CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()), metadata);
                 if (!metadata.schemaExists(session, source)) {
                     throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", source);
                 }

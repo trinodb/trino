@@ -3045,4 +3045,17 @@ public final class MetadataManager
         }
         return ImmutableSet.of();
     }
+
+    @Override
+    public NameCanonicalizer getNameCanonicalizer(Session session, String catalogName)
+    {
+        Optional<CatalogMetadata> metadata = getOptionalCatalogMetadata(session, catalogName);
+
+        if (metadata.isPresent()) {
+            CatalogHandle catalogHandle = metadata.get().getCatalogHandle();
+            return (identifier, delimited) ->
+                    metadata.get().getMetadata(session).canonicalize(session.toConnectorSession(catalogHandle), identifier, delimited);
+        }
+        return NameCanonicalizer.LEGACY_NAME_CANONICALIZER;
+    }
 }
