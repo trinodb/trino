@@ -51,7 +51,7 @@
 ## Iceberg connector
 
 * Improve performance when writing sorted tables and `iceberg.sorted-writing.local-staging-path`
- is set. ({issue}`24376`)
+  is set. ({issue}`24376`)
 * Return execution metrics while running the `remove_orphan_files` command. ({issue}`26661`)
 * Deprecate the `gcs.use-access-token` configuration property. Use `gcs.auth-type` instead. ({issue}`26681`)
 * Collect distinct values count on all columns when replacing tables. ({issue}`26983`)
