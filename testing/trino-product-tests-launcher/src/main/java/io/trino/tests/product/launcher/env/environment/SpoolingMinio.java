@@ -21,6 +21,7 @@ import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.common.EnvironmentExtender;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
+import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -47,7 +48,8 @@ public class SpoolingMinio
     private static final String MINIO_SPOOLING_CONTAINER_NAME = "spooling-minio";
     private static final String MINIO_ACCESS_KEY = "minio-access-key";
     private static final String MINIO_SECRET_KEY = "minio-secret-key";
-    private static final String MINIO_RELEASE = "RELEASE.2025-01-20T14-49-07Z";
+    private static final String MINIO_RELEASE = DockerImageName.parse("cgr.dev/chainguard/minio@sha256:66bd82c8fe5e75868ae7d0b2e102d9a0dcf971b270a41bd060a9e6a643476ff8")
+            .asCanonicalNameString();
 
     private static final int MINIO_PORT = 9080; // minio uses 9000 by default, which conflicts with hadoop
     private static final int MINIO_CONSOLE_PORT = 9001;
@@ -95,7 +97,7 @@ public class SpoolingMinio
             throw new UncheckedIOException(e);
         }
 
-        DockerContainer container = new DockerContainer("minio/minio:" + MINIO_RELEASE, MINIO_SPOOLING_CONTAINER_NAME)
+        DockerContainer container = new DockerContainer(MINIO_RELEASE, MINIO_SPOOLING_CONTAINER_NAME)
                 .withEnv(ImmutableMap.<String, String>builder()
                         .put("MINIO_ACCESS_KEY", MINIO_ACCESS_KEY)
                         .put("MINIO_SECRET_KEY", MINIO_SECRET_KEY)
@@ -103,6 +105,7 @@ public class SpoolingMinio
                 .withCopyFileToContainer(forHostPath(minioBucketDirectory), "/data/" + MINIO_SPOOLING_BUCKET)
                 .withCommand("server", "--address", format("0.0.0.0:%d", MINIO_PORT), "--console-address", format("0.0.0.0:%d", MINIO_CONSOLE_PORT), "/data")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
+                .withCreateContainerCmdModifier(cmd -> cmd.withUser("root")) // Required to create buckets externally
                 .waitingFor(forSelectedPorts(MINIO_PORT))
                 .withStartupTimeout(Duration.ofMinutes(1));
 
