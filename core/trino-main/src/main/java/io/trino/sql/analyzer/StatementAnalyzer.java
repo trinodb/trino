@@ -5764,7 +5764,7 @@ class StatementAnalyzer
                 //    SELECT a FROM t ORDER BY a
                 // the "a" in the SELECT clause is bound to the FROM scope, while the "a" in ORDER BY clause is bound
                 // to the "a" from the SELECT clause, so we can't compare by field id / relation id.
-                if (expression instanceof Identifier && aliases.contains(canonicalizationAwareKey(expression))) {
+                if (expression instanceof Identifier && aliases.contains(canonicalizationAwareKey(expression, true))) {
                     continue;
                 }
 
@@ -5787,13 +5787,13 @@ class StatementAnalyzer
                 if (item instanceof SingleColumn column) {
                     Optional<Identifier> alias = column.getAlias();
                     if (alias.isPresent()) {
-                        aliases.add(canonicalizationAwareKey(alias.get()));
+                        aliases.add(canonicalizationAwareKey(alias.get(), true));
                     }
                     else if (column.getExpression() instanceof Identifier identifier) {
-                        aliases.add(canonicalizationAwareKey(identifier));
+                        aliases.add(canonicalizationAwareKey(identifier, true));
                     }
                     else if (column.getExpression() instanceof DereferenceExpression dereferenceExpression) {
-                        aliases.add(canonicalizationAwareKey(dereferenceExpression.getField().orElseThrow()));
+                        aliases.add(canonicalizationAwareKey(dereferenceExpression.getField().orElseThrow(), true));
                     }
                 }
                 else if (item instanceof AllColumns allColumns) {
@@ -5803,10 +5803,10 @@ class StatementAnalyzer
                         Field field = fields.get(i);
 
                         if (!allColumns.getAliases().isEmpty()) {
-                            aliases.add(canonicalizationAwareKey(allColumns.getAliases().get(i)));
+                            aliases.add(canonicalizationAwareKey(allColumns.getAliases().get(i), true));
                         }
                         else if (field.getName().isPresent()) {
-                            aliases.add(canonicalizationAwareKey(new Identifier(field.getName().get())));
+                            aliases.add(canonicalizationAwareKey(new Identifier(field.getName().get()), true));
                         }
                     }
                 }

@@ -78,10 +78,14 @@ public class Identifier
 
     public String getCanonicalValue()
     {
-        if (isDelimited()) {
+        return getCanonicalValue(false);
+    }
+
+    public String getCanonicalValue(boolean ignoreCase)
+    {
+        if (!ignoreCase && isDelimited()) {
             return value;
         }
-
         return value.toUpperCase(ENGLISH);
     }
 
