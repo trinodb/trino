@@ -19,6 +19,10 @@
 * Fix row pattern matching logical navigations in running semantics to be always constraint to current match.
   Previously, a logical navigation function such as `FIRST` could return position outside of the current match.
   ({issue}`26981`)
+* Return correct "Table does not exist" error when querying a non-existent table in an existing schema within
+  `system` catalog.
+* Avoid logging an exception when listing columns from tables from a set of catalogs that includes the `system`
+  catalog. (#27045)
 
 ## Security
 
