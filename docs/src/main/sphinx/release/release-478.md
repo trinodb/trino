@@ -42,9 +42,7 @@
 * Add support for reading encrypted Parquet files. ({issue}`24517`, {issue}`9383`)
 * Deprecate the `gcs.use-access-token` configuration property. Use `gcs.auth-type` instead. ({issue}`26681`)
 * Improve performance of queries using complex predicates on `$path` column. ({issue}`27000`)
-* Fix writing invalid dates and timestamps before `1582-10-15` when writing ORC files by setting calendar type
-  in the file footer. Previously, Trino did not set the calendar type in the file footer, and values
-  before `1582-10-15` could be read incorrectly by other query engines such as Apache Hive.  ({issue}`26507`)
+* Fix writing invalid dates and timestamps before `1582-10-15` when writing ORC data. ({issue}`26507`)
 
 ## Hudi connector
 
@@ -63,6 +61,7 @@
 * Fix incorrect results when reading Avro files migrated from Hive. ({issue}`26863`)
 * Fix failure when executing `SHOW CREATE SCHEMA` on a schema with unsupported properties
   with REST, Glue or Nessie catalog. ({issue}`24744`)
+* Fix writing invalid dates and timestamps before `1582-10-15` when writing ORC data. ({issue}`26507`)
 
 ## Kafka connector
 
