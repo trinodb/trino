@@ -157,7 +157,6 @@ public class DockerContainer
 
     public DockerContainer withExposedLogPaths(String... logPaths)
     {
-        requireNonNull(this.logPaths, "log paths are already exposed");
         this.logPaths.addAll(Arrays.asList(logPaths));
         return this;
     }
@@ -292,6 +291,10 @@ public class DockerContainer
 
     public void copyLogsToHostPath(Path hostPath)
     {
+        if (logPaths.isEmpty()) {
+            return;
+        }
+
         if (!isRunning()) {
             log.warn("Could not copy files from stopped container %s", logicalName);
             return;
