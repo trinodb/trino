@@ -2,27 +2,21 @@
 
 ## General
 
-* Add support for column lineage in `UNNEST` clauses. ({issue}`16946`)
-* Add `retry-policy.allowed` configuration property to specify which query retry
-  policies can be selected by the user. ({issue}`26628`)
+* Include lineage information for columns used in `UNNEST` expressions. ({issue}`16946`)
+* Add support for limiting which retry policies a user can select. This can be configured using
+  the `retry-policy.allowed` option. ({issue}`26628`)
 * Add support for loading plugins from multiple directories. ({issue}`26855`)
-* Add the `/v1/integrations/gateway` endpoint that exposes additional cluster metrics for Trino Gateway.
-  ({issue}`26548`)
 * Allow dropping an uninitialized catalog that failed to load. ({issue}`26918`)
 * Improve performance of queries with an `ORDER BY` clause using `varchar` or `varbinary` types. ({issue}`26725`)
 * Improve performance of `MERGE` statements involving a `NOT MATCHED` case. ({issue}`26759`)
-* Improve performance of queries with joins which spill to disk. ({issue}`26076`)
+* Improve performance of queries involving `JOIN` when spilling is enabled. ({issue}`26076`)
 * Fix potential incorrect results when reading `row` type. ({issue}`26806`)
-* Return all catalogs, including uninitialized ones, for queries from `metadata.catalogs`. ({issue}`26918`)
+* Include catalogs that failed to load in the `metadata.catalogs` table. ({issue}`26918`)
 * Fix `EXPLAIN ANALYZE` planning so that it executes with the same plan as would be used to execute the query
   being analyzed. ({issue}`26938`)
 * Fix row pattern matching logical navigations in running semantics to be always constraint to current match.
   Previously, a logical navigation function such as `FIRST` could return position outside the current match.
   ({issue}`26981`)
-* Return correct "Table does not exist" error when querying a non-existent table in an existing schema within
-  `system` catalog. ({issue}`27047`)
-* Avoid logging an exception when listing columns from tables from a set of catalogs that includes the `system`
-  catalog. ({issue}`27045`)
 
 ## Security
 
