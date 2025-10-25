@@ -391,6 +391,7 @@ public class DbResourceGroupConfigurationManager
                                 selectorRecord.getQueryType(),
                                 selectorRecord.getClientTags(),
                                 selectorRecord.getSelectorResourceEstimate(),
+                                selectorRecord.isExecuteImmediate(),
                                 resourceGroupIdTemplateMap.get(selectorRecord.getResourceGroupId()))
                 ).collect(Collectors.toList());
 

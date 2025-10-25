@@ -60,11 +60,13 @@ public class QueryPreparer
     {
         Statement statement = wrappedStatement;
         Optional<String> prepareSql = Optional.empty();
+        boolean isExecuteImmediate = false;
         if (statement instanceof Execute executeStatement) {
             prepareSql = Optional.of(session.getPreparedStatementFromExecute(executeStatement));
             statement = sqlParser.createStatement(prepareSql.get());
         }
         else if (statement instanceof ExecuteImmediate executeImmediateStatement) {
+            isExecuteImmediate = true;
             statement = sqlParser.createStatement(
                     executeImmediateStatement.getStatement().getValue(),
                     executeImmediateStatement.getStatement().getLocation().orElseThrow());
@@ -86,7 +88,7 @@ public class QueryPreparer
         }
         validateParameters(statement, parameters);
 
-        return new PreparedQuery(statement, parameters, prepareSql);
+        return new PreparedQuery(statement, parameters, prepareSql, isExecuteImmediate);
     }
 
     private static void validateParameters(Statement node, List<Expression> parameterValues)
@@ -105,12 +107,19 @@ public class QueryPreparer
         private final Statement statement;
         private final List<Expression> parameters;
         private final Optional<String> prepareSql;
+        private final boolean isExecuteImmediate;
 
         public PreparedQuery(Statement statement, List<Expression> parameters, Optional<String> prepareSql)
+        {
+            this(statement, parameters, prepareSql, false);
+        }
+
+        public PreparedQuery(Statement statement, List<Expression> parameters, Optional<String> prepareSql, boolean isExecuteImmediate)
         {
             this.statement = requireNonNull(statement, "statement is null");
             this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
             this.prepareSql = requireNonNull(prepareSql, "prepareSql is null");
+            this.isExecuteImmediate = isExecuteImmediate;
         }
 
         public Statement getStatement()
@@ -126,6 +135,11 @@ public class QueryPreparer
         public Optional<String> getPrepareSql()
         {
             return prepareSql;
+        }
+
+        public boolean isExecuteImmediate()
+        {
+            return isExecuteImmediate;
         }
     }
 }

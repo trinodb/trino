@@ -41,6 +41,7 @@ public class SelectorRecord
     private final Optional<String> queryType;
     private final Optional<List<String>> clientTags;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
+    private final Optional<Boolean> isExecuteImmediate;
 
     public SelectorRecord(
             long resourceGroupId,
@@ -52,7 +53,8 @@ public class SelectorRecord
             Optional<Pattern> sourceRegex,
             Optional<String> queryType,
             Optional<List<String>> clientTags,
-            Optional<SelectorResourceEstimate> selectorResourceEstimate)
+            Optional<SelectorResourceEstimate> selectorResourceEstimate,
+            Optional<Boolean> isExecuteImmediate)
     {
         this.resourceGroupId = resourceGroupId;
         this.priority = priority;
@@ -64,6 +66,7 @@ public class SelectorRecord
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.clientTags = clientTags.map(ImmutableList::copyOf);
         this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
+        this.isExecuteImmediate = requireNonNull(isExecuteImmediate, "isExecuteImmediate is null");
     }
 
     public long getResourceGroupId()
@@ -116,6 +119,11 @@ public class SelectorRecord
         return selectorResourceEstimate;
     }
 
+    public Optional<Boolean> isExecuteImmediate()
+    {
+        return isExecuteImmediate;
+    }
+
     public static class Mapper
             implements RowMapper<SelectorRecord>
     {
@@ -136,7 +144,8 @@ public class SelectorRecord
                     Optional.ofNullable(resultSet.getString("source_regex")).map(Pattern::compile),
                     Optional.ofNullable(resultSet.getString("query_type")),
                     Optional.ofNullable(resultSet.getString("client_tags")).map(LIST_STRING_CODEC::fromJson),
-                    Optional.ofNullable(resultSet.getString("selector_resource_estimate")).map(SELECTOR_RESOURCE_ESTIMATE_JSON_CODEC::fromJson));
+                    Optional.ofNullable(resultSet.getString("selector_resource_estimate")).map(SELECTOR_RESOURCE_ESTIMATE_JSON_CODEC::fromJson),
+                    Optional.ofNullable(resultSet.getString("is_execute_immediate")).map(Boolean::parseBoolean));
         }
     }
 }

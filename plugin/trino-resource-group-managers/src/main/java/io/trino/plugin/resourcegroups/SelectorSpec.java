@@ -34,6 +34,7 @@ public class SelectorSpec
     private final Optional<String> queryType;
     private final Optional<List<String>> clientTags;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
+    private final Optional<Boolean> isExecuteImmediate;
     private final ResourceGroupIdTemplate group;
 
     @JsonCreator
@@ -46,6 +47,7 @@ public class SelectorSpec
             @JsonProperty("queryType") Optional<String> queryType,
             @JsonProperty("clientTags") Optional<List<String>> clientTags,
             @JsonProperty("selectorResourceEstimate") Optional<SelectorResourceEstimate> selectorResourceEstimate,
+            @JsonProperty("isExecuteImmediate") Optional<Boolean> isExecuteImmediate,
             @JsonProperty("group") ResourceGroupIdTemplate group)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
@@ -56,6 +58,7 @@ public class SelectorSpec
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.clientTags = requireNonNull(clientTags, "clientTags is null");
         this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
+        this.isExecuteImmediate = requireNonNull(isExecuteImmediate, "isExecuteImmediate is null");
         this.group = requireNonNull(group, "group is null");
     }
 
@@ -99,6 +102,11 @@ public class SelectorSpec
         return selectorResourceEstimate;
     }
 
+    public Optional<Boolean> isExecuteImmediate()
+    {
+        return isExecuteImmediate;
+    }
+
     public ResourceGroupIdTemplate getGroup()
     {
         return group;
@@ -125,7 +133,8 @@ public class SelectorSpec
                 sourceRegex.map(Pattern::pattern).equals(that.sourceRegex.map(Pattern::pattern))) &&
                 sourceRegex.map(Pattern::flags).equals(that.sourceRegex.map(Pattern::flags)) &&
                 queryType.equals(that.queryType) &&
-                clientTags.equals(that.clientTags);
+                clientTags.equals(that.clientTags) &&
+                isExecuteImmediate.equals(that.isExecuteImmediate);
     }
 
     @Override
@@ -144,7 +153,8 @@ public class SelectorSpec
                 sourceRegex.map(Pattern::pattern),
                 sourceRegex.map(Pattern::flags),
                 queryType,
-                clientTags);
+                clientTags,
+                isExecuteImmediate);
     }
 
     @Override
@@ -164,6 +174,7 @@ public class SelectorSpec
                 .add("sourceFlags", sourceRegex.map(Pattern::flags))
                 .add("queryType", queryType)
                 .add("clientTags", clientTags)
+                .add("isExecuteImmediate", isExecuteImmediate)
                 .toString();
     }
 }

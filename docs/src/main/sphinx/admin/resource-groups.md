@@ -206,6 +206,11 @@ documentation](https://docs.oracle.com/en/java/javase/24/docs/api/java.base/java
 - `clientTags` (optional): list of tags. To match, every tag in this list must be in the list of
   client-provided tags associated with the query.
 
+- `isExecuteImmediate` (optional): Some clients use `EXECUTE IMMEDIATE ...`
+  to run quick queries directly. Use `true` when this selector should match a
+  `EXECUTE IMMEDIATE '...'` query. Use `false` to match all other 
+  queries, omit to match any.
+
 - `group` (required): the group these queries will run in.
 
 All rules within a single selector are combined using a logical `AND`. Therefore
