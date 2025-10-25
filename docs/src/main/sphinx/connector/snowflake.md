@@ -27,11 +27,17 @@ connector.name=snowflake
 connection-url=jdbc:snowflake://<account>.snowflakecomputing.com
 connection-user=root
 connection-password=secret
+snowflake.private-key=unencrypted-private-key-content
 snowflake.account=account
 snowflake.database=database
 snowflake.role=role
 snowflake.warehouse=warehouse
 ```
+
+:::{note}
+Use private-key for RSA based authentication.
+Password based authentication is deprecated by Snowflake.
+:::
 
 The Snowflake connector uses Apache Arrow as the serialization format when
 reading from Snowflake. Add the following required, additional JVM argument
