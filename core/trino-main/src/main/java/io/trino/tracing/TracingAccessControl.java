@@ -32,6 +32,7 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.security.ViewSecurity;
 
 import java.security.Principal;
 import java.util.Collection;
@@ -396,11 +397,11 @@ public class TracingAccessControl
     }
 
     @Override
-    public void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName)
+    public void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName, Optional<ViewSecurity> security)
     {
         Span span = startSpan("checkCanCreateView");
         try (var _ = scopedSpan(span)) {
-            delegate.checkCanCreateView(context, viewName);
+            delegate.checkCanCreateView(context, viewName, security);
         }
     }
 

@@ -92,6 +92,7 @@ import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.security.ViewSecurity;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
@@ -1056,6 +1057,7 @@ class StatementAnalyzer
         protected Scope visitCreateView(CreateView node, Optional<Scope> scope)
         {
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
+            Optional<ViewSecurity> viewSecurity = node.getSecurity().map(security -> ViewSecurity.valueOf(security.name()));
 
             node.getQuery().getFunctions().stream().findFirst().ifPresent(function -> {
                 throw semanticException(NOT_SUPPORTED, function, "Views cannot contain inline functions");
@@ -1066,7 +1068,7 @@ class StatementAnalyzer
 
             Scope queryScope = analyzer.analyze(node.getQuery());
 
-            accessControl.checkCanCreateView(session.toSecurityContext(), viewName);
+            accessControl.checkCanCreateView(session.toSecurityContext(), viewName, viewSecurity);
 
             validateColumns(node, queryScope.getRelationType());
 

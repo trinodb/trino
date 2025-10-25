@@ -231,7 +231,7 @@ final class TestRangerSystemAccessControl
     {
         CatalogSchemaTableName newViewName = new CatalogSchemaTableName(VIEW_ALICE_SCH1_VW1.getCatalogName(), VIEW_ALICE_SCH1_VW1.getSchemaTableName().getSchemaName(), "new-view");
 
-        accessControlManager.checkCanCreateView(context(ALICE), VIEW_ALICE_SCH1_VW1);
+        accessControlManager.checkCanCreateView(context(ALICE), VIEW_ALICE_SCH1_VW1, Optional.empty());
         accessControlManager.checkCanDropView(context(ALICE), VIEW_ALICE_SCH1_VW1);
         accessControlManager.checkCanRenameView(context(ALICE), VIEW_ALICE_SCH1_VW1, newViewName);
         accessControlManager.checkCanSetViewAuthorization(context(ALICE), VIEW_ALICE_SCH1_VW1, new TrinoPrincipal(USER, "user"));
@@ -239,7 +239,7 @@ final class TestRangerSystemAccessControl
         accessControlManager.checkCanSetViewAuthorization(context(ALICE), VIEW_ALICE_SCH1_VW1, new TrinoPrincipal(USER, "user"));
         accessControlManager.checkCanSetViewComment(context(ALICE), VIEW_ALICE_SCH1_VW1);
 
-        assertThatThrownBy(() -> accessControlManager.checkCanCreateView(context(BOB), VIEW_ALICE_SCH1_VW1)).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanCreateView(context(BOB), VIEW_ALICE_SCH1_VW1, Optional.empty())).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanDropView(context(BOB), VIEW_ALICE_SCH1_VW1)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanRenameView(context(BOB), VIEW_ALICE_SCH1_VW1, newViewName)).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> accessControlManager.checkCanSetViewAuthorization(context(BOB), VIEW_ALICE_SCH1_VW1, new TrinoPrincipal(USER, "user"))).isInstanceOf(AccessDeniedException.class);
