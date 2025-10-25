@@ -98,6 +98,7 @@ public class DeltaLakeConfig
     private boolean deltaLogFileSystemCacheDisabled;
     private int metadataParallelism = 8;
     private int checkpointProcessingParallelism = 4;
+    private boolean enableClusteringInfo;
 
     public Duration getMetadataCacheTtl()
     {
@@ -389,6 +390,19 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setCompressionCodec(HiveCompressionOption compressionCodec)
     {
         this.compressionCodec = compressionCodec;
+        return this;
+    }
+
+    public boolean isEnableClusteringInfo()
+    {
+        return enableClusteringInfo;
+    }
+
+    @Config("delta.enable-clustering-info")
+    @ConfigDescription("If show clustered columns in table metadata")
+    public DeltaLakeConfig setEnableClusteringInfo(boolean enableClusteringInfo)
+    {
+        this.enableClusteringInfo = enableClusteringInfo;
         return this;
     }
 
