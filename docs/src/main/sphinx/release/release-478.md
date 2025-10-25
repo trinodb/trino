@@ -17,6 +17,8 @@
 * Fix row pattern matching logical navigations in running semantics to be always constraint to current match.
   Previously, a logical navigation function such as `FIRST` could return position outside the current match.
   ({issue}`26981`)
+* Return correct "Table does not exist" error when querying a non-existent table in an existing schema within `system` catalog. (#27045)
+* Avoid logging an exception when listing columns from tables from a set of catalogs that includes the `system` catalog. (#27045)
 
 ## Security
 
@@ -62,6 +64,7 @@
 * Fix failure when executing `SHOW CREATE SCHEMA` on a schema with unsupported properties
   with REST, Glue or Nessie catalog. ({issue}`24744`)
 * Fix writing invalid dates and timestamps before `1582-10-15` when writing ORC data. ({issue}`26507`)
+* Fix failure when running `EXPLAIN` or `EXPLAIN ANALYZE` on `OPTIMIZE` command. ({issue}`26598`)
 
 ## Kafka connector
 
@@ -70,4 +73,5 @@
 ## SPI
 
 * Remove default implementation from `Connector.shutdown()`. ({issue}`26718`)
+* Remove the deprecated `ConnectorSplit.getSplitInfo` method. ({issue}`27063`)
 * Deprecate `io.trino.spi.type.Type#appendTo` method. ({issue}`26922`)
