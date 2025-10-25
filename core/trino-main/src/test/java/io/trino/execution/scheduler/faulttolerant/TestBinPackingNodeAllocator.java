@@ -131,6 +131,7 @@ public class TestBinPackingNodeAllocator
     {
         return new MemoryInfo(
                 4,
+                0,
                 new MemoryPoolInfo(
                         DataSize.of(64, GIGABYTE).toBytes(),
                         usedMemory.toBytes(),
