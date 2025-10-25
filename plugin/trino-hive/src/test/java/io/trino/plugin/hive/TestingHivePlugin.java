@@ -29,30 +29,36 @@ public class TestingHivePlugin
 {
     private final Path localFileSystemRootPath;
     private final Optional<HiveMetastore> metastore;
+    private final boolean metastoreImpersonationEnabled;
     private final Optional<DecryptionKeyRetriever> decryptionKeyRetriever;
 
     public TestingHivePlugin(Path localFileSystemRootPath)
     {
-        this(localFileSystemRootPath, Optional.empty(), Optional.empty());
+        this(localFileSystemRootPath, Optional.empty(), false, Optional.empty());
     }
 
     @Deprecated
     public TestingHivePlugin(Path localFileSystemRootPath, HiveMetastore metastore)
     {
-        this(localFileSystemRootPath, Optional.of(metastore), Optional.empty());
+        this(localFileSystemRootPath, Optional.of(metastore), false, Optional.empty());
     }
 
     @Deprecated
-    public TestingHivePlugin(Path localFileSystemRootPath, Optional<HiveMetastore> metastore, Optional<DecryptionKeyRetriever> decryptionKeyRetriever)
+    public TestingHivePlugin(
+            Path localFileSystemRootPath,
+            Optional<HiveMetastore> metastore,
+            boolean metastoreImpersonationEnabled,
+            Optional<DecryptionKeyRetriever> decryptionKeyRetriever)
     {
         this.localFileSystemRootPath = requireNonNull(localFileSystemRootPath, "localFileSystemRootPath is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
+        this.metastoreImpersonationEnabled = metastoreImpersonationEnabled;
         this.decryptionKeyRetriever = requireNonNull(decryptionKeyRetriever, "decryptionKeyRetriever is null");
     }
 
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new TestingHiveConnectorFactory(localFileSystemRootPath, metastore, decryptionKeyRetriever));
+        return ImmutableList.of(new TestingHiveConnectorFactory(localFileSystemRootPath, metastore, metastoreImpersonationEnabled, decryptionKeyRetriever));
     }
 }

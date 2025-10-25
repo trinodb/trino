@@ -394,7 +394,7 @@ public class TestHivePageSink
                 getDefaultHiveFileWriterFactories(config, fileSystemFactory),
                 HDFS_FILE_SYSTEM_FACTORY,
                 PAGE_SORTER,
-                HiveMetastoreFactory.ofInstance(metastore),
+                HiveMetastoreFactory.ofInstance(metastore, false),
                 new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators())),
                 TESTING_TYPE_MANAGER,
                 config,

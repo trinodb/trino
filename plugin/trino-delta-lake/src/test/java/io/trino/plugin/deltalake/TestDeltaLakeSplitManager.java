@@ -221,7 +221,7 @@ public class TestDeltaLakeSplitManager
                 newDirectExecutorService());
 
         TransactionLogReaderFactory transactionLogReaderFactory = new FileSystemTransactionLogReaderFactory(fileSystemFactory);
-        HiveMetastoreFactory hiveMetastoreFactory = HiveMetastoreFactory.ofInstance(createTestingFileHiveMetastore(new MemoryFileSystemFactory(), Location.of("memory:///")));
+        HiveMetastoreFactory hiveMetastoreFactory = HiveMetastoreFactory.ofInstance(createTestingFileHiveMetastore(new MemoryFileSystemFactory(), Location.of("memory:///")), false);
         DeltaLakeMetadataFactory metadataFactory = new DeltaLakeMetadataFactory(
                 hiveMetastoreFactory,
                 new DefaultDeltaLakeFileSystemFactory(hdfsFileSystemFactory, new NoOpVendedCredentialsProvider()),

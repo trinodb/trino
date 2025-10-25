@@ -77,7 +77,7 @@ class LakehouseHiveModule
     @Override
     protected void setup(Binder binder)
     {
-        install(new HiveMetastoreModule(Optional.empty()));
+        install(new HiveMetastoreModule(Optional.empty(), false));
 
         configBinder(binder).bindConfig(HiveConfig.class);
         configBinder(binder).bindConfig(HiveMetastoreConfig.class);

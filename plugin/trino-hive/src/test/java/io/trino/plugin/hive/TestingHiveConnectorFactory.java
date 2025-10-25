@@ -38,17 +38,23 @@ public class TestingHiveConnectorFactory
         implements ConnectorFactory
 {
     private final Optional<HiveMetastore> metastore;
+    private final boolean metastoreImpersonationEnabled;
     private final Module module;
 
     public TestingHiveConnectorFactory(Path localFileSystemRootPath)
     {
-        this(localFileSystemRootPath, Optional.empty(), Optional.empty());
+        this(localFileSystemRootPath, Optional.empty(), false, Optional.empty());
     }
 
     @Deprecated
-    public TestingHiveConnectorFactory(Path localFileSystemRootPath, Optional<HiveMetastore> metastore, Optional<DecryptionKeyRetriever> decryptionKeyRetriever)
+    public TestingHiveConnectorFactory(
+            Path localFileSystemRootPath,
+            Optional<HiveMetastore> metastore,
+            boolean metastoreImpersonationEnabled,
+            Optional<DecryptionKeyRetriever> decryptionKeyRetriever)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
+        this.metastoreImpersonationEnabled = metastoreImpersonationEnabled;
 
         boolean ignored = localFileSystemRootPath.toFile().mkdirs();
         this.module = binder -> {
@@ -79,6 +85,6 @@ public class TestingHiveConnectorFactory
         if (metastore.isEmpty() && !config.containsKey("hive.metastore")) {
             configBuilder.put("hive.metastore", "file");
         }
-        return createConnector(catalogName, configBuilder.buildOrThrow(), context, module, metastore, Optional.empty());
+        return createConnector(catalogName, configBuilder.buildOrThrow(), context, module, metastore, metastoreImpersonationEnabled, Optional.empty());
     }
 }
