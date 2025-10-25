@@ -113,6 +113,7 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -2764,6 +2765,50 @@ public class TestDeltaLakeBasic
                 .filter(log -> log.getMetaData() != null)
                 .collect(onlyElement());
         return transactionLog.getMetaData();
+    }
+
+    @Test
+    public void testDeepClonedTableWithCheckpointVersionZero()
+            throws Exception
+    {
+        String resource = "databricks154/clone_checkpoint_version_zero/checkpoint_v2/deep_cloned_table";
+        String tableName = "test_deep_cloned_table" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource(resource).toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("""
+                        VALUES
+                        (1, VARCHAR 'Alice', 25),
+                        (2, VARCHAR 'Bob', 30),
+                        (3, VARCHAR 'Charlie', 28)
+                        """);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testShallowClonedTableWithCheckpointVersionZero()
+            throws Exception
+    {
+        String resource = "databricks154/clone_checkpoint_version_zero/checkpoint_v2/shallow_cloned_table";
+        String dataFileResource = "databricks154/clone_checkpoint_version_zero/checkpoint_v2/clone_source/part-00000-d47cc824-9a87-40c6-9e6b-528d933a30f9-c000.snappy.parquet";
+        String tableName = "test_shallow_cloned_table" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        Path dataFilePath = new File(Resources.getResource(dataFileResource).toURI()).toPath();
+        Path targetFilePath = tableLocation.resolve("part-00000-d47cc824-9a87-40c6-9e6b-528d933a30f9-c000.snappy.parquet");
+        copyDirectoryContents(new File(Resources.getResource(resource).toURI()).toPath(), tableLocation);
+        Files.copy(dataFilePath, targetFilePath, REPLACE_EXISTING);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("""
+                        VALUES
+                        (1, VARCHAR 'Alice', 25),
+                        (2, VARCHAR 'Bob', 30),
+                        (3, VARCHAR 'Charlie', 28)
+                        """);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private static ProtocolEntry loadProtocolEntry(long entryNumber, Path tableLocation)

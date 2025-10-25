@@ -33,7 +33,7 @@ public record CheckpointMetadataEntry(long version, Optional<Map<String, String>
 
     public CheckpointMetadataEntry
     {
-        checkArgument(version > 0, "version is not positive: %s", version);
+        checkArgument(version >= 0, "version is negative: %s", version);
         requireNonNull(tags, "tags is null");
         tags = tags.map(ImmutableMap::copyOf);
     }
