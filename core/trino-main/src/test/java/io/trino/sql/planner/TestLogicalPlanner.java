@@ -1333,6 +1333,32 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testRemoveTrivialFiltersWithPartitioningHandle()
+    {
+        assertThat(countOfMatchingNodes(
+                plan("""
+                    SELECT *
+                    FROM (
+                        SELECT n.name AS "col1",
+                          n.nationkey AS "col2",
+                          CAST(null AS varchar) AS "col3"
+                        FROM nation n
+                        WHERE n.nationkey <= 3
+                        UNION ALL
+                        SELECT r.name AS "col1",
+                          CAST(r.regionkey AS bigint) AS "col2",
+                          r.comment AS "col3"
+                        FROM region r
+                      ) subquery
+                    WHERE "col3" IN (
+                        SELECT r.comment
+                        FROM region r
+                      )
+                """),
+                ValuesNode.class::isInstance)).isEqualTo(0);
+    }
+
+    @Test
     public void testRemovesNullFilter()
     {
         assertPlan(
