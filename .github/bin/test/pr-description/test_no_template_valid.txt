@@ -1,0 +1,9 @@
+This PR fixes the authentication bug by properly validating JWT tokens before processing requests. The issue was caused by missing null checks in the token validation logic.
+
+## Summary by Sourcery
+
+Some verbose AI-generated text here that we want to ignore.
+
+Changes:
+- Added null checks
+- Updated tests
