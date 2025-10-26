@@ -210,7 +210,7 @@ class TaskEntry
 
     public synchronized void updateConcurrency()
     {
-        concurrency.update(utilization.getAsDouble(), runningLeafSplits);
+        concurrency.update(utilization.getAsDouble(), runningLeafSplits - blockedLeafSplits);
     }
 
     public synchronized int pendingLeafSplitCount()

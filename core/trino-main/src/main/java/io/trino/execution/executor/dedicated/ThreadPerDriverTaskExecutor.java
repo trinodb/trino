@@ -201,9 +201,14 @@ public class ThreadPerDriverTaskExecutor
             }
         }
 
+        int blockedLeafDrivers = 0;
+        for (TaskEntry task : tasks.values()) {
+            blockedLeafDrivers += task.blockedLeafSplits();
+        }
+
         // schedule additional drivers up to the target global leaf drivers
         Queue<TaskEntry> queue = new ArrayDeque<>(tasks.values());
-        int target = targetGlobalLeafDrivers - runningLeafDrivers;
+        int target = targetGlobalLeafDrivers - runningLeafDrivers + blockedLeafDrivers;
         for (int i = 0; i < target && !queue.isEmpty(); i++) {
             TaskEntry task = queue.poll();
             if (task.runningLeafSplits() < min(task.targetConcurrency(), maxDriversPerTask)) {
