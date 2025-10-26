@@ -27,6 +27,7 @@ import io.trino.execution.executor.scheduler.SchedulerContext;
 import io.trino.spi.VersionEmbedder;
 
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Set;
@@ -34,6 +35,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.DoubleSupplier;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.trino.execution.executor.dedicated.SplitProcessor.NOOP_SPLIT_STATE_CHANGE_LISTENER;
+import static io.trino.execution.executor.dedicated.SplitProcessor.SplitBlockedStateChangeListener;
+import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
 
 class TaskEntry
@@ -54,6 +58,12 @@ class TaskEntry
 
     @GuardedBy("this")
     private int runningLeafSplits;
+
+    @GuardedBy("this")
+    private int blockedLeafSplits;
+
+    @GuardedBy("this")
+    private final Set<SplitRunner> blockedLeafSplitSet = newSetFromMap(new IdentityHashMap<>());
 
     @GuardedBy("this")
     private final Queue<QueuedSplit> pending = new LinkedList<>();
@@ -88,6 +98,10 @@ class TaskEntry
             split.close();
         }
         running.clear();
+
+        blockedLeafSplitSet.clear();
+        runningLeafSplits = 0;
+        blockedLeafSplits = 0;
 
         for (QueuedSplit split : pending) {
             split.split().close();
@@ -126,17 +140,41 @@ class TaskEntry
 
     private synchronized void leafSplitDone(QueuedSplit split)
     {
+        SplitRunner splitRunner = split.split();
+        if (blockedLeafSplitSet.remove(splitRunner)) {
+            blockedLeafSplits--;
+        }
         runningLeafSplits--;
         split.done().set(null);
     }
 
     public synchronized ListenableFuture<Void> runSplit(SplitRunner split)
     {
+        return runSplit(split, false);
+    }
+
+    private synchronized ListenableFuture<Void> runSplit(SplitRunner split, boolean trackLeafSplit)
+    {
+        SplitBlockedStateChangeListener listener = trackLeafSplit ? new SplitBlockedStateChangeListener()
+        {
+            @Override
+            public void splitBlocked()
+            {
+                onSplitBlocked(split);
+            }
+
+            @Override
+            public void splitRunning()
+            {
+                onSplitRunning(split);
+            }
+        } : NOOP_SPLIT_STATE_CHANGE_LISTENER;
+
         int splitId = nextSplitId();
         ListenableFuture<Void> done = scheduler.submit(
                 group,
                 splitId,
-                new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer)));
+                new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(taskId, splitId, split, tracer, listener)));
         done.addListener(() -> splitDone(split), directExecutor());
         running.add(split);
 
@@ -157,6 +195,11 @@ class TaskEntry
     public synchronized int runningLeafSplits()
     {
         return runningLeafSplits;
+    }
+
+    public synchronized int blockedLeafSplits()
+    {
+        return blockedLeafSplits;
     }
 
     @Override
@@ -191,6 +234,20 @@ class TaskEntry
     }
 
     private record QueuedSplit(SplitRunner split, SettableFuture<Void> done) {}
+
+    private synchronized void onSplitBlocked(SplitRunner split)
+    {
+        if (blockedLeafSplitSet.add(split)) {
+            blockedLeafSplits++;
+        }
+    }
+
+    private synchronized void onSplitRunning(SplitRunner split)
+    {
+        if (blockedLeafSplitSet.remove(split)) {
+            blockedLeafSplits--;
+        }
+    }
 
     private record VersionEmbedderBridge(VersionEmbedder versionEmbedder, Schedulable delegate)
             implements Schedulable
