@@ -1,27 +1,33 @@
 # Development
 
+In this document you can find information about developing Trino.
+
+* [Trino organization](#trino-organization)
+* [Trino developer guide](#trino-developer-guide)
+* [Code style](#code-style)
+* [Additional IDE configuration](#additional-ide-configuration)
+* [Building docs](#building-docs)
+* [Building the Web UI](#building-the-web-ui)
+* [Releases](#releases)
+
+## Trino organization
+
 Learn about development for all Trino organization projects:
 
 * [Vision](https://trino.io/development/vision)
 * [Contribution process](https://trino.io/development/process#contribution-process)
-* [Pull request and commit guidelines](https://trino.io/development/process#pull-request-and-commit-guidelines-)
-* [Release note guidelines](https://trino.io/development/process#release-note-guidelines-)
+* [Pull request and commit guidelines](https://trino.io/development/process#pull-request-and-commit-guidelines)
+* [Release note guidelines](https://trino.io/development/process#release-note-guidelines)
 
 Further information in the [development section of the
 website](https://trino.io/development) includes different roles, like
 contributors, reviewers, and maintainers, related processes, and other aspects.
 
+## Trino developer guide
+
 See [the Trino developer guide](https://trino.io/docs/current/develop.html) for
-information about the SPI, implementing connectors and other plugins plugins,
+information about the SPI, implementing connectors and other plugins,
 the client protocol, writing tests and other lower level details.
-
-More information about writing and building the documentation can be found in
-the [docs module](../docs).
-
-* [Code style](#code-style)
-* [Additional IDE configuration](#additional-ide-configuration)
-* [Building the Web UI](#building-the-web-ui)
-* [CI pipeline](#ci-pipeline)
 
 ## Code Style
 
@@ -213,6 +219,11 @@ with `@Language`:
   statement (or any other language, like regular expressions),
 - Local variables which otherwise would not be properly recognized by IDE for
   language injection.
+
+## Building docs
+
+Information about writing and building the documentation can be found in
+the [docs module](../docs).
 
 ## Building the Web UI
 

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>319</version>
+        <version>322</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -182,7 +182,7 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>368</dep.airlift.version>
+        <dep.airlift.version>369</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.1</dep.avro.version>
@@ -191,7 +191,7 @@
         <dep.confluent.version>7.8.0</dep.confluent.version>
         <dep.docker.images.version>119</dep.docker.images.version>
         <dep.drift.version>1.24</dep.drift.version>
-        <dep.flyway.version>11.14.1</dep.flyway.version>
+        <dep.flyway.version>11.15.0</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.4</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
@@ -300,7 +300,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.35.11</version>
+                <version>2.36.1</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -2561,6 +2561,8 @@
                                     <exclude>javax.inject:javax.inject</exclude>
                                     <!-- use Jakarta version -->
                                     <exclude>javax.annotation:javax.annotation-api</exclude>
+                                    <!-- Amazon SDK v1 is deprecated, use v2 -->
+                                    <exclude>com.amazonaws:*</exclude>
                                 </excludes>
                                 <includes combine.children="append">
                                     <!-- 2.x versions are not affected by CVE-2022-1471 -->

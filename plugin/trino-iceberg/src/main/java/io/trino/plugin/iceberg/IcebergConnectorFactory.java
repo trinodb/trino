@@ -20,24 +20,16 @@ import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.json.JsonModule;
-import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.manager.FileSystemModule;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.iceberg.catalog.IcebergCatalogModule;
-import io.trino.spi.Node;
-import io.trino.spi.NodeManager;
-import io.trino.spi.PageIndexerFactory;
-import io.trino.spi.PageSorter;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
@@ -82,18 +74,10 @@ public class IcebergConnectorFactory
                     new IcebergSecurityModule(),
                     icebergCatalogModule.orElse(new IcebergCatalogModule()),
                     new MBeanServerModule(),
-                    new IcebergFileSystemModule(catalogName, context.getCurrentNode().isCoordinator(), context.getOpenTelemetry()),
+                    new IcebergFileSystemModule(catalogName, context),
+                    new ConnectorContextModule(catalogName, context),
                     binder -> {
                         binder.bind(ClassLoader.class).toInstance(IcebergConnectorFactory.class.getClassLoader());
-                        binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
-                        binder.bind(Tracer.class).toInstance(context.getTracer());
-                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getCurrentNode().getVersion()));
-                        binder.bind(Node.class).toInstance(context.getCurrentNode());
-                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                        binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
-                        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
-                        binder.bind(PageSorter.class).toInstance(context.getPageSorter());
                     },
                     module);
 
@@ -112,21 +96,19 @@ public class IcebergConnectorFactory
             extends AbstractConfigurationAwareModule
     {
         private final String catalogName;
-        private final boolean isCoordinator;
-        private final OpenTelemetry openTelemetry;
+        private final ConnectorContext context;
 
-        public IcebergFileSystemModule(String catalogName, boolean isCoordinator, OpenTelemetry openTelemetry)
+        public IcebergFileSystemModule(String catalogName, ConnectorContext context)
         {
             this.catalogName = requireNonNull(catalogName, "catalogName is null");
-            this.isCoordinator = isCoordinator;
-            this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
+            this.context = requireNonNull(context, "context is null");
         }
 
         @Override
         protected void setup(Binder binder)
         {
             boolean metadataCacheEnabled = buildConfigObject(IcebergConfig.class).isMetadataCacheEnabled();
-            install(new FileSystemModule(catalogName, isCoordinator, openTelemetry, metadataCacheEnabled));
+            install(new FileSystemModule(catalogName, context, metadataCacheEnabled));
         }
     }
 }

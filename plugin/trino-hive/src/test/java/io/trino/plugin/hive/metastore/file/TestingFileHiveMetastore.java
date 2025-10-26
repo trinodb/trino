@@ -16,8 +16,8 @@ package io.trino.plugin.hive.metastore.file;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.local.LocalFileSystemFactory;
-import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
+import io.trino.spi.NodeVersion;
 
 import java.io.File;
 

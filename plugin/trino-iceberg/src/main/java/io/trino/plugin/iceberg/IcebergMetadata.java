@@ -2346,6 +2346,12 @@ public class IcebergMetadata
     }
 
     @Override
+    public io.trino.spi.metrics.Metrics getMetrics(ConnectorSession session)
+    {
+        return catalog.getMetrics();
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         if (tableHandle instanceof CorruptedIcebergTableHandle corruptedTableHandle) {
@@ -3576,9 +3582,12 @@ public class IcebergMetadata
         }
 
         IcebergTableHandle originalHandle = (IcebergTableHandle) tableHandle;
+
+        if (originalHandle.isRecordScannedFiles()) {
+            return TableStatistics.empty();
+        }
         // Certain table handle attributes are not applicable to select queries (which need stats).
         // If this changes, the caching logic may here may need to be revised.
-        checkArgument(!originalHandle.isRecordScannedFiles(), "Unexpected scanned files recording set");
         checkArgument(originalHandle.getMaxScannedFileSize().isEmpty(), "Unexpected max scanned file size set");
 
         IcebergTableHandle cacheKey = new IcebergTableHandle(
