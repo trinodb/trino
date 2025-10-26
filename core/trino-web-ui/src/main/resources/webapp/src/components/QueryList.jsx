@@ -1,6 +1,6 @@
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
- * You may not use this file except in compliance with the License.
+ * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
@@ -31,27 +31,27 @@ import {
 
 import { SqlBlock } from './SqlBlock'
 
-const COOKIE_KEY = 'Trino-Query_Filters';
+const COOKIE_KEY = 'Trino-Query_Filters'
 
 function saveCookie(filters) {
-  try {
-    const value = encodeURIComponent(JSON.stringify(filters));
-    document.cookie = `${COOKIE_KEY}=${value}; path=/; max-age=${60 * 60 * 24 * 30}`;
-  } catch {
-    /* intentionally ignored: non-critical */
-  }
+    try {
+        const value = encodeURIComponent(JSON.stringify(filters))
+        document.cookie = `${COOKIE_KEY}=${value}; path=/; max-age=${60 * 60 * 24 * 30}`
+    } catch {
+        /* intentionally ignored: non-critical */
+    }
 }
 
 function loadCookie() {
-  try {
-    const match = document.cookie.match(new RegExp('(?:^|; )' + COOKIE_KEY + '=([^;]*)'));
-    if (!match) return null;
-    const decoded = decodeURIComponent(match[1]);
-    return JSON.parse(decoded);
-  } catch {
-    /* intentionally ignored: non-critical */
-    return null;
-  }
+    try {
+        const match = document.cookie.match(new RegExp('(?:^|; )' + COOKIE_KEY + '=([^;]*)'))
+        if (!match) return null
+        const decoded = decodeURIComponent(match[1])
+        return JSON.parse(decoded)
+    } catch {
+        /* intentionally ignored: non-critical */
+        return null
+    }
 }
 
 export class QueryListItem extends React.Component {
@@ -408,9 +408,9 @@ const SORT_ORDER = {
 
 export class QueryList extends React.Component {
     constructor(props) {
-        super(props);
+        super(props)
 
-        const saved = loadCookie();
+        const saved = loadCookie()
 
         this.state = {
             allQueries: [],
@@ -425,46 +425,48 @@ export class QueryList extends React.Component {
             lastRefresh: Date.now(),
             lastReorder: Date.now(),
             initialized: false,
-        };
+        }
 
         if (saved) {
             if (saved.sortType && SORT_TYPE[saved.sortType]) {
-                this.state.currentSortType = SORT_TYPE[saved.sortType];
+                this.state.currentSortType = SORT_TYPE[saved.sortType]
             }
             if (saved.sortOrder && SORT_ORDER[saved.sortOrder]) {
-                this.state.currentSortOrder = SORT_ORDER[saved.sortOrder];
+                this.state.currentSortOrder = SORT_ORDER[saved.sortOrder]
             }
             if (Array.isArray(saved.stateFilters)) {
-                const mapped = saved.stateFilters.map(k => FILTER_TYPE[k]).filter(Boolean);
-                if (mapped.length > 0) this.state.stateFilters = mapped;
+                const mapped = saved.stateFilters.map((k) => FILTER_TYPE[k]).filter(Boolean)
+                if (mapped.length > 0) this.state.stateFilters = mapped
             }
             if (Array.isArray(saved.errorTypeFilters)) {
-                const mapped = saved.errorTypeFilters.map(k => ERROR_TYPE[k]).filter(Boolean);
-                if (mapped.length > 0) this.state.errorTypeFilters = mapped;
+                const mapped = saved.errorTypeFilters.map((k) => ERROR_TYPE[k]).filter(Boolean)
+                if (mapped.length > 0) this.state.errorTypeFilters = mapped
             }
             if (typeof saved.reorderInterval === 'number') {
-                this.state.reorderInterval = saved.reorderInterval;
+                this.state.reorderInterval = saved.reorderInterval
             }
             if (typeof saved.maxQueries === 'number') {
-                this.state.maxQueries = saved.maxQueries;
+                this.state.maxQueries = saved.maxQueries
             }
         }
 
-        this.refreshLoop = this.refreshLoop.bind(this);
-        this.handleSearchStringChange = this.handleSearchStringChange.bind(this);
-        this.executeSearch = this.executeSearch.bind(this);
-        this.handleSortClick = this.handleSortClick.bind(this);
+        this.refreshLoop = this.refreshLoop.bind(this)
+        this.handleSearchStringChange = this.handleSearchStringChange.bind(this)
+        this.executeSearch = this.executeSearch.bind(this)
+        this.handleSortClick = this.handleSortClick.bind(this)
     }
-
 
     updateCookie() {
         const settings = {
             sortType: Object.keys(SORT_TYPE).find((k) => SORT_TYPE[k] === this.state.currentSortType) || 'CREATED',
-            sortOrder: Object.keys(SORT_ORDER).find((k) => SORT_ORDER[k] === this.state.currentSortOrder) || 'DESCENDING',
+            sortOrder:
+                Object.keys(SORT_ORDER).find((k) => SORT_ORDER[k] === this.state.currentSortOrder) || 'DESCENDING',
             stateFilters: Object.keys(FILTER_TYPE).filter((k) => this.state.stateFilters.includes(FILTER_TYPE[k])),
-            errorTypeFilters: Object.keys(ERROR_TYPE).filter((k) => this.state.errorTypeFilters.includes(ERROR_TYPE[k])),
+            errorTypeFilters: Object.keys(ERROR_TYPE).filter((k) =>
+                this.state.errorTypeFilters.includes(ERROR_TYPE[k])
+            ),
             reorderInterval: this.state.reorderInterval,
-            maxQueries: this.state.maxQueries
+            maxQueries: this.state.maxQueries,
         }
         saveCookie(settings)
     }
@@ -483,77 +485,70 @@ export class QueryList extends React.Component {
     }
 
     filterQueries(queries, stateFilters, errorTypeFilters, searchString) {
-        const noStateFiltersSelected = !stateFilters || stateFilters.length === 0;
-        const noErrorFiltersSelected = !errorTypeFilters || errorTypeFilters.length === 0;
+        const noStateFiltersSelected = !stateFilters || stateFilters.length === 0
+        const noErrorFiltersSelected = !errorTypeFilters || errorTypeFilters.length === 0
 
-        let filteredQueries = [];
+        let filteredQueries = []
 
         if (noStateFiltersSelected && noErrorFiltersSelected) {
-            filteredQueries = queries.slice();
+            filteredQueries = queries.slice()
         } else {
-        filteredQueries = queries.filter(function (query) {
-            for (let i = 0; i < stateFilters.length; i++) {
-                if (stateFilters[i](query)) {
-                  return true;
+            filteredQueries = queries.filter(function (query) {
+                for (let i = 0; i < stateFilters.length; i++) {
+                    if (stateFilters[i](query)) {
+                        return true
+                    }
                 }
-            }
-            for (let i = 0; i < errorTypeFilters.length; i++) {
-                if (errorTypeFilters[i](query)) {
-                  return true;
+                for (let i = 0; i < errorTypeFilters.length; i++) {
+                    if (errorTypeFilters[i](query)) {
+                        return true
+                    }
                 }
-            }
-            return false;
-        });
-      }
+                return false
+            })
+        }
 
-      if (!searchString) {
-          return filteredQueries;
-      } else {
-          return filteredQueries.filter(function (query) {
-              const term = searchString.toLowerCase();
+        if (!searchString) {
+            return filteredQueries
+        } else {
+            return filteredQueries.filter(function (query) {
+                const term = searchString.toLowerCase()
 
-              if (
-                  (query.queryId && query.queryId.toLowerCase().includes(term)) ||
-                  getHumanReadableState(query).toLowerCase().includes(term) ||
-                  (query.queryTextPreview && query.queryTextPreview.toLowerCase().includes(term))
-              ) {
-                  return true;
-              }
+                if (
+                    (query.queryId && query.queryId.toLowerCase().includes(term)) ||
+                    getHumanReadableState(query).toLowerCase().includes(term) ||
+                    (query.queryTextPreview && query.queryTextPreview.toLowerCase().includes(term))
+                ) {
+                    return true
+                }
 
-              if (query.sessionUser && query.sessionUser.toLowerCase().includes(term)) {
-                  return true;
-              }
+                if (query.sessionUser && query.sessionUser.toLowerCase().includes(term)) {
+                    return true
+                }
 
-              if (query.sessionSource && query.sessionSource.toLowerCase().includes(term)) {
-                  return true;
-              }
+                if (query.sessionSource && query.sessionSource.toLowerCase().includes(term)) {
+                    return true
+                }
 
-              if (query.resourceGroupId && query.resourceGroupId.join('.').toLowerCase().includes(term)) {
-                  return true;
-              }
+                if (query.resourceGroupId && query.resourceGroupId.join('.').toLowerCase().includes(term)) {
+                    return true
+                }
 
-              if (
-                  query.errorCode &&
-                  query.errorCode.name &&
-                  query.errorCode.name.toLowerCase().includes(term)
-              ) {
-                  return true;
-              }
+                if (query.errorCode && query.errorCode.name && query.errorCode.name.toLowerCase().includes(term)) {
+                    return true
+                }
 
-              if (
-                  query.clientTags &&
-                  query.clientTags.some((tag) => tag.toLowerCase().includes(term))
-              ) {
-                  return true;
-              }
+                if (query.clientTags && query.clientTags.some((tag) => tag.toLowerCase().includes(term))) {
+                    return true
+                }
 
-              if (query.traceToken && query.traceToken.toLowerCase().includes(term)) {
-                  return true;
-              }
+                if (query.traceToken && query.traceToken.toLowerCase().includes(term)) {
+                    return true
+                }
 
-              return false;
-          }, this);
-      }
+                return false
+            }, this)
+        }
     }
 
     resetTimer() {
@@ -639,34 +634,34 @@ export class QueryList extends React.Component {
     }
 
     componentDidMount() {
-      const savedCookie = loadCookie();
-      const newState = { ...this.state };
+        const savedCookie = loadCookie()
+        const newState = { ...this.state }
 
-      if (savedCookie) {
+        if (savedCookie) {
             if (savedCookie.sortType && SORT_TYPE[savedCookie.sortType]) {
-                newState.currentSortType = SORT_TYPE[savedCookie.sortType];
+                newState.currentSortType = SORT_TYPE[savedCookie.sortType]
             }
             if (savedCookie.sortOrder && SORT_ORDER[savedCookie.sortOrder]) {
-                newState.currentSortOrder = SORT_ORDER[savedCookie.sortOrder];
+                newState.currentSortOrder = SORT_ORDER[savedCookie.sortOrder]
             }
             if (Array.isArray(savedCookie.stateFilters)) {
-                newState.stateFilters = savedCookie.stateFilters.map(k => FILTER_TYPE[k]).filter(Boolean);
+                newState.stateFilters = savedCookie.stateFilters.map((k) => FILTER_TYPE[k]).filter(Boolean)
             }
             if (Array.isArray(savedCookie.errorTypeFilters)) {
-                 newState.errorTypeFilters = savedCookie.errorTypeFilters.map(k => ERROR_TYPE[k]).filter(Boolean);
+                newState.errorTypeFilters = savedCookie.errorTypeFilters.map((k) => ERROR_TYPE[k]).filter(Boolean)
             }
             if (typeof savedCookie.reorderInterval === 'number') {
-                newState.reorderInterval = savedCookie.reorderInterval;
+                newState.reorderInterval = savedCookie.reorderInterval
             }
             if (typeof savedCookie.maxQueries === 'number') {
-                newState.maxQueries = savedCookie.maxQueries;
+                newState.maxQueries = savedCookie.maxQueries
             }
-      } else {
-            newState.stateFilters = DEFAULT_STATE_FILTERS.slice();
-            newState.errorTypeFilters = DEFAULT_ERROR_FILTERS.slice();
-      }
+        } else {
+            newState.stateFilters = DEFAULT_STATE_FILTERS.slice()
+            newState.errorTypeFilters = DEFAULT_ERROR_FILTERS.slice()
+        }
 
-      this.setState(newState, () => this.refreshLoop());
+        this.setState(newState, () => this.refreshLoop())
     }
 
     handleSearchStringChange(event) {
@@ -729,7 +724,8 @@ export class QueryList extends React.Component {
             newMaxQueries
         )
 
-        this.setState({
+        this.setState(
+            {
                 maxQueries: newMaxQueries,
                 displayedQueries: filteredQueries,
             },
@@ -753,7 +749,8 @@ export class QueryList extends React.Component {
 
     handleReorderClick(interval) {
         if (this.state.reorderInterval !== interval) {
-            this.setState({
+            this.setState(
+                {
                     reorderInterval: interval,
                 },
                 () => this.updateCookie()
@@ -803,7 +800,8 @@ export class QueryList extends React.Component {
         )
         this.sortAndLimitQueries(newDisplayedQueries, newSortType, newSortOrder, this.state.maxQueries)
 
-        this.setState({
+        this.setState(
+            {
                 displayedQueries: newDisplayedQueries,
                 currentSortType: newSortType,
                 currentSortOrder: newSortOrder,
@@ -849,7 +847,8 @@ export class QueryList extends React.Component {
             this.state.maxQueries
         )
 
-        this.setState({
+        this.setState(
+            {
                 stateFilters: newFilters,
                 displayedQueries: filteredQueries,
             },
@@ -893,7 +892,8 @@ export class QueryList extends React.Component {
             this.state.maxQueries
         )
 
-        this.setState({
+        this.setState(
+            {
                 errorTypeFilters: newFilters,
                 displayedQueries: filteredQueries,
             },
