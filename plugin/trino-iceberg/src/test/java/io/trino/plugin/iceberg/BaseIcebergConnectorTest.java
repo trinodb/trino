@@ -8553,6 +8553,11 @@ public abstract class BaseIcebergConnectorTest
             expectedQuery = "SELECT a.custkey, b.orderkey FROM orders a JOIN orders b on a.orderkey = b.custkey";
             assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(1));
             assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(2));
+
+            // optimize should not require a remote exchange between the scan and the execute nodes
+            query = "ALTER TABLE test_bucketed_select EXECUTE OPTIMIZE";
+            assertUpdate(planWithTableNodePartitioning, query, assertRemoteExchangesCount(1));
+            assertUpdate(planWithoutTableNodePartitioning, query, assertRemoteExchangesCount(2));
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_bucketed_select");
