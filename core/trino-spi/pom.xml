@@ -319,6 +319,18 @@
                                     <old>method long[] io.trino.spi.PageSorter::sort(java.util.List&lt;io.trino.spi.type.Type&gt;, java.util.List&lt;io.trino.spi.Page&gt;, java.util.List&lt;java.lang.Integer&gt;, java.util.List&lt;io.trino.spi.connector.SortOrder&gt;, int)</old>
                                     <new>method java.util.Iterator&lt;io.trino.spi.Page&gt; io.trino.spi.PageSorter::sort(java.util.List&lt;io.trino.spi.type.Type&gt;, java.util.List&lt;io.trino.spi.Page&gt;, java.util.List&lt;java.lang.Integer&gt;, java.util.List&lt;io.trino.spi.connector.SortOrder&gt;, int)</new>
                                 </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.security.SystemAccessControl::checkCanCreateView(io.trino.spi.security.SystemSecurityContext, io.trino.spi.connector.CatalogSchemaTableName)</old>
+                                    <new>method void io.trino.spi.security.SystemAccessControl::checkCanCreateView(io.trino.spi.security.SystemSecurityContext, io.trino.spi.connector.CatalogSchemaTableName, java.util.Optional&lt;io.trino.spi.security.ViewSecurity&gt;)</new>
+                                    <justification>We need to additionally pass the view security for more granular authorization</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.connector.ConnectorAccessControl::checkCanCreateView(io.trino.spi.connector.ConnectorSecurityContext, io.trino.spi.connector.SchemaTableName)</old>
+                                    <new>method void io.trino.spi.connector.ConnectorAccessControl::checkCanCreateView(io.trino.spi.connector.ConnectorSecurityContext, io.trino.spi.connector.SchemaTableName, java.util.Optional&lt;io.trino.spi.security.ViewSecurity&gt;)</new>
+                                    <justification>We need to additionally pass the view security for more granular authorization</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

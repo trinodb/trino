@@ -39,6 +39,7 @@ import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.security.ViewSecurity;
 import io.trino.spi.type.Type;
 
 import java.security.Principal;
@@ -703,7 +704,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanCreateView(SystemSecurityContext context, CatalogSchemaTableName view)
+    public void checkCanCreateView(SystemSecurityContext context, CatalogSchemaTableName view, Optional<ViewSecurity> security)
     {
         // check if user will be an owner of the view after creation
         if (!checkTablePermission(context, view, OWNERSHIP)) {
