@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Provider;
 import com.google.inject.Scopes;
@@ -43,6 +44,7 @@ import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -111,7 +113,7 @@ public class JdbcModule
 
         newOptionalBinder(binder, Key.get(ExecutorService.class, ForJdbcClient.class))
                 .setDefault()
-                .toInstance(newCachedThreadPool(daemonThreadsNamed(format("%s-jdbc-client-%%d", catalogName))));
+                .toProvider(JdbcClientExecutorServiceProvider.class);
 
         closingBinder(binder)
                 .registerExecutor(Key.get(ExecutorService.class, ForJdbcClient.class));
@@ -145,5 +147,23 @@ public class JdbcModule
     public static void bindTablePropertiesProvider(Binder binder, Class<? extends TablePropertiesProvider> type)
     {
         tablePropertiesProviderBinder(binder).addBinding().to(type).in(Scopes.SINGLETON);
+    }
+
+    public static class JdbcClientExecutorServiceProvider
+            implements Provider<ExecutorService>
+    {
+        private final CatalogName catalogName;
+
+        @Inject
+        public JdbcClientExecutorServiceProvider(CatalogName catalogName)
+        {
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        }
+
+        @Override
+        public ExecutorService get()
+        {
+            return newCachedThreadPool(daemonThreadsNamed(format("%s-jdbc-client-%%d", catalogName)));
+        }
     }
 }
