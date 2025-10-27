@@ -2834,7 +2834,7 @@
             <plugin>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-maven-plugin</artifactId>
-                <version>15</version>
+                <version>17</version>
                 <extensions>true</extensions>
             </plugin>
 
