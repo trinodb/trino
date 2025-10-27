@@ -86,7 +86,6 @@ public class TaskContext
     private final AtomicReference<Instant> executionStartTime = new AtomicReference<>();
     private final AtomicReference<Instant> lastExecutionStartTime = new AtomicReference<>();
     private final AtomicReference<Instant> terminatingStartTime = new AtomicReference<>();
-    private final AtomicReference<Instant> executionEndTime = new AtomicReference<>();
 
     private final List<PipelineContext> pipelineContexts = new CopyOnWriteArrayList<>();
 
@@ -238,9 +237,6 @@ public class TaskContext
             // Only update last start time, if the nothing was started
             lastExecutionStartTime.compareAndSet(null, now);
 
-            // use compare and set from initial value to avoid overwriting if there
-            // were a duplicate notification, which shouldn't happen
-            executionEndTime.compareAndSet(null, now);
             endNanos.compareAndSet(0, nanoTimeNow);
             endFullGcCount.compareAndSet(-1, majorGcCount);
             endFullGcTimeNanos.compareAndSet(-1, majorGcTime);
@@ -585,7 +581,7 @@ public class TaskContext
                 lastExecutionStartTime.get(),
                 terminatingStartTime.get(),
                 lastExecutionEndTime == 0 ? null : Instant.ofEpochMilli(lastExecutionEndTime),
-                executionEndTime.get(),
+                taskStateMachine.getEndTime(),
                 elapsedTime.convertToMostSuccinctTimeUnit(),
                 queuedTime.convertToMostSuccinctTimeUnit(),
                 totalDrivers,

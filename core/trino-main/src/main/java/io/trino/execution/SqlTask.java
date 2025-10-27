@@ -252,6 +252,12 @@ public class SqlTask
         return taskStateMachine.getCreatedTime();
     }
 
+    @Nullable
+    public Instant getTaskEndTime()
+    {
+        return taskStateMachine.getEndTime();
+    }
+
     public TaskId getTaskId()
     {
         return taskStateMachine.getTaskId();
@@ -265,6 +271,11 @@ public class SqlTask
     public void recordHeartbeat()
     {
         lastHeartbeat.set(Instant.now());
+    }
+
+    public Instant lastHeartbeat()
+    {
+        return lastHeartbeat.get();
     }
 
     public TaskInfo getTaskInfo()
