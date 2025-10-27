@@ -1167,7 +1167,7 @@ public class TestMongoConnectorTest
     }
 
     @Test
-    public void testRenameTableTo120bytesTableName()
+    public void testRenameTableTo255bytesTableName()
     {
         String sourceTableName = "test_rename_source_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
@@ -1894,7 +1894,7 @@ public class TestMongoConnectorTest
     @Override
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("Invalid database name");
+        assertThat(e).hasMessageMatching("(?i).*Invalid database name.*|.*Invalid namespace specified.*");
     }
 
     @Override
@@ -1906,7 +1906,7 @@ public class TestMongoConnectorTest
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching(".*fully qualified namespace .* is too long.*|Qualified identifier name must be shorter than or equal to '120'.*");
+        assertThat(e).hasMessageMatching("(?i).*fully qualified namespace .* is too long.*|Qualified identifier name must be shorter than or equal to '120'.*");
     }
 
     @Override
