@@ -9,7 +9,7 @@ if command -v mvnd >/dev/null; then
     trino_version=$(mvnd -B help:evaluate -Dexpression=pom.version -q -DforceStdout --raw-streams -Dmvnd.logPurgePeriod=999999d)
     mvn="mvnd"
 else
-    trino_version=$(./mvnw -B help:evaluate -Dexpression=pom.version -q -DforceStdout)
+    trino_version=$(./mvnw -B help:evaluate -Dexpression=pom.version -q -DforceStdout --raw-streams)
     mvn="./mvnw"
 fi
 launcher_jar="${target}/trino-product-tests-launcher-${trino_version}-executable.jar"
