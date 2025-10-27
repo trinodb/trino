@@ -2346,6 +2346,12 @@ public class IcebergMetadata
     }
 
     @Override
+    public io.trino.spi.metrics.Metrics getMetrics(ConnectorSession session)
+    {
+        return catalog.getMetrics();
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         if (tableHandle instanceof CorruptedIcebergTableHandle corruptedTableHandle) {
@@ -2834,10 +2840,14 @@ public class IcebergMetadata
     }
 
     @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean tableReplace)
     {
         if (!isExtendedStatisticsEnabled(session) || !isCollectExtendedStatisticsOnWrite(session)) {
             return TableStatisticsMetadata.empty();
+        }
+
+        if (tableReplace) {
+            return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), availableColumnNames -> {});
         }
 
         ConnectorTableHandle tableHandle = getTableHandle(session, tableMetadata.getTable(), Optional.empty(), Optional.empty());
@@ -2872,6 +2882,12 @@ public class IcebergMetadata
                 .map(IcebergColumnHandle::getName)
                 .collect(toImmutableSet());
         return getStatisticsCollectionMetadata(tableMetadata, Optional.of(columnsWithExtendedStatistics), availableColumnNames -> {});
+    }
+
+    @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        throw new UnsupportedOperationException("This variant of getStatisticsCollectionMetadataForWrite is unsupported");
     }
 
     @Override
@@ -3566,9 +3582,12 @@ public class IcebergMetadata
         }
 
         IcebergTableHandle originalHandle = (IcebergTableHandle) tableHandle;
+
+        if (originalHandle.isRecordScannedFiles()) {
+            return TableStatistics.empty();
+        }
         // Certain table handle attributes are not applicable to select queries (which need stats).
         // If this changes, the caching logic may here may need to be revised.
-        checkArgument(!originalHandle.isRecordScannedFiles(), "Unexpected scanned files recording set");
         checkArgument(originalHandle.getMaxScannedFileSize().isEmpty(), "Unexpected max scanned file size set");
 
         IcebergTableHandle cacheKey = new IcebergTableHandle(

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.lakehouse;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import io.airlift.slice.Slice;
 import io.trino.metastore.Table;
@@ -87,6 +88,8 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
+import io.trino.spi.metrics.Metric;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
@@ -249,6 +252,25 @@ public class LakehouseMetadata
     public Optional<Object> getInfo(ConnectorSession session, ConnectorTableHandle table)
     {
         return forHandle(table).getInfo(session, table);
+    }
+
+    @Override
+    public Metrics getMetrics(ConnectorSession session)
+    {
+        ImmutableMap.Builder<String, Metric<?>> metrics = ImmutableMap.<String, Metric<?>>builder();
+        hiveMetadata.getMetrics(session).getMetrics().forEach((metricName, metric) -> {
+            metrics.put("hive." + metricName, metric);
+        });
+        icebergMetadata.getMetrics(session).getMetrics().forEach((metricName, metric) -> {
+            metrics.put("iceberg." + metricName, metric);
+        });
+        deltaMetadata.getMetrics(session).getMetrics().forEach((metricName, metric) -> {
+            metrics.put("delta." + metricName, metric);
+        });
+        hudiMetadata.getMetrics(session).getMetrics().forEach((metricName, metric) -> {
+            metrics.put("hudi." + metricName, metric);
+        });
+        return new Metrics(metrics.buildOrThrow());
     }
 
     @Override
@@ -477,9 +499,15 @@ public class LakehouseMetadata
     }
 
     @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean tableReplace)
+    {
+        return forProperties(tableMetadata.getProperties()).getStatisticsCollectionMetadataForWrite(session, unwrapTableMetadata(tableMetadata), tableReplace);
+    }
+
+    @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        return forProperties(tableMetadata.getProperties()).getStatisticsCollectionMetadataForWrite(session, unwrapTableMetadata(tableMetadata));
+        throw new UnsupportedOperationException("This variant of getStatisticsCollectionMetadataForWrite is unsupported");
     }
 
     @Override

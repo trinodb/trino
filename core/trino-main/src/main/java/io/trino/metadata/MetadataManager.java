@@ -104,6 +104,7 @@ import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.Signature;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.FunctionAuthorization;
 import io.trino.spi.security.GrantInfo;
@@ -455,6 +456,14 @@ public final class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
 
         return metadata.getInfo(connectorSession, handle.connectorHandle());
+    }
+
+    @Override
+    public Metrics getMetrics(Session session, String catalogName)
+    {
+        return transactionManager.getRequiredCatalogMetadata(session.getRequiredTransactionId(), catalogName)
+                .getMetadata(session)
+                .getMetrics(session.toConnectorSession());
     }
 
     @Override
@@ -1067,11 +1076,11 @@ public final class MetadataManager
     }
 
     @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata)
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata, boolean tableReplace)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
-        return metadata.getStatisticsCollectionMetadataForWrite(session.toConnectorSession(catalogHandle), tableMetadata);
+        return metadata.getStatisticsCollectionMetadataForWrite(session.toConnectorSession(catalogHandle), tableMetadata, tableReplace);
     }
 
     @Override
@@ -1387,6 +1396,12 @@ public final class MetadataManager
     public List<CatalogInfo> listCatalogs(Session session)
     {
         return transactionManager.getCatalogs(session.getRequiredTransactionId());
+    }
+
+    @Override
+    public List<CatalogInfo> listActiveCatalogs(Session session)
+    {
+        return transactionManager.getActiveCatalogs(session.getRequiredTransactionId());
     }
 
     @Override

@@ -11,27 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.base;
+package io.trino.metastore;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import io.trino.spi.catalog.CatalogName;
+import io.trino.metastore.MeasuredHiveMetastore.MeasuredMetastoreFactory;
+import org.junit.jupiter.api.Test;
 
-import static java.util.Objects.requireNonNull;
+import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
-public class CatalogNameModule
-        implements Module
+class TestMeasuredHiveMetastore
 {
-    private final String catalogName;
-
-    public CatalogNameModule(String catalogName)
+    @Test
+    public void testAllMethodsImplemented()
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        assertAllMethodsOverridden(HiveMetastore.class, MeasuredHiveMetastore.class);
     }
 
-    @Override
-    public void configure(Binder binder)
+    @Test
+    public void testAllFactoryMethodsImplemented()
     {
-        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
+        assertAllMethodsOverridden(HiveMetastoreFactory.class, MeasuredMetastoreFactory.class);
     }
 }

@@ -24,8 +24,8 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Supplier;
 
 import static io.trino.execution.QueryState.RUNNING;
@@ -305,23 +305,24 @@ public class QueryManagerStats
 
     public void updateDriverStats(QueryTracker<DispatchQuery> queryTracker)
     {
-        AtomicInteger tmpQueuedDrivers = new AtomicInteger();
-        AtomicInteger tmpRunningDrivers = new AtomicInteger();
-        AtomicInteger tmpBlockedDrivers = new AtomicInteger();
-        AtomicInteger tmpCompletedDrivers = new AtomicInteger();
+        LongAdder tmpQueuedDrivers = new LongAdder();
+        LongAdder tmpRunningDrivers = new LongAdder();
+        LongAdder tmpBlockedDrivers = new LongAdder();
+        LongAdder tmpCompletedDrivers = new LongAdder();
         queryTracker.getAllQueries().stream()
                 .filter(query -> !query.getState().isDone())
                 .map(dispatchQuery -> dispatchQuery.getBasicQueryInfo().getQueryStats())
+                .parallel()
                 .forEach(stats -> {
-                    tmpQueuedDrivers.addAndGet(stats.getQueuedDrivers());
-                    tmpRunningDrivers.addAndGet(stats.getRunningDrivers());
-                    tmpBlockedDrivers.addAndGet(stats.getBlockedDrivers());
-                    tmpCompletedDrivers.addAndGet(stats.getCompletedDrivers());
+                    tmpQueuedDrivers.add(stats.getQueuedDrivers());
+                    tmpRunningDrivers.add(stats.getRunningDrivers());
+                    tmpBlockedDrivers.add(stats.getBlockedDrivers());
+                    tmpCompletedDrivers.add(stats.getCompletedDrivers());
                 });
 
-        queuedDrivers.set(tmpQueuedDrivers.get());
-        runningDrivers.set(tmpRunningDrivers.get());
-        blockedDrivers.set(tmpBlockedDrivers.get());
-        completedDrivers.set(tmpCompletedDrivers.get());
+        queuedDrivers.set(tmpQueuedDrivers.sum());
+        runningDrivers.set(tmpRunningDrivers.sum());
+        blockedDrivers.set(tmpBlockedDrivers.sum());
+        completedDrivers.set(tmpCompletedDrivers.sum());
     }
 }

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.TableInfo;
-import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergConfig;
@@ -26,6 +25,7 @@ import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -72,6 +72,15 @@ public class TestTrinoGlueCatalog
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
     {
         return createGlueTrinoCatalog(useUniqueTableLocations, false);
+    }
+
+    @Override
+    protected void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> properties)
+    {
+        try (GlueClient glueClient = GlueClient.create()) {
+            glueClient.createDatabase(database -> database
+                    .databaseInput(input -> input.name(namespace).parameters(properties)));
+        }
     }
 
     private TrinoCatalog createGlueTrinoCatalog(boolean useUniqueTableLocations, boolean useSystemSecurity)

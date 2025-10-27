@@ -57,8 +57,9 @@ public class TestMetrics
         TDigestHistogram merged = (TDigestHistogram) merge(m1, m2).getMetrics().get("a");
 
         assertThat(merged.getTotal()).isEqualTo(3L);
-        assertThat(merged.getPercentile(0)).isEqualTo(5.0);
-        assertThat(merged.getPercentile(100)).isEqualTo(10.0);
+        double[] mergedPercentiles = merged.getPercentiles(0, 100);
+        assertThat(mergedPercentiles[0]).isEqualTo(5.0);
+        assertThat(mergedPercentiles[1]).isEqualTo(10.0);
         assertThat(merged.toString())
                 .matches("\\{count=3, p01=5\\.00, p05=5\\.00, p10=5\\.00, p25=5\\.00, p50=7\\.50, p75=10\\.00, p90=10\\.00, p95=10\\.00, p99=10\\.00, min=5\\.00, max=10\\.00\\}");
     }

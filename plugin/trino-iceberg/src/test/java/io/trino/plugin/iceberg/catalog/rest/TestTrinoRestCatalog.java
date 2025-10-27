@@ -16,12 +16,12 @@ package io.trino.plugin.iceberg.catalog.rest;
 import com.google.common.collect.ImmutableMap;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.metastore.TableInfo;
-import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -38,6 +38,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -60,6 +61,17 @@ public class TestTrinoRestCatalog
             throws IOException
     {
         return createTrinoRestCatalog(useUniqueTableLocations, ImmutableMap.of());
+    }
+
+    @Override
+    protected void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> properties)
+    {
+        catalog.createNamespace(
+                SESSION,
+                namespace,
+                properties.entrySet().stream()
+                        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)),
+                new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
     }
 
     private static TrinoRestCatalog createTrinoRestCatalog(boolean useUniqueTableLocations, Map<String, String> properties)

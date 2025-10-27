@@ -16,7 +16,7 @@
 
     <properties>
         <dep.jetty11.version>11.0.26</dep.jetty11.version>
-        <dep.graalvm.version>25.0.0</dep.graalvm.version>
+        <dep.graalvm.version>25.0.1</dep.graalvm.version>
         <dep.ranger.version>2.7.0</dep.ranger.version>
     </properties>
 
@@ -348,4 +348,22 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <configuration>
+                    <rules>
+                        <bannedDependencies>
+                            <includes combine.children="append">
+                                <!-- Ranger still relies on the deprecated S3 SDK v1 -->
+                                <include>com.amazonaws:*:*</include>
+                            </includes>
+                        </bannedDependencies>
+                    </rules>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
