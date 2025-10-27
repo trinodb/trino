@@ -297,6 +297,11 @@ public class GcsFileSystemConfig
     @AssertTrue(message = "Either gcs.auth-type or gcs.json-key or gcs.json-key-file-path must be set")
     public boolean isAuthMethodValid()
     {
+        // allow not specify any of configuration for SERVICE_ACCOUNT auth
+        if (getAuthType() == AuthType.SERVICE_ACCOUNT && jsonKey == null && jsonKeyFilePath == null) {
+            return true;
+        }
+
         if (getAuthType() == AuthType.ACCESS_TOKEN) {
             return jsonKey == null && jsonKeyFilePath == null;
         }

@@ -32,6 +32,7 @@ import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGcsFileSystemConfig
 {
@@ -197,5 +198,11 @@ public class TestGcsFileSystemConfig
                 "authTypeAndGcsAccessTokenConfigured",
                 "Cannot set both gcs.use-access-token and gcs.auth-type",
                 AssertFalse.class);
+    }
+
+    @Test
+    void testAllowingNoConfigurationSpecifiedForServiceAccountAuth()
+    {
+        assertThat(new GcsFileSystemConfig().isAuthMethodValid()).isTrue();
     }
 }
