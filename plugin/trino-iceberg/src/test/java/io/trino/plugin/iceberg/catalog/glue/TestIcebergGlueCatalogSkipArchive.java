@@ -120,7 +120,7 @@ public class TestIcebergGlueCatalogSkipArchive
             Map<String, String> tableParameters = new HashMap<>(glueTable.parameters());
             String metadataLocation = tableParameters.remove(METADATA_LOCATION_PROP);
             FileIO io = FILE_IO_FACTORY.create(getFileSystemFactory(getDistributedQueryRunner()).create(SESSION));
-            TableMetadata metadata = TableMetadataParser.read(io, io.newInputFile(metadataLocation));
+            TableMetadata metadata = TableMetadataParser.read(io.newInputFile(metadataLocation));
             boolean cacheTableMetadata = new IcebergGlueCatalogConfig().isCacheTableMetadata();
             TableInput tableInput = getTableInput(TESTING_TYPE_MANAGER, table.getName(), Optional.empty(), metadata, metadata.location(), metadataLocation, tableParameters, cacheTableMetadata);
             glueClient.updateTable(builder -> builder.databaseName(schemaName).tableInput(tableInput));
