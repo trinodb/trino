@@ -42,7 +42,7 @@ echo "Waiting for the Amazon Redshift cluster ${REDSHIFT_CLUSTER_IDENTIFIER} on 
 
 # Wait for the cluster to become available
 aws redshift wait cluster-available \
-  --cluster-identifier ${REDSHIFT_CLUSTER_IDENTIFIER}
+  --cluster-identifier ${REDSHIFT_CLUSTER_IDENTIFIER} --debug
 
 echo "The Amazon Redshift cluster ${REDSHIFT_CLUSTER_IDENTIFIER} on the region ${AWS_REGION} is available for queries."
 
