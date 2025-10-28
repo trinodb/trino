@@ -14,11 +14,6 @@
     <name>${project.artifactId}</name>
     <description>Trino - Iceberg connector</description>
 
-    <properties>
-        <!-- Nessie version (compatible with Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
-        <dep.nessie.version>0.105.6</dep.nessie.version>
-    </properties>
-
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -549,6 +544,12 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-parser</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-project-properties</artifactId>
             <scope>test</scope>
         </dependency>
 

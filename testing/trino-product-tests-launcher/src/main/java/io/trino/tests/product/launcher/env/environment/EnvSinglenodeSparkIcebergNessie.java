@@ -29,6 +29,7 @@ import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import java.io.File;
 
+import static io.trino.project.ProjectProperties.nessieVersion;
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
@@ -43,7 +44,6 @@ public class EnvSinglenodeSparkIcebergNessie
 
     private static final int SPARK_THRIFT_PORT = 10213;
     private static final int NESSIE_PORT = 19120;
-    private static final String NESSIE_VERSION = "0.105.6";
     private static final String SPARK = "spark";
 
     private final DockerFiles dockerFiles;
@@ -99,7 +99,7 @@ public class EnvSinglenodeSparkIcebergNessie
 
     private DockerContainer createNessieContainer()
     {
-        DockerContainer container = new DockerContainer("ghcr.io/projectnessie/nessie:" + NESSIE_VERSION, "nessie-server")
+        DockerContainer container = new DockerContainer("ghcr.io/projectnessie/nessie:" + nessieVersion(), "nessie-server")
                 .withEnv("NESSIE_VERSION_STORE_TYPE", "IN_MEMORY")
                 .withEnv("QUARKUS_HTTP_PORT", Integer.valueOf(NESSIE_PORT).toString())
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())

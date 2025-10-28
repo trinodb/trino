@@ -34,6 +34,7 @@
         <module>core/trino-grammar</module>
         <module>core/trino-main</module>
         <module>core/trino-parser</module>
+        <module>core/trino-project-properties</module>
         <module>core/trino-server</module>
         <module>core/trino-server-core</module>
         <module>core/trino-server-main</module>
@@ -202,6 +203,7 @@
         <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>4.1.0</dep.kafka-clients.version>
+        <dep.nessie.version>0.105.6</dep.nessie.version>
         <dep.okhttp.version>5.2.1</dep.okhttp.version>
         <dep.okio.version>3.16.2</dep.okio.version>
         <dep.parquet.version>1.16.0</dep.parquet.version>
@@ -1366,6 +1368,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-product-tests-groups</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-project-properties</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
