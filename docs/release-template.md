@@ -68,8 +68,6 @@
 
 ## Redis connector
 
-## Redshift connector
-
 ## SingleStore connector
 
 ## Snowflake connector

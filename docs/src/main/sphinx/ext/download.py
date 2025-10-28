@@ -66,7 +66,6 @@ ARTIFACTS = {
     'prometheus':  ('trino-prometheus', 'zip'),
     'ranger':  ('trino-ranger', 'zip'),
     'redis':  ('trino-redis', 'zip'),
-    'redshift':  ('trino-redshift', 'zip'),
     'resource-group-managers':  ('trino-resource-group-managers', 'zip'),
     'session-property-managers':  ('trino-session-property-managers', 'zip'),
     'singlestore':  ('trino-singlestore', 'zip'),
@@ -117,7 +116,7 @@ def setup(app):
         return [node], []
 
     def download_mc_link_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
-        version = app.config.release 
+        version = app.config.release
 
         if not text in ARTIFACTS:
             inliner.reporter.error('Unsupported download type: ' + text, line=lineno)
@@ -130,8 +129,8 @@ def setup(app):
 
         node = nodes.reference(title, title, internal=False, refuri=uri)
 
-        return [node], []       
-    
+        return [node], []
+
     app.add_role('download_gh', download_gh_link_role)
     app.add_role('download_mc', download_mc_link_role)
 

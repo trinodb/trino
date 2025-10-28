@@ -389,7 +389,6 @@ jobs:
             !:trino-pinot,
             !:trino-postgresql,
             !:trino-redis,
-            !:trino-redshift,
             !:trino-resource-group-managers,
             !:trino-server-core,
             !:trino-server,
@@ -508,9 +507,6 @@ jobs:
             - { modules: plugin/trino-pinot }
             - { modules: plugin/trino-postgresql }
             - { modules: plugin/trino-redis }
-            - { modules: plugin/trino-redshift }
-            - { modules: plugin/trino-redshift, profile: cloud-tests }
-            - { modules: plugin/trino-redshift, profile: fte-tests }
             - { modules: plugin/trino-resource-group-managers }
             - { modules: plugin/trino-singlestore }
             - { modules: plugin/trino-snowflake }
@@ -559,8 +555,6 @@ jobs:
           ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-2'))
           && ! (contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests'))
-          && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'cloud-tests'))
-          && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'fte-tests'))
           && ! (contains(matrix.modules, 'trino-snowflake') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-azure') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-gcs') && contains(matrix.profile, 'cloud-tests'))
@@ -755,42 +749,6 @@ jobs:
             -Dtesting.snowflake.catalog.s3.secret-key="${SNOWFLAKE_CATALOG_S3_SECRET_ACCESS_KEY}" \
             -Dtesting.snowflake.catalog.s3.external.volume="${SNOWFLAKE_EXTERNAL_VOLUME}" \
             -Dtesting.snowflake.catalog.s3.region="${SNOWFLAKE_CATALOG_S3_REGION}"
-      - name: Cloud Redshift Tests ${{ matrix.profile }}
-        id: tests-redshift
-        env:
-          AWS_REGION: ${{ vars.REDSHIFT_AWS_REGION }}
-          AWS_ACCESS_KEY_ID: ${{ vars.REDSHIFT_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.REDSHIFT_AWS_SECRET_ACCESS_KEY }}
-          REDSHIFT_SUBNET_GROUP_NAME: ${{ vars.REDSHIFT_SUBNET_GROUP_NAME }}
-          REDSHIFT_IAM_ROLES: ${{ vars.REDSHIFT_IAM_ROLES }}
-          REDSHIFT_VPC_SECURITY_GROUP_IDS: ${{ vars.REDSHIFT_VPC_SECURITY_GROUP_IDS }}
-          REDSHIFT_S3_TPCH_TABLES_ROOT: ${{ vars.REDSHIFT_S3_TPCH_TABLES_ROOT }}
-          REDSHIFT_S3_UNLOAD_ROOT: ${{ vars.REDSHIFT_S3_UNLOAD_ROOT }}
-        if: >-
-          contains(matrix.modules, 'trino-redshift') &&
-          (contains(matrix.profile, 'cloud-tests') || contains(matrix.profile, 'fte-tests')) &&
-          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.REDSHIFT_SUBNET_GROUP_NAME != '')
-        run: |
-          source .github/bin/redshift/setup-aws-redshift.sh
-
-          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }} \
-            -Dtest.redshift.jdbc.user="${REDSHIFT_USER}" \
-            -Dtest.redshift.jdbc.password="${REDSHIFT_PASSWORD}" \
-            -Dtest.redshift.jdbc.endpoint="${REDSHIFT_ENDPOINT}:${REDSHIFT_PORT}/" \
-            -Dtest.redshift.s3.tpch.tables.root="${REDSHIFT_S3_TPCH_TABLES_ROOT}" \
-            -Dtest.redshift.s3.unload.root="${REDSHIFT_S3_UNLOAD_ROOT}" \
-            -Dtest.redshift.iam.role="${REDSHIFT_IAM_ROLES}" \
-            -Dtest.redshift.aws.region="${AWS_REGION}" \
-            -Dtest.redshift.aws.access-key="${AWS_ACCESS_KEY_ID}" \
-            -Dtest.redshift.aws.secret-key="${AWS_SECRET_ACCESS_KEY}"
-      - name: Cleanup ephemeral Redshift Cluster
-        env:
-          AWS_REGION: ${{ vars.REDSHIFT_AWS_REGION }}
-          AWS_ACCESS_KEY_ID: ${{ vars.REDSHIFT_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.REDSHIFT_AWS_SECRET_ACCESS_KEY }}
-        # Cancelled workflows may have left the ephemeral cluster running
-        if: always()
-        run: .github/bin/redshift/delete-aws-redshift.sh
       - name: Sanitize artifact name
         if: always()
         run: |
@@ -817,7 +775,6 @@ jobs:
               || steps.tests-bq-ci.outcome == 'failure'
               || steps.tests-bq-smoke.outcome == 'failure'
               || steps.tests-iceberg.outcome == 'failure'
-              || steps.tests-redshift.outcome == 'failure'
               || steps.tests-snowflake.outcome == 'failure'
             }}
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}

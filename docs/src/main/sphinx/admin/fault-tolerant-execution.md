@@ -49,7 +49,6 @@ connector. The following connectors support fault-tolerant execution:
 - {ref}`MySQL connector <mysql-fte-support>`
 - {ref}`Oracle connector <oracle-fte-support>`
 - {ref}`PostgreSQL connector <postgresql-fte-support>`
-- {ref}`Redshift connector <redshift-fte-support>`
 - {ref}`SQL Server connector <sqlserver-fte-support>`
 :::
 

@@ -316,10 +316,6 @@ with the listed coordinates.
   - [](/connector/redis)
   - [io.trino:trino-redis](https://central.sonatype.com/search?q=io.trino%3Atrino-redis)
   - {download_gh}`redis`
-* - redshift
-  - [](/connector/redshift)
-  - [io.trino:trino-redshift](https://central.sonatype.com/search?q=io.trino%3Atrino-redshift)
-  - {download_gh}`redshift`
 * - resource-group-managers
   - [](/admin/resource-groups)
   - [io.trino:trino-resource-group-managers](https://central.sonatype.com/search?q=io.trino%3Atrino-resource-group-managers)

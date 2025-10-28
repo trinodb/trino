@@ -115,10 +115,6 @@ redis:
   - changed-files:
     - any-glob-to-any-file: 'plugin/trino-redis/**'
 
-redshift:
-  - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-redshift/**'
-
 singlestore:
   - changed-files:
     - any-glob-to-any-file: 'plugin/trino-singlestore/**'

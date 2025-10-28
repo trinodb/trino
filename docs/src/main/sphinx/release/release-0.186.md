@@ -26,7 +26,7 @@ due to HTTP requests timing out.
 - Add {func}`inverse_normal_cdf` function.
 - Add {doc}`/functions/geospatial` including functions for processing Bing tiles.
 - Add {doc}`/admin/spill` for joins.
-- Add {doc}`/connector/redshift`.
+- Add Redshift connector.
 
 ## Resource groups
 
