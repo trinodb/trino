@@ -160,7 +160,7 @@ public final class HudiQueryRunner
             hiveMinioDataLake.start();
             QueryRunner queryRunner = builder(hiveMinioDataLake)
                     .addCoordinatorProperty("http-server.http.port", "8080")
-                    .setDataLoader(new TpchHudiTablesInitializer(TpchTable.getTables()))
+                    .setDataLoader(new TpchHudiTablesInitializer(TpchTable.getTables(), "0"))
                     .build();
 
             log.info("======== SERVER STARTED ========");

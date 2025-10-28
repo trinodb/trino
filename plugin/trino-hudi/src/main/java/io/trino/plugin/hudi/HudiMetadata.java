@@ -15,6 +15,7 @@ package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.Column;
@@ -33,6 +34,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
@@ -104,10 +106,6 @@ public class HudiMetadata
     @Override
     public HudiTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
-        if (startVersion.isPresent() || endVersion.isPresent()) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
-        }
-
         if (isHiveSystemSchema(tableName.getSchemaName())) {
             return null;
         }
@@ -115,6 +113,7 @@ public class HudiMetadata
         if (table.isEmpty()) {
             return null;
         }
+        Optional<String> readVersion = getReadVersion(startVersion, endVersion);
         if (!isHudiTable(table.get())) {
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Not a Hudi table: %s", tableName));
         }
@@ -130,7 +129,30 @@ public class HudiMetadata
                 COPY_ON_WRITE,
                 getPartitionKeyColumnHandles(table.get(), typeManager),
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(),
+                readVersion);
+    }
+
+    private static Optional<String> getReadVersion(Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+    {
+        if (startVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "Read table with start version is not supported");
+        }
+
+        if (endVersion.isEmpty()) {
+            return Optional.empty();
+        }
+
+        ConnectorTableVersion version = endVersion.get();
+        if (version.getPointerType() == PointerType.TEMPORAL) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot read 'TIMESTAMP' of Hudi table, use 'VERSION' instead");
+        }
+
+        if (version.getVersion() instanceof Slice slice) {
+            return Optional.of(slice.toStringUtf8());
+        }
+
+        throw new TrinoException(NOT_SUPPORTED, "Provided read version must be a string");
     }
 
     @Override

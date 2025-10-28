@@ -113,10 +113,12 @@ public class TpchHudiTablesInitializer
     private static final HdfsContext CONTEXT = new HdfsContext(SESSION);
 
     private final List<TpchTable<?>> tpchTables;
+    private final String commitTimestamp;
 
-    public TpchHudiTablesInitializer(List<TpchTable<?>> tpchTables)
+    public TpchHudiTablesInitializer(List<TpchTable<?>> tpchTables, String commitTimestamp)
     {
         this.tpchTables = requireNonNull(tpchTables, "tpchTables is null");
+        this.commitTimestamp = requireNonNull(commitTimestamp, "commitTimestamp is null");
     }
 
     @Override
@@ -166,9 +168,8 @@ public class TpchHudiTablesInitializer
                     .map(MaterializedRow::getFields)
                     .map(recordConverter::toRecord)
                     .collect(Collectors.toList());
-            String timestamp = "0";
-            writeClient.startCommitWithTime(timestamp);
-            writeClient.insert(records, timestamp);
+            writeClient.startCommitWithTime(commitTimestamp);
+            writeClient.insert(records, commitTimestamp);
         }
     }
 

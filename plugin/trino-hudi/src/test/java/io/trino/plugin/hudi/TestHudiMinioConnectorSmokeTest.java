@@ -35,7 +35,7 @@ public class TestHudiMinioConnectorSmokeTest
 
         return HudiQueryRunner.builder(hiveMinioDataLake)
                 .addConnectorProperty("hudi.columns-to-hide", COLUMNS_TO_HIDE)
-                .setDataLoader(new TpchHudiTablesInitializer(REQUIRED_TPCH_TABLES))
+                .setDataLoader(new TpchHudiTablesInitializer(REQUIRED_TPCH_TABLES, "0"))
                 .build();
     }
 }

@@ -170,6 +170,21 @@ GROUP BY dt;
 (1 rows)
 ```
 
+### Time travel queries
+
+The connector offers the ability to query historical data. This allows viewing
+the state of the table at a previous snapshot.
+
+The historical data of the table can be retrieved by specifying the last valid
+commit timestamp:
+```sql
+SELECT * FROM  hudi.default.table_name FOR VERSION AS OF '20251027183851494';
+```
+Note: Hudi stores its table versions as a yyyyMMddHHmmssSSS representation of
+the commit time in the table's time zone, though any string can be used. Hudi
+will perform a string comparison between the passed in string and the commit
+time.
+
 ### Schema and table management
 
 Hudi supports [two types of tables](https://hudi.apache.org/docs/table_types)
