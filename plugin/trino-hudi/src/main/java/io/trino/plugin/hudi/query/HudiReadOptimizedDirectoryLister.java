@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -51,6 +52,7 @@ public class HudiReadOptimizedDirectoryLister
     private final HoodieTableFileSystemView fileSystemView;
     private final List<Column> partitionColumns;
     private final Map<String, HudiPartitionInfo> allPartitionInfoMap;
+    private final HudiTableHandle tableHandle;
 
     public HudiReadOptimizedDirectoryLister(
             HudiTableHandle tableHandle,
@@ -76,13 +78,23 @@ public class HudiReadOptimizedDirectoryLister
                                 tableHandle.getPartitionPredicates(),
                                 hiveTable,
                                 hiveMetastore)));
+        this.tableHandle = tableHandle;
+    }
+
+    private static StoragePathInfo getStoragePathInfo(HoodieBaseFile baseFile)
+    {
+        if (baseFile.getBootstrapBaseFile().isPresent()) {
+            return baseFile.getBootstrapBaseFile().get().getPathInfo();
+        }
+        return baseFile.getPathInfo();
     }
 
     @Override
     public List<HudiFileStatus> listStatus(HudiPartitionInfo partitionInfo)
     {
         LOG.debug("List partition: partitionInfo=%s", partitionInfo);
-        return fileSystemView.getLatestBaseFiles(partitionInfo.getRelativePartitionPath())
+        Stream<HoodieBaseFile> baseFileStream = fileSystemView.getLatestBaseFilesBeforeOrOn(partitionInfo.getRelativePartitionPath(), String.valueOf(tableHandle.getReadTimestamp()));
+        return baseFileStream
                 .map(HudiReadOptimizedDirectoryLister::getStoragePathInfo)
                 .map(fileEntry -> new HudiFileStatus(
                         Location.of(fileEntry.getPath().toString()),
@@ -105,13 +117,5 @@ public class HudiReadOptimizedDirectoryLister
         if (fileSystemView != null && !fileSystemView.isClosed()) {
             fileSystemView.close();
         }
-    }
-
-    private static StoragePathInfo getStoragePathInfo(HoodieBaseFile baseFile)
-    {
-        if (baseFile.getBootstrapBaseFile().isPresent()) {
-            return baseFile.getBootstrapBaseFile().get().getPathInfo();
-        }
-        return baseFile.getPathInfo();
     }
 }
