@@ -27,6 +27,7 @@ REDSHIFT_CREATE_CLUSTER_OUTPUT=$(aws redshift create-cluster \
   --vpc-security-group-ids "${REDSHIFT_VPC_SECURITY_GROUP_IDS}" \
   --iam-roles ${REDSHIFT_IAM_ROLES} \
   --automated-snapshot-retention-period 1 \
+  --no-availability-zone-relocation \
   --publicly-accessible \
   --tags Key=cloud,Value=aws Key=environment,Value=test Key=project,Value=trino-redshift Key=ttl,Value=${REDSHIFT_CLUSTER_TTL})
 
