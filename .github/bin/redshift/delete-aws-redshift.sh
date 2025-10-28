@@ -22,7 +22,7 @@ fi
 
 echo "Waiting for the Amazon Redshift cluster $REDSHIFT_CLUSTER_IDENTIFIER to be deleted"
 aws redshift wait cluster-deleted \
-  --cluster-identifier $REDSHIFT_CLUSTER_IDENTIFIER
+  --cluster-identifier $REDSHIFT_CLUSTER_IDENTIFIER --debug
 if [ "$?" -ne 0 ]
 then
   echo "Amazon Redshift cluster $REDSHIFT_CLUSTER_IDENTIFIER deletion has timed out"
