@@ -29,7 +29,10 @@ import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import org.apache.calcite.avatica.remote.Driver;
 
+import java.util.Properties;
+
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class DruidJdbcClientModule
         implements Module
@@ -38,16 +41,27 @@ public class DruidJdbcClientModule
     public void configure(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(DruidJdbcClient.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(DruidConfig.class);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
+    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, DruidConfig druidConfig, OpenTelemetry openTelemetry)
     {
         return DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), credentialProvider)
+                .setConnectionProperties(getConnectionProperties(druidConfig))
                 .setOpenTelemetry(openTelemetry)
                 .build();
+    }
+
+    private static Properties getConnectionProperties(DruidConfig druidConfig)
+    {
+        Properties connectionProperties = new Properties();
+        if (druidConfig.getExecutionTimeout() != null) {
+            connectionProperties.setProperty("timeout", String.valueOf(druidConfig.getExecutionTimeout().toMillis()));
+        }
+        return connectionProperties;
     }
 }
