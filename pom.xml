@@ -208,7 +208,7 @@
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.8</dep.protobuf.version>
         <dep.snowflake.version>3.27.0</dep.snowflake.version>
-        <dep.swagger.version>2.2.39</dep.swagger.version>
+        <dep.swagger.version>2.2.40</dep.swagger.version>
         <dep.takari.version>2.3.2</dep.takari.version>
         <dep.tcnative.version>2.0.74.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
