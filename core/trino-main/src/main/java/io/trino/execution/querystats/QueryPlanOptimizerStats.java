@@ -16,7 +16,7 @@ package io.trino.execution.querystats;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -25,10 +25,10 @@ import static java.util.Objects.requireNonNull;
 public class QueryPlanOptimizerStats
 {
     private final String rule;
-    private final AtomicLong invocations = new AtomicLong();
-    private final AtomicLong applied = new AtomicLong();
-    private final AtomicLong totalTime = new AtomicLong();
-    private final AtomicLong failures = new AtomicLong();
+    private final LongAdder invocations = new LongAdder();
+    private final LongAdder applied = new LongAdder();
+    private final LongAdder totalTime = new LongAdder();
+    private final LongAdder failures = new LongAdder();
 
     public QueryPlanOptimizerStats(String rule)
     {
@@ -38,16 +38,16 @@ public class QueryPlanOptimizerStats
     public void record(long nanos, boolean applied)
     {
         if (applied) {
-            this.applied.incrementAndGet();
+            this.applied.increment();
         }
 
-        invocations.incrementAndGet();
-        totalTime.addAndGet(nanos);
+        invocations.increment();
+        totalTime.add(nanos);
     }
 
     public void recordFailure()
     {
-        failures.incrementAndGet();
+        failures.increment();
     }
 
     public String getRule()
@@ -57,37 +57,37 @@ public class QueryPlanOptimizerStats
 
     public long getInvocations()
     {
-        return invocations.get();
+        return invocations.longValue();
     }
 
     public long getApplied()
     {
-        return applied.get();
+        return applied.longValue();
     }
 
     public long getFailures()
     {
-        return failures.get();
+        return failures.longValue();
     }
 
     public long getTotalTime()
     {
-        return totalTime.get();
+        return totalTime.longValue();
     }
 
     public QueryPlanOptimizerStatistics snapshot()
     {
-        return new QueryPlanOptimizerStatistics(rule, invocations.get(), applied.get(), totalTime.get(), failures.get());
+        return new QueryPlanOptimizerStatistics(rule, invocations.longValue(), applied.longValue(), totalTime.longValue(), failures.longValue());
     }
 
     public QueryPlanOptimizerStats merge(QueryPlanOptimizerStats other)
     {
         checkArgument(rule.equals(other.getRule()), "Cannot merge stats for different rules: %s and %s", rule, other.getRule());
 
-        invocations.addAndGet(other.getInvocations());
-        applied.addAndGet(other.getApplied());
-        failures.addAndGet(other.getFailures());
-        totalTime.addAndGet(other.getTotalTime());
+        invocations.add(other.getInvocations());
+        applied.add(other.getApplied());
+        failures.add(other.getFailures());
+        totalTime.add(other.getTotalTime());
 
         return this;
     }
