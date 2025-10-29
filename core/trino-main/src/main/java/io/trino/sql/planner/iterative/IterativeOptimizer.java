@@ -202,6 +202,7 @@ public class IterativeOptimizer
     {
         Capture<T> nodeCapture = newCapture();
         Pattern<T> pattern = rule.getPattern().capturedAs(nodeCapture);
+        Rule.Context ruleContext = ruleContext(context);
         Iterator<Match> matches = pattern.match(node, context.lookup).iterator();
         while (matches.hasNext()) {
             Match match = matches.next();
@@ -209,7 +210,7 @@ public class IterativeOptimizer
             Rule.Result result;
             try {
                 long start = nanoTime();
-                result = rule.apply(match.capture(nodeCapture), match.captures(), ruleContext(context));
+                result = rule.apply(match.capture(nodeCapture), match.captures(), ruleContext);
 
                 if (LOG.isDebugEnabled() && !result.isEmpty()) {
                     LOG.debug(
