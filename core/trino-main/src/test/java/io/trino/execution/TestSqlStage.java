@@ -127,7 +127,7 @@ public class TestSqlStage
                 noopTracer(),
                 Span.getInvalid(),
                 new SplitSchedulerStats(),
-                (_, _) -> Optional.empty());
+                (_, _) -> OptionalInt.empty());
 
         // add listener that fetches stage info when the final status is available
         SettableFuture<StageInfo> finalStageInfo = SettableFuture.create();
@@ -244,7 +244,7 @@ public class TestSqlStage
                 planNode,
                 ImmutableSet.copyOf(planNode.getOutputSymbols()),
                 SOURCE_DISTRIBUTION,
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
                 OptionalInt.empty(),

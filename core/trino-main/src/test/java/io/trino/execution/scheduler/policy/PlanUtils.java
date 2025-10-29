@@ -190,7 +190,7 @@ final class PlanUtils
                 planNode,
                 ImmutableSet.copyOf(planNode.getOutputSymbols()),
                 SOURCE_DISTRIBUTION,
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
                 OptionalInt.empty(),
