@@ -105,6 +105,7 @@ public class HiveConnectorFactory
 
             Injector injector = app
                     .doNotInitializeLogging()
+                    .disableSystemProperties()
                     .setRequiredConfigurationProperties(config)
                     .initialize();
 

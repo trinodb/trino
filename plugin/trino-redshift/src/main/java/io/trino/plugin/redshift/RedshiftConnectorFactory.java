@@ -53,6 +53,7 @@ public class RedshiftConnectorFactory
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(requiredConfig)
                 .initialize();
 

@@ -68,7 +68,9 @@ public class TpchConnectorFactory
                 new TpchModule(context.getNodeManager(), defaultSplitsPerNode, predicatePushdownEnabled),
                 new MBeanServerModule());
 
-        Injector injector = app.doNotInitializeLogging()
+        Injector injector = app
+                .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(properties)
                 .initialize();
 

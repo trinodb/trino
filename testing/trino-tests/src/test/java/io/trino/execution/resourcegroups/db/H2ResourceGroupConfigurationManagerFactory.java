@@ -58,6 +58,7 @@ public class H2ResourceGroupConfigurationManagerFactory
 
             Injector injector = app
                     .doNotInitializeLogging()
+                    .disableSystemProperties()
                     .setRequiredConfigurationProperties(config)
                     .quiet()
                     .initialize();

@@ -53,6 +53,7 @@ public class FileSystemSpoolingManagerFactory
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

@@ -43,6 +43,7 @@ public class FileGroupProviderFactory
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 
