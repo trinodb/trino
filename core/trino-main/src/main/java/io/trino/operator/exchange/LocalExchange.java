@@ -35,7 +35,7 @@ import io.trino.sql.planner.SystemPartitioningHandle;
 import java.io.Closeable;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -90,7 +90,7 @@ public class LocalExchange
             Session session,
             int defaultConcurrency,
             PartitioningHandle partitioning,
-            Optional<Integer> bucketCount,
+            OptionalInt bucketCount,
             List<Integer> partitionChannels,
             List<Type> partitionChannelTypes,
             DataSize maxBufferedBytes,
@@ -237,7 +237,7 @@ public class LocalExchange
             PartitionFunctionProvider partitionFunctionProvider,
             Session session,
             TypeOperators typeOperators,
-            Optional<Integer> optionalBucketCount,
+            OptionalInt optionalBucketCount,
             PartitioningHandle partitioningHandle,
             int partitionCount,
             List<Integer> partitionChannels,

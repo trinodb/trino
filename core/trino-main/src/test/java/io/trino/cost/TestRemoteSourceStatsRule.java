@@ -137,7 +137,7 @@ public class TestRemoteSourceStatsRule
                         new Symbol(BIGINT, "col_c"),
                         new Symbol(DOUBLE, "col_d")),
                 SOURCE_DISTRIBUTION,
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(new PlanNodeId("plan_id")),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(new Symbol(BIGINT, "col_c"))),
                 OptionalInt.empty(),

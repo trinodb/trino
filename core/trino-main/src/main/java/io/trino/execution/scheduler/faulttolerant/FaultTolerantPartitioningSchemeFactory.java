@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
 
@@ -53,7 +54,7 @@ public class FaultTolerantPartitioningSchemeFactory
         this.maxPartitionCount = maxPartitionCount;
     }
 
-    public FaultTolerantPartitioningScheme get(PartitioningHandle handle, Optional<Integer> partitionCount)
+    public FaultTolerantPartitioningScheme get(PartitioningHandle handle, OptionalInt partitionCount)
     {
         CacheKey cacheKey = new CacheKey(handle, partitionCount);
         FaultTolerantPartitioningScheme result = cache.get(cacheKey);
@@ -62,10 +63,10 @@ public class FaultTolerantPartitioningSchemeFactory
             result = create(handle, partitionCount);
             if (partitionCount.isPresent()) {
                 verify(
-                        result.getPartitionCount() == partitionCount.get(),
+                        result.getPartitionCount() == partitionCount.getAsInt(),
                         "expected partitionCount to be %s but got %s; handle=%s",
-                        partitionCount.get(),
-                        result.getPartitionCount(),
+                        Integer.toString(partitionCount.getAsInt()),
+                        Integer.toString(result.getPartitionCount()),
                         handle);
             }
             cache.put(cacheKey, result);
@@ -73,7 +74,7 @@ public class FaultTolerantPartitioningSchemeFactory
         return result;
     }
 
-    private FaultTolerantPartitioningScheme create(PartitioningHandle partitioningHandle, Optional<Integer> partitionCount)
+    private FaultTolerantPartitioningScheme create(PartitioningHandle partitioningHandle, OptionalInt partitionCount)
     {
         if (partitioningHandle.getConnectorHandle() instanceof MergePartitioningHandle mergePartitioningHandle) {
             return mergePartitioningHandle.getFaultTolerantPartitioningScheme(handle -> this.get(handle, partitionCount));
@@ -157,7 +158,7 @@ public class FaultTolerantPartitioningSchemeFactory
                 Optional.empty());
     }
 
-    private record CacheKey(PartitioningHandle handle, Optional<Integer> partitionCount)
+    private record CacheKey(PartitioningHandle handle, OptionalInt partitionCount)
     {
         private CacheKey
         {

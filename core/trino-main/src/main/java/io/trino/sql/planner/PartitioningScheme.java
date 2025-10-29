@@ -25,6 +25,7 @@ import io.trino.spi.type.Type;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -38,8 +39,8 @@ public class PartitioningScheme
     private final Supplier<List<Type>> outputTypes;
     private final boolean replicateNullsAndAny;
     private final Optional<int[]> bucketToPartition;
-    private final Optional<Integer> bucketCount;
-    private final Optional<Integer> partitionCount;
+    private final OptionalInt bucketCount;
+    private final OptionalInt partitionCount;
 
     public PartitioningScheme(Partitioning partitioning, List<Symbol> outputLayout)
     {
@@ -48,8 +49,8 @@ public class PartitioningScheme
                 outputLayout,
                 false,
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
+                OptionalInt.empty(),
+                OptionalInt.empty());
     }
 
     @JsonCreator
@@ -58,8 +59,8 @@ public class PartitioningScheme
             @JsonProperty("outputLayout") List<Symbol> outputLayout,
             @JsonProperty("replicateNullsAndAny") boolean replicateNullsAndAny,
             @JsonProperty("bucketToPartition") Optional<int[]> bucketToPartition,
-            @JsonProperty("bucketCount") Optional<Integer> bucketCount,
-            @JsonProperty("partitionCount") Optional<Integer> partitionCount)
+            @JsonProperty("bucketCount") OptionalInt bucketCount,
+            @JsonProperty("partitionCount") OptionalInt partitionCount)
     {
         this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.outputLayout = ImmutableList.copyOf(requireNonNull(outputLayout, "outputLayout is null"));
@@ -75,7 +76,7 @@ public class PartitioningScheme
         this.bucketCount = bucketCount;
         checkArgument(bucketCount.isEmpty() || !(partitioning.getHandle().getConnectorHandle() instanceof SystemPartitioningHandle),
                 "Bucket count cannot be set on a system partitioning handle");
-        checkArgument(bucketToPartition.isEmpty() || bucketCount.isEmpty() || bucketToPartition.get().length == bucketCount.get(),
+        checkArgument(bucketToPartition.isEmpty() || bucketCount.isEmpty() || bucketToPartition.get().length == bucketCount.getAsInt(),
                 "bucketToPartition length does not match bucketCount");
         this.partitionCount = requireNonNull(partitionCount, "partitionCount is null");
         checkArgument(
@@ -114,13 +115,13 @@ public class PartitioningScheme
     }
 
     @JsonProperty
-    public Optional<Integer> getBucketCount()
+    public OptionalInt getBucketCount()
     {
         return bucketCount;
     }
 
     @JsonProperty
-    public Optional<Integer> getPartitionCount()
+    public OptionalInt getPartitionCount()
     {
         return partitionCount;
     }
@@ -130,7 +131,7 @@ public class PartitioningScheme
         return new PartitioningScheme(partitioning, outputLayout, replicateNullsAndAny, bucketToPartition, bucketCount, partitionCount);
     }
 
-    public PartitioningScheme withBucketCount(Optional<Integer> bucketCount)
+    public PartitioningScheme withBucketCount(OptionalInt bucketCount)
     {
         return new PartitioningScheme(partitioning, outputLayout, replicateNullsAndAny, bucketToPartition, bucketCount, partitionCount);
     }
@@ -141,7 +142,7 @@ public class PartitioningScheme
         return new PartitioningScheme(newPartitioning, outputLayout, replicateNullsAndAny, bucketToPartition, bucketCount, partitionCount);
     }
 
-    public PartitioningScheme withPartitionCount(Optional<Integer> partitionCount)
+    public PartitioningScheme withPartitionCount(OptionalInt partitionCount)
     {
         return new PartitioningScheme(partitioning, outputLayout, replicateNullsAndAny, bucketToPartition, bucketCount, partitionCount);
     }

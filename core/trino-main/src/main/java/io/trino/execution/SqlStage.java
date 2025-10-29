@@ -398,15 +398,15 @@ public final class SqlStage
 
     public interface LocalExchangeBucketCountProvider
     {
-        Optional<Integer> getBucketCount(Session session, PartitioningHandle partitioning);
+        OptionalInt getBucketCount(Session session, PartitioningHandle partitioning);
     }
 
     private static final class LocalExchangePartitionRewriter
             extends SimplePlanRewriter<Void>
     {
-        private final Function<PartitioningHandle, Optional<Integer>> bucketCountProvider;
+        private final Function<PartitioningHandle, OptionalInt> bucketCountProvider;
 
-        public LocalExchangePartitionRewriter(Function<PartitioningHandle, Optional<Integer>> bucketCountProvider)
+        public LocalExchangePartitionRewriter(Function<PartitioningHandle, OptionalInt> bucketCountProvider)
         {
             this.bucketCountProvider = requireNonNull(bucketCountProvider, "bucketCountProvider is null");
         }
