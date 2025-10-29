@@ -54,6 +54,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.airlift.units.Duration.succinctDuration;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -397,7 +398,7 @@ public class TaskContext
     {
         long startFullGcTimeNanos = this.startFullGcTimeNanos.get();
         if (startFullGcTimeNanos < 0) {
-            return new Duration(0, MILLISECONDS);
+            return succinctDuration(0, MILLISECONDS);
         }
 
         long endFullGcTimeNanos = this.endFullGcTimeNanos.get();

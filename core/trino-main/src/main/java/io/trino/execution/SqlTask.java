@@ -70,6 +70,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTER_DOMAINS;
 import static io.trino.execution.TaskState.FAILED;
@@ -350,7 +351,7 @@ public class SqlTask
         DataSize peakUserMemoryReservation = DataSize.ofBytes(0);
         DataSize revocableMemoryReservation = DataSize.ofBytes(0);
         long fullGcCount = 0;
-        Duration fullGcTime = new Duration(0, MILLISECONDS);
+        Duration fullGcTime = succinctDuration(0, MILLISECONDS);
         long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskInfo taskInfo = taskHolder.getFinalTaskInfo();
