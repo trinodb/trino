@@ -132,7 +132,7 @@ public class UniformNodeSelector
     @Override
     public List<InternalNode> allNodes()
     {
-        return getAllNodes(nodeMap.get().get(), includeCoordinator);
+        return ImmutableList.copyOf(getAllNodes(nodeMap.get().get(), includeCoordinator));
     }
 
     @Override
@@ -158,7 +158,7 @@ public class UniformNodeSelector
         Set<InternalNode> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
 
-        List<InternalNode> filteredNodes = filterNodes(nodeMap, includeCoordinator, ImmutableSet.of());
+        Set<InternalNode> filteredNodes = filterNodes(nodeMap, includeCoordinator, ImmutableSet.of());
         ResettableRandomizedIterator<InternalNode> randomCandidates = new ResettableRandomizedIterator<>(filteredNodes);
         Set<InternalNode> schedulableNodes = new HashSet<>(filteredNodes);
 

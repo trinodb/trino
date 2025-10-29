@@ -14,6 +14,7 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -98,7 +99,7 @@ public class TopologyAwareNodeSelector
     @Override
     public List<InternalNode> allNodes()
     {
-        return getAllNodes(nodeMap.get().get(), includeCoordinator);
+        return ImmutableList.copyOf(getAllNodes(nodeMap.get().get(), includeCoordinator));
     }
 
     @Override

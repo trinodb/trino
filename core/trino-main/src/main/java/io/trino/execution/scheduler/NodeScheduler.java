@@ -15,8 +15,10 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
@@ -42,6 +44,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
@@ -63,11 +66,14 @@ public class NodeScheduler
         return nodeSelectorFactory.createNodeSelector(requireNonNull(session, "session is null"));
     }
 
-    public static List<InternalNode> getAllNodes(NodeMap nodeMap, boolean includeCoordinator)
+    public static Set<InternalNode> getAllNodes(NodeMap nodeMap, boolean includeCoordinator)
     {
+        if (includeCoordinator) {
+            return ImmutableSet.copyOf(nodeMap.getNodesByHostAndPort().values());
+        }
         return nodeMap.getNodesByHostAndPort().values().stream()
-                .filter(node -> includeCoordinator || !nodeMap.getCoordinatorNodeIds().contains(node.getNodeIdentifier()))
-                .collect(toImmutableList());
+                .filter(node -> !nodeMap.getCoordinatorNodeIds().contains(node.getNodeIdentifier()))
+                .collect(toImmutableSet());
     }
 
     public static List<InternalNode> selectNodes(int limit, Iterator<InternalNode> candidates)
@@ -87,12 +93,9 @@ public class NodeScheduler
         return new ResettableRandomizedIterator<>(filterNodes(nodeMap, includeCoordinator, excludedNodes));
     }
 
-    public static List<InternalNode> filterNodes(NodeMap nodeMap, boolean includeCoordinator, Set<InternalNode> excludedNodes)
+    public static Set<InternalNode> filterNodes(NodeMap nodeMap, boolean includeCoordinator, Set<InternalNode> excludedNodes)
     {
-        return nodeMap.getNodesByHostAndPort().values().stream()
-                .filter(node -> includeCoordinator || !nodeMap.getCoordinatorNodeIds().contains(node.getNodeIdentifier()))
-                .filter(node -> !excludedNodes.contains(node))
-                .collect(toImmutableList());
+        return Sets.difference(getAllNodes(nodeMap, includeCoordinator), excludedNodes);
     }
 
     public static List<InternalNode> selectExactNodes(NodeMap nodeMap, List<HostAddress> hosts, boolean includeCoordinator)
@@ -101,10 +104,11 @@ public class NodeScheduler
         Set<String> coordinatorIds = nodeMap.getCoordinatorNodeIds();
 
         for (HostAddress host : hosts) {
-            nodeMap.getNodesByHostAndPort().get(host).stream()
-                    .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
-                    .forEach(chosen::add);
-
+            for (InternalNode node : nodeMap.getNodesByHostAndPort().get(host)) {
+                if (includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier())) {
+                    chosen.add(node);
+                }
+            }
             // consider a split with a host without a port as being accessible by all nodes in that host
             if (!host.hasPort()) {
                 InetAddress address;
@@ -116,9 +120,11 @@ public class NodeScheduler
                     continue;
                 }
 
-                nodeMap.getNodesByHost().get(address).stream()
-                        .filter(node -> includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier()))
-                        .forEach(chosen::add);
+                for (InternalNode node : nodeMap.getNodesByHost().get(address)) {
+                    if (includeCoordinator || !coordinatorIds.contains(node.getNodeIdentifier())) {
+                        chosen.add(node);
+                    }
+                }
             }
         }
 
