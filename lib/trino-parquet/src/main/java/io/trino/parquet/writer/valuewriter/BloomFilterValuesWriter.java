@@ -125,13 +125,6 @@ public class BloomFilterValuesWriter
     }
 
     @Override
-    public void writeBytes(Binary v)
-    {
-        writer.writeBytes(v);
-        bloomFilter.insertHash(bloomFilter.hash(v));
-    }
-
-    @Override
     public void writeInteger(int v)
     {
         writer.writeInteger(v);

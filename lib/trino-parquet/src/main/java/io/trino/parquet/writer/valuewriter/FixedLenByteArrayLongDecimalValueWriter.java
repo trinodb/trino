@@ -13,7 +13,9 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
-import io.trino.spi.block.Block;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
@@ -45,19 +47,53 @@ public class FixedLenByteArrayLongDecimalValueWriter
     }
 
     @Override
-    public void write(Block block)
+    protected void writeValueBlock(ValueBlock block)
     {
-        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
-        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
         boolean mayHaveNull = block.mayHaveNull();
-        for (int i = 0; i < block.getPositionCount(); ++i) {
+        for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
-                Int128 decimal = (Int128) decimalType.getObject(block, i);
-                BigInteger bigInteger = decimal.toBigInteger();
-                Binary binary = Binary.fromConstantByteArray(paddingBigInteger(bigInteger, getTypeLength()));
-                valuesWriter.writeBytes(binary);
-                statistics.updateStats(binary);
+                byte[] bytes = readBytes(block, i);
+                valuesWriter.writeBytes(Slices.wrappedBuffer(bytes));
+                statistics.updateStats(Binary.fromConstantByteArray(bytes));
             }
         }
+    }
+
+    @Override
+    protected void writeRepeated(ValueBlock block, int count)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        byte[] bytes = readBytes(block, 0);
+        Slice slice = Slices.wrappedBuffer(bytes);
+        for (int i = 0; i < count; i++) {
+            valuesWriter.writeBytes(slice);
+        }
+        statistics.updateStats(Binary.fromConstantByteArray(bytes));
+    }
+
+    @Override
+    protected void writePositions(ValueBlock block, int[] positions, int offset, int length)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        boolean mayHaveNull = block.mayHaveNull();
+        for (int index = 0; index < length; index++) {
+            int position = positions[offset + index];
+            if (!mayHaveNull || !block.isNull(position)) {
+                byte[] bytes = readBytes(block, position);
+                valuesWriter.writeBytes(Slices.wrappedBuffer(bytes));
+                statistics.updateStats(Binary.fromConstantByteArray(bytes));
+            }
+        }
+    }
+
+    private byte[] readBytes(ValueBlock block, int position)
+    {
+        Int128 decimal = (Int128) decimalType.getObject(block, position);
+        BigInteger bigInteger = decimal.toBigInteger();
+        return paddingBigInteger(bigInteger, getTypeLength());
     }
 }

@@ -13,7 +13,7 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
-import io.trino.spi.block.Block;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
@@ -34,14 +34,42 @@ public class TimestampMillisValueWriter
     }
 
     @Override
-    public void write(Block block)
+    protected void writeValueBlock(ValueBlock block)
     {
-        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
-        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
         boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
                 long scaledValue = floorDiv(type.getLong(block, i), MICROSECONDS_PER_MILLISECOND);
+                valuesWriter.writeLong(scaledValue);
+                statistics.updateStats(scaledValue);
+            }
+        }
+    }
+
+    @Override
+    protected void writeRepeated(ValueBlock block, int count)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        long scaledValue = floorDiv(type.getLong(block, 0), MICROSECONDS_PER_MILLISECOND);
+        for (int i = 0; i < count; i++) {
+            valuesWriter.writeLong(scaledValue);
+        }
+        statistics.updateStats(scaledValue);
+    }
+
+    @Override
+    protected void writePositions(ValueBlock block, int[] positions, int offset, int length)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        boolean mayHaveNull = block.mayHaveNull();
+        for (int index = 0; index < length; index++) {
+            int position = positions[offset + index];
+            if (!mayHaveNull || !block.isNull(position)) {
+                long scaledValue = floorDiv(type.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
                 valuesWriter.writeLong(scaledValue);
                 statistics.updateStats(scaledValue);
             }

@@ -108,12 +108,6 @@ public class ParquetValuesWriterAdapter
     }
 
     @Override
-    public void writeBytes(Binary value)
-    {
-        delegate.writeBytes(value);
-    }
-
-    @Override
     public void writeInteger(int value)
     {
         delegate.writeInteger(value);

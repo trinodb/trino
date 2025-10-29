@@ -13,7 +13,7 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
-import io.trino.spi.block.Block;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
@@ -22,7 +22,6 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
-import static java.util.Objects.requireNonNull;
 
 public class TimestampTzMicrosValueWriter
         extends PrimitiveValueWriter
@@ -33,22 +32,51 @@ public class TimestampTzMicrosValueWriter
     }
 
     @Override
-    public void write(Block block)
+    protected void writeValueBlock(ValueBlock block)
     {
-        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
-        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
         boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
-                long micros = toMicros((LongTimestampWithTimeZone) TIMESTAMP_TZ_MICROS.getObject(block, i));
+                long micros = toMicros(block, i);
                 valuesWriter.writeLong(micros);
                 statistics.updateStats(micros);
             }
         }
     }
 
-    private static long toMicros(LongTimestampWithTimeZone timestamp)
+    @Override
+    protected void writeRepeated(ValueBlock block, int count)
     {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        long micros = toMicros(block, 0);
+        for (int i = 0; i < count; i++) {
+            valuesWriter.writeLong(micros);
+        }
+        statistics.updateStats(micros);
+    }
+
+    @Override
+    protected void writePositions(ValueBlock block, int[] positions, int offset, int length)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        boolean mayHaveNull = block.mayHaveNull();
+        for (int index = 0; index < length; index++) {
+            int position = positions[offset + index];
+            if (!mayHaveNull || !block.isNull(position)) {
+                long micros = toMicros(block, position);
+                valuesWriter.writeLong(micros);
+                statistics.updateStats(micros);
+            }
+        }
+    }
+
+    private static long toMicros(ValueBlock block, int position)
+    {
+        LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) TIMESTAMP_TZ_MICROS.getObject(block, position);
         return (timestamp.getEpochMillis() * MICROSECONDS_PER_MILLISECOND) +
                 roundDiv(timestamp.getPicosOfMilli(), PICOSECONDS_PER_MICROSECOND);
     }

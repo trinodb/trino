@@ -14,13 +14,12 @@
 package io.trino.parquet.writer.valuewriter;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.ValueBlock;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
 
 import static io.trino.spi.type.UuidType.UUID;
-import static java.util.Objects.requireNonNull;
 
 public class UuidValueWriter
         extends PrimitiveValueWriter
@@ -31,10 +30,10 @@ public class UuidValueWriter
     }
 
     @Override
-    public void write(Block block)
+    protected void writeValueBlock(ValueBlock block)
     {
-        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
-        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
         boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
@@ -42,7 +41,39 @@ public class UuidValueWriter
                 // fromReusedByteArray must be used instead of fromConstantByteArray to avoid retaining entire
                 // base byte array of the Slice in DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter
                 Binary binary = Binary.fromReusedByteArray(slice.byteArray(), slice.byteArrayOffset(), slice.length());
-                valuesWriter.writeBytes(binary);
+                valuesWriter.writeBytes(slice);
+                statistics.updateStats(binary);
+            }
+        }
+    }
+
+    @Override
+    protected void writeRepeated(ValueBlock block, int count)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        Slice slice = UUID.getSlice(block, 0);
+        Binary binary = Binary.fromReusedByteArray(slice.byteArray(), slice.byteArrayOffset(), slice.length());
+        for (int i = 0; i < count; i++) {
+            valuesWriter.writeBytes(slice);
+        }
+        statistics.updateStats(binary);
+    }
+
+    @Override
+    protected void writePositions(ValueBlock block, int[] positions, int offset, int length)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        boolean mayHaveNull = block.mayHaveNull();
+        for (int index = 0; index < length; index++) {
+            int position = positions[offset + index];
+            if (!mayHaveNull || !block.isNull(position)) {
+                Slice slice = UUID.getSlice(block, position);
+                // fromReusedByteArray must be used instead of fromConstantByteArray to avoid retaining entire
+                // base byte array of the Slice in DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter
+                Binary binary = Binary.fromReusedByteArray(slice.byteArray(), slice.byteArrayOffset(), slice.length());
+                valuesWriter.writeBytes(slice);
                 statistics.updateStats(binary);
             }
         }

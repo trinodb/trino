@@ -17,7 +17,6 @@ import io.airlift.slice.Slice;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
-import org.apache.parquet.io.api.Binary;
 
 /**
  * Based on org.apache.parquet.column.values.ValuesWriter, adapted so binary values
@@ -81,11 +80,6 @@ public abstract class ValuesWriter
     }
 
     public void writeBytes(Slice value)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    public void writeBytes(Binary value)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
