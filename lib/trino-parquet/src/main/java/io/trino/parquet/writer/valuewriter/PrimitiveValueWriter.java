@@ -23,7 +23,7 @@ import org.apache.parquet.schema.PrimitiveType;
 import static java.util.Objects.requireNonNull;
 
 public abstract class PrimitiveValueWriter
-        extends ValuesWriter
+        implements AutoCloseable
 {
     private Statistics<?> statistics;
     private final PrimitiveType parquetType;
@@ -51,7 +51,6 @@ public abstract class PrimitiveValueWriter
         return parquetType.getTypeLength();
     }
 
-    @Override
     public long getBufferedSize()
     {
         return valuesWriter.getBufferedSize();
@@ -66,19 +65,16 @@ public abstract class PrimitiveValueWriter
         };
     }
 
-    @Override
     public BytesInput getBytes()
     {
         return valuesWriter.getBytes();
     }
 
-    @Override
     public Encoding getEncoding()
     {
         return valuesWriter.getEncoding();
     }
 
-    @Override
     public void reset()
     {
         valuesWriter.reset();
@@ -91,28 +87,19 @@ public abstract class PrimitiveValueWriter
         valuesWriter.close();
     }
 
-    @Override
     public DictionaryPage toDictPageAndClose()
     {
         return valuesWriter.toDictPageAndClose();
     }
 
-    @Override
     public void resetDictionary()
     {
         valuesWriter.resetDictionary();
     }
 
-    @Override
     public long getAllocatedSize()
     {
         return valuesWriter.getAllocatedSize();
-    }
-
-    @Override
-    public String memUsageString(String prefix)
-    {
-        return valuesWriter.memUsageString(prefix);
     }
 
     public abstract void write(Block block);
