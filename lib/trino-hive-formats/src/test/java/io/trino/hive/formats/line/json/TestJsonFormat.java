@@ -1027,11 +1027,11 @@ public class TestJsonFormat
 
         Properties schema = new Properties();
         schema.put(LIST_COLUMNS, columns.stream()
-                .sorted(Comparator.comparing(Column::ordinal))
+                .sorted(Comparator.comparingInt(Column::ordinal))
                 .map(Column::name)
                 .collect(joining(",")));
         schema.put(LIST_COLUMN_TYPES, columns.stream()
-                .sorted(Comparator.comparing(Column::ordinal))
+                .sorted(Comparator.comparingInt(Column::ordinal))
                 .map(Column::type)
                 .map(FormatTestUtils::getJavaObjectInspector)
                 .map(ObjectInspector::getTypeName)
