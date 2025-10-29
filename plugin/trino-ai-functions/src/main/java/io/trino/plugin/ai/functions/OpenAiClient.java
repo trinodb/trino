@@ -80,7 +80,7 @@ public class OpenAiClient
                 .build();
 
         ChatRequest.Message messages = new ChatRequest.Message("user", prompt);
-        ChatRequest body = new ChatRequest(model, List.of(messages), 0);
+        ChatRequest body = new ChatRequest(model, List.of(messages), 0, null);
 
         Request request = preparePost()
                 .setUri(uri)
@@ -128,7 +128,63 @@ public class OpenAiClient
         return message.message().content();
     }
 
-    public record ChatRequest(String model, List<Message> messages, int seed)
+    @Override
+    protected String generateCompletion(String model, String prompt, double temperature)
+    {
+        URI uri = uriBuilderFrom(endpoint)
+                .appendPath("/v1/chat/completions")
+                .build();
+
+        ChatRequest.Message messages = new ChatRequest.Message("user", prompt);
+        ChatRequest body = new ChatRequest(model, List.of(messages), 0, temperature);
+
+        Request request = preparePost()
+                .setUri(uri)
+                .setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
+                .setBodyGenerator(jsonBodyGenerator(CHAT_REQUEST_CODEC, body))
+                .build();
+
+        Span span = tracer.spanBuilder(CHAT + " " + model)
+                .setAttribute(GEN_AI_OPERATION_NAME, CHAT)
+                .setAttribute(GEN_AI_PROVIDER_NAME, OPENAI)
+                .setAttribute(GEN_AI_REQUEST_MODEL, model)
+                .setAttribute(GEN_AI_REQUEST_SEED, body.seed())
+                .setSpanKind(SpanKind.CLIENT)
+                .startSpan();
+
+        ChatResponse response;
+        try (var _ = span.makeCurrent()) {
+            response = httpClient.execute(request, createJsonResponseHandler(CHAT_RESPONSE_CODEC));
+            span.setAttribute(GEN_AI_RESPONSE_ID, response.id());
+            span.setAttribute(GEN_AI_RESPONSE_MODEL, response.model());
+            span.setAttribute(OPENAI_RESPONSE_SERVICE_TIER, response.serviceTier());
+            span.setAttribute(OPENAI_RESPONSE_SYSTEM_FINGERPRINT, response.systemFingerprint());
+            span.setAttribute(GEN_AI_USAGE_INPUT_TOKENS, response.usage().promptTokens());
+            span.setAttribute(GEN_AI_USAGE_OUTPUT_TOKENS, response.usage().completionTokens());
+        }
+        catch (RuntimeException e) {
+            span.setStatus(ERROR, e.getMessage());
+            span.recordException(e);
+            throw new TrinoException(AI_ERROR, "Request to AI provider at %s for model %s failed".formatted(uri, model), e);
+        }
+        finally {
+            span.end();
+        }
+
+        if (response.choices().isEmpty()) {
+            throw new TrinoException(AI_ERROR, "No response from AI provider at %s for model %s".formatted(uri, model));
+        }
+        ChatResponse.Choice message = response.choices().getFirst();
+
+        if (message.message().refusal() != null) {
+            throw new TrinoException(AI_ERROR, "AI provider at %s for model %s refused to generate response: %s".formatted(uri, model, message.message().refusal()));
+        }
+
+        return message.message().content();
+    }
+
+    public record ChatRequest(String model, List<Message> messages, int seed, Double temperature)
     {
         public record Message(String role, String content) {}
     }

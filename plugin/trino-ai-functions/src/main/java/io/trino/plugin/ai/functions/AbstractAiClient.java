@@ -174,6 +174,27 @@ public abstract class AbstractAiClient
         return completion(translateModel, prompt);
     }
 
+    @Override
+    public String prompt(String prompt, String model, double temperature)
+    {
+        if (temperature < 0.0 || temperature > 2.0) {
+            throw new TrinoException(AI_ERROR, "temperature must be between 0.0 and 2.0");
+        }
+        try {
+            String key = model + "\0" + prompt + "\0" + temperature;
+            return completionCache.get(key, () -> generateCompletion(model, prompt, temperature));
+        }
+        catch (ExecutionException e) {
+            throw new UncheckedExecutionException(e);
+        }
+        catch (UncheckedExecutionException e) {
+            if (e.getCause() instanceof TrinoException ex) {
+                throw ex;
+            }
+            throw e;
+        }
+    }
+
     private String completion(String model, String prompt)
     {
         try {
@@ -192,4 +213,6 @@ public abstract class AbstractAiClient
     }
 
     protected abstract String generateCompletion(String model, String prompt);
+
+    protected abstract String generateCompletion(String model, String prompt, double temperature);
 }

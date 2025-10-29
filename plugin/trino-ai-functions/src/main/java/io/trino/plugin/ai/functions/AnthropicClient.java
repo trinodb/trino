@@ -71,12 +71,19 @@ public class AnthropicClient
     @Override
     protected String generateCompletion(String model, String prompt)
     {
+        // Use default temperature of 1.0 (Anthropic default)
+        return generateCompletion(model, prompt, 1.0);
+    }
+
+    @Override
+    protected String generateCompletion(String model, String prompt, double temperature)
+    {
         URI uri = uriBuilderFrom(endpoint)
                 .appendPath("/v1/messages")
                 .build();
 
         MessageRequest.Message messages = new MessageRequest.Message("user", prompt);
-        MessageRequest body = new MessageRequest(model, 4096, List.of(messages));
+        MessageRequest body = new MessageRequest(model, 4096, List.of(messages), temperature);
 
         Request request = preparePost()
                 .setUri(uri)
@@ -117,7 +124,7 @@ public class AnthropicClient
     }
 
     @JsonNaming(SnakeCaseStrategy.class)
-    public record MessageRequest(String model, int maxTokens, List<Message> messages)
+    public record MessageRequest(String model, int maxTokens, List<Message> messages, double temperature)
     {
         public record Message(String role, String content) {}
     }

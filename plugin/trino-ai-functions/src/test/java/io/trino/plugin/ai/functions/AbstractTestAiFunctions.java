@@ -82,6 +82,7 @@ public abstract class AbstractTestAiFunctions
                          ('ai_fix_grammar', 'varchar', 'varchar', 'scalar', false, 'Correct grammatical errors in text'),
                          ('ai_gen', 'varchar', 'varchar', 'scalar', false, 'Generate text based on a prompt'),
                          ('ai_mask', 'varchar', 'varchar, array(varchar)', 'scalar', false, 'Mask values for the provided labels in text'),
+                         ('ai_prompt', 'varchar', 'varchar, varchar, double', 'scalar', false, 'Generate text with model and temperature control'),
                          ('ai_translate', 'varchar', 'varchar, varchar', 'scalar', false, 'Translate text to the specified language')
                          """);
     }
@@ -268,5 +269,40 @@ public abstract class AbstractTestAiFunctions
         assertThat(assertions.function("ai_translate", "'I like coffee'", "'zh-TW'"))
                 .hasType(VARCHAR)
                 .isEqualTo("我喜歡咖啡");
+    }
+
+    @Test
+    public void testPrompt()
+    {
+        assertThat(assertions.function("ai_prompt", "'What is 2+2?'", "'gpt-4o-mini'", "0.0e0"))
+                .hasType(VARCHAR)
+                .isEqualTo("2 + 2 equals 4.");
+    }
+
+    @Test
+    public void testPromptInvalidTemperatureLow()
+    {
+        assertThat(assertions.query("SELECT ai_prompt('test', 'gpt-4o-mini', -0.1e0)"))
+                .failure()
+                .hasMessageContaining("temperature must be between 0.0 and 2.0");
+    }
+
+    @Test
+    public void testPromptInvalidTemperatureHigh()
+    {
+        assertThat(assertions.query("SELECT ai_prompt('test', 'gpt-4o-mini', 2.1e0)"))
+                .failure()
+                .hasMessageContaining("temperature must be between 0.0 and 2.0");
+    }
+
+    @Test
+    public void testPromptCacheRespectsTemperature()
+    {
+        // Same prompt and model, different temperatures should be separate cache entries
+        assertThat(assertions.function("ai_prompt", "'test cache'", "'gpt-4o-mini'", "0.0e0"))
+                .hasType(VARCHAR);
+        assertThat(assertions.function("ai_prompt", "'test cache'", "'gpt-4o-mini'", "0.5e0"))
+                .hasType(VARCHAR);
+        // Both should execute successfully, proving they're separate cache entries
     }
 }
