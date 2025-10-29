@@ -43,7 +43,7 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -387,10 +387,10 @@ public class TaskContext
         checkArgument(oldMaxWriterCount == -1 || oldMaxWriterCount == maxWriterCount, "maxWriterCount already set to %s", oldMaxWriterCount);
     }
 
-    public Optional<Integer> getMaxWriterCount()
+    public OptionalInt getMaxWriterCount()
     {
         int value = maxWriterCount.get();
-        return value == -1 ? Optional.empty() : Optional.of(value);
+        return value == -1 ? OptionalInt.empty() : OptionalInt.of(value);
     }
 
     public Duration getFullGcTime()

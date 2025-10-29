@@ -313,7 +313,7 @@ public class TestStageStateMachine
                 new Duration(baseValue, MILLISECONDS),
                 DataSize.ofBytes(baseValue),
                 DataSize.ofBytes(baseValue),
-                Optional.empty(),
+                OptionalInt.empty(),
                 baseValue,
                 new Duration(baseValue, MILLISECONDS),
                 pipelineContexts.stream().map(PipelineContext::getPipelineStats).collect(toImmutableList()));
