@@ -369,7 +369,7 @@ class TestNodeStateManager
             long now = clock.read();
             List<Job> ready = jobs.stream()
                     .filter(job -> job.time <= now)
-                    .sorted(Comparator.comparing(Job::time))
+                    .sorted(Comparator.comparingLong(Job::time))
                     .toList();
             jobs.removeAll(ready);
 

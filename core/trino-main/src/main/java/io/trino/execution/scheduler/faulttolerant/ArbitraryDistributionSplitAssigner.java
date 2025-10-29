@@ -370,7 +370,7 @@ class ArbitraryDistributionSplitAssigner
             return new NodeRequirements(catalogRequirement, Optional.empty(), true);
         }
         HostAddress selectedAddress = split.getAddresses().stream()
-                .min(Comparator.comparing(this::rank))
+                .min(Comparator.comparingLong(this::rank))
                 .orElseThrow();
         return new NodeRequirements(catalogRequirement, Optional.of(selectedAddress), split.isRemotelyAccessible());
     }
