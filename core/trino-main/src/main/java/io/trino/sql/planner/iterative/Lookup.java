@@ -18,8 +18,6 @@ import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 public interface Lookup
 {
     /**
@@ -60,8 +58,10 @@ public interface Lookup
     static Lookup from(Function<GroupReference, Iterable<PlanNode>> resolver)
     {
         return node -> {
-            checkArgument(node instanceof GroupReference, "Node '%s' is not a GroupReference", node.getClass().getSimpleName());
-            return resolver.apply((GroupReference) node);
+            if (!(node instanceof GroupReference groupReference)) {
+                throw new IllegalArgumentException("Node '%s' is not a GroupReference".formatted(node.getClass().getSimpleName()));
+            }
+            return resolver.apply(groupReference);
         };
     }
 }
