@@ -1364,7 +1364,7 @@ public class IcebergMetadata
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableList.copyOf(buildPath(indexParents, entry.getKey()))));
 
         List<IcebergColumnHandle> partitioningColumns = partitionSpec.fields().stream()
-                .sorted(Comparator.comparing(PartitionField::sourceId))
+                .sorted(Comparator.comparingInt(PartitionField::sourceId))
                 .map(field -> {
                     boolean isBaseColumn = !indexParents.containsKey(field.sourceId());
                     int sourceId;

@@ -45,8 +45,8 @@ public final class ParameterExtractor
         return parameterExtractingVisitor.getParameters().stream()
                 .sorted(Comparator.comparing(
                         parameter -> parameter.getLocation().get(),
-                        Comparator.comparing(NodeLocation::getLineNumber)
-                                .thenComparing(NodeLocation::getColumnNumber)))
+                        Comparator.comparingInt(NodeLocation::getLineNumber)
+                                .thenComparingInt(NodeLocation::getColumnNumber)))
                 .collect(toImmutableList());
     }
 
