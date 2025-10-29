@@ -13,7 +13,9 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
-import io.trino.spi.block.Block;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.statistics.Statistics;
@@ -41,18 +43,55 @@ public class FixedLenByteArrayShortDecimalValueWriter
     }
 
     @Override
-    public void write(Block block)
+    protected void writeValueBlock(ValueBlock block)
     {
-        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
-        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
         boolean mayHaveNull = block.mayHaveNull();
         byte[] buffer = new byte[getTypeLength()];
         Binary reusedBinary = Binary.fromReusedByteArray(buffer);
+        Slice reusedSlice = Slices.wrappedBuffer(buffer);
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
                 long value = decimalType.getLong(block, i);
                 storeLongIntoBuffer(value, buffer);
-                valuesWriter.writeBytes(reusedBinary);
+                valuesWriter.writeBytes(reusedSlice);
+                statistics.updateStats(reusedBinary);
+            }
+        }
+    }
+
+    @Override
+    protected void writeRepeated(ValueBlock block, int count)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        byte[] buffer = new byte[getTypeLength()];
+        Binary reusedBinary = Binary.fromReusedByteArray(buffer);
+        Slice reusedSlice = Slices.wrappedBuffer(buffer);
+        long value = decimalType.getLong(block, 0);
+        storeLongIntoBuffer(value, buffer);
+        for (int i = 0; i < count; i++) {
+            valuesWriter.writeBytes(reusedSlice);
+        }
+        statistics.updateStats(reusedBinary);
+    }
+
+    @Override
+    protected void writePositions(ValueBlock block, int[] positions, int offset, int length)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        boolean mayHaveNull = block.mayHaveNull();
+        byte[] buffer = new byte[getTypeLength()];
+        Binary reusedBinary = Binary.fromReusedByteArray(buffer);
+        Slice reusedSlice = Slices.wrappedBuffer(buffer);
+        for (int index = 0; index < length; index++) {
+            int position = positions[offset + index];
+            if (!mayHaveNull || !block.isNull(position)) {
+                long value = decimalType.getLong(block, position);
+                storeLongIntoBuffer(value, buffer);
+                valuesWriter.writeBytes(reusedSlice);
                 statistics.updateStats(reusedBinary);
             }
         }

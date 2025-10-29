@@ -14,13 +14,12 @@
 package io.trino.parquet.writer.valuewriter;
 
 import io.trino.spi.block.BitArrayBlock;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.ValueBlock;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
 
 import static io.trino.spi.block.Bitmap.getBits;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static java.util.Objects.requireNonNull;
 
 public class BooleanValueWriter
         extends PrimitiveValueWriter
@@ -31,10 +30,33 @@ public class BooleanValueWriter
     }
 
     @Override
-    public void write(Block block)
+    protected void writeRepeated(ValueBlock block, int count)
     {
-        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
-        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        boolean value = BOOLEAN.getBoolean(block, 0);
+        if (valuesWriter instanceof TrinoBooleanPlainValuesWriter packedWriter) {
+            long bits = 0;
+            if (value) {
+                bits = -1L;
+            }
+            for (int written = 0; written < count; written += Long.SIZE) {
+                packedWriter.writeBits(bits, Math.min(Long.SIZE, count - written));
+            }
+        }
+        else {
+            for (int i = 0; i < count; i++) {
+                valuesWriter.writeBoolean(value);
+            }
+        }
+        statistics.updateStats(value);
+    }
+
+    @Override
+    protected void writeValueBlock(ValueBlock block)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
         if (block instanceof BitArrayBlock bitArrayBlock && valuesWriter instanceof TrinoBooleanPlainValuesWriter packedWriter) {
             writeBitArrayBlock(bitArrayBlock, packedWriter, statistics);
             return;
@@ -44,6 +66,22 @@ public class BooleanValueWriter
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
                 boolean value = BOOLEAN.getBoolean(block, i);
+                valuesWriter.writeBoolean(value);
+                statistics.updateStats(value);
+            }
+        }
+    }
+
+    @Override
+    protected void writePositions(ValueBlock block, int[] positions, int offset, int length)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        boolean mayHaveNull = block.mayHaveNull();
+        for (int i = 0; i < length; i++) {
+            int position = positions[offset + i];
+            if (!mayHaveNull || !block.isNull(position)) {
+                boolean value = BOOLEAN.getBoolean(block, position);
                 valuesWriter.writeBoolean(value);
                 statistics.updateStats(value);
             }

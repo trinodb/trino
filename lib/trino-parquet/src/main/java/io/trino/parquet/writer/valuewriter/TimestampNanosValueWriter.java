@@ -14,7 +14,7 @@
 package io.trino.parquet.writer.valuewriter;
 
 import com.google.common.math.LongMath;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.statistics.Statistics;
@@ -38,19 +38,52 @@ public class TimestampNanosValueWriter
     }
 
     @Override
-    public void write(Block block)
+    protected void writeValueBlock(ValueBlock block)
     {
-        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
-        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
         boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
-                LongTimestamp value = (LongTimestamp) type.getObject(block, i);
-                long epochNanos = multiplyExact(value.getEpochMicros(), NANOSECONDS_PER_MICROSECOND) +
-                        LongMath.divide(value.getPicosOfMicro(), PICOSECONDS_PER_NANOSECOND, UNNECESSARY);
+                long epochNanos = readLongTimestamp(block, i);
                 valuesWriter.writeLong(epochNanos);
                 statistics.updateStats(epochNanos);
             }
         }
+    }
+
+    @Override
+    protected void writeRepeated(ValueBlock block, int count)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        long epochNanos = readLongTimestamp(block, 0);
+        for (int i = 0; i < count; i++) {
+            valuesWriter.writeLong(epochNanos);
+        }
+        statistics.updateStats(epochNanos);
+    }
+
+    @Override
+    protected void writePositions(ValueBlock block, int[] positions, int offset, int length)
+    {
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
+        boolean mayHaveNull = block.mayHaveNull();
+        for (int index = 0; index < length; index++) {
+            int position = positions[offset + index];
+            if (!mayHaveNull || !block.isNull(position)) {
+                long epochNanos = readLongTimestamp(block, position);
+                valuesWriter.writeLong(epochNanos);
+                statistics.updateStats(epochNanos);
+            }
+        }
+    }
+
+    private long readLongTimestamp(ValueBlock block, int position)
+    {
+        LongTimestamp timestamp = (LongTimestamp) type.getObject(block, position);
+        return multiplyExact(timestamp.getEpochMicros(), NANOSECONDS_PER_MICROSECOND) +
+                LongMath.divide(timestamp.getPicosOfMicro(), PICOSECONDS_PER_NANOSECOND, UNNECESSARY);
     }
 }

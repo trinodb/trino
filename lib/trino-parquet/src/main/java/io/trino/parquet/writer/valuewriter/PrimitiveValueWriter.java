@@ -14,6 +14,9 @@
 package io.trino.parquet.writer.valuewriter;
 
 import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ValueBlock;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
@@ -102,5 +105,23 @@ public abstract class PrimitiveValueWriter
         return valuesWriter.getAllocatedSize();
     }
 
-    public abstract void write(Block block);
+    public final void write(Block rawBlock)
+    {
+        switch (rawBlock) {
+            case RunLengthEncodedBlock rleBlock -> {
+                ValueBlock valueBlock = rleBlock.getValue();
+                if (!valueBlock.isNull(0)) {
+                    writeRepeated(valueBlock, rleBlock.getPositionCount());
+                }
+            }
+            case DictionaryBlock dictionaryBlock -> writePositions(dictionaryBlock.getDictionary(), dictionaryBlock.getRawIds(), dictionaryBlock.getRawIdsOffset(), dictionaryBlock.getPositionCount());
+            case ValueBlock valueBlock -> writeValueBlock(valueBlock);
+        }
+    }
+
+    protected abstract void writeValueBlock(ValueBlock block);
+
+    protected abstract void writeRepeated(ValueBlock block, int count);
+
+    protected abstract void writePositions(ValueBlock block, int[] positions, int offset, int length);
 }
