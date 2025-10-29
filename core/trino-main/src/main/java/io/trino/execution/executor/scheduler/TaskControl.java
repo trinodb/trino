@@ -57,6 +57,7 @@ final class TaskControl
     private final AtomicLong scheduledNanos = new AtomicLong();
     private final AtomicLong blockedNanos = new AtomicLong();
     private final AtomicLong waitNanos = new AtomicLong();
+    private final int hashCode;
     private volatile Thread thread;
 
     public TaskControl(Group group, int id, Ticker ticker)
@@ -67,6 +68,7 @@ final class TaskControl
         this.state = State.NEW;
         this.ready = false;
         this.periodStart = ticker.read();
+        this.hashCode = Objects.hash(group, id);
     }
 
     public int id()
@@ -339,7 +341,7 @@ final class TaskControl
     @Override
     public int hashCode()
     {
-        return Objects.hash(group, id);
+        return hashCode;
     }
 
     @Override
