@@ -78,6 +78,10 @@ public class AnthropicClient
     @Override
     protected String generateCompletion(String model, String prompt, double temperature)
     {
+        if (temperature < 0.0 || temperature > 1.0) {
+            throw new TrinoException(AI_ERROR, "temperature must be between 0.0 and 1.0 for Anthropic");
+        }
+
         URI uri = uriBuilderFrom(endpoint)
                 .appendPath("/v1/messages")
                 .build();

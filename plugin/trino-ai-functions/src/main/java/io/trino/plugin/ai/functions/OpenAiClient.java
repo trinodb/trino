@@ -131,6 +131,10 @@ public class OpenAiClient
     @Override
     protected String generateCompletion(String model, String prompt, double temperature)
     {
+        if (temperature < 0.0 || temperature > 2.0) {
+            throw new TrinoException(AI_ERROR, "temperature must be between 0.0 and 2.0 for OpenAI");
+        }
+
         URI uri = uriBuilderFrom(endpoint)
                 .appendPath("/v1/chat/completions")
                 .build();

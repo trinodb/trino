@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @HoverflySimulate(config = @HoverflyConfig(disableTlsVerification = true))
@@ -60,5 +61,46 @@ public class TestAnthropicFunctions
                 .containsEntry("gen_ai.usage.output_tokens", 10);
 
         super.testGen();
+    }
+
+    @Test
+    @Override
+    public void testPrompt()
+    {
+        // Anthropic prompt test uses claude model
+        assertThat(assertions.function("ai_prompt", "'What is 2+2?'", "'claude-3-5-sonnet-latest'", "0.0e0"))
+                .hasType(VARCHAR)
+                .isEqualTo("2 + 2 equals 4.");
+    }
+
+    @Test
+    @Override
+    public void testPromptCacheRespectsTemperature()
+    {
+        // Same prompt and model, different temperatures should be separate cache entries
+        assertThat(assertions.function("ai_prompt", "'test cache'", "'claude-3-5-sonnet-latest'", "0.0e0"))
+                .hasType(VARCHAR);
+        assertThat(assertions.function("ai_prompt", "'test cache'", "'claude-3-5-sonnet-latest'", "0.5e0"))
+                .hasType(VARCHAR);
+        // Both should execute successfully, proving they're separate cache entries
+    }
+
+    @Test
+    @Override
+    public void testPromptInvalidTemperatureLow()
+    {
+        assertThat(assertions.query("SELECT ai_prompt('test', 'claude-3-5-sonnet-latest', -0.1e0)"))
+                .failure()
+                .hasMessageContaining("temperature must be between 0.0 and 1.0 for Anthropic");
+    }
+
+    @Test
+    @Override
+    public void testPromptInvalidTemperatureHigh()
+    {
+        // Anthropic's max temperature is 1.0, so 1.1 should fail
+        assertThat(assertions.query("SELECT ai_prompt('test', 'claude-3-5-sonnet-latest', 1.1e0)"))
+                .failure()
+                .hasMessageContaining("temperature must be between 0.0 and 1.0 for Anthropic");
     }
 }

@@ -284,7 +284,7 @@ public abstract class AbstractTestAiFunctions
     {
         assertThat(assertions.query("SELECT ai_prompt('test', 'gpt-4o-mini', -0.1e0)"))
                 .failure()
-                .hasMessageContaining("temperature must be between 0.0 and 2.0");
+                .hasMessageContaining("temperature must be between");
     }
 
     @Test
@@ -292,7 +292,7 @@ public abstract class AbstractTestAiFunctions
     {
         assertThat(assertions.query("SELECT ai_prompt('test', 'gpt-4o-mini', 2.1e0)"))
                 .failure()
-                .hasMessageContaining("temperature must be between 0.0 and 2.0");
+                .hasMessageContaining("temperature must be between");
     }
 
     @Test

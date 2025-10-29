@@ -89,4 +89,22 @@ public class TestOpenAiFunctions
 
         super.testPrompt();
     }
+
+    @Test
+    @Override
+    public void testPromptInvalidTemperatureLow()
+    {
+        assertThat(assertions.query("SELECT ai_prompt('test', 'gpt-4o-mini', -0.1e0)"))
+                .failure()
+                .hasMessageContaining("temperature must be between 0.0 and 2.0 for OpenAI");
+    }
+
+    @Test
+    @Override
+    public void testPromptInvalidTemperatureHigh()
+    {
+        assertThat(assertions.query("SELECT ai_prompt('test', 'gpt-4o-mini', 2.1e0)"))
+                .failure()
+                .hasMessageContaining("temperature must be between 0.0 and 2.0 for OpenAI");
+    }
 }

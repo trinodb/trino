@@ -177,9 +177,6 @@ public abstract class AbstractAiClient
     @Override
     public String prompt(String prompt, String model, double temperature)
     {
-        if (temperature < 0.0 || temperature > 2.0) {
-            throw new TrinoException(AI_ERROR, "temperature must be between 0.0 and 2.0");
-        }
         try {
             String key = model + "\0" + prompt + "\0" + temperature;
             return completionCache.get(key, () -> generateCompletion(model, prompt, temperature));
