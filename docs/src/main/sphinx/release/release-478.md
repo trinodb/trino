@@ -41,6 +41,7 @@
 * Deprecate the `gcs.use-access-token` configuration property. Use `gcs.auth-type` instead. ({issue}`26681`)
 * Improve performance of queries using complex predicates on `$path` column. ({issue}`27000`)
 * Fix writing ORC files to ensure that dates and timestamps before `1582-10-15` are read correctly by Apache Hive. ({issue}`26507`)
+* Fix `flush_metadata_cache` procedure failure when metastore impersonation is enabled. ({issue}`27059`)
 
 ## Hudi connector
 
@@ -50,6 +51,7 @@
 
 * Improve performance when writing sorted tables and `iceberg.sorted-writing.local-staging-path`
   is set. ({issue}`24376`)
+* Improve performance of `ALTER TABLE EXECUTE OPTIMIZE` on tables with bucket transform partitioning. ({issue}`27104`)
 * Return execution metrics while running the `remove_orphan_files` command. ({issue}`26661`)
 * Deprecate the `gcs.use-access-token` configuration property. Use `gcs.auth-type` instead. ({issue}`26681`)
 * Collect distinct values count on all columns when replacing tables. ({issue}`26983`)
