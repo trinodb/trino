@@ -43,6 +43,7 @@ public class JoinBridgeManager<T extends JoinBridge>
     private final List<Type> buildOutputTypes;
     private final boolean buildOuter;
     private final T joinBridge;
+    private final ListenableFuture<Void> whenBuildFinishes;
 
     private final AtomicBoolean initialized = new AtomicBoolean();
     private JoinLifecycle joinLifecycle;
@@ -57,6 +58,7 @@ public class JoinBridgeManager<T extends JoinBridge>
         this.buildOuter = buildOuter;
         this.joinBridge = requireNonNull(joinBridge, "joinBridge is null");
         this.buildOutputTypes = requireNonNull(buildOutputTypes, "buildOutputTypes is null");
+        this.whenBuildFinishes = requireNonNull(joinBridge.whenBuildFinishes(), "whenBuildFinishes is null");
     }
 
     private void initializeIfNecessary()
@@ -67,7 +69,7 @@ public class JoinBridgeManager<T extends JoinBridge>
                     return;
                 }
                 int finalProbeFactoryCount = probeFactoryCount.get();
-                joinLifecycle = new JoinLifecycle(joinBridge, finalProbeFactoryCount, buildOuter ? 1 : 0);
+                joinLifecycle = new JoinLifecycle(whenBuildFinishes, joinBridge, finalProbeFactoryCount, buildOuter ? 1 : 0);
                 initialized.set(true);
             }
         }
@@ -81,6 +83,11 @@ public class JoinBridgeManager<T extends JoinBridge>
     public void incrementProbeFactoryCount()
     {
         probeFactoryCount.increment();
+    }
+
+    public ListenableFuture<Void> getBuildFinishedFuture()
+    {
+        return whenBuildFinishes;
     }
 
     public T getJoinBridge()
@@ -139,7 +146,7 @@ public class JoinBridgeManager<T extends JoinBridge>
         private final ListenableFuture<Void> whenBuildAndProbeFinishes;
         private final ListenableFuture<Void> whenAllFinishes;
 
-        public JoinLifecycle(JoinBridge joinBridge, int probeFactoryCount, int outerFactoryCount)
+        private JoinLifecycle(ListenableFuture<Void> whenBuildFinishes, JoinBridge joinBridge, int probeFactoryCount, int outerFactoryCount)
         {
             // When all probe and lookup-outer operators finish, destroy the join bridge (freeing the memory)
             // * Each LookupOuterOperatorFactory count as 1
@@ -152,7 +159,7 @@ public class JoinBridgeManager<T extends JoinBridge>
             // * Each probe operator count as 1
             probeReferenceCount = new ReferenceCount(probeFactoryCount);
 
-            whenBuildAndProbeFinishes = Futures.whenAllSucceed(joinBridge.whenBuildFinishes(), probeReferenceCount.getFreeFuture()).call(() -> null, directExecutor());
+            whenBuildAndProbeFinishes = Futures.whenAllSucceed(whenBuildFinishes, probeReferenceCount.getFreeFuture()).call(() -> null, directExecutor());
             whenAllFinishes = Futures.whenAllSucceed(whenBuildAndProbeFinishes, outerReferenceCount.getFreeFuture()).call(() -> null, directExecutor());
             whenAllFinishes.addListener(joinBridge::destroy, directExecutor());
         }

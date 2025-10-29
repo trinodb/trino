@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.join.JoinOperatorFactory;
@@ -84,6 +85,21 @@ public class WorkProcessorOperatorAdapter
             }
 
             return lookupJoin.createOuterOperatorFactory();
+        }
+
+        @Override
+        public ListenableFuture<Void> buildPipelineReady()
+        {
+            if (!(operatorFactory instanceof JoinOperatorFactory lookupJoin)) {
+                return Futures.immediateVoidFuture();
+            }
+            return lookupJoin.buildPipelineReady();
+        }
+
+        @Override
+        public ListenableFuture<Void> pipelineDependenciesSatisfied()
+        {
+            return buildPipelineReady();
         }
 
         @VisibleForTesting

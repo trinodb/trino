@@ -14,6 +14,7 @@
 package io.trino.operator.join.unspilled;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.JoinOperatorType;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.ProcessorContext;
@@ -131,6 +132,12 @@ public class LookupJoinOperatorFactory
     public String getOperatorType()
     {
         return LookupJoinOperator.class.getSimpleName();
+    }
+
+    @Override
+    public ListenableFuture<Void> buildPipelineReady()
+    {
+        return joinBridgeManager.getBuildFinishedFuture();
     }
 
     @Override
