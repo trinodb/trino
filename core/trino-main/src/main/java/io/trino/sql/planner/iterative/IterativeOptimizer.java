@@ -201,12 +201,13 @@ public class IterativeOptimizer
     {
         Capture<T> nodeCapture = newCapture();
         Pattern<T> pattern = rule.getPattern().capturedAs(nodeCapture);
+        Rule.Context ruleContext = ruleContext(context);
         for (Match match : pattern.match(node, context.lookup)) {
             long duration;
             Rule.Result result;
             try {
                 long start = nanoTime();
-                result = rule.apply(match.capture(nodeCapture), match.captures(), ruleContext(context));
+                result = rule.apply(match.capture(nodeCapture), match.captures(), ruleContext);
 
                 if (LOG.isDebugEnabled() && !result.isEmpty()) {
                     LOG.debug(
