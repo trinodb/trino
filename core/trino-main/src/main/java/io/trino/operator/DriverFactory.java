@@ -14,6 +14,8 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.sql.planner.plan.PlanNodeId;
 import jakarta.annotation.Nullable;
@@ -26,6 +28,7 @@ import java.util.OptionalInt;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
 public class DriverFactory
@@ -35,6 +38,7 @@ public class DriverFactory
     private final boolean outputDriver;
     private final Optional<PlanNodeId> sourceId;
     private final OptionalInt driverInstances;
+    private final ListenableFuture<Void> pipelineDependenciesSatisfied;
 
     // must synchronize between createDriver() and noMoreDrivers(), but isNoMoreDrivers() is safe without synchronizing
     @GuardedBy("this")
@@ -57,6 +61,11 @@ public class DriverFactory
                 .collect(toImmutableList());
         checkArgument(sourceIds.size() <= 1, "Expected at most one source operator in driver factory, but found %s", sourceIds);
         this.sourceId = sourceIds.isEmpty() ? Optional.empty() : Optional.of(sourceIds.get(0));
+        List<ListenableFuture<Void>> pipelineDependencies = operatorFactories.stream()
+                .map(OperatorFactory::pipelineDependenciesSatisfied)
+                .filter(future -> !future.isDone())
+                .collect(toImmutableList());
+        this.pipelineDependenciesSatisfied = pipelineDependencies.isEmpty() ? Futures.immediateVoidFuture() : Futures.whenAllComplete(pipelineDependencies).call(() -> null, directExecutor());
     }
 
     public int getPipelineId()
@@ -72,6 +81,11 @@ public class DriverFactory
     public boolean isOutputDriver()
     {
         return outputDriver;
+    }
+
+    public ListenableFuture<Void> getPipelineDependenciesSatisfied()
+    {
+        return pipelineDependenciesSatisfied;
     }
 
     /**
