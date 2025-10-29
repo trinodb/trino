@@ -43,6 +43,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -226,7 +227,7 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
             return isEnableForcedExchangeBelowGroupId(session);
         }
 
-        protected Optional<PlanNode> transform(AggregationNode aggregation, GroupIdNode groupId, Optional<Integer> partitionCount, Context context)
+        protected Optional<PlanNode> transform(AggregationNode aggregation, GroupIdNode groupId, OptionalInt partitionCount, Context context)
         {
             if (groupId.getGroupingSets().size() < 2) {
                 return Optional.empty();
@@ -301,7 +302,7 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
                             source.getOutputSymbols(),
                             false,
                             Optional.empty(),
-                            Optional.empty(),
+                            OptionalInt.empty(),
                             // It's fine to reuse partitionCount since that is computed by considering all the expanding nodes and table scans in a query
                             partitionCount));
 

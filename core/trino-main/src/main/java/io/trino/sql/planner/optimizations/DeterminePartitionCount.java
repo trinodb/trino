@@ -39,6 +39,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.ToDoubleFunction;
 
 import static com.google.common.base.Verify.verify;
@@ -348,7 +349,7 @@ public class DeterminePartitionCount
 
             PartitioningScheme partitioningScheme = node.getPartitioningScheme();
             if (isEligibleRemoteExchange(node, taskRetries)) {
-                partitioningScheme = partitioningScheme.withPartitionCount(Optional.of(partitionCount));
+                partitioningScheme = partitioningScheme.withPartitionCount(OptionalInt.of(partitionCount));
             }
 
             return new ExchangeNode(

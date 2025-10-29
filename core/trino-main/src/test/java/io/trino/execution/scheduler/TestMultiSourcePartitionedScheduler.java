@@ -579,7 +579,7 @@ public class TestMultiSourcePartitionedScheduler
                         Optional.empty()),
                 ImmutableSet.of(symbol),
                 SOURCE_DISTRIBUTION,
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(TABLE_SCAN_1_NODE_ID, TABLE_SCAN_2_NODE_ID),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
                 OptionalInt.empty(),
@@ -622,7 +622,7 @@ public class TestMultiSourcePartitionedScheduler
                 noopTracer(),
                 Span.getInvalid(),
                 new SplitSchedulerStats(),
-                (_, _) -> Optional.empty());
+                (_, _) -> OptionalInt.empty());
         ImmutableMap.Builder<PlanFragmentId, PipelinedOutputBufferManager> outputBuffers = ImmutableMap.builder();
         outputBuffers.put(fragment.getId(), new PartitionedPipelinedOutputBufferManager(FIXED_HASH_DISTRIBUTION, 1));
         fragment.getRemoteSourceNodes().stream()

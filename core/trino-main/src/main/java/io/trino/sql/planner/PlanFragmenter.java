@@ -601,7 +601,7 @@ public class PlanFragmenter
 
         private Optional<PartitioningHandle> partitioningHandle = Optional.empty();
         private boolean containsEmptyValues;
-        private Optional<Integer> partitionCount = Optional.empty();
+        private OptionalInt partitionCount = OptionalInt.empty();
         private final Set<PlanNodeId> partitionedSources = new HashSet<>();
 
         public FragmentProperties(PartitioningScheme partitioningScheme)
@@ -638,7 +638,7 @@ public class PlanFragmenter
 
         public FragmentProperties setDistribution(
                 PartitioningHandle distribution,
-                Optional<Integer> partitionCount,
+                OptionalInt partitionCount,
                 Metadata metadata,
                 Session session)
         {
@@ -786,7 +786,7 @@ public class PlanFragmenter
             return partitioningHandle.orElse(SINGLE_DISTRIBUTION);
         }
 
-        public Optional<Integer> getPartitionCount()
+        public OptionalInt getPartitionCount()
         {
             return partitionCount;
         }
