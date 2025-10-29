@@ -319,9 +319,7 @@ export function parseDuration(value: string): number | null {
 }
 
 export function formatShortTime(date: Date): string {
-    const hours = date.getHours() % 12 || 12
-    const minutes = (date.getMinutes() < 10 ? '0' : '') + date.getMinutes()
-    return hours + ':' + minutes + (date.getHours() >= 12 ? 'pm' : 'am')
+    return date.toLocaleTimeString([], { timeStyle: 'short' })
 }
 
 export function formatShortDateTime(date: Date): string {
