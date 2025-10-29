@@ -27,6 +27,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.Duration.succinctDuration;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -99,8 +100,8 @@ public class TaskStats
                 null,
                 null,
                 endTime,
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
                 0,
                 0,
                 0,
@@ -115,27 +116,27 @@ public class TaskStats
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
-                new Duration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
                 false,
                 ImmutableSet.of(),
                 DataSize.ofBytes(0),
                 0,
-                new Duration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
                 DataSize.ofBytes(0),
                 0,
                 DataSize.ofBytes(0),
                 0,
-                new Duration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
                 DataSize.ofBytes(0),
                 0,
-                new Duration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 OptionalInt.empty(),
                 0,
-                new Duration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
                 ImmutableList.of());
     }
 
