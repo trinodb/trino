@@ -45,6 +45,21 @@ connection-user=root
 connection-password=secret
 ```
 
+Additionally, the following configuration properties can be set depending 
+on the use-case:
+
+:::{list-table} Druid Execution Configuration Properties
+:widths: 30, 33, 33
+:header-rows: 1
+
+* - Property Name
+  - Description
+  - Default
+* - `druid.execution-timeout`
+  - Query timeout for Druid queries, beyond which unfinished queries will be cancelled. Example: `10s`, `1m`, and `1000ms`.
+  - `None`
+:::
+
 Now you can access your Druid database in Trino with the `example` catalog
 name from the properties file.
 
