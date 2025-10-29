@@ -21,11 +21,11 @@ import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.plan.PlanNode;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import jakarta.annotation.Nullable;
 
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -68,7 +68,7 @@ public class Memo
     private final PlanNodeIdAllocator idAllocator;
     private final int rootGroup;
 
-    private final Map<Integer, Group> groups = new HashMap<>();
+    private final Int2ObjectMap<Group> groups = new Int2ObjectOpenHashMap<>();
 
     private int nextGroupId = ROOT_GROUP_REF + 1;
 
