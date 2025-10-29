@@ -46,7 +46,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -202,9 +201,7 @@ public class IterativeOptimizer
     {
         Capture<T> nodeCapture = newCapture();
         Pattern<T> pattern = rule.getPattern().capturedAs(nodeCapture);
-        Iterator<Match> matches = pattern.match(node, context.lookup).iterator();
-        while (matches.hasNext()) {
-            Match match = matches.next();
+        for (Match match : pattern.match(node, context.lookup)) {
             long duration;
             Rule.Result result;
             try {

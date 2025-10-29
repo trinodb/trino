@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.base.aggregation;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.CustomPattern;
 import io.trino.matching.Match;
@@ -25,7 +26,6 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 public final class AggregateFunctionPatterns
 {
@@ -84,17 +84,17 @@ public final class AggregateFunctionPatterns
     {
         return new CustomPattern<>(Optional.empty()) {
             @Override
-            public <C> Stream<Match> accept(Object object, Captures captures, C context)
+            public <C> Iterable<Match> accept(Object object, Captures captures, C context)
             {
                 if (!(object instanceof List)) {
-                    return Stream.of();
+                    return ImmutableList.of();
                 }
                 @SuppressWarnings("unchecked")
                 List<ConnectorExpression> arguments = (List<ConnectorExpression>) object;
                 if (!arguments.stream().allMatch(Variable.class::isInstance)) {
-                    return Stream.of();
+                    return ImmutableList.of();
                 }
-                return Stream.of(Match.of(captures));
+                return ImmutableList.of(Match.of(captures));
             }
 
             @Override

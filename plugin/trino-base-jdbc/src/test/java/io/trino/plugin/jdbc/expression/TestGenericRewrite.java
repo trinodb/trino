@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.MoreCollectors.toOptional;
+import static com.google.common.collect.Iterables.getFirst;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -90,11 +90,11 @@ public class TestGenericRewrite
 
     private static Optional<ParameterizedExpression> apply(GenericRewrite rewrite, ConnectorExpression expression)
     {
-        Optional<Match> match = rewrite.getPattern().match(expression).collect(toOptional());
-        if (match.isEmpty()) {
+        Match match = getFirst(rewrite.getPattern().match(expression), null);
+        if (match == null) {
             return Optional.empty();
         }
-        return rewrite.rewrite(expression, match.get().captures(), new RewriteContext<>()
+        return rewrite.rewrite(expression, match.captures(), new RewriteContext<>()
         {
             @Override
             public Map<String, ColumnHandle> getAssignments()

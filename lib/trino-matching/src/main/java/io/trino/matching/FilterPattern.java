@@ -13,9 +13,10 @@
  */
 package io.trino.matching;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.Optional;
 import java.util.function.BiPredicate;
-import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -36,11 +37,13 @@ public final class FilterPattern<T>
     }
 
     @Override
-    public <C> Stream<Match> accept(Object object, Captures captures, C context)
+    public <C> Iterable<Match> accept(Object object, Captures captures, C context)
     {
         //TODO remove cast
         BiPredicate<? super T, C> predicate = (BiPredicate<? super T, C>) this.predicate;
-        return Stream.of(Match.of(captures))
-                .filter(match -> predicate.test((T) object, context));
+        if (predicate.test((T) object, context)) {
+            return ImmutableList.of(Match.of(captures));
+        }
+        return ImmutableList.of();
     }
 }

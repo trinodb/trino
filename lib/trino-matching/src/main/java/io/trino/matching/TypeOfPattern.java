@@ -13,8 +13,9 @@
  */
 package io.trino.matching;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.Optional;
-import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -40,11 +41,11 @@ public final class TypeOfPattern<T>
     }
 
     @Override
-    public <C> Stream<Match> accept(Object object, Captures captures, C context)
+    public <C> Iterable<Match> accept(Object object, Captures captures, C context)
     {
         if (expectedClass.isInstance(object)) {
-            return Stream.of(Match.of(captures));
+            return ImmutableList.of(Match.of(captures));
         }
-        return Stream.of();
+        return ImmutableList.of();
     }
 }
