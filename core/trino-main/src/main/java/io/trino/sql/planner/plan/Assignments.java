@@ -37,9 +37,18 @@ import static java.util.Objects.requireNonNull;
 
 public record Assignments(@JsonProperty("assignments") Map<Symbol, Expression> assignments)
 {
+    private static final Assignments EMPTY = Assignments.builder().build();
+
     public static Builder builder()
     {
-        return new Builder();
+        // Maintaining insertion order is important hence LinkedHashMap
+        return new Builder(new LinkedHashMap<>());
+    }
+
+    public static Builder builderWithExpectedSize(int expectedSize)
+    {
+        // Maintaining insertion order is important hence LinkedHashMap
+        return new Builder(new LinkedHashMap<>(expectedSize));
     }
 
     public static Assignments identity(Symbol... symbols)
@@ -49,34 +58,34 @@ public record Assignments(@JsonProperty("assignments") Map<Symbol, Expression> a
 
     public static Assignments identity(Iterable<Symbol> symbols)
     {
-        return builder().putIdentities(symbols).build();
+        return builder()
+                .putIdentities(symbols)
+                .build();
     }
 
     public static Assignments copyOf(Map<Symbol, Expression> assignments)
     {
-        return builder()
-                .putAll(assignments)
-                .build();
+        return new Assignments(ImmutableMap.copyOf(assignments));
     }
 
     public static Assignments of()
     {
-        return builder().build();
+        return EMPTY;
     }
 
     public static Assignments of(Symbol symbol, Expression expression)
     {
-        return builder().put(symbol, expression).build();
+        return new Assignments(ImmutableMap.of(symbol, expression));
     }
 
     public static Assignments of(Symbol symbol1, Expression expression1, Symbol symbol2, Expression expression2)
     {
-        return builder().put(symbol1, expression1).put(symbol2, expression2).build();
+        return new Assignments(ImmutableMap.of(symbol1, expression1, symbol2, expression2));
     }
 
     public static Assignments of(Collection<? extends Expression> expressions, SymbolAllocator symbolAllocator)
     {
-        Builder assignments = Assignments.builder();
+        Builder assignments = Assignments.builderWithExpectedSize(expressions.size());
 
         for (Expression expression : expressions) {
             assignments.put(symbolAllocator.newSymbol(expression), expression);
@@ -179,7 +188,12 @@ public record Assignments(@JsonProperty("assignments") Map<Symbol, Expression> a
 
     public static class Builder
     {
-        private final Map<Symbol, Expression> assignments = new LinkedHashMap<>();
+        private final Map<Symbol, Expression> assignments;
+
+        private Builder(Map<Symbol, Expression> assignments)
+        {
+            this.assignments = requireNonNull(assignments, "assignments is null");
+        }
 
         public Builder putAll(Assignments assignments)
         {
@@ -197,7 +211,6 @@ public record Assignments(@JsonProperty("assignments") Map<Symbol, Expression> a
         public Builder put(Symbol symbol, Expression expression)
         {
             checkArgument(symbol.type().equals(expression.type()), "Types don't match: %s vs %s, for %s and %s", symbol.type(), expression.type(), symbol, expression);
-
             Expression replaced = assignments.put(symbol, expression);
             if (replaced != null && !replaced.equals(expression)) {
                 assignments.put(symbol, replaced); // restore previous value
@@ -234,7 +247,12 @@ public record Assignments(@JsonProperty("assignments") Map<Symbol, Expression> a
 
         public Assignments build()
         {
-            return new Assignments(assignments);
+            try {
+                return new Assignments(ImmutableMap.copyOf(assignments));
+            }
+            catch (Exception e) {
+                throw e;
+            }
         }
     }
 }
