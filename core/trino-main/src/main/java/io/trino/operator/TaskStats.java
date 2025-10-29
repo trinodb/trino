@@ -23,7 +23,7 @@ import jakarta.annotation.Nullable;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -84,7 +84,7 @@ public class TaskStats
 
     private final DataSize writerInputDataSize;
     private final DataSize physicalWrittenDataSize;
-    private final Optional<Integer> maxWriterCount;
+    private final OptionalInt maxWriterCount;
 
     private final int fullGcCount;
     private final Duration fullGcTime;
@@ -133,7 +133,7 @@ public class TaskStats
                 new Duration(0, MILLISECONDS),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
-                Optional.empty(),
+                OptionalInt.empty(),
                 0,
                 new Duration(0, MILLISECONDS),
                 ImmutableList.of());
@@ -192,7 +192,7 @@ public class TaskStats
 
             @JsonProperty("writerInputDataSize") DataSize writerInputDataSize,
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
-            @JsonProperty("writerCount") Optional<Integer> writerCount,
+            @JsonProperty("writerCount") OptionalInt writerCount,
 
             @JsonProperty("fullGcCount") int fullGcCount,
             @JsonProperty("fullGcTime") Duration fullGcTime,
@@ -497,7 +497,7 @@ public class TaskStats
     }
 
     @JsonProperty
-    public Optional<Integer> getMaxWriterCount()
+    public OptionalInt getMaxWriterCount()
     {
         return maxWriterCount;
     }

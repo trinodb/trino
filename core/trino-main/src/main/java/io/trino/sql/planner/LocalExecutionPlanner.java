@@ -4060,11 +4060,11 @@ public class LocalExecutionPlanner
 
             // add group-by key fields each in a separate channel
             int channel = startOutputChannel;
-            Optional<Integer> groupIdChannel = Optional.empty();
+            OptionalInt groupIdChannel = OptionalInt.empty();
             for (Symbol symbol : groupBySymbols) {
                 outputMappings.put(symbol, channel);
                 if (groupIdSymbol.isPresent() && groupIdSymbol.get().equals(symbol)) {
-                    groupIdChannel = Optional.of(channel);
+                    groupIdChannel = OptionalInt.of(channel);
                 }
                 channel++;
             }

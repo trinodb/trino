@@ -54,6 +54,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
@@ -344,7 +345,7 @@ public class SqlTask
         DataSize outputDataSize = DataSize.ofBytes(0);
         DataSize writerInputDataSize = DataSize.ofBytes(0);
         DataSize physicalWrittenDataSize = DataSize.ofBytes(0);
-        Optional<Integer> writerCount = Optional.empty();
+        OptionalInt writerCount = OptionalInt.empty();
         DataSize userMemoryReservation = DataSize.ofBytes(0);
         DataSize peakUserMemoryReservation = DataSize.ofBytes(0);
         DataSize revocableMemoryReservation = DataSize.ofBytes(0);
