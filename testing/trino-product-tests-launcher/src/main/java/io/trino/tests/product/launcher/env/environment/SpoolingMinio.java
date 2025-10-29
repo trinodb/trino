@@ -21,7 +21,6 @@ import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.common.EnvironmentExtender;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
-import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -33,6 +32,7 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.Set;
 
+import static io.trino.project.DockerImages.minioDockerImage;
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_CONFIG_PROPERTIES;
@@ -48,8 +48,7 @@ public class SpoolingMinio
     private static final String MINIO_SPOOLING_CONTAINER_NAME = "spooling-minio";
     private static final String MINIO_ACCESS_KEY = "minio-access-key";
     private static final String MINIO_SECRET_KEY = "minio-secret-key";
-    private static final String MINIO_RELEASE = DockerImageName.parse("cgr.dev/chainguard/minio@sha256:66bd82c8fe5e75868ae7d0b2e102d9a0dcf971b270a41bd060a9e6a643476ff8")
-            .asCanonicalNameString();
+    private static final String MINIO_RELEASE = minioDockerImage().asCanonicalNameString();
 
     private static final int MINIO_PORT = 9080; // minio uses 9000 by default, which conflicts with hadoop
     private static final int MINIO_CONSOLE_PORT = 9001;

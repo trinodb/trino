@@ -41,19 +41,24 @@ public class ProjectProperties
         this.properties = properties;
     }
 
-    private String getProperty(String propertyName)
+    private String internalGetProperty(String propertyName)
     {
-        return properties.getProperty(requireNonNull(propertyName, "propertyName is null"));
+        return requireNonNull(properties.getProperty(requireNonNull(propertyName, "propertyName is null")), "project property '%s' not found");
+    }
+
+    static String getProperty(String propertyName)
+    {
+        return INSTANCE.internalGetProperty(propertyName);
     }
 
     public static String nessieVersion()
     {
-        return INSTANCE.getProperty("dep.nessie.version");
+        return getProperty("dep.nessie.version");
     }
 
     @VisibleForTesting
     static String artifactId()
     {
-        return INSTANCE.getProperty("artifactId");
+        return getProperty("artifactId");
     }
 }

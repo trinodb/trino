@@ -216,6 +216,10 @@
         <dep.tempto.version>202</dep.tempto.version>
         <dep.wire.version>5.2.1</dep.wire.version>
         <dep.zookeeper.version>3.9.4</dep.zookeeper.version>
+
+        <!-- docker images used in the tests, keep sorted -->
+        <docker.minio.image>cgr.dev/chainguard/minio@sha256:66bd82c8fe5e75868ae7d0b2e102d9a0dcf971b270a41bd060a9e6a643476ff8</docker.minio.image>
+
         <extraJavaVectorArgs>--add-modules=jdk.incubator.vector</extraJavaVectorArgs>
         <!--
         Instructs Provisio to write runtime dependencies in the format groupId_artifactId-version.jar.
