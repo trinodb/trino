@@ -27,6 +27,7 @@ import java.util.OptionalInt;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.TaskState.PLANNED;
 import static java.util.Objects.requireNonNull;
@@ -308,7 +309,7 @@ public class TaskStatus
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 0,
-                new Duration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
                 INITIAL_DYNAMIC_FILTERS_VERSION,
                 0L,
                 0L);
