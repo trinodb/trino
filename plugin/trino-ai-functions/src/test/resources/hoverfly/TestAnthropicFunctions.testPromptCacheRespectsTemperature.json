@@ -20,7 +20,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"claude-3-5-sonnet-latest\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"test cache\"\n  } ],\n  \"temperature\" : 0.0\n}"
+          "value" : "{\n  \"model\" : \"claude-sonnet-4-5-20250929\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"test cache\"\n  } ],\n  \"temperature\" : 0.0\n}"
         } ]
       },
       "response" : {
@@ -53,7 +53,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"claude-3-5-sonnet-latest\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"test cache\"\n  } ],\n  \"temperature\" : 0.5\n}"
+          "value" : "{\n  \"model\" : \"claude-sonnet-4-5-20250929\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"test cache\"\n  } ],\n  \"temperature\" : 0.5\n}"
         } ]
       },
       "response" : {

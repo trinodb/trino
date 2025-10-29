@@ -20,7 +20,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"claude-3-5-sonnet-latest\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following labels: [positive, negative, neutral, mixed]\\nOutput only the label.\\n=====\\nI love Trino\\n\"\n  } ]\n}"
+          "value" : "{\n  \"model\" : \"claude-sonnet-4-5-20250929\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following labels: [positive, negative, neutral, mixed]\\nOutput only the label.\\n=====\\nI love Trino\\n\"\n  } ],\n  \"temperature\" : 1.0\n}"
         } ]
       },
       "response" : {
@@ -74,7 +74,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"claude-3-5-sonnet-latest\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following labels: [positive, negative, neutral, mixed]\\nOutput only the label.\\n=====\\nI am sad\\n\"\n  } ]\n}"
+          "value" : "{\n  \"model\" : \"claude-sonnet-4-5-20250929\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following labels: [positive, negative, neutral, mixed]\\nOutput only the label.\\n=====\\nI am sad\\n\"\n  } ],\n  \"temperature\" : 1.0\n}"
         } ]
       },
       "response" : {
@@ -128,7 +128,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"claude-3-5-sonnet-latest\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following labels: [positive, negative, neutral, mixed]\\nOutput only the label.\\n=====\\nThe earth is round\\n\"\n  } ]\n}"
+          "value" : "{\n  \"model\" : \"claude-sonnet-4-5-20250929\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following labels: [positive, negative, neutral, mixed]\\nOutput only the label.\\n=====\\nThe earth is round\\n\"\n  } ],\n  \"temperature\" : 1.0\n}"
         } ]
       },
       "response" : {
@@ -182,7 +182,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"claude-3-5-sonnet-latest\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following labels: [positive, negative, neutral, mixed]\\nOutput only the label.\\n=====\\nThe food tasted good but was too salty\\n\"\n  } ]\n}"
+          "value" : "{\n  \"model\" : \"claude-sonnet-4-5-20250929\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following labels: [positive, negative, neutral, mixed]\\nOutput only the label.\\n=====\\nThe food tasted good but was too salty\\n\"\n  } ],\n  \"temperature\" : 1.0\n}"
         } ]
       },
       "response" : {

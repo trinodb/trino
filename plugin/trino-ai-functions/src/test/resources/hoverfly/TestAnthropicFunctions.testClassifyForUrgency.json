@@ -20,7 +20,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"claude-3-5-sonnet-latest\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"urgent\\\", \\\"not urgent\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nThe deadline is approaching\\n\"\n  } ]\n}"
+          "value" : "{\n  \"model\" : \"claude-sonnet-4-5-20250929\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"urgent\\\", \\\"not urgent\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nThe deadline is approaching\\n\"\n  } ],\n  \"temperature\" : 1.0\n}"
         } ]
       },
       "response" : {
@@ -74,7 +74,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"claude-3-5-sonnet-latest\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"urgent\\\", \\\"not urgent\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nThe deadline is far away\\n\"\n  } ]\n}"
+          "value" : "{\n  \"model\" : \"claude-sonnet-4-5-20250929\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"urgent\\\", \\\"not urgent\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nThe deadline is far away\\n\"\n  } ],\n  \"temperature\" : 1.0\n}"
         } ]
       },
       "response" : {
