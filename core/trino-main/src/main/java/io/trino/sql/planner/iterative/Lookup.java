@@ -18,8 +18,12 @@ import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.function.Function;
 
-public interface Lookup
+import static java.util.Objects.requireNonNull;
+
+public sealed interface Lookup
 {
+    Lookup THROWING = new ThrowingLookup();
+
     /**
      * Resolves a node by materializing GroupReference nodes
      * representing symbolic references to other nodes. This method
@@ -50,18 +54,39 @@ public interface Lookup
      */
     static Lookup noLookup()
     {
-        return node -> {
-            throw new UnsupportedOperationException();
-        };
+        return THROWING;
     }
 
     static Lookup from(Function<GroupReference, Iterable<PlanNode>> resolver)
     {
-        return node -> {
+        return new LookupFromFunction(resolver);
+    }
+
+    final class ThrowingLookup
+            implements Lookup
+    {
+        @Override
+        public Iterable<PlanNode> resolveGroup(PlanNode node)
+        {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    record LookupFromFunction(Function<GroupReference, Iterable<PlanNode>> resolver)
+            implements Lookup
+    {
+        public LookupFromFunction(Function<GroupReference, Iterable<PlanNode>> resolver)
+        {
+            this.resolver = requireNonNull(resolver, "resolver is null");
+        }
+
+        @Override
+        public Iterable<PlanNode> resolveGroup(PlanNode node)
+        {
             if (!(node instanceof GroupReference groupReference)) {
                 throw new IllegalArgumentException("Node '%s' is not a GroupReference".formatted(node.getClass().getSimpleName()));
             }
             return resolver.apply(groupReference);
-        };
+        }
     }
 }
