@@ -14,9 +14,13 @@
 package io.trino.sql.planner;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Objects;
@@ -31,6 +35,7 @@ public class PartitioningScheme
 {
     private final Partitioning partitioning;
     private final List<Symbol> outputLayout;
+    private final Supplier<List<Type>> outputTypes;
     private final boolean replicateNullsAndAny;
     private final Optional<int[]> bucketToPartition;
     private final Optional<Integer> bucketCount;
@@ -58,6 +63,7 @@ public class PartitioningScheme
     {
         this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.outputLayout = ImmutableList.copyOf(requireNonNull(outputLayout, "outputLayout is null"));
+        this.outputTypes = Suppliers.memoize(this::computeOutputTypes);
 
         Set<Symbol> columns = partitioning.getColumns();
         checkArgument(ImmutableSet.copyOf(outputLayout).containsAll(columns),
@@ -87,6 +93,12 @@ public class PartitioningScheme
     public List<Symbol> getOutputLayout()
     {
         return outputLayout;
+    }
+
+    @JsonIgnore
+    public List<Type> getOutputTypes()
+    {
+        return outputTypes.get();
     }
 
     @JsonProperty
@@ -180,5 +192,14 @@ public class PartitioningScheme
                 .add("bucketCount", bucketCount)
                 .add("partitionCount", partitionCount)
                 .toString();
+    }
+
+    private List<Type> computeOutputTypes()
+    {
+        ImmutableList.Builder<Type> types = ImmutableList.builderWithExpectedSize(outputLayout.size());
+        for (Symbol symbol : outputLayout) {
+            types.add(symbol.type());
+        }
+        return types.build();
     }
 }
