@@ -50,7 +50,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -111,7 +110,7 @@ public class IterativeOptimizer
 
         Set<PlanNodeId> changedPlanNodeIds = new HashSet<>();
         Memo memo = new Memo(context.idAllocator(), plan);
-        Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
+        Lookup lookup = Lookup.from(planNode -> ImmutableList.of(memo.resolve(planNode)));
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(context.session());
         Context optimizerContext = new Context(

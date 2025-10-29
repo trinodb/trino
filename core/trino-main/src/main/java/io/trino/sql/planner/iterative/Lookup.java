@@ -13,13 +13,12 @@
  */
 package io.trino.sql.planner.iterative;
 
+import com.google.common.collect.Iterables;
 import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.function.Function;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.MoreCollectors.toOptional;
 
 public interface Lookup
 {
@@ -34,7 +33,7 @@ public interface Lookup
     default PlanNode resolve(PlanNode node)
     {
         if (node instanceof GroupReference) {
-            return resolveGroup(node).collect(toOptional()).get();
+            return Iterables.getOnlyElement(resolveGroup(node));
         }
         return node;
     }
@@ -45,7 +44,7 @@ public interface Lookup
      *
      * @throws IllegalArgumentException if the node is not a GroupReference
      */
-    Stream<PlanNode> resolveGroup(PlanNode node);
+    Iterable<PlanNode> resolveGroup(PlanNode node);
 
     /**
      * A Lookup implementation that does not perform lookup. It satisfies contract
@@ -58,7 +57,7 @@ public interface Lookup
         };
     }
 
-    static Lookup from(Function<GroupReference, Stream<PlanNode>> resolver)
+    static Lookup from(Function<GroupReference, Iterable<PlanNode>> resolver)
     {
         return node -> {
             checkArgument(node instanceof GroupReference, "Node '%s' is not a GroupReference", node.getClass().getSimpleName());
