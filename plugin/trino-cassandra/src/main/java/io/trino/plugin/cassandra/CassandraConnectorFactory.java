@@ -52,6 +52,7 @@ public class CassandraConnectorFactory
                 new MBeanServerModule());
 
         Injector injector = app.doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

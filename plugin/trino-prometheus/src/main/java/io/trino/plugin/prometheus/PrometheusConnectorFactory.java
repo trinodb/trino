@@ -54,6 +54,7 @@ public class PrometheusConnectorFactory
 
             Injector injector = app
                     .doNotInitializeLogging()
+                    .disableSystemProperties()
                     .setRequiredConfigurationProperties(requiredConfig)
                     .initialize();
 

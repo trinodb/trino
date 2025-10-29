@@ -42,6 +42,7 @@ public class FileResourceGroupConfigurationManagerFactory
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

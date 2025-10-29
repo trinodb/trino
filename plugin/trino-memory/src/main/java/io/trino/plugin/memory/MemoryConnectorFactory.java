@@ -48,6 +48,7 @@ public class MemoryConnectorFactory
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(requiredConfig)
                 .initialize();
 

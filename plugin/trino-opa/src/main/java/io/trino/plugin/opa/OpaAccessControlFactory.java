@@ -94,6 +94,7 @@ public class OpaAccessControlFactory
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
         return injector.getInstance(SystemAccessControl.class);

@@ -54,6 +54,7 @@ public class LokiConnectorFactory
 
             Injector injector = app
                     .doNotInitializeLogging()
+                    .disableSystemProperties()
                     .setRequiredConfigurationProperties(requiredConfig)
                     .initialize();
 
