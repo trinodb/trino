@@ -53,6 +53,21 @@ determine the user credentials for the connection, often a service user. You can
 use {doc}`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
+Additionally, the following configuration properties can be set depending
+on the use-case:
+
+:::{list-table} Druid Configuration Properties
+:widths: 30, 35, 35
+:header-rows: 1
+
+* - Property Name
+  - Description
+  - Default
+* - `druid.execution-timeout`
+  - Query timeout for Druid queries, beyond which unfinished queries will be cancelled. Example: `10s`, `1m`, and `1000ms`.
+  - `None`
+:::
+
 ```{include} jdbc-authentication.fragment
 ```
 
