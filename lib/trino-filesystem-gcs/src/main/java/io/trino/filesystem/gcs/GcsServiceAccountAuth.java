@@ -13,7 +13,9 @@
  */
 package io.trino.filesystem.gcs;
 
+import com.google.auth.Credentials;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.cloud.NoCredentials;
 import com.google.cloud.storage.StorageOptions;
 import com.google.inject.Inject;
 import io.trino.spi.security.ConnectorIdentity;
@@ -29,7 +31,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public class GcsServiceAccountAuth
         implements GcsAuth
 {
-    private final Optional<GoogleCredentials> jsonGoogleCredential;
+    private final Optional<Credentials> jsonGoogleCredential;
 
     @Inject
     public GcsServiceAccountAuth(GcsFileSystemConfig config)
@@ -56,18 +58,15 @@ public class GcsServiceAccountAuth
     @Override
     public void setAuth(StorageOptions.Builder builder, ConnectorIdentity identity)
     {
-        GoogleCredentials credentials = jsonGoogleCredential.orElseGet(() -> {
+        Credentials credentials = jsonGoogleCredential.orElseGet(() -> {
             try {
                 return GoogleCredentials.getApplicationDefault();
             }
             catch (IOException e) {
-                // This is consistent with the GCP SDK when no credentials are available in the environment
-                return null;
+                return NoCredentials.getInstance();
             }
         });
 
-        if (credentials != null) {
-            builder.setCredentials(credentials);
-        }
+        builder.setCredentials(credentials);
     }
 }

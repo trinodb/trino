@@ -14,6 +14,7 @@
 package io.trino.filesystem.gcs;
 
 import com.google.auth.Credentials;
+import com.google.cloud.NoCredentials;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import io.trino.spi.security.ConnectorIdentity;
@@ -27,8 +28,6 @@ final class TestGcsStorageFactory
     void testDefaultCredentials()
             throws Exception
     {
-        Credentials expectedCredentials = StorageOptions.newBuilder().build().getCredentials();
-
         // No credentials options are set
         GcsFileSystemConfig config = new GcsFileSystemConfig();
 
@@ -41,6 +40,8 @@ final class TestGcsStorageFactory
 
         assertThat(actualCredentials)
                 .as("if credentials are not explicitly configured, should have same behavior as the GCS client")
-                .isEqualTo(expectedCredentials);
+                .isEqualTo(NoCredentials.getInstance());
+
+        assertThat(StorageOptions.newBuilder().build().getCredentials()).isNull();
     }
 }
