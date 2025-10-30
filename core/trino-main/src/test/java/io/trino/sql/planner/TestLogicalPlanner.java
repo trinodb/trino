@@ -2590,13 +2590,14 @@ public class TestLogicalPlanner
                 SELECT * FROM recursive_call
                 """,
                 output(exchange(
-                        LOCAL,
-                        any(unnest(values("array"))),
-                        any(join(
+                        // First branch: Project -> Unnest -> Values
+                        project(unnest(values("array"))),
+                        // Second branch: CrossJoin (displayed as JoinNode with empty criteria)
+                        join(
                                 INNER,
                                 builder -> builder
-                                        .left(any(unnest(values("array"))))
-                                        .right(exchange(tableScan("nation"))))))));
+                                        .left(project(unnest(values("array"))))
+                                        .right(exchange(tableScan("nation")))))));
     }
 
     @Test
