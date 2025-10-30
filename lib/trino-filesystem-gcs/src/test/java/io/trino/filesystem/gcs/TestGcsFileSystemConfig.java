@@ -136,7 +136,7 @@ public class TestGcsFileSystemConfig
         assertFailsValidation(
                 new GcsFileSystemConfig()
                         .setAuthType(AuthType.ACCESS_TOKEN)
-                        .setJsonKey("{}}"),
+                        .setJsonKey("{}"),
                 "authMethodValid",
                 "Either gcs.auth-type or gcs.json-key or gcs.json-key-file-path must be set",
                 AssertTrue.class);
