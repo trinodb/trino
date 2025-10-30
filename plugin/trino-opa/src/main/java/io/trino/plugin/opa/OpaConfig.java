@@ -28,6 +28,7 @@ public class OpaConfig
     private boolean logRequests;
     private boolean logResponses;
     private boolean allowPermissionManagementOperations;
+    private boolean includeUserPrincipal;
     private Optional<URI> opaRowFiltersUri = Optional.empty();
     private Optional<URI> opaColumnMaskingUri = Optional.empty();
     private Optional<URI> opaBatchColumnMaskingUri = Optional.empty();
@@ -96,6 +97,19 @@ public class OpaConfig
     public OpaConfig setAllowPermissionManagementOperations(boolean allowPermissionManagementOperations)
     {
         this.allowPermissionManagementOperations = allowPermissionManagementOperations;
+        return this;
+    }
+
+    public boolean getIncludeUserPrincipal()
+    {
+        return this.includeUserPrincipal;
+    }
+
+    @Config("opa.include-user-principal")
+    @ConfigDescription("Whether to include the user's principal when sending authorization requests to OPA")
+    public OpaConfig setIncludeUserPrincipal(boolean includeUserPrincipal)
+    {
+        this.includeUserPrincipal = includeUserPrincipal;
         return this;
     }
 

@@ -36,7 +36,8 @@ final class TestOpaConfig
                 .setOpaBatchColumnMaskingUri(null)
                 .setLogRequests(false)
                 .setLogResponses(false)
-                .setAllowPermissionManagementOperations(false));
+                .setAllowPermissionManagementOperations(false)
+                .setIncludeUserPrincipal(false));
     }
 
     @Test
@@ -51,6 +52,7 @@ final class TestOpaConfig
                 .put("opa.log-requests", "true")
                 .put("opa.log-responses", "true")
                 .put("opa.allow-permission-management-operations", "true")
+                .put("opa.include-user-principal", "true")
                 .buildOrThrow();
 
         OpaConfig expected = new OpaConfig()
@@ -61,7 +63,8 @@ final class TestOpaConfig
                 .setOpaBatchColumnMaskingUri(URI.create("https://opa-column-masking.example.com"))
                 .setLogRequests(true)
                 .setLogResponses(true)
-                .setAllowPermissionManagementOperations(true);
+                .setAllowPermissionManagementOperations(true)
+                .setIncludeUserPrincipal(true);
 
         assertFullMapping(properties, expected);
     }

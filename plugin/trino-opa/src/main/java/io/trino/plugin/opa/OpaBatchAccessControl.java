@@ -74,7 +74,7 @@ public final class OpaBatchAccessControl
                 "FilterViewQueryOwnedBy",
                 queryOwners,
                 queryOwner -> OpaQueryInputResource.builder()
-                        .user(new TrinoUser(queryOwner))
+                        .user(new TrinoUser(queryOwner, this.allowPermissionManagementOperations()))
                         .build());
     }
 
