@@ -176,6 +176,7 @@ import io.trino.sql.planner.iterative.rule.PushPredicateThroughProjectIntoRowNum
 import io.trino.sql.planner.iterative.rule.PushPredicateThroughProjectIntoWindow;
 import io.trino.sql.planner.iterative.rule.PushProjectionIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushProjectionThroughExchange;
+import io.trino.sql.planner.iterative.rule.PushProjectionThroughJoinIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushProjectionThroughUnion;
 import io.trino.sql.planner.iterative.rule.PushRemoteExchangeThroughAssignUniqueId;
 import io.trino.sql.planner.iterative.rule.PushSampleIntoTableScan;
@@ -666,6 +667,7 @@ public class PlanOptimizers
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(projectionPushdownRules)
                         .add(new PushProjectionIntoTableScan(plannerContext, scalarStatsCalculator))
+                        .add(new PushProjectionThroughJoinIntoTableScan())
                         .build());
 
         builder.add(

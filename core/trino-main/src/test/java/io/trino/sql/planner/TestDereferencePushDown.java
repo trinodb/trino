@@ -64,15 +64,15 @@ public class TestDereferencePushDown
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))), ROW(CAST(ROW(3, 4.0) AS ROW(x BIGINT, y DOUBLE)))) " +
                         "SELECT a.msg.x, a.msg, b.msg.y FROM t a CROSS JOIN t b",
                 output(ImmutableList.of("a_msg_x", "a_msg", "b_msg_y"),
-                        strictProject(
-                                ImmutableMap.of(
-                                        "a_msg_x", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, DOUBLE), "a_msg"), 0)),
-                                        "a_msg", expression(new Reference(RowType.anonymousRow(BIGINT, DOUBLE), "a_msg")),
-                                        "b_msg_y", expression(new Reference(DOUBLE, "b_msg_y"))),
-                                join(INNER, builder -> builder
-                                        .left(values("a_msg"))
-                                        .right(
-                                                values(ImmutableList.of("b_msg_y"), ImmutableList.of(ImmutableList.of(new Constant(DOUBLE, 2e0)), ImmutableList.of(new Constant(DOUBLE, 4e0)))))))));
+                        join(INNER, builder -> builder
+                                .left(
+                                    strictProject(
+                                        ImmutableMap.of(
+                                            "a_msg", expression(new Reference(RowType.anonymousRow(BIGINT, DOUBLE), "a_msg")),
+                                            "a_msg_x", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, DOUBLE), "a_msg"), 0))),
+                                        values("a_msg")))
+                                .right(
+                                    values(ImmutableList.of("b_msg_y"), ImmutableList.of(ImmutableList.of(new Constant(DOUBLE, 2e0)), ImmutableList.of(new Constant(DOUBLE, 4e0))))))));
     }
 
     @Test
