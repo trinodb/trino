@@ -331,9 +331,7 @@ public class SqlTaskExecution
         PendingSplitsForPlanNode pendingSplitsForPlanNode = pendingSplitsByPlanNode.get(planNodeId);
 
         partitionedDriverFactory.splitsAdded(scheduledSplits.size(), SplitWeight.rawValueSum(scheduledSplits, scheduledSplit -> scheduledSplit.getSplit().getSplitWeight()));
-        for (ScheduledSplit scheduledSplit : scheduledSplits) {
-            pendingSplitsForPlanNode.addSplit(scheduledSplit);
-        }
+        pendingSplitsForPlanNode.addSplits(scheduledSplits);
         if (noMoreSplits) {
             pendingSplitsForPlanNode.setNoMoreSplits();
         }
@@ -541,10 +539,10 @@ public class SqlTaskExecution
             return state;
         }
 
-        public void addSplit(ScheduledSplit scheduledSplit)
+        public void addSplits(Set<ScheduledSplit> scheduledSplits)
         {
             checkState(state == ADDING_SPLITS);
-            splits.add(scheduledSplit);
+            splits.addAll(scheduledSplits);
         }
 
         public Set<ScheduledSplit> removeAllSplits()
