@@ -33,6 +33,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
@@ -82,6 +83,8 @@ import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
 public class HudiMetadata
         implements ConnectorMetadata
 {
+    private static final int VERSION_LENGTH = "yyyyMMddHHmmssSSS".length();
+    private static final long MAX_VERSION = 99999999999999999L;
     private final HiveMetastore metastore;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
@@ -104,10 +107,6 @@ public class HudiMetadata
     @Override
     public HudiTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
-        if (startVersion.isPresent() || endVersion.isPresent()) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
-        }
-
         if (isHiveSystemSchema(tableName.getSchemaName())) {
             return null;
         }
@@ -130,7 +129,30 @@ public class HudiMetadata
                 COPY_ON_WRITE,
                 getPartitionKeyColumnHandles(table.get(), typeManager),
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(),
+                getReadTimestamp(startVersion, endVersion));
+    }
+
+    static long getReadTimestamp(Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+    {
+        if (startVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "Read table with start version is not supported");
+        }
+
+        if (endVersion.isPresent() && endVersion.get().getPointerType().equals(PointerType.TEMPORAL)) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot read 'TIMESTAMP' of Hudi table, use 'VERSION' instead");
+        }
+
+        long readTimestamp = MAX_VERSION;
+        if (endVersion.isPresent()) {
+            if (endVersion.get().getVersion() instanceof Long versionNumber && String.valueOf(versionNumber).length() == VERSION_LENGTH) {
+                readTimestamp = versionNumber;
+            }
+            else {
+                throw new TrinoException(NOT_SUPPORTED, "Provided read timestamp must be a number in format yyyyMMddHHmmssSSS of the table's time zone");
+            }
+        }
+        return readTimestamp;
     }
 
     @Override

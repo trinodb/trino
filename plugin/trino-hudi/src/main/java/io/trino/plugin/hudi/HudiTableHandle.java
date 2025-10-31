@@ -41,6 +41,7 @@ public class HudiTableHandle
     private final Set<HiveColumnHandle> constraintColumns;
     private final TupleDomain<HiveColumnHandle> partitionPredicates;
     private final TupleDomain<HiveColumnHandle> regularPredicates;
+    private final long readTimestamp;
 
     @JsonCreator
     public HudiTableHandle(
@@ -50,9 +51,10 @@ public class HudiTableHandle
             @JsonProperty("tableType") HoodieTableType tableType,
             @JsonProperty("partitionColumns") List<HiveColumnHandle> partitionColumns,
             @JsonProperty("partitionPredicates") TupleDomain<HiveColumnHandle> partitionPredicates,
-            @JsonProperty("regularPredicates") TupleDomain<HiveColumnHandle> regularPredicates)
+            @JsonProperty("regularPredicates") TupleDomain<HiveColumnHandle> regularPredicates,
+            @JsonProperty("readAsOf") long readTimestamp)
     {
-        this(schemaName, tableName, basePath, tableType, partitionColumns, ImmutableSet.of(), partitionPredicates, regularPredicates);
+        this(schemaName, tableName, basePath, tableType, partitionColumns, ImmutableSet.of(), partitionPredicates, regularPredicates, readTimestamp);
     }
 
     public HudiTableHandle(
@@ -63,7 +65,8 @@ public class HudiTableHandle
             List<HiveColumnHandle> partitionColumns,
             Set<HiveColumnHandle> constraintColumns,
             TupleDomain<HiveColumnHandle> partitionPredicates,
-            TupleDomain<HiveColumnHandle> regularPredicates)
+            TupleDomain<HiveColumnHandle> regularPredicates,
+            long readTimestamp)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -73,6 +76,7 @@ public class HudiTableHandle
         this.constraintColumns = requireNonNull(constraintColumns, "constraintColumns is null");
         this.partitionPredicates = requireNonNull(partitionPredicates, "partitionPredicates is null");
         this.regularPredicates = requireNonNull(regularPredicates, "regularPredicates is null");
+        this.readTimestamp = readTimestamp;
     }
 
     @JsonProperty
@@ -124,6 +128,12 @@ public class HudiTableHandle
         return regularPredicates;
     }
 
+    @JsonProperty
+    public long getReadTimestamp()
+    {
+        return readTimestamp;
+    }
+
     public SchemaTableName getSchemaTableName()
     {
         return schemaTableName(schemaName, tableName);
@@ -142,7 +152,8 @@ public class HudiTableHandle
                 partitionColumns,
                 constraintColumns,
                 partitionPredicates.intersect(partitionTupleDomain),
-                regularPredicates.intersect(regularTupleDomain));
+                regularPredicates.intersect(regularTupleDomain),
+                readTimestamp);
     }
 
     @Override
