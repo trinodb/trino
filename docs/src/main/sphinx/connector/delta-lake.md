@@ -207,6 +207,11 @@ values. Typical usage does not require you to configure them.
   - Number of threads used for retrieving checkpoint files of each table. Currently, only 
     retrievals of V2 Checkpoint's sidecar files are parallelized.
   - `4`
+* - `delta.enable-clustering-info`
+  - Controls whether clustered column information is retrieved and 
+    included in the table properties for Delta Lake tables.
+    The equivalent catalog session property is `enable_clustering_info`
+  - `false`
 :::
 
 ### Catalog session properties

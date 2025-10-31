@@ -93,6 +93,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.cache.CacheUtils.invalidateAllIf;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isCheckpointFilteringEnabled;
+import static io.trino.plugin.deltalake.clustering.ClusteringMetadataUtil.getLatestClusteredColumns;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
@@ -643,6 +644,15 @@ public class TransactionLogAccess
         }
         return tableSnapshot.getCachedProtocol()
                 .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol entry not found in transaction log for table " + tableSnapshot.getTable()));
+    }
+
+    public Optional<List<String>> getClusteredColumns(TrinoFileSystem fileSystem, TableSnapshot tableSnapshot)
+    {
+        if (tableSnapshot.getCachedClusteredColumns().isEmpty()) {
+            Optional<List<String>> clusteredColumns = getLatestClusteredColumns(fileSystem, tableSnapshot);
+            tableSnapshot.setCachedClusteredColumns(clusteredColumns);
+        }
+        return tableSnapshot.getCachedClusteredColumns();
     }
 
     private <T> Optional<T> getCheckpointEntry(
