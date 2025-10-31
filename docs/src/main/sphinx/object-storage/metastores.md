@@ -509,6 +509,9 @@ following properties:
 * - `iceberg.rest-catalog.oauth2.token-refresh-enabled`
   - Controls whether a token should be refreshed if information about its expiration time is available.
     Defaults to `true`
+* - `iceberg.rest-catalog.oauth2.token-exchange-enabled`
+  - Controls whether to use the token exchange flow to acquire new tokens.
+    Defaults to `true` 
 * - `iceberg.rest-catalog.vended-credentials-enabled`
   - Use credentials provided by the REST backend for file system access.
     Defaults to `false`.
