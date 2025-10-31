@@ -92,7 +92,7 @@ public class TestMetrics
 
         String json = codec.toJson(new TDigestHistogram(digest));
         TDigestHistogram result = codec.fromJson(json);
-        assertThat(result.getDigest().getCount()).isEqualTo(digest.getCount());
+        assertThat(result.getTotal()).isEqualTo((long) digest.getCount());
     }
 
     @Test

@@ -56,7 +56,7 @@ public class TDigestHistogram
         this.digest = digest;
     }
 
-    public synchronized TDigest getDigest()
+    private synchronized TDigest getDigest()
     {
         return TDigest.copyOf(digest);
     }
