@@ -64,4 +64,47 @@ public class TestOpenAiFunctions
 
         super.testGen();
     }
+
+    @Test
+    @Override
+    public void testPrompt()
+    {
+        // run the trace test first as later invocations will use the cache
+        assertions.execute("SELECT ai_prompt('What is 2+2?', 'gpt-4o-mini', 0.0e0)");
+
+        assertThat(assertions.getQueryRunner().getSpans())
+                .filteredOn(span -> span.getName().equals("chat gpt-4o-mini"))
+                .hasSize(1).first()
+                .extracting(SpanData::getAttributes, ATTRIBUTES)
+                .containsEntry("gen_ai.operation.name", "chat")
+                .containsEntry("gen_ai.provider.name", "openai")
+                .containsEntry("gen_ai.request.model", "gpt-4o-mini")
+                .containsEntry("gen_ai.request.seed", 0)
+                .containsEntry("gen_ai.response.id", "chatcmpl-test-prompt")
+                .containsEntry("gen_ai.response.model", "gpt-4o-mini-2024-07-18")
+                .containsEntry("openai.response.service_tier", "default")
+                .containsEntry("openai.response.system_fingerprint", "fp_72ed7ab54c")
+                .containsEntry("gen_ai.usage.input_tokens", 10)
+                .containsEntry("gen_ai.usage.output_tokens", 8);
+
+        super.testPrompt();
+    }
+
+    @Test
+    @Override
+    public void testPromptInvalidTemperatureLow()
+    {
+        assertThat(assertions.query("SELECT ai_prompt('test', 'gpt-4o-mini', -0.1e0)"))
+                .failure()
+                .hasMessageContaining("temperature must be between 0.0 and 2.0 for OpenAI");
+    }
+
+    @Test
+    @Override
+    public void testPromptInvalidTemperatureHigh()
+    {
+        assertThat(assertions.query("SELECT ai_prompt('test', 'gpt-4o-mini', 2.1e0)"))
+                .failure()
+                .hasMessageContaining("temperature must be between 0.0 and 2.0 for OpenAI");
+    }
 }
