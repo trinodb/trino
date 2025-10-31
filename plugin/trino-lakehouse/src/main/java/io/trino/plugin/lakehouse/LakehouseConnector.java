@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.lakehouse;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.hive.HiveSchemaProperties;
@@ -26,10 +27,13 @@ import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.function.FunctionProvider;
+import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.Sets.immutableEnumSet;
@@ -51,6 +55,8 @@ public class LakehouseConnector
     private final LakehouseSessionProperties sessionProperties;
     private final LakehouseTableProperties tableProperties;
     private final IcebergMaterializedViewProperties materializedViewProperties;
+    private final Set<ConnectorTableFunction> tableFunctions;
+    private final FunctionProvider functionProvider;
 
     @Inject
     public LakehouseConnector(
@@ -62,7 +68,9 @@ public class LakehouseConnector
             LakehouseNodePartitioningProvider nodePartitioningProvider,
             LakehouseSessionProperties sessionProperties,
             LakehouseTableProperties tableProperties,
-            IcebergMaterializedViewProperties materializedViewProperties)
+            IcebergMaterializedViewProperties materializedViewProperties,
+            Set<ConnectorTableFunction> tableFunctions,
+            FunctionProvider functionProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -73,6 +81,8 @@ public class LakehouseConnector
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
         this.materializedViewProperties = requireNonNull(materializedViewProperties, "materializedViewProperties is null");
+        this.tableFunctions = ImmutableSet.copyOf(requireNonNull(tableFunctions, "tableFunctions is null"));
+        this.functionProvider = requireNonNull(functionProvider, "functionProvider is null");
     }
 
     @Override
@@ -158,5 +168,17 @@ public class LakehouseConnector
     public Set<ConnectorCapabilities> getCapabilities()
     {
         return immutableEnumSet(NOT_NULL_COLUMN_CONSTRAINT, MATERIALIZED_VIEW_GRACE_PERIOD);
+    }
+
+    @Override
+    public Set<ConnectorTableFunction> getTableFunctions()
+    {
+        return tableFunctions;
+    }
+
+    @Override
+    public Optional<FunctionProvider> getFunctionProvider()
+    {
+        return Optional.of(functionProvider);
     }
 }
