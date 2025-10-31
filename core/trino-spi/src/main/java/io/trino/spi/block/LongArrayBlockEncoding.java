@@ -27,6 +27,12 @@ public class LongArrayBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "LONG_ARRAY";
+    private final boolean enableVectorizedNullSuppression;
+
+    public LongArrayBlockEncoding(boolean enableVectorizedNullSuppression)
+    {
+        this.enableVectorizedNullSuppression = enableVectorizedNullSuppression;
+    }
 
     @Override
     public String getName()
@@ -59,15 +65,12 @@ public class LongArrayBlockEncoding
             sliceOutput.writeLongs(rawValues, rawOffset, positionCount);
         }
         else {
-            long[] valuesWithoutNull = new long[positionCount];
-            int nonNullPositionCount = 0;
-            for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = rawValues[i + rawOffset];
-                nonNullPositionCount += isNull[i + rawOffset] ? 0 : 1;
+            if (enableVectorizedNullSuppression) {
+                EncoderUtil.compressLongsWithNullsVectorized(sliceOutput, rawValues, isNull, rawOffset, positionCount);
             }
-
-            sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeLongs(valuesWithoutNull, 0, nonNullPositionCount);
+            else {
+                EncoderUtil.compressLongsWithNullsScalar(sliceOutput, rawValues, isNull, rawOffset, positionCount);
+            }
         }
     }
 

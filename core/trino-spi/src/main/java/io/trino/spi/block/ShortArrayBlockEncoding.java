@@ -27,6 +27,12 @@ public class ShortArrayBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "SHORT_ARRAY";
+    private final boolean enableVectorizedNullSuppression;
+
+    public ShortArrayBlockEncoding(boolean enableVectorizedNullSuppression)
+    {
+        this.enableVectorizedNullSuppression = enableVectorizedNullSuppression;
+    }
 
     @Override
     public String getName()
@@ -59,15 +65,12 @@ public class ShortArrayBlockEncoding
             sliceOutput.writeShorts(rawValues, rawOffset, positionCount);
         }
         else {
-            short[] valuesWithoutNull = new short[positionCount];
-            int nonNullPositionCount = 0;
-            for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = rawValues[i + rawOffset];
-                nonNullPositionCount += isNull[i + rawOffset] ? 0 : 1;
+            if (enableVectorizedNullSuppression) {
+                EncoderUtil.compressShortsWithNullsVectorized(sliceOutput, rawValues, isNull, rawOffset, positionCount);
             }
-
-            sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeShorts(valuesWithoutNull, 0, nonNullPositionCount);
+            else {
+                EncoderUtil.compressShortsWithNullsScalar(sliceOutput, rawValues, isNull, rawOffset, positionCount);
+            }
         }
     }
 

@@ -94,6 +94,7 @@ public class FeaturesConfig
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
      */
     private CompressionCodec exchangeCompressionCodec = NONE;
+    private BlockSerdeVectorizedNullSuppressionStrategy blockSerdeVectorizedNullSuppressionStrategy = BlockSerdeVectorizedNullSuppressionStrategy.AUTO;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean omitDateTimeTypePrecision;
     private int maxRecursionDepth = 10;
@@ -131,6 +132,12 @@ public class FeaturesConfig
         ABORT,
         RETRY,
         /**/;
+    }
+
+    public enum BlockSerdeVectorizedNullSuppressionStrategy
+    {
+        AUTO,
+        NONE,
     }
 
     public boolean isOmitDateTimeTypePrecision()
@@ -364,6 +371,19 @@ public class FeaturesConfig
     {
         this.exchangeCompressionCodec = exchangeCompressionCodec;
         return this;
+    }
+
+    @Config("experimental.blockserde-vectorized-null-suppression-strategy")
+    @ConfigDescription("Strategy used for vectorized null suppression in block serde")
+    public FeaturesConfig setBlockSerdeVectorizedNullSuppressionStrategy(BlockSerdeVectorizedNullSuppressionStrategy blockSerdeVectorizedNullSuppressionStrategy)
+    {
+        this.blockSerdeVectorizedNullSuppressionStrategy = blockSerdeVectorizedNullSuppressionStrategy;
+        return this;
+    }
+
+    public BlockSerdeVectorizedNullSuppressionStrategy getBlockSerdeVectorizedNullSuppressionStrategy()
+    {
+        return blockSerdeVectorizedNullSuppressionStrategy;
     }
 
     public DataIntegrityVerification getExchangeDataIntegrityVerification()
