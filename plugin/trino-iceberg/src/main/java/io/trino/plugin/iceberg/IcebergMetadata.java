@@ -49,6 +49,7 @@ import io.trino.plugin.hive.HiveWrittenPartitions;
 import io.trino.plugin.iceberg.aggregation.DataSketchStateSerializer;
 import io.trino.plugin.iceberg.aggregation.IcebergThetaSketchForStats;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.catalog.bigquery.TrinoBigQueryMetastoreCatalog;
 import io.trino.plugin.iceberg.functions.IcebergFunctionProvider;
 import io.trino.plugin.iceberg.procedure.IcebergAddFilesFromTableHandle;
 import io.trino.plugin.iceberg.procedure.IcebergAddFilesHandle;
@@ -1304,7 +1305,7 @@ public class IcebergMetadata
         Location location = Location.of(transaction.table().location());
         try {
             // S3 Tables internally assigns a unique location for each table
-            if (!isS3Tables(location.toString())) {
+            if (!isS3Tables(location.toString()) && !(catalog instanceof TrinoBigQueryMetastoreCatalog)) {
                 TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), transaction.table().io().properties());
                 if (!replace && fileSystem.listFiles(location).hasNext()) {
                     throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
