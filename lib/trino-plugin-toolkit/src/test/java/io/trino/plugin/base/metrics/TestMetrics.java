@@ -52,16 +52,31 @@ public class TestMetrics
     @Test
     public void testMergeHistogram()
     {
-        Metrics m1 = new Metrics(ImmutableMap.of("a", TDigestHistogram.fromValue(10.0, 1)));
-        Metrics m2 = new Metrics(ImmutableMap.of("a", TDigestHistogram.fromValue(5.0, 2)));
+        Metrics m1 = new Metrics(ImmutableMap.of("a", TDigestHistogram.fromValue(10.0)));
+        Metrics m2 = new Metrics(ImmutableMap.of("a", TDigestHistogram.fromValue(5.0)));
         TDigestHistogram merged = (TDigestHistogram) merge(m1, m2).getMetrics().get("a");
 
-        assertThat(merged.getTotal()).isEqualTo(3L);
+        assertThat(merged.getTotal()).isEqualTo(2L);
         double[] mergedPercentiles = merged.getPercentiles(0, 100);
         assertThat(mergedPercentiles[0]).isEqualTo(5.0);
         assertThat(mergedPercentiles[1]).isEqualTo(10.0);
         assertThat(merged.toString())
-                .matches("\\{count=3, p01=5\\.00, p05=5\\.00, p10=5\\.00, p25=5\\.00, p50=7\\.50, p75=10\\.00, p90=10\\.00, p95=10\\.00, p99=10\\.00, min=5\\.00, max=10\\.00\\}");
+                .matches("\\{count=2, p01=5\\.00, p05=5\\.00, p10=5\\.00, p25=5\\.00, p50=10\\.00, p75=10\\.00, p90=10\\.00, p95=10\\.00, p99=10\\.00, min=5\\.00, max=10\\.00\\}");
+    }
+
+    @Test
+    public void testSingleValueHistogram()
+    {
+        Metrics m1 = new Metrics(ImmutableMap.of("a", TDigestHistogram.fromValue(10.0)));
+        assertThat(m1.getMetric("a").toString())
+                .matches("\\{value=10\\.0\\}");
+
+        Metrics m2 = new Metrics(ImmutableMap.of("a", TDigestHistogram.fromValue(5.0)));
+        Metrics m3 = new Metrics(ImmutableMap.of("a", TDigestHistogram.fromValue(7.0)));
+        TDigestHistogram merged = (TDigestHistogram) merge(m1, m2, m3).getMetrics().get("a");
+
+        assertThat(merged.toString())
+                .matches("\\{count=3, p01=5\\.00, p05=5\\.00, p10=5\\.00, p25=5\\.00, p50=7\\.00, p75=10\\.00, p90=10\\.00, p95=10\\.00, p99=10\\.00, min=5\\.00, max=10\\.00\\}");
     }
 
     @Test
@@ -83,16 +98,42 @@ public class TestMetrics
     }
 
     @Test
-    public void testHistogramJson()
+    public void testMultiValueHistogramJson()
     {
         JsonCodec<TDigestHistogram> codec = JsonCodec.jsonCodec(TDigestHistogram.class);
 
         TDigest digest = new TDigest();
         digest.add(123);
-
-        String json = codec.toJson(new TDigestHistogram(digest));
+        digest.add(256);
+        String json = codec.toJson(new MultiValueTDigestHistogram(digest));
         TDigestHistogram result = codec.fromJson(json);
         assertThat(result.getTotal()).isEqualTo((long) digest.getCount());
+    }
+
+    @Test
+    public void testSingleValueHistogramJson()
+    {
+        JsonCodec<TDigestHistogram> codec = JsonCodec.jsonCodec(TDigestHistogram.class);
+
+        TDigestHistogram histogram = TDigestHistogram.fromValue(123.0);
+        String json = codec.toJson(histogram);
+        TDigestHistogram result = codec.fromJson(json);
+
+        assertThat(result.getTotal()).isEqualTo(histogram.getTotal());
+        assertThat(result.getMax()).isEqualTo(histogram.getMax());
+    }
+
+    @Test
+    public void testEmptyValueHistogramJson()
+    {
+        JsonCodec<TDigestHistogram> codec = JsonCodec.jsonCodec(TDigestHistogram.class);
+
+        TDigestHistogram histogram = TDigestHistogram.empty();
+        String json = codec.toJson(histogram);
+        TDigestHistogram result = codec.fromJson(json);
+
+        assertThat(result.getTotal()).isEqualTo(histogram.getTotal());
+        assertThat(result.getMax()).isNaN();
     }
 
     @Test
@@ -109,7 +150,7 @@ public class TestMetrics
     public void testFailIncompatibleTypes()
     {
         assertThatThrownBy(() -> {
-            Metrics m1 = new Metrics(ImmutableMap.of("a", new TDigestHistogram(new TDigest())));
+            Metrics m1 = new Metrics(ImmutableMap.of("a", new MultiValueTDigestHistogram(new TDigest())));
             Metrics m2 = new Metrics(ImmutableMap.of("a", new LongCount(0)));
             merge(m1, m2);
         })

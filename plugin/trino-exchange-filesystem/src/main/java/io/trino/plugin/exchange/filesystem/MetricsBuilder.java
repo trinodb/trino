@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.exchange.filesystem;
 
-import io.airlift.stats.TDigest;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.metrics.Metric;
@@ -81,17 +80,17 @@ public class MetricsBuilder
     public static class DistributionMetricBuilder
             implements MetricBuilder
     {
-        private final TDigest digest = new TDigest();
+        private final TDigestHistogram.Builder builder = TDigestHistogram.builder();
 
-        public synchronized void add(double value)
+        public void add(double value)
         {
-            digest.add(value);
+            builder.add(value);
         }
 
         @Override
         public synchronized Metric<?> build()
         {
-            return new TDigestHistogram(TDigest.copyOf(digest));
+            return builder.build();
         }
     }
 }

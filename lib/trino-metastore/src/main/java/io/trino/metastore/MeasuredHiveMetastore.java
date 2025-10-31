@@ -17,7 +17,6 @@ import com.google.common.base.Throwables;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.ThreadSafe;
-import io.airlift.stats.TDigest;
 import io.trino.plugin.base.metrics.DistributionSnapshot;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.base.metrics.TDigestHistogram;
@@ -448,7 +447,7 @@ public class MeasuredHiveMetastore
     @ThreadSafe
     static class MetastoreApiCallStats
     {
-        private final TDigest timeNanosDistribution = new TDigest();
+        private final TDigestHistogram.Builder timeNanosDistribution = TDigestHistogram.builder();
         private long totalTimeNanos;
         private long totalFailures;
 
@@ -466,7 +465,7 @@ public class MeasuredHiveMetastore
         public synchronized void storeTo(ImmutableMap.Builder<String, Metric<?>> metrics, String prefix)
         {
             // DistributionSnapshot does not retain reference to the histogram
-            metrics.put(prefix + ".time.distribution", DistributionSnapshot.fromDistribution(new TDigestHistogram(timeNanosDistribution)));
+            metrics.put(prefix + ".time.distribution", DistributionSnapshot.fromDistribution(timeNanosDistribution.build()));
             metrics.put(prefix + ".time.total", new LongCount(totalTimeNanos));
 
             // do not add redundant 0 failures to make the metrics more concise

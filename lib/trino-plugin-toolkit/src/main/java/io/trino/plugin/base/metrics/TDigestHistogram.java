@@ -13,201 +13,96 @@
  */
 package io.trino.plugin.base.metrics;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.google.errorprone.annotations.DoNotCall;
 import io.airlift.stats.TDigest;
 import io.trino.spi.metrics.Distribution;
+import it.unimi.dsi.fastutil.doubles.DoubleArrayList;
+import it.unimi.dsi.fastutil.doubles.DoubleList;
+import it.unimi.dsi.fastutil.doubles.DoubleLists;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.ToStringHelper;
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.airlift.slice.Slices.wrappedBuffer;
-import static java.lang.String.format;
-
-@JsonTypeInfo(use = JsonTypeInfo.Id.NONE) // Do not add @class property
-public class TDigestHistogram
-        implements Distribution<TDigestHistogram>
+public sealed interface TDigestHistogram
+        extends Distribution<TDigestHistogram>
+        permits EmptyTDigestHistogram, MultiValueTDigestHistogram, SingleValueHistogram
 {
     // This is important so that we can instruct Jackson to ignore this property
     // in certain places (e.g. UiQueryResource)
-    public static final String DIGEST_PROPERTY = "digest";
+    String DIGEST_PROPERTY = "digest";
 
-    private final TDigest digest;
-
-    public static TDigestHistogram fromValue(double value)
+    static Builder builder()
     {
-        return fromValue(value, 1);
+        return new Builder();
     }
 
-    public static TDigestHistogram fromValue(double value, double weight)
+    static TDigestHistogram fromValue(double value)
     {
-        TDigest digest = new TDigest();
-        digest.add(value, weight);
-        return new TDigestHistogram(digest);
+        return new SingleValueHistogram(value);
     }
 
-    public TDigestHistogram(TDigest digest)
+    static TDigestHistogram fromDigest(TDigest digest)
     {
-        this.digest = digest;
+        if (digest.getCount() == 0) {
+            return new EmptyTDigestHistogram();
+        }
+        if (digest.getCount() == 1) {
+            return new SingleValueHistogram(digest.getMax());
+        }
+        return new MultiValueTDigestHistogram(TDigest.copyOf(digest));
     }
 
-    private synchronized TDigest getDigest()
+    static TDigestHistogram empty()
     {
-        return TDigest.copyOf(digest);
-    }
-
-    @JsonProperty(DIGEST_PROPERTY)
-    public synchronized byte[] serialize()
-    {
-        return digest.serialize().getBytes();
-    }
-
-    @JsonCreator
-    @DoNotCall
-    public static TDigestHistogram deserialize(@JsonProperty(DIGEST_PROPERTY) byte[] digest)
-    {
-        return new TDigestHistogram(TDigest.deserialize(wrappedBuffer(digest)));
+        return new EmptyTDigestHistogram();
     }
 
     @Override
-    public TDigestHistogram mergeWith(TDigestHistogram other)
+    default TDigestHistogram mergeWith(TDigestHistogram other)
     {
-        TDigest result = getDigest();
-        other.mergeTo(result);
-        return new TDigestHistogram(result);
+        return mergeWith(List.of(other));
     }
 
     @Override
-    public TDigestHistogram mergeWith(List<TDigestHistogram> others)
+    default TDigestHistogram mergeWith(List<TDigestHistogram> others)
     {
         if (others.isEmpty()) {
             return this;
         }
 
-        TDigest result = getDigest();
+//        int expectedSize = toIntExact(this.getTotal() + others.stream()
+//                .mapToLong(TDigestHistogram::getTotal)
+//                .sum());
+
+        // TODO: Create a TDigest with expected size to minimize internal resizing
+        //  see: https://github.com/airlift/airlift/pull/1622
+        TDigest result = new TDigest();
+        mergeTo(result, this);
+
         for (TDigestHistogram other : others) {
-            other.mergeTo(result);
+            mergeTo(result, other);
         }
-        return new TDigestHistogram(result);
-    }
 
-    private synchronized void mergeTo(TDigest digest)
-    {
-        digest.mergeWith(this.digest);
-    }
-
-    @Override
-    @JsonProperty
-    public synchronized long getTotal()
-    {
-        return (long) digest.getCount();
-    }
-
-    @Override
-    @JsonProperty
-    public synchronized double getMin()
-    {
-        return digest.getMin();
-    }
-
-    @Override
-    @JsonProperty
-    public synchronized double getMax()
-    {
-        return digest.getMax();
-    }
-
-    // Below are extra properties that make it easy to read and parse serialized distribution
-    // in operator summaries and event listener.
-    @JsonProperty
-    public synchronized double getP01()
-    {
-        return digest.valueAt(0.01);
-    }
-
-    @JsonProperty
-    public synchronized double getP05()
-    {
-        return digest.valueAt(0.05);
-    }
-
-    @JsonProperty
-    public synchronized double getP10()
-    {
-        return digest.valueAt(0.10);
-    }
-
-    @JsonProperty
-    public synchronized double getP25()
-    {
-        return digest.valueAt(0.25);
-    }
-
-    @JsonProperty
-    public synchronized double getP50()
-    {
-        return digest.valueAt(0.50);
-    }
-
-    @JsonProperty
-    public synchronized double getP75()
-    {
-        return digest.valueAt(0.75);
-    }
-
-    @JsonProperty
-    public synchronized double getP90()
-    {
-        return digest.valueAt(0.90);
-    }
-
-    @JsonProperty
-    public synchronized double getP95()
-    {
-        return digest.valueAt(0.95);
-    }
-
-    @JsonProperty
-    public synchronized double getP99()
-    {
-        return digest.valueAt(0.99);
-    }
-
-    @Override
-    public synchronized double[] getPercentiles(double... percentiles)
-    {
-        double[] digestPercentiles = new double[percentiles.length];
-        for (int i = 0; i < percentiles.length; i++) {
-            digestPercentiles[i] = percentiles[i] / 100.0;
+        if (result.getCount() == 0) {
+            return new EmptyTDigestHistogram();
         }
-        return digest.valuesAt(digestPercentiles);
+
+        if (result.getCount() == 1) {
+            return new SingleValueHistogram(result.getMax());
+        }
+
+        return new MultiValueTDigestHistogram(result);
     }
 
-    @Override
-    public String toString()
+    static void mergeTo(TDigest values, TDigestHistogram histogram)
     {
-        ToStringHelper helper = toStringHelper("")
-                .add("count", getTotal())
-                .add("p01", formatDouble(getP01()))
-                .add("p05", formatDouble(getP05()))
-                .add("p10", formatDouble(getP10()))
-                .add("p25", formatDouble(getP25()))
-                .add("p50", formatDouble(getP50()))
-                .add("p75", formatDouble(getP75()))
-                .add("p90", formatDouble(getP90()))
-                .add("p95", formatDouble(getP95()))
-                .add("p99", formatDouble(getP99()))
-                .add("min", formatDouble(getMin()))
-                .add("max", formatDouble(getMax()));
-        return helper.toString();
+        switch (histogram) {
+            case EmptyTDigestHistogram _ -> {}
+            case SingleValueHistogram singleValueHistogram -> values.add(singleValueHistogram.value());
+            case MultiValueTDigestHistogram multiValueHistogram -> values.mergeWith(multiValueHistogram.getDigest());
+        }
     }
 
-    public static Optional<TDigestHistogram> merge(List<TDigestHistogram> histograms)
+    static Optional<TDigestHistogram> merge(List<TDigestHistogram> histograms)
     {
         if (histograms.isEmpty()) {
             return Optional.empty();
@@ -216,8 +111,37 @@ public class TDigestHistogram
         return Optional.of(histograms.get(0).mergeWith(histograms.subList(1, histograms.size())));
     }
 
-    private static String formatDouble(double value)
+    class Builder
     {
-        return format(Locale.US, "%.2f", value);
+        private final DoubleList values = DoubleLists.synchronize(new DoubleArrayList());
+
+        Builder() {}
+
+        public void add(double value)
+        {
+            values.add(value);
+        }
+
+        public synchronized TDigestHistogram build()
+        {
+            if (values.isEmpty()) {
+                return TDigestHistogram.empty();
+            }
+            if (values.size() == 1) {
+                return TDigestHistogram.fromValue(values.getDouble(0));
+            }
+
+            // TODO: we could avoid growing digest internally
+            //  if we had a constructor that takes the estimated size
+            //  See: https://github.com/airlift/airlift/pull/1622
+            //  TDigest digest = new TDigest(values.size());
+            TDigest digest = new TDigest();
+            for (int i = 0; i < values.size(); i++) {
+                digest.add(values.getDouble(i));
+            }
+
+            // Doesn't copy the digest again as we just built it
+            return new MultiValueTDigestHistogram(digest);
+        }
     }
 }

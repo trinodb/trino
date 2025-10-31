@@ -17,7 +17,7 @@ package io.trino.operator.scalar;
 import io.airlift.stats.TDigest;
 import io.trino.jmh.Benchmarks;
 import io.trino.plugin.base.metrics.DistributionSnapshot;
-import io.trino.plugin.base.metrics.TDigestHistogram;
+import io.trino.plugin.base.metrics.MultiValueTDigestHistogram;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -51,7 +51,7 @@ public class BenchmarkHistogram
     public void benchmarkTDigestSnapshot(BenchmarkData data, Blackhole bh)
     {
         for (TDigest digest : data.tDigests()) {
-            bh.consume(DistributionSnapshot.fromDistribution(new TDigestHistogram(digest)));
+            bh.consume(DistributionSnapshot.fromDistribution(new MultiValueTDigestHistogram(digest)));
         }
     }
 

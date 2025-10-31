@@ -21,7 +21,6 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.http.client.HttpClient;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
@@ -87,7 +86,7 @@ public class DirectExchangeClient
     @GuardedBy("this")
     private boolean closed;
     @GuardedBy("this")
-    private final TDigest requestDuration = new TDigest();
+    private final TDigestHistogram.Builder requestDuration = TDigestHistogram.builder();
 
     @GuardedBy("memoryContextLock")
     @Nullable
@@ -149,7 +148,7 @@ public class DirectExchangeClient
                     buffer.getSpilledBytes(),
                     noMoreLocations,
                     pageBufferClientStatus,
-                    new TDigestHistogram(TDigest.copyOf(requestDuration)));
+                    requestDuration.build());
         }
     }
 

@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
-import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
@@ -153,7 +152,7 @@ public class TestingRemoteTaskFactory
                             0,
                             0,
                             Optional.empty(),
-                            Optional.of(new TDigestHistogram(new TDigest())),
+                            Optional.of(TDigestHistogram.empty()),
                             Optional.empty(),
                             Optional.empty()),
                     ImmutableSet.copyOf(noMoreSplits),
