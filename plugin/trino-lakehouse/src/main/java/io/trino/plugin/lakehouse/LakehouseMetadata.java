@@ -433,6 +433,18 @@ public class LakehouseMetadata
     }
 
     @Override
+    public void setDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, String defaultValue)
+    {
+        forHandle(tableHandle).setDefaultValue(session, tableHandle, column, defaultValue);
+    }
+
+    @Override
+    public void dropDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        forHandle(tableHandle).dropDefaultValue(session, tableHandle, columnHandle);
+    }
+
+    @Override
     public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Type type)
     {
         forHandle(tableHandle).setColumnType(session, tableHandle, column, type);
