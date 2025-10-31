@@ -2,6 +2,8 @@
 
 ## General
 
+* Update JDK to 25.0.1 ({issue}`27117`)
+
 ## Security
 
 ## Web UI
