@@ -199,7 +199,11 @@ documentation](https://docs.oracle.com/en/java/javase/24/docs/api/java.base/java
   - `DATA_DEFINITION`: Queries that affect the data definition. These include
     `CREATE`, `ALTER`, and `DROP` statements for schemas, tables, views, and
     materialized views, as well as statements that manage prepared statements,
-    privileges, sessions, and transactions.
+    privileges, sessions, and transactions. When external clients need 
+    access to the `system.runtime.kill_query()` procedure to stop running or 
+    queued queries, this `queryType` must be used to make sure the
+    `kill_query()` is executed directly and isn't queued to wait for the 
+    initial query to finish.
   - `ALTER_TABLE_EXECUTE`: Queries that execute table procedures with [ALTER
     TABLE EXECUTE](alter-table-execute).
 
