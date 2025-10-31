@@ -16,6 +16,7 @@ package io.trino.plugin.faker;
 
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -48,7 +49,10 @@ public class FakerConnectorFactory
         requireNonNull(context, "context is null");
         checkStrictSpiVersionMatch(context, this);
 
-        Bootstrap app = new Bootstrap("io.trino.bootstrap.catalog." + catalogName, new FakerModule(context.getTypeManager()));
+        Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.catalog." + catalogName,
+                new ConnectorContextModule(catalogName, context),
+                new FakerModule());
 
         Injector injector = app
                 .doNotInitializeLogging()

@@ -48,7 +48,7 @@ public class CassandraConnectorFactory
                 new ConnectorContextModule(catalogName, context),
                 new MBeanModule(),
                 new JsonModule(),
-                new CassandraClientModule(context.getTypeManager()),
+                new CassandraClientModule(),
                 new MBeanServerModule());
 
         Injector injector = app.doNotInitializeLogging()

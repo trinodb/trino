@@ -61,18 +61,9 @@ import static java.util.Objects.requireNonNull;
 public class CassandraClientModule
         extends AbstractConfigurationAwareModule
 {
-    private final TypeManager typeManager;
-
-    public CassandraClientModule(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
-
     @Override
     public void setup(Binder binder)
     {
-        binder.bind(TypeManager.class).toInstance(typeManager);
-
         verifyConnectorUnsafeAllowed(binder, "cassandra");
 
         binder.bind(CassandraConnector.class).in(Scopes.SINGLETON);
