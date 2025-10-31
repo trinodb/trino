@@ -13,6 +13,9 @@
  */
 package io.trino.operator;
 
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+
 public interface OperatorFactory
 {
     Operator createOperator(DriverContext driverContext);
@@ -27,4 +30,9 @@ public interface OperatorFactory
     void noMoreOperators();
 
     OperatorFactory duplicate();
+
+    default ListenableFuture<Void> pipelineDependenciesSatisfied()
+    {
+        return Futures.immediateVoidFuture();
+    }
 }
