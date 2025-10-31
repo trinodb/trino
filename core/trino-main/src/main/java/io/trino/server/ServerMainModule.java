@@ -164,6 +164,7 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -199,6 +200,8 @@ public class ServerMainModule
         else {
             install(new WorkerModule());
         }
+
+        httpServerBinder(binder).enableVirtualThreads();
 
         binder.bind(StartupStatus.class).in(Scopes.SINGLETON);
 
