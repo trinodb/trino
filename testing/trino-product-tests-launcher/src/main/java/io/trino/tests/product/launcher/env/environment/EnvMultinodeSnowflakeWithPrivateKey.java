@@ -28,16 +28,17 @@ import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 @TestsEnvironment
-public class EnvMultinodeSnowflake
+public class 
+EnvMultinodeSnowflakeWithPrivateKey
         extends EnvironmentProvider
 {
     private final DockerFiles.ResourceProvider configDir;
 
     @Inject
-    public EnvMultinodeSnowflake(DockerFiles dockerFiles, Standard standard)
+    public EnvMultinodeSnowflakeWithPrivateKey(DockerFiles dockerFiles, Standard standard)
     {
         super(standard);
-        configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/multinode-snowflake");
+        configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/multinode-snowflake-with-private-key");
     }
 
     @Override
@@ -48,7 +49,7 @@ public class EnvMultinodeSnowflake
                 container
                         .withEnv("SNOWFLAKE_URL", requireEnv("SNOWFLAKE_URL"))
                         .withEnv("SNOWFLAKE_USER", requireEnv("SNOWFLAKE_USER"))
-                        .withEnv("SNOWFLAKE_PASSWORD", requireEnv("SNOWFLAKE_PASSWORD"))
+                        .withEnv("SNOWFLAKE_PRIVATE_KEY", requireEnv("SNOWFLAKE_PRIVATE_KEY"))
                         .withEnv("SNOWFLAKE_DATABASE", requireEnv("SNOWFLAKE_DATABASE"))
                         .withEnv("SNOWFLAKE_ROLE", requireEnv("SNOWFLAKE_ROLE"))
                         .withEnv("SNOWFLAKE_WAREHOUSE", requireEnv("SNOWFLAKE_WAREHOUSE"));
@@ -60,3 +61,4 @@ public class EnvMultinodeSnowflake
         builder.addConnector("snowflake", forHostPath(configDir.getPath("snowflake.properties")));
     }
 }
+
