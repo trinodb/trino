@@ -1,0 +1,17 @@
+<!-- Thank you for submitting a pull request! -->
+## Description
+
+This PR adds support for JSON parsing with better error handling. It includes validation for malformed JSON and provides helpful error messages to users.
+
+## Additional context and related issues
+
+Fixes #12345
+
+## Release notes
+
+(x) Release notes are required, with the following suggested text:
+
+```markdown
+## General
+* Add improved JSON parsing with better error messages. ({issue}`12345`)
+```
