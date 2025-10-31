@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.stats.Distribution;
 import io.airlift.stats.Distribution.DistributionSnapshot;
-import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.metrics.LongCount;
@@ -213,10 +212,10 @@ public class TestStageStats
 
     private static TDigestHistogram getTDigestHistogram(int count)
     {
-        TDigest digest = new TDigest();
+        TDigestHistogram.Builder builder = TDigestHistogram.builder();
         for (int i = 0; i < count; i++) {
-            digest.add(i);
+            builder.add(i);
         }
-        return new TDigestHistogram(digest);
+        return builder.build();
     }
 }

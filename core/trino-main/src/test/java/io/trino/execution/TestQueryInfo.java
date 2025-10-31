@@ -20,7 +20,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.stats.Distribution;
-import io.airlift.stats.TDigest;
 import io.airlift.tracing.SpanSerialization.SpanDeserializer;
 import io.airlift.tracing.SpanSerialization.SpanSerializer;
 import io.airlift.units.Duration;
@@ -319,7 +318,7 @@ public class TestQueryInfo
                 Duration.succinctDuration(value, SECONDS),
                 Duration.succinctDuration(value, SECONDS),
                 succinctBytes(value),
-                Optional.of(DistributionSnapshot.fromDistribution(new TDigestHistogram(new TDigest()))),
+                Optional.of(DistributionSnapshot.fromDistribution(TDigestHistogram.empty())),
                 succinctBytes(value),
                 succinctBytes(value),
                 value,

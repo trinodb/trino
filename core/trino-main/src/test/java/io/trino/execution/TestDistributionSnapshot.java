@@ -36,7 +36,38 @@ class TestDistributionSnapshot
         digest.add(3.0);
         digest.add(7.0);
 
-        TDigestHistogram histogram = new TDigestHistogram(digest);
+        TDigestHistogram histogram = TDigestHistogram.fromDigest(digest);
+        DistributionSnapshot snapshot = DistributionSnapshot.fromDistribution(histogram);
+
+        assertThat(snapshot.total()).isEqualTo(9);
+        assertThat(snapshot.min()).isEqualTo(1.0);
+        assertThat(snapshot.max()).isEqualTo(10.0);
+        assertThat(snapshot.p01()).isEqualTo(1.0);
+        assertThat(snapshot.p05()).isEqualTo(1.0);
+        assertThat(snapshot.p10()).isEqualTo(1.0);
+        assertThat(snapshot.p25()).isEqualTo(1.0);
+        assertThat(snapshot.p50()).isEqualTo(4.0);
+        assertThat(snapshot.p75()).isEqualTo(7.0);
+        assertThat(snapshot.p90()).isEqualTo(10.0);
+        assertThat(snapshot.p95()).isEqualTo(10.0);
+        assertThat(snapshot.p99()).isEqualTo(10.0);
+    }
+
+    @Test
+    void testBuildTDigestHistogram()
+    {
+        TDigestHistogram.Builder builder = TDigestHistogram.builder();
+        builder.add(1.0);
+        builder.add(10.0);
+        builder.add(10.0);
+        builder.add(1.0);
+        builder.add(4.0);
+        builder.add(5.0);
+        builder.add(1.0);
+        builder.add(3.0);
+        builder.add(7.0);
+
+        TDigestHistogram histogram = builder.build();
         DistributionSnapshot snapshot = DistributionSnapshot.fromDistribution(histogram);
 
         assertThat(snapshot.total()).isEqualTo(9);

@@ -684,11 +684,11 @@ public class TestHashAggregationOperator
         TDigestHistogram spillCountHistogram = (TDigestHistogram) spillCountMetric;
         TDigestHistogram spillSizeHist = (TDigestHistogram) spillSizeMetric;
 
-        assertThat(spillCountHistogram.getDigest().getCount())
+        assertThat(spillCountHistogram.getTotal())
                 .describedAs("exact number of spills recorded")
                 .isEqualTo(spillerFactory.getSpillsCount());
 
-        assertThat(spillSizeHist.getDigest().getCount())
+        assertThat(spillSizeHist.getTotal())
                 .describedAs("histogram contains at least one entry")
                 .isGreaterThan(0);
     }

@@ -139,6 +139,12 @@
             <scope>runtime</scope>
         </dependency>
 
+        <dependency>
+            <groupId>it.unimi.dsi</groupId>
+            <artifactId>fastutil</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- TODO: remove after making Avro use Aircompressor -->
         <dependency>
             <groupId>org.xerial.snappy</groupId>
@@ -210,12 +216,6 @@
         <dependency>
             <groupId>io.trino.hive</groupId>
             <artifactId>hive-apache</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>it.unimi.dsi</groupId>
-            <artifactId>fastutil</artifactId>
             <scope>test</scope>
         </dependency>
 

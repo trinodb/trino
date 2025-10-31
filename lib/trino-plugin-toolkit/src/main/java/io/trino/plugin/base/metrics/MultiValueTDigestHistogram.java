@@ -1,0 +1,165 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.plugin.base.metrics;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.DoNotCall;
+import io.airlift.stats.TDigest;
+
+import java.util.Locale;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.String.format;
+
+public final class MultiValueTDigestHistogram
+        implements TDigestHistogram
+{
+    private final TDigest digest;
+
+    public MultiValueTDigestHistogram(TDigest digest)
+    {
+        this.digest = digest;
+    }
+
+    @JsonProperty(DIGEST_PROPERTY)
+    public synchronized byte[] serialize()
+    {
+        return digest.serialize().getBytes();
+    }
+
+    TDigest getDigest()
+    {
+        return digest;
+    }
+
+    @JsonCreator
+    @DoNotCall
+    public static TDigestHistogram deserialize(@JsonProperty(DIGEST_PROPERTY) byte[] digest)
+    {
+        return new MultiValueTDigestHistogram(TDigest.deserialize(wrappedBuffer(digest)));
+    }
+
+    @Override
+    @JsonProperty
+    public synchronized long getTotal()
+    {
+        return (long) digest.getCount();
+    }
+
+    @Override
+    @JsonProperty
+    public synchronized double getMin()
+    {
+        return digest.getMin();
+    }
+
+    @Override
+    @JsonProperty
+    public synchronized double getMax()
+    {
+        return digest.getMax();
+    }
+
+    // Below are extra properties that make it easy to read and parse serialized distribution
+    // in operator summaries and event listener.
+    @JsonProperty
+    public synchronized double getP01()
+    {
+        return digest.valueAt(0.01);
+    }
+
+    @JsonProperty
+    public synchronized double getP05()
+    {
+        return digest.valueAt(0.05);
+    }
+
+    @JsonProperty
+    public synchronized double getP10()
+    {
+        return digest.valueAt(0.10);
+    }
+
+    @JsonProperty
+    public synchronized double getP25()
+    {
+        return digest.valueAt(0.25);
+    }
+
+    @JsonProperty
+    public synchronized double getP50()
+    {
+        return digest.valueAt(0.50);
+    }
+
+    @JsonProperty
+    public synchronized double getP75()
+    {
+        return digest.valueAt(0.75);
+    }
+
+    @JsonProperty
+    public synchronized double getP90()
+    {
+        return digest.valueAt(0.90);
+    }
+
+    @JsonProperty
+    public synchronized double getP95()
+    {
+        return digest.valueAt(0.95);
+    }
+
+    @JsonProperty
+    public synchronized double getP99()
+    {
+        return digest.valueAt(0.99);
+    }
+
+    @Override
+    public synchronized double[] getPercentiles(double... percentiles)
+    {
+        double[] digestPercentiles = new double[percentiles.length];
+        for (int i = 0; i < percentiles.length; i++) {
+            digestPercentiles[i] = percentiles[i] / 100.0;
+        }
+        return digest.valuesAt(digestPercentiles);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper("")
+                .add("count", getTotal())
+                .add("p01", formatDouble(getP01()))
+                .add("p05", formatDouble(getP05()))
+                .add("p10", formatDouble(getP10()))
+                .add("p25", formatDouble(getP25()))
+                .add("p50", formatDouble(getP50()))
+                .add("p75", formatDouble(getP75()))
+                .add("p90", formatDouble(getP90()))
+                .add("p95", formatDouble(getP95()))
+                .add("p99", formatDouble(getP99()))
+                .add("min", formatDouble(getMin()))
+                .add("max", formatDouble(getMax()))
+                .toString();
+    }
+
+    private static String formatDouble(double value)
+    {
+        return format(Locale.US, "%.2f", value);
+    }
+}
