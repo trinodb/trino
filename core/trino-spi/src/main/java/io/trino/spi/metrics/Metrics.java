@@ -23,9 +23,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.StringJoiner;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toSet;
 
 public class Metrics
         implements Mergeable<Metrics>
@@ -45,6 +47,16 @@ public class Metrics
     public Map<String, Metric<?>> getMetrics()
     {
         return metrics;
+    }
+
+    public Metric<?> getMetric(String key)
+    {
+        return metrics.get(key);
+    }
+
+    public Set<String> getKeys()
+    {
+        return Set.copyOf(metrics.keySet());
     }
 
     @Override
@@ -86,32 +98,51 @@ public class Metrics
 
     public static class Accumulator
     {
-        private final Map<String, List<Metric<?>>> groupedMetrics = new HashMap<>();
+        private final List<Metrics> values = new ArrayList<>(0);
 
         private Accumulator() {}
 
         public Accumulator add(Metrics metrics)
         {
-            metrics.getMetrics().forEach((key, value) ->
-                    groupedMetrics.computeIfAbsent(key, _ -> new ArrayList<>()).add(value));
+            values.add(metrics);
             return this;
         }
 
         public Metrics get()
         {
-            if (groupedMetrics.isEmpty()) {
+            if (values.isEmpty()) {
                 return EMPTY;
             }
 
-            Map<String, Metric<?>> merged = new HashMap<>();
-            groupedMetrics.forEach((key, values) -> merged.put(key, merge(values.get(0), values.subList(1, values.size()))));
+            Set<String> keys = values.stream()
+                    .flatMap(metric -> metric.getKeys().stream())
+                    .collect(toSet());
+
+            Map<String, Metric<?>> merged = new HashMap<>(keys.size());
+
+            for (String key : keys) {
+                List<Metric<?>> toMerge = new ArrayList<>();
+                for (Metrics metrics : values) {
+                    Metric<?> metric = metrics.getMetric(key);
+                    if (metric != null) {
+                        toMerge.add(metric);
+                    }
+                }
+                merged.put(key, merge(toMerge));
+            }
+
             return new Metrics(merged);
         }
 
         @SuppressWarnings({"rawtypes", "unchecked"})
-        private static Metric<?> merge(Metric<?> a, List<Metric<?>> b)
+        private static Metric<?> merge(List<Metric<?>> values)
         {
-            return (Metric<?>) ((Metric) a).mergeWith(b);
+            Metric<?> head = values.getFirst();
+            if (values.size() == 1) {
+                return head;
+            }
+            List<Metric<?>> tail = values.subList(1, values.size());
+            return (Metric<?>) ((Metric) head).mergeWith(tail);
         }
     }
 }
