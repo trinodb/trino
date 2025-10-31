@@ -21,14 +21,17 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.SimplePlanVisitor;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.List;
 import java.util.Map;
@@ -107,6 +110,10 @@ public class PushProjectionThroughJoinIntoTableScan
         Set<Symbol> leftSymbols = ImmutableSet.copyOf(join.getLeft().getOutputSymbols());
         Set<Symbol> rightSymbols = ImmutableSet.copyOf(join.getRight().getOutputSymbols());
 
+        // Check which sides contain TableScans to determine where we can push projections
+        boolean leftHasTableScan = containsTableScan(join.getLeft());
+        boolean rightHasTableScan = containsTableScan(join.getRight());
+
         // Track if we're pushing down any non-identity projections
         boolean hasNonIdentityProjectionsToPush = false;
 
@@ -121,7 +128,8 @@ public class PushProjectionThroughJoinIntoTableScan
 
             if (referencesLeft && !referencesRight) {
                 // Can potentially push to left side
-                if (join.getType() == JoinType.RIGHT || join.getType() == JoinType.FULL) {
+                // Only push if: 1) left side has TableScan, 2) join type allows (not RIGHT/FULL)
+                if (!leftHasTableScan || join.getType() == JoinType.RIGHT || join.getType() == JoinType.FULL) {
                     remainingProjections.put(outputSymbol, expression);
                 }
                 else {
@@ -133,7 +141,8 @@ public class PushProjectionThroughJoinIntoTableScan
             }
             else if (referencesRight && !referencesLeft) {
                 // Can potentially push to right side
-                if (join.getType() == JoinType.LEFT || join.getType() == JoinType.FULL) {
+                // Only push if: 1) right side has TableScan, 2) join type allows (not LEFT/FULL)
+                if (!rightHasTableScan || join.getType() == JoinType.LEFT || join.getType() == JoinType.FULL) {
                     remainingProjections.put(outputSymbol, expression);
                 }
                 else {
@@ -149,34 +158,42 @@ public class PushProjectionThroughJoinIntoTableScan
             }
         }
 
-        // If no non-identity projections can be pushed down, return empty
-        if (!hasNonIdentityProjectionsToPush) {
-            return Result.empty();
+        // If there are remaining projections that will stay above the join,
+        // ensure their dependencies flow through the join outputs
+        Assignments remainingAssignments = remainingProjections.build();
+        Set<Symbol> remainingDependencies = ImmutableSet.of();
+        if (!remainingAssignments.isEmpty()) {
+            // Extract all symbols referenced by remaining projections
+            remainingDependencies = remainingAssignments.expressions().stream()
+                    .flatMap(expr -> extractUnique(expr).stream())
+                    .collect(toImmutableSet());
         }
 
         // Add identity projections for symbols required by the join
-        for (Symbol symbol : joinRequiredSymbols) {
-            if (leftSymbols.contains(symbol)) {
-                leftProjections.putIdentity(symbol);
-            }
-            if (rightSymbols.contains(symbol)) {
-                rightProjections.putIdentity(symbol);
-            }
-        }
+        // Also add identity projections for symbols needed by remaining projections
+        // Only add to sides that have TableScans
+        Set<Symbol> requiredSymbols = ImmutableSet.<Symbol>builder()
+                .addAll(joinRequiredSymbols)
+                .addAll(remainingDependencies)
+                .build();
 
-        // Also add identity projections for any symbols that appear in the project's output
-        // These need to flow through the join even if they're not computed
-        for (Symbol symbol : project.getOutputSymbols()) {
-            if (leftSymbols.contains(symbol)) {
+        for (Symbol symbol : requiredSymbols) {
+            if (leftSymbols.contains(symbol) && leftHasTableScan) {
                 leftProjections.putIdentity(symbol);
             }
-            if (rightSymbols.contains(symbol)) {
+            if (rightSymbols.contains(symbol) && rightHasTableScan) {
                 rightProjections.putIdentity(symbol);
             }
         }
 
         Assignments leftAssignments = leftProjections.build();
         Assignments rightAssignments = rightProjections.build();
+
+        // If no non-identity projections can be pushed down, return empty
+        // This prevents infinite loops where we keep pushing down only identity projections
+        if (!hasNonIdentityProjectionsToPush) {
+            return Result.empty();
+        }
 
         // Create new project nodes on each side if there are projections to push
         PlanNodeIdAllocator idAllocator = context.getIdAllocator();
@@ -231,5 +248,57 @@ public class PushProjectionThroughJoinIntoTableScan
         }
 
         return Result.ofPlanNode(newJoin);
+    }
+
+    /**
+     * Checks if a plan node tree contains a TableScanNode. This ensures we only apply the rule when
+     * projections can actually be pushed to connectors.
+     */
+    private static boolean containsTableScan(PlanNode node)
+    {
+        TableScanChecker checker = new TableScanChecker();
+        node.accept(checker, null);
+        return checker.hasTableScan();
+    }
+
+    private static class TableScanChecker
+            extends SimplePlanVisitor<Void>
+    {
+        private boolean foundTableScan;
+
+        public boolean hasTableScan()
+        {
+            return foundTableScan;
+        }
+
+        @Override
+        public Void visitTableScan(TableScanNode node, Void context)
+        {
+            foundTableScan = true;
+            return null;
+        }
+
+        @Override
+        public Void visitGroupReference(GroupReference node, Void context)
+        {
+            // GroupReference represents unexpanded nodes, assume it might contain a TableScan
+            foundTableScan = true;
+            return null;
+        }
+
+        @Override
+        protected Void visitPlan(PlanNode node, Void context)
+        {
+            // Stop traversing once we've found a TableScan
+            if (!foundTableScan) {
+                for (PlanNode source : node.getSources()) {
+                    source.accept(this, context);
+                    if (foundTableScan) {
+                        break;
+                    }
+                }
+            }
+            return null;
+        }
     }
 }
