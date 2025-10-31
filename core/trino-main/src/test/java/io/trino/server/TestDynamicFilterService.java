@@ -1060,7 +1060,7 @@ public class TestDynamicFilterService
                         Optional.empty()),
                 ImmutableSet.of(symbol),
                 stagePartitioning,
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(tableScanNodeId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
                 OptionalInt.empty(),

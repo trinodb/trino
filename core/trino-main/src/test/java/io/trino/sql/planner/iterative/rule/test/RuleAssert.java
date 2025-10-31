@@ -13,7 +13,9 @@
  */
 package io.trino.sql.planner.iterative.rule.test;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import io.trino.Session;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
@@ -42,9 +44,7 @@ import io.trino.testing.PlanTester;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
-import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
@@ -151,7 +151,7 @@ public class RuleAssert
     {
         SymbolAllocator symbolAllocator = new SymbolAllocator(symbols);
         Memo memo = new Memo(idAllocator, plan);
-        Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
+        Lookup lookup = Lookup.from(planNode -> ImmutableList.of(memo.resolve(planNode)));
 
         PlanNode memoRoot = memo.getNode(memo.getRootGroup());
 
@@ -162,15 +162,14 @@ public class RuleAssert
     {
         Capture<T> planNodeCapture = newCapture();
         Pattern<T> pattern = rule.getPattern().capturedAs(planNodeCapture);
-        Optional<Match> match = pattern.match(planNode, context.getLookup())
-                .collect(toOptional());
+        Match match = Iterables.getFirst(pattern.match(planNode, context.getLookup()), null);
 
         Rule.Result result;
-        if (!rule.isEnabled(context.getSession()) || match.isEmpty()) {
+        if (!rule.isEnabled(context.getSession()) || match == null) {
             result = Rule.Result.empty();
         }
         else {
-            result = rule.apply(match.get().capture(planNodeCapture), match.get().captures(), context);
+            result = rule.apply(match.capture(planNodeCapture), match.captures(), context);
         }
 
         return new RuleApplication(context.getLookup(), context.getStatsProvider(), result);

@@ -22,11 +22,12 @@ import io.trino.execution.buffer.OutputBufferStatus;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.TaskState.PLANNED;
 import static java.util.Objects.requireNonNull;
@@ -62,7 +63,7 @@ public class TaskStatus
     private final DataSize writerInputDataSize;
     private final DataSize outputDataSize;
     private final DataSize physicalWrittenDataSize;
-    private final Optional<Integer> maxWriterCount;
+    private final OptionalInt maxWriterCount;
     private final DataSize memoryReservation;
     private final DataSize peakMemoryReservation;
     private final DataSize revocableMemoryReservation;
@@ -90,7 +91,7 @@ public class TaskStatus
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("writerInputDataSize") DataSize writerInputDataSize,
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
-            @JsonProperty("writerCount") Optional<Integer> maxWriterCount,
+            @JsonProperty("writerCount") OptionalInt maxWriterCount,
             @JsonProperty("memoryReservation") DataSize memoryReservation,
             @JsonProperty("peakMemoryReservation") DataSize peakMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
@@ -212,7 +213,7 @@ public class TaskStatus
     }
 
     @JsonProperty
-    public Optional<Integer> getMaxWriterCount()
+    public OptionalInt getMaxWriterCount()
     {
         return maxWriterCount;
     }
@@ -303,12 +304,12 @@ public class TaskStatus
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
-                Optional.empty(),
+                OptionalInt.empty(),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 0,
-                new Duration(0, MILLISECONDS),
+                succinctDuration(0, MILLISECONDS),
                 INITIAL_DYNAMIC_FILTERS_VERSION,
                 0L,
                 0L);

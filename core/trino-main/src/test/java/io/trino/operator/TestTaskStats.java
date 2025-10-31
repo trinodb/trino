@@ -21,7 +21,7 @@ import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
-import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.trino.operator.TestPipelineStats.assertExpectedPipelineStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -79,7 +79,7 @@ public class TestTaskStats
 
             DataSize.ofBytes(25),
             DataSize.ofBytes(25),
-            Optional.of(2),
+            OptionalInt.of(2),
 
             26,
             new Duration(27, NANOSECONDS),

@@ -265,7 +265,7 @@ public class TestExponentialGrowthPartitionMemoryEstimator
                 new ValuesNode(new PlanNodeId("values"), 1),
                 ImmutableSet.of(),
                 partitioningHandle,
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of()),
                 OptionalInt.empty(),

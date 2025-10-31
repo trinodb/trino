@@ -918,8 +918,8 @@ public class PlanBuilder
                     ImmutableList.copyOf(outputSymbols),
                     false,
                     Optional.empty(),
-                    Optional.empty(),
-                    Optional.of(partitionCount)));
+                    OptionalInt.empty(),
+                    OptionalInt.of(partitionCount)));
         }
 
         public ExchangeBuilder fixedArbitraryDistributionPartitioningScheme(List<Symbol> outputSymbols, int partitionCount)
@@ -930,8 +930,8 @@ public class PlanBuilder
                     ImmutableList.copyOf(outputSymbols),
                     false,
                     Optional.empty(),
-                    Optional.empty(),
-                    Optional.of(partitionCount)));
+                    OptionalInt.empty(),
+                    OptionalInt.of(partitionCount)));
         }
 
         public ExchangeBuilder partitioningScheme(PartitioningScheme partitioningScheme)

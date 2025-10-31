@@ -232,7 +232,7 @@ public class TypeOperators
         private OperatorMethodHandle selectOperatorMethodHandleToAdapt(OperatorConvention operatorConvention)
         {
             List<OperatorMethodHandle> operatorMethodHandles = getOperatorMethodHandles(operatorConvention).stream()
-                    .sorted(Comparator.comparing(TypeOperators::getScore).reversed())
+                    .sorted(Comparator.comparingInt(TypeOperators::getScore).reversed())
                     .toList();
 
             // if a method handle exists for the exact convention, use it

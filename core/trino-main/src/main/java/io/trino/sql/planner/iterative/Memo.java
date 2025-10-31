@@ -14,20 +14,20 @@
 package io.trino.sql.planner.iterative;
 
 import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.plan.PlanNode;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import jakarta.annotation.Nullable;
 
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -67,7 +67,7 @@ public class Memo
     private final PlanNodeIdAllocator idAllocator;
     private final int rootGroup;
 
-    private final Map<Integer, Group> groups = new HashMap<>();
+    private final Int2ObjectMap<Group> groups = new Int2ObjectOpenHashMap<>();
 
     private int nextGroupId = ROOT_GROUP_REF + 1;
 
@@ -106,7 +106,7 @@ public class Memo
 
     private PlanNode extract(PlanNode node)
     {
-        return resolveGroupReferences(node, Lookup.from(planNode -> Stream.of(this.resolve(planNode))));
+        return resolveGroupReferences(node, Lookup.from(planNode -> ImmutableList.of(this.resolve(planNode))));
     }
 
     public PlanNode replace(int groupId, PlanNode node, String reason)
@@ -195,10 +195,14 @@ public class Memo
 
     private Set<Integer> getAllReferences(PlanNode node)
     {
-        return node.getSources().stream()
-                .map(GroupReference.class::cast)
-                .map(GroupReference::getGroupId)
-                .collect(Collectors.toSet());
+        ImmutableSet.Builder<Integer> groupIds = ImmutableSet.builderWithExpectedSize(node.getSources().size());
+        for (PlanNode source : node.getSources()) {
+            if (!(source instanceof GroupReference groupReference)) {
+                throw new IllegalArgumentException("Expected %s to be a group reference".formatted(source));
+            }
+            groupIds.add(groupReference.getGroupId());
+        }
+        return groupIds.build();
     }
 
     private void deleteGroup(int group)
@@ -210,13 +214,11 @@ public class Memo
 
     private PlanNode insertChildrenAndRewrite(PlanNode node)
     {
-        return node.replaceChildren(
-                node.getSources().stream()
-                        .map(child -> new GroupReference(
-                                idAllocator.getNextId(),
-                                insertRecursive(child),
-                                child.getOutputSymbols()))
-                        .collect(Collectors.toList()));
+        ImmutableList.Builder<PlanNode> newChildren = ImmutableList.builderWithExpectedSize(node.getSources().size());
+        for (PlanNode child : node.getSources()) {
+            newChildren.add(new GroupReference(idAllocator.getNextId(), insertRecursive(child), child.getOutputSymbols()));
+        }
+        return node.replaceChildren(newChildren.build());
     }
 
     private int insertRecursive(PlanNode node)

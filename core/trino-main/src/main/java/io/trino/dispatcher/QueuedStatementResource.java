@@ -85,6 +85,7 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
+import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.dispatcher.QueuedStatementResource.SubmissionState.ABANDONED;
 import static io.trino.dispatcher.QueuedStatementResource.SubmissionState.NOT_SUBMITTED;
@@ -111,7 +112,7 @@ public class QueuedStatementResource
 {
     private static final Logger log = Logger.get(QueuedStatementResource.class);
     private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
-    private static final Duration NO_DURATION = new Duration(0, MILLISECONDS);
+    private static final Duration NO_DURATION = succinctDuration(0, MILLISECONDS);
 
     private final HttpRequestSessionContextFactory sessionContextFactory;
     private final DispatchManager dispatchManager;

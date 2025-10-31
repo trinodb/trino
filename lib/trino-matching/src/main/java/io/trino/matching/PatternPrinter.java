@@ -38,7 +38,7 @@ public class PatternPrinter
                 print(withPattern.getPattern());
                 level -= 1;
             }
-            case CapturePattern<?> capturePattern -> appendLine("capturedAs(%s)", capturePattern.capture().description());
+            case CapturePattern<?> capturePattern -> appendLine("capturedAs($%d)", capturePattern.capture().number());
             case EqualsPattern<?> equalsPattern -> appendLine("equals(%s)", equalsPattern.expectedValue());
             case FilterPattern<?> filterPattern -> appendLine("filter(%s)", filterPattern.predicate());
             case OrPattern<?> orPattern -> {

@@ -13,8 +13,9 @@
  */
 package io.trino.matching;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.Optional;
-import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -35,9 +36,11 @@ public final class EqualsPattern<T>
     }
 
     @Override
-    public <C> Stream<Match> accept(Object object, Captures captures, C context)
+    public <C> Iterable<Match> accept(Object object, Captures captures, C context)
     {
-        return Stream.of(Match.of(captures))
-                .filter(match -> expectedValue.equals(object));
+        if (expectedValue.equals(object)) {
+            return ImmutableList.of(Match.of(captures));
+        }
+        return ImmutableList.of();
     }
 }

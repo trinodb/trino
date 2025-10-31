@@ -25,8 +25,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.google.common.collect.MoreCollectors.onlyElement;
-import static com.google.common.collect.MoreCollectors.toOptional;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.matching.Pattern.any;
 import static io.trino.matching.Pattern.typeOf;
@@ -153,11 +152,7 @@ public class TestMatcher
     {
         Capture<Void> impossible = newCapture();
         Pattern<Void> pattern = typeOf(Void.class).capturedAs(impossible);
-
-        Optional<Match> match = pattern.match(42)
-                .collect(toOptional());
-
-        assertThat(match).isEmpty();
+        assertThat(pattern.match(42)).isEmpty();
     }
 
     @Test
@@ -166,9 +161,7 @@ public class TestMatcher
         Pattern<?> pattern = any();
         Capture<?> unknownCapture = newCapture();
 
-        Match match = pattern.match(42)
-                .collect(onlyElement());
-
+        Match match = getOnlyElement(pattern.match(42));
         assertThatThrownBy(() -> match.capture(unknownCapture))
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessageContaining("unknown Capture");
@@ -193,8 +186,7 @@ public class TestMatcher
                         }).equalTo(true));
 
         AtomicBoolean wasContextUsed = new AtomicBoolean();
-        assertThat(pattern.match("object", wasContextUsed)
-                .collect(onlyElement())).isNotNull();
+        assertThat(getOnlyElement(pattern.match("object", wasContextUsed))).isNotNull();
         assertThat(wasContextUsed.get()).isEqualTo(true);
     }
 
@@ -208,21 +200,17 @@ public class TestMatcher
                 });
 
         AtomicBoolean wasContextUsed = new AtomicBoolean();
-        assertThat(pattern.match("object", wasContextUsed)
-                .collect(onlyElement())).isNotNull();
+        assertThat(getOnlyElement(pattern.match("object", wasContextUsed))).isNotNull();
         assertThat(wasContextUsed.get()).isEqualTo(true);
     }
 
     private <T> Match assertMatch(Pattern<T> pattern, T object)
     {
-        return pattern.match(object)
-                .collect(onlyElement());
+        return getOnlyElement(pattern.match(object));
     }
 
     private <T> void assertNoMatch(Pattern<T> pattern, Object expectedNoMatch)
     {
-        Optional<Match> match = pattern.match(expectedNoMatch)
-                .collect(toOptional());
-        assertThat(match).isEmpty();
+        assertThat(pattern.match(expectedNoMatch)).isEmpty();
     }
 }

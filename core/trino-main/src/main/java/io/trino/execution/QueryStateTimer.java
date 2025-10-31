@@ -22,6 +22,7 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static io.airlift.units.Duration.succinctDuration;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -306,7 +307,7 @@ class QueryStateTimer
         if (startNanos != null) {
             return nanosSince(startNanos, tickerNanos());
         }
-        return new Duration(0, MILLISECONDS);
+        return succinctDuration(0, MILLISECONDS);
     }
 
     private Optional<Instant> toInstant(AtomicReference<Long> instantNanos)

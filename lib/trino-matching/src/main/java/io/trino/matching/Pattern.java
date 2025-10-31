@@ -21,7 +21,6 @@ import java.util.Optional;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -99,30 +98,29 @@ public abstract sealed class Pattern<T>
         return previous;
     }
 
-    public abstract <C> Stream<Match> accept(Object object, Captures captures, C context);
+    public abstract <C> Iterable<Match> accept(Object object, Captures captures, C context);
 
     public <C> boolean matches(Object object, C context)
     {
-        return match(object, context)
-                .findFirst()
-                .isPresent();
+        return !Iterables.isEmpty(match(object, context));
     }
 
-    public final Stream<Match> match(Object object)
+    public final Iterable<Match> match(Object object)
     {
         return match(object, Captures.empty(), null);
     }
 
-    public final <C> Stream<Match> match(Object object, C context)
+    public final <C> Iterable<Match> match(Object object, C context)
     {
         return match(object, Captures.empty(), context);
     }
 
-    public final <C> Stream<Match> match(Object object, Captures captures, C context)
+    public final <C> Iterable<Match> match(Object object, Captures captures, C context)
     {
         if (previous.isPresent()) {
-            return previous.get().match(object, captures, context)
-                    .flatMap(match -> accept(object, match.captures(), context));
+            return Iterables.concat(Iterables.transform(
+                        previous.get().match(object, captures, context),
+                    match -> accept(object, match.captures(), context)));
         }
         return accept(object, captures, context);
     }

@@ -22,7 +22,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.expression.ConnectorExpression;
 
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -92,9 +91,7 @@ public final class ConnectorExpressionRewriter<Result>
         }
         Capture<ExpressionType> expressionCapture = newCapture();
         Pattern<ExpressionType> pattern = rule.getPattern().capturedAs(expressionCapture);
-        Iterator<Match> matches = pattern.match(expression, context).iterator();
-        while (matches.hasNext()) {
-            Match match = matches.next();
+        for (Match match : pattern.match(expression, context)) {
             ExpressionType capturedExpression = match.capture(expressionCapture);
             verify(capturedExpression == expression);
             Optional<Result> rewritten = rule.rewrite(capturedExpression, match.captures(), context);

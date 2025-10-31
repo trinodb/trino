@@ -26,6 +26,7 @@ import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -44,7 +45,7 @@ final class ExchangeMatcher
     private final List<Ordering> orderBy;
     private final Set<String> partitionedBy;
     private final Optional<List<List<String>>> inputs;
-    private final Optional<Optional<Integer>> partitionCount;
+    private final Optional<OptionalInt> partitionCount;
 
     public ExchangeMatcher(
             ExchangeNode.Scope scope,
@@ -53,7 +54,7 @@ final class ExchangeMatcher
             List<Ordering> orderBy,
             Set<String> partitionedBy,
             Optional<List<List<String>>> inputs,
-            Optional<Optional<Integer>> partitionCount)
+            Optional<OptionalInt> partitionCount)
     {
         this.scope = requireNonNull(scope, "scope is null");
         this.type = requireNonNull(type, "type is null");

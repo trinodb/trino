@@ -43,7 +43,7 @@ import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
@@ -395,8 +395,8 @@ public class TableWriterOperator
     private void tryClosingIdleWriters()
     {
         long physicalWrittenDataSize = getTaskContext().getPhysicalWrittenDataSize();
-        Optional<Integer> writerCount = getTaskContext().getMaxWriterCount();
-        if (writerCount.isEmpty() || physicalWrittenDataSize - lastPhysicalWrittenDataSize <= idleWriterMinDataSizeThreshold.toBytes() * writerCount.get()) {
+        OptionalInt writerCount = getTaskContext().getMaxWriterCount();
+        if (writerCount.isEmpty() || physicalWrittenDataSize - lastPhysicalWrittenDataSize <= idleWriterMinDataSizeThreshold.toBytes() * writerCount.getAsInt()) {
             return;
         }
         pageSink.closeIdleWriters();

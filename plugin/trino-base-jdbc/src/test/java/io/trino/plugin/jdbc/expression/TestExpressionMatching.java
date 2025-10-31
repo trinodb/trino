@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.google.common.collect.MoreCollectors.onlyElement;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -41,7 +41,7 @@ public class TestExpressionMatching
         Type type = createDecimalType(10, 2);
         TypePattern pattern = typePattern("decimal(p, s)");
 
-        Match match = pattern.getPattern().match(type).collect(onlyElement());
+        Match match = getOnlyElement(pattern.getPattern().match(type));
         MatchContext matchContext = new MatchContext();
         pattern.resolve(match.captures(), matchContext);
 
@@ -61,7 +61,7 @@ public class TestExpressionMatching
                         new Variable("second", BIGINT)));
         ExpressionPattern pattern = expressionPattern("foo: decimal(p, s)");
 
-        Match match = pattern.getPattern().match(expression).collect(onlyElement());
+        Match match = getOnlyElement(pattern.getPattern().match(expression));
         MatchContext matchContext = new MatchContext();
         pattern.resolve(match.captures(), matchContext);
 
@@ -82,7 +82,7 @@ public class TestExpressionMatching
                         new Variable("second", BIGINT)));
         ExpressionPattern pattern = expressionPattern("add(foo: decimal(p, s), bar: bigint)");
 
-        Match match = pattern.getPattern().match(expression).collect(onlyElement());
+        Match match = getOnlyElement(pattern.getPattern().match(expression));
         MatchContext matchContext = new MatchContext();
         pattern.resolve(match.captures(), matchContext);
 
@@ -104,7 +104,7 @@ public class TestExpressionMatching
                         new Variable("second", BIGINT)));
         ExpressionPattern pattern = expressionPattern("add(foo: integer_class, bar: integer_class): integer_class");
 
-        Match match = pattern.getPattern().match(expression).collect(onlyElement());
+        Match match = getOnlyElement(pattern.getPattern().match(expression));
         MatchContext matchContext = new MatchContext();
         pattern.resolve(match.captures(), matchContext);
 

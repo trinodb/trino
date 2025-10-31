@@ -429,7 +429,7 @@ public class TransactionLogAccess
                         .flatMap(key -> Optional.ofNullable(activeDataFileCache.getIfPresent(key))
                                 .map(value -> Map.entry(key, value))
                                 .stream())
-                        .max(Comparator.comparing(entry -> entry.getKey().version()))
+                        .max(Comparator.comparingLong(entry -> entry.getKey().version()))
                         .map(Map.Entry::getValue)
                         .orElse(null);
                 if (oldCached != null) {

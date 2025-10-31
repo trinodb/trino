@@ -37,10 +37,11 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.execution.StageState.RUNNING;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @Immutable
 public class StageStats
@@ -660,7 +661,7 @@ public class StageStats
     public static StageStats createInitial()
     {
         DataSize zeroBytes = DataSize.of(0, BYTE);
-        Duration zeroSeconds = new Duration(0, SECONDS);
+        Duration zeroSeconds = succinctDuration(0, MILLISECONDS);
         return new StageStats(
                 null,
                 ImmutableMap.of(),

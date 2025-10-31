@@ -46,12 +46,10 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -112,7 +110,7 @@ public class IterativeOptimizer
 
         Set<PlanNodeId> changedPlanNodeIds = new HashSet<>();
         Memo memo = new Memo(context.idAllocator(), plan);
-        Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
+        Lookup lookup = Lookup.from(planNode -> ImmutableList.of(memo.resolve(planNode)));
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(context.session());
         Context optimizerContext = new Context(
@@ -202,14 +200,13 @@ public class IterativeOptimizer
     {
         Capture<T> nodeCapture = newCapture();
         Pattern<T> pattern = rule.getPattern().capturedAs(nodeCapture);
-        Iterator<Match> matches = pattern.match(node, context.lookup).iterator();
-        while (matches.hasNext()) {
-            Match match = matches.next();
+        Rule.Context ruleContext = ruleContext(context);
+        for (Match match : pattern.match(node, context.lookup)) {
             long duration;
             Rule.Result result;
             try {
                 long start = nanoTime();
-                result = rule.apply(match.capture(nodeCapture), match.captures(), ruleContext(context));
+                result = rule.apply(match.capture(nodeCapture), match.captures(), ruleContext);
 
                 if (LOG.isDebugEnabled() && !result.isEmpty()) {
                     LOG.debug(
