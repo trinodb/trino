@@ -20,6 +20,7 @@ import com.google.common.io.Resources;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -64,5 +65,10 @@ public final class TestingProperties
         String value = System.getProperty(propertyName);
         checkArgument(!isNullOrEmpty(value), "System property %s must be non-empty", propertyName);
         return value;
+    }
+
+    public static Optional<String> optionalSystemProperty(String propertyName)
+    {
+        return Optional.ofNullable(System.getProperty(propertyName));
     }
 }

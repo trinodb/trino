@@ -514,7 +514,8 @@ jobs:
             - { modules: plugin/trino-resource-group-managers }
             - { modules: plugin/trino-singlestore }
             - { modules: plugin/trino-snowflake }
-            - { modules: plugin/trino-snowflake, profile: cloud-tests }
+            - { modules: plugin/trino-snowflake, profile: cloud-tests, auth: private-key }
+            - { modules: plugin/trino-snowflake, profile: cloud-tests, auth: password }
             - { modules: plugin/trino-sqlserver }
             - { modules: plugin/trino-vertica }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
@@ -692,8 +693,26 @@ jobs:
         if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-2') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dtesting.bigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
-      - name: Cloud Snowflake Tests
-        id: tests-snowflake
+      - name: Cloud Snowflake Tests (Private Key Auth)
+        id: tests-snowflake-private-key
+        env:
+          SNOWFLAKE_URL: ${{ vars.SNOWFLAKE_URL }}
+          SNOWFLAKE_USER: ${{ vars.SNOWFLAKE_USER }}
+          SNOWFLAKE_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
+          SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}
+          SNOWFLAKE_ROLE: ${{ vars.SNOWFLAKE_ROLE }}
+          SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}
+        if: matrix.modules == 'plugin/trino-snowflake' && contains(matrix.profile, 'cloud-tests') && matrix.auth == 'private-key' && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.SNOWFLAKE_URL != '')
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl :trino-snowflake -Pcloud-tests \
+            -Dsnowflake.test.server.url="${SNOWFLAKE_URL}" \
+            -Dsnowflake.test.server.user="${SNOWFLAKE_USER}" \
+            -Dsnowflake.test.server.private-key="${SNOWFLAKE_PRIVATE_KEY}" \
+            -Dsnowflake.test.server.database="${SNOWFLAKE_DATABASE}" \
+            -Dsnowflake.test.server.role="${SNOWFLAKE_ROLE}" \
+            -Dsnowflake.test.server.warehouse="${SNOWFLAKE_WAREHOUSE}"
+      - name: Cloud Snowflake Tests (Password Auth)
+        id: tests-snowflake-password
         env:
           SNOWFLAKE_URL: ${{ vars.SNOWFLAKE_URL }}
           SNOWFLAKE_USER: ${{ vars.SNOWFLAKE_USER }}
@@ -701,7 +720,7 @@ jobs:
           SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}
           SNOWFLAKE_ROLE: ${{ vars.SNOWFLAKE_ROLE }}
           SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}
-        if: matrix.modules == 'plugin/trino-snowflake' && contains(matrix.profile, 'cloud-tests') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.SNOWFLAKE_URL != '')
+        if: matrix.modules == 'plugin/trino-snowflake' && contains(matrix.profile, 'cloud-tests') && matrix.auth == 'password' && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.SNOWFLAKE_URL != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-snowflake -Pcloud-tests \
             -Dsnowflake.test.server.url="${SNOWFLAKE_URL}" \
@@ -818,7 +837,8 @@ jobs:
               || steps.tests-bq-smoke.outcome == 'failure'
               || steps.tests-iceberg.outcome == 'failure'
               || steps.tests-redshift.outcome == 'failure'
-              || steps.tests-snowflake.outcome == 'failure'
+              || steps.tests-snowflake-password.outcome == 'failure'
+              || steps.tests-snowflake-private-key.outcome == 'failure'
             }}
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
       - name: Update PR check
@@ -1023,6 +1043,7 @@ jobs:
           SNOWFLAKE_URL: ""
           SNOWFLAKE_USER: ""
           SNOWFLAKE_PASSWORD: ""
+          SNOWFLAKE_PRIVATE_KEY: ""
           SNOWFLAKE_DATABASE: ""
           SNOWFLAKE_ROLE: ""
           SNOWFLAKE_WAREHOUSE: ""
@@ -1096,6 +1117,7 @@ jobs:
           SNOWFLAKE_URL: ${{ vars.SNOWFLAKE_URL }}
           SNOWFLAKE_USER: ${{ vars.SNOWFLAKE_USER }}
           SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY }}
           SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}
           SNOWFLAKE_ROLE: ${{ vars.SNOWFLAKE_ROLE }}
           SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}

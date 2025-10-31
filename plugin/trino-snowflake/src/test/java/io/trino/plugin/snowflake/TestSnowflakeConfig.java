@@ -32,7 +32,8 @@ public class TestSnowflakeConfig
                 .setDatabase(null)
                 .setRole(null)
                 .setWarehouse(null)
-                .setHttpProxy(null));
+                .setHttpProxy(null)
+                .setPrivateKey(null));
     }
 
     @Test
@@ -44,6 +45,7 @@ public class TestSnowflakeConfig
                 .put("snowflake.role", "MYROLE")
                 .put("snowflake.warehouse", "MYWAREHOUSE")
                 .put("snowflake.http-proxy", "MYPROXY")
+                .put("snowflake.private-key", "MYPRIVATEKEY")
                 .buildOrThrow();
 
         SnowflakeConfig expected = new SnowflakeConfig()
@@ -51,7 +53,8 @@ public class TestSnowflakeConfig
                 .setDatabase("MYDATABASE")
                 .setRole("MYROLE")
                 .setWarehouse("MYWAREHOUSE")
-                .setHttpProxy("MYPROXY");
+                .setHttpProxy("MYPROXY")
+                .setPrivateKey("MYPRIVATEKEY");
 
         assertFullMapping(properties, expected);
     }
