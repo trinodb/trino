@@ -24,22 +24,22 @@ import java.util.List;
 public final class KafkaSessionProperties
         implements SessionPropertiesProvider
 {
+    public static final String KAFKA_TOPIC_PARTITION_OFFSET_OVERRIDES = "kafka_topic_partition_offset_overrides";
     private static final String TIMESTAMP_UPPER_BOUND_FORCE_PUSH_DOWN_ENABLED = "timestamp_upper_bound_force_push_down_enabled";
+    private static final String NONE = "";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
     public KafkaSessionProperties(KafkaConfig kafkaConfig)
     {
         sessionProperties = ImmutableList.of(PropertyMetadata.booleanProperty(
-                TIMESTAMP_UPPER_BOUND_FORCE_PUSH_DOWN_ENABLED,
-                "Enable or disable timestamp upper bound push down for topic createTime mode",
-                kafkaConfig.isTimestampUpperBoundPushDownEnabled(), false));
-    }
-
-    @Override
-    public List<PropertyMetadata<?>> getSessionProperties()
-    {
-        return sessionProperties;
+                        TIMESTAMP_UPPER_BOUND_FORCE_PUSH_DOWN_ENABLED,
+                        "Enable or disable timestamp upper bound push down for topic createTime mode",
+                        kafkaConfig.isTimestampUpperBoundPushDownEnabled(), false),
+                PropertyMetadata.stringProperty(
+                        KAFKA_TOPIC_PARTITION_OFFSET_OVERRIDES,
+                        "Set custom offsets when reading particular kafka topic partitions. Example config: 'topicName-0=0-10,topicName-1=5-20'. Trino will read topicName partition 0 from offsets 0 to 10 (exclusive). If not specified, Trino will fall back to the current partition of a kafka topic.",
+                        NONE, false));
     }
 
     /**
@@ -52,5 +52,11 @@ public final class KafkaSessionProperties
     public static boolean isTimestampUpperBoundPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(TIMESTAMP_UPPER_BOUND_FORCE_PUSH_DOWN_ENABLED, Boolean.class);
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties;
     }
 }
