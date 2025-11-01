@@ -83,8 +83,8 @@ public interface H2ResourceGroupsDao
     void deleteResourceGroup(@Bind("resource_group_id") long resourceGroupId);
 
     @SqlUpdate("INSERT INTO selectors\n" +
-            "(resource_group_id, priority, user_regex, user_group_regex, original_user_regex, authenticated_user_regex, source_regex, query_type, client_tags, selector_resource_estimate)\n" +
-            "VALUES (:resource_group_id, :priority, :user_regex, :user_group_regex, :original_user_regex, :authenticated_user_regex, :source_regex, :query_type, :client_tags, :selector_resource_estimate)")
+            "(resource_group_id, priority, user_regex, user_group_regex, original_user_regex, authenticated_user_regex, source_regex, query_text_regex, query_type, client_tags, selector_resource_estimate)\n" +
+            "VALUES (:resource_group_id, :priority, :user_regex, :user_group_regex, :original_user_regex, :authenticated_user_regex, :source_regex, :query_text_regex, :query_type, :client_tags, :selector_resource_estimate)")
     void insertSelector(
             @Bind("resource_group_id") long resourceGroupId,
             @Bind("priority") long priority,
@@ -93,6 +93,7 @@ public interface H2ResourceGroupsDao
             @Bind("original_user_regex") String originalUserRegex,
             @Bind("authenticated_user_regex") String authenticatedUserRegex,
             @Bind("source_regex") String sourceRegex,
+            @Bind("query_text_regex") String queryTextRegex,
             @Bind("query_type") String queryType,
             @Bind("client_tags") String clientTags,
             @Bind("selector_resource_estimate") String selectorResourceEstimate);

@@ -38,6 +38,7 @@ public class SelectorRecord
     private final Optional<Pattern> originalUserRegex;
     private final Optional<Pattern> authenticatedUserRegex;
     private final Optional<Pattern> sourceRegex;
+    private final Optional<Pattern> queryTextRegex;
     private final Optional<String> queryType;
     private final Optional<List<String>> clientTags;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
@@ -50,6 +51,7 @@ public class SelectorRecord
             Optional<Pattern> originalUserRegex,
             Optional<Pattern> authenticatedUserRegex,
             Optional<Pattern> sourceRegex,
+            Optional<Pattern> queryTextRegex,
             Optional<String> queryType,
             Optional<List<String>> clientTags,
             Optional<SelectorResourceEstimate> selectorResourceEstimate)
@@ -61,6 +63,7 @@ public class SelectorRecord
         this.originalUserRegex = requireNonNull(originalUserRegex, "originalUserRegex is null");
         this.authenticatedUserRegex = requireNonNull(authenticatedUserRegex, "authenticatedUserRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
+        this.queryTextRegex = requireNonNull(queryTextRegex, "queryTextRegex is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.clientTags = clientTags.map(ImmutableList::copyOf);
         this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
@@ -101,6 +104,11 @@ public class SelectorRecord
         return sourceRegex;
     }
 
+    public Optional<Pattern> getQueryTextRegex()
+    {
+        return queryTextRegex;
+    }
+
     public Optional<String> getQueryType()
     {
         return queryType;
@@ -134,6 +142,7 @@ public class SelectorRecord
                     Optional.ofNullable(resultSet.getString("original_user_regex")).map(Pattern::compile),
                     Optional.ofNullable(resultSet.getString("authenticated_user_regex")).map(Pattern::compile),
                     Optional.ofNullable(resultSet.getString("source_regex")).map(Pattern::compile),
+                    Optional.ofNullable(resultSet.getString("query_text_regex")).map(Pattern::compile),
                     Optional.ofNullable(resultSet.getString("query_type")),
                     Optional.ofNullable(resultSet.getString("client_tags")).map(LIST_STRING_CODEC::fromJson),
                     Optional.ofNullable(resultSet.getString("selector_resource_estimate")).map(SELECTOR_RESOURCE_ESTIMATE_JSON_CODEC::fromJson));
