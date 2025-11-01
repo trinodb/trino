@@ -819,6 +819,9 @@ public class FileHiveMetastore
 
     private void verifiedPartition(Table table, Partition partition)
     {
+        if (disableLocationChecks) {
+            return;
+        }
         Location partitionMetadataDirectory = getPartitionMetadataDirectory(table, partition.getValues());
 
         if (table.getTableType().equals(MANAGED_TABLE.name())) {
