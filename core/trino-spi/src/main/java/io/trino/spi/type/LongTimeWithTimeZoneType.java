@@ -212,6 +212,22 @@ final class LongTimeWithTimeZoneType
                 getOffsetMinutes(rightBlock, rightPosition));
     }
 
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset,
+            @BlockPosition Fixed12Block rightBlock,
+            @BlockIndex int rightPosition)
+    {
+        return equal(
+                (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset),
+                (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG),
+                getPicos(rightBlock, rightPosition),
+                getOffsetMinutes(rightBlock, rightPosition));
+    }
+
     private static boolean equal(long leftPicos, int leftOffsetMinutes, long rightPicos, int rightOffsetMinutes)
     {
         return normalizePicos(leftPicos, leftOffsetMinutes) == normalizePicos(rightPicos, rightOffsetMinutes);

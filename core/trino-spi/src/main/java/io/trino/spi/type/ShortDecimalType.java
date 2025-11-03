@@ -204,6 +204,18 @@ final class ShortDecimalType
     }
 
     @ScalarOperator(EQUAL)
+    private static boolean equalOperator(
+            @FlatFixed byte[] leftFixedSizeSlice,
+            @FlatFixedOffset int leftFixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset,
+            @BlockPosition LongArrayBlock rightBlock,
+            @BlockIndex int rightPosition)
+    {
+        return equalOperator((long) LONG_HANDLE.get(leftFixedSizeSlice, leftFixedSizeOffset), rightBlock.getLong(rightPosition));
+    }
+
+    @ScalarOperator(EQUAL)
     private static boolean equalOperator(long left, long right)
     {
         return left == right;

@@ -230,6 +230,22 @@ final class LongTimestampType
                 getFraction(rightBlock, rightPosition));
     }
 
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(
+            @FlatFixed byte[] leftFixedSizeSlice,
+            @FlatFixedOffset int leftFixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset,
+            @BlockPosition Fixed12Block rightBlock,
+            @BlockIndex int rightPosition)
+    {
+        return equal(
+                (long) LONG_HANDLE.get(leftFixedSizeSlice, leftFixedSizeOffset),
+                (int) INT_HANDLE.get(leftFixedSizeSlice, leftFixedSizeOffset + SIZE_OF_LONG),
+                getEpochMicros(rightBlock, rightPosition),
+                getFraction(rightBlock, rightPosition));
+    }
+
     private static boolean equal(long leftEpochMicros, int leftFraction, long rightEpochMicros, int rightFraction)
     {
         return leftEpochMicros == rightEpochMicros && leftFraction == rightFraction;

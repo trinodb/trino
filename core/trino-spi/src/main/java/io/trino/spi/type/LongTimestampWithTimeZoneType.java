@@ -273,6 +273,22 @@ final class LongTimestampWithTimeZoneType
                 getPicosOfMilli(rightBlock, rightPosition));
     }
 
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(
+            @FlatFixed byte[] leftFixedSizeSlice,
+            @FlatFixedOffset int leftFixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset,
+            @BlockPosition Fixed12Block rightBlock,
+            @BlockIndex int rightPosition)
+    {
+        return equal(
+                unpackMillisUtc((long) LONG_HANDLE.get(leftFixedSizeSlice, leftFixedSizeOffset)),
+                (int) INT_HANDLE.get(leftFixedSizeSlice, leftFixedSizeOffset + SIZE_OF_LONG),
+                getEpochMillis(rightBlock, rightPosition),
+                getPicosOfMilli(rightBlock, rightPosition));
+    }
+
     private static boolean equal(long leftEpochMillis, int leftPicosOfMilli, long rightEpochMillis, int rightPicosOfMilli)
     {
         return leftEpochMillis == rightEpochMillis &&
