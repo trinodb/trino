@@ -265,6 +265,18 @@ final class LongTimestampType
                 getFraction(block, position));
     }
 
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(
+            @FlatFixed byte[] leftFixedSizeSlice,
+            @FlatFixedOffset int leftFixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
+    {
+        return xxHash64(
+                (long) LONG_HANDLE.get(leftFixedSizeSlice, leftFixedSizeOffset),
+                (int) INT_HANDLE.get(leftFixedSizeSlice, leftFixedSizeOffset + SIZE_OF_LONG));
+    }
+
     private static long xxHash64(long epochMicros, int fraction)
     {
         return XxHash64.hash(epochMicros) ^ XxHash64.hash(fraction);

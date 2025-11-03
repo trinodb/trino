@@ -250,6 +250,18 @@ public class IpAddressType
         return xxHash64(block.getInt128High(position), block.getInt128Low(position));
     }
 
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
+    {
+        return xxHash64(
+                (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset),
+                (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG));
+    }
+
     private static long xxHash64(long low, long high)
     {
         return XxHash64.hash(low) ^ XxHash64.hash(high);
