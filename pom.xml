@@ -789,6 +789,12 @@
             </dependency>
 
             <dependency>
+                <groupId>io.github.jeschkies</groupId>
+                <artifactId>loki-client</artifactId>
+                <version>0.0.5</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.jsonwebtoken</groupId>
                 <artifactId>jjwt-api</artifactId>
                 <version>${dep.jsonwebtoken.version}</version>

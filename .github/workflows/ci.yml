@@ -923,6 +923,7 @@ jobs:
             - suite-parquet
             - suite-oauth2
             - suite-ldap
+            - suite-loki
             - suite-compatibility
             - suite-all-connectors-smoke
             - suite-delta-lake-oss
