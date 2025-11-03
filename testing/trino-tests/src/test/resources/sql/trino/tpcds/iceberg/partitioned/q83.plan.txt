@@ -8,8 +8,8 @@ local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, [i_item_id])
                                 intermediate aggregation over (i_item_id)
                                     join (INNER, PARTITIONED):
-                                        partial aggregation over (sr_item_sk)
-                                            remote exchange (REPARTITION, HASH, [sr_item_sk])
+                                        remote exchange (REPARTITION, HASH, [sr_item_sk])
+                                            partial aggregation over (sr_item_sk)
                                                 join (INNER, REPLICATED):
                                                     dynamic filter (sr_item_sk::EQUAL, sr_returned_date_sk::EQUAL)
                                                         scan store_returns
@@ -44,8 +44,8 @@ local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, [i_item_id_79])
                                     intermediate aggregation over (i_item_id_79)
                                         join (INNER, PARTITIONED):
-                                            partial aggregation over (cr_item_sk)
-                                                remote exchange (REPARTITION, HASH, [cr_item_sk])
+                                            remote exchange (REPARTITION, HASH, [cr_item_sk])
+                                                partial aggregation over (cr_item_sk)
                                                     join (INNER, REPLICATED):
                                                         dynamic filter (cr_item_sk::EQUAL, cr_returned_date_sk::EQUAL)
                                                             scan catalog_returns
@@ -79,8 +79,8 @@ local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, [i_item_id_210])
                                     intermediate aggregation over (i_item_id_210)
                                         join (INNER, PARTITIONED):
-                                            partial aggregation over (wr_item_sk)
-                                                remote exchange (REPARTITION, HASH, [wr_item_sk])
+                                            remote exchange (REPARTITION, HASH, [wr_item_sk])
+                                                partial aggregation over (wr_item_sk)
                                                     join (INNER, REPLICATED):
                                                         dynamic filter (wr_item_sk::EQUAL, wr_returned_date_sk::EQUAL)
                                                             scan web_returns

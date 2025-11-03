@@ -18,6 +18,7 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -107,8 +108,8 @@ public class PushProjectionThroughJoinIntoTableScan
         Set<Symbol> leftSymbols = ImmutableSet.copyOf(join.getLeft().getOutputSymbols());
         Set<Symbol> rightSymbols = ImmutableSet.copyOf(join.getRight().getOutputSymbols());
 
-        // Track if we're pushing down any non-identity projections
-        boolean hasNonIdentityProjectionsToPush = false;
+        // Track if we're pushing down any projections with computational logic
+        boolean hasComplexProjectionsToPush = false;
 
         for (Map.Entry<Symbol, Expression> assignment : project.getAssignments().entrySet()) {
             Symbol outputSymbol = assignment.getKey();
@@ -117,7 +118,8 @@ public class PushProjectionThroughJoinIntoTableScan
 
             boolean referencesLeft = leftSymbols.containsAll(referencedSymbols);
             boolean referencesRight = rightSymbols.containsAll(referencedSymbols);
-            boolean isIdentity = expression instanceof Reference && ((Reference) expression).name().equals(outputSymbol.name());
+            // Consider an expression "complex" if it has actual computation (not just a reference)
+            boolean isComplex = !(expression instanceof Reference) && !(expression instanceof FieldReference);
 
             if (referencesLeft && !referencesRight) {
                 // Can potentially push to left side
@@ -126,8 +128,8 @@ public class PushProjectionThroughJoinIntoTableScan
                 }
                 else {
                     leftProjections.put(outputSymbol, expression);
-                    if (!isIdentity) {
-                        hasNonIdentityProjectionsToPush = true;
+                    if (isComplex) {
+                        hasComplexProjectionsToPush = true;
                     }
                 }
             }
@@ -138,8 +140,8 @@ public class PushProjectionThroughJoinIntoTableScan
                 }
                 else {
                     rightProjections.put(outputSymbol, expression);
-                    if (!isIdentity) {
-                        hasNonIdentityProjectionsToPush = true;
+                    if (isComplex) {
+                        hasComplexProjectionsToPush = true;
                     }
                 }
             }
@@ -180,9 +182,10 @@ public class PushProjectionThroughJoinIntoTableScan
         Assignments leftAssignments = leftProjections.build();
         Assignments rightAssignments = rightProjections.build();
 
-        // If no non-identity projections can be pushed down, return empty
-        // This prevents infinite loops where we keep pushing down only identity projections
-        if (!hasNonIdentityProjectionsToPush) {
+        // Only push down if there are projections with actual computational logic.
+        // This prevents pushing down simple dereferencing which may not benefit performance
+        // and can interfere with other optimizations
+        if (!hasComplexProjectionsToPush) {
             return Result.empty();
         }
 

@@ -224,33 +224,38 @@ public class TestDeltaLakeProjectionPushdownPlans
         assertPlan(
                 format("SELECT T.col0.x, T.col0, T.col0.y FROM %s T join %s S on T.col1 = S.col1 WHERE (T.col0.x = 2)", testTable, testTable),
                 anyTree(
-                        join(INNER, builder -> {
-                            PlanMatchPattern source = tableScan(
-                                    table -> {
-                                        DeltaLakeTableHandle deltaLakeTableHandle = (DeltaLakeTableHandle) table;
-                                        TupleDomain<DeltaLakeColumnHandle> unenforcedConstraint = deltaLakeTableHandle.getNonPartitionConstraint();
-                                        Set<DeltaLakeColumnHandle> expectedProjections = ImmutableSet.of(column0Handle, column1Handle, columnX);
-                                        TupleDomain<DeltaLakeColumnHandle> expectedUnenforcedConstraint = TupleDomain.withColumnDomains(
-                                                ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L)));
-                                        return deltaLakeTableHandle.getProjectedColumns().orElseThrow().equals(expectedProjections) &&
-                                                unenforcedConstraint.equals(expectedUnenforcedConstraint);
-                                    },
-                                    TupleDomain.all(),
-                                    ImmutableMap.of("col0", equalTo(column0Handle), "x", equalTo(columnX), "t_expr_1", equalTo(column1Handle)));
-                            builder
-                                    .equiCriteria("t_expr_1", "s_expr_1")
-                                    .left(
-                                            anyTree(
-                                                    filter(
-                                                            new Comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 2L)),
-                                                            source)))
-                                    .right(
-                                            anyTree(
-                                                    tableScan(
-                                                            equalTo(((DeltaLakeTableHandle) tableHandle.get().connectorHandle()).withProjectedColumns(Set.of(column1Handle))),
-                                                            TupleDomain.all(),
-                                                            ImmutableMap.of("s_expr_1", equalTo(column1Handle)))));
-                        })));
+                        project(
+                                ImmutableMap.of(
+                                        "expr_0_x", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, BIGINT), "expr_0"), 0)),
+                                        "expr_0", expression(new Reference(RowType.anonymousRow(BIGINT, BIGINT), "expr_0")),
+                                        "expr_0_y", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, BIGINT), "expr_0"), 1))),
+                                join(INNER, builder -> {
+                                    PlanMatchPattern source = tableScan(
+                                            table -> {
+                                                DeltaLakeTableHandle deltaLakeTableHandle = (DeltaLakeTableHandle) table;
+                                                TupleDomain<DeltaLakeColumnHandle> unenforcedConstraint = deltaLakeTableHandle.getNonPartitionConstraint();
+                                                Set<DeltaLakeColumnHandle> expectedProjections = ImmutableSet.of(column0Handle, column1Handle, columnX);
+                                                TupleDomain<DeltaLakeColumnHandle> expectedUnenforcedConstraint = TupleDomain.withColumnDomains(
+                                                        ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L)));
+                                                return deltaLakeTableHandle.getProjectedColumns().orElseThrow().equals(expectedProjections) &&
+                                                        unenforcedConstraint.equals(expectedUnenforcedConstraint);
+                                            },
+                                            TupleDomain.all(),
+                                            ImmutableMap.of("x", equalTo(columnX), "expr_0", equalTo(column0Handle), "t_expr_1", equalTo(column1Handle)));
+                                    builder
+                                            .equiCriteria("t_expr_1", "s_expr_1")
+                                            .left(
+                                                    anyTree(
+                                                            filter(
+                                                                    new Comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 2L)),
+                                                                    source)))
+                                            .right(
+                                                    anyTree(
+                                                            tableScan(
+                                                                    equalTo(((DeltaLakeTableHandle) tableHandle.get().connectorHandle()).withProjectedColumns(Set.of(column1Handle))),
+                                                                    TupleDomain.all(),
+                                                                    ImmutableMap.of("s_expr_1", equalTo(column1Handle)))));
+                                }))));
     }
 
     private DeltaLakeColumnHandle createProjectedColumnHandle(

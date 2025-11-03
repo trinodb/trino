@@ -1,10 +1,10 @@
 remote exchange (GATHER, SINGLE, [])
     local exchange (GATHER, UNKNOWN, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
-            final aggregation over (expr_gid)
+            final aggregation over (year_54)
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, [expr_gid])
-                        partial aggregation over (expr_gid)
+                    remote exchange (REPARTITION, HASH, [year_54])
+                        partial aggregation over (year_54)
                             join (INNER, REPLICATED):
                                 join (INNER, PARTITIONED):
                                     remote exchange (REPARTITION, HASH, [suppkey_6])

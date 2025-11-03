@@ -60,6 +60,7 @@ import static com.google.common.base.Predicates.equalTo;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.opensearch.OpenSearchServer.OPENSEARCH_IMAGE;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -250,28 +251,33 @@ final class TestOpenSearchProjectionPushdownPlans
         assertPlan(
                 "SELECT T.col0.x, T.col0, T.col0.y FROM " + tableName + " T join " + tableName + " S on T.col1 = S.col1 WHERE T.col0.x = 2",
                 anyTree(
-                        PlanMatchPattern.join(INNER, builder -> builder
-                                .equiCriteria("t_expr_1", "s_expr_1")
-                                .left(
-                                        anyTree(
-                                                tableScan(
-                                                        table -> {
-                                                            OpenSearchTableHandle actualTableHandle = (OpenSearchTableHandle) table;
-                                                            TupleDomain<ColumnHandle> constraint = actualTableHandle.constraint();
-                                                            Set<OpenSearchColumnHandle> expectedProjections = ImmutableSet.of(column0Handle, column1Handle, columnX);
-                                                            TupleDomain<OpenSearchColumnHandle> expectedConstraint = TupleDomain.withColumnDomains(
-                                                                    ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L)));
-                                                            return actualTableHandle.columns().equals(expectedProjections)
-                                                                    && constraint.equals(expectedConstraint);
-                                                        },
-                                                        TupleDomain.all(),
-                                                        ImmutableMap.of("col0", equalTo(column0Handle), "x", equalTo(columnX), "t_expr_1", equalTo(column1Handle)))))
-                                .right(
-                                        anyTree(
-                                                tableScan(
-                                                        equalTo(openSearchTableHandle.withColumns(Set.of(column1Handle))),
-                                                        TupleDomain.all(),
-                                                        ImmutableMap.of("s_expr_1", equalTo(column1Handle))))))));
+                        project(
+                                ImmutableMap.of(
+                                        "expr_0_x", expression(new FieldReference(new Reference(RowType.anonymousRow(INTEGER), "expr_0"), 0)),
+                                        "expr_0", expression(new Reference(RowType.anonymousRow(INTEGER), "expr_0")),
+                                        "expr_0_y", expression(new FieldReference(new Reference(RowType.anonymousRow(INTEGER, INTEGER), "expr_0"), 1))),
+                                PlanMatchPattern.join(INNER, builder -> builder
+                                        .equiCriteria("t_expr_1", "s_expr_1")
+                                        .left(
+                                                anyTree(
+                                                        tableScan(
+                                                                table -> {
+                                                                    OpenSearchTableHandle actualTableHandle = (OpenSearchTableHandle) table;
+                                                                    TupleDomain<ColumnHandle> constraint = actualTableHandle.constraint();
+                                                                    Set<OpenSearchColumnHandle> expectedProjections = ImmutableSet.of(column0Handle, column1Handle);
+                                                                    TupleDomain<OpenSearchColumnHandle> expectedConstraint = TupleDomain.withColumnDomains(
+                                                                            ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L)));
+                                                                    return actualTableHandle.columns().equals(expectedProjections)
+                                                                            && constraint.equals(expectedConstraint);
+                                                                },
+                                                                TupleDomain.all(),
+                                                                ImmutableMap.of("expr_0", equalTo(column0Handle), "t_expr_1", equalTo(column1Handle)))))
+                                        .right(
+                                                anyTree(
+                                                        tableScan(
+                                                                equalTo(openSearchTableHandle.withColumns(Set.of(column1Handle))),
+                                                                TupleDomain.all(),
+                                                                ImmutableMap.of("s_expr_1", equalTo(column1Handle)))))))));
         deleteIndex(tableName);
     }
 

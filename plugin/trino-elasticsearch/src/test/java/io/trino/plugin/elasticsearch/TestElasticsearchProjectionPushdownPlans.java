@@ -30,10 +30,12 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
+import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -59,10 +61,13 @@ import static com.google.common.io.Resources.getResource;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_8_IMAGE;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -221,28 +226,33 @@ final class TestElasticsearchProjectionPushdownPlans
         assertPlan(
                 "SELECT T.col0.x, T.col0, T.col0.y FROM " + tableName + " T join " + tableName + " S on T.col1 = S.col1 WHERE T.col0.x = 2",
                 anyTree(
-                        PlanMatchPattern.join(INNER, builder -> builder
-                                .equiCriteria("t_expr_1", "s_expr_1")
-                                .left(
-                                        anyTree(
-                                                tableScan(
-                                                        table -> {
-                                                            ElasticsearchTableHandle actualTableHandle = (ElasticsearchTableHandle) table;
-                                                            TupleDomain<ColumnHandle> constraint = actualTableHandle.constraint();
-                                                            Set<ElasticsearchColumnHandle> expectedProjections = ImmutableSet.of(column0Handle, column1Handle, columnX, columnY);
-                                                            TupleDomain<ElasticsearchColumnHandle> expectedConstraint = TupleDomain.withColumnDomains(
-                                                                    ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L)));
-                                                            return actualTableHandle.columns().equals(expectedProjections)
-                                                                    && constraint.equals(expectedConstraint);
-                                                        },
-                                                        TupleDomain.all(),
-                                                        ImmutableMap.of("col0", equalTo(column0Handle), "x", equalTo(columnX), "y", equalTo(columnY), "t_expr_1", equalTo(column1Handle)))))
-                                .right(
-                                        anyTree(
-                                                tableScan(
-                                                        equalTo(elasticsearchTableHandle.withColumns(Set.of(column1Handle))),
-                                                        TupleDomain.all(),
-                                                        ImmutableMap.of("s_expr_1", equalTo(column1Handle))))))));
+                        project(
+                                ImmutableMap.of(
+                                        "expr_0_x", expression(new FieldReference(new Reference(RowType.anonymousRow(INTEGER), "expr_0"), 0)),
+                                        "expr_0", expression(new Reference(RowType.anonymousRow(INTEGER), "expr_0")),
+                                        "expr_0_y", expression(new FieldReference(new Reference(RowType.anonymousRow(INTEGER, INTEGER), "expr_0"), 1))),
+                                PlanMatchPattern.join(INNER, builder -> builder
+                                        .equiCriteria("t_expr_1", "s_expr_1")
+                                        .left(
+                                                anyTree(
+                                                        tableScan(
+                                                                table -> {
+                                                                    ElasticsearchTableHandle actualTableHandle = (ElasticsearchTableHandle) table;
+                                                                    TupleDomain<ColumnHandle> constraint = actualTableHandle.constraint();
+                                                                    Set<ElasticsearchColumnHandle> expectedProjections = ImmutableSet.of(column0Handle, column1Handle);
+                                                                    TupleDomain<ElasticsearchColumnHandle> expectedConstraint = TupleDomain.withColumnDomains(
+                                                                            ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 2L)));
+                                                                    return actualTableHandle.columns().equals(expectedProjections)
+                                                                            && constraint.equals(expectedConstraint);
+                                                                },
+                                                                TupleDomain.all(),
+                                                                ImmutableMap.of("expr_0", equalTo(column0Handle), "t_expr_1", equalTo(column1Handle)))))
+                                        .right(
+                                                anyTree(
+                                                        tableScan(
+                                                                equalTo(elasticsearchTableHandle.withColumns(Set.of(column1Handle))),
+                                                                TupleDomain.all(),
+                                                                ImmutableMap.of("s_expr_1", equalTo(column1Handle)))))))));
         deleteIndex(tableName);
     }
 
