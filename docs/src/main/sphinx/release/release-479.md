@@ -3,7 +3,7 @@
 ## General
 
 * Update JDK to 25.0.1 ({issue}`27117`)
-* Enabled automatic TLS certificate generation in the `ANNOUNCE` node discovery mode. ({issue}`27030`)
+* Support automatic TLS certificate generation in the `ANNOUNCE` node discovery mode. ({issue}`27030`)
 
 ## Security
 
