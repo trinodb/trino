@@ -187,6 +187,19 @@ final class LongDecimalType
                 leftBlock.getInt128Low(leftPosition) == rightBlock.getInt128Low(rightPosition);
     }
 
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(
+            @FlatFixed byte[] leftFixedSizeSlice,
+            @FlatFixedOffset int leftFixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset,
+            @BlockPosition Int128ArrayBlock rightBlock,
+            @BlockIndex int rightPosition)
+    {
+        return ((long) LONG_HANDLE.get(leftFixedSizeSlice, leftFixedSizeOffset)) == rightBlock.getInt128High(rightPosition)
+                && ((long) LONG_HANDLE.get(leftFixedSizeSlice, leftFixedSizeOffset + SIZE_OF_LONG)) == rightBlock.getInt128Low(rightPosition);
+    }
+
     @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(Int128 value)
     {
