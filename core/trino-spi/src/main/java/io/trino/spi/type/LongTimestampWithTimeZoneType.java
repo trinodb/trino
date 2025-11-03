@@ -309,6 +309,18 @@ final class LongTimestampWithTimeZoneType
                 getPicosOfMilli(block, position));
     }
 
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
+    {
+        return xxHash64(
+                unpackMillisUtc((long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset)),
+                (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG));
+    }
+
     private static long xxHash64(long epochMillis, int picosOfMilli)
     {
         return XxHash64.hash(epochMillis) ^ XxHash64.hash(picosOfMilli);
