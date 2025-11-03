@@ -115,6 +115,7 @@ public class OidcDiscovery
                 userinfoEndpoint = Optional.empty();
             }
             Optional<URI> endSessionEndpoint = Optional.ofNullable(metadata.getEndSessionEndpointURI());
+            Optional<URI> clientRegistrationUri = Optional.ofNullable(metadata.getRegistrationEndpointURI());
             return new OAuth2ServerConfig(
                     // AD FS server can include "access_token_issuer" field in OpenID Provider Metadata.
                     // It's not a part of the OIDC standard thus have to be handled separately.
@@ -124,7 +125,8 @@ public class OidcDiscovery
                     getRequiredField("token_endpoint", metadata.getTokenEndpointURI(), TOKEN_URL, tokenUrl),
                     getRequiredField("jwks_uri", metadata.getJWKSetURI(), JWKS_URL, jwksUrl),
                     userinfoEndpoint.map(URI::create),
-                    endSessionEndpoint);
+                    endSessionEndpoint,
+                    clientRegistrationUri);
         }
         catch (JsonProcessingException e) {
             throw new ParseException("Invalid JSON value", e);
