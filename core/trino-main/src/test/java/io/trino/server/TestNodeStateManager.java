@@ -105,7 +105,7 @@ class TestNodeStateManager
         nodeStateManager.transitionState(NodeState.SHUTTING_DOWN);
         assertThat(nodeStateManager.getServerState()).isEqualTo(NodeState.SHUTTING_DOWN);
 
-        // here wait for at least 2 grace periods, and add some slack to reduce test flakyness
+        // here wait for at least 2 grace periods, and add some slack to reduce test flakiness
         await().atMost(4 * GRACE_PERIOD_MILLIS + 100, MILLISECONDS).until(() -> shutdownAction.isShuttingDown());
     }
 
@@ -117,7 +117,7 @@ class TestNodeStateManager
         nodeStateManager.transitionState(NodeState.SHUTTING_DOWN);
         assertThat(nodeStateManager.getServerState()).isEqualTo(NodeState.SHUTTING_DOWN);
 
-        // here wait for at least 2 grace periods, and add some slack to reduce test flakyness
+        // here wait for at least 2 grace periods, and add some slack to reduce test flakiness
         await().atMost(4 * GRACE_PERIOD_MILLIS, MILLISECONDS).until(() -> shutdownAction.isShuttingDown());
 
         assertThatThrownBy(() -> nodeStateManager.transitionState(ACTIVE))
