@@ -456,7 +456,6 @@ public class PaimonPageSourceProvider
                                     column));
             TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder predicateBuilder =
                     TupleDomainOrcPredicate.builder();
-//            List<OrcPageSource.ColumnAdaptation> columnAdaptations = new ArrayList<>();
             TransformConnectorPageSource.Builder transforms = TransformConnectorPageSource.builder();
             List<OrcColumn> fileReadColumns = new ArrayList<>(columns.size());
             List<Type> fileReadTypes = new ArrayList<>(columns.size());
