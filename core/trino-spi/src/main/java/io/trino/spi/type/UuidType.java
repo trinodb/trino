@@ -192,10 +192,10 @@ public class UuidType
     @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             Slice sourceSlice,
-            byte[] fixedSizeSlice,
-            int fixedSizeOffset,
-            byte[] unusedVariableSizeSlice,
-            int unusedVariableSizeOffset)
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         sourceSlice.getBytes(0, fixedSizeSlice, fixedSizeOffset, INT128_BYTES);
     }
