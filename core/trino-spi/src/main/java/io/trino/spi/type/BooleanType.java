@@ -176,10 +176,10 @@ public final class BooleanType
     @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             boolean value,
-            byte[] fixedSizeSlice,
-            int fixedSizeOffset,
-            byte[] unusedVariableSizeSlice,
-            int unusedVariableSizeOffset)
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         fixedSizeSlice[fixedSizeOffset] = (byte) (value ? 1 : 0);
     }
