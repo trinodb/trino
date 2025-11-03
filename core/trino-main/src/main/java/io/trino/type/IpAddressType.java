@@ -189,10 +189,10 @@ public class IpAddressType
     @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             Slice value,
-            byte[] fixedSizeSlice,
-            int fixedSizeOffset,
-            byte[] unusedVariableSizeSlice,
-            int unusedVariableSizeOffset)
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         value.getBytes(0, fixedSizeSlice, fixedSizeOffset, INT128_BYTES);
     }
