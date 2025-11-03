@@ -34,9 +34,11 @@ import java.util.regex.Pattern;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -402,5 +404,32 @@ public abstract class AbstractDistributedEngineOnlyQueries
         String rowFields = colNames + (", " + colNames).repeat(94) + ", orderkey, custkey,  orderstatus, totalprice";
         @Language("SQL") String query = "SELECT row(" + rowFields + ") FROM (select * from tpch.tiny.orders limit 1) t(" + colNames + ")";
         assertThat(getQueryRunner().execute(query).getOnlyValue()).isNotNull();
+    }
+
+    @Test
+    public void testFragmentPartitioningWithValues()
+    {
+        // Test fragment with empty VALUES and a table scan
+        Session broadcastJonSession = testSessionBuilder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "BROADCAST")
+                .build();
+        assertUpdate("CREATE TABLE t1 (a bigint)");
+        assertUpdate("INSERT INTO t1 VALUES (1), (2), (3)", 3);
+        assertUpdate("CREATE TABLE t2 (a bigint, b varchar)");
+        assertThat(query(
+                broadcastJonSession,
+                """
+                WITH t3 AS (
+                            SELECT a, CAST(null AS varchar) b FROM t1
+                            UNION ALL
+                            SELECT a, b FROM t2)
+                SELECT * FROM t3 WHERE b IN (SELECT b FROM t2)
+                """))
+                .returnsEmptyResult();
+        assertUpdate("DROP TABLE t1");
+        assertUpdate("DROP TABLE t2");
+
+        // Test fragment with empty VALUES and no table scans
+        assertQuery("SELECT * FROM (SELECT 2 WHERE FALSE)");
     }
 }
