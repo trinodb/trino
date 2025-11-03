@@ -245,6 +245,16 @@ final class LongTimeWithTimeZoneType
         return hashCodeOperator(getPicos(block, position), getOffsetMinutes(block, position));
     }
 
+    @ScalarOperator(HASH_CODE)
+    private static long hashCodeOperator(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
+    {
+        return hashCodeOperator((long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset), (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG));
+    }
+
     private static long hashCodeOperator(long picos, int offsetMinutes)
     {
         return AbstractLongType.hash(normalizePicos(picos, offsetMinutes));
