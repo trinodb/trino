@@ -21,7 +21,6 @@ import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.teradata.TeradataPlugin;
-import io.trino.plugin.teradata.integration.clearscape.ClearScapeEnvironmentUtils;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -52,7 +51,7 @@ public final class TeradataQueryRunner
         Logging logger = Logging.initialize();
         logger.setLevel("io.trino.plugin.teradata", Level.DEBUG);
         logger.setLevel("io.trino", Level.INFO);
-        TestingTeradataServer server = new TestingTeradataServer(ClearScapeEnvironmentUtils.generateUniqueEnvName(TeradataQueryRunner.class));
+        TestingTeradataServer server = new TestingTeradataServer("TeradataQueryRunner", false);
         QueryRunner queryRunner = builder(server).addCoordinatorProperty("http-server.http.port", "8080").setInitialTables(TpchTable.getTables()).build();
 
         Logger log = Logger.get(TeradataQueryRunner.class);

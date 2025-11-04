@@ -15,7 +15,6 @@ package io.trino.plugin.teradata.integration;
 
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
-import io.trino.plugin.teradata.integration.clearscape.ClearScapeEnvironmentUtils;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -33,6 +32,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Consumer;
 
+import static io.trino.plugin.teradata.integration.clearscape.ClearScapeEnvironmentUtils.generateUniqueEnvName;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -65,7 +65,7 @@ final class TestTeradataConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        database = closeAfterClass(new TestingTeradataServer(ClearScapeEnvironmentUtils.generateUniqueEnvName(getClass())));
+        database = closeAfterClass(new TestingTeradataServer(generateUniqueEnvName(getClass()), true));
         // Register this specific instance for this test class
         return TeradataQueryRunner.builder(database).setInitialTables(REQUIRED_TPCH_TABLES).build();
     }

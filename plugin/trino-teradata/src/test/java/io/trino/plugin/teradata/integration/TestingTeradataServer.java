@@ -30,7 +30,7 @@ import java.util.Properties;
 import static io.trino.testing.SystemEnvironmentUtils.isEnvSet;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 
-public class TestingTeradataServer
+public final class TestingTeradataServer
         implements AutoCloseable, SqlExecutor
 {
     private static final int MAX_RETRIES = 3;
@@ -39,13 +39,12 @@ public class TestingTeradataServer
     private DatabaseConfig config;
     private ClearScapeSetup clearScapeSetup;
 
-    public TestingTeradataServer(String envName)
+    public TestingTeradataServer(String envName, boolean destroyEnv)
     {
         config = DatabaseConfigFactory.create(envName);
         String hostName = config.getHostName();
         // Initialize ClearScape Instance and Get the host name from ClearScape API in case config is using clearscape
         if (config.isUseClearScape()) {
-            boolean destroyEnv = false;
             if (isEnvSet("CLEARSCAPE_DESTROY_ENV")) {
                 String destroyEnvValue = requireEnv("CLEARSCAPE_DESTROY_ENV");
                 destroyEnv = Boolean.parseBoolean(destroyEnvValue);
