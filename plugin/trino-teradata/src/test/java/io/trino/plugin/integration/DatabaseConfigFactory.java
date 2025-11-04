@@ -19,6 +19,9 @@ import io.trino.plugin.teradata.LogonMechanism;
 import java.util.HashMap;
 import java.util.Map;
 
+import static io.trino.testing.SystemEnvironmentUtils.isEnvSet;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
+
 public class DatabaseConfigFactory
 {
     private static final String DEFAULT_LOG_MECH = "TD2";
@@ -27,24 +30,37 @@ public class DatabaseConfigFactory
 
     public static DatabaseConfig create(String envName)
     {
-        String userName = getEnvVar("username", null);
-        String password = getEnvVar("password", null);
-        String hostName = "";
-        if (hasEnvVar("CLEARSCAPE_TOKEN")) {
-            userName = TeradataTestConstants.ENV_CLEARSCAPE_USERNAME;
-            password = requireEnvVar("CLEARSCAPE_PASSWORD", "ClearScape password is required");
+        String userName = null;
+        String password = null;
+        String hostName = null;
+
+        if (!isEnvSet("CLEARSCAPE_TOKEN")) {
+            hostName = requireEnv("hostname");
         }
-        else {
-            hostName = requireEnvVar("hostname", "Hostname required for standard connection");
+
+        String logMech = DEFAULT_LOG_MECH;
+        if (isEnvSet("logMech")) {
+            logMech = requireEnv("logMech");
         }
-        AuthenticationConfig authConfig = createAuthConfig(userName, password);
-        LogonMechanism logMech = LogonMechanism.fromString(getEnvVar("logMech", DEFAULT_LOG_MECH));
+        if (DEFAULT_LOG_MECH.equals(logMech)) {
+            if (isEnvSet("CLEARSCAPE_TOKEN")) {
+                userName = TeradataTestConstants.ENV_CLEARSCAPE_USERNAME;
+                password = requireEnv("CLEARSCAPE_PASSWORD");
+            }
+            else {
+                userName = requireEnv("username");
+                password = requireEnv("password");
+            }
+        }
+        LogonMechanism logonMechanism = LogonMechanism.fromString(logMech);
         String databaseName = envName.replace("-", "_");
+
+        AuthenticationConfig authConfig = createAuthConfig(userName, password);
         return DatabaseConfig.builder()
                 .hostName(hostName)
                 .databaseName(databaseName)
-                .useClearScape(hasEnvVar("CLEARSCAPE_TOKEN"))
-                .logMech(logMech)
+                .useClearScape(isEnvSet("CLEARSCAPE_TOKEN"))
+                .logMech(logonMechanism)
                 .authConfig(authConfig)
                 .clearScapeEnvName(envName)
                 .jdbcProperties(getJdbcProperties())
@@ -62,26 +78,5 @@ public class DatabaseConfigFactory
     private static AuthenticationConfig createAuthConfig(String username, String password)
     {
         return new AuthenticationConfig(username, password);
-    }
-
-    private static String getEnvVar(String name, String defaultValue)
-    {
-        String value = System.getenv(name);
-        return (value != null && !value.isEmpty()) ? value : defaultValue;
-    }
-
-    private static String requireEnvVar(String name, String errorMessage)
-    {
-        String value = System.getenv(name);
-        if (value == null || value.isEmpty()) {
-            throw new IllegalStateException(errorMessage + ". Environment variable: " + name);
-        }
-        return value;
-    }
-
-    private static boolean hasEnvVar(String name)
-    {
-        String value = System.getenv(name);
-        return value != null && !value.isEmpty();
     }
 }

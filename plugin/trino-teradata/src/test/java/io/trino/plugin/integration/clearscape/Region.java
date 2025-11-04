@@ -13,14 +13,32 @@
  */
 package io.trino.plugin.integration.clearscape;
 
+import java.util.Arrays;
+
 public enum Region {
-    US_CENTRAL,
-    US_EAST,
-    US_WEST,
-    SOUTHAMERICA_EAST,
-    EUROPE_WEST,
-    ASIA_SOUTH,
-    ASIA_NORTHEAST,
-    ASIA_SOUTHEAST,
-    AUSTRALIA_SOUTHEAST
+    US_CENTRAL("us-central"),
+    US_EAST("us-east"),
+    US_WEST("us-west"),
+    SOUTHAMERICA_EAST("southamerica-east"),
+    EUROPE_WEST("europe-west"),
+    ASIA_SOUTH("asia-south"),
+    ASIA_NORTHEAST("asia-northeast"),
+    ASIA_SOUTHEAST("asia-southeast"),
+    AUSTRALIA_SOUTHEAST("australia-southeast");
+
+    private final String code;
+
+    Region(String code)
+    {
+        this.code = code;
+    }
+
+    public static boolean isValid(String value)
+    {
+        if (value == null) {
+            return false;
+        }
+        return Arrays.stream(Region.values())
+                .anyMatch(r -> r.code.equalsIgnoreCase(value));
+    }
 }

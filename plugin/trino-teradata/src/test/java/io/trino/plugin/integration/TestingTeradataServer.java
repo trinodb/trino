@@ -26,11 +26,12 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
+import static io.trino.testing.SystemEnvironmentUtils.isEnvSet;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static java.util.Objects.requireNonNull;
 
 public class TestingTeradataServer
@@ -49,16 +50,20 @@ public class TestingTeradataServer
         // Initialize ClearScape Instance and Get the host name from ClearScape API in case config is using clearscape
         if (config.isUseClearScape()) {
             boolean destroyEnv = false;
-            if (System.getenv("CLEARSCAPE_DESTORY_ENV") != null) {
-                destroyEnv = Boolean.parseBoolean(System.getenv("CLEARSCAPE_DESTORY_ENV"));
+            if (isEnvSet("CLEARSCAPE_DESTROY_ENV")) {
+                String destroyEnvValue = requireEnv("CLEARSCAPE_DESTROY_ENV");
+                destroyEnv = Boolean.parseBoolean(destroyEnvValue);
             }
-            String region = System.getenv("CLEARSCAPE_REGION");
-            if (!isValidRegion(region)) {
-                region = TeradataTestConstants.ENV_CLEARSCAPE_REGION;
+            String region = TeradataTestConstants.ENV_CLEARSCAPE_REGION;
+            if (isEnvSet("CLEARSCAPE_REGION")) {
+                String envRegion = requireEnv("CLEARSCAPE_REGION");
+                if (Region.isValid(envRegion)) {
+                    region = envRegion;
+                }
             }
             clearScapeSetup = new ClearScapeSetup(
-                    System.getenv("CLEARSCAPE_TOKEN"),
-                    System.getenv("CLEARSCAPE_PASSWORD"),
+                    requireEnv("CLEARSCAPE_TOKEN"),
+                    requireEnv("CLEARSCAPE_PASSWORD"),
                     config.getClearScapeEnvName(),
                     destroyEnv,
                     region);
@@ -72,15 +77,6 @@ public class TestingTeradataServer
                 .build();
         connection = createConnection();
         createTestDatabaseIfAbsent();
-    }
-
-    public static boolean isValidRegion(String region)
-    {
-        if (region == null || region.isBlank()) {
-            return false;
-        }
-        return Arrays.stream(Region.values())
-                .anyMatch(r -> r.name().equalsIgnoreCase(region));
     }
 
     private String buildJdbcUrl(String hostName)
