@@ -13,38 +13,35 @@
  */
 package io.trino.plugin.teradata;
 
+import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.teradata.TeradataConfig.TeradataCaseSensitivity;
 import org.junit.jupiter.api.Test;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import java.util.Map;
+
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
 public class TestTeradataConfig
 {
     @Test
     public void testDefaults()
     {
-        TeradataConfig config = new TeradataConfig();
-        assertThat(config.getLogMech()).isEqualTo("TD2");
-        assertThat(config.getTeradataCaseSensitivity()).isEqualTo(TeradataConfig.TeradataCaseSensitivity.CASE_SENSITIVE);
+        assertRecordedDefaults(recordDefaults(TeradataConfig.class)
+                .setTeradataCaseSensitivity(TeradataCaseSensitivity.CASE_SENSITIVE));
     }
 
     @Test
-    public void testSetters()
+    public void testExplicitPropertyMappings()
     {
-        TeradataConfig config = new TeradataConfig()
-                .setLogMech("TD2")
-                .setTeradataCaseSensitivity(TeradataConfig.TeradataCaseSensitivity.CASE_INSENSITIVE);
-        assertThat(config.getLogMech()).isEqualTo("TD2");
-        assertThat(config.getTeradataCaseSensitivity()).isEqualTo(TeradataConfig.TeradataCaseSensitivity.CASE_INSENSITIVE);
-    }
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("teradata.case-sensitivity", "as-defined")
+                .buildOrThrow();
 
-    @Test
-    public void testTeradataCaseSensitivityEnum()
-    {
-        assertThat(TeradataConfig.TeradataCaseSensitivity.valueOf("CASE_INSENSITIVE"))
-                .isEqualTo(TeradataConfig.TeradataCaseSensitivity.CASE_INSENSITIVE);
-        assertThat(TeradataConfig.TeradataCaseSensitivity.valueOf("CASE_SENSITIVE"))
-                .isEqualTo(TeradataConfig.TeradataCaseSensitivity.CASE_SENSITIVE);
-        assertThat(TeradataConfig.TeradataCaseSensitivity.valueOf("AS_DEFINED"))
-                .isEqualTo(TeradataConfig.TeradataCaseSensitivity.AS_DEFINED);
+        TeradataConfig expected = new TeradataConfig()
+                .setTeradataCaseSensitivity(TeradataCaseSensitivity.AS_DEFINED);
+
+        assertFullMapping(properties, expected);
     }
 }
