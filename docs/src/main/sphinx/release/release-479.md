@@ -4,6 +4,7 @@
 
 * Update JDK to 25.0.1 ({issue}`27117`)
 * Support automatic TLS certificate generation in the `ANNOUNCE` node discovery mode. ({issue}`27030`)
+* Fix planning failure of certain queries involving empty VALUES. ({issue}`21506`)
 
 ## Security
 
