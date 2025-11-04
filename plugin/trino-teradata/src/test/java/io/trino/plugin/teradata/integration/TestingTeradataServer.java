@@ -46,19 +46,14 @@ public final class TestingTeradataServer
         // Initialize ClearScape Instance and Get the host name from ClearScape API in case config is using clearscape
         if (config.isUseClearScape()) {
             if (isEnvSet("CLEARSCAPE_DESTROY_ENV")) {
-                String destroyEnvValue = requireEnv("CLEARSCAPE_DESTROY_ENV");
-                destroyEnv = Boolean.parseBoolean(destroyEnvValue);
-            }
-            String region = TeradataTestConstants.ENV_CLEARSCAPE_REGION;
-            if (isEnvSet("CLEARSCAPE_REGION")) {
-                region = requireEnv("CLEARSCAPE_REGION");
+                destroyEnv = Boolean.parseBoolean(requireEnv("CLEARSCAPE_DESTROY_ENV"));
             }
             clearScapeSetup = new ClearScapeSetup(
                     requireEnv("CLEARSCAPE_TOKEN"),
                     requireEnv("CLEARSCAPE_PASSWORD"),
                     config.getClearScapeEnvName(),
                     destroyEnv,
-                    region);
+                    requireEnv("CLEARSCAPE_REGION"));
             Model model = clearScapeSetup.initialize();
             hostName = model.getHostName();
         }
