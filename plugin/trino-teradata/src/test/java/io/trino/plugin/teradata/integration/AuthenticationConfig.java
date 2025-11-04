@@ -11,8 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.integration.clearscape;
+package io.trino.plugin.teradata.integration;
 
-public record DeleteEnvironmentRequest(
-        String name
-) {}
+public record AuthenticationConfig(
+        String userName,
+        String password)
+{
+    public AuthenticationConfig()
+    {
+        this(null, null);
+    }
+}

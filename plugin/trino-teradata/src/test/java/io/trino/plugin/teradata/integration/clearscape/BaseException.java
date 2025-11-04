@@ -11,27 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.integration.clearscape;
+package io.trino.plugin.teradata.integration.clearscape;
 
-import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
-
-public record EnvironmentResponse(
-        State state,
-        String region,
-        String name,
-        String ip)
+public class BaseException
+        extends RuntimeException
 {
-    public EnvironmentResponse {
-        requireNonNull(state, "state must not be null");
-        requireNonNull(region, "name must not be null");
-        requireNonNull(name, "name must not be null");
-        region = region.toUpperCase(ENGLISH);
+    private final int statusCode;
+
+    public BaseException(int statusCode, String body)
+    {
+        super(body);
+        this.statusCode = statusCode;
     }
 
-    public enum State
+    public int getStatusCode()
     {
-        RUNNING,
-        STOPPED,
+        return statusCode;
     }
 }

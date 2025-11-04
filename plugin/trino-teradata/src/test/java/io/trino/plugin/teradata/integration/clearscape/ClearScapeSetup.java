@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.integration.clearscape;
+package io.trino.plugin.teradata.integration.clearscape;
 
-import io.trino.plugin.integration.util.TeradataTestConstants;
+import io.trino.plugin.teradata.integration.TeradataTestConstants;
 
 import static java.util.Objects.requireNonNull;
 
