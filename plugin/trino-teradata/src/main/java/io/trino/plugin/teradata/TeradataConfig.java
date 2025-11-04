@@ -15,27 +15,13 @@ package io.trino.plugin.teradata;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import io.trino.plugin.jdbc.BaseJdbcConfig;
+import jakarta.validation.constraints.NotNull;
 
 public class TeradataConfig
-        extends BaseJdbcConfig
 {
-    private String logMech = "TD2";
     private TeradataCaseSensitivity teradataCaseSensitivity = TeradataCaseSensitivity.CASE_SENSITIVE;
 
-    public String getLogMech()
-    {
-        return logMech;
-    }
-
-    @Config("logon-mechanism")
-    @ConfigDescription("Specifies the logon mechanism for Teradata (default: TD2). Use 'TD2' for TD2 authentication.")
-    public TeradataConfig setLogMech(String logMech)
-    {
-        this.logMech = logMech;
-        return this;
-    }
-
+    @NotNull
     public TeradataCaseSensitivity getTeradataCaseSensitivity()
     {
         return teradataCaseSensitivity;

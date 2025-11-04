@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.teradata.integration;
 
-import io.trino.plugin.teradata.LogonMechanism;
-
 import java.util.HashMap;
 import java.util.Map;
 
@@ -23,43 +21,31 @@ import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 
 public class DatabaseConfigFactory
 {
-    private static final String DEFAULT_LOG_MECH = "TD2";
-
     private DatabaseConfigFactory() {}
 
     public static DatabaseConfig create(String envName)
     {
-        String userName = null;
-        String password = null;
+        String userName;
+        String password;
         String hostName = null;
 
-        if (!isEnvSet("CLEARSCAPE_TOKEN")) {
-            hostName = requireEnv("hostname");
+        if (isEnvSet("CLEARSCAPE_TOKEN")) {
+            userName = TeradataTestConstants.ENV_CLEARSCAPE_USERNAME;
+            password = requireEnv("CLEARSCAPE_PASSWORD");
+        }
+        else {
+            userName = requireEnv("TERADATA_USERNAME");
+            password = requireEnv("TERADATA_PASSWORD");
+            hostName = requireEnv("TERADATA_HOSTNAME");
         }
 
-        String logMech = DEFAULT_LOG_MECH;
-        if (isEnvSet("logMech")) {
-            logMech = requireEnv("logMech");
-        }
-        if (DEFAULT_LOG_MECH.equals(logMech)) {
-            if (isEnvSet("CLEARSCAPE_TOKEN")) {
-                userName = TeradataTestConstants.ENV_CLEARSCAPE_USERNAME;
-                password = requireEnv("CLEARSCAPE_PASSWORD");
-            }
-            else {
-                userName = requireEnv("username");
-                password = requireEnv("password");
-            }
-        }
-        LogonMechanism logonMechanism = LogonMechanism.fromString(logMech);
         String databaseName = envName.replace("-", "_");
 
         AuthenticationConfig authConfig = createAuthConfig(userName, password);
         return DatabaseConfig.builder()
                 .hostName(hostName)
                 .databaseName(databaseName)
-                .useClearScape(isEnvSet("CLEARSCAPE_TOKEN"))
-                .logMech(logonMechanism)
+                .useClearScape(hostName == null)
                 .authConfig(authConfig)
                 .clearScapeEnvName(envName)
                 .jdbcProperties(getJdbcProperties())

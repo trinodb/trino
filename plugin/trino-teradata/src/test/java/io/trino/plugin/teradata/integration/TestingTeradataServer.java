@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.teradata.integration;
 
-import io.trino.plugin.teradata.LogonMechanism;
 import io.trino.plugin.teradata.integration.clearscape.ClearScapeSetup;
 import io.trino.plugin.teradata.integration.clearscape.Model;
 import io.trino.testing.sql.SqlExecutor;
@@ -30,7 +29,6 @@ import java.util.Properties;
 
 import static io.trino.testing.SystemEnvironmentUtils.isEnvSet;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
-import static java.util.Objects.requireNonNull;
 
 public class TestingTeradataServer
         implements AutoCloseable, SqlExecutor
@@ -101,7 +99,7 @@ public class TestingTeradataServer
     {
         try {
             Class.forName("com.teradata.jdbc.TeraDriver");
-            Properties props = buildConnectionProperties();
+            Properties props = buildConnectionProperties(config.getAuthConfig());
             return DriverManager.getConnection(config.getJdbcUrl(), props);
         }
         catch (SQLException | ClassNotFoundException e) {
@@ -109,20 +107,12 @@ public class TestingTeradataServer
         }
     }
 
-    private Properties buildConnectionProperties()
+    private static Properties buildConnectionProperties(AuthenticationConfig auth)
     {
         Properties props = new Properties();
-        props.put("logmech", config.getLogMech().getMechanism());
-
-        if (requireNonNull(config.getLogMech()) == LogonMechanism.TD2) {
-            AuthenticationConfig auth = config.getAuthConfig();
-            props.put("username", auth.userName());
-            props.put("password", auth.password());
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported logon mechanism: " + config.getLogMech());
-        }
-
+        props.setProperty("logmech", "TD2");
+        props.setProperty("username", auth.userName());
+        props.setProperty("password", auth.password());
         return props;
     }
 
@@ -130,13 +120,10 @@ public class TestingTeradataServer
     {
         Map<String, String> properties = new HashMap<>();
         properties.put("connection-url", config.getJdbcUrl());
-        properties.put("logon-mechanism", config.getLogMech().getMechanism());
 
-        if (requireNonNull(config.getLogMech()) == LogonMechanism.TD2) {
-            AuthenticationConfig auth = config.getAuthConfig();
-            properties.put("connection-user", auth.userName());
-            properties.put("connection-password", auth.password());
-        }
+        AuthenticationConfig auth = config.getAuthConfig();
+        properties.put("connection-user", auth.userName());
+        properties.put("connection-password", auth.password());
 
         return properties;
     }

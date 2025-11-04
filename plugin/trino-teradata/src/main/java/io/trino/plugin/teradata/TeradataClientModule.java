@@ -41,17 +41,15 @@ public class TeradataClientModule
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory getConnectionFactory(BaseJdbcConfig config, TeradataConfig teradataConfig, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
+    public static ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
             throws SQLException
     {
-        Properties connectionProperties = new Properties();
         Driver driver = DriverManager.getDriver(config.getConnectionUrl());
-        String logonMechanism = LogonMechanism.fromString(teradataConfig.getLogMech()).getMechanism();
-        connectionProperties.put("LOGMECH", logonMechanism);
-        if (!logonMechanism.equals("TD2")) {
-            throw new IllegalArgumentException("Unsupported logon mechanism: " + logonMechanism);
-        }
-        return DriverConnectionFactory.builder(driver, config.getConnectionUrl(), credentialProvider).setConnectionProperties(connectionProperties).setOpenTelemetry(openTelemetry).build();
+        Properties connectionProperties = new Properties();
+        connectionProperties.setProperty("LOGMECH", "TD2");
+        return DriverConnectionFactory.builder(driver, config.getConnectionUrl(), credentialProvider)
+                .setConnectionProperties(connectionProperties)
+                .setOpenTelemetry(openTelemetry).build();
     }
 
     @Override

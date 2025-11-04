@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.teradata.integration;
 
-import io.trino.plugin.teradata.LogonMechanism;
-
 import java.util.Map;
 
 public class DatabaseConfig
@@ -23,7 +21,6 @@ public class DatabaseConfig
     private final String hostName;
     private final String databaseName;
     private final boolean useClearScape;
-    private final LogonMechanism logMech;
     private final AuthenticationConfig authConfig;
     private final String clearScapeEnvName;
     private final Map<String, String> jdbcProperties;
@@ -34,7 +31,6 @@ public class DatabaseConfig
         this.hostName = builder.hostName;
         this.databaseName = builder.databaseName;
         this.useClearScape = builder.useClearScape;
-        this.logMech = builder.logMech;
         this.authConfig = builder.authConfig;
         this.clearScapeEnvName = builder.clearScapeEnvName;
         this.jdbcProperties = builder.jdbcProperties;
@@ -52,7 +48,6 @@ public class DatabaseConfig
                 .hostName(this.hostName)
                 .databaseName(this.databaseName)
                 .useClearScape(this.useClearScape)
-                .logMech(this.logMech)
                 .authConfig(this.authConfig)
                 .clearScapeEnvName(this.clearScapeEnvName)
                 .jdbcProperties(this.jdbcProperties);
@@ -71,11 +66,6 @@ public class DatabaseConfig
     public boolean isUseClearScape()
     {
         return useClearScape;
-    }
-
-    public LogonMechanism getLogMech()
-    {
-        return logMech;
     }
 
     public AuthenticationConfig getAuthConfig()
@@ -112,7 +102,6 @@ public class DatabaseConfig
         private String hostName;
         private String databaseName = "trino";
         private boolean useClearScape;
-        private LogonMechanism logMech = LogonMechanism.TD2;
         private AuthenticationConfig authConfig = new AuthenticationConfig();
         private String clearScapeEnvName;
         private Map<String, String> jdbcProperties;
@@ -132,12 +121,6 @@ public class DatabaseConfig
         public Builder useClearScape(boolean useClearScape)
         {
             this.useClearScape = useClearScape;
-            return this;
-        }
-
-        public Builder logMech(LogonMechanism logMech)
-        {
-            this.logMech = logMech;
             return this;
         }
 
