@@ -33,7 +33,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Consumer;
 
-import static io.trino.plugin.teradata.util.TeradataConstants.TERADATA_OBJECT_NAME_LIMIT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -43,6 +42,8 @@ import static org.junit.jupiter.api.Assumptions.abort;
 final class TestTeradataConnectorTest
         extends BaseJdbcConnectorTest
 {
+    private static final int TERADATA_OBJECT_NAME_LIMIT = 128;
+
     private TestingTeradataServer database;
 
     private static void verifyResultOrFailure(AssertProvider<QueryAssertions.QueryAssert> queryAssertProvider, Consumer<QueryAssertions.QueryAssert> verifyResults,
