@@ -11,13 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.integration.clearscape;
+package io.trino.plugin.teradata.integration;
 
-public class Error4xxException
-        extends BaseException
+public interface TeradataTestConstants
 {
-    public Error4xxException(int statusCode, String body)
-    {
-        super(statusCode, body);
-    }
+    String ENV_CLEARSCAPE_URL = "https://api.clearscape.teradata.com";
+    String ENV_CLEARSCAPE_USERNAME = "demo_user";
+    String ENV_CLEARSCAPE_REGION = "asia-south";
 }

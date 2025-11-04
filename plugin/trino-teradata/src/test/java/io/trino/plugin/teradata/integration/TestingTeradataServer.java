@@ -11,13 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.integration;
+package io.trino.plugin.teradata.integration;
 
-import io.trino.plugin.integration.clearscape.ClearScapeSetup;
-import io.trino.plugin.integration.clearscape.Model;
-import io.trino.plugin.integration.clearscape.Region;
-import io.trino.plugin.integration.util.TeradataTestConstants;
 import io.trino.plugin.teradata.LogonMechanism;
+import io.trino.plugin.teradata.integration.clearscape.ClearScapeSetup;
+import io.trino.plugin.teradata.integration.clearscape.Model;
+import io.trino.plugin.teradata.integration.clearscape.Region;
 import io.trino.testing.sql.SqlExecutor;
 
 import java.sql.Connection;

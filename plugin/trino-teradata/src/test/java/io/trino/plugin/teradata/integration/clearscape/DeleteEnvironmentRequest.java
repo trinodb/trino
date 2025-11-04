@@ -11,21 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.integration.clearscape;
+package io.trino.plugin.teradata.integration.clearscape;
 
-public class BaseException
-        extends RuntimeException
-{
-    private final int statusCode;
-
-    public BaseException(int statusCode, String body)
-    {
-        super(body);
-        this.statusCode = statusCode;
-    }
-
-    public int getStatusCode()
-    {
-        return statusCode;
-    }
-}
+public record DeleteEnvironmentRequest(
+        String name
+) {}

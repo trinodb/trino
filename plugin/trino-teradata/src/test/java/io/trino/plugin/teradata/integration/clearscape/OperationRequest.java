@@ -11,15 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.integration.clearscape;
+package io.trino.plugin.teradata.integration.clearscape;
 
-public final class Headers
-{
-    public static final String CONTENT_TYPE = "Content-Type";
-    public static final String AUTHORIZATION = "Authorization";
-    public static final String APPLICATION_JSON = "application/json";
-    public static final String BEARER = "Bearer ";
-
-    private Headers()
-    {}
-}
+public record OperationRequest(
+        String operation) {}

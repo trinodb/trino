@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.integration;
+package io.trino.plugin.teradata.integration;
 
-import io.trino.plugin.integration.clearscape.ClearScapeEnvironmentUtils;
+import io.trino.plugin.teradata.integration.clearscape.ClearScapeEnvironmentUtils;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;

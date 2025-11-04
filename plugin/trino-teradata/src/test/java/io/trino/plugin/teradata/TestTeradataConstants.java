@@ -11,10 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.integration.clearscape;
+package io.trino.plugin.teradata;
 
-public record CreateEnvironmentRequest(
-        String name,
-        String region,
-        String password
-) {}
+import io.trino.plugin.teradata.util.TeradataConstants;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+public class TestTeradataConstants
+{
+    @Test
+    public void testConstantsDefined()
+    {
+        assertThat(TeradataConstants.TERADATA_OBJECT_NAME_LIMIT).isEqualTo(128);
+    }
+}
