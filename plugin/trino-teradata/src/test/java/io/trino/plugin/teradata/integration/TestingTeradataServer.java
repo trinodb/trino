@@ -16,7 +16,6 @@ package io.trino.plugin.teradata.integration;
 import io.trino.plugin.teradata.LogonMechanism;
 import io.trino.plugin.teradata.integration.clearscape.ClearScapeSetup;
 import io.trino.plugin.teradata.integration.clearscape.Model;
-import io.trino.plugin.teradata.integration.clearscape.Region;
 import io.trino.testing.sql.SqlExecutor;
 
 import java.sql.Connection;
@@ -55,10 +54,7 @@ public class TestingTeradataServer
             }
             String region = TeradataTestConstants.ENV_CLEARSCAPE_REGION;
             if (isEnvSet("CLEARSCAPE_REGION")) {
-                String envRegion = requireEnv("CLEARSCAPE_REGION");
-                if (Region.isValid(envRegion)) {
-                    region = envRegion;
-                }
+                region = requireEnv("CLEARSCAPE_REGION");
             }
             clearScapeSetup = new ClearScapeSetup(
                     requireEnv("CLEARSCAPE_TOKEN"),
