@@ -43,6 +43,7 @@ public class DbResourceGroupConfigurationManagerFactory
     {
         FlywayMigration.migrate(new ConfigurationFactory(replaceEnvironmentVariables(config)).build(DbResourceGroupConfig.class));
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.resource-group." + getName(),
                 new MBeanModule(),
                 new MBeanServerModule(),
                 new JsonModule(),
