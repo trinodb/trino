@@ -48,6 +48,7 @@ public class QueryStatistics
     private final Optional<Duration> outputBlockedTime;
     private final Optional<Duration> failedOutputBlockedTime;
     private final Optional<Duration> physicalInputReadTime;
+    private final Optional<Duration> finishingTime;
 
     private final long peakUserMemoryBytes;
     private final long peakTaskUserMemory;
@@ -111,6 +112,7 @@ public class QueryStatistics
             Optional<Duration> outputBlockedTime,
             Optional<Duration> failedOutputBlockedTime,
             Optional<Duration> physicalInputReadTime,
+            Optional<Duration> finishingTime,
             long peakUserMemoryBytes,
             long peakTaskUserMemory,
             long peakTaskTotalMemory,
@@ -158,6 +160,7 @@ public class QueryStatistics
                 outputBlockedTime,
                 failedOutputBlockedTime,
                 physicalInputReadTime,
+                finishingTime,
                 peakUserMemoryBytes,
                 peakTaskUserMemory,
                 peakTaskTotalMemory,
@@ -206,6 +209,7 @@ public class QueryStatistics
             Optional<Duration> outputBlockedTime,
             Optional<Duration> failedOutputBlockedTime,
             Optional<Duration> physicalInputReadTime,
+            Optional<Duration> finishingTime,
             long peakUserMemoryBytes,
             long peakTaskUserMemory,
             long peakTaskTotalMemory,
@@ -252,6 +256,7 @@ public class QueryStatistics
         this.outputBlockedTime = requireNonNull(outputBlockedTime, "outputBlockedTime is null");
         this.failedOutputBlockedTime = requireNonNull(failedOutputBlockedTime, "failedOutputBlockedTime is null");
         this.physicalInputReadTime = requireNonNull(physicalInputReadTime, "physicalInputReadTime is null");
+        this.finishingTime = requireNonNull(finishingTime, "finishingTime is null");
         this.peakUserMemoryBytes = peakUserMemoryBytes;
         this.peakTaskUserMemory = peakTaskUserMemory;
         this.peakTaskTotalMemory = peakTaskTotalMemory;
@@ -382,6 +387,12 @@ public class QueryStatistics
     public Optional<Duration> getPhysicalInputReadTime()
     {
         return physicalInputReadTime;
+    }
+
+    @JsonProperty
+    public Optional<Duration> getFinishingTime()
+    {
+        return finishingTime;
     }
 
     @JsonProperty
