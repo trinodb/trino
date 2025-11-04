@@ -13,21 +13,21 @@
  */
 package io.trino.plugin.teradata.integration.clearscape;
 
+import java.util.concurrent.ThreadLocalRandom;
+
 import static java.util.Locale.ENGLISH;
 
 public final class ClearScapeEnvironmentUtils
 {
-    private static final String PREFIX = "trino-test-";
-    private static final int MAX_ENV_NAME_LENGTH = 30; // Adjust based on ClearScape limits
+    private static final int MAX_ENV_NAME_LENGTH = 40; // Adjust based on ClearScape limits
 
-    private ClearScapeEnvironmentUtils()
-    {
-    }
+    private ClearScapeEnvironmentUtils() {}
 
     public static String generateUniqueEnvName(Class<?> testClass)
     {
         String className = testClass.getSimpleName().toLowerCase(ENGLISH);
-        String envName = PREFIX + className;
+        String suffix = Long.toString(ThreadLocalRandom.current().nextLong(Long.MAX_VALUE), 36);
+        String envName = className + "-" + suffix;
         // Truncate if too long
         if (envName.length() > MAX_ENV_NAME_LENGTH) {
             envName = envName.substring(0, MAX_ENV_NAME_LENGTH);

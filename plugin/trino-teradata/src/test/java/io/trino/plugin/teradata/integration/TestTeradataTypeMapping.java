@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.teradata.integration;
 
-import io.trino.plugin.teradata.integration.clearscape.ClearScapeEnvironmentUtils;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
@@ -23,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
 
+import static io.trino.plugin.teradata.integration.clearscape.ClearScapeEnvironmentUtils.generateUniqueEnvName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
@@ -38,19 +38,13 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 final class TestTeradataTypeMapping
         extends AbstractTestQueryFramework
 {
-    private final String envName;
     private TestingTeradataServer database;
-
-    public TestTeradataTypeMapping()
-    {
-        envName = ClearScapeEnvironmentUtils.generateUniqueEnvName(TestTeradataTypeMapping.class);
-    }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        database = closeAfterClass(new TestingTeradataServer(envName));
+        database = closeAfterClass(new TestingTeradataServer(generateUniqueEnvName(getClass()), true));
         // Register this specific instance for this test class
         return TeradataQueryRunner.builder(database).build();
     }
