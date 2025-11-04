@@ -801,7 +801,7 @@ jobs:
           CLEARSCAPE_REGION: ${{ vars.CLEARSCAPE_REGION }}
         if: matrix.modules == 'plugin/trino-teradata' && contains(matrix.profile, 'clearscape-tests') && (env.CLEARSCAPE_TOKEN != '' || env.CLEARSCAPE_PASSWORD != '')
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl :trino-teradata
+          $MAVEN test ${MAVEN_TEST} -pl :trino-teradata -Pclearscape-tests
       - name: Sanitize artifact name
         if: always()
         run: |
