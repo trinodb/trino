@@ -27,13 +27,14 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.concurrent.CompletableFuture;
 
-import static io.trino.plugin.teradata.integration.clearscape.Headers.APPLICATION_JSON;
-import static io.trino.plugin.teradata.integration.clearscape.Headers.AUTHORIZATION;
-import static io.trino.plugin.teradata.integration.clearscape.Headers.BEARER;
-import static io.trino.plugin.teradata.integration.clearscape.Headers.CONTENT_TYPE;
+import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 
 public class TeradataHttpClient
 {
+    private static final String APPLICATION_JSON = "application/json";
+    private static final String BEARER = "Bearer ";
+
     private final String baseUrl;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
@@ -148,7 +149,7 @@ public class TeradataHttpClient
         }
     }
 
-    private <T> T handleCheckedException(CheckedSupplier<T> checkedSupplier)
+    private static <T> T handleCheckedException(CheckedSupplier<T> checkedSupplier)
     {
         try {
             return checkedSupplier.get();
