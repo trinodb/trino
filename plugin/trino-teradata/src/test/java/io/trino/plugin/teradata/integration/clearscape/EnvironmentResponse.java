@@ -11,13 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.integration.clearscape;
+package io.trino.plugin.teradata.integration.clearscape;
 
-public class Error5xxException
-        extends BaseException
+import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
+
+public record EnvironmentResponse(
+        State state,
+        String region,
+        String name,
+        String ip)
 {
-    public Error5xxException(int statusCode, String body)
+    public EnvironmentResponse {
+        requireNonNull(state, "state must not be null");
+        requireNonNull(region, "name must not be null");
+        requireNonNull(name, "name must not be null");
+        region = region.toUpperCase(ENGLISH);
+    }
+
+    public enum State
     {
-        super(statusCode, body);
+        RUNNING,
+        STOPPED,
     }
 }

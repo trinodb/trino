@@ -11,11 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.integration;
+package io.trino.plugin.teradata.integration;
 
 import io.trino.Session;
-import io.trino.plugin.integration.clearscape.ClearScapeEnvironmentUtils;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.plugin.teradata.integration.clearscape.ClearScapeEnvironmentUtils;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -40,7 +40,7 @@ import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.abort;
 
-final class TeradataConnectorTest
+final class TestTeradataConnectorTest
         extends BaseJdbcConnectorTest
 {
     private TestingTeradataServer database;

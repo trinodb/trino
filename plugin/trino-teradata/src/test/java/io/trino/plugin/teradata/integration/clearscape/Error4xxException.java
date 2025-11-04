@@ -11,18 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.unit;
+package io.trino.plugin.teradata.integration.clearscape;
 
-import io.trino.plugin.teradata.util.TeradataConstants;
-import org.junit.jupiter.api.Test;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
-public class TestTeradataConstants
+public class Error4xxException
+        extends BaseException
 {
-    @Test
-    public void testConstantsDefined()
+    public Error4xxException(int statusCode, String body)
     {
-        assertThat(TeradataConstants.TERADATA_OBJECT_NAME_LIMIT).isEqualTo(128);
+        super(statusCode, body);
     }
 }

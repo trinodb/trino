@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.integration.clearscape;
+package io.trino.plugin.teradata.integration.clearscape;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -27,10 +27,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.concurrent.CompletableFuture;
 
-import static io.trino.plugin.integration.clearscape.Headers.APPLICATION_JSON;
-import static io.trino.plugin.integration.clearscape.Headers.AUTHORIZATION;
-import static io.trino.plugin.integration.clearscape.Headers.BEARER;
-import static io.trino.plugin.integration.clearscape.Headers.CONTENT_TYPE;
+import static io.trino.plugin.teradata.integration.clearscape.Headers.APPLICATION_JSON;
+import static io.trino.plugin.teradata.integration.clearscape.Headers.AUTHORIZATION;
+import static io.trino.plugin.teradata.integration.clearscape.Headers.BEARER;
+import static io.trino.plugin.teradata.integration.clearscape.Headers.CONTENT_TYPE;
 
 public class TeradataHttpClient
 {
