@@ -11,10 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.unit;
+package io.trino.plugin.teradata;
 
 import io.trino.plugin.jdbc.JdbcConnectorFactory;
-import io.trino.plugin.teradata.TeradataPlugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Assertions;
