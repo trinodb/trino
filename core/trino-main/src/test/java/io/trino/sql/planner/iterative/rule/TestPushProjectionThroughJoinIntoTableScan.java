@@ -23,8 +23,6 @@ import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.Type;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.Symbol;
@@ -38,12 +36,10 @@ import java.util.Map;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.RowType.field;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.util.Arrays.asList;
 
 /**
  * Tests for PushProjectionThroughJoinIntoTableScan rule. This rule pushes projections that appear
@@ -56,8 +52,6 @@ public class TestPushProjectionThroughJoinIntoTableScan
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction ADD_BIGINT =
             FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
-    private static final ResolvedFunction MULTIPLY_BIGINT =
-            FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(BIGINT, BIGINT));
 
     private static final String SCHEMA = "test_schema";
     private static final String TABLE_A = "test_table_a";
@@ -65,8 +59,6 @@ public class TestPushProjectionThroughJoinIntoTableScan
 
     private static final Session MOCK_SESSION =
             testSessionBuilder().setCatalog(TEST_CATALOG_NAME).setSchema(SCHEMA).build();
-
-    private static final Type ROW_TYPE = RowType.from(asList(field("x", BIGINT), field("y", BIGINT)));
 
     private static final String COLUMN_A1 = "columna1";
     private static final String COLUMN_A2 = "columna2";
