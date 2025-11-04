@@ -36,6 +36,7 @@ public class FileResourceGroupConfigurationManagerFactory
     public ResourceGroupConfigurationManager<?> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
     {
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.resource-group." + getName(),
                 new JsonModule(),
                 new FileResourceGroupsModule(),
                 binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
