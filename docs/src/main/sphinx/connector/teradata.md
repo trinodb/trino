@@ -75,7 +75,7 @@ catalog named sales using the configured connector.
 
 Because Trino and Teradata each support types that the other does not, this
 connector {ref}`modifies some types <type-mapping-overview>` when reading data.
-Refer to the following sections for type mapping in when reading data from
+Refer to the following sections for type mapping when reading data from
 Teradata to Trino.
 
 ### Teradata type to Trino type mapping
@@ -171,8 +171,7 @@ SELECT * FROM teradata.sales.orders;
 
 ## SQL support
 
-The connector provides read access access to data and metadata in
+The connector provides read access to data and metadata in
 a Teradata database.  The connector supports the {ref}`globally available
 <sql-globally-available>` and {ref}`read operation <sql-read-operations>`
 statements.
-
