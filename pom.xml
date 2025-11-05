@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>324</version>
+        <version>325</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -183,7 +183,7 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>372</dep.airlift.version>
+        <dep.airlift.version>374</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.1</dep.avro.version>
@@ -2829,6 +2829,33 @@
                                     <resource>iso3166_1alpha2-codes.properties</resource>
                                     <resource>iso3166_1alpha3-codes.properties</resource>
                                     <resource>iso3166_3-codes.properties</resource>
+                                </resources>
+                            </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>org.glassfish.jersey.containers</groupId>
+                                        <artifactId>jersey-container-servlet</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.glassfish.jersey.core</groupId>
+                                        <artifactId>jersey-client</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.glassfish.jersey.core</groupId>
+                                        <artifactId>jersey-common</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.glassfish.jersey.core</groupId>
+                                        <artifactId>jersey-server</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.glassfish.jersey.inject</groupId>
+                                        <artifactId>jersey-hk2</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <resources>
+                                    <resource>about.html</resource>
                                 </resources>
                             </exception>
                         </exceptions>
