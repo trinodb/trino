@@ -27,8 +27,8 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
@@ -129,7 +129,7 @@ public class CallColumnarFilterGenerator
         Parameter outputPositions = arg("outputPositions", int[].class);
         Parameter offset = arg("offset", int.class);
         Parameter size = arg("size", int.class);
-        Parameter page = arg("page", Page.class);
+        Parameter page = arg("page", SourcePage.class);
 
         MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
@@ -197,7 +197,7 @@ public class CallColumnarFilterGenerator
         Parameter activePositions = arg("activePositions", int[].class);
         Parameter offset = arg("offset", int.class);
         Parameter size = arg("size", int.class);
-        Parameter page = arg("page", Page.class);
+        Parameter page = arg("page", SourcePage.class);
 
         MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),

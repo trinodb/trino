@@ -46,6 +46,7 @@ import java.net.URLDecoder;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -103,8 +104,8 @@ public class HttpRequestSessionContextFactory
         catch (ProtocolDetectionException e) {
             throw new BadRequestException(e.getMessage());
         }
-        Optional<String> catalog = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestCatalog())));
-        Optional<String> schema = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestSchema())));
+        Optional<String> catalog = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestCatalog()))).map(value -> value.toLowerCase(Locale.ENGLISH));
+        Optional<String> schema = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestSchema()))).map(value -> value.toLowerCase(Locale.ENGLISH));
         Optional<String> path = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestPath())));
         assertRequest(catalog.isPresent() || schema.isEmpty(), "Schema is set but catalog is not");
 
@@ -120,7 +121,7 @@ public class HttpRequestSessionContextFactory
         Optional<String> timeZoneId = Optional.ofNullable(headers.getFirst(protocolHeaders.requestTimeZone()));
         Optional<String> language = Optional.ofNullable(headers.getFirst(protocolHeaders.requestLanguage()));
         Optional<String> clientInfo = Optional.ofNullable(headers.getFirst(protocolHeaders.requestClientInfo()));
-        Optional<String> queryDataEncoding = Optional.ofNullable(headers.getFirst(protocolHeaders.requestQueryDataEncoding()))
+        Optional<String> queryDataEncoding = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestQueryDataEncoding())))
                 .map(Splitter.on(',').trimResults().omitEmptyStrings()::splitToList)
                 .flatMap(encoderSelector::select)
                 .map(QueryDataEncoder.Factory::encoding);
@@ -258,14 +259,15 @@ public class HttpRequestSessionContextFactory
         if (systemRole.getType() == Type.ROLE) {
             systemEnabledRoles.add(systemRole.getRole().orElseThrow());
         }
-        return authenticatedIdentity
+        Identity newIdentity = authenticatedIdentity
                 .map(identity -> Identity.from(identity).withUser(user))
                 .orElseGet(() -> Identity.forUser(user))
-                .withEnabledRoles(systemEnabledRoles.build())
                 .withAdditionalConnectorRoles(parseConnectorRoleHeaders(protocolHeaders, headers))
                 .withAdditionalExtraCredentials(parseExtraCredentials(protocolHeaders, headers))
                 .withAdditionalGroups(groupProvider.getGroups(user))
+                .withEnabledRoles(systemEnabledRoles.build())
                 .build();
+        return addEnabledRoles(newIdentity, systemRole, metadata);
     }
 
     private Identity buildSessionOriginalIdentity(Identity identity, ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
@@ -273,12 +275,18 @@ public class HttpRequestSessionContextFactory
         // We derive original identity using this header, but older clients will not send it, so fall back to identity
         Optional<String> optionalOriginalUser = Optional
                 .ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestOriginalUser())));
-        Identity originalIdentity = optionalOriginalUser.map(originalUser -> Identity.from(identity)
-                        .withUser(originalUser)
-                        .withExtraCredentials(new HashMap<>())
-                        .withGroups(groupProvider.getGroups(originalUser))
-                        .build())
-                .orElse(identity);
+        Optional<String> originalRoles = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestOriginalRole())));
+        Identity originalIdentity = optionalOriginalUser.map(originalUser -> {
+            Identity newIdentity = Identity.from(identity)
+                    .withUser(originalUser)
+                    .withExtraCredentials(new HashMap<>())
+                    .withGroups(groupProvider.getGroups(originalUser))
+                    .build();
+            if (originalRoles.isPresent()) {
+                newIdentity = addEnabledRoles(newIdentity, SelectedRole.valueOf(originalRoles.get()), metadata);
+            }
+            return newIdentity;
+        }).orElse(identity);
         return originalIdentity;
     }
 

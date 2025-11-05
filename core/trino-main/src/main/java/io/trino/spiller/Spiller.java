@@ -14,6 +14,7 @@
 package io.trino.spiller;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.trino.spi.Page;
 
 import java.io.Closeable;
@@ -26,7 +27,7 @@ public interface Spiller
     /**
      * Initiate spilling of pages stream. Returns completed future once spilling has finished.
      */
-    ListenableFuture<Void> spill(Iterator<Page> pageIterator);
+    ListenableFuture<DataSize> spill(Iterator<Page> pageIterator);
 
     /**
      * Returns list of previously spilled Pages streams.

@@ -13,13 +13,16 @@
  */
 package io.trino.plugin.redshift;
 
-import io.trino.plugin.jdbc.JdbcPlugin;
+import com.google.common.collect.ImmutableList;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
 
 public class RedshiftPlugin
-        extends JdbcPlugin
+        implements Plugin
 {
-    public RedshiftPlugin()
+    @Override
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        super("redshift", new RedshiftClientModule());
+        return ImmutableList.of(new RedshiftConnectorFactory());
     }
 }

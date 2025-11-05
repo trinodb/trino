@@ -15,7 +15,7 @@ default value.
 ## Examples
 
 ```sql
-RESET SESSION optimize_hash_generation;
+RESET SESSION query_max_run_time;
 RESET SESSION hive.optimized_reader_enabled;
 ```
 

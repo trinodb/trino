@@ -13,12 +13,10 @@
  */
 package io.trino.spi.connector;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 
 import java.util.List;
-import java.util.Map;
 
 public interface ConnectorSplit
 {
@@ -40,12 +38,6 @@ public interface ConnectorSplit
             throw new IllegalStateException("getAddresses must be implemented when for splits with isRemotelyAccessible=false");
         }
         return List.of();
-    }
-
-    @JsonIgnore // ConnectorSplit is json-serializable, but we don't want to repeat information in that field
-    default Map<String, String> getSplitInfo()
-    {
-        return Map.of();
     }
 
     default SplitWeight getSplitWeight()

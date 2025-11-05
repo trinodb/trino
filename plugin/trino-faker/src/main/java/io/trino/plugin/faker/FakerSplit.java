@@ -13,24 +13,26 @@
  */
 package io.trino.plugin.faker;
 
-import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
-import java.util.List;
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 
-import static java.util.Objects.requireNonNull;
-
-public record FakerSplit(List<HostAddress> addresses, long limit)
+public record FakerSplit(long splitNumber, long rowsOffset, long rowsCount)
         implements ConnectorSplit
 {
+    private static final int INSTANCE_SIZE = instanceSize(FakerSplit.class);
+
     public FakerSplit
     {
-        requireNonNull(addresses, "addresses is null");
+        checkArgument(splitNumber >= 0, "splitNumber is negative");
+        checkArgument(rowsOffset >= 0, "rowsOffset is negative");
+        checkArgument(rowsCount >= 0, "rowsCount is negative");
     }
 
     @Override
-    public List<HostAddress> getAddresses()
+    public long getRetainedSizeInBytes()
     {
-        return addresses;
+        return INSTANCE_SIZE;
     }
 }

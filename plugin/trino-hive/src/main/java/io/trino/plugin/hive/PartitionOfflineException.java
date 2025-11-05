@@ -18,29 +18,13 @@ import io.trino.spi.connector.SchemaTableName;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_OFFLINE;
-import static java.util.Objects.requireNonNull;
 
 public class PartitionOfflineException
         extends TrinoException
 {
-    private final SchemaTableName tableName;
-    private final String partition;
-
     public PartitionOfflineException(SchemaTableName tableName, String partitionName, boolean forPresto, String offlineMessage)
     {
         super(HIVE_PARTITION_OFFLINE, formatMessage(tableName, partitionName, forPresto, offlineMessage));
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.partition = requireNonNull(partitionName, "partitionName is null");
-    }
-
-    public SchemaTableName getTableName()
-    {
-        return tableName;
-    }
-
-    public String getPartition()
-    {
-        return partition;
     }
 
     private static String formatMessage(SchemaTableName tableName, String partitionName, boolean forPresto, String offlineMessage)

@@ -37,19 +37,19 @@ public class DataFileRecord
     @SuppressWarnings("unchecked")
     public static DataFileRecord toDataFileRecord(MaterializedRow row)
     {
-        assertThat(row.getFieldCount()).isEqualTo(14);
+        assertThat(row.getFieldCount()).isEqualTo(17);
         return new DataFileRecord(
                 (int) row.getField(0),
                 (String) row.getField(1),
                 (String) row.getField(2),
-                (long) row.getField(3),
                 (long) row.getField(4),
-                row.getField(5) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(5)) : null,
+                (long) row.getField(5),
                 row.getField(6) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(6)) : null,
                 row.getField(7) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(7)) : null,
                 row.getField(8) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(8)) : null,
-                row.getField(9) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(9)) : null,
-                row.getField(10) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(10)) : null);
+                row.getField(9) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(9)) : null,
+                row.getField(10) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(10)) : null,
+                row.getField(11) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(11)) : null);
     }
 
     private DataFileRecord(

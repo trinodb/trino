@@ -69,7 +69,6 @@ import static io.trino.plugin.hudi.HudiSessionProperties.isQueryPartitionFilterR
 import static io.trino.plugin.hudi.HudiTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.hudi.HudiTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hudi.HudiUtil.hudiMetadataExists;
-import static io.trino.plugin.hudi.model.HudiTableType.COPY_ON_WRITE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
@@ -78,6 +77,7 @@ import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
+import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
 
 public class HudiMetadata
         implements ConnectorMetadata
@@ -142,24 +142,26 @@ public class HudiMetadata
 
     private Optional<SystemTable> getRawSystemTable(SchemaTableName tableName, ConnectorSession session)
     {
-        HudiTableName name = HudiTableName.from(tableName.getTableName());
-        if (name.getTableType() == TableType.DATA) {
+        Optional<HudiTableName> nameOptional = HudiTableName.from(tableName.getTableName());
+        if (nameOptional.isEmpty()) {
+            return Optional.empty();
+        }
+        HudiTableName name = nameOptional.get();
+        if (name.tableType() == TableType.DATA) {
             return Optional.empty();
         }
 
-        Optional<Table> tableOptional = metastore.getTable(tableName.getSchemaName(), name.getTableName());
+        Optional<Table> tableOptional = metastore.getTable(tableName.getSchemaName(), name.tableName());
         if (tableOptional.isEmpty()) {
             return Optional.empty();
         }
         if (!isHudiTable(tableOptional.get())) {
             return Optional.empty();
         }
-        return switch (name.getTableType()) {
-            case DATA ->
-                // TODO (https://github.com/trinodb/trino/issues/17973) remove DATA table type
-                    Optional.empty();
+        return switch (name.tableType()) {
+            case DATA -> throw new AssertionError();
             case TIMELINE -> {
-                SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
+                SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.tableNameWithType());
                 yield Optional.of(new TimelineTable(fileSystemFactory.create(session), systemTableName, tableOptional.get()));
             }
         };
@@ -228,9 +230,10 @@ public class HudiMetadata
     }
 
     @Override
-    public Optional<Object> getInfo(ConnectorTableHandle table)
+    public Optional<Object> getInfo(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return Optional.of(HudiTableInfo.from((HudiTableHandle) table));
+        HudiTableHandle table = (HudiTableHandle) tableHandle;
+        return Optional.of(new HudiTableInfo(table.getSchemaTableName(), table.getTableType().name(), table.getBasePath()));
     }
 
     @Override
@@ -322,7 +325,7 @@ public class HudiMetadata
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         // Location property
-        String location = table.getStorage().getLocation();
+        String location = table.getStorage().getOptionalLocation().orElse(null);
         if (!isNullOrEmpty(location)) {
             properties.put(LOCATION_PROPERTY, location);
         }

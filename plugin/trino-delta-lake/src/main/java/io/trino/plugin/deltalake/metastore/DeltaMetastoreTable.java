@@ -20,7 +20,8 @@ import static java.util.Objects.requireNonNull;
 public record DeltaMetastoreTable(
         SchemaTableName schemaTableName,
         boolean managed,
-        String location)
+        String location,
+        boolean catalogOwned)
 {
     public DeltaMetastoreTable
     {

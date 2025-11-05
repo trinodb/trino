@@ -45,7 +45,7 @@ public class TestPositionsAppenderPageBuilder
                 List.of(VARCHAR),
                 new PositionsAppenderFactory(new BlockTypeOperators()));
 
-        Block rleBlock = RunLengthEncodedBlock.create(VARCHAR, Slices.utf8Slice("test"), 10);
+        RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) RunLengthEncodedBlock.create(VARCHAR, Slices.utf8Slice("test"), 10);
         Page inputPage = new Page(rleBlock);
 
         IntArrayList positions = IntArrayList.wrap(new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
@@ -65,7 +65,7 @@ public class TestPositionsAppenderPageBuilder
                 .as("pageBuilder should be full")
                 .isTrue();
         PositionsAppenderSizeAccumulator sizeAccumulator = pageBuilder.computeAppenderSizes();
-        assertThat(sizeAccumulator.getSizeInBytes()).isEqualTo(rleBlock.getSizeInBytes());
+        assertThat(sizeAccumulator.getSizeInBytes()).isEqualTo(rleBlock.getValue().getSizeInBytes());
         assertThat(sizeAccumulator.getDirectSizeInBytes() < maxDirectSize)
                 .as("direct size should still be below threshold")
                 .isTrue();
@@ -90,18 +90,18 @@ public class TestPositionsAppenderPageBuilder
         assertThat(sizeAccumulator.getDirectSizeInBytes()).isEqualTo(0L);
         assertThat(pageBuilder.isFull()).isFalse();
 
-        Block rleBlock = RunLengthEncodedBlock.create(VARCHAR, Slices.utf8Slice("test"), 10);
+        RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) RunLengthEncodedBlock.create(VARCHAR, Slices.utf8Slice("test"), 10);
         Page inputPage = new Page(rleBlock);
 
         IntArrayList positions = IntArrayList.wrap(new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
         pageBuilder.appendToOutputPartition(inputPage, positions);
         // 10 positions inserted, size in bytes is still the same since we're in RLE mode but direct size is 10x
         sizeAccumulator = pageBuilder.computeAppenderSizes();
-        assertThat(sizeAccumulator.getSizeInBytes()).isEqualTo(rleBlock.getSizeInBytes());
+        assertThat(sizeAccumulator.getSizeInBytes()).isEqualTo(rleBlock.getValue().getSizeInBytes());
         assertThat(pageBuilder.getSizeInBytes())
                 .as("pageBuilder sizeInBytes must match sizeAccumulator value")
                 .isEqualTo(sizeAccumulator.getSizeInBytes());
-        assertThat(sizeAccumulator.getDirectSizeInBytes()).isEqualTo(rleBlock.getSizeInBytes() * 10);
+        assertThat(sizeAccumulator.getDirectSizeInBytes()).isEqualTo(rleBlock.getValue().getSizeInBytes() * 10);
         assertThat(pageBuilder.isFull()).isFalse();
 
         // Keep inserting until the direct size limit is reached
@@ -112,7 +112,7 @@ public class TestPositionsAppenderPageBuilder
         sizeAccumulator = pageBuilder.computeAppenderSizes();
         assertThat(sizeAccumulator.getSizeInBytes())
                 .as("sizeInBytes must still report the RLE block size only")
-                .isEqualTo(rleBlock.getSizeInBytes());
+                .isEqualTo(rleBlock.getValue().getSizeInBytes());
         assertThat(pageBuilder.getSizeInBytes())
                 .as("pageBuilder sizeInBytes must match sizeAccumulator value")
                 .isEqualTo(sizeAccumulator.getSizeInBytes());

@@ -19,13 +19,13 @@ import com.google.errorprone.annotations.FormatMethod;
 import com.google.inject.Inject;
 import io.trino.FeaturesConfig;
 import io.trino.cache.NonEvictableCache;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
@@ -184,9 +184,7 @@ public class FunctionManager
             return globalFunctionCatalog;
         }
 
-        FunctionProvider functionProvider = functionProviders.getService(resolvedFunction.catalogHandle());
-        checkArgument(functionProvider != null, "No function provider for catalog: '%s' (function '%s')", resolvedFunction.catalogHandle(), resolvedFunction.signature().getName());
-        return functionProvider;
+        return functionProviders.getService(resolvedFunction.catalogHandle());
     }
 
     private static void verifyMethodHandleSignature(BoundSignature boundSignature, ScalarFunctionImplementation scalarFunctionImplementation, InvocationConvention convention)
@@ -255,8 +253,9 @@ public class FunctionManager
                 case FLAT:
                     verifyFunctionSignature(parameterType.equals(byte[].class) &&
                                     methodType.parameterType(parameterIndex + 1).equals(int.class) &&
-                                    methodType.parameterType(parameterIndex + 2).equals(byte[].class),
-                            "Expected FLAT argument types to be byte[], int, byte[]");
+                                    methodType.parameterType(parameterIndex + 2).equals(byte[].class) &&
+                                    methodType.parameterType(parameterIndex + 3).equals(int.class),
+                            "Expected FLAT argument types to be byte[], int, byte[], int");
                     break;
                 case IN_OUT:
                     verifyFunctionSignature(parameterType.equals(InOut.class), "Expected IN_OUT argument type to be InOut");

@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.procedure;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
@@ -22,15 +23,15 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.Partition;
 import io.trino.metastore.Storage;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveStorageFormat;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
@@ -42,6 +43,7 @@ import io.trino.spi.connector.SchemaTableName;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionSpec;
@@ -50,6 +52,7 @@ import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.avro.Avro;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.mapping.NameMapping;
 import org.apache.iceberg.types.Types;
@@ -60,6 +63,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -69,6 +73,7 @@ import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveMetadata.extractHiveStorageFormat;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isMergeManifestsOnWrite;
+import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -147,8 +152,9 @@ public final class MigrationUtils
 
     private static Metrics parquetMetrics(TrinoInputFile file, MetricsConfig metricsConfig, NameMapping nameMapping)
     {
-        try (ParquetDataSource dataSource = new TrinoParquetDataSource(file, new ParquetReaderOptions(), new FileFormatDataSourceStats())) {
-            ParquetMetadata metadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        ParquetReaderOptions options = ParquetReaderOptions.defaultOptions();
+        try (ParquetDataSource dataSource = new TrinoParquetDataSource(file, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats())) {
+            ParquetMetadata metadata = MetadataReader.readFooter(dataSource, options.getMaxFooterReadSize(), Optional.empty());
             return ParquetUtil.footerMetrics(metadata, Stream.empty(), metricsConfig, nameMapping);
         }
         catch (IOException e) {
@@ -163,7 +169,8 @@ public final class MigrationUtils
             SchemaTableName targetName,
             String location,
             HiveStorageFormat format,
-            RecursiveDirectory recursiveDirectory)
+            RecursiveDirectory recursiveDirectory,
+            ExecutorService icebergScanExecutor)
     {
         Table table = catalog.loadTable(session, targetName);
         PartitionSpec partitionSpec = table.spec();
@@ -172,7 +179,7 @@ public final class MigrationUtils
 
         try {
             List<DataFile> dataFiles = buildDataFilesFromLocation(fileSystem, recursiveDirectory, format, location, partitionSpec, Optional.empty(), table.schema());
-            addFiles(session, table, dataFiles);
+            addFiles(session, table, dataFiles, icebergScanExecutor);
         }
         catch (Exception e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to add files: " + firstNonNull(e.getMessage(), e), e);
@@ -209,7 +216,8 @@ public final class MigrationUtils
             Table targetTable,
             io.trino.metastore.Table sourceTable,
             Map<String, String> partitionFilter,
-            RecursiveDirectory recursiveDirectory)
+            RecursiveDirectory recursiveDirectory,
+            ExecutorService icebergScanExecutor)
     {
         HiveMetastore metastore = metastoreFactory.createMetastore(Optional.of(session.getIdentity()));
 
@@ -246,7 +254,7 @@ public final class MigrationUtils
                         .set(DEFAULT_NAME_MAPPING, toJson(nameMapping))
                         .commit();
             }
-            addFiles(session, targetTable, dataFilesBuilder.build());
+            addFiles(session, targetTable, dataFilesBuilder.build(), icebergScanExecutor);
         }
         catch (Exception e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to add files: " + firstNonNull(e.getMessage(), e), e);
@@ -264,13 +272,25 @@ public final class MigrationUtils
         return dataFile.build();
     }
 
-    public static void addFiles(ConnectorSession session, Table table, List<DataFile> dataFiles)
+    public static void addFiles(ConnectorSession session, Table table, List<DataFile> dataFiles, ExecutorService icebergScanExecutor)
     {
         Schema schema = table.schema();
         Set<Integer> requiredFields = schema.columns().stream()
                 .filter(Types.NestedField::isRequired)
                 .map(Types.NestedField::fieldId)
                 .collect(toImmutableSet());
+
+        ImmutableSet.Builder<String> existingFilesBuilder = ImmutableSet.builder();
+        try (CloseableIterable<FileScanTask> iterator = table.newScan().planFiles()) {
+            for (FileScanTask fileScanTask : iterator) {
+                DataFile dataFile = fileScanTask.file();
+                existingFilesBuilder.add(dataFile.location());
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        Set<String> existingFiles = existingFilesBuilder.build();
 
         if (!requiredFields.isEmpty()) {
             for (DataFile dataFile : dataFiles) {
@@ -295,7 +315,13 @@ public final class MigrationUtils
             }
             log.debug("Append data %d data files", dataFiles.size());
             AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
-            dataFiles.forEach(appendFiles::appendFile);
+            for (DataFile dataFile : dataFiles) {
+                if (existingFiles.contains(dataFile.location())) {
+                    throw new TrinoException(ALREADY_EXISTS, "File already exists: " + dataFile.location());
+                }
+                appendFiles.appendFile(dataFile);
+            }
+            appendFiles.scanManifestsWith(icebergScanExecutor);
             appendFiles.commit();
             transaction.commitTransaction();
             log.debug("Successfully added files to %s table", table.name());

@@ -13,15 +13,12 @@
  */
 package io.trino.plugin.kafka.security;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.ConfigurationException;
-import com.google.inject.spi.Message;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.validation.FileExists;
-import jakarta.annotation.PostConstruct;
+import jakarta.validation.constraints.AssertTrue;
 
 import java.util.Map;
 import java.util.Optional;
@@ -176,14 +173,15 @@ public class KafkaSslConfig
         return properties.buildOrThrow();
     }
 
-    @PostConstruct
-    public void validate()
+    @AssertTrue(message = "kafka.ssl.keystore.password must be set when kafka.ssl.keystore.location is given")
+    public boolean isKeystorePasswordValid()
     {
-        if (getKeystoreLocation().isPresent() && getKeystorePassword().isEmpty()) {
-            throw new ConfigurationException(ImmutableList.of(new Message("kafka.ssl.keystore.password must set when kafka.ssl.keystore.location is given")));
-        }
-        if (getTruststoreLocation().isPresent() && getTruststorePassword().isEmpty()) {
-            throw new ConfigurationException(ImmutableList.of(new Message("kafka.ssl.truststore.password must set when kafka.ssl.truststore.location is given")));
-        }
+        return getKeystoreLocation().isEmpty() || getKeystorePassword().isPresent();
+    }
+
+    @AssertTrue(message = "kafka.ssl.truststore.password must be set when kafka.ssl.truststore.location is given")
+    public boolean isTruststorePasswordValid()
+    {
+        return getTruststoreLocation().isEmpty() || getTruststorePassword().isPresent();
     }
 }

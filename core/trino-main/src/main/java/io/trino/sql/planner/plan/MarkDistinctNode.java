@@ -21,7 +21,6 @@ import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -33,20 +32,17 @@ public class MarkDistinctNode
     private final PlanNode source;
     private final Symbol markerSymbol;
 
-    private final Optional<Symbol> hashSymbol;
     private final List<Symbol> distinctSymbols;
 
     @JsonCreator
     public MarkDistinctNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("markerSymbol") Symbol markerSymbol,
-            @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
+            @JsonProperty("distinctSymbols") List<Symbol> distinctSymbols)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
         this.markerSymbol = requireNonNull(markerSymbol, "markerSymbol is null");
-        this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
         requireNonNull(distinctSymbols, "distinctSymbols is null");
         checkArgument(!distinctSymbols.isEmpty(), "distinctSymbols cannot be empty");
         this.distinctSymbols = ImmutableList.copyOf(distinctSymbols);
@@ -85,12 +81,6 @@ public class MarkDistinctNode
         return distinctSymbols;
     }
 
-    @JsonProperty
-    public Optional<Symbol> getHashSymbol()
-    {
-        return hashSymbol;
-    }
-
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
@@ -100,6 +90,6 @@ public class MarkDistinctNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new MarkDistinctNode(getId(), Iterables.getOnlyElement(newChildren), markerSymbol, distinctSymbols, hashSymbol);
+        return new MarkDistinctNode(getId(), Iterables.getOnlyElement(newChildren), markerSymbol, distinctSymbols);
     }
 }

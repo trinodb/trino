@@ -22,6 +22,7 @@ import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.plan.WindowNode.Function;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -44,11 +45,11 @@ public class WindowFunctionMatcher
         Optional<Symbol> result = Optional.empty();
 
         Map<Symbol, Function> assignments;
-        if (node instanceof WindowNode) {
-            assignments = ((WindowNode) node).getWindowFunctions();
+        if (node instanceof WindowNode windowNode) {
+            assignments = windowNode.getWindowFunctions();
         }
-        else if (node instanceof PatternRecognitionNode) {
-            assignments = ((PatternRecognitionNode) node).getWindowFunctions();
+        else if (node instanceof PatternRecognitionNode patternRecognitionNode) {
+            assignments = patternRecognitionNode.getWindowFunctions();
         }
         else {
             return result;
@@ -70,6 +71,7 @@ public class WindowFunctionMatcher
     {
         return expectedCall.name().equals(windowFunction.getResolvedFunction().signature().getName().getFunctionName()) &&
                 WindowFrameMatcher.matches(expectedCall.frame(), windowFunction.getFrame(), aliases) &&
+                Objects.equals(expectedCall.orderingScheme(), windowFunction.getOrderingScheme()) &&
                 expectedCall.arguments().equals(windowFunction.getArguments());
     }
 

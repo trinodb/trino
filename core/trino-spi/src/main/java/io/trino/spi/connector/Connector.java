@@ -13,8 +13,6 @@
  */
 package io.trino.spi.connector;
 
-import io.trino.spi.Experimental;
-import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
@@ -128,7 +126,6 @@ public interface Connector
     /**
      * @return the set of procedures provided by this connector
      */
-    @Experimental(eta = "2022-10-31")
     default Optional<FunctionProvider> getFunctionProvider()
     {
         return Optional.empty();
@@ -145,18 +142,6 @@ public interface Connector
     default Set<TableProcedureMetadata> getTableProcedures()
     {
         return emptySet();
-    }
-
-    /**
-     * Retrieves the initial memory requirement for the connector.
-     * <p>
-     * The memory allocation is per catalog and is freed when the catalog is shut down.
-     *
-     * @return the initial memory requirement in bytes.
-     */
-    default long getInitialMemoryRequirement()
-    {
-        return 0;
     }
 
     /**
@@ -232,14 +217,6 @@ public interface Connector
     }
 
     /**
-     * @return the event listeners provided by this connector
-     */
-    default Iterable<EventListener> getEventListeners()
-    {
-        return emptySet();
-    }
-
-    /**
      * Commit the transaction. Will be called at most once and will not be called if
      * {@link #rollback} is called.
      */
@@ -269,7 +246,7 @@ public interface Connector
      * no methods will be called on the connector or any objects that
      * have been returned from the connector.
      */
-    default void shutdown() {}
+    void shutdown();
 
     default Set<ConnectorCapabilities> getCapabilities()
     {

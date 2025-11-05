@@ -13,8 +13,6 @@
  */
 package io.trino.spi.type;
 
-import com.fasterxml.jackson.annotation.JsonValue;
-
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -132,7 +130,6 @@ public final class SqlTimestampWithTimeZone
         return newInstanceWithRounding(precision, epochMillis, picosOfMilli, timeZoneKey);
     }
 
-    @JsonValue
     @Override
     public String toString()
     {

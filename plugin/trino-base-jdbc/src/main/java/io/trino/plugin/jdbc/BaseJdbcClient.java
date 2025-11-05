@@ -31,14 +31,17 @@ import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -92,11 +95,13 @@ import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.getWriteBatchSize;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.getWriteParallelism;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactionalInsert;
+import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactionalMerge;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Boolean.TRUE;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
@@ -634,7 +639,7 @@ public abstract class BaseJdbcClient
     public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
             throws SQLException
     {
-        verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(tableHandle));
+        verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", tableHandle);
         return getConnection(session);
     }
 
@@ -668,7 +673,7 @@ public abstract class BaseJdbcClient
             List<JdbcColumnHandle> columns,
             Map<String, ParameterizedExpression> columnExpressions)
     {
-        verify(table.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(table));
+        verify(table.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", table);
         try (Connection connection = connectionFactory.openConnection(session)) {
             return prepareQuery(session, connection, table, groupingSets, columns, columnExpressions, Optional.empty());
         }
@@ -960,7 +965,7 @@ public abstract class BaseJdbcClient
         SchemaTableName schemaTableName = tableHandle.asPlainTable().getSchemaTableName();
         ConnectorIdentity identity = session.getIdentity();
 
-        verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(tableHandle));
+        verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", tableHandle);
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
             RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers(connection);
@@ -1070,7 +1075,7 @@ public abstract class BaseJdbcClient
     @Override
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
-        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
         RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
         renameTable(session, remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName(), newTableName);
     }
@@ -1102,7 +1107,7 @@ public abstract class BaseJdbcClient
                 quoted(catalogName, newRemoteSchemaName, newRemoteTableName)));
     }
 
-    private RemoteTableName constructPageSinkIdsTable(ConnectorSession session, Connection connection, JdbcOutputTableHandle handle, Set<Long> pageSinkIds, Closer closer)
+    protected RemoteTableName constructPageSinkIdsTable(ConnectorSession session, Connection connection, JdbcOutputTableHandle handle, Set<Long> pageSinkIds, Closer closer)
             throws SQLException
     {
         verify(handle.getPageSinkIdColumnName().isPresent(), "Output table handle's pageSinkIdColumn is empty");
@@ -1202,16 +1207,130 @@ public abstract class BaseJdbcClient
         }
     }
 
+    @Override
+    public JdbcMergeTableHandle beginMerge(
+            ConnectorSession session,
+            JdbcTableHandle handle,
+            Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
+            List<Runnable> rollbackActions,
+            RetryMode retryMode)
+    {
+        if (!supportsMerge()) {
+            throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+        }
+
+        List<JdbcColumnHandle> primaryKeys = getPrimaryKeys(session, handle.getRequiredNamedRelation().getRemoteTableName());
+        if (primaryKeys.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "The connector can not perform merge on the target table without primary keys");
+        }
+
+        SchemaTableName schemaTableName = handle.getRequiredNamedRelation().getSchemaTableName();
+        RemoteTableName remoteTableName = handle.getRequiredNamedRelation().getRemoteTableName();
+
+        List<JdbcColumnHandle> columns = getColumns(session, schemaTableName, remoteTableName);
+
+        JdbcTableHandle plainTable = new JdbcTableHandle(schemaTableName, remoteTableName, Optional.empty());
+
+        JdbcOutputTableHandle outputTableHandle = beginInsertTable(session, plainTable, columns);
+        rollbackActions.add(() -> rollbackCreateTable(session, outputTableHandle));
+
+        try {
+            return new JdbcMergeTableHandle(
+                    handle,
+                    outputTableHandle,
+                    beginUpdate(session, plainTable, columns, primaryKeys, updateColumnHandles, rollbackActions),
+                    beginDelete(session, plainTable, primaryKeys, rollbackActions),
+                    primaryKeys,
+                    columns,
+                    updateColumnHandles);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    protected Map<Integer, JdbcOutputTableHandle> beginUpdate(
+            ConnectorSession session,
+            JdbcTableHandle tableHandle,
+            List<JdbcColumnHandle> columns,
+            List<JdbcColumnHandle> primaryKeys,
+            Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
+            List<Runnable> rollbackActions)
+            throws SQLException
+    {
+        if (isNonTransactionalMerge(session)) {
+            return ImmutableMap.of();
+        }
+
+        SchemaTableName tableName = tableHandle.asPlainTable().getSchemaTableName();
+
+        ImmutableMap.Builder<Integer, JdbcOutputTableHandle> outputHandles = ImmutableMap.builder();
+        for (Map.Entry<Integer, Collection<ColumnHandle>> entry : updateColumnHandles.entrySet()) {
+            int caseNumber = entry.getKey();
+            checkArgument(caseNumber >= 0, "caseNumber shouldn't be negative, updateColumnHandles: %s", updateColumnHandles);
+
+            ImmutableList.Builder<JdbcColumnHandle> updatedColumnHandles = ImmutableList.builder();
+
+            // add columns in order; assumed when inserting into temporary table
+            columns.stream().filter(entry.getValue()::contains).forEach(updatedColumnHandles::add);
+
+            List<String> updatedColumnNames = updatedColumnHandles.build().stream()
+                    .map(JdbcColumnHandle::getColumnName)
+                    .collect(toImmutableList());
+
+            // ensure all columns matching primary keys are not repeating among temporary tables
+            for (JdbcColumnHandle primaryKey : primaryKeys) {
+                String primaryKeyUnique = nonRepeatNames(primaryKey.getColumnName(), updatedColumnNames);
+                updatedColumnHandles.add(JdbcColumnHandle.builderFrom(primaryKey).setColumnName(primaryKeyUnique).build());
+            }
+
+            List<ColumnMetadata> columnMetadata = updatedColumnHandles.build().stream()
+                    .map(JdbcColumnHandle::getColumnMetadata)
+                    .collect(toImmutableList());
+
+            JdbcOutputTableHandle temporaryTableHandle = createTable(
+                    session,
+                    new ConnectorTableMetadata(tableName, columnMetadata),
+                    generateTemporaryTableName(session),
+                    Optional.of(getPageSinkIdColumn(updatedColumnNames)));
+
+            rollbackActions.add(() -> rollbackCreateTable(session, temporaryTableHandle));
+            outputHandles.put(caseNumber, temporaryTableHandle);
+        }
+
+        return outputHandles.buildOrThrow();
+    }
+
+    protected Optional<JdbcOutputTableHandle> beginDelete(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            List<JdbcColumnHandle> primaryKeys,
+            List<Runnable> rollbackActions)
+    {
+        if (isNonTransactionalMerge(session)) {
+            return Optional.empty();
+        }
+
+        JdbcOutputTableHandle handle = beginInsertTable(session, (JdbcTableHandle) tableHandle, primaryKeys);
+        rollbackActions.add(() -> rollbackCreateTable(session, handle));
+        return Optional.of(handle);
+    }
+
     protected String postProcessInsertTableNameClause(ConnectorSession session, String tableName)
     {
         return tableName;
     }
 
     @Override
-    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position)
     {
-        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
-        addColumn(session, handle.asPlainTable().getRemoteTableName(), column);
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
+
+        switch (position) {
+            case ColumnPosition.First _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with FIRST clause");
+            case ColumnPosition.After _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with AFTER clause");
+            case ColumnPosition.Last _ -> addColumn(session, handle.asPlainTable().getRemoteTableName(), column);
+        }
     }
 
     private void addColumn(ConnectorSession session, RemoteTableName table, ColumnMetadata column)
@@ -1245,7 +1364,7 @@ public abstract class BaseJdbcClient
     @Override
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
-        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
             String newRemoteColumnName = identifierMapping.toRemoteColumnName(getRemoteIdentifiers(connection), newColumnName);
@@ -1270,7 +1389,7 @@ public abstract class BaseJdbcClient
     @Override
     public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
-        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
             String remoteColumnName = identifierMapping.toRemoteColumnName(getRemoteIdentifiers(connection), column.getColumnName());
@@ -1323,7 +1442,7 @@ public abstract class BaseJdbcClient
     @Override
     public void dropTable(ConnectorSession session, JdbcTableHandle handle)
     {
-        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
         dropTable(session, handle.asPlainTable().getRemoteTableName(), false);
     }
 
@@ -1418,7 +1537,7 @@ public abstract class BaseJdbcClient
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
     {
-        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
         return TableStatistics.empty();
     }
 
@@ -1490,7 +1609,8 @@ public abstract class BaseJdbcClient
         execute(session, connection, "ALTER SCHEMA " + quoted(remoteSchemaName) + " RENAME TO " + quoted(newRemoteSchemaName));
     }
 
-    protected void execute(ConnectorSession session, String query)
+    @Override
+    public void execute(ConnectorSession session, String query)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
             execute(session, connection, query);
@@ -1585,6 +1705,12 @@ public abstract class BaseJdbcClient
     }
 
     @Override
+    public boolean supportsMerge()
+    {
+        return false;
+    }
+
+    @Override
     public String quoted(String name)
     {
         name = name.replace(identifierQuote, identifierQuote + identifierQuote);
@@ -1603,7 +1729,7 @@ public abstract class BaseJdbcClient
     @Override
     public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(tableHandle));
+        verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", tableHandle);
         return emptyMap();
     }
 
@@ -1614,7 +1740,7 @@ public abstract class BaseJdbcClient
         checkArgument(handle.getLimit().isEmpty(), "Unable to delete when limit is set: %s", handle);
         checkArgument(handle.getSortOrder().isEmpty(), "Unable to delete when sort order is set: %s", handle);
         checkArgument(handle.getUpdateAssignments().isEmpty(), "Unable to delete when update assignments are set: %s", handle);
-        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
             PreparedQuery preparedQuery = queryBuilder.prepareDeleteQuery(
@@ -1640,7 +1766,7 @@ public abstract class BaseJdbcClient
         checkArgument(handle.getLimit().isEmpty(), "Unable to update when limit is set: %s", handle);
         checkArgument(handle.getSortOrder().isEmpty(), "Unable to update when sort order is set: %s", handle);
         checkArgument(!handle.getUpdateAssignments().isEmpty(), "Unable to update when update assignments are not set: %s", handle);
-        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
             PreparedQuery preparedQuery = queryBuilder.prepareUpdateQuery(
@@ -1663,7 +1789,7 @@ public abstract class BaseJdbcClient
     @Override
     public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
     {
-        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
+        verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
         String sql = "TRUNCATE TABLE " + quoted(handle.asPlainTable().getRemoteTableName());
         execute(session, sql);
     }
@@ -1783,14 +1909,18 @@ public abstract class BaseJdbcClient
     {
         // While it's unlikely this column name will collide with client table columns,
         // guarantee it will not by appending a deterministic suffix to it.
-        String baseColumnName = "trino_page_sink_id";
+        return new ColumnMetadata(nonRepeatNames("trino_page_sink_id", otherColumnNames), TRINO_PAGE_SINK_ID_COLUMN_TYPE);
+    }
+
+    public static String nonRepeatNames(String baseColumnName, List<String> otherColumnNames)
+    {
         String columnName = baseColumnName;
         int suffix = 1;
         while (otherColumnNames.contains(columnName)) {
             columnName = baseColumnName + "_" + suffix;
             suffix++;
         }
-        return new ColumnMetadata(columnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE);
+        return columnName;
     }
 
     public RemoteIdentifiers getRemoteIdentifiers(Connection connection)

@@ -100,6 +100,22 @@ public final class MergePartitioningHandle
         return "MERGE " + parts;
     }
 
+    public Optional<Integer> getBucketCount(Function<PartitioningHandle, Optional<Integer>> getBucketCount)
+    {
+        Optional<Integer> optionalInsertBucketCount = insertPartitioning.map(scheme -> scheme.getPartitioning().getHandle()).flatMap(getBucketCount);
+        Optional<Integer> optionalUpdateBucketCount = updatePartitioning.map(scheme -> scheme.getPartitioning().getHandle()).flatMap(getBucketCount);
+
+        if (optionalInsertBucketCount.isPresent() && optionalUpdateBucketCount.isPresent()) {
+            int insertBucketCount = optionalInsertBucketCount.get();
+            int updateBucketCount = optionalUpdateBucketCount.get();
+            if (insertBucketCount != updateBucketCount) {
+                throw new TrinoException(NOT_SUPPORTED, "Insert and update layout have mismatched bucket counts: " + insertBucketCount + " vs " + updateBucketCount);
+            }
+        }
+
+        return optionalInsertBucketCount.or(() -> optionalUpdateBucketCount);
+    }
+
     public NodePartitionMap getNodePartitioningMap(Function<PartitioningHandle, NodePartitionMap> getMap)
     {
         Optional<NodePartitionMap> optionalInsertMap = insertPartitioning.map(scheme -> scheme.getPartitioning().getHandle()).map(getMap);
@@ -109,7 +125,7 @@ public final class MergePartitioningHandle
             NodePartitionMap insertMap = optionalInsertMap.get();
             NodePartitionMap updateMap = optionalUpdateMap.get();
             if (!insertMap.getPartitionToNode().equals(updateMap.getPartitionToNode()) ||
-                    !Arrays.equals(insertMap.getBucketToPartition(), updateMap.getBucketToPartition())) {
+                    !Arrays.equals(insertMap.getBucketToPartition().bucketToPartition(), updateMap.getBucketToPartition().bucketToPartition())) {
                 throw new TrinoException(NOT_SUPPORTED, "Insert and update layout have mismatched BucketNodeMap");
             }
         }

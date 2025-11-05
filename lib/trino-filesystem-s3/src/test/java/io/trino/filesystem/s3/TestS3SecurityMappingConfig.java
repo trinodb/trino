@@ -44,6 +44,7 @@ public class TestS3SecurityMappingConfig
                 .setConfigUri(null)
                 .setRoleCredentialName(null)
                 .setKmsKeyIdCredentialName(null)
+                .setSseCustomerKeyCredentialName(null)
                 .setRefreshPeriod(null)
                 .setColonReplacement(null));
     }
@@ -59,6 +60,7 @@ public class TestS3SecurityMappingConfig
                 .put("s3.security-mapping.json-pointer", "/data")
                 .put("s3.security-mapping.iam-role-credential-name", "iam-role-credential-name")
                 .put("s3.security-mapping.kms-key-id-credential-name", "kms-key-id-credential-name")
+                .put("s3.security-mapping.sse-customer-key-credential-name", "sse-customer-key-credential-name")
                 .put("s3.security-mapping.refresh-period", "13s")
                 .put("s3.security-mapping.colon-replacement", "#")
                 .buildOrThrow();
@@ -71,6 +73,7 @@ public class TestS3SecurityMappingConfig
         assertThat(config.getJsonPointer()).isEqualTo("/data");
         assertThat(config.getRoleCredentialName()).contains("iam-role-credential-name");
         assertThat(config.getKmsKeyIdCredentialName()).contains("kms-key-id-credential-name");
+        assertThat(config.getSseCustomerKeyCredentialName()).contains("sse-customer-key-credential-name");
         assertThat(config.getRefreshPeriod()).contains(new Duration(13, SECONDS));
         assertThat(config.getColonReplacement()).contains("#");
     }
@@ -83,6 +86,7 @@ public class TestS3SecurityMappingConfig
                 .put("s3.security-mapping.json-pointer", "/data")
                 .put("s3.security-mapping.iam-role-credential-name", "iam-role-credential-name")
                 .put("s3.security-mapping.kms-key-id-credential-name", "kms-key-id-credential-name")
+                .put("s3.security-mapping.sse-customer-key-credential-name", "sse-customer-key-credential-name")
                 .put("s3.security-mapping.refresh-period", "13s")
                 .put("s3.security-mapping.colon-replacement", "#")
                 .buildOrThrow();
@@ -95,6 +99,7 @@ public class TestS3SecurityMappingConfig
         assertThat(config.getJsonPointer()).isEqualTo("/data");
         assertThat(config.getRoleCredentialName()).contains("iam-role-credential-name");
         assertThat(config.getKmsKeyIdCredentialName()).contains("kms-key-id-credential-name");
+        assertThat(config.getSseCustomerKeyCredentialName()).contains("sse-customer-key-credential-name");
         assertThat(config.getRefreshPeriod()).contains(new Duration(13, SECONDS));
         assertThat(config.getColonReplacement()).contains("#");
     }

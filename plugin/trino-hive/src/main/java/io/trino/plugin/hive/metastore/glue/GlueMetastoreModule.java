@@ -13,27 +13,31 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Key;
+import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import com.google.inject.multibindings.Multibinder;
 import com.google.inject.multibindings.ProvidesIntoOptional;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.awssdk.v2_2.AwsSdkTelemetry;
+import io.trino.metastore.HiveMetastoreFactory;
+import io.trino.metastore.RawHiveMetastoreFactory;
+import io.trino.metastore.cache.CachingHiveMetastoreConfig;
 import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.HideDeltaLakeTables;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig;
-import io.trino.spi.NodeManager;
+import io.trino.spi.Node;
 import io.trino.spi.catalog.CatalogName;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
-import software.amazon.awssdk.http.apache.ProxyConfiguration;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
 import software.amazon.awssdk.retries.api.BackoffStrategy;
@@ -45,20 +49,21 @@ import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 import software.amazon.awssdk.services.sts.auth.StsWebIdentityTokenFileCredentialsProvider;
 
-import java.net.URI;
 import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.google.inject.multibindings.ProvidesIntoOptional.Type.DEFAULT;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
+import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
-public class GlueMetastoreModule
+public final class GlueMetastoreModule
         extends AbstractConfigurationAwareModule
 {
     @Override
@@ -68,15 +73,33 @@ public class GlueMetastoreModule
 
         binder.bind(GlueHiveMetastoreFactory.class).in(Scopes.SINGLETON);
         binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
-        binder.bind(GlueContext.class).in(Scopes.SINGLETON);
+        binder.bind(GlueMetastoreStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(GlueHiveMetastore.class).withGeneratedName();
+        newExporter(binder).export(GlueMetastoreStats.class).withGeneratedName();
         newOptionalBinder(binder, Key.get(HiveMetastoreFactory.class, RawHiveMetastoreFactory.class))
                 .setDefault()
                 .to(GlueHiveMetastoreFactory.class)
                 .in(Scopes.SINGLETON);
         binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(false);
 
+        Multibinder<ExecutionInterceptor> executionInterceptorMultibinder = newSetBinder(binder, ExecutionInterceptor.class, ForGlueHiveMetastore.class);
+        executionInterceptorMultibinder.addBinding().toProvider(TelemetryExecutionInterceptorProvider.class).in(Scopes.SINGLETON);
+        executionInterceptorMultibinder.addBinding().to(GlueHiveExecutionInterceptor.class).in(Scopes.SINGLETON);
+        executionInterceptorMultibinder.addBinding().to(GlueCatalogIdInterceptor.class).in(Scopes.SINGLETON);
+
         closingBinder(binder).registerCloseable(GlueClient.class);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        return obj instanceof GlueMetastoreModule;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return getClass().hashCode();
     }
 
     @ProvidesIntoOptional(DEFAULT)
@@ -91,7 +114,7 @@ public class GlueMetastoreModule
 
     @Provides
     @Singleton
-    public static GlueCache createGlueCache(CachingHiveMetastoreConfig config, CatalogName catalogName, NodeManager nodeManager)
+    public static GlueCache createGlueCache(CachingHiveMetastoreConfig config, CatalogName catalogName, Node currentNode)
     {
         Duration metadataCacheTtl = config.getMetastoreCacheTtl();
         Duration statsCacheTtl = config.getStatsCacheTtl();
@@ -99,7 +122,7 @@ public class GlueMetastoreModule
         // Disable caching on workers, because there currently is no way to invalidate such a cache.
         // Note: while we could skip CachingHiveMetastoreModule altogether on workers, we retain it so that catalog
         // configuration can remain identical for all nodes, making cluster configuration easier.
-        boolean enabled = nodeManager.getCurrentNode().isCoordinator() &&
+        boolean enabled = currentNode.isCoordinator() &&
                           (metadataCacheTtl.toMillis() > 0 || statsCacheTtl.toMillis() > 0);
 
         checkState(config.isPartitionCacheEnabled(), "Disabling partitions cache is not supported with Glue v2");
@@ -121,16 +144,12 @@ public class GlueMetastoreModule
 
     @Provides
     @Singleton
-    public static GlueClient createGlueClient(GlueHiveMetastoreConfig config, OpenTelemetry openTelemetry)
+    public static GlueClient createGlueClient(GlueHiveMetastoreConfig config, @ForGlueHiveMetastore Set<ExecutionInterceptor> executionInterceptors)
     {
         GlueClientBuilder glue = GlueClient.builder();
 
         glue.overrideConfiguration(builder -> builder
-                .addExecutionInterceptor(AwsSdkTelemetry.builder(openTelemetry)
-                        .setCaptureExperimentalSpanAttributes(true)
-                        .setRecordIndividualHttpError(true)
-                        .build().newExecutionInterceptor())
-                .addExecutionInterceptor(new GlueHiveExecutionInterceptor(config.isSkipArchive()))
+                .executionInterceptors(ImmutableList.copyOf(executionInterceptors))
                 .retryStrategy(retryBuilder -> retryBuilder
                         .retryOnException(throwable -> throwable instanceof ConcurrentModificationException)
                         .backoffStrategy(BackoffStrategy.exponentialDelay(
@@ -166,9 +185,7 @@ public class GlueMetastoreModule
         if (config.getGlueEndpointUrl().isPresent()) {
             checkArgument(config.getGlueRegion().isPresent(), "Glue region must be set when Glue endpoint URL is set");
             glue.region(Region.of(config.getGlueRegion().get()));
-            httpClient.proxyConfiguration(ProxyConfiguration.builder()
-                    .endpoint(URI.create(config.getGlueEndpointUrl().get()))
-                    .build());
+            glue.endpointOverride(config.getGlueEndpointUrl().get());
         }
         else if (config.getGlueRegion().isPresent()) {
             glue.region(Region.of(config.getGlueRegion().get()));
@@ -197,7 +214,7 @@ public class GlueMetastoreModule
         staticCredentialsProvider.ifPresent(sts::credentialsProvider);
 
         if (config.getGlueStsEndpointUrl().isPresent() && config.getGlueStsRegion().isPresent()) {
-            sts.endpointOverride(URI.create(config.getGlueStsEndpointUrl().get()))
+            sts.endpointOverride(config.getGlueStsEndpointUrl().get())
                     .region(Region.of(config.getGlueStsRegion().get()));
         }
         else if (config.getGlueStsRegion().isPresent()) {
@@ -208,5 +225,27 @@ public class GlueMetastoreModule
         }
 
         return sts.build();
+    }
+
+    private static class TelemetryExecutionInterceptorProvider
+            implements Provider<ExecutionInterceptor>
+    {
+        private final OpenTelemetry openTelemetry;
+
+        @Inject
+        public TelemetryExecutionInterceptorProvider(OpenTelemetry openTelemetry)
+        {
+            this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
+        }
+
+        @Override
+        public ExecutionInterceptor get()
+        {
+            return AwsSdkTelemetry.builder(openTelemetry)
+                    .setCaptureExperimentalSpanAttributes(true)
+                    .setRecordIndividualHttpError(true)
+                    .build()
+                    .newExecutionInterceptor();
+        }
     }
 }

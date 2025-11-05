@@ -25,17 +25,15 @@ import io.airlift.stats.CounterStat;
 import io.trino.Session;
 import io.trino.cache.NonEvictableCache;
 import io.trino.execution.NodeTaskMap;
-import io.trino.metadata.InternalNode;
-import io.trino.metadata.InternalNodeManager;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
-import io.trino.spi.connector.CatalogHandle;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -45,7 +43,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.node.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 
 public class TopologyAwareNodeSelectorFactory
@@ -58,6 +56,7 @@ public class TopologyAwareNodeSelectorFactory
                     .expireAfterWrite(30, TimeUnit.SECONDS));
 
     private final NetworkTopology networkTopology;
+    private final InternalNode currentNode;
     private final InternalNodeManager nodeManager;
     private final int minCandidates;
     private final boolean includeCoordinator;
@@ -71,16 +70,19 @@ public class TopologyAwareNodeSelectorFactory
     @Inject
     public TopologyAwareNodeSelectorFactory(
             NetworkTopology networkTopology,
+            InternalNode currentNode,
             InternalNodeManager nodeManager,
             NodeSchedulerConfig schedulerConfig,
             NodeTaskMap nodeTaskMap,
             TopologyAwareNodeSelectorConfig topologyConfig)
     {
         requireNonNull(networkTopology, "networkTopology is null");
+        requireNonNull(currentNode, "currentNode is null");
         requireNonNull(nodeManager, "nodeManager is null");
         requireNonNull(nodeTaskMap, "nodeTaskMap is null");
 
         this.networkTopology = networkTopology;
+        this.currentNode = currentNode;
         this.nodeManager = nodeManager;
         this.minCandidates = schedulerConfig.getMinCandidates();
         this.includeCoordinator = schedulerConfig.isIncludeCoordinator();
@@ -115,18 +117,16 @@ public class TopologyAwareNodeSelectorFactory
     }
 
     @Override
-    public NodeSelector createNodeSelector(Session session, Optional<CatalogHandle> catalogHandle)
+    public NodeSelector createNodeSelector(Session session)
     {
-        requireNonNull(catalogHandle, "catalogHandle is null");
-
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the split is about to be scheduled
         Supplier<NodeMap> nodeMap = Suppliers.memoizeWithExpiration(
-                () -> createNodeMap(catalogHandle),
+                this::createNodeMap,
                 5, TimeUnit.SECONDS);
 
         return new TopologyAwareNodeSelector(
-                nodeManager,
+                currentNode,
                 nodeTaskMap,
                 includeCoordinator,
                 nodeMap,
@@ -138,11 +138,9 @@ public class TopologyAwareNodeSelectorFactory
                 networkTopology);
     }
 
-    private NodeMap createNodeMap(Optional<CatalogHandle> catalogHandle)
+    private NodeMap createNodeMap()
     {
-        Set<InternalNode> nodes = catalogHandle
-                .map(nodeManager::getActiveCatalogNodes)
-                .orElseGet(() -> nodeManager.getNodes(ACTIVE));
+        Set<InternalNode> nodes = nodeManager.getNodes(ACTIVE);
 
         Set<String> coordinatorNodeIds = nodeManager.getCoordinators().stream()
                 .map(InternalNode::getNodeIdentifier)

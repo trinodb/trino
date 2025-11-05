@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -73,7 +74,7 @@ public class TestIgniteTypeMapping
     public void setUp()
     {
         checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
-        checkIsGap(jvmZone, LocalDate.of(1970, 1, 1));
+        checkIsGap(jvmZone, LocalDate.of(1932, 4, 1));
         checkIsGap(vilnius, LocalDate.of(1983, 4, 1));
         verify(vilnius.getRules().getValidOffsets(LocalDate.of(1983, 10, 1).atStartOfDay().minusMinutes(1)).size() == 2);
     }
@@ -336,7 +337,7 @@ public class TestIgniteTypeMapping
         assertQueryFails("CREATE TABLE test_unsupported_date_range_ctas (data) AS SELECT DATE '1582-10-05'", "Date must be between 1970-01-01 and 9999-12-31 in Ignite.*");
         assertUpdate("DROP TABLE IF EXISTS test_unsupported_date_range_ctas");
 
-        ImmutableList<String> unsupportedDateValues = ImmutableList.of("-0001-01-01", "0001-01-01", "1000-01-01", "1969-12-31", "10000-01-01");
+        List<String> unsupportedDateValues = ImmutableList.of("-0001-01-01", "0001-01-01", "1000-01-01", "1969-12-31", "10000-01-01");
         try (TestTable table = new TestTable(igniteServer::execute, "test_unsupported_date_range", "(id int primary key, data date)")) {
             for (int i = 0; i < unsupportedDateValues.size(); i++) {
                 doTestUnsupportedDateRange(session, table.getName(), i, unsupportedDateValues.get(i));

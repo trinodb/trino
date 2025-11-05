@@ -68,7 +68,7 @@ You can check if pushdown for a specific query is performed by looking at the
 pushed down to the connector, the explain plan does **not** show that `Aggregate` operator.
 The explain plan only shows the operations that are performed by Trino.
 
-As an example, we loaded the TPCH data set into a PostgreSQL database and then
+As an example, we loaded the TPC-H data set into a PostgreSQL database and then
 queried it using the PostgreSQL connector:
 
 ```
@@ -113,7 +113,7 @@ Fragment 1 [SOURCE]
         regionkey_0 := regionkey:bigint:int8
 ```
 
-A number of factors can prevent a push down:
+A number of factors can prevent a push-down:
 
 - adding a condition to the query
 - using a different aggregate function that cannot be pushed down into the connector
@@ -199,7 +199,7 @@ EXPLAIN SELECT c.custkey, o.orderkey
 FROM orders o JOIN customer c ON c.custkey = o.custkey;
 ```
 
-The following plan results from the PostgreSQL connector querying TPCH
+The following plan results from the PostgreSQL connector querying TPC-H
 data in a PostgreSQL database. It does not show any `Join` operator as a
 result of the successful join push down.
 

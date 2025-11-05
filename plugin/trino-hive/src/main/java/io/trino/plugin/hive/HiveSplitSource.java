@@ -75,6 +75,7 @@ class HiveSplitSource
 
     private final DataSize maxSplitSize;
     private final DataSize maxInitialSplitSize;
+    private final boolean deterministicSplits;
     private final AtomicInteger remainingInitialSplits;
 
     private final HiveSplitLoader splitLoader;
@@ -115,6 +116,7 @@ class HiveSplitSource
 
         this.maxSplitSize = getMaxSplitSize(session);
         this.maxInitialSplitSize = getMaxInitialSplitSize(session);
+        this.deterministicSplits = maxInitialSplits == 0 || maxInitialSplitSize.equals(maxSplitSize);
         this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
         this.splitWeightProvider = isSizeBasedSplitWeightsEnabled(session) ? new SizeBasedSplitWeightProvider(getMinimumAssignedSplitWeight(session), maxSplitSize) : HiveSplitWeightProvider.uniformStandardWeightProvider();
         this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
@@ -263,7 +265,7 @@ class HiveSplitSource
                 throw new UnsupportedOperationException();
         }
 
-        ListenableFuture<ImmutableList<HiveSplit>> future = queues.borrowBatchAsync(maxSize, internalSplits -> {
+        ListenableFuture<List<HiveSplit>> future = queues.borrowBatchAsync(maxSize, internalSplits -> {
             ImmutableList.Builder<InternalHiveSplit> splitsToInsertBuilder = ImmutableList.builder();
             ImmutableList.Builder<HiveSplit> resultBuilder = ImmutableList.builder();
             int removedEstimatedSizeInBytes = 0;
@@ -286,7 +288,7 @@ class HiveSplitSource
                 InternalHiveBlock block = internalSplit.currentBlock();
                 long splitBytes;
                 if (internalSplit.isSplittable()) {
-                    long remainingBlockBytes = block.getEnd() - internalSplit.getStart();
+                    long remainingBlockBytes = block.end() - internalSplit.getStart();
                     if (remainingBlockBytes <= maxSplitBytes) {
                         splitBytes = remainingBlockBytes;
                     }
@@ -311,7 +313,7 @@ class HiveSplitSource
                         internalSplit.getFileModifiedTime(),
                         internalSplit.getSchema(),
                         internalSplit.getPartitionKeys(),
-                        cachingHostAddressProvider.getHosts(internalSplit.getPath(), block.getAddresses()),
+                        cachingHostAddressProvider.getHosts(getSplitKey(internalSplit.getPath(), internalSplit.getStart(), splitBytes), block.addresses()),
                         internalSplit.getReadBucketNumber(),
                         internalSplit.getTableBucketNumber(),
                         internalSplit.isForceLocalScheduling(),
@@ -400,6 +402,16 @@ class HiveSplitSource
         }
     }
 
+    private String getSplitKey(String path, long start, long length)
+    {
+        if (deterministicSplits) {
+            return CachingHostAddressProvider.getSplitKey(path, start, length);
+        }
+        // When it is not guaranteed that the splits from a file will have the same size across different queries,
+        // do not include start and length in the key to avoid cache misses.
+        return path;
+    }
+
     private static <T> boolean setIf(AtomicReference<T> atomicReference, T newValue, Predicate<T> predicate)
     {
         while (true) {
@@ -415,8 +427,8 @@ class HiveSplitSource
 
     private static RuntimeException propagateTrinoException(Throwable throwable)
     {
-        if (throwable instanceof TrinoException) {
-            throw (TrinoException) throwable;
+        if (throwable instanceof TrinoException trinoException) {
+            throw trinoException;
         }
         if (throwable instanceof FileNotFoundException) {
             throw new TrinoException(HIVE_FILE_NOT_FOUND, throwable);

@@ -14,11 +14,11 @@
 
 package io.trino.plugin.eventlistener.kafka.producer;
 
-import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
 
 import java.util.Map;
 
 public interface KafkaProducerFactory
 {
-    KafkaProducer<String, String> producer(Map<String, String> overrides);
+    Producer<String, String> producer(Map<String, String> overrides);
 }

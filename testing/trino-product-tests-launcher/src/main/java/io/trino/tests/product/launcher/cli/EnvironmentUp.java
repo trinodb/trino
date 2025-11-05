@@ -113,6 +113,7 @@ public final class EnvironmentUp
         private final Map<String, String> extraOptions;
         private final PrintStream printStream;
         private final boolean debug;
+        private final boolean ipv6;
 
         @Inject
         public Execution(EnvironmentFactory environmentFactory, EnvironmentConfig environmentConfig, EnvironmentOptions options, EnvironmentUpOptions environmentUpOptions, PrintStream printStream)
@@ -127,6 +128,7 @@ public final class EnvironmentUp
             this.extraOptions = ImmutableMap.copyOf(requireNonNull(environmentUpOptions.extraOptions, "environmentUpOptions.extraOptions is null"));
             this.printStream = requireNonNull(printStream, "printStream is null");
             this.debug = options.debug;
+            this.ipv6 = options.ipv6;
         }
 
         @Override
@@ -136,7 +138,8 @@ public final class EnvironmentUp
             Environment.Builder builder = environmentFactory.get(environment, printStream, environmentConfig, extraOptions)
                     .setContainerOutputMode(outputMode)
                     .setLogsBaseDir(environmentLogPath)
-                    .removeContainer(TESTS);
+                    .removeContainer(TESTS)
+                    .setIpv6(ipv6);
 
             if (withoutCoordinator) {
                 builder.removeContainers(container -> isTrinoContainer(container.getLogicalName()));

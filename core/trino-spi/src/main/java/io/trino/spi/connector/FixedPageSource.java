@@ -74,14 +74,14 @@ public class FixedPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         if (isFinished()) {
             return null;
         }
         Page page = pages.next();
         completedBytes += page.getSizeInBytes();
-        return page;
+        return SourcePage.create(page);
     }
 
     @Override

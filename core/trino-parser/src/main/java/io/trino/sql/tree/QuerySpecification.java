@@ -158,17 +158,17 @@ public class QuerySpecification
     @Override
     public List<Node> getChildren()
     {
-        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
-        nodes.add(select);
-        from.ifPresent(nodes::add);
-        where.ifPresent(nodes::add);
-        groupBy.ifPresent(nodes::add);
-        having.ifPresent(nodes::add);
-        nodes.addAll(windows);
-        orderBy.ifPresent(nodes::add);
-        offset.ifPresent(nodes::add);
-        limit.ifPresent(nodes::add);
-        return nodes.build();
+        return ImmutableList.<Node>builder()
+                .add(select)
+                .addAll(from.stream().toList())
+                .addAll(where.stream().toList())
+                .addAll(groupBy.stream().toList())
+                .addAll(having.stream().toList())
+                .addAll(windows)
+                .addAll(orderBy.stream().toList())
+                .addAll(offset.stream().toList())
+                .addAll(limit.stream().toList())
+                .build();
     }
 
     @Override
@@ -176,14 +176,16 @@ public class QuerySpecification
     {
         return toStringHelper(this)
                 .add("select", select)
-                .add("from", from)
+                .add("from", from.orElse(null))
                 .add("where", where.orElse(null))
-                .add("groupBy", groupBy)
+                .add("groupBy", groupBy.orElse(null))
                 .add("having", having.orElse(null))
-                .add("windows", windows.isEmpty() ? null : windows)
-                .add("orderBy", orderBy)
+                .add("windows", windows)
+                .add("orderBy", orderBy.orElse(null))
                 .add("offset", offset.orElse(null))
                 .add("limit", limit.orElse(null))
+                .omitNullValues()
+                .omitEmptyValues()
                 .toString();
     }
 

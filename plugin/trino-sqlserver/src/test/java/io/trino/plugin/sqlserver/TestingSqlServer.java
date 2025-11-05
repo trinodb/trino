@@ -18,8 +18,8 @@ import dev.failsafe.RetryPolicy;
 import dev.failsafe.Timeout;
 import io.airlift.log.Logger;
 import io.trino.testing.sql.SqlExecutor;
-import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
+import org.testcontainers.mssqlserver.MSSQLServerContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.Closeable;
@@ -63,16 +63,15 @@ public final class TestingSqlServer
             .build();
 
     private static final DockerImageName IMAGE_NAME = DockerImageName.parse("mcr.microsoft.com/mssql/server");
-    public static final String DEFAULT_VERSION = "2017-latest";
-    public static final String LATEST_VERSION = "2019-CU13-ubuntu-20.04";
+    public static final String LATEST_VERSION = "2019-CU28-ubuntu-20.04";
 
-    private final MSSQLServerContainer<?> container;
+    private final MSSQLServerContainer container;
     private final String databaseName;
     private final Closeable cleanup;
 
     public TestingSqlServer()
     {
-        this(DEFAULT_VERSION, DEFAULT_DATABASE_SETUP);
+        this(LATEST_VERSION, DEFAULT_DATABASE_SETUP);
     }
 
     public TestingSqlServer(String version)
@@ -82,7 +81,7 @@ public final class TestingSqlServer
 
     public TestingSqlServer(BiConsumer<SqlExecutor, String> databaseSetUp)
     {
-        this(DEFAULT_VERSION, databaseSetUp);
+        this(LATEST_VERSION, databaseSetUp);
     }
 
     public TestingSqlServer(String version, BiConsumer<SqlExecutor, String> databaseSetUp)
@@ -103,7 +102,7 @@ public final class TestingSqlServer
     private static InitializedState createContainer(String version, BiConsumer<SqlExecutor, String> databaseSetUp)
     {
         class TestingMSSQLServerContainer
-                extends MSSQLServerContainer<TestingMSSQLServerContainer>
+                extends MSSQLServerContainer
         {
             TestingMSSQLServerContainer(DockerImageName dockerImageName)
             {
@@ -131,7 +130,7 @@ public final class TestingSqlServer
         }
 
         String databaseName = "database_" + UUID.randomUUID().toString().replace("-", "");
-        MSSQLServerContainer<?> container = new TestingMSSQLServerContainer(IMAGE_NAME.withTag(version));
+        MSSQLServerContainer container = new TestingMSSQLServerContainer(IMAGE_NAME.withTag(version));
         container.acceptLicense();
         // enable case sensitive (see the CS below) collation for SQL identifiers
         container.addEnv("MSSQL_COLLATION", "Latin1_General_CS_AS");
@@ -175,7 +174,7 @@ public final class TestingSqlServer
         sqlExecutorForContainer(container).execute(sql);
     }
 
-    private static SqlExecutor sqlExecutorForContainer(MSSQLServerContainer<?> container)
+    private static SqlExecutor sqlExecutorForContainer(MSSQLServerContainer container)
     {
         requireNonNull(container, "container is null");
         return sql -> {
@@ -223,11 +222,11 @@ public final class TestingSqlServer
 
     private static class InitializedState
     {
-        private final MSSQLServerContainer<?> container;
+        private final MSSQLServerContainer container;
         private final String databaseName;
         private final Closeable cleanup;
 
-        public InitializedState(MSSQLServerContainer<?> container, String databaseName, Closeable cleanup)
+        public InitializedState(MSSQLServerContainer container, String databaseName, Closeable cleanup)
         {
             this.container = container;
             this.databaseName = databaseName;

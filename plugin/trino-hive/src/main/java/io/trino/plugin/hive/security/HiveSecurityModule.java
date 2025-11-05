@@ -16,6 +16,7 @@ package io.trino.plugin.hive.security;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.security.AllowAllSecurityModule;
 import io.trino.plugin.base.security.ConnectorAccessControlModule;
 import io.trino.plugin.base.security.FileBasedAccessControlModule;
 import io.trino.plugin.base.security.ReadOnlySecurityModule;
@@ -40,12 +41,18 @@ public class HiveSecurityModule
     {
         install(new ConnectorAccessControlModule());
         install(switch (buildConfigObject(SecurityConfig.class).getSecuritySystem()) {
-            case ALLOW_ALL -> new AllowAllSecurityModule();
-            case READ_ONLY -> combine(new ReadOnlySecurityModule(), new StaticAccessControlMetadataModule());
-            case FILE -> combine(new FileBasedAccessControlModule(), new StaticAccessControlMetadataModule());
-            case SQL_STANDARD -> new SqlStandardSecurityModule();
-            case SYSTEM -> new SystemSecurityModule();
+            case ALLOW_ALL -> combine(new AllowAllSecurityModule(), new StaticAccessControlMetadataModule(), usingSystemSecurity(false));
+            case READ_ONLY -> combine(new ReadOnlySecurityModule(), new StaticAccessControlMetadataModule(), usingSystemSecurity(false));
+            case FILE -> combine(new FileBasedAccessControlModule(), new StaticAccessControlMetadataModule(), usingSystemSecurity(false));
+            case SQL_STANDARD -> combine(new SqlStandardSecurityModule(), usingSystemSecurity(false));
+            // do not bind a ConnectorAccessControl so the engine will use system security with system roles
+            case SYSTEM -> combine(new StaticAccessControlMetadataModule(), usingSystemSecurity(true));
         });
+    }
+
+    private static Module usingSystemSecurity(boolean system)
+    {
+        return binder -> binder.bind(boolean.class).annotatedWith(UsingSystemSecurity.class).toInstance(system);
     }
 
     private static class StaticAccessControlMetadataModule
@@ -54,7 +61,7 @@ public class HiveSecurityModule
         @Override
         public void configure(Binder binder)
         {
-            binder.bind(AccessControlMetadataFactory.class).toInstance(metastore -> new AccessControlMetadata() {});
+            binder.bind(AccessControlMetadataFactory.class).toInstance(_ -> new AccessControlMetadata() {});
         }
     }
 }

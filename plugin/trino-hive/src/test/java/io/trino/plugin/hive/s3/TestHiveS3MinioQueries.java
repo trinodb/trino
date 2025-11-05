@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.s3;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
@@ -31,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestHiveS3MinioQueries
         extends AbstractTestQueryFramework
 {
-    private HiveMinioDataLake hiveMinioDataLake;
+    private Hive3MinioDataLake hiveMinioDataLake;
     private String bucketName;
 
     @Override
@@ -39,7 +39,7 @@ public class TestHiveS3MinioQueries
             throws Exception
     {
         this.bucketName = "test-hive-minio-queries-" + randomNameSuffix();
-        this.hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        this.hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
         this.hiveMinioDataLake.start();
 
         return S3HiveQueryRunner.builder(hiveMinioDataLake)

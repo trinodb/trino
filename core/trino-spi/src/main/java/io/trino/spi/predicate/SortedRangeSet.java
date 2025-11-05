@@ -19,10 +19,8 @@ import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -643,7 +641,7 @@ public final class SortedRangeSet
 
             Optional<RangeView> intersect = thisCurrent.tryIntersect(thatCurrent);
             if (intersect.isPresent()) {
-                writeRange(type, blockBuilder, inclusive, resultRangeIndex, intersect.get());
+                writeRange(blockBuilder, inclusive, resultRangeIndex, intersect.get());
                 resultRangeIndex++;
             }
             int compare = thisCurrent.compareHighBound(thatCurrent);
@@ -730,7 +728,7 @@ public final class SortedRangeSet
                 if (probeIndex == insertionStartIndex || probeIndex + 1 >= intersectionEndIndex) {
                     Optional<RangeView> intersect = probeRange.tryIntersect(current);
                     if (intersect.isPresent()) {
-                        writeRange(type, blockBuilder, inclusive, resultIndex, intersect.get());
+                        writeRange(blockBuilder, inclusive, resultIndex, intersect.get());
                         resultIndex++;
                     }
                     probeIndex++;
@@ -777,7 +775,6 @@ public final class SortedRangeSet
             case ValueBlock valueBlock -> copyValueBlock(source, valueBlock, sourceOffset, destination, destinationInclusive, destinationOffset, size);
             case DictionaryBlock dictionaryBlock -> copyDictionaryBlock(source, dictionaryBlock, sourceOffset, destination, destinationInclusive, destinationOffset, size);
             case RunLengthEncodedBlock rleBlock -> copyRleBlock(source, rleBlock, sourceOffset, destination, destinationInclusive, destinationOffset, size);
-            case LazyBlock _ -> throw new IllegalArgumentException("Did not expect LazyBlock");
         }
     }
 
@@ -1029,7 +1026,7 @@ public final class SortedRangeSet
                     current = merged.get();
                 }
                 else {
-                    writeRange(type, blockBuilder, inclusive, resultRangeIndex, current);
+                    writeRange(blockBuilder, inclusive, resultRangeIndex, current);
                     resultRangeIndex++;
                     current = next;
                 }
@@ -1039,7 +1036,7 @@ public final class SortedRangeSet
             }
         }
         if (current != null) {
-            writeRange(type, blockBuilder, inclusive, resultRangeIndex, current);
+            writeRange(blockBuilder, inclusive, resultRangeIndex, current);
             resultRangeIndex++;
         }
 
@@ -1210,7 +1207,7 @@ public final class SortedRangeSet
             inclusive[2 * resultRangeIndex] = false;
             inclusive[2 * resultRangeIndex + 1] = !first.lowInclusive;
             blockBuilder.appendNull();
-            type.appendTo(first.lowValueBlock, first.lowValuePosition, blockBuilder);
+            blockBuilder.append(first.lowValueBlock.getUnderlyingValueBlock(), first.lowValueBlock.getUnderlyingValuePosition(first.lowValuePosition));
             resultRangeIndex++;
         }
 
@@ -1220,8 +1217,8 @@ public final class SortedRangeSet
 
             inclusive[2 * resultRangeIndex] = !previous.highInclusive;
             inclusive[2 * resultRangeIndex + 1] = !current.lowInclusive;
-            type.appendTo(previous.highValueBlock, previous.highValuePosition, blockBuilder);
-            type.appendTo(current.lowValueBlock, current.lowValuePosition, blockBuilder);
+            blockBuilder.append(previous.highValueBlock.getUnderlyingValueBlock(), previous.highValueBlock.getUnderlyingValuePosition(previous.highValuePosition));
+            blockBuilder.append(current.lowValueBlock.getUnderlyingValueBlock(), current.lowValueBlock.getUnderlyingValuePosition(current.lowValuePosition));
             resultRangeIndex++;
 
             previous = current;
@@ -1230,7 +1227,7 @@ public final class SortedRangeSet
         if (!last.isHighUnbounded()) {
             inclusive[2 * resultRangeIndex] = !last.highInclusive;
             inclusive[2 * resultRangeIndex + 1] = false;
-            type.appendTo(last.highValueBlock, last.highValuePosition, blockBuilder);
+            blockBuilder.append(last.highValueBlock.getUnderlyingValueBlock(), last.highValueBlock.getUnderlyingValuePosition(last.highValuePosition));
             blockBuilder.appendNull();
             resultRangeIndex++;
         }
@@ -1251,10 +1248,10 @@ public final class SortedRangeSet
         if (!getType().equals(other.getType())) {
             throw new IllegalStateException(format("Mismatched types: %s vs %s", getType(), other.getType()));
         }
-        if (!(other instanceof SortedRangeSet)) {
+        if (!(other instanceof SortedRangeSet sortedRangeSet)) {
             throw new IllegalStateException(format("ValueSet is not a SortedRangeSet: %s", other.getClass()));
         }
-        return (SortedRangeSet) other;
+        return sortedRangeSet;
     }
 
     @Override
@@ -1344,22 +1341,16 @@ public final class SortedRangeSet
     @Override
     public String toString()
     {
-        return toString(ToStringSession.INSTANCE);
+        return toString(10);
     }
 
     @Override
-    public String toString(ConnectorSession session)
-    {
-        return toString(session, 10);
-    }
-
-    @Override
-    public String toString(ConnectorSession session, int limit)
+    public String toString(int limit)
     {
         return new StringJoiner(", ", SortedRangeSet.class.getSimpleName() + "[", "]")
                 .add("type=" + type)
                 .add("ranges=" + getRangeCount())
-                .add(formatRanges(session, limit))
+                .add(formatRanges(limit))
                 .toString();
     }
 
@@ -1415,27 +1406,27 @@ public final class SortedRangeSet
         return Optional.of(Collections.unmodifiableList(result));
     }
 
-    private String formatRanges(ConnectorSession session, int limit)
+    private String formatRanges(int limit)
     {
         if (isNone()) {
             return "{}";
         }
         if (getRangeCount() == 1) {
-            return "{" + getRangeView(0).formatRange(session) + "}";
+            return "{" + getRangeView(0).formatRange() + "}";
         }
         if (limit < 2) {
-            return format("{%s, ...}", getRangeView(0).formatRange(session));
+            return format("{%s, ...}", getRangeView(0).formatRange());
         }
         // Print first (limit - 1) elements, followed by last element
         // to provide a readable summary of the contents
         Stream<String> prefix = Stream.concat(
                 IntStream.range(0, min(getRangeCount(), limit) - 1)
                         .mapToObj(this::getRangeView)
-                        .map(rangeView -> rangeView.formatRange(session)),
+                        .map(rangeView -> rangeView.formatRange()),
                 limit < getRangeCount() ? Stream.of("...") : Stream.of());
 
         Stream<String> suffix = Stream.of(
-                getRangeView(getRangeCount() - 1).formatRange(session));
+                getRangeView(getRangeCount() - 1).formatRange());
 
         return Stream.concat(prefix, suffix)
                 .collect(joining(", ", "{", "}"));
@@ -1538,12 +1529,12 @@ public final class SortedRangeSet
         writeNativeValue(type, blockBuilder, range.getHighValue().orElse(null));
     }
 
-    private static void writeRange(Type type, BlockBuilder blockBuilder, boolean[] inclusive, int rangeIndex, RangeView range)
+    private static void writeRange(BlockBuilder blockBuilder, boolean[] inclusive, int rangeIndex, RangeView range)
     {
         inclusive[2 * rangeIndex] = range.lowInclusive;
         inclusive[2 * rangeIndex + 1] = range.highInclusive;
-        type.appendTo(range.lowValueBlock, range.lowValuePosition, blockBuilder);
-        type.appendTo(range.highValueBlock, range.highValuePosition, blockBuilder);
+        blockBuilder.append(range.lowValueBlock.getUnderlyingValueBlock(), range.lowValueBlock.getUnderlyingValuePosition(range.lowValuePosition));
+        blockBuilder.append(range.highValueBlock.getUnderlyingValueBlock(), range.highValueBlock.getUnderlyingValuePosition(range.highValuePosition));
     }
 
     private static void checkNotNaN(Type type, Object value)
@@ -1757,23 +1748,23 @@ public final class SortedRangeSet
         public String toString()
         {
             return new StringJoiner(", ", RangeView.class.getSimpleName() + "[", "]")
-                    .add(formatRange(ToStringSession.INSTANCE))
+                    .add(formatRange())
                     .add("type=" + type.getDisplayName())
                     .toString();
         }
 
-        public String formatRange(ConnectorSession session)
+        public String formatRange()
         {
             if (isSingleValue()) {
-                return format("[%s]", type.getObjectValue(session, lowValueBlock, lowValuePosition));
+                return format("[%s]", type.getObjectValue(lowValueBlock, lowValuePosition));
             }
 
             Object lowValue = isLowUnbounded()
                     ? "<min>"
-                    : type.getObjectValue(session, lowValueBlock, lowValuePosition);
+                    : type.getObjectValue(lowValueBlock, lowValuePosition);
             Object highValue = isHighUnbounded()
                     ? "<max>"
-                    : type.getObjectValue(session, highValueBlock, highValuePosition);
+                    : type.getObjectValue(highValueBlock, highValuePosition);
 
             return format(
                     "%s%s,%s%s",

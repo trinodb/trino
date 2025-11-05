@@ -33,7 +33,6 @@ import org.openjdk.jmh.runner.RunnerException;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.jmh.Benchmarks.benchmark;
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -83,7 +82,7 @@ public class BenchmarkReorderInterconnectedJoins
                     .build();
             queryRunner = new StandaloneQueryRunner(session);
             queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
+            queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of("tpch.splits-per-node", "1"));
             StringBuilder stringBuilder = new StringBuilder();
             stringBuilder.append("EXPLAIN SELECT * FROM nation n1");
             for (int i = 2; i <= numberOfTables; i++) {

@@ -37,6 +37,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 @Path(CALLBACK_ENDPOINT)
+@ResourceSecurity(PUBLIC)
 public class OAuth2CallbackResource
 {
     private static final Logger LOG = Logger.get(OAuth2CallbackResource.class);
@@ -51,7 +52,6 @@ public class OAuth2CallbackResource
         this.service = requireNonNull(service, "service is null");
     }
 
-    @ResourceSecurity(PUBLIC)
     @GET
     @Produces(TEXT_HTML)
     public Response callback(

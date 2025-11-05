@@ -37,8 +37,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
-
 public interface AccessControl
 {
     /**
@@ -142,13 +140,6 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanRenameSchema(SecurityContext context, CatalogSchemaName schemaName, String newSchemaName);
-
-    /**
-     * Check if identity is allowed to change the specified schema's user/role.
-     *
-     * @throws AccessDeniedException if not allowed
-     */
-    void checkCanSetSchemaAuthorization(SecurityContext context, CatalogSchemaName schemaName, TrinoPrincipal principal);
 
     /**
      * Check if identity is allowed to execute SHOW SCHEMAS in a catalog.
@@ -283,13 +274,6 @@ public interface AccessControl
     void checkCanAlterColumn(SecurityContext context, QualifiedObjectName tableName);
 
     /**
-     * Check if identity is allowed to change the specified table's user/role.
-     *
-     * @throws AccessDeniedException if not allowed
-     */
-    void checkCanSetTableAuthorization(SecurityContext context, QualifiedObjectName tableName, TrinoPrincipal principal);
-
-    /**
      * Check if identity is allowed to rename a column in the specified table.
      *
      * @throws AccessDeniedException if not allowed
@@ -339,14 +323,11 @@ public interface AccessControl
     void checkCanRenameView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName);
 
     /**
-     * Check if identity is allowed to change the specified view's user/role.
+     * Check if identity is allowed to refresh the specified view.
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanSetViewAuthorization(SecurityContext context, QualifiedObjectName view, TrinoPrincipal principal)
-    {
-        denySetViewAuthorization(view.toString(), principal);
-    }
+    void checkCanRefreshView(SecurityContext context, QualifiedObjectName viewName);
 
     /**
      * Check if identity is allowed to drop the specified view.
@@ -438,6 +419,27 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanRevokeTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, TrinoPrincipal revokee, boolean grantOption);
+
+    /**
+     * Check if identity is allowed to grant a privilege to the grantee on the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanGrantTableBranchPrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal grantee, boolean grantOption);
+
+    /**
+     * Check if identity is allowed to deny a privilege to the grantee on the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanDenyTableBranchPrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal grantee);
+
+    /**
+     * Check if identity is allowed to revoke a privilege from the revokee on the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanRevokeTableBranchPrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal revokee, boolean grantOption);
 
     /**
      * Check if identity is allowed to grant the specified privilege to the grantee on the specified entity.
@@ -611,6 +613,34 @@ public interface AccessControl
      */
     void checkCanShowCreateFunction(SecurityContext context, QualifiedObjectName functionName);
 
+    /**
+     * Check if identity is allowed to show branches of tables.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanShowBranches(SecurityContext context, QualifiedObjectName tableName);
+
+    /**
+     * Check if identity is allowed to create the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanCreateBranch(SecurityContext context, QualifiedObjectName tableName, String branchName);
+
+    /**
+     * Check if identity is allowed to drop the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanDropBranch(SecurityContext context, QualifiedObjectName tableName, String branchName);
+
+    /**
+     * Check if identity is allowed to fast-forward the specified branch.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanFastForwardBranch(SecurityContext context, QualifiedObjectName tableName, String sourceBranchName, String targetBranchName);
+
     default List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {
         return ImmutableList.of();
@@ -620,4 +650,11 @@ public interface AccessControl
     {
         return ImmutableMap.of();
     }
+
+    /**
+     * Check that the principal has the privileges to set the owner of the entity with the give name and ownedKind.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanSetEntityAuthorization(SecurityContext context, EntityKindAndName entityKindAndName, TrinoPrincipal principal);
 }

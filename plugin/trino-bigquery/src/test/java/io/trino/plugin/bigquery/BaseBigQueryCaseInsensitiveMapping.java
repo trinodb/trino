@@ -109,7 +109,7 @@ public abstract class BaseBigQueryCaseInsensitiveMapping
         String trinoSchema = bigQuerySchema.toLowerCase(ENGLISH);
         String namePrefix = format("%s.Test_Case", bigQuerySchema);
 
-        try (AutoCloseable schema = withSchema(bigQuerySchema);
+        try (AutoCloseable _ = withSchema(bigQuerySchema);
                 TestView view = new TestView(bigQuerySqlExecutor, namePrefix, "SELECT 'a' AS lower_case_name, 'b' AS Mixed_Case_Name, 'c' AS UPPER_CASE_NAME")) {
             String viewName = view.getName().substring(bigQuerySchema.length() + 1).toLowerCase(ENGLISH);
             assertThat(computeActual("SHOW TABLES FROM " + trinoSchema).getOnlyColumn()).contains(viewName);
@@ -205,10 +205,14 @@ public abstract class BaseBigQueryCaseInsensitiveMapping
     @Test
     public void testCreateSchema()
     {
-        String schemaName = "Test_Create_Case_Sensitive_" + randomNameSuffix();
-        assertUpdate("CREATE SCHEMA " + schemaName.toLowerCase(ENGLISH));
-        assertQuery(format("SELECT schema_name FROM information_schema.schemata WHERE schema_name = '%s'", schemaName.toLowerCase(ENGLISH)), format("VALUES '%s'", schemaName.toLowerCase(ENGLISH)));
-        assertUpdate("DROP SCHEMA " + schemaName.toLowerCase(ENGLISH));
+        String schemaName = ("Test_Create_Case_Sensitive_" + randomNameSuffix()).toLowerCase(ENGLISH);
+        try {
+            assertUpdate("CREATE SCHEMA " + schemaName);
+            assertQuery(format("SELECT schema_name FROM information_schema.schemata WHERE schema_name = '%s'", schemaName), format("VALUES '%s'", schemaName));
+        }
+        finally {
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+        }
     }
 
     @Test
@@ -216,7 +220,7 @@ public abstract class BaseBigQueryCaseInsensitiveMapping
             throws Exception
     {
         String schemaName = "Test_Create_Case_Sensitive_Clash_" + randomNameSuffix();
-        try (AutoCloseable schema = withSchema(schemaName)) {
+        try (AutoCloseable _ = withSchema(schemaName)) {
             assertQueryFails("CREATE SCHEMA " + schemaName.toLowerCase(ENGLISH), ".*Schema 'bigquery\\.\\Q" + schemaName.toLowerCase(ENGLISH) + "\\E' already exists");
         }
     }
@@ -226,7 +230,7 @@ public abstract class BaseBigQueryCaseInsensitiveMapping
             throws Exception
     {
         String schemaName = "Test_Drop_Case_Sensitive_" + randomNameSuffix();
-        try (AutoCloseable schema = withSchema(schemaName)) {
+        try (AutoCloseable _ = withSchema(schemaName)) {
             assertUpdate("DROP SCHEMA " + schemaName.toLowerCase(ENGLISH));
         }
     }
@@ -236,8 +240,8 @@ public abstract class BaseBigQueryCaseInsensitiveMapping
             throws Exception
     {
         String schemaName = "Test_Drop_Case_Sensitive_Clash_" + randomNameSuffix();
-        try (AutoCloseable schema = withSchema(schemaName);
-                AutoCloseable secondSchema = withSchema(schemaName.toLowerCase(ENGLISH))) {
+        try (AutoCloseable _ = withSchema(schemaName);
+                AutoCloseable _ = withSchema(schemaName.toLowerCase(ENGLISH))) {
             assertQueryFails("DROP SCHEMA " + schemaName.toLowerCase(ENGLISH), "Found ambiguous names in BigQuery.*");
         }
     }

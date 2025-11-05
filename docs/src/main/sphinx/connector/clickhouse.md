@@ -19,7 +19,7 @@ from different catalogs accessing ClickHouse or any other supported data source.
 
 To connect to a ClickHouse server, you need:
 
-- ClickHouse (version 23.8 or higher) or Altinity (version 21.8 or higher).
+- ClickHouse (version 25.3 or higher) or Altinity (version 22.8 or higher).
 - Network access from the Trino coordinator and workers to the ClickHouse
   server. Port 8123 is the default port.
 
@@ -91,9 +91,6 @@ configured connector to create a catalog named `sales`.
 ```
 
 ```{include} jdbc-case-insensitive-matching.fragment
-```
-
-```{include} non-transactional-insert.fragment
 ```
 
 ## Querying ClickHouse
@@ -186,9 +183,12 @@ to the following table:
 * - ClickHouse type
   - Trino type
   - Notes
+* - `Bool`
+  - `BOOLEAN`
+  -
 * - `Int8`
   - `TINYINT`
-  - `TINYINT`, `BOOL`, `BOOLEAN`, and `INT1` are aliases of `Int8`
+  - `TINYINT` and `INT1` are aliases of `Int8`
 * - `Int16`
   - `SMALLINT`
   -  `SMALLINT` and `INT2` are aliases of `Int16`
@@ -265,11 +265,11 @@ to the following table:
   - ClickHouse type
   - Notes
 * - `BOOLEAN`
-  - `UInt8`
+  - `Bool`
   -
 * - `TINYINT`
   - `Int8`
-  - `TINYINT`, `BOOL`, `BOOLEAN`, and `INT1` are aliases of `Int8`
+  - `TINYINT` and `INT1` are aliases of `Int8`
 * - `SMALLINT`
   - `Int16`
   -  `SMALLINT` and `INT2` are aliases of `Int16`
@@ -317,18 +317,27 @@ No other types are supported.
 (clickhouse-sql-support)=
 ## SQL support
 
-The connector provides read and write access to data and metadata in
-a ClickHouse catalog. In addition to the {ref}`globally available
-<sql-globally-available>` and {ref}`read operation <sql-read-operations>`
+The connector provides read and write access to data and metadata in a
+ClickHouse catalog. In addition to the [globally
+available](sql-globally-available) and [read operation](sql-read-operations)
 statements, the connector supports the following features:
 
-- {doc}`/sql/insert`
-- {doc}`/sql/truncate`
-- {ref}`sql-schema-table-management`
+- [](/sql/insert), see also [](clickhouse-insert)
+- [](/sql/truncate)
+- [](sql-schema-table-management), see also:
+  - [](clickhouse-alter-table)
+- [](clickhouse-procedures)
+- [](clickhouse-table-functions)
 
+(clickhouse-insert)=
+```{include} non-transactional-insert.fragment
+```
+
+(clickhouse-alter-table)=
 ```{include} alter-schema-limitation.fragment
 ```
 
+(clickhouse-procedures)=
 ### Procedures
 
 ```{include} jdbc-procedures-flush.fragment
@@ -336,6 +345,7 @@ statements, the connector supports the following features:
 ```{include} procedures-execute.fragment
 ```
 
+(clickhouse-table-functions)=
 ### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to

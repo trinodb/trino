@@ -24,26 +24,27 @@ import io.trino.operator.OperatorStats;
 import io.trino.operator.TableWriterOperator;
 import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 import io.trino.spi.eventlistener.StageGcStatistics;
+import io.trino.spi.metrics.Metrics;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.trino.execution.DistributionSnapshot.pruneOperatorStats;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static java.util.Objects.requireNonNull;
 
 public class QueryStats
 {
-    private final DateTime createTime;
+    private final Instant createTime;
 
-    private final DateTime executionStartTime;
-    private final DateTime lastHeartbeat;
-    private final DateTime endTime;
+    private final Instant executionStartTime;
+    private final Instant lastHeartbeat;
+    private final Instant endTime;
 
     private final Duration elapsedTime;
     private final Duration queuedTime;
@@ -79,6 +80,8 @@ public class QueryStats
     private final DataSize peakTaskRevocableMemory;
     private final DataSize peakTaskTotalMemory;
 
+    private final DataSize spilledDataSize;
+
     private final boolean scheduled;
     private final OptionalDouble progressPercentage;
     private final OptionalDouble runningPercentage;
@@ -101,11 +104,6 @@ public class QueryStats
     private final DataSize failedInternalNetworkInputDataSize;
     private final long internalNetworkInputPositions;
     private final long failedInternalNetworkInputPositions;
-
-    private final DataSize rawInputDataSize;
-    private final DataSize failedRawInputDataSize;
-    private final long rawInputPositions;
-    private final long failedRawInputPositions;
 
     private final DataSize processedInputDataSize;
     private final DataSize failedProcessedInputDataSize;
@@ -130,15 +128,16 @@ public class QueryStats
 
     private final DynamicFiltersStats dynamicFiltersStats;
 
+    private final Map<String, Metrics> catalogMetadataMetrics;
     private final List<OperatorStats> operatorSummaries;
     private final List<QueryPlanOptimizerStatistics> optimizerRulesSummaries;
 
     @JsonCreator
     public QueryStats(
-            @JsonProperty("createTime") DateTime createTime,
-            @JsonProperty("executionStartTime") DateTime executionStartTime,
-            @JsonProperty("lastHeartbeat") DateTime lastHeartbeat,
-            @JsonProperty("endTime") DateTime endTime,
+            @JsonProperty("createTime") Instant createTime,
+            @JsonProperty("executionStartTime") Instant executionStartTime,
+            @JsonProperty("lastHeartbeat") Instant lastHeartbeat,
+            @JsonProperty("endTime") Instant endTime,
 
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("queuedTime") Duration queuedTime,
@@ -174,6 +173,8 @@ public class QueryStats
             @JsonProperty("peakTaskRevocableMemory") DataSize peakTaskRevocableMemory,
             @JsonProperty("peakTaskTotalMemory") DataSize peakTaskTotalMemory,
 
+            @JsonProperty("spilledDataSize") DataSize spilledDataSize,
+
             @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("progressPercentage") OptionalDouble progressPercentage,
             @JsonProperty("runningPercentage") OptionalDouble runningPercentage,
@@ -197,11 +198,6 @@ public class QueryStats
             @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
             @JsonProperty("failedInternalNetworkInputPositions") long failedInternalNetworkInputPositions,
 
-            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
-            @JsonProperty("failedRawInputDataSize") DataSize failedRawInputDataSize,
-            @JsonProperty("rawInputPositions") long rawInputPositions,
-            @JsonProperty("failedRawInputPositions") long failedRawInputPositions,
-
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
             @JsonProperty("failedProcessedInputDataSize") DataSize failedProcessedInputDataSize,
             @JsonProperty("processedInputPositions") long processedInputPositions,
@@ -224,7 +220,7 @@ public class QueryStats
             @JsonProperty("stageGcStatistics") List<StageGcStatistics> stageGcStatistics,
 
             @JsonProperty("dynamicFiltersStats") DynamicFiltersStats dynamicFiltersStats,
-
+            @JsonProperty("catalogMetadataMetrics") Map<String, Metrics> catalogMetadataMetrics,
             @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries,
             @JsonProperty("optimizerRulesSummaries") List<QueryPlanOptimizerStatistics> optimizerRulesSummaries)
     {
@@ -275,6 +271,7 @@ public class QueryStats
         this.peakTaskUserMemory = requireNonNull(peakTaskUserMemory, "peakTaskUserMemory is null");
         this.peakTaskRevocableMemory = requireNonNull(peakTaskRevocableMemory, "peakTaskRevocableMemory is null");
         this.peakTaskTotalMemory = requireNonNull(peakTaskTotalMemory, "peakTaskTotalMemory is null");
+        this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
         this.scheduled = scheduled;
         this.progressPercentage = requireNonNull(progressPercentage, "progressPercentage is null");
         this.runningPercentage = requireNonNull(runningPercentage, "runningPercentage is null");
@@ -302,13 +299,6 @@ public class QueryStats
         checkArgument(failedInternalNetworkInputPositions >= 0, "failedInternalNetworkInputPositions is negative");
         this.failedInternalNetworkInputPositions = failedInternalNetworkInputPositions;
 
-        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
-        this.failedRawInputDataSize = requireNonNull(failedRawInputDataSize, "failedRawInputDataSize is null");
-        checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
-        this.rawInputPositions = rawInputPositions;
-        checkArgument(failedRawInputPositions >= 0, "failedRawInputPositions is negative");
-        this.failedRawInputPositions = failedRawInputPositions;
-
         this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
         this.failedProcessedInputDataSize = requireNonNull(failedProcessedInputDataSize, "failedProcessedInputDataSize is null");
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
@@ -335,32 +325,32 @@ public class QueryStats
         this.stageGcStatistics = ImmutableList.copyOf(requireNonNull(stageGcStatistics, "stageGcStatistics is null"));
 
         this.dynamicFiltersStats = requireNonNull(dynamicFiltersStats, "dynamicFiltersStats is null");
-
-        this.operatorSummaries = pruneOperatorStats(requireNonNull(operatorSummaries, "operatorSummaries is null"));
+        this.catalogMetadataMetrics = requireNonNull(catalogMetadataMetrics, "catalogMetadataMetrics is null");
+        this.operatorSummaries = ImmutableList.copyOf(operatorSummaries);
         this.optimizerRulesSummaries = ImmutableList.copyOf(requireNonNull(optimizerRulesSummaries, "optimizerRulesSummaries is null"));
     }
 
     @JsonProperty
-    public DateTime getCreateTime()
+    public Instant getCreateTime()
     {
         return createTime;
     }
 
     @JsonProperty
-    public DateTime getExecutionStartTime()
+    public Instant getExecutionStartTime()
     {
         return executionStartTime;
     }
 
     @JsonProperty
-    public DateTime getLastHeartbeat()
+    public Instant getLastHeartbeat()
     {
         return lastHeartbeat;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getEndTime()
+    public Instant getEndTime()
     {
         return endTime;
     }
@@ -666,30 +656,6 @@ public class QueryStats
     }
 
     @JsonProperty
-    public DataSize getRawInputDataSize()
-    {
-        return rawInputDataSize;
-    }
-
-    @JsonProperty
-    public DataSize getFailedRawInputDataSize()
-    {
-        return failedRawInputDataSize;
-    }
-
-    @JsonProperty
-    public long getRawInputPositions()
-    {
-        return rawInputPositions;
-    }
-
-    @JsonProperty
-    public long getFailedRawInputPositions()
-    {
-        return failedRawInputPositions;
-    }
-
-    @JsonProperty
     public DataSize getProcessedInputDataSize()
     {
         return processedInputDataSize;
@@ -805,6 +771,12 @@ public class QueryStats
     }
 
     @JsonProperty
+    public Map<String, Metrics> getCatalogMetadataMetrics()
+    {
+        return catalogMetadataMetrics;
+    }
+
+    @JsonProperty
     public List<OperatorStats> getOperatorSummaries()
     {
         return operatorSummaries;
@@ -819,8 +791,6 @@ public class QueryStats
     @JsonProperty
     public DataSize getSpilledDataSize()
     {
-        return succinctBytes(operatorSummaries.stream()
-                .mapToLong(stats -> stats.getSpilledDataSize().toBytes())
-                .sum());
+        return spilledDataSize;
     }
 }

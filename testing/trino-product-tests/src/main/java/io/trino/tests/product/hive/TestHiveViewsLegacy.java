@@ -114,7 +114,7 @@ public class TestHiveViewsLegacy
                         "[hive]\n" +
                         "\n" +
                         "actual rows:\n" +
-                        "[presto]");
+                        "[trino]");
     }
 
     @Override

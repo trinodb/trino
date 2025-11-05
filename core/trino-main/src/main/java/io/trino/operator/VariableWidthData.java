@@ -15,11 +15,11 @@ package io.trino.operator;
 
 import com.google.common.primitives.Ints;
 import io.airlift.slice.SizeOf;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -28,27 +28,32 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.slice.SizeOf.sizeOfObjectArray;
-import static io.trino.operator.FlatHash.sumExact;
 import static java.lang.Math.addExact;
 import static java.lang.Math.clamp;
 import static java.lang.Math.max;
 import static java.lang.Math.subtractExact;
 import static java.util.Objects.checkIndex;
 
+/**
+ * A related implementation of {@link VariableWidthData} exists in {@link AppendOnlyVariableWidthData} which reduces
+ * the size of each variable width pointer at the cost of not supporting {@link VariableWidthData#free}. If your data
+ * structure does not need to support moving variable width data after insertion, that implementation will consume
+ * less memory and should be used instead.
+ */
 public final class VariableWidthData
 {
     private static final int INSTANCE_SIZE = instanceSize(VariableWidthData.class);
 
     public static final int MIN_CHUNK_SIZE = 1024;
     public static final int MAX_CHUNK_SIZE = 8 * 1024 * 1024;
+    private static final int DOUBLING_CHUNK_THRESHOLD = 512 * 1024;
 
     public static final int POINTER_SIZE = SIZE_OF_INT + SIZE_OF_INT + SIZE_OF_INT;
 
     private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
     public static final byte[] EMPTY_CHUNK = new byte[0];
 
-    private final List<byte[]> chunks = new ArrayList<>();
+    private final ObjectArrayList<byte[]> chunks = new ObjectArrayList<>();
     private int openChunkOffset;
 
     private long chunksRetainedSizeInBytes;
@@ -82,10 +87,9 @@ public final class VariableWidthData
 
     public long getRetainedSizeBytes()
     {
-        return sumExact(
+        return addExact(
                 INSTANCE_SIZE,
-                chunksRetainedSizeInBytes,
-                sizeOfObjectArray(chunks.size()));
+                addExact(chunksRetainedSizeInBytes, sizeOf(chunks.elements())));
     }
 
     public List<byte[]> getAllChunks()
@@ -115,8 +119,8 @@ public final class VariableWidthData
             // record unused space as free bytes
             freeBytes += (openChunk.length - openChunkOffset);
 
-            // allocate enough space for 32 values of the current size, or double the current chunk size, whichever is larger
-            int newSize = Ints.saturatedCast(max(size * 32L, openChunk.length * 2L));
+            // allocate enough space for 32 values of the current size, or 1.5x the current chunk size, whichever is larger
+            int newSize = Ints.saturatedCast(max(size * 32L, nextChunkSize(openChunk.length)));
             // constrain to be between min and max chunk size
             newSize = clamp(newSize, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
             // jumbo rows get a separate allocation
@@ -177,6 +181,15 @@ public final class VariableWidthData
         }
         checkIndex(chunkIndex, chunks.size());
         return chunks.get(chunkIndex);
+    }
+
+    // growth factor for each chunk doubles up to 512KB, then increases by 1.5x for each chunk after that
+    private static long nextChunkSize(long previousChunkSize)
+    {
+        if (previousChunkSize < DOUBLING_CHUNK_THRESHOLD) {
+            return previousChunkSize * 2;
+        }
+        return previousChunkSize + (previousChunkSize >> 1);
     }
 
     private static int getChunkIndex(byte[] pointer, int pointerOffset)

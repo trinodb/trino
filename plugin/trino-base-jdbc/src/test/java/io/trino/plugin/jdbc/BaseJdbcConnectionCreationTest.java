@@ -56,13 +56,18 @@ public abstract class BaseJdbcConnectionCreationTest
 
     protected void assertJdbcConnections(@Language("SQL") String query, int expectedJdbcConnectionsCount, Optional<String> errorMessage)
     {
+        assertJdbcConnections(getSession(), query, expectedJdbcConnectionsCount, errorMessage);
+    }
+
+    protected void assertJdbcConnections(Session session, @Language("SQL") String query, int expectedJdbcConnectionsCount, Optional<String> errorMessage)
+    {
         int before = connectionFactory.openConnections.get();
         if (errorMessage.isPresent()) {
             assertQueryFails(query, errorMessage.get());
         }
         else {
             // Disabling writers scaling to make expected number of opened connections constant
-            Session querySession = Session.builder(getSession())
+            Session querySession = Session.builder(session)
                     .setSystemProperty(TASK_MAX_WRITER_COUNT, "4")
                     .build();
             getQueryRunner().execute(querySession, query);

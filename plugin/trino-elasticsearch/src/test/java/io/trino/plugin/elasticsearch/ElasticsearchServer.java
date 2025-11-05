@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.elasticsearch;
 
-import com.amazonaws.util.Base64;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
@@ -30,12 +29,14 @@ import org.testcontainers.utility.DockerImageName;
 
 import javax.net.ssl.SSLContext;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
 
@@ -51,6 +52,7 @@ import static java.nio.file.Files.createTempDirectory;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class ElasticsearchServer
+        implements Closeable
 {
     public static final String ELASTICSEARCH_7_IMAGE = "elasticsearch:7.16.2";
     public static final String ELASTICSEARCH_8_IMAGE = "elasticsearch:8.11.3";
@@ -95,7 +97,8 @@ public class ElasticsearchServer
         container.start();
     }
 
-    public void stop()
+    @Override
+    public void close()
             throws IOException
     {
         container.close();
@@ -120,7 +123,7 @@ public class ElasticsearchServer
     private static HttpAsyncClientBuilder enableSecureCommunication(HttpAsyncClientBuilder clientBuilder)
     {
         return clientBuilder.setSSLContext(getSSLContext())
-                .setDefaultHeaders(ImmutableList.of(new BasicHeader("Authorization", format("Basic %s", Base64.encodeAsString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8))))));
+                .setDefaultHeaders(ImmutableList.of(new BasicHeader("Authorization", format("Basic %s", Base64.getEncoder().encodeToString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8))))));
     }
 
     private static SSLContext getSSLContext()

@@ -16,8 +16,9 @@ package io.trino.plugin.eventlistener.mysql;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodecFactory;
+import io.trino.plugin.base.evenlistener.TestingEventListenerContext;
 import io.trino.spi.TrinoWarning;
-import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.connector.StandardWarningCode;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.EventListener;
@@ -39,7 +40,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.mysql.MySQLContainer;
 
 import java.net.URI;
 import java.sql.Connection;
@@ -56,6 +57,8 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.type.StandardTypes.BIGINT;
+import static io.trino.spi.type.StandardTypes.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
@@ -103,6 +106,7 @@ final class TestMysqlEventListener
             Optional.of(ofMillis(113)),
             Optional.of(ofMillis(114)),
             Optional.of(ofMillis(115)),
+            Optional.of(ofMillis(116)),
             115L,
             116L,
             117L,
@@ -112,8 +116,6 @@ final class TestMysqlEventListener
             1192L,
             120L,
             121L,
-            122L,
-            123L,
             124L,
             125L,
             126L,
@@ -132,15 +134,22 @@ final class TestMysqlEventListener
             // not stored
             Collections.emptyList(),
             // not stored
+            Collections.emptyList(),
+            // not stored
+            Collections.emptyList(),
+            // not stored
             List.of("{operator: \"operator1\"}", "{operator: \"operator2\"}"),
             // not stored
             Collections.emptyList(),
+            // not stored
+            ImmutableMap.of(),
             // not stored
             Optional.empty());
 
     private static final QueryContext FULL_QUERY_CONTEXT = new QueryContext(
             "user",
             "originalUser",
+            Set.of("role1"),
             Optional.of("principal"),
             Set.of("role1", "role2"),
             Set.of("group1", "group2"),
@@ -168,21 +177,23 @@ final class TestMysqlEventListener
     private static final QueryIOMetadata FULL_QUERY_IO_METADATA = new QueryIOMetadata(
             List.of(
                     new QueryInputMetadata(
+                            Optional.of("connectorName1"),
                             "catalog1",
                             new CatalogVersion("default"),
                             "schema1",
                             "table1",
-                            List.of("column1", "column2"),
+                            List.of(new QueryInputMetadata.Column("column1", BIGINT), new QueryInputMetadata.Column("column2", INTEGER)),
                             Optional.of("connectorInfo1"),
                             new Metrics(ImmutableMap.of()),
                             OptionalLong.of(201),
                             OptionalLong.of(202)),
                     new QueryInputMetadata(
+                            Optional.of("connectorName2"),
                             "catalog2",
                             new CatalogVersion("default"),
                             "schema2",
                             "table2",
-                            List.of("column3", "column4"),
+                            List.of(new QueryInputMetadata.Column("column3", BIGINT), new QueryInputMetadata.Column("column4", INTEGER)),
                             Optional.of("connectorInfo2"),
                             new Metrics(ImmutableMap.of()),
                             OptionalLong.of(203),
@@ -264,6 +275,7 @@ final class TestMysqlEventListener
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
             115L,
             116L,
             117L,
@@ -273,8 +285,6 @@ final class TestMysqlEventListener
             1192L,
             120L,
             121L,
-            122L,
-            123L,
             124L,
             125L,
             126L,
@@ -292,14 +302,20 @@ final class TestMysqlEventListener
             Collections.emptyList(),
             // not stored
             Collections.emptyList(),
+            // not stored
+            Collections.emptyList(),
+            // not stored
             Collections.emptyList(),
             Collections.emptyList(),
+            Collections.emptyList(),
+            ImmutableMap.of(),
             // not stored
             Optional.empty());
 
     private static final QueryContext MINIMAL_QUERY_CONTEXT = new QueryContext(
             "user",
             "originalUser",
+            Set.of(),
             Optional.empty(),
             Set.of(),
             Set.of(),
@@ -337,7 +353,7 @@ final class TestMysqlEventListener
             Instant.now(),
             Instant.now());
 
-    private MySQLContainer<?> mysqlContainer;
+    private MySQLContainer mysqlContainer;
     private String mysqlContainerUrl;
     private EventListener eventListener;
     private JsonCodecFactory jsonCodecFactory;
@@ -345,11 +361,11 @@ final class TestMysqlEventListener
     @BeforeAll
     void setup()
     {
-        mysqlContainer = new MySQLContainer<>("mysql:8.0.36");
+        mysqlContainer = new MySQLContainer("mysql:8.0.36");
         mysqlContainer.start();
         mysqlContainerUrl = getJdbcUrl(mysqlContainer);
         eventListener = new MysqlEventListenerFactory()
-                .create(Map.of("mysql-event-listener.db.url", mysqlContainerUrl));
+                .create(Map.of("mysql-event-listener.db.url", mysqlContainerUrl), new TestingEventListenerContext());
         jsonCodecFactory = new JsonCodecFactory();
     }
 
@@ -365,7 +381,7 @@ final class TestMysqlEventListener
         jsonCodecFactory = null;
     }
 
-    private static String getJdbcUrl(MySQLContainer<?> container)
+    private static String getJdbcUrl(MySQLContainer container)
     {
         return format("%s?user=%s&password=%s&useSSL=false&allowPublicKeyRetrieval=true",
                 container.getJdbcUrl(),
@@ -441,8 +457,8 @@ final class TestMysqlEventListener
                     assertThat(resultSet.getLong("physical_input_rows")).isEqualTo(119);
                     assertThat(resultSet.getLong("internal_network_bytes")).isEqualTo(120);
                     assertThat(resultSet.getLong("internal_network_rows")).isEqualTo(121);
-                    assertThat(resultSet.getLong("total_bytes")).isEqualTo(122);
-                    assertThat(resultSet.getLong("total_rows")).isEqualTo(123);
+                    assertThat(resultSet.getLong("total_bytes")).isEqualTo(238);
+                    assertThat(resultSet.getLong("total_rows")).isEqualTo(1192);
                     assertThat(resultSet.getLong("output_bytes")).isEqualTo(124);
                     assertThat(resultSet.getLong("output_rows")).isEqualTo(125);
                     assertThat(resultSet.getLong("written_bytes")).isEqualTo(126);
@@ -524,8 +540,8 @@ final class TestMysqlEventListener
                     assertThat(resultSet.getLong("physical_input_rows")).isEqualTo(119);
                     assertThat(resultSet.getLong("internal_network_bytes")).isEqualTo(120);
                     assertThat(resultSet.getLong("internal_network_rows")).isEqualTo(121);
-                    assertThat(resultSet.getLong("total_bytes")).isEqualTo(122);
-                    assertThat(resultSet.getLong("total_rows")).isEqualTo(123);
+                    assertThat(resultSet.getLong("total_bytes")).isEqualTo(238);
+                    assertThat(resultSet.getLong("total_rows")).isEqualTo(1192);
                     assertThat(resultSet.getLong("output_bytes")).isEqualTo(124);
                     assertThat(resultSet.getLong("output_rows")).isEqualTo(125);
                     assertThat(resultSet.getLong("written_bytes")).isEqualTo(126);

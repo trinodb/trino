@@ -106,8 +106,8 @@ public class QueryAccessRule
         @JsonCreator
         public static AccessMode fromJson(Object value)
         {
-            if (value instanceof String) {
-                AccessMode accessMode = modeByName.get(((String) value).toLowerCase(Locale.US));
+            if (value instanceof String string) {
+                AccessMode accessMode = modeByName.get(string.toLowerCase(Locale.US));
                 if (accessMode != null) {
                     return accessMode;
                 }

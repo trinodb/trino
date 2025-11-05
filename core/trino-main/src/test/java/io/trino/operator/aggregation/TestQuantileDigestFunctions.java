@@ -140,6 +140,6 @@ public class TestQuantileDigestFunctions
 
     private static String toHexString(QuantileDigest qdigest)
     {
-        return new SqlVarbinary(qdigest.serialize().getBytes()).toString().replaceAll("\\s+", " ");
+        return new SqlVarbinary(qdigest.serialize().getBytes()).toHexString().replaceAll("\\s+", " ");
     }
 }

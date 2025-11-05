@@ -35,10 +35,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.cloud.bigquery.Field.Mode.REQUIRED;
 import static com.google.cloud.bigquery.StandardSQLTypeName.INT64;
 import static io.trino.plugin.bigquery.BigQueryFilterQueryBuilder.buildFilter;
+import static io.trino.plugin.bigquery.BigQueryQueryRunner.BIGQUERY_CREDENTIALS_KEY;
 import static io.trino.plugin.bigquery.ViewMaterializationCache.TEMP_TABLE_PREFIX;
 import static io.trino.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -55,7 +57,10 @@ public class TestBigQuerySplitManager
     public TestBigQuerySplitManager()
     {
         BigQueryConnectorFactory connectorFactory = new BigQueryConnectorFactory();
-        connector = connectorFactory.create("bigquery", ImmutableMap.of("bigquery.views-enabled", "true"), new TestingConnectorContext());
+        connector = connectorFactory.create(
+                "bigquery",
+                ImmutableMap.of("bigquery.views-enabled", "true", "bigquery.credentials-key", BIGQUERY_CREDENTIALS_KEY),
+                new TestingConnectorContext());
         bigQueryExecutor = new BigQuerySqlExecutor();
     }
 
@@ -84,7 +89,7 @@ public class TestBigQuerySplitManager
 
             // Ignore constraints when creating temporary tables by default (view_materialization_with_filter is false)
             BigQueryColumnHandle column = new BigQueryColumnHandle("cnt", ImmutableList.of(), BIGINT, INT64, true, REQUIRED, ImmutableList.of(), null, false);
-            BigQueryTableHandle tableDifferentFilter = new BigQueryTableHandle(table.relationHandle(), TupleDomain.fromFixedValues(ImmutableMap.of(column, new NullableValue(BIGINT, 0L))), table.projectedColumns());
+            BigQueryTableHandle tableDifferentFilter = new BigQueryTableHandle(table.relationHandle(), TupleDomain.fromFixedValues(ImmutableMap.of(column, new NullableValue(BIGINT, 0L))), table.projectedColumns(), OptionalLong.empty());
             assertThat(createReadSession(transaction, session, tableDifferentFilter).getTable())
                     .isEqualTo(readSession.getTable());
 

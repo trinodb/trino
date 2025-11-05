@@ -128,7 +128,7 @@ public class TestLdapTrinoJdbc
     @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForLdapWithoutSsl()
     {
-        assertThatThrownBy(() -> DriverManager.getConnection("jdbc:trino://" + prestoServer(), ldapUserName, ldapUserPassword))
+        assertThatThrownBy(() -> DriverManager.getConnection("jdbc:trino://" + trinoServer(), ldapUserName, ldapUserPassword))
                 .isInstanceOf(SQLException.class)
                 .hasMessageContaining("TLS/SSL is required for authentication with username and password");
     }
@@ -136,7 +136,7 @@ public class TestLdapTrinoJdbc
     @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailForIncorrectTrustStore()
     {
-        String url = format("jdbc:trino://%s?SSL=true&SSLTrustStorePath=%s&SSLTrustStorePassword=%s", prestoServer(), ldapTruststorePath, "wrong_password");
+        String url = format("jdbc:trino://%s?SSL=true&SSLTrustStorePath=%s&SSLTrustStorePassword=%s", trinoServer(), ldapTruststorePath, "wrong_password");
         assertThatThrownBy(() -> DriverManager.getConnection(url, ldapUserName, ldapUserPassword))
                 .isInstanceOf(SQLException.class)
                 .hasMessageContaining("Error setting up SSL: keystore password was incorrect");

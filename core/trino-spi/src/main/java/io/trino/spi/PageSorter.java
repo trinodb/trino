@@ -16,17 +16,13 @@ package io.trino.spi;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 
+import java.util.Iterator;
 import java.util.List;
 
 public interface PageSorter
 {
     /**
-     * @return Sorted synthetic addresses for pages. A synthetic address is encoded as a long with
-     * the high 32 bits containing the page index and the low 32 bits containing position index
+     * @return Iterator of sorted pages.
      */
-    long[] sort(List<Type> types, List<Page> pages, List<Integer> sortChannels, List<SortOrder> sortOrders, int expectedPositions);
-
-    int decodePageIndex(long address);
-
-    int decodePositionIndex(long address);
+    Iterator<Page> sort(List<Type> types, List<Page> pages, List<Integer> sortChannels, List<SortOrder> sortOrders, int expectedPositions);
 }

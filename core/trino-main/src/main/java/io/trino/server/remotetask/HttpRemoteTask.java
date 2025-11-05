@@ -57,8 +57,8 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PipelinedBufferInfo;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.buffer.SpoolingOutputStats;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.node.InternalNode;
 import io.trino.operator.RetryPolicy;
 import io.trino.operator.TaskStats;
 import io.trino.server.DynamicFilterService;
@@ -72,9 +72,10 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
-import org.joda.time.DateTime;
+import jakarta.ws.rs.ServiceUnavailableException;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -127,6 +128,7 @@ import static io.trino.util.Failures.toFailure;
 import static java.lang.Math.addExact;
 import static java.lang.Math.clamp;
 import static java.lang.String.format;
+import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -318,7 +320,7 @@ public final class HttpRemoteTask
                                 .collect(toImmutableList()));
             }
 
-            TaskInfo initialTask = createInitialTask(taskId, location, nodeId, this.speculative.get(), pipelinedBufferStates, new TaskStats(DateTime.now(), null));
+            TaskInfo initialTask = createInitialTask(taskId, location, nodeId, this.speculative.get(), pipelinedBufferStates, new TaskStats(Instant.now(), null));
 
             this.dynamicFiltersFetcher = new DynamicFiltersFetcher(
                     this::fatalUnacknowledgedFailure,
@@ -382,8 +384,8 @@ public final class HttpRemoteTask
 
             this.outboundDynamicFiltersCollector = new DynamicFiltersCollector(this::triggerUpdate);
             dynamicFilterService.registerDynamicFilterConsumer(
-                    taskId.getQueryId(),
-                    taskId.getAttemptId(),
+                    taskId.queryId(),
+                    taskId.attemptId(),
                     outboundDynamicFilterIds,
                     outboundDynamicFiltersCollector::updateDomains);
 
@@ -976,13 +978,17 @@ public final class HttpRemoteTask
             public void onSuccess(JsonResponse<TaskInfo> result)
             {
                 if (result.getStatusCode() != OK.code()) {
-                    onFailure(new RuntimeException("Unexpected http status code " + result.getStatusCode()));
+                    onFailure(exceptionForErrorCode(result));
                     return;
                 }
 
                 try {
                     checkArgument(result.hasValue(), "TaskInfo result did not contain JSON payload; payload=%s", result.getResponseBody());
                     updateTaskInfo(result.getValue());
+                }
+                catch (Throwable e) {
+                    log.error(e, "Error in async cleanup on %s for %s", action, request.getUri());
+                    throw e;
                 }
                 finally {
                     // if cleanup operation has not at least started task termination, mark the task failed
@@ -993,37 +999,51 @@ public final class HttpRemoteTask
                 }
             }
 
+            private static RuntimeException exceptionForErrorCode(JsonResponse<TaskInfo> result)
+            {
+                return switch (result.getStatusCode()) {
+                    case HTTP_UNAVAILABLE -> new ServiceUnavailableException("Service Unavailable");
+                    default -> new RuntimeException("Unexpected http status code " + result.getStatusCode());
+                };
+            }
+
             @Override
             @SuppressWarnings("FormatStringAnnotation") // we manipulate the format string and there's no way to make Error Prone accept the result
-            public void onFailure(Throwable t)
+            public void onFailure(Throwable failure)
             {
-                // final task info has been received, no need to resend the request
-                if (getTaskInfo().taskStatus().getState().isDone()) {
-                    return;
-                }
+                try {
+                    // final task info has been received, no need to resend the request
+                    if (getTaskInfo().taskStatus().getState().isDone()) {
+                        return;
+                    }
 
-                if (t instanceof RejectedExecutionException && httpClient.isClosed()) {
-                    String message = format("Unable to %s task at %s. HTTP client is closed.", action, request.getUri());
-                    logError(t, message);
-                    fatalAsyncCleanupFailure(new TrinoTransportException(REMOTE_TASK_ERROR, fromUri(request.getUri()), message));
-                    return;
-                }
+                    if (failure instanceof RejectedExecutionException && httpClient.isClosed()) {
+                        String message = format("Unable to %s task at %s. HTTP client is closed.", action, request.getUri());
+                        logError(failure, message);
+                        fatalAsyncCleanupFailure(new TrinoTransportException(REMOTE_TASK_ERROR, fromUri(request.getUri()), message));
+                        return;
+                    }
 
-                // record failure
-                if (cleanupBackoff.failure()) {
-                    String message = format("Unable to %s task at %s. Back off depleted.", action, request.getUri());
-                    logError(t, message);
-                    fatalAsyncCleanupFailure(new TrinoTransportException(REMOTE_TASK_ERROR, fromUri(request.getUri()), message));
-                    return;
-                }
+                    // record failure
+                    if (cleanupBackoff.failure()) {
+                        String message = format("Unable to %s task at %s. Back off depleted.", action, request.getUri());
+                        logError(failure, message);
+                        fatalAsyncCleanupFailure(new TrinoTransportException(REMOTE_TASK_ERROR, fromUri(request.getUri()), message));
+                        return;
+                    }
 
-                // reschedule
-                long delayNanos = cleanupBackoff.getBackoffDelayNanos();
-                if (delayNanos == 0) {
-                    doScheduleAsyncCleanupRequest(cleanupBackoff, request, action);
+                    // reschedule
+                    long delayNanos = cleanupBackoff.getBackoffDelayNanos();
+                    if (delayNanos == 0) {
+                        doScheduleAsyncCleanupRequest(cleanupBackoff, request, action);
+                    }
+                    else {
+                        errorScheduledExecutor.schedule(() -> doScheduleAsyncCleanupRequest(cleanupBackoff, request, action), delayNanos, NANOSECONDS);
+                    }
                 }
-                else {
-                    errorScheduledExecutor.schedule(() -> doScheduleAsyncCleanupRequest(cleanupBackoff, request, action), delayNanos, NANOSECONDS);
+                catch (Throwable t) {
+                    log.error(t, "Error handling failure of async cleanup on %s for %s", action, request.getUri());
+                    throw t;
                 }
             }
 
@@ -1046,6 +1066,10 @@ public final class HttpRemoteTask
                             taskStatus = failWith(taskStatus, FAILED, failures);
                         }
                         updateTaskInfo(getTaskInfo().withTaskStatus(taskStatus));
+                    }
+                    catch (Throwable t) {
+                        log.error(t, "Error marking task %s as failed due to %s", taskId, cause);
+                        throw t;
                     }
                 }
             }
@@ -1152,8 +1176,8 @@ public final class HttpRemoteTask
     {
         return tracer.spanBuilder(name)
                 .setParent(Context.current().with(parent))
-                .setAttribute(TrinoAttributes.QUERY_ID, taskId.getQueryId().toString())
-                .setAttribute(TrinoAttributes.STAGE_ID, taskId.getStageId().toString())
+                .setAttribute(TrinoAttributes.QUERY_ID, taskId.queryId().toString())
+                .setAttribute(TrinoAttributes.STAGE_ID, taskId.stageId().toString())
                 .setAttribute(TrinoAttributes.TASK_ID, taskId.toString());
     }
 

@@ -13,11 +13,23 @@
  */
 package io.trino.spi.eventlistener;
 
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
+
 import java.util.Map;
 
 public interface EventListenerFactory
 {
     String getName();
 
-    EventListener create(Map<String, String> config);
+    EventListener create(Map<String, String> config, EventListenerContext context);
+
+    interface EventListenerContext
+    {
+        String getVersion();
+
+        OpenTelemetry getOpenTelemetry();
+
+        Tracer getTracer();
+    }
 }

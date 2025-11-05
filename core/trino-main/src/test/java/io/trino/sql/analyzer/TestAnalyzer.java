@@ -24,6 +24,7 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.client.NodeVersion;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.StaticConnectorFactory;
@@ -68,7 +69,7 @@ import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AllowAllAccessControl;
-import io.trino.spi.connector.CatalogHandle;
+import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
@@ -1140,6 +1141,7 @@ public class TestAnalyzer
     {
         Session session = testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties(
                 new QueryManagerConfig(),
+                new SpoolingEnabledConfig(),
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
                 new FeaturesConfig().setMaxGroupingSets(2048),
@@ -1688,6 +1690,24 @@ public class TestAnalyzer
                 .hasErrorCode(MISSING_OVER);
         assertFails("SELECT coalesce(lead(a), 0) from (values(0)) t(a)")
                 .hasErrorCode(MISSING_OVER);
+    }
+
+    @Test
+    public void testOrderByOnlySupportedForAggregateWindowFunctions()
+    {
+        analyze("SELECT array_agg(a ORDER BY b) OVER () FROM t1");
+        assertFails("SELECT first_value(a ORDER  BY b) OVER () FROM t1")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: Only aggregation window functions with ORDER BY are supported");
+    }
+
+    @Test
+    public void testDistinctOnlySupportedForAggregateWindowFunctions()
+    {
+        analyze("SELECT array_agg(DISTINCT a) OVER () FROM t1");
+        assertFails("SELECT first_value(DISTINCT a) OVER () FROM t1")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageStartingWith("line 1:1: Only aggregation window functions with DISTINCT are supported");
     }
 
     @Test
@@ -2257,13 +2277,6 @@ public class TestAnalyzer
                 "                           )")
                 .hasErrorCode(INVALID_WINDOW_MEASURE)
                 .hasMessage("line 1:8: Measure last_z is not defined in the corresponding window");
-    }
-
-    @Test
-    public void testDistinctInWindowFunctionParameter()
-    {
-        assertFails("SELECT a, count(DISTINCT b) OVER () FROM t1")
-                .hasErrorCode(NOT_SUPPORTED);
     }
 
     @Test
@@ -2943,7 +2956,7 @@ public class TestAnalyzer
                 "          )" +
                 "          SELECT * from t")
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:82: recursion step relation output type (decimal(2,1)) is not coercible to recursion base relation output type (decimal(1,0)) at column 1");
+                .hasMessage("line 1:82: recursion step relation output type (decimal(3,1)) is not coercible to recursion base relation output type (decimal(1,0)) at column 1");
 
         assertFails("WITH RECURSIVE t(n) AS (" +
                 "          SELECT * FROM (VALUES('a'), ('b')) AS t(n)" +
@@ -3163,6 +3176,10 @@ public class TestAnalyzer
     {
         // TODO: validate output
         analyze("SELECT a, SUM(b) FROM t1 GROUP BY a");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY AUTO");
+        analyze("SELECT a as x, SUM(b) FROM t1 GROUP BY AUTO");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY ALL AUTO");
+        analyze("SELECT a as x, SUM(b) FROM t1 GROUP BY DISTINCT AUTO");
     }
 
     @Test
@@ -6421,12 +6438,12 @@ public class TestAnalyzer
 
         analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(t1) ORDER BY \"a\"))");
 
-        // TODO Fix failure when partitioning by a nested field
+        // table function arguments can only be partitioned by their top-level fields
         assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT CAST(ROW(1) AS ROW(x BIGINT)) a) PARTITION BY a.x))")
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessage("line 1:120: Column a.x is not present in the input relation");
 
-        // TODO Fix failure when ordering by a nested field
+        // table function arguments can only be partitioned by their top-level fields
         assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT CAST(ROW(1) AS ROW(x BIGINT)) a) ORDER BY a.x))")
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessage("line 1:116: Column a.x is not present in the input relation");
@@ -7913,5 +7930,8 @@ public class TestAnalyzer
                     stringProperty("p1", "test string property", "", false),
                     integerProperty("p2", "test integer property", 0, false));
         }
+
+        @Override
+        public void shutdown() {}
     }
 }

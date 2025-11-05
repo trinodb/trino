@@ -25,7 +25,7 @@ import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Week of the year of the given timestamp")
 @ScalarFunction(value = "week", alias = "week_of_year")
-public class ExtractWeekOfYear
+public final class ExtractWeekOfYear
 {
     private ExtractWeekOfYear() {}
 

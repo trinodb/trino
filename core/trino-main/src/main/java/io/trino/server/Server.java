@@ -13,7 +13,6 @@
  */
 package io.trino.server;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
@@ -25,11 +24,6 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.compress.v3.lz4.Lz4NativeCompressor;
 import io.airlift.compress.v3.snappy.SnappyNativeCompressor;
 import io.airlift.compress.v3.zstd.ZstdNativeCompressor;
-import io.airlift.discovery.client.Announcer;
-import io.airlift.discovery.client.DiscoveryModule;
-import io.airlift.discovery.client.ServiceAnnouncement;
-import io.airlift.event.client.EventModule;
-import io.airlift.event.client.JsonEventModule;
 import io.airlift.http.server.HttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.JmxHttpModule;
@@ -42,11 +36,8 @@ import io.airlift.openmetrics.JmxOpenMetricsModule;
 import io.airlift.tracing.TracingModule;
 import io.airlift.units.Duration;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogManagerConfig;
-import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.CatalogStoreManager;
-import io.trino.connector.ConnectorServices;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.eventlistener.EventListenerModule;
@@ -54,8 +45,8 @@ import io.trino.exchange.ExchangeManagerModule;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.warnings.WarningCollectorModule;
-import io.trino.metadata.Catalog;
-import io.trino.metadata.CatalogManager;
+import io.trino.node.Announcer;
+import io.trino.node.NodeManagerModule;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AccessControlModule;
 import io.trino.security.GroupProviderManager;
@@ -65,7 +56,6 @@ import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
 import io.trino.server.security.oauth2.OAuth2Client;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.transaction.TransactionManagerModule;
 import io.trino.util.EmbedVersion;
 import org.weakref.jmx.guice.MBeanModule;
@@ -74,20 +64,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.Set;
 
-import static com.google.common.collect.MoreCollectors.toOptional;
-import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
-import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static io.trino.server.TrinoSystemRequirements.verifySystemRequirements;
 import static java.lang.String.format;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
-import static java.util.function.Predicate.not;
-import static java.util.stream.Collectors.joining;
 
 public class Server
 {
@@ -111,7 +94,6 @@ public class Server
         ImmutableList.Builder<Module> modules = ImmutableList.builder();
         modules.add(
                 new NodeModule(),
-                new DiscoveryModule(),
                 new HttpServerModule(),
                 new JsonModule(),
                 new JaxrsModule(),
@@ -122,22 +104,20 @@ public class Server
                 new JmxOpenMetricsModule(),
                 new LogJmxModule(),
                 new TracingModule("trino", trinoVersion),
-                new EventModule(),
-                new JsonEventModule(),
                 new ServerSecurityModule(),
                 new AccessControlModule(),
                 new EventListenerModule(),
                 new ExchangeManagerModule(),
-                new CoordinatorDiscoveryModule(),
                 new CatalogManagerModule(),
                 new TransactionManagerModule(),
+                new NodeManagerModule(trinoVersion),
                 new ServerMainModule(trinoVersion),
-                new GracefulShutdownModule(),
+                new NodeStateManagerModule(),
                 new WarningCollectorModule());
 
         modules.addAll(getAdditionalModules());
 
-        Bootstrap app = new Bootstrap(modules.build())
+        Bootstrap app = new Bootstrap("io.trino.bootstrap.engine", modules.build())
                 .loadSecretsPlugins();
 
         try {
@@ -158,20 +138,6 @@ public class Server
 
             ConnectorServicesProvider connectorServicesProvider = injector.getInstance(ConnectorServicesProvider.class);
             connectorServicesProvider.loadInitialCatalogs();
-
-            // Only static catalog manager announces catalogs
-            // Connector event listeners are only supported for statically loaded catalogs
-            // TODO: remove connector event listeners or add support for dynamic loading from connector
-            if (injector.getInstance(CatalogManagerConfig.class).getCatalogMangerKind() == CatalogMangerKind.STATIC) {
-                CatalogManager catalogManager = injector.getInstance(CatalogManager.class);
-                addConnectorEventListeners(
-                        catalogManager,
-                        injector.getInstance(ConnectorServicesProvider.class),
-                        injector.getInstance(EventListenerManager.class));
-
-                // TODO: remove this huge hack
-                updateConnectorIds(injector.getInstance(Announcer.class), catalogManager);
-            }
 
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
@@ -215,23 +181,6 @@ public class Server
         }
     }
 
-    @VisibleForTesting
-    public static void addConnectorEventListeners(
-            CatalogManager catalogManager,
-            ConnectorServicesProvider connectorServicesProvider,
-            EventListenerManager eventListenerManager)
-    {
-        catalogManager.getCatalogNames().stream()
-                .map(catalogManager::getCatalog)
-                .flatMap(Optional::stream)
-                .filter(not(Catalog::isFailed))
-                .map(Catalog::getCatalogHandle)
-                .map(connectorServicesProvider::getConnectorServices)
-                .map(ConnectorServices::getEventListeners)
-                .flatMap(Collection::stream)
-                .forEach(eventListenerManager::addEventListener);
-    }
-
     private static void addMessages(StringBuilder output, String type, List<Object> messages)
     {
         if (messages.isEmpty()) {
@@ -246,39 +195,6 @@ public class Server
     protected Iterable<? extends Module> getAdditionalModules()
     {
         return ImmutableList.of();
-    }
-
-    private static void updateConnectorIds(Announcer announcer, CatalogManager catalogManager)
-    {
-        // get existing announcement
-        ServiceAnnouncement announcement = getTrinoAnnouncement(announcer.getServiceAnnouncements());
-
-        // automatically build catalogHandleIds if not configured
-        String catalogHandleIds = catalogManager.getCatalogNames().stream()
-                .map(catalogManager::getCatalog)
-                .flatMap(Optional::stream)
-                .map(Catalog::getCatalogHandle)
-                .map(CatalogHandle::getId)
-                .distinct()
-                .sorted()
-                .collect(joining(","));
-
-        // build announcement with updated sources
-        ServiceAnnouncementBuilder builder = serviceAnnouncement(announcement.getType());
-        builder.addProperties(announcement.getProperties());
-        builder.addProperty("catalogHandleIds", catalogHandleIds);
-
-        // update announcement
-        announcer.removeServiceAnnouncement(announcement.getId());
-        announcer.addServiceAnnouncement(builder.build());
-    }
-
-    private static ServiceAnnouncement getTrinoAnnouncement(Set<ServiceAnnouncement> announcements)
-    {
-        return announcements.stream()
-                .filter(announcement -> announcement.getType().equals("trino"))
-                .collect(toOptional())
-                .orElseThrow(() -> new IllegalArgumentException("Trino announcement not found: " + announcements));
     }
 
     private static void logLocation(Logger log, String name, Path path)

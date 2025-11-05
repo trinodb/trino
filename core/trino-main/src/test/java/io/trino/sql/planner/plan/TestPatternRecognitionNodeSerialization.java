@@ -200,7 +200,6 @@ public class TestPatternRecognitionNodeSerialization
                 new PlanNodeId("0"),
                 new ValuesNode(new PlanNodeId("1"), 1),
                 new DataOrganizationSpecification(ImmutableList.of(), Optional.empty()),
-                Optional.empty(),
                 ImmutableSet.of(),
                 0,
                 ImmutableMap.of(
@@ -208,7 +207,9 @@ public class TestPatternRecognitionNodeSerialization
                         new Function(
                                 rankFunction,
                                 ImmutableList.of(),
+                                Optional.empty(),
                                 new Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty()),
+                                false,
                                 false)),
                 ImmutableMap.of(
                         new Symbol(BOOLEAN, "measure"),

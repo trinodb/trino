@@ -17,6 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
+import io.trino.execution.HeapSizeParser;
 import jakarta.validation.constraints.NotNull;
 
 // This is separate from MemoryManagerConfig because it's difficult to test the default value of maxQueryMemoryPerNode
@@ -29,10 +30,8 @@ import jakarta.validation.constraints.NotNull;
 })
 public class NodeMemoryConfig
 {
-    public static final long AVAILABLE_HEAP_MEMORY = Runtime.getRuntime().maxMemory();
-    private DataSize maxQueryMemoryPerNode = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3));
-
-    private DataSize heapHeadroom = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3));
+    private DataSize maxQueryMemoryPerNode = HeapSizeParser.DEFAULT.parse("30%");
+    private DataSize heapHeadroom = HeapSizeParser.DEFAULT.parse("30%");
 
     @NotNull
     public DataSize getMaxQueryMemoryPerNode()
@@ -41,9 +40,9 @@ public class NodeMemoryConfig
     }
 
     @Config("query.max-memory-per-node")
-    public NodeMemoryConfig setMaxQueryMemoryPerNode(DataSize maxQueryMemoryPerNode)
+    public NodeMemoryConfig setMaxQueryMemoryPerNode(String maxQueryMemoryPerNode)
     {
-        this.maxQueryMemoryPerNode = maxQueryMemoryPerNode;
+        this.maxQueryMemoryPerNode = HeapSizeParser.DEFAULT.parse(maxQueryMemoryPerNode);
         return this;
     }
 
@@ -55,9 +54,9 @@ public class NodeMemoryConfig
 
     @Config("memory.heap-headroom-per-node")
     @ConfigDescription("The amount of heap memory to set aside as headroom/buffer (e.g., for untracked allocations)")
-    public NodeMemoryConfig setHeapHeadroom(DataSize heapHeadroom)
+    public NodeMemoryConfig setHeapHeadroom(String heapHeadroom)
     {
-        this.heapHeadroom = heapHeadroom;
+        this.heapHeadroom = HeapSizeParser.DEFAULT.parse(heapHeadroom);
         return this;
     }
 }

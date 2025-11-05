@@ -1,12 +1,53 @@
 # Array functions and operators
 
+Array functions and operators use the [ARRAY type](array-type). Create an array
+with the data type constructor.
+
+Create an array of integer numbers:
+
+```sql
+SELECT ARRAY[1, 2, 4];
+-- [1, 2, 4]
+```
+
+Create an array of character values:
+
+```sql
+SELECT ARRAY['foo', 'bar', 'bazz'];
+-- [foo, bar, bazz]
+```
+
+Array elements must use the same type or it must be possible to coerce values to
+a common type. The following example uses integer and decimal values and the
+resulting array contains decimals:
+
+```sql
+SELECT ARRAY[1, 1.2, 4];
+-- [1.0, 1.2, 4.0]
+```
+
+Null values are allowed:
+
+```sql
+SELECT ARRAY[1, 2, NULL, -4, NULL];
+-- [1, 2, NULL, -4, NULL]
+```
+
 (subscript-operator)=
 ## Subscript operator: \[\]
 
-The `[]` operator is used to access an element of an array and is indexed starting from one:
+The `[]` operator is used to access an element of an array and is indexed
+starting from one:
 
-```
+```sql
 SELECT my_array[1] AS first_element
+```
+
+The following example constructs an array and then accesses the second element:
+
+```sql
+SELECT ARRAY[1, 1.2, 4][2];
+-- 1.2
 ```
 
 (concatenation-operator)=

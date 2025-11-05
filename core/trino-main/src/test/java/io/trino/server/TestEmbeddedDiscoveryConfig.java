@@ -14,6 +14,7 @@
 package io.trino.server;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.node.EmbeddedDiscoveryConfig;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;

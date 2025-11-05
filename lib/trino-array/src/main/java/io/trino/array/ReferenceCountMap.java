@@ -47,6 +47,16 @@ public final class ReferenceCountMap
     }
 
     /**
+     * Increments the reference count of an object by 1, using the extraIdentity parameter to produce a more
+     * varied hashCode. This calling convention should not be mixed with calling {@link ReferenceCountMap#incrementAndGet(Object)}
+     * since doing so may produce different hash codes
+     */
+    public int incrementAndGetWithExtraIdentity(Object key, long extraIdentity)
+    {
+        return addTo(getHashCode(key, (int) extraIdentity), 1) + 1;
+    }
+
+    /**
      * Decrements the reference count of an object by 1 and returns the updated reference count
      */
     public int decrementAndGet(Object key)
@@ -68,9 +78,9 @@ public final class ReferenceCountMap
     }
 
     /**
-     * Get the 64-bit hash code for an object
+     * Get the additional argument to use in order to produce the 64-bit hash code for an object
      */
-    private static long getHashCode(Object key)
+    private static int getExtraIdentity(Object key)
     {
         // identityHashCode of two objects are not guaranteed to be different.
         // Any additional identity information can reduce collisions.
@@ -82,21 +92,34 @@ public final class ReferenceCountMap
         if (key == null) {
             extraIdentity = 0;
         }
-        else if (key instanceof Block) {
-            extraIdentity = (int) ((Block) key).getRetainedSizeInBytes();
+        else if (key instanceof Block block) {
+            extraIdentity = (int) block.getRetainedSizeInBytes();
         }
-        else if (key instanceof Slice) {
-            extraIdentity = (int) ((Slice) key).getRetainedSize();
+        else if (key instanceof Slice slice) {
+            extraIdentity = (int) slice.getRetainedSize();
         }
         else if (key.getClass().isArray()) {
             extraIdentity = getLength(key);
         }
-        else if (key instanceof MapHashTables) {
-            extraIdentity = (int) ((MapHashTables) key).getRetainedSizeInBytes();
+        else if (key instanceof MapHashTables mapHashTables) {
+            extraIdentity = (int) mapHashTables.getRetainedSizeInBytes();
         }
         else {
             throw new IllegalArgumentException(format("Unsupported type for %s", key));
         }
+        return extraIdentity;
+    }
+
+    /**
+     * Get the 64 bit hash code for the value, using the built-in extra identity argument resolution
+     */
+    private static long getHashCode(Object key)
+    {
+        return getHashCode(key, getExtraIdentity(key));
+    }
+
+    private static long getHashCode(Object key, int extraIdentity)
+    {
         return (((long) System.identityHashCode(key)) << Integer.SIZE) + extraIdentity;
     }
 }

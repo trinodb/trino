@@ -21,19 +21,13 @@ import java.util.Optional;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class HiveReadOnlyException
         extends TrinoException
 {
-    private final SchemaTableName tableName;
-    private final Optional<String> partition;
-
     public HiveReadOnlyException(SchemaTableName tableName, Optional<String> partition)
     {
         super(partition.isPresent() ? HIVE_PARTITION_READ_ONLY : HIVE_TABLE_READ_ONLY, composeMessage(tableName, partition));
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.partition = requireNonNull(partition, "partition is null");
     }
 
     private static String composeMessage(SchemaTableName tableName, Optional<String> partition)
@@ -41,15 +35,5 @@ public class HiveReadOnlyException
         return partition.isPresent()
                 ? format("Table '%s' partition '%s' is read-only", tableName, partition.get())
                 : format("Table '%s' is read-only", tableName);
-    }
-
-    public SchemaTableName getTableName()
-    {
-        return tableName;
-    }
-
-    public Optional<String> getPartition()
-    {
-        return partition;
     }
 }

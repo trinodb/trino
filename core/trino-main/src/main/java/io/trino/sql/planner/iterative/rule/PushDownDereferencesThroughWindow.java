@@ -81,7 +81,7 @@ public class PushDownDereferencesThroughWindow
         // Extract dereferences for pushdown
         Set<FieldReference> dereferences = extractRowSubscripts(
                 ImmutableList.<Expression>builder()
-                        .addAll(projectNode.getAssignments().getExpressions())
+                        .addAll(projectNode.getAssignments().expressions())
                         // also include dereference projections used in window functions
                         .addAll(windowNode.getWindowFunctions().values().stream()
                                 .flatMap(function -> function.getArguments().stream())
@@ -96,6 +96,7 @@ public class PushDownDereferencesThroughWindow
                     // Exclude partitionBy, orderBy and synthesized symbols
                     return !specification.partitionBy().contains(symbol) &&
                             !specification.orderingScheme().map(OrderingScheme::orderBy).orElse(ImmutableList.of()).contains(symbol) &&
+                            !windowNode.getWindowFunctions().values().stream().anyMatch(function -> function.getOrderingScheme().map(scheme -> scheme.orderBy().contains(symbol)).orElse(false)) &&
                             !windowNode.getCreatedSymbols().contains(symbol);
                 })
                 .collect(toImmutableSet());
@@ -108,7 +109,7 @@ public class PushDownDereferencesThroughWindow
         Assignments dereferenceAssignments = Assignments.of(dereferences, context.getSymbolAllocator());
 
         // Rewrite project node assignments using new symbols for dereference expressions
-        Map<Expression, Reference> mappings = HashBiMap.create(dereferenceAssignments.getMap())
+        Map<Expression, Reference> mappings = HashBiMap.create(dereferenceAssignments.assignments())
                 .inverse()
                 .entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
@@ -138,10 +139,11 @@ public class PushDownDereferencesThroughWindow
                                                             oldFunction.getArguments().stream()
                                                                     .map(expression -> replaceExpression(expression, mappings))
                                                                     .collect(toImmutableList()),
+                                                            oldFunction.getOrderingScheme(),
                                                             oldFunction.getFrame(),
-                                                            oldFunction.isIgnoreNulls());
+                                                            oldFunction.isIgnoreNulls(),
+                                                            oldFunction.isDistinct());
                                                 })),
-                                windowNode.getHashSymbol(),
                                 windowNode.getPrePartitionedInputs(),
                                 windowNode.getPreSortedOrderPrefix()),
                         newAssignments));

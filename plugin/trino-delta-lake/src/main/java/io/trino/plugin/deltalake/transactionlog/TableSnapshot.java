@@ -16,16 +16,18 @@ package io.trino.plugin.deltalake.transactionlog;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReader;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -37,12 +39,19 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
@@ -53,6 +62,7 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 /**
  * The current state of a Delta table.  It's defined by its latest checkpoint and the subsequent transactions
@@ -60,15 +70,19 @@ import static java.util.Objects.requireNonNull;
  */
 public class TableSnapshot
 {
+    private static final int INSTANCE_SIZE = instanceSize(TableSnapshot.class);
+
     private final Optional<LastCheckpoint> lastCheckpoint;
     private final SchemaTableName table;
     private final TransactionLogTail logTail;
     private final String tableLocation;
     private final ParquetReaderOptions parquetReaderOptions;
+    private final DataSize transactionLogMaxCachedFileSize;
     private final boolean checkpointRowStatisticsWritingEnabled;
     private final int domainCompactionThreshold;
 
     private Optional<MetadataEntry> cachedMetadata = Optional.empty();
+    private Optional<ProtocolEntry> cachedProtocol = Optional.empty();
 
     private TableSnapshot(
             SchemaTableName table,
@@ -77,7 +91,8 @@ public class TableSnapshot
             String tableLocation,
             ParquetReaderOptions parquetReaderOptions,
             boolean checkpointRowStatisticsWritingEnabled,
-            int domainCompactionThreshold)
+            int domainCompactionThreshold,
+            DataSize transactionLogMaxCachedFileSize)
     {
         this.table = requireNonNull(table, "table is null");
         this.lastCheckpoint = requireNonNull(lastCheckpoint, "lastCheckpoint is null");
@@ -86,21 +101,24 @@ public class TableSnapshot
         this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         this.checkpointRowStatisticsWritingEnabled = checkpointRowStatisticsWritingEnabled;
         this.domainCompactionThreshold = domainCompactionThreshold;
+        this.transactionLogMaxCachedFileSize = requireNonNull(transactionLogMaxCachedFileSize, "transactionLogMaxCachedFileSize is null");
     }
 
     public static TableSnapshot load(
+            ConnectorSession session,
+            TransactionLogReader transactionLogReader,
             SchemaTableName table,
             Optional<LastCheckpoint> lastCheckpoint,
-            TrinoFileSystem fileSystem,
             String tableLocation,
             ParquetReaderOptions parquetReaderOptions,
             boolean checkpointRowStatisticsWritingEnabled,
             int domainCompactionThreshold,
+            DataSize transactionLogMaxCachedFileSize,
             Optional<Long> endVersion)
             throws IOException
     {
         Optional<Long> lastCheckpointVersion = lastCheckpoint.map(LastCheckpoint::version);
-        TransactionLogTail transactionLogTail = TransactionLogTail.loadNewTail(fileSystem, tableLocation, lastCheckpointVersion, endVersion);
+        TransactionLogTail transactionLogTail = transactionLogReader.loadNewTail(session, lastCheckpointVersion, endVersion, transactionLogMaxCachedFileSize);
 
         return new TableSnapshot(
                 table,
@@ -109,10 +127,11 @@ public class TableSnapshot
                 tableLocation,
                 parquetReaderOptions,
                 checkpointRowStatisticsWritingEnabled,
-                domainCompactionThreshold);
+                domainCompactionThreshold,
+                transactionLogMaxCachedFileSize);
     }
 
-    public Optional<TableSnapshot> getUpdatedSnapshot(TrinoFileSystem fileSystem, Optional<Long> toVersion)
+    public Optional<TableSnapshot> getUpdatedSnapshot(ConnectorSession session, TransactionLogReader transactionLogReader, TrinoFileSystem fileSystem, Optional<Long> toVersion)
             throws IOException
     {
         if (toVersion.isEmpty()) {
@@ -124,19 +143,21 @@ public class TableSnapshot
                 if (ourCheckpointVersion != lastCheckpoint.get().version()) {
                     // There is a new checkpoint in the table, load anew
                     return Optional.of(TableSnapshot.load(
+                            session,
+                            transactionLogReader,
                             table,
                             lastCheckpoint,
-                            fileSystem,
                             tableLocation,
                             parquetReaderOptions,
                             checkpointRowStatisticsWritingEnabled,
                             domainCompactionThreshold,
+                            transactionLogMaxCachedFileSize,
                             Optional.empty()));
                 }
             }
         }
 
-        Optional<TransactionLogTail> updatedLogTail = logTail.getUpdatedTail(fileSystem, tableLocation, toVersion);
+        Optional<TransactionLogTail> updatedLogTail = transactionLogReader.getUpdatedTail(session, logTail, toVersion, transactionLogMaxCachedFileSize);
         return updatedLogTail.map(transactionLogTail -> new TableSnapshot(
                 table,
                 lastCheckpoint,
@@ -144,7 +165,8 @@ public class TableSnapshot
                 tableLocation,
                 parquetReaderOptions,
                 checkpointRowStatisticsWritingEnabled,
-                domainCompactionThreshold));
+                domainCompactionThreshold,
+                transactionLogMaxCachedFileSize));
     }
 
     public long getVersion()
@@ -162,6 +184,11 @@ public class TableSnapshot
         return cachedMetadata;
     }
 
+    public Optional<ProtocolEntry> getCachedProtocol()
+    {
+        return cachedProtocol;
+    }
+
     public String getTableLocation()
     {
         return tableLocation;
@@ -172,14 +199,30 @@ public class TableSnapshot
         this.cachedMetadata = cachedMetadata;
     }
 
-    public List<DeltaLakeTransactionLogEntry> getJsonTransactionLogEntries()
+    public void setCachedProtocol(Optional<ProtocolEntry> cachedProtocol)
     {
-        return logTail.getFileEntries();
+        this.cachedProtocol = cachedProtocol;
+    }
+
+    public List<DeltaLakeTransactionLogEntry> getJsonTransactionLogEntries(TrinoFileSystem fileSystem)
+    {
+        return logTail.getFileEntries(fileSystem);
     }
 
     public List<Transaction> getTransactions()
     {
         return logTail.getTransactions();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + sizeOf(lastCheckpoint, LastCheckpoint::getRetainedSizeInBytes)
+                + table.getRetainedSizeInBytes()
+                + logTail.getRetainedSizeInBytes()
+                + estimatedSizeOf(tableLocation)
+                + sizeOf(cachedMetadata, MetadataEntry::getRetainedSizeInBytes)
+                + sizeOf(cachedProtocol, ProtocolEntry::getRetainedSizeInBytes);
     }
 
     public Stream<DeltaLakeTransactionLogEntry> getCheckpointTransactionLogEntries(
@@ -191,7 +234,8 @@ public class TableSnapshot
             FileFormatDataSourceStats stats,
             Optional<MetadataAndProtocolEntry> metadataAndProtocol,
             TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
-            Optional<Predicate<String>> addStatsMinMaxColumnFilter)
+            Optional<Predicate<String>> addStatsMinMaxColumnFilter,
+            Executor executor)
             throws IOException
     {
         if (lastCheckpoint.isEmpty()) {
@@ -219,7 +263,8 @@ public class TableSnapshot
                         checkpoint,
                         checkpointFile,
                         partitionConstraint,
-                        addStatsMinMaxColumnFilter));
+                        addStatsMinMaxColumnFilter,
+                        executor));
     }
 
     public Optional<Long> getLastCheckpointVersion()
@@ -239,7 +284,8 @@ public class TableSnapshot
             LastCheckpoint checkpoint,
             TrinoInputFile checkpointFile,
             TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
-            Optional<Predicate<String>> addStatsMinMaxColumnFilter)
+            Optional<Predicate<String>> addStatsMinMaxColumnFilter,
+            Executor executor)
     {
         long fileSize;
         try {
@@ -265,7 +311,8 @@ public class TableSnapshot
                     partitionConstraint,
                     addStatsMinMaxColumnFilter,
                     fileSystem,
-                    fileSize);
+                    fileSize,
+                    executor);
         }
         CheckpointEntryIterator checkpointEntryIterator = new CheckpointEntryIterator(
                 checkpointFile,
@@ -298,34 +345,60 @@ public class TableSnapshot
             TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
             Optional<Predicate<String>> addStatsMinMaxColumnFilter,
             TrinoFileSystem fileSystem,
-            long fileSize)
+            long fileSize,
+            Executor executor)
     {
-        return getV2CheckpointEntries(session, entryTypes, metadataEntry, protocolEntry, checkpointSchemaManager, typeManager, stats, checkpoint, checkpointFile, partitionConstraint, addStatsMinMaxColumnFilter, fileSystem, fileSize)
-                .mapMulti((entry, builder) -> {
-                    // Sidecar files contain only ADD and REMOVE entry types. https://github.com/delta-io/delta/blob/master/PROTOCOL.md#v2-spec
-                    Set<CheckpointEntryIterator.EntryType> dataEntryTypes = Sets.intersection(entryTypes, Set.of(ADD, REMOVE));
-                    if (entry.getSidecar() == null || dataEntryTypes.isEmpty()) {
-                        builder.accept(entry);
-                        return;
+        // Sidecar files contain only ADD and REMOVE entry types. https://github.com/delta-io/delta/blob/master/PROTOCOL.md#v2-spec
+        Set<CheckpointEntryIterator.EntryType> dataEntryTypes = Sets.intersection(entryTypes, Set.of(ADD, REMOVE));
+        Stream<DeltaLakeTransactionLogEntry> v2CheckpointEntries = getV2CheckpointEntries(
+                session,
+                entryTypes,
+                metadataEntry,
+                protocolEntry,
+                checkpointSchemaManager,
+                typeManager,
+                stats,
+                checkpoint,
+                checkpointFile,
+                partitionConstraint,
+                addStatsMinMaxColumnFilter,
+                fileSystem,
+                fileSize);
+        if (dataEntryTypes.isEmpty()) {
+            return v2CheckpointEntries;
+        }
+
+        List<CompletableFuture<Stream<DeltaLakeTransactionLogEntry>>> logEntryStreamFutures = v2CheckpointEntries
+                .map(v2checkpointEntry -> {
+                    if (v2checkpointEntry.getSidecar() == null) {
+                        return CompletableFuture.completedFuture(Stream.of(v2checkpointEntry));
                     }
-                    Location sidecar = checkpointFile.location().sibling("_sidecars").appendPath(entry.getSidecar().path());
-                    CheckpointEntryIterator iterator = new CheckpointEntryIterator(
-                            fileSystem.newInputFile(sidecar),
-                            session,
-                            fileSize,
-                            checkpointSchemaManager,
-                            typeManager,
-                            dataEntryTypes,
-                            metadataEntry,
-                            protocolEntry,
-                            stats,
-                            parquetReaderOptions,
-                            checkpointRowStatisticsWritingEnabled,
-                            domainCompactionThreshold,
-                            partitionConstraint,
-                            addStatsMinMaxColumnFilter);
-                    stream(iterator).onClose(iterator::close).forEach(builder);
-                });
+                    // Sidecar files are retrieved in parallel using a bounded executor
+                    return supplyAsync(() -> {
+                        Location sidecar = checkpointFile.location().sibling("_sidecars").appendPath(v2checkpointEntry.getSidecar().path());
+                        CheckpointEntryIterator iterator = new CheckpointEntryIterator(
+                                fileSystem.newInputFile(sidecar),
+                                session,
+                                v2checkpointEntry.getSidecar().sizeInBytes(),
+                                checkpointSchemaManager,
+                                typeManager,
+                                dataEntryTypes,
+                                metadataEntry,
+                                protocolEntry,
+                                stats,
+                                parquetReaderOptions,
+                                checkpointRowStatisticsWritingEnabled,
+                                domainCompactionThreshold,
+                                partitionConstraint,
+                                addStatsMinMaxColumnFilter);
+                        return stream(iterator).onClose(iterator::close);
+                    }, executor);
+                })
+                .collect(toImmutableList());
+        // Return the stream to retrieve the values of the futures lazily and allow streamlined split generation
+        return logEntryStreamFutures.stream()
+                .mapMulti((logEntryStream, builder)
+                        -> getFutureValue(logEntryStream, TrinoException.class).forEach(builder));
     }
 
     private Stream<DeltaLakeTransactionLogEntry> getV2CheckpointEntries(
@@ -345,7 +418,9 @@ public class TableSnapshot
     {
         if (checkpointFile.location().fileName().endsWith(".json")) {
             try {
-                return getEntriesFromJson(checkpoint.version(), checkpointFile).stream().flatMap(List::stream);
+                return getEntriesFromJson(checkpoint.version(), checkpointFile, transactionLogMaxCachedFileSize)
+                        .stream()
+                        .flatMap(logEntries -> logEntries.getEntries(fileSystem));
             }
             catch (IOException e) {
                 throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Unexpected IO exception occurred while reading the entries of the file: %s for the table %s", checkpoint, table), e);

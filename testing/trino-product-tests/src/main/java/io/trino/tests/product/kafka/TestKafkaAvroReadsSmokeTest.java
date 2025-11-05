@@ -86,7 +86,7 @@ public class TestKafkaAvroReadsSmokeTest
     public void testSelectPrimitiveDataType(KafkaCatalog kafkaCatalog)
             throws Exception
     {
-        ImmutableMap<String, Object> record = ImmutableMap.of(
+        Map<String, Object> record = ImmutableMap.of(
                 "a_varchar", "foobar",
                 "a_bigint", 127L,
                 "a_double", 234.567,
@@ -127,7 +127,7 @@ public class TestKafkaAvroReadsSmokeTest
     public void testSelectStructuralDataType(KafkaCatalog kafkaCatalog)
             throws Exception
     {
-        ImmutableMap<String, Object> record = ImmutableMap.of(
+        Map<String, Object> record = ImmutableMap.of(
                 "a_array", ImmutableList.of(100L, 102L),
                 "a_map", ImmutableMap.of("key1", "value1"));
         String topicName = STRUCTURAL_AVRO_TOPIC_NAME + kafkaCatalog.topicNameSuffix();

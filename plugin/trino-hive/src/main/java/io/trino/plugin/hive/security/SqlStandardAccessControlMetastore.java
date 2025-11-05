@@ -13,24 +13,47 @@
  */
 package io.trino.plugin.hive.security;
 
+import com.google.inject.Inject;
 import io.trino.metastore.Database;
 import io.trino.metastore.HivePrincipal;
 import io.trino.metastore.HivePrivilegeInfo;
+import io.trino.plugin.hive.HiveTransactionManager;
+import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.security.RoleGrant;
 
 import java.util.Optional;
 import java.util.Set;
 
-/**
- * Interface for accessing metastore information needed for implementing sql-standard flavor of
- * access control mechanism.
- */
-public interface SqlStandardAccessControlMetastore
+import static java.util.Objects.requireNonNull;
+
+public class SqlStandardAccessControlMetastore
 {
-    Set<RoleGrant> listRoleGrants(ConnectorSecurityContext context, HivePrincipal principal);
+    private final HiveTransactionManager transactionManager;
 
-    Set<HivePrivilegeInfo> listTablePrivileges(ConnectorSecurityContext context, String databaseName, String tableName, Optional<HivePrincipal> principal);
+    @Inject
+    public SqlStandardAccessControlMetastore(HiveTransactionManager transactionManager)
+    {
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+    }
 
-    Optional<Database> getDatabase(ConnectorSecurityContext context, String databaseName);
+    public Set<RoleGrant> listRoleGrants(ConnectorSecurityContext context, HivePrincipal principal)
+    {
+        return metastore(context).listRoleGrants(principal);
+    }
+
+    public Set<HivePrivilegeInfo> listTablePrivileges(ConnectorSecurityContext context, String databaseName, String tableName, Optional<HivePrincipal> principal)
+    {
+        return metastore(context).listTablePrivileges(databaseName, tableName, principal);
+    }
+
+    public Optional<Database> getDatabase(ConnectorSecurityContext context, String databaseName)
+    {
+        return metastore(context).getDatabase(databaseName);
+    }
+
+    private SemiTransactionalHiveMetastore metastore(ConnectorSecurityContext context)
+    {
+        return transactionManager.get(context.getTransactionHandle(), context.getIdentity()).getMetastore();
+    }
 }

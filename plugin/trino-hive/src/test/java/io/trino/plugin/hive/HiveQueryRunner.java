@@ -22,7 +22,8 @@ import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.metastore.HiveMetastoreFactory;
+import io.trino.parquet.crypto.DecryptionKeyRetriever;
 import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.plugin.tpch.DecimalTypeMapping;
@@ -46,6 +47,7 @@ import java.util.function.Function;
 
 import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
+import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.plugin.tpch.ColumnNaming.SIMPLIFIED;
 import static io.trino.plugin.tpch.DecimalTypeMapping.DOUBLE;
@@ -100,11 +102,13 @@ public final class HiveQueryRunner
         private List<TpchTable<?>> initialTables = ImmutableList.of();
         private Optional<String> initialSchemasLocationBase = Optional.empty();
         private Optional<Function<DistributedQueryRunner, HiveMetastore>> metastore = Optional.empty();
+        private boolean metastoreImpersonationEnabled;
         private boolean tpcdsCatalogEnabled;
         private boolean tpchBucketedCatalogEnabled;
         private boolean createTpchSchemas = true;
         private ColumnNaming tpchColumnNaming = SIMPLIFIED;
         private DecimalTypeMapping tpchDecimalTypeMapping = DOUBLE;
+        private Optional<DecryptionKeyRetriever> decryptionKeyRetriever = Optional.empty();
 
         protected Builder()
         {
@@ -160,6 +164,13 @@ public final class HiveQueryRunner
         }
 
         @CanIgnoreReturnValue
+        public SELF setMetastoreImpersonationEnabled(boolean metastoreImpersonationEnabled)
+        {
+            this.metastoreImpersonationEnabled = metastoreImpersonationEnabled;
+            return self();
+        }
+
+        @CanIgnoreReturnValue
         public SELF setTpcdsCatalogEnabled(boolean tpcdsCatalogEnabled)
         {
             this.tpcdsCatalogEnabled = tpcdsCatalogEnabled;
@@ -196,6 +207,13 @@ public final class HiveQueryRunner
             return self();
         }
 
+        @CanIgnoreReturnValue
+        public SELF setDecryptionKeyRetriever(DecryptionKeyRetriever decryptionKeyRetriever)
+        {
+            this.decryptionKeyRetriever = Optional.of(requireNonNull(decryptionKeyRetriever, "decryptionKeyRetriever is null"));
+            return self();
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
@@ -222,11 +240,12 @@ public final class HiveQueryRunner
                     hiveProperties.put("hive.metastore", "file");
                     hiveProperties.put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toString());
                 }
-                if (!hiveProperties.buildOrThrow().containsKey("fs.hadoop.enabled")) {
+                if (hiveProperties.buildOrThrow().keySet().stream().noneMatch(key ->
+                        key.equals("fs.hadoop.enabled") || key.startsWith("fs.native-"))) {
                     hiveProperties.put("fs.hadoop.enabled", "true");
                 }
 
-                queryRunner.installPlugin(new TestingHivePlugin(dataDir, metastore));
+                queryRunner.installPlugin(new TestingHivePlugin(dataDir, metastore, metastoreImpersonationEnabled, decryptionKeyRetriever));
 
                 Map<String, String> hiveProperties = new HashMap<>();
                 if (!skipTimezoneSetup) {
@@ -270,7 +289,7 @@ public final class HiveQueryRunner
         private void populateData(QueryRunner queryRunner)
         {
             HiveMetastore metastore = getConnectorService(queryRunner, HiveMetastoreFactory.class)
-                    .createMetastore(Optional.empty());
+                    .createMetastore(Optional.of(SESSION.getIdentity()));
             if (metastore.getDatabase(TPCH_SCHEMA).isEmpty()) {
                 metastore.createDatabase(createDatabaseMetastoreObject(TPCH_SCHEMA, initialSchemasLocationBase));
                 copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);

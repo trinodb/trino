@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.io.ByteStreams.toByteArray;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.walkFileTree;
@@ -123,7 +122,7 @@ final class PluginDiscovery
             if (in == null) {
                 throw new RuntimeException("Failed to read class: " + name);
             }
-            return new ClassReader(toByteArray(in));
+            return new ClassReader(in.readAllBytes());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

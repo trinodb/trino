@@ -50,7 +50,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
-import java.util.OptionalInt;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -317,9 +316,8 @@ public class PagesIndex
             // append the row
             pageBuilder.declarePosition();
             for (int channel = 0; channel < channels.length; channel++) {
-                Type type = types.get(channel);
                 Block block = channels[channel].get(blockIndex);
-                type.appendTo(block, blockPosition, pageBuilder.getBlockBuilder(channel));
+                pageBuilder.getBlockBuilder(channel).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(blockPosition));
             }
 
             position++;
@@ -332,10 +330,9 @@ public class PagesIndex
     {
         long pageAddress = valueAddresses.getLong(position);
 
-        Type type = types.get(channel);
         Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
-        type.appendTo(block, blockPosition, output);
+        output.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(blockPosition));
     }
 
     public boolean isNull(int channel, int position)
@@ -415,13 +412,19 @@ public class PagesIndex
 
     public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
-        sort(sortChannels, sortOrders, 0, getPositionCount());
+        sort(createPagesIndexComparator(sortChannels, sortOrders), 0, getPositionCount());
     }
 
-    public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders, int startPosition, int endPosition)
+    public void sort(PagesIndexOrdering pagesIndexOrdering)
     {
+        sort(pagesIndexOrdering, 0, getPositionCount());
+    }
+
+    public void sort(PagesIndexOrdering pagesIndexOrdering, int startPosition, int endPosition)
+    {
+        requireNonNull(pagesIndexOrdering, "pagesIndexOrdering is null");
         modificationCount++;
-        createPagesIndexComparator(sortChannels, sortOrders).sort(this, startPosition, endPosition);
+        pagesIndexOrdering.sort(this, startPosition, endPosition);
     }
 
     public boolean positionIdenticalToPosition(PagesHashStrategy partitionHashStrategy, int leftPosition, int rightPosition)
@@ -446,7 +449,7 @@ public class PagesIndex
         return pagesHashStrategy.positionIdenticalToRow(pageIndex, pagePosition, rightPosition, rightPage);
     }
 
-    private PagesIndexOrdering createPagesIndexComparator(List<Integer> sortChannels, List<SortOrder> sortOrders)
+    public PagesIndexOrdering createPagesIndexComparator(List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
         List<Type> sortTypes = sortChannels.stream()
                 .map(types::get)
@@ -456,19 +459,19 @@ public class PagesIndex
 
     public Supplier<LookupSource> createLookupSourceSupplier(Session session, List<Integer> joinChannels)
     {
-        return createLookupSourceSupplier(session, joinChannels, OptionalInt.empty(), Optional.empty(), Optional.empty(), ImmutableList.of());
+        return createLookupSourceSupplier(session, joinChannels, Optional.empty(), Optional.empty(), ImmutableList.of());
     }
 
-    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, OptionalInt hashChannel)
+    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels)
     {
-        return createPagesHashStrategy(joinChannels, hashChannel, Optional.empty());
+        return createPagesHashStrategy(joinChannels, Optional.empty());
     }
 
-    private PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, OptionalInt hashChannel, Optional<List<Integer>> outputChannels)
+    private PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, Optional<List<Integer>> outputChannels)
     {
         try {
             return joinCompiler.compilePagesHashStrategyFactory(types, joinChannels, outputChannels)
-                    .createPagesHashStrategy(ImmutableList.copyOf(channels), hashChannel);
+                    .createPagesHashStrategy(ImmutableList.copyOf(channels));
         }
         catch (Exception e) {
             log.error(e, "Lookup source compile failed for types=%s error=%s", types, e);
@@ -480,7 +483,6 @@ public class PagesIndex
                 outputChannels.orElseGet(() -> rangeList(types.size())),
                 ImmutableList.copyOf(channels),
                 joinChannels,
-                hashChannel,
                 Optional.empty(),
                 blockTypeOperators);
     }
@@ -494,12 +496,11 @@ public class PagesIndex
     public LookupSourceSupplier createLookupSourceSupplier(
             Session session,
             List<Integer> joinChannels,
-            OptionalInt hashChannel,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<Integer> sortChannel,
             List<JoinFilterFunctionFactory> searchFunctionFactories)
     {
-        return createLookupSourceSupplier(session, joinChannels, hashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.empty(), defaultHashArraySizeSupplier());
+        return createLookupSourceSupplier(session, joinChannels, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.empty(), defaultHashArraySizeSupplier());
     }
 
     public PagesSpatialIndexSupplier createPagesSpatialIndex(
@@ -515,13 +516,12 @@ public class PagesIndex
     {
         // TODO probably shouldn't copy to reduce memory and for memory accounting's sake
         List<ObjectArrayList<Block>> channels = ImmutableList.copyOf(this.channels);
-        return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, radiusChannel, constantRadius, partitionChannel, spatialRelationshipTest, filterFunctionFactory, partitions);
+        return new PagesSpatialIndexSupplier(session, valueAddresses, outputChannels, channels, geometryChannel, radiusChannel, constantRadius, partitionChannel, spatialRelationshipTest, filterFunctionFactory, partitions);
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(
             Session session,
             List<Integer> joinChannels,
-            OptionalInt hashChannel,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<Integer> sortChannel,
             List<JoinFilterFunctionFactory> searchFunctionFactories,
@@ -529,42 +529,15 @@ public class PagesIndex
             HashArraySizeSupplier hashArraySizeSupplier)
     {
         List<ObjectArrayList<Block>> channels = ImmutableList.copyOf(this.channels);
-        if (!joinChannels.isEmpty()) {
-            // todo compiled implementation of lookup join does not support when we are joining with empty join channels.
-            // This code path will trigger only for OUTER joins. To fix that we need to add support for
-            //        OUTER joins into NestedLoopsJoin and remove "type == INNER" condition in LocalExecutionPlanner.visitJoin()
-
-            LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, sortChannel, outputChannels);
-            return lookupSourceFactory.createLookupSourceSupplier(
-                    session,
-                    valueAddresses,
-                    channels,
-                    hashChannel,
-                    filterFunctionFactory,
-                    sortChannel,
-                    searchFunctionFactories,
-                    hashArraySizeSupplier);
-        }
-
-        PagesHashStrategy hashStrategy = new SimplePagesHashStrategy(
-                types,
-                outputChannels.orElseGet(() -> rangeList(types.size())),
-                channels,
-                joinChannels,
-                hashChannel,
-                sortChannel,
-                blockTypeOperators);
-
-        return new JoinHashSupplier(
+        LookupSourceSupplierFactory lookupSourceFactory = joinCompiler.compileLookupSourceFactory(types, joinChannels, sortChannel, outputChannels);
+        return lookupSourceFactory.createLookupSourceSupplier(
                 session,
-                hashStrategy,
                 valueAddresses,
                 channels,
                 filterFunctionFactory,
                 sortChannel,
                 searchFunctionFactories,
-                hashArraySizeSupplier,
-                OptionalInt.empty());
+                hashArraySizeSupplier);
     }
 
     private static List<Integer> rangeList(int endExclusive)
@@ -671,7 +644,12 @@ public class PagesIndex
                 getSingleBigintJoinChannel(joinChannels, types),
                 hashArraySizeSupplier);
         // PageIndex is retained during LookupSource creation, hence any extra memory retained by the PagesIndex must be accounted here
-        long pagesIndexAdditionalRetainedSizeInBytes = INSTANCE_SIZE + sizeOf(positionCounts.elements());
+        long pagesIndexAdditionalRetainedSizeInBytes = getExtraPagesIndexMemoryWithLookupSourceBuild();
         return pagesIndexAdditionalRetainedSizeInBytes + lookupSourceEstimatedRetainedSizeInBytes;
+    }
+
+    public long getExtraPagesIndexMemoryWithLookupSourceBuild()
+    {
+        return INSTANCE_SIZE + sizeOf(positionCounts.elements());
     }
 }

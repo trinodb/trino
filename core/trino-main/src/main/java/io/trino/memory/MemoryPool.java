@@ -71,9 +71,6 @@ public class MemoryPool
     @GuardedBy("this")
     private final Map<TaskId, Long> taskRevocableMemoryReservations = new HashMap<>();
 
-    @GuardedBy("this")
-    private long connectorsReservedBytes;
-
     private final List<MemoryPoolListener> listeners = new CopyOnWriteArrayList<>();
 
     public MemoryPool(DataSize size)
@@ -133,7 +130,7 @@ public class MemoryPool
         ListenableFuture<Void> result;
         synchronized (this) {
             if (bytes != 0) {
-                QueryId queryId = taskId.getQueryId();
+                QueryId queryId = taskId.queryId();
                 queryMemoryReservations.merge(queryId, bytes, Long::sum);
                 updateTaggedMemoryAllocations(queryId, allocationTag, bytes);
                 taskMemoryReservations.merge(taskId, bytes, Long::sum);
@@ -167,7 +164,7 @@ public class MemoryPool
         ListenableFuture<Void> result;
         synchronized (this) {
             if (bytes != 0) {
-                queryRevocableMemoryReservations.merge(taskId.getQueryId(), bytes, Long::sum);
+                queryRevocableMemoryReservations.merge(taskId.queryId(), bytes, Long::sum);
                 taskRevocableMemoryReservations.merge(taskId, bytes, Long::sum);
             }
             reservedRevocableBytes += bytes;
@@ -199,27 +196,13 @@ public class MemoryPool
             }
             reservedBytes += bytes;
             if (bytes != 0) {
-                QueryId queryId = taskId.getQueryId();
+                QueryId queryId = taskId.queryId();
                 queryMemoryReservations.merge(queryId, bytes, Long::sum);
                 updateTaggedMemoryAllocations(queryId, allocationTag, bytes);
                 taskMemoryReservations.merge(taskId, bytes, Long::sum);
             }
         }
 
-        onMemoryReserved();
-        return true;
-    }
-
-    public boolean tryReserveConnectorMemory(long bytes)
-    {
-        checkArgument(bytes >= 0, "'%s' is negative", bytes);
-        synchronized (this) {
-            if (getFreeBytes() - bytes < 0) {
-                return false;
-            }
-            connectorsReservedBytes += bytes;
-            reservedBytes += bytes;
-        }
         onMemoryReserved();
         return true;
     }
@@ -247,7 +230,7 @@ public class MemoryPool
             return;
         }
 
-        QueryId queryId = taskId.getQueryId();
+        QueryId queryId = taskId.queryId();
         Long queryReservation = queryMemoryReservations.get(queryId);
         requireNonNull(queryReservation, "queryReservation is null");
         checkArgument(queryReservation >= bytes, "tried to free more memory than is reserved by query");
@@ -290,7 +273,7 @@ public class MemoryPool
             return;
         }
 
-        QueryId queryId = taskId.getQueryId();
+        QueryId queryId = taskId.queryId();
         Long queryReservation = queryRevocableMemoryReservations.get(queryId);
         requireNonNull(queryReservation, "queryReservation is null");
         checkArgument(queryReservation >= bytes, "tried to free more revocable memory than is reserved by query");
@@ -338,24 +321,6 @@ public class MemoryPool
         }
     }
 
-    public synchronized void freeConnectorMemory(long bytes)
-    {
-        checkArgument(bytes >= 0, "'%s' is negative", bytes);
-        checkArgument(reservedBytes >= bytes, "tried to free more memory than is reserved");
-        checkArgument(connectorsReservedBytes >= bytes, "tried to free more memory for the connectors than is reserved");
-        if (bytes == 0) {
-            // Freeing zero bytes is a no-op
-            return;
-        }
-
-        connectorsReservedBytes -= bytes;
-        reservedBytes -= bytes;
-        if (getFreeBytes() > 0 && future != null) {
-            future.set(null);
-            future = null;
-        }
-    }
-
     /**
      * Returns the number of free bytes. This value may be negative, which indicates that the pool is over-committed.
      */
@@ -381,12 +346,6 @@ public class MemoryPool
     public synchronized long getReservedRevocableBytes()
     {
         return reservedRevocableBytes;
-    }
-
-    @Managed
-    public synchronized long getConnectorsReservedBytes()
-    {
-        return connectorsReservedBytes;
     }
 
     long getQueryMemoryReservation(QueryId queryId)

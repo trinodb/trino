@@ -23,6 +23,7 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.table.TableFunctionProcessorState;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
 import io.trino.spi.predicate.TupleDomain;
@@ -32,6 +33,7 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.mapping.NameMappingParser;
 
+import java.io.IOException;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -153,7 +155,7 @@ public class TableChangesFunctionProcessor
             return FINISHED;
         }
 
-        Page dataPage = pageSource.getNextPage();
+        SourcePage dataPage = pageSource.getNextSourcePage();
         if (dataPage == null) {
             return TableFunctionProcessorState.Processed.produced(EMPTY_PAGE);
         }
@@ -176,5 +178,12 @@ public class TableChangesFunctionProcessor
                 blocks[columnChannel] = RunLengthEncodedBlock.create(changeOrdinalValue, dataPage.getPositionCount()));
 
         return produced(new Page(dataPage.getPositionCount(), blocks));
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        pageSource.close();
     }
 }

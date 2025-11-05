@@ -35,6 +35,7 @@ import okhttp3.ResponseBody;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
@@ -160,8 +161,8 @@ public class PrometheusClient
 
     private Map<String, Object> fetchMetrics(JsonCodec<Map<String, Object>> metricsCodec, URI metadataUri)
     {
-        try (ResponseBody body = fetchUri(metadataUri)) {
-            return metricsCodec.fromJson(body.string());
+        try (ResponseBody body = fetchUri(metadataUri); InputStream inputStream = body.byteStream()) {
+            return metricsCodec.fromJson(inputStream);
         }
         catch (IOException e) {
             throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "Error reading metadata", e);
@@ -173,7 +174,7 @@ public class PrometheusClient
         Request.Builder requestBuilder = new Request.Builder().url(uri.toString());
         try {
             Response response = httpClient.newCall(requestBuilder.build()).execute();
-            if (response.isSuccessful() && response.body() != null) {
+            if (response.isSuccessful()) {
                 return response.body();
             }
             throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "Bad response " + response.code() + " " + response.message());

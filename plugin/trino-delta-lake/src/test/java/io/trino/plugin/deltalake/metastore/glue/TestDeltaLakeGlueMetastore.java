@@ -22,30 +22,25 @@ import com.google.inject.Key;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
-import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.metastore.Column;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Table;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.DeltaLakeModule;
+import io.trino.plugin.deltalake.DeltaLakeSecurityModule;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
-import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.spi.NodeManager;
-import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
-import io.trino.spi.connector.TableColumnsMetadata;
-import io.trino.spi.type.TypeManager;
 import io.trino.testing.TestingConnectorContext;
 import io.trino.testing.TestingConnectorSession;
 import org.junit.jupiter.api.AfterAll;
@@ -58,6 +53,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -116,20 +112,13 @@ public class TestDeltaLakeGlueMetastore
         Bootstrap app = new Bootstrap(
                 // connector dependencies
                 new JsonModule(),
-                binder -> {
-                    binder.bind(CatalogName.class).toInstance(new CatalogName("test"));
-                    binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                    binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                    binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
-                    binder.bind(NodeVersion.class).toInstance(new NodeVersion("test_version"));
-                    binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
-                    binder.bind(Tracer.class).toInstance(context.getTracer());
-                },
+                new ConnectorContextModule("test", context),
                 // connector modules
                 new DeltaLakeMetastoreModule(),
                 new DeltaLakeModule(),
+                new DeltaLakeSecurityModule(),
                 // test setup
-                new FileSystemModule("test", context.getNodeManager(), context.getOpenTelemetry(), false));
+                new FileSystemModule("test", context, false));
 
         Injector injector = app
                 .doNotInitializeLogging()
@@ -248,19 +237,23 @@ public class TestDeltaLakeGlueMetastore
 
     private Set<SchemaTableName> listTableColumns(DeltaLakeMetadata metadata, SchemaTablePrefix tablePrefix)
     {
-        List<TableColumnsMetadata> allTableColumns = ImmutableList.copyOf(metadata.streamTableColumns(session, tablePrefix));
+        Iterator<RelationColumnsMetadata> relationColumnsIterator = metadata.streamRelationColumns(
+                session,
+                tablePrefix.getSchema(),
+                schemaTableNames -> schemaTableNames.stream().filter(tablePrefix::matches).collect(toImmutableSet()));
 
-        Set<SchemaTableName> redirectedTables = allTableColumns.stream()
-                .filter(tableColumns -> tableColumns.getColumns().isEmpty())
-                .map(TableColumnsMetadata::getTable)
+        List<RelationColumnsMetadata> relations = ImmutableList.copyOf(relationColumnsIterator);
+        Set<SchemaTableName> redirectedTables = relations.stream()
+                .filter(RelationColumnsMetadata::redirected)
+                .map(RelationColumnsMetadata::name)
                 .collect(toImmutableSet());
 
         if (!redirectedTables.isEmpty()) {
             throw new IllegalStateException("Unexpected redirects reported for tables: " + redirectedTables);
         }
 
-        return allTableColumns.stream()
-                .map(TableColumnsMetadata::getTable)
+        return relations.stream()
+                .map(RelationColumnsMetadata::name)
                 .collect(toImmutableSet());
     }
 

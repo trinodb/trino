@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
@@ -45,22 +46,25 @@ import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.RowGroupInfo;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.ReaderColumns;
-import io.trino.plugin.hive.ReaderPageSource;
-import io.trino.plugin.hive.ReaderProjectionsAdapter;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.hive.TransformConnectorPageSource;
 import io.trino.plugin.hive.orc.OrcPageSource;
-import io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteManager;
 import io.trino.plugin.iceberg.delete.RowPredicate;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
+import io.trino.plugin.iceberg.system.files.FilesTablePageSource;
+import io.trino.plugin.iceberg.system.files.FilesTableSplit;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.IntArrayBlock;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -71,6 +75,8 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.FixedPageSource;
+import io.trino.spi.connector.SourcePage;
+import io.trino.spi.connector.SystemColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
@@ -81,7 +87,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.generic.GenericDatumReader;
-import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -96,7 +101,6 @@ import org.apache.iceberg.parquet.ParquetSchemaUtil;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.StructLikeWrapper;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
@@ -114,16 +118,22 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.function.ObjLongConsumer;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoize;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -135,13 +145,12 @@ import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.getFilteredRowGroups;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.createDataSource;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
-import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_DATA;
-import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_SPEC_ID;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CURSOR_ERROR;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_MODIFIED_TIME;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.PARTITION;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcLazyReadSmallRanges;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcMaxBufferSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcMaxMergeDistance;
@@ -165,27 +174,22 @@ import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
 import static io.trino.plugin.iceberg.util.OrcIcebergIds.fileColumnsByIcebergId;
-import static io.trino.plugin.iceberg.util.OrcTypeConverter.ICEBERG_BINARY_TYPE;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static io.trino.spi.type.UuidType.UUID;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
@@ -204,6 +208,7 @@ public class IcebergPageSourceProvider
     private static final int MAX_RLE_PAGE_SIZE = DEFAULT_MAX_PAGE_SIZE_IN_BYTES / SIZE_OF_LONG;
 
     private final IcebergFileSystemFactory fileSystemFactory;
+    private final ForwardingFileIoFactory fileIoFactory;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final OrcReaderOptions orcReaderOptions;
     private final ParquetReaderOptions parquetReaderOptions;
@@ -214,12 +219,14 @@ public class IcebergPageSourceProvider
 
     public IcebergPageSourceProvider(
             IcebergFileSystemFactory fileSystemFactory,
+            ForwardingFileIoFactory fileIoFactory,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             OrcReaderOptions orcReaderOptions,
             ParquetReaderOptions parquetReaderOptions,
             TypeManager typeManager)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
         this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
@@ -236,6 +243,15 @@ public class IcebergPageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
+        if (connectorSplit instanceof FilesTableSplit filesTableSplit) {
+            return new FilesTablePageSource(
+                    typeManager,
+                    fileSystemFactory.create(session.getIdentity(), filesTableSplit.fileIoProperties()),
+                    fileIoFactory,
+                    columns.stream().map(SystemColumnHandle.class::cast).map(SystemColumnHandle::columnName).collect(toImmutableList()),
+                    filesTableSplit);
+        }
+
         IcebergSplit split = (IcebergSplit) connectorSplit;
         List<IcebergColumnHandle> icebergColumns = columns.stream()
                 .map(IcebergColumnHandle.class::cast)
@@ -290,43 +306,7 @@ public class IcebergPageSourceProvider
             long dataSequenceNumber,
             Optional<NameMapping> nameMapping)
     {
-        Set<IcebergColumnHandle> deleteFilterRequiredColumns = requiredColumnsForDeletes(tableSchema, deletes);
         Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(partitionData, partitionSpec);
-
-        List<IcebergColumnHandle> requiredColumns = new ArrayList<>(icebergColumns);
-
-        deleteFilterRequiredColumns.stream()
-                .filter(not(icebergColumns::contains))
-                .forEach(requiredColumns::add);
-
-        icebergColumns.stream()
-                .filter(column -> column.isUpdateRowIdColumn() || column.isMergeRowIdColumn())
-                .findFirst().ifPresent(rowIdColumn -> {
-                    Set<Integer> alreadyRequiredColumnIds = requiredColumns.stream()
-                            .map(IcebergColumnHandle::getId)
-                            .collect(toImmutableSet());
-                    for (ColumnIdentity identity : rowIdColumn.getColumnIdentity().getChildren()) {
-                        if (alreadyRequiredColumnIds.contains(identity.getId())) {
-                            // ignore
-                        }
-                        else if (identity.getId() == MetadataColumns.FILE_PATH.fieldId()) {
-                            requiredColumns.add(new IcebergColumnHandle(identity, VARCHAR, ImmutableList.of(), VARCHAR, false, Optional.empty()));
-                        }
-                        else if (identity.getId() == ROW_POSITION.fieldId()) {
-                            requiredColumns.add(new IcebergColumnHandle(identity, BIGINT, ImmutableList.of(), BIGINT, false, Optional.empty()));
-                        }
-                        else if (identity.getId() == TRINO_MERGE_PARTITION_SPEC_ID) {
-                            requiredColumns.add(new IcebergColumnHandle(identity, INTEGER, ImmutableList.of(), INTEGER, false, Optional.empty()));
-                        }
-                        else if (identity.getId() == TRINO_MERGE_PARTITION_DATA) {
-                            requiredColumns.add(new IcebergColumnHandle(identity, VARCHAR, ImmutableList.of(), VARCHAR, false, Optional.empty()));
-                        }
-                        else {
-                            requiredColumns.add(getColumnHandle(tableSchema.findField(identity.getId()), typeManager));
-                        }
-                    }
-                });
-
         TupleDomain<IcebergColumnHandle> effectivePredicate = getUnenforcedPredicate(
                 tableSchema,
                 partitionKeys,
@@ -337,14 +317,15 @@ public class IcebergPageSourceProvider
             return new EmptyPageSource();
         }
 
+        // exit early when only reading partition keys from a simple split
+        String partition = partitionSpec.partitionToPath(partitionData);
         TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), fileIoProperties);
-        TrinoInputFile inputfile = isUseFileSizeFromMetadata(session)
+        TrinoInputFile inputFile = isUseFileSizeFromMetadata(session)
                 ? fileSystem.newInputFile(Location.of(path), fileSize)
                 : fileSystem.newInputFile(Location.of(path));
-
         try {
             if (effectivePredicate.isAll() &&
-                    start == 0 && length == inputfile.length() &&
+                    start == 0 && length == inputFile.length() &&
                     deletes.isEmpty() &&
                     icebergColumns.stream().allMatch(column -> partitionKeys.containsKey(column.getId()))) {
                 return generatePages(
@@ -357,9 +338,16 @@ public class IcebergPageSourceProvider
             throw new UncheckedIOException(e);
         }
 
+        List<IcebergColumnHandle> requiredColumns = new ArrayList<>(icebergColumns);
+
+        Set<IcebergColumnHandle> deleteFilterRequiredColumns = requiredColumnsForDeletes(tableSchema, deletes);
+        deleteFilterRequiredColumns.stream()
+                .filter(not(icebergColumns::contains))
+                .forEach(requiredColumns::add);
+
         ReaderPageSourceWithRowPositions readerPageSourceWithRowPositions = createDataPageSource(
                 session,
-                inputfile,
+                inputFile,
                 start,
                 length,
                 fileSize,
@@ -370,36 +358,38 @@ public class IcebergPageSourceProvider
                 requiredColumns,
                 effectivePredicate,
                 nameMapping,
+                partition,
                 partitionKeys);
-        ReaderPageSource dataPageSource = readerPageSourceWithRowPositions.readerPageSource();
 
-        Optional<ReaderProjectionsAdapter> projectionsAdapter = dataPageSource.getReaderColumns().map(readerColumns ->
-                new ReaderProjectionsAdapter(
-                        requiredColumns,
-                        readerColumns,
-                        column -> ((IcebergColumnHandle) column).getType(),
-                        IcebergPageSourceProvider::applyProjection));
+        ConnectorPageSource pageSource = readerPageSourceWithRowPositions.pageSource();
 
-        List<IcebergColumnHandle> readColumns = dataPageSource.getReaderColumns()
-                .map(readerColumns -> readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toList()))
-                .orElse(requiredColumns);
-
-        Supplier<Optional<RowPredicate>> deletePredicate = memoize(() -> getDeleteManager(partitionSpec, partitionData)
-                .getDeletePredicate(
-                        path,
-                        dataSequenceNumber,
-                        deletes,
-                        readColumns,
-                        tableSchema,
-                        readerPageSourceWithRowPositions,
-                        (deleteFile, deleteColumns, tupleDomain) -> openDeletes(session, fileSystem, deleteFile, deleteColumns, tupleDomain)));
-
-        return new IcebergPageSource(
-                icebergColumns,
-                requiredColumns,
-                dataPageSource.get(),
-                projectionsAdapter,
-                deletePredicate);
+        // filter out deleted rows
+        if (!deletes.isEmpty()) {
+            Supplier<Optional<RowPredicate>> deletePredicate = memoize(() -> getDeleteManager(partitionSpec, partitionData)
+                    .getDeletePredicate(
+                            path,
+                            dataSequenceNumber,
+                            deletes,
+                            requiredColumns,
+                            tableSchema,
+                            readerPageSourceWithRowPositions,
+                            (deleteFile, deleteColumns, tupleDomain) -> openDeletes(session, fileSystem, deleteFile, deleteColumns, tupleDomain)));
+            pageSource = TransformConnectorPageSource.create(pageSource, page -> {
+                try {
+                    Optional<RowPredicate> rowPredicate = deletePredicate.get();
+                    rowPredicate.ifPresent(predicate -> predicate.applyFilter(page));
+                    if (icebergColumns.size() == page.getChannelCount()) {
+                        return page;
+                    }
+                    return new PrefixColumnsSourcePage(page, icebergColumns.size());
+                }
+                catch (RuntimeException e) {
+                    throwIfInstanceOf(e, TrinoException.class);
+                    throw new TrinoException(ICEBERG_BAD_DATA, e);
+                }
+            });
+        }
+        return pageSource;
     }
 
     private DeleteManager getDeleteManager(PartitionSpec partitionSpec, PartitionData partitionData)
@@ -466,7 +456,7 @@ public class IcebergPageSourceProvider
 
         return unenforcedPredicate
                 // Filter out partition columns domains from the dynamic filter because they should be irrelevant at data file level
-                .filter((columnHandle, domain) -> !partitionKeys.containsKey(columnHandle.getId()))
+                .filter((columnHandle, _) -> !partitionKeys.containsKey(columnHandle.getId()))
                 // remove domains from predicate that fully contain split data because they are irrelevant for filtering
                 .filter((handle, domain) -> !domain.contains(fileStatisticsDomain.getDomain(handle, domain.getType())));
     }
@@ -508,12 +498,12 @@ public class IcebergPageSourceProvider
                 columns,
                 tupleDomain,
                 Optional.empty(),
+                "",
                 ImmutableMap.of())
-                .readerPageSource()
-                .get();
+                .pageSource();
     }
 
-    public ReaderPageSourceWithRowPositions createDataPageSource(
+    private ReaderPageSourceWithRowPositions createDataPageSource(
             ConnectorSession session,
             TrinoInputFile inputFile,
             long start,
@@ -526,6 +516,7 @@ public class IcebergPageSourceProvider
             List<IcebergColumnHandle> dataColumns,
             TupleDomain<IcebergColumnHandle> predicate,
             Optional<NameMapping> nameMapping,
+            String partition,
             Map<Integer, Optional<String>> partitionKeys)
     {
         return switch (fileFormat) {
@@ -549,6 +540,7 @@ public class IcebergPageSourceProvider
                     fileFormatDataSourceStats,
                     typeManager,
                     nameMapping,
+                    partition,
                     partitionKeys);
             case PARQUET -> createParquetPageSource(
                     inputFile,
@@ -558,7 +550,7 @@ public class IcebergPageSourceProvider
                     partitionSpecId,
                     partitionData,
                     dataColumns,
-                    parquetReaderOptions
+                    ParquetReaderOptions.builder(parquetReaderOptions)
                             .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
                             .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                             .withSmallFileThreshold(getParquetSmallFileThreshold(session))
@@ -566,10 +558,12 @@ public class IcebergPageSourceProvider
                             .withBloomFilter(useParquetBloomFilter(session))
                             // TODO https://github.com/trinodb/trino/issues/11000
                             .withUseColumnIndex(false)
-                            .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session)),
+                            .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
+                            .build(),
                     predicate,
                     fileFormatDataSourceStats,
                     nameMapping,
+                    partition,
                     partitionKeys);
             case AVRO -> createAvroPageSource(
                     inputFile,
@@ -579,7 +573,9 @@ public class IcebergPageSourceProvider
                     partitionData,
                     fileSchema,
                     nameMapping,
-                    dataColumns);
+                    partition,
+                    dataColumns,
+                    partitionKeys);
         };
     }
 
@@ -630,6 +626,7 @@ public class IcebergPageSourceProvider
             FileFormatDataSourceStats stats,
             TypeManager typeManager,
             Optional<NameMapping> nameMapping,
+            String partition,
             Map<Integer, Optional<String>> partitionKeys)
     {
         OrcDataSource orcDataSource = null;
@@ -645,79 +642,84 @@ public class IcebergPageSourceProvider
                     .setBloomFiltersEnabled(options.isBloomFiltersEnabled());
             Map<IcebergColumnHandle, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
                     .orElseThrow(() -> new IllegalArgumentException("Effective predicate is none"));
+            for (IcebergColumnHandle column : columns) {
+                for (Map.Entry<IcebergColumnHandle, Domain> domainEntry : effectivePredicateDomains.entrySet()) {
+                    IcebergColumnHandle predicateColumn = domainEntry.getKey();
+                    OrcColumn predicateOrcColumn = fileColumnsByIcebergId.get(predicateColumn.getId());
+                    if (predicateOrcColumn != null && column.getBaseColumnIdentity().equals(predicateColumn.getBaseColumnIdentity())) {
+                        predicateBuilder.addColumn(predicateOrcColumn.getColumnId(), domainEntry.getValue());
+                    }
+                }
+            }
 
-            Optional<ReaderColumns> baseColumnProjections = projectBaseColumns(columns);
             Map<Integer, List<List<Integer>>> projectionsByFieldId = columns.stream()
                     .collect(groupingBy(
                             column -> column.getBaseColumnIdentity().getId(),
                             mapping(IcebergColumnHandle::getPath, toUnmodifiableList())));
 
-            List<IcebergColumnHandle> readBaseColumns = baseColumnProjections
-                    .map(readerColumns -> (List<IcebergColumnHandle>) readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toImmutableList()))
-                    .orElse(columns);
-            List<OrcColumn> fileReadColumns = new ArrayList<>(readBaseColumns.size());
-            List<Type> fileReadTypes = new ArrayList<>(readBaseColumns.size());
-            List<ProjectedLayout> projectedLayouts = new ArrayList<>(readBaseColumns.size());
-            List<ColumnAdaptation> columnAdaptations = new ArrayList<>(readBaseColumns.size());
+            List<IcebergColumnHandle> baseColumns = new ArrayList<>(columns.size());
+            Map<Integer, Integer> baseColumnIdToOrdinal = new HashMap<>();
+            List<OrcColumn> fileReadColumns = new ArrayList<>(columns.size());
+            List<Type> fileReadTypes = new ArrayList<>(columns.size());
+            List<ProjectedLayout> projectedLayouts = new ArrayList<>(columns.size());
+            TransformConnectorPageSource.Builder transforms = TransformConnectorPageSource.builder();
+            boolean appendRowNumberColumn = false;
 
-            for (IcebergColumnHandle column : readBaseColumns) {
-                verify(column.isBaseColumn(), "Column projections must be based from a root column");
-                OrcColumn orcColumn = fileColumnsByIcebergId.get(column.getId());
-
+            for (IcebergColumnHandle column : columns) {
                 if (column.isIsDeletedColumn()) {
-                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(BOOLEAN, false)));
+                    transforms.constantValue(nativeValueToBlock(BOOLEAN, false));
                 }
                 else if (partitionKeys.containsKey(column.getId())) {
                     Type trinoType = column.getType();
-                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(
+                    transforms.constantValue(nativeValueToBlock(
                             trinoType,
-                            deserializePartitionValue(trinoType, partitionKeys.get(column.getId()).orElse(null), column.getName()))));
+                            deserializePartitionValue(trinoType, partitionKeys.get(column.getId()).orElse(null), column.getName())));
+                }
+                else if (column.isPartitionColumn()) {
+                    transforms.constantValue(nativeValueToBlock(PARTITION.getType(), utf8Slice(partition)));
                 }
                 else if (column.isPathColumn()) {
-                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(inputFile.location().toString()))));
+                    transforms.constantValue(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(inputFile.location().toString())));
                 }
                 else if (column.isFileModifiedTimeColumn()) {
-                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(inputFile.lastModified().toEpochMilli(), UTC_KEY))));
+                    transforms.constantValue(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(inputFile.lastModified().toEpochMilli(), UTC_KEY)));
                 }
-                else if (column.isUpdateRowIdColumn() || column.isMergeRowIdColumn()) {
-                    // $row_id is a composite of multiple physical columns. It is assembled by the IcebergPageSource
-                    columnAdaptations.add(ColumnAdaptation.nullColumn(column.getType()));
+                else if (column.isMergeRowIdColumn()) {
+                    appendRowNumberColumn = true;
+                    transforms.transform(MergeRowIdTransform.create(utf8Slice(inputFile.location().toString()), partitionSpecId, utf8Slice(partitionData)));
                 }
                 else if (column.isRowPositionColumn()) {
-                    columnAdaptations.add(ColumnAdaptation.positionColumn());
+                    appendRowNumberColumn = true;
+                    transforms.transform(new GetRowPositionFromSource());
                 }
-                else if (column.getId() == TRINO_MERGE_PARTITION_SPEC_ID) {
-                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(column.getType(), (long) partitionSpecId)));
-                }
-                else if (column.getId() == TRINO_MERGE_PARTITION_DATA) {
-                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(column.getType(), utf8Slice(partitionData))));
-                }
-                else if (orcColumn != null) {
-                    Type readType = getOrcReadType(column.getType(), typeManager);
-
-                    if (column.getType() == UUID && !"UUID".equals(orcColumn.getAttributes().get(ICEBERG_BINARY_TYPE))) {
-                        throw new TrinoException(ICEBERG_BAD_DATA, format("Expected ORC column for UUID data to be annotated with %s=UUID: %s", ICEBERG_BINARY_TYPE, orcColumn));
-                    }
-
-                    List<List<Integer>> fieldIdProjections = projectionsByFieldId.get(column.getId());
-                    ProjectedLayout projectedLayout = IcebergOrcProjectedLayout.createProjectedLayout(orcColumn, fieldIdProjections);
-
-                    int sourceIndex = fileReadColumns.size();
-                    columnAdaptations.add(ColumnAdaptation.sourceColumn(sourceIndex));
-                    fileReadColumns.add(orcColumn);
-                    fileReadTypes.add(readType);
-                    projectedLayouts.add(projectedLayout);
-
-                    for (Map.Entry<IcebergColumnHandle, Domain> domainEntry : effectivePredicateDomains.entrySet()) {
-                        IcebergColumnHandle predicateColumn = domainEntry.getKey();
-                        OrcColumn predicateOrcColumn = fileColumnsByIcebergId.get(predicateColumn.getId());
-                        if (predicateOrcColumn != null && column.getColumnIdentity().equals(predicateColumn.getBaseColumnIdentity())) {
-                            predicateBuilder.addColumn(predicateOrcColumn.getColumnId(), domainEntry.getValue());
-                        }
-                    }
+                else if (!fileColumnsByIcebergId.containsKey(column.getBaseColumnIdentity().getId())) {
+                    transforms.constantValue(column.getType().createNullBlock());
                 }
                 else {
-                    columnAdaptations.add(ColumnAdaptation.nullColumn(column.getType()));
+                    IcebergColumnHandle baseColumn = column.getBaseColumn();
+                    Integer ordinal = baseColumnIdToOrdinal.get(baseColumn.getId());
+                    if (ordinal == null) {
+                        ordinal = baseColumns.size();
+                        baseColumns.add(baseColumn);
+                        baseColumnIdToOrdinal.put(baseColumn.getId(), ordinal);
+
+                        OrcColumn orcBaseColumn = requireNonNull(fileColumnsByIcebergId.get(baseColumn.getId()));
+                        fileReadColumns.add(orcBaseColumn);
+                        fileReadTypes.add(getOrcReadType(baseColumn.getType(), typeManager));
+                        projectedLayouts.add(IcebergOrcProjectedLayout.createProjectedLayout(
+                                orcBaseColumn,
+                                projectionsByFieldId.get(baseColumn.getId())));
+                    }
+
+                    if (column.isBaseColumn()) {
+                        transforms.column(ordinal);
+                    }
+                    else {
+                        transforms.dereferenceField(ImmutableList.<Integer>builder()
+                                .add(ordinal)
+                                .addAll(applyProjection(column, baseColumn))
+                                .build());
+                    }
                 }
             }
 
@@ -727,6 +729,7 @@ public class IcebergPageSourceProvider
                     fileReadColumns,
                     fileReadTypes,
                     projectedLayouts,
+                    appendRowNumberColumn,
                     predicateBuilder.build(),
                     start,
                     length,
@@ -734,20 +737,21 @@ public class IcebergPageSourceProvider
                     memoryUsage,
                     INITIAL_BATCH_SIZE,
                     exception -> handleException(orcDataSourceId, exception),
-                    new IdBasedFieldMapperFactory(readBaseColumns));
+                    new IdBasedFieldMapperFactory(baseColumns));
+
+            ConnectorPageSource pageSource = new OrcPageSource(
+                    recordReader,
+                    orcDataSource,
+                    Optional.empty(),
+                    Optional.empty(),
+                    memoryUsage,
+                    stats,
+                    reader.getCompressionKind());
+
+            pageSource = transforms.build(pageSource);
 
             return new ReaderPageSourceWithRowPositions(
-                    new ReaderPageSource(
-                            new OrcPageSource(
-                                    recordReader,
-                                    columnAdaptations,
-                                    orcDataSource,
-                                    Optional.empty(),
-                                    Optional.empty(),
-                                    memoryUsage,
-                                    stats,
-                                    reader.getCompressionKind()),
-                            baseColumnProjections),
+                    pageSource,
                     recordReader.getStartRowPosition(),
                     recordReader.getEndRowPosition());
         }
@@ -762,8 +766,8 @@ public class IcebergPageSourceProvider
                     }
                 }
             }
-            if (e instanceof TrinoException) {
-                throw (TrinoException) e;
+            if (e instanceof TrinoException trinoException) {
+                throw trinoException;
             }
             if (e instanceof OrcCorruptionException) {
                 throw new TrinoException(ICEBERG_BAD_DATA, e);
@@ -796,22 +800,22 @@ public class IcebergPageSourceProvider
     private static Integer getIcebergFieldId(OrcColumn column)
     {
         String icebergId = column.getAttributes().get(ORC_ICEBERG_ID_KEY);
-        verify(icebergId != null, format("column %s does not have %s property", column, ORC_ICEBERG_ID_KEY));
+        verify(icebergId != null, "column %s does not have %s property", column, ORC_ICEBERG_ID_KEY);
         return Integer.valueOf(icebergId);
     }
 
     private static Type getOrcReadType(Type columnType, TypeManager typeManager)
     {
-        if (columnType instanceof ArrayType) {
-            return new ArrayType(getOrcReadType(((ArrayType) columnType).getElementType(), typeManager));
+        if (columnType instanceof ArrayType arrayType) {
+            return new ArrayType(getOrcReadType(arrayType.getElementType(), typeManager));
         }
         if (columnType instanceof MapType mapType) {
             Type keyType = getOrcReadType(mapType.getKeyType(), typeManager);
             Type valueType = getOrcReadType(mapType.getValueType(), typeManager);
             return new MapType(keyType, valueType, typeManager.getTypeOperators());
         }
-        if (columnType instanceof RowType) {
-            return RowType.from(((RowType) columnType).getFields().stream()
+        if (columnType instanceof RowType rowType) {
+            return RowType.from(rowType.getFields().stream()
                     .map(field -> new RowType.Field(field.getName(), getOrcReadType(field.getType(), typeManager)))
                     .collect(toImmutableList()));
         }
@@ -831,8 +835,8 @@ public class IcebergPageSourceProvider
 
             ImmutableMap.Builder<Integer, Map<String, Integer>> mapping = ImmutableMap.builder();
             for (IcebergColumnHandle column : columns) {
-                if (column.isUpdateRowIdColumn() || column.isMergeRowIdColumn()) {
-                    // The update $row_id column contains fields which should not be accounted for in the mapping.
+                if (column.isMergeRowIdColumn()) {
+                    // The merge $row_id column contains fields which should not be accounted for in the mapping.
                     continue;
                 }
 
@@ -900,11 +904,12 @@ public class IcebergPageSourceProvider
             long fileSize,
             int partitionSpecId,
             String partitionData,
-            List<IcebergColumnHandle> regularColumns,
+            List<IcebergColumnHandle> columns,
             ParquetReaderOptions options,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             Optional<NameMapping> nameMapping,
+            String partition,
             Map<Integer, Optional<String>> partitionKeys)
     {
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
@@ -912,7 +917,7 @@ public class IcebergPageSourceProvider
         ParquetDataSource dataSource = null;
         try {
             dataSource = createDataSource(inputFile, OptionalLong.of(fileSize), options, memoryContext, fileFormatDataSourceStats);
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, options.getMaxFooterReadSize(), Optional.empty());
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
             if (nameMapping.isPresent() && !ParquetSchemaUtil.hasIds(fileSchema)) {
@@ -921,33 +926,114 @@ public class IcebergPageSourceProvider
             }
 
             // Mapping from Iceberg field ID to Parquet fields.
-            Map<Integer, org.apache.parquet.schema.Type> parquetIdToField = createParquetIdToFieldMapping(fileSchema);
+            Map<Integer, org.apache.parquet.schema.Type> parquetIdToFieldName = createParquetIdToFieldMapping(fileSchema);
 
-            Optional<ReaderColumns> baseColumnProjections = projectBaseColumns(regularColumns);
-            List<IcebergColumnHandle> readBaseColumns = baseColumnProjections
-                    .map(readerColumns -> (List<IcebergColumnHandle>) readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toImmutableList()))
-                    .orElse(regularColumns);
-
-            List<org.apache.parquet.schema.Type> parquetFields = readBaseColumns.stream()
-                    .map(column -> parquetIdToField.get(column.getId()))
-                    .collect(toList());
-
-            MessageType requestedSchema = getMessageType(regularColumns, fileSchema.getName(), parquetIdToField);
+            MessageType requestedSchema = getMessageType(columns, fileSchema.getName(), parquetIdToFieldName);
             Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
             TupleDomain<ColumnDescriptor> parquetTupleDomain = options.isIgnoreStatistics() ? TupleDomain.all() : getParquetTupleDomain(descriptorsByPath, effectivePredicate);
             TupleDomainParquetPredicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, UTC);
+
+            MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
+
+            Map<Integer, Integer> baseColumnIdToOrdinal = new HashMap<>();
+            TransformConnectorPageSource.Builder transforms = TransformConnectorPageSource.builder();
+            boolean appendRowNumberColumn = false;
+            int nextOrdinal = 0;
+            ImmutableList.Builder<Column> parquetColumnFieldsBuilder = ImmutableList.builder();
+            for (IcebergColumnHandle column : columns) {
+                if (column.isIsDeletedColumn()) {
+                    transforms.constantValue(nativeValueToBlock(BOOLEAN, false));
+                }
+                else if (partitionKeys.containsKey(column.getId())) {
+                    Type trinoType = column.getType();
+                    transforms.constantValue(nativeValueToBlock(
+                            trinoType,
+                            deserializePartitionValue(trinoType, partitionKeys.get(column.getId()).orElse(null), column.getName())));
+                }
+                else if (column.isPartitionColumn()) {
+                    transforms.constantValue(nativeValueToBlock(PARTITION.getType(), utf8Slice(partition)));
+                }
+                else if (column.isPathColumn()) {
+                    transforms.constantValue(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(inputFile.location().toString())));
+                }
+                else if (column.isFileModifiedTimeColumn()) {
+                    transforms.constantValue(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(inputFile.lastModified().toEpochMilli(), UTC_KEY)));
+                }
+                else if (column.isMergeRowIdColumn()) {
+                    appendRowNumberColumn = true;
+                    transforms.transform(MergeRowIdTransform.create(utf8Slice(inputFile.location().toString()), partitionSpecId, utf8Slice(partitionData)));
+                }
+                else if (column.isRowPositionColumn()) {
+                    appendRowNumberColumn = true;
+                    transforms.transform(new GetRowPositionFromSource());
+                }
+                else if (!parquetIdToFieldName.containsKey(column.getBaseColumn().getId())) {
+                    transforms.constantValue(column.getType().createNullBlock());
+                }
+                else {
+                    IcebergColumnHandle baseColumn = column.getBaseColumn();
+                    Integer ordinal = baseColumnIdToOrdinal.get(baseColumn.getId());
+                    if (ordinal == null) {
+                        String parquetFieldName = requireNonNull(parquetIdToFieldName.get(baseColumn.getId())).getName();
+
+                        // The top level columns are already mapped by name/id appropriately.
+                        Optional<Field> field = IcebergParquetColumnIOConverter.constructField(
+                                new FieldContext(baseColumn.getType(), baseColumn.getColumnIdentity()),
+                                messageColumnIO.getChild(parquetFieldName));
+                        if (field.isEmpty()) {
+                            // base column is missing so return a null
+                            transforms.constantValue(column.getType().createNullBlock());
+                            continue;
+                        }
+
+                        ordinal = nextOrdinal;
+                        nextOrdinal++;
+                        baseColumnIdToOrdinal.put(baseColumn.getId(), ordinal);
+
+                        parquetColumnFieldsBuilder.add(new Column(parquetFieldName, field.get()));
+                    }
+                    if (column.isBaseColumn()) {
+                        transforms.column(ordinal);
+                    }
+                    else {
+                        transforms.dereferenceField(ImmutableList.<Integer>builder()
+                                .add(ordinal)
+                                .addAll(applyProjection(column, baseColumn))
+                                .build());
+                    }
+                }
+            }
 
             List<RowGroupInfo> rowGroups = getFilteredRowGroups(
                     start,
                     length,
                     dataSource,
-                    parquetMetadata.getBlocks(),
+                    parquetMetadata,
                     ImmutableList.of(parquetTupleDomain),
                     ImmutableList.of(parquetPredicate),
                     descriptorsByPath,
                     UTC,
                     ICEBERG_DOMAIN_COMPACTION_THRESHOLD,
                     options);
+
+            ParquetDataSourceId dataSourceId = dataSource.getId();
+            ParquetReader parquetReader = new ParquetReader(
+                    Optional.ofNullable(fileMetaData.getCreatedBy()),
+                    parquetColumnFieldsBuilder.build(),
+                    appendRowNumberColumn,
+                    rowGroups,
+                    dataSource,
+                    UTC,
+                    memoryContext,
+                    options,
+                    exception -> handleException(dataSourceId, exception),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
+
+            ConnectorPageSource pageSource = new ParquetPageSource(parquetReader);
+            pageSource = transforms.build(pageSource);
+
             Optional<Long> startRowPosition = Optional.empty();
             Optional<Long> endRowPosition = Optional.empty();
             if (!rowGroups.isEmpty()) {
@@ -956,78 +1042,8 @@ public class IcebergPageSourceProvider
                 endRowPosition = Optional.of(lastRowGroup.fileRowOffset() + lastRowGroup.prunedBlockMetadata().getRowCount());
             }
 
-            MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
-
-            ParquetPageSource.Builder pageSourceBuilder = ParquetPageSource.builder();
-            int parquetSourceChannel = 0;
-
-            ImmutableList.Builder<Column> parquetColumnFieldsBuilder = ImmutableList.builder();
-            for (int columnIndex = 0; columnIndex < readBaseColumns.size(); columnIndex++) {
-                IcebergColumnHandle column = readBaseColumns.get(columnIndex);
-                if (column.isIsDeletedColumn()) {
-                    pageSourceBuilder.addConstantColumn(nativeValueToBlock(BOOLEAN, false));
-                }
-                else if (partitionKeys.containsKey(column.getId())) {
-                    Type trinoType = column.getType();
-                    pageSourceBuilder.addConstantColumn(nativeValueToBlock(
-                            trinoType,
-                            deserializePartitionValue(trinoType, partitionKeys.get(column.getId()).orElse(null), column.getName())));
-                }
-                else if (column.isPathColumn()) {
-                    pageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(inputFile.location().toString())));
-                }
-                else if (column.isFileModifiedTimeColumn()) {
-                    pageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(inputFile.lastModified().toEpochMilli(), UTC_KEY)));
-                }
-                else if (column.isUpdateRowIdColumn() || column.isMergeRowIdColumn()) {
-                    // $row_id is a composite of multiple physical columns, it is assembled by the IcebergPageSource
-                    pageSourceBuilder.addNullColumn(column.getType());
-                }
-                else if (column.isRowPositionColumn()) {
-                    pageSourceBuilder.addRowIndexColumn();
-                }
-                else if (column.getId() == TRINO_MERGE_PARTITION_SPEC_ID) {
-                    pageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), (long) partitionSpecId));
-                }
-                else if (column.getId() == TRINO_MERGE_PARTITION_DATA) {
-                    pageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), utf8Slice(partitionData)));
-                }
-                else {
-                    org.apache.parquet.schema.Type parquetField = parquetFields.get(columnIndex);
-                    Type trinoType = column.getBaseType();
-                    if (parquetField == null) {
-                        pageSourceBuilder.addNullColumn(trinoType);
-                        continue;
-                    }
-                    // The top level columns are already mapped by name/id appropriately.
-                    ColumnIO columnIO = messageColumnIO.getChild(parquetField.getName());
-                    Optional<Field> field = IcebergParquetColumnIOConverter.constructField(new FieldContext(trinoType, column.getColumnIdentity()), columnIO);
-                    if (field.isEmpty()) {
-                        pageSourceBuilder.addNullColumn(trinoType);
-                        continue;
-                    }
-                    parquetColumnFieldsBuilder.add(new Column(parquetField.getName(), field.get()));
-                    pageSourceBuilder.addSourceColumn(parquetSourceChannel);
-                    parquetSourceChannel++;
-                }
-            }
-
-            ParquetDataSourceId dataSourceId = dataSource.getId();
-            ParquetReader parquetReader = new ParquetReader(
-                    Optional.ofNullable(fileMetaData.getCreatedBy()),
-                    parquetColumnFieldsBuilder.build(),
-                    rowGroups,
-                    dataSource,
-                    UTC,
-                    memoryContext,
-                    options,
-                    exception -> handleException(dataSourceId, exception),
-                    Optional.empty(),
-                    Optional.empty());
             return new ReaderPageSourceWithRowPositions(
-                    new ReaderPageSource(
-                            pageSourceBuilder.build(parquetReader),
-                            baseColumnProjections),
+                    pageSource,
                     startRowPosition,
                     endRowPosition);
         }
@@ -1042,8 +1058,8 @@ public class IcebergPageSourceProvider
                     e.addSuppressed(ex);
                 }
             }
-            if (e instanceof TrinoException) {
-                throw (TrinoException) e;
+            if (e instanceof TrinoException trinoException) {
+                throw trinoException;
             }
             if (e instanceof ParquetCorruptionException) {
                 throw new TrinoException(ICEBERG_BAD_DATA, e);
@@ -1080,10 +1096,7 @@ public class IcebergPageSourceProvider
 
     private static MessageType getMessageType(List<IcebergColumnHandle> regularColumns, String fileSchemaName, Map<Integer, org.apache.parquet.schema.Type> parquetIdToField)
     {
-        return projectSufficientColumns(regularColumns)
-                .map(readerColumns -> readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toUnmodifiableList()))
-                .orElse(regularColumns)
-                .stream()
+        return projectSufficientColumns(regularColumns).stream()
                 .map(column -> getColumnType(column, parquetIdToField))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -1100,25 +1113,18 @@ public class IcebergPageSourceProvider
             String partitionData,
             Schema fileSchema,
             Optional<NameMapping> nameMapping,
-            List<IcebergColumnHandle> columns)
+            String partition,
+            List<IcebergColumnHandle> columns,
+            Map<Integer, Optional<String>> partitionKeys)
     {
-        ConstantPopulatingPageSource.Builder constantPopulatingPageSourceBuilder = ConstantPopulatingPageSource.builder();
-        int avroSourceChannel = 0;
-
-        Optional<ReaderColumns> baseColumnProjections = projectBaseColumns(columns);
-
-        List<IcebergColumnHandle> readBaseColumns = baseColumnProjections
-                .map(readerColumns -> (List<IcebergColumnHandle>) readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toImmutableList()))
-                .orElse(columns);
-
         InputFile file = new ForwardingInputFile(inputFile);
         OptionalLong fileModifiedTime = OptionalLong.empty();
         try {
-            if (readBaseColumns.stream().anyMatch(IcebergColumnHandle::isFileModifiedTimeColumn)) {
+            if (columns.stream().anyMatch(IcebergColumnHandle::isFileModifiedTimeColumn)) {
                 fileModifiedTime = OptionalLong.of(inputFile.lastModified().toEpochMilli());
             }
         }
-        catch (IOException e) {
+        catch (IOException | UncheckedIOException e) {
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, e);
         }
 
@@ -1136,61 +1142,80 @@ public class IcebergPageSourceProvider
 
             ImmutableList.Builder<String> columnNames = ImmutableList.builder();
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
-            ImmutableList.Builder<Boolean> rowIndexChannels = ImmutableList.builder();
+            TransformConnectorPageSource.Builder transforms = TransformConnectorPageSource.builder();
+            boolean appendRowNumberColumn = false;
+            Map<Integer, Integer> baseColumnIdToOrdinal = new HashMap<>();
 
-            for (IcebergColumnHandle column : readBaseColumns) {
-                verify(column.isBaseColumn(), "Column projections must be based from a root column");
-                org.apache.avro.Schema.Field field = fileColumnsByIcebergId.get(column.getId());
-
-                if (column.isPathColumn()) {
-                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(file.location())));
+            int nextOrdinal = 0;
+            for (IcebergColumnHandle column : columns) {
+                if (partitionKeys.containsKey(column.getId())) {
+                    Type trinoType = column.getType();
+                    transforms.constantValue(nativeValueToBlock(
+                            trinoType,
+                            deserializePartitionValue(trinoType, partitionKeys.get(column.getId()).orElse(null), column.getName())));
+                }
+                else if (column.isPartitionColumn()) {
+                    transforms.constantValue(nativeValueToBlock(PARTITION.getType(), utf8Slice(partition)));
+                }
+                else if (column.isPathColumn()) {
+                    transforms.constantValue(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(file.location())));
                 }
                 else if (column.isFileModifiedTimeColumn()) {
-                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(fileModifiedTime.orElseThrow(), UTC_KEY)));
+                    transforms.constantValue(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(fileModifiedTime.orElseThrow(), UTC_KEY)));
                 }
-                // For delete
+                else if (column.isMergeRowIdColumn()) {
+                    appendRowNumberColumn = true;
+                    transforms.transform(MergeRowIdTransform.create(utf8Slice(file.location()), partitionSpecId, utf8Slice(partitionData)));
+                }
                 else if (column.isRowPositionColumn()) {
-                    rowIndexChannels.add(true);
-                    columnNames.add(ROW_POSITION.name());
-                    columnTypes.add(BIGINT);
-                    constantPopulatingPageSourceBuilder.addDelegateColumn(avroSourceChannel);
-                    avroSourceChannel++;
+                    appendRowNumberColumn = true;
+                    transforms.transform(new GetRowPositionFromSource());
                 }
-                else if (column.getId() == TRINO_MERGE_PARTITION_SPEC_ID) {
-                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), (long) partitionSpecId));
-                }
-                else if (column.getId() == TRINO_MERGE_PARTITION_DATA) {
-                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), utf8Slice(partitionData)));
-                }
-                else if (field == null) {
-                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), null));
+                else if (!fileColumnsByIcebergId.containsKey(column.getBaseColumn().getId())) {
+                    transforms.constantValue(nativeValueToBlock(column.getType(), null));
                 }
                 else {
-                    rowIndexChannels.add(false);
-                    columnNames.add(column.getName());
-                    columnTypes.add(column.getType());
-                    constantPopulatingPageSourceBuilder.addDelegateColumn(avroSourceChannel);
-                    avroSourceChannel++;
+                    IcebergColumnHandle baseColumn = column.getBaseColumn();
+                    Integer ordinal = baseColumnIdToOrdinal.get(baseColumn.getId());
+                    if (ordinal == null) {
+                        ordinal = nextOrdinal;
+                        nextOrdinal++;
+                        baseColumnIdToOrdinal.put(baseColumn.getId(), ordinal);
+
+                        columnNames.add(baseColumn.getName());
+                        columnTypes.add(baseColumn.getType());
+                    }
+
+                    if (column.isBaseColumn()) {
+                        transforms.column(ordinal);
+                    }
+                    else {
+                        transforms.dereferenceField(ImmutableList.<Integer>builder()
+                                .add(ordinal)
+                                .addAll(applyProjection(column, baseColumn))
+                                .build());
+                    }
                 }
             }
 
+            ConnectorPageSource pageSource = new IcebergAvroPageSource(
+                    file,
+                    start,
+                    length,
+                    fileSchema,
+                    nameMapping,
+                    columnNames.build(),
+                    columnTypes.build(),
+                    appendRowNumberColumn,
+                    newSimpleAggregatedMemoryContext());
+            pageSource = transforms.build(pageSource);
+
             return new ReaderPageSourceWithRowPositions(
-                    new ReaderPageSource(
-                            constantPopulatingPageSourceBuilder.build(new IcebergAvroPageSource(
-                                    file,
-                                    start,
-                                    length,
-                                    fileSchema,
-                                    nameMapping,
-                                    columnNames.build(),
-                                    columnTypes.build(),
-                                    rowIndexChannels.build(),
-                                    newSimpleAggregatedMemoryContext())),
-                            baseColumnProjections),
+                    pageSource,
                     Optional.empty(),
                     Optional.empty());
         }
-        catch (IOException e) {
+        catch (IOException | UncheckedIOException e) {
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, e);
         }
     }
@@ -1268,9 +1293,7 @@ public class IcebergPageSourceProvider
             }
 
             Map<Integer, List<List<Integer>>> dereferencesByField = fieldIdDereferences.stream()
-                    .collect(groupingBy(
-                            sequence -> sequence.get(0),
-                            mapping(sequence -> sequence.subList(1, sequence.size()), toUnmodifiableList())));
+                    .collect(groupingBy(List::getFirst, mapping(sequence -> sequence.subList(1, sequence.size()), toUnmodifiableList())));
 
             ImmutableMap.Builder<Integer, ProjectedLayout> fieldLayouts = ImmutableMap.builder();
             for (OrcColumn nestedColumn : root.getNestedColumns()) {
@@ -1292,51 +1315,16 @@ public class IcebergPageSourceProvider
     }
 
     /**
-     * Creates a mapping between the input {@code columns} and base columns if required.
-     */
-    public static Optional<ReaderColumns> projectBaseColumns(List<IcebergColumnHandle> columns)
-    {
-        requireNonNull(columns, "columns is null");
-
-        // No projection is required if all columns are base columns
-        if (columns.stream().allMatch(IcebergColumnHandle::isBaseColumn)) {
-            return Optional.empty();
-        }
-
-        ImmutableList.Builder<ColumnHandle> projectedColumns = ImmutableList.builder();
-        ImmutableList.Builder<Integer> outputColumnMapping = ImmutableList.builder();
-        Map<Integer, Integer> mappedFieldIds = new HashMap<>();
-        int projectedColumnCount = 0;
-
-        for (IcebergColumnHandle column : columns) {
-            int baseColumnId = column.getBaseColumnIdentity().getId();
-            Integer mapped = mappedFieldIds.get(baseColumnId);
-
-            if (mapped == null) {
-                projectedColumns.add(column.getBaseColumn());
-                mappedFieldIds.put(baseColumnId, projectedColumnCount);
-                outputColumnMapping.add(projectedColumnCount);
-                projectedColumnCount++;
-            }
-            else {
-                outputColumnMapping.add(mapped);
-            }
-        }
-
-        return Optional.of(new ReaderColumns(projectedColumns.build(), outputColumnMapping.build()));
-    }
-
-    /**
      * Creates a set of sufficient columns for the input projected columns and prepares a mapping between the two.
      * For example, if input columns include columns "a.b" and "a.b.c", then they will be projected
      * from a single column "a.b".
      */
-    private static Optional<ReaderColumns> projectSufficientColumns(List<IcebergColumnHandle> columns)
+    private static List<IcebergColumnHandle> projectSufficientColumns(List<IcebergColumnHandle> columns)
     {
         requireNonNull(columns, "columns is null");
 
         if (columns.stream().allMatch(IcebergColumnHandle::isBaseColumn)) {
-            return Optional.empty();
+            return columns;
         }
 
         ImmutableBiMap.Builder<DereferenceChain, IcebergColumnHandle> dereferenceChainsBuilder = ImmutableBiMap.builder();
@@ -1348,14 +1336,13 @@ public class IcebergPageSourceProvider
 
         BiMap<DereferenceChain, IcebergColumnHandle> dereferenceChains = dereferenceChainsBuilder.build();
 
-        List<ColumnHandle> sufficientColumns = new ArrayList<>();
-        ImmutableList.Builder<Integer> outputColumnMapping = ImmutableList.builder();
+        List<IcebergColumnHandle> sufficientColumns = new ArrayList<>();
 
         Map<DereferenceChain, Integer> pickedColumns = new HashMap<>();
 
         // Pick a covering column for every column
         for (IcebergColumnHandle columnHandle : columns) {
-            DereferenceChain dereferenceChain = dereferenceChains.inverse().get(columnHandle);
+            DereferenceChain dereferenceChain = requireNonNull(dereferenceChains.inverse().get(columnHandle));
             DereferenceChain chosenColumn = null;
 
             // Shortest existing prefix is chosen as the input.
@@ -1367,23 +1354,15 @@ public class IcebergPageSourceProvider
             }
 
             checkState(chosenColumn != null, "chosenColumn is null");
-            int inputBlockIndex;
 
-            if (pickedColumns.containsKey(chosenColumn)) {
-                // Use already picked column
-                inputBlockIndex = pickedColumns.get(chosenColumn);
-            }
-            else {
+            if (!pickedColumns.containsKey(chosenColumn)) {
                 // Add a new column for the reader
                 sufficientColumns.add(dereferenceChains.get(chosenColumn));
                 pickedColumns.put(chosenColumn, sufficientColumns.size() - 1);
-                inputBlockIndex = sufficientColumns.size() - 1;
             }
-
-            outputColumnMapping.add(inputBlockIndex);
         }
 
-        return Optional.of(new ReaderColumns(sufficientColumns, outputColumnMapping.build()));
+        return sufficientColumns;
     }
 
     private static Optional<org.apache.parquet.schema.Type> getColumnType(IcebergColumnHandle column, Map<Integer, org.apache.parquet.schema.Type> parquetIdToField)
@@ -1427,7 +1406,7 @@ public class IcebergPageSourceProvider
         effectivePredicate.getDomains().orElseThrow().forEach((columnHandle, domain) -> {
             ColumnIdentity columnIdentity = columnHandle.getColumnIdentity();
             // skip looking up predicates for complex types as Parquet only stores stats for primitives
-            if (PRIMITIVE.equals(columnIdentity.getTypeCategory())) {
+            if (PRIMITIVE == columnIdentity.getTypeCategory()) {
                 ColumnDescriptor descriptor = descriptorsById.get(columnHandle.getId());
                 if (descriptor != null) {
                     predicate.put(descriptor, domain);
@@ -1439,8 +1418,8 @@ public class IcebergPageSourceProvider
 
     private static TrinoException handleException(OrcDataSourceId dataSourceId, Exception exception)
     {
-        if (exception instanceof TrinoException) {
-            return (TrinoException) exception;
+        if (exception instanceof TrinoException trinoException) {
+            return trinoException;
         }
         if (exception instanceof OrcCorruptionException) {
             return new TrinoException(ICEBERG_BAD_DATA, exception);
@@ -1450,8 +1429,8 @@ public class IcebergPageSourceProvider
 
     private static TrinoException handleException(ParquetDataSourceId dataSourceId, Exception exception)
     {
-        if (exception instanceof TrinoException) {
-            return (TrinoException) exception;
+        if (exception instanceof TrinoException trinoException) {
+            return trinoException;
         }
         if (exception instanceof ParquetCorruptionException) {
             return new TrinoException(ICEBERG_BAD_DATA, exception);
@@ -1459,11 +1438,14 @@ public class IcebergPageSourceProvider
         return new TrinoException(ICEBERG_CURSOR_ERROR, format("Failed to read Parquet file: %s", dataSourceId), exception);
     }
 
-    public record ReaderPageSourceWithRowPositions(ReaderPageSource readerPageSource, Optional<Long> startRowPosition, Optional<Long> endRowPosition)
+    public record ReaderPageSourceWithRowPositions(
+            ConnectorPageSource pageSource,
+            Optional<Long> startRowPosition,
+            Optional<Long> endRowPosition)
     {
         public ReaderPageSourceWithRowPositions
         {
-            requireNonNull(readerPageSource, "readerPageSource is null");
+            requireNonNull(pageSource, "pageSource is null");
             requireNonNull(startRowPosition, "startRowPosition is null");
             requireNonNull(endRowPosition, "endRowPosition is null");
         }
@@ -1519,6 +1501,122 @@ public class IcebergPageSourceProvider
         public int hashCode()
         {
             return Objects.hash(baseColumnIdentity, path);
+        }
+    }
+
+    private record MergeRowIdTransform(VariableWidthBlock filePath, IntArrayBlock partitionSpecId, VariableWidthBlock partitionData)
+            implements Function<SourcePage, Block>
+    {
+        private static Function<SourcePage, Block> create(Slice filePath, int partitionSpecId, Slice partitionData)
+        {
+            return new MergeRowIdTransform(
+                    new VariableWidthBlock(1, filePath, new int[] {0, filePath.length()}, Optional.empty()),
+                    new IntArrayBlock(1, Optional.empty(), new int[] {partitionSpecId}),
+                    new VariableWidthBlock(1, partitionData, new int[] {0, partitionData.length()}, Optional.empty()));
+        }
+
+        @Override
+        public Block apply(SourcePage page)
+        {
+            Block rowPosition = page.getBlock(page.getChannelCount() - 1);
+            Block[] fields = new Block[] {
+                    RunLengthEncodedBlock.create(filePath, rowPosition.getPositionCount()),
+                    rowPosition,
+                    RunLengthEncodedBlock.create(partitionSpecId, rowPosition.getPositionCount()),
+                    RunLengthEncodedBlock.create(partitionData, rowPosition.getPositionCount())
+            };
+            return RowBlock.fromFieldBlocks(rowPosition.getPositionCount(), fields);
+        }
+    }
+
+    private record GetRowPositionFromSource()
+            implements Function<SourcePage, Block>
+    {
+        @Override
+        public Block apply(SourcePage page)
+        {
+            return page.getBlock(page.getChannelCount() - 1);
+        }
+    }
+
+    private record PrefixColumnsSourcePage(SourcePage sourcePage, int channelCount, int[] channels)
+            implements SourcePage
+    {
+        private static final long INSTANCE_SIZE = instanceSize(PrefixColumnsSourcePage.class);
+
+        private PrefixColumnsSourcePage
+        {
+            requireNonNull(sourcePage, "sourcePage is null");
+            checkArgument(channelCount >= 0, "channelCount is negative");
+            checkArgument(channelCount < sourcePage.getChannelCount(), "channelCount is greater than or equal to sourcePage channel count");
+            checkArgument(channels.length == channelCount, "channels length does not match channelCount");
+        }
+
+        private PrefixColumnsSourcePage(SourcePage sourcePage, int channelCount)
+        {
+            this(sourcePage, channelCount, IntStream.range(0, channelCount).toArray());
+        }
+
+        @Override
+        public int getPositionCount()
+        {
+            return sourcePage.getPositionCount();
+        }
+
+        @Override
+        public long getSizeInBytes()
+        {
+            return sourcePage.getSizeInBytes();
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE +
+                    sizeOf(channels) +
+                    sourcePage.getRetainedSizeInBytes();
+        }
+
+        @Override
+        public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+        {
+            consumer.accept(this, INSTANCE_SIZE);
+            consumer.accept(channels, sizeOf(channels));
+            sourcePage.retainedBytesForEachPart(consumer);
+        }
+
+        @Override
+        public int getChannelCount()
+        {
+            return channelCount;
+        }
+
+        @Override
+        public Block getBlock(int channel)
+        {
+            checkIndex(channel, channelCount);
+            return sourcePage.getBlock(channel);
+        }
+
+        @Override
+        public Page getPage()
+        {
+            return sourcePage.getColumns(channels);
+        }
+
+        @Override
+        public Page getColumns(int[] channels)
+        {
+            for (int channel : channels) {
+                checkIndex(channel, channelCount);
+            }
+            return sourcePage.getColumns(channels);
+        }
+
+        @Override
+        public void selectPositions(int[] positions, int offset, int size)
+        {
+            sourcePage.selectPositions(positions, offset, size);
         }
     }
 }

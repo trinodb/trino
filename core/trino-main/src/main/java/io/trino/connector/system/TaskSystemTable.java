@@ -30,7 +30,8 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
-import org.joda.time.DateTime;
+
+import java.time.Instant;
 
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.ALL_NODES;
@@ -62,8 +63,7 @@ public class TaskSystemTable
             .column("split_cpu_time_ms", BIGINT)
             .column("split_blocked_time_ms", BIGINT)
 
-            .column("raw_input_bytes", BIGINT)
-            .column("raw_input_rows", BIGINT)
+            .column("internal_network_input_bytes", BIGINT)
 
             .column("processed_input_bytes", BIGINT)
             .column("processed_input_rows", BIGINT)
@@ -113,8 +113,8 @@ public class TaskSystemTable
                     nodeId,
 
                     taskStatus.getTaskId().toString(),
-                    taskStatus.getTaskId().getStageId().toString(),
-                    taskStatus.getTaskId().getQueryId().toString(),
+                    taskStatus.getTaskId().stageId().toString(),
+                    taskStatus.getTaskId().queryId().toString(),
                     taskStatus.getState().toString(),
 
                     (long) stats.getTotalDrivers(),
@@ -126,8 +126,7 @@ public class TaskSystemTable
                     toMillis(stats.getTotalCpuTime()),
                     toMillis(stats.getTotalBlockedTime()),
 
-                    toBytes(stats.getRawInputDataSize()),
-                    stats.getRawInputPositions(),
+                    toBytes(stats.getInternalNetworkInputDataSize()),
 
                     toBytes(stats.getProcessedInputDataSize()),
                     stats.getProcessedInputPositions(),
@@ -162,12 +161,11 @@ public class TaskSystemTable
         return dataSize.toBytes();
     }
 
-    private static Long toTimestampWithTimeZoneMillis(DateTime dateTime)
+    private static Long toTimestampWithTimeZoneMillis(Instant instant)
     {
-        if (dateTime == null) {
+        if (instant == null) {
             return null;
         }
-        // dateTime.getZone() is the server zone, should be of no interest to the user
-        return packDateTimeWithZone(dateTime.getMillis(), UTC_KEY);
+        return packDateTimeWithZone(instant.toEpochMilli(), UTC_KEY);
     }
 }

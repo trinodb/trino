@@ -372,9 +372,7 @@ public final class ThriftMetastoreUtil
 
         return Database.builder()
                 .setDatabaseName(database.getName())
-                // Some metastore implementations like Databricks Unity Catalog can return empty strings
-                // for database locations. We treat them as null.
-                .setLocation(Optional.ofNullable(emptyToNull(database.getLocationUri())))
+                .setLocation(Optional.ofNullable(database.getLocationUri()))
                 .setOwnerName(Optional.of(ownerName))
                 .setOwnerType(Optional.of(ownerType))
                 .setComment(Optional.ofNullable(database.getDescription()))
@@ -789,6 +787,7 @@ public final class ThriftMetastoreUtil
             case TIMESTAMPLOCALTZ:
             case INTERVAL_YEAR_MONTH:
             case INTERVAL_DAY_TIME:
+            case VARIANT:
                 // TODO support these, when we add support for these Hive types
             case VOID:
             case UNKNOWN:
@@ -973,5 +972,14 @@ public final class ThriftMetastoreUtil
             case MERGE -> DataOperationType.UPDATE;
             default -> throw new IllegalStateException("No metastore operation for ACID operation " + acidOperation);
         };
+    }
+
+    public static boolean isAvroTableWithSchemaSet(Table table)
+    {
+        return AVRO.getSerde().equals(table.getStorage().getStorageFormat().getSerDeNullable()) &&
+                ((table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
+                        (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_URL_KEY) != null)) ||
+                 (table.getParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null ||
+                         (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null)));
     }
 }

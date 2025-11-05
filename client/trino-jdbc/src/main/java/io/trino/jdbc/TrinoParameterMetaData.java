@@ -52,7 +52,7 @@ public class TrinoParameterMetaData
             case UNKNOWN:
                 return parameterNullableUnknown;
             default:
-                throw new SQLException(format("Invaliad Nullable Value %s", getParameter(param).getNullable()));
+                throw new SQLException(format("Invalid Nullable Value %s", getParameter(param).getNullable()));
         }
     }
 

@@ -15,7 +15,7 @@
 package io.trino.plugin.eventlistener.kafka.producer;
 
 import io.trino.plugin.eventlistener.kafka.KafkaEventListenerConfig;
-import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 
@@ -26,7 +26,7 @@ abstract class BaseKafkaProducerFactory
         implements KafkaProducerFactory
 {
     @Override
-    public KafkaProducer<String, String> producer(Map<String, String> overrides)
+    public Producer<String, String> producer(Map<String, String> overrides)
     {
         throw new UnsupportedOperationException("Cannot call producer() on abstract class");
     }
@@ -39,7 +39,8 @@ abstract class BaseKafkaProducerFactory
         kafkaClientConfig.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         kafkaClientConfig.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         kafkaClientConfig.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "zstd");
-        kafkaClientConfig.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, "5242880");
+        kafkaClientConfig.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, Long.toString(config.getMaxRequestSize().toBytes()));
+        kafkaClientConfig.put(ProducerConfig.BATCH_SIZE_CONFIG, Long.toString(config.getBatchSize().toBytes()));
         kafkaClientConfig.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, Long.toString(config.getRequestTimeout().toMillis()));
         return kafkaClientConfig;
     }

@@ -321,7 +321,7 @@ public class TestHiveBucketing
 
             nativeContainerValues[i] = toNativeContainerValue(type, hiveValue);
         }
-        ImmutableList<Block> blockList = blockListBuilder.build();
+        List<Block> blockList = blockListBuilder.build();
         int result1 = bucketingVersion.getBucketHashCode(hiveTypeInfos, new Page(blockList.toArray(new Block[blockList.size()])), 2);
         int result2 = bucketingVersion.getBucketHashCode(hiveTypeInfos, nativeContainerValues);
         assertThat(result1)

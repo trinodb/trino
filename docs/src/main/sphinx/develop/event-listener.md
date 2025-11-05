@@ -5,7 +5,6 @@ events:
 
 - Query creation
 - Query completion (success or failure)
-- Split completion (success or failure)
 
 Event details include session, query execution, resource utilization, timeline,
 and more.
@@ -28,7 +27,7 @@ must be wrapped as a plugin and installed on the Trino cluster.
 
 After a plugin that implements `EventListener` and
 `EventListenerFactory` has been installed on the coordinator, it is
-configured using an `etc/event-listener.properties` file. All of the
+configured using an `etc/event-listener.properties` file. All the
 properties other than `event-listener.name` are specific to the
 `EventListener` implementation.
 

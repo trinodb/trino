@@ -37,7 +37,9 @@ class TestAzureFileSystemConfig
                 .setWriteBlockSize(DataSize.of(4, Unit.MEGABYTE))
                 .setMaxWriteConcurrency(8)
                 .setMaxSingleUploadSize(DataSize.of(4, Unit.MEGABYTE))
-                .setMaxHttpRequests(2 * Runtime.getRuntime().availableProcessors()));
+                .setMaxHttpRequests(2 * Runtime.getRuntime().availableProcessors())
+                .setApplicationId("Trino")
+                .setMultipartWriteEnabled(false));
     }
 
     @Test
@@ -51,6 +53,8 @@ class TestAzureFileSystemConfig
                 .put("azure.max-write-concurrency", "7")
                 .put("azure.max-single-upload-size", "7MB")
                 .put("azure.max-http-requests", "128")
+                .put("azure.application-id", "application id")
+                .put("azure.multipart-write-enabled", "true")
                 .buildOrThrow();
 
         AzureFileSystemConfig expected = new AzureFileSystemConfig()
@@ -60,7 +64,9 @@ class TestAzureFileSystemConfig
                 .setWriteBlockSize(DataSize.of(5, Unit.MEGABYTE))
                 .setMaxWriteConcurrency(7)
                 .setMaxSingleUploadSize(DataSize.of(7, Unit.MEGABYTE))
-                .setMaxHttpRequests(128);
+                .setMaxHttpRequests(128)
+                .setApplicationId("application id")
+                .setMultipartWriteEnabled(true);
 
         assertFullMapping(properties, expected);
     }

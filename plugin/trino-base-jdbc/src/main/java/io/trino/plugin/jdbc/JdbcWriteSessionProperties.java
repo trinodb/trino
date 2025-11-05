@@ -33,6 +33,7 @@ public class JdbcWriteSessionProperties
 {
     public static final String WRITE_BATCH_SIZE = "write_batch_size";
     public static final String NON_TRANSACTIONAL_INSERT = "non_transactional_insert";
+    public static final String NON_TRANSACTIONAL_MERGE = "non_transactional_merge";
     public static final String WRITE_PARALLELISM = "write_parallelism";
 
     private final List<PropertyMetadata<?>> properties;
@@ -49,8 +50,13 @@ public class JdbcWriteSessionProperties
                         false))
                 .add(booleanProperty(
                         NON_TRANSACTIONAL_INSERT,
-                        "Do not use temporary table on insert to table",
+                        "Enables support for non-transactional INSERT",
                         writeConfig.isNonTransactionalInsert(),
+                        false))
+                .add(booleanProperty(
+                        NON_TRANSACTIONAL_MERGE,
+                        "Enables support for non-transactional MERGE",
+                        writeConfig.isNonTransactionalMerge(),
                         false))
                 .add(integerProperty(
                         WRITE_PARALLELISM,
@@ -79,6 +85,11 @@ public class JdbcWriteSessionProperties
     public static boolean isNonTransactionalInsert(ConnectorSession session)
     {
         return session.getProperty(NON_TRANSACTIONAL_INSERT, Boolean.class);
+    }
+
+    public static boolean isNonTransactionalMerge(ConnectorSession session)
+    {
+        return session.getProperty(NON_TRANSACTIONAL_MERGE, Boolean.class);
     }
 
     private static void validateWriteBatchSize(int maxBatchSize)

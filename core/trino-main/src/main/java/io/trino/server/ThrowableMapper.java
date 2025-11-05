@@ -15,6 +15,7 @@ package io.trino.server;
 
 import com.google.common.base.Throwables;
 import com.google.inject.Inject;
+import io.airlift.jaxrs.JsonParsingException;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.InternalServerErrorException;
@@ -25,6 +26,7 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.ResponseBuilder;
 import jakarta.ws.rs.ext.ExceptionMapper;
+import org.eclipse.jetty.io.EofException;
 
 import java.util.concurrent.TimeoutException;
 
@@ -84,6 +86,12 @@ public class ThrowableMapper
                     .entity("Error 408 Timeout: " + timeoutException.getMessage())
                     .build();
             case WebApplicationException webApplicationException -> webApplicationException.getResponse();
+            case JsonParsingException parsingException -> Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Throwables.getStackTraceAsString(parsingException))
+                    .build();
+            // Workaround for Jetty managed async hang issue,
+            // see: https://github.com/jetty/jetty.project/issues/13066#issuecomment-2886850448
+            case EofException _ -> null;
             default -> {
                 ResponseBuilder responseBuilder = plainTextError(Response.Status.INTERNAL_SERVER_ERROR);
                 if (includeExceptionInResponse) {

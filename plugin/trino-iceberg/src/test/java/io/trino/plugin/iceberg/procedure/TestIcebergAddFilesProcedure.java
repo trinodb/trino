@@ -124,12 +124,12 @@ final class TestIcebergAddFilesProcedure
         String hiveTableName = "test_add_files_" + randomNameSuffix();
         String icebergTableName = "test_add_files_" + randomNameSuffix();
 
-        assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " WITH (format = '" + icebergFormat + "') AS SELECT 1 x", 1);
-        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (format = '" + hiveFormat + "') AS SELECT 2 x", 1);
+        assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " WITH (format = '" + icebergFormat + "') AS SELECT 1 x, 2 y", 1);
+        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (format = '" + hiveFormat + "') AS SELECT 3 x, 4 y", 1);
 
         assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "')");
 
-        assertQuery("SELECT * FROM " + icebergTableName, "VALUES 1, 2");
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1, 2), (3, 4)");
 
         assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
         assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
@@ -259,6 +259,22 @@ final class TestIcebergAddFilesProcedure
         assertQueryFails(
                 "ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "', map(ARRAY['hive_part'], ARRAY['10']))",
                 "Partition column 'hive_part' does not exist");
+
+        assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
+        assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
+    }
+
+    @Test
+    void testAddFilesSpecialCharPartitionColumnDefinitions()
+    {
+        String hiveTableName = "test_add_files_" + randomNameSuffix();
+        String icebergTableName = "test_add_files_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (partitioned_by = ARRAY['special@col']) AS SELECT 1 x, 10 \"special@col\"", 1);
+        assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " WITH (partitioning = ARRAY['\"special@col\"']) AS SELECT 2 x, 20 \"special@col\"", 1);
+
+        assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "', map(ARRAY['special@col'], ARRAY['10']))");
+        assertQuery("SELECT * FROM iceberg.tpch." + icebergTableName, "VALUES (1, 10), (2, 20)");
 
         assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
         assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
@@ -452,7 +468,7 @@ final class TestIcebergAddFilesProcedure
     }
 
     @Test
-    void testAddFilesToPartitionTabtestAddFilesToPartitionTableWithLocationleWithLocation()
+    void testAddFilesToPartitionTableWithLocation()
     {
         String hiveTableName = "test_add_files_location_" + randomNameSuffix();
         String icebergTableName = "test_add_files_location_" + randomNameSuffix();
@@ -574,7 +590,30 @@ final class TestIcebergAddFilesProcedure
     @Test
     void testAddDuplicatedFiles()
     {
-        // TODO Consider adding 'check_duplicate_files' option like Spark
+        String hiveTableName = "test_add_files_" + randomNameSuffix();
+        String icebergTableName = "test_add_files_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " AS SELECT 1 x", 1);
+        assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " AS SELECT 2 x", 1);
+        String path = (String) computeScalar("SELECT \"$path\" FROM hive.tpch." + hiveTableName);
+
+        assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + path + "', 'ORC')");
+
+        assertQueryFails(
+                "ALTER TABLE " + icebergTableName + " EXECUTE add_files('" + path + "', 'ORC')",
+                ".*File already exists.*");
+        assertQueryFails(
+                "ALTER TABLE " + icebergTableName + " EXECUTE add_files(location=>'" + path + "', format=>'ORC')",
+                ".*File already exists.*");
+        assertQuery("SELECT * FROM iceberg.tpch." + icebergTableName, "VALUES 1, 2");
+
+        assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
+        assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
+    }
+
+    @Test
+    void testAddDuplicatedFilesFromTable()
+    {
         String hiveTableName = "test_add_files_" + randomNameSuffix();
         String icebergTableName = "test_add_files_" + randomNameSuffix();
 
@@ -582,9 +621,14 @@ final class TestIcebergAddFilesProcedure
         assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " AS SELECT 2 x", 1);
 
         assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "')");
-        assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "')");
 
-        assertQuery("SELECT * FROM iceberg.tpch." + icebergTableName, "VALUES 1, 2, 1");
+        assertQueryFails(
+                "ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "')",
+                ".*File already exists.*");
+        assertQueryFails(
+                "ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table(schema_name=>'tpch', table_name=>'" + hiveTableName + "')",
+                ".*File already exists.*");
+        assertQuery("SELECT * FROM iceberg.tpch." + icebergTableName, "VALUES 1, 2");
 
         assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
         assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);

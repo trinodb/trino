@@ -26,7 +26,6 @@ import io.trino.operator.PagesRTreeIndex.GeometryWithPosition;
 import io.trino.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlock;
-import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -60,7 +59,6 @@ public class PagesSpatialIndexSupplier
 
     private final Session session;
     private final LongArrayList addresses;
-    private final List<Type> types;
     private final List<Integer> outputChannels;
     private final List<ObjectArrayList<Block>> channels;
     private final Optional<Integer> radiusChannel;
@@ -74,7 +72,6 @@ public class PagesSpatialIndexSupplier
     public PagesSpatialIndexSupplier(
             Session session,
             LongArrayList addresses,
-            List<Type> types,
             List<Integer> outputChannels,
             List<ObjectArrayList<Block>> channels,
             int geometryChannel,
@@ -87,7 +84,6 @@ public class PagesSpatialIndexSupplier
     {
         this.session = session;
         this.addresses = addresses;
-        this.types = types;
         this.outputChannels = outputChannels;
         this.channels = channels;
         this.spatialRelationshipTest = spatialRelationshipTest;
@@ -109,16 +105,17 @@ public class PagesSpatialIndexSupplier
         for (int position = 0; position < addresses.size(); position++) {
             long pageAddress = addresses.getLong(position);
             int blockIndex = decodeSliceIndex(pageAddress);
-            Block chennelBlock = channels.get(geometryChannel).get(blockIndex);
-            VariableWidthBlock block = (VariableWidthBlock) chennelBlock.getUnderlyingValueBlock();
-            int blockPosition = chennelBlock.getUnderlyingValuePosition(decodePosition(pageAddress));
+            Block channelBlock = channels.get(geometryChannel).get(blockIndex);
+            VariableWidthBlock block = (VariableWidthBlock) channelBlock.getUnderlyingValueBlock();
+            int blockPosition = decodePosition(pageAddress);
+            int valueBlockPosition = channelBlock.getUnderlyingValuePosition(blockPosition);
 
             // TODO Consider pushing is-null and is-empty checks into a filter below the join
-            if (block.isNull(blockPosition)) {
+            if (block.isNull(valueBlockPosition)) {
                 continue;
             }
 
-            Slice slice = block.getSlice(blockPosition);
+            Slice slice = block.getSlice(valueBlockPosition);
             OGCGeometry ogcGeometry = deserialize(slice);
             verifyNotNull(ogcGeometry);
             if (ogcGeometry.isEmpty()) {
@@ -201,6 +198,6 @@ public class PagesSpatialIndexSupplier
         if (rtree.isEmpty()) {
             return EMPTY_INDEX;
         }
-        return new PagesRTreeIndex(session, addresses, types, outputChannels, channels, rtree, radiusChannel, constantRadius, spatialRelationshipTest, filterFunctionFactory, partitions);
+        return new PagesRTreeIndex(session, addresses, outputChannels, channels, rtree, radiusChannel, constantRadius, spatialRelationshipTest, filterFunctionFactory, partitions);
     }
 }

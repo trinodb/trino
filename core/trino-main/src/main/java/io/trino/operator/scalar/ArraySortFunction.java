@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedArrayValueBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.OperatorDependency;
@@ -52,7 +53,6 @@ public final class ArraySortFunction
                     operator = COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"E", "E"},
                     convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) BlockPositionComparison comparisonOperator,
-            @TypeParameter("E") Type type,
             @SqlType("array(E)") Block block)
     {
         int arrayLength = block.getPositionCount();
@@ -78,8 +78,9 @@ public final class ArraySortFunction
         });
 
         return arrayValueBuilder.build(arrayLength, elementBuilder -> {
+            ValueBlock valueBlock = block.getUnderlyingValueBlock();
             for (int i = 0; i < arrayLength; i++) {
-                type.appendTo(block, positions.getInt(i), elementBuilder);
+                elementBuilder.append(valueBlock, block.getUnderlyingValuePosition(positions.getInt(i)));
             }
         });
     }

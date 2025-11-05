@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.faker;
 
+import com.google.inject.Inject;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -21,25 +22,34 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
-import jakarta.inject.Inject;
 import net.datafaker.Faker;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
+import java.util.random.RandomGeneratorFactory;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.random.RandomGenerator.JumpableGenerator;
 
 public class FakerPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final Random random;
+    private final Locale locale;
+    private final JumpableGenerator jumpableRandom;
     private final Faker faker;
 
     @Inject
-    public FakerPageSourceProvider()
+    public FakerPageSourceProvider(FakerConfig config)
     {
-        random = new Random();
-        faker = new Faker(random);
+        locale = config.getLocale();
+        // Every split should generate data in a sequence that does not overlap with other splits.
+        // To make data generation deterministic, use a generator with the same seed,
+        // but advance its state by a different offset for every split.
+        // A jumpable random generator's state can be advanced forward by a big distance in a single call.
+        // Xoroshiro128PlusPlus state has a period of 2^128, and a jump distance of 2^64.
+        jumpableRandom = (JumpableGenerator) RandomGeneratorFactory.of("Xoroshiro128PlusPlus").create(1);
+        faker = new Faker(locale, Random.from(jumpableRandom.copy()));
     }
 
     @Override
@@ -56,9 +66,18 @@ public class FakerPageSourceProvider
                 .map(FakerColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        FakerTableHandle fakerTable = (FakerTableHandle) table;
         FakerSplit fakerSplit = (FakerSplit) split;
-        return new FakerPageSource(faker, random, handles, fakerTable.constraint(), fakerSplit.limit());
+        Random random = random(fakerSplit.splitNumber());
+        return new FakerPageSource(new Faker(locale, random), random, handles, fakerSplit.rowsOffset(), fakerSplit.rowsCount());
+    }
+
+    private Random random(long index)
+    {
+        JumpableGenerator jumpableRandom = this.jumpableRandom.copy();
+        for (long i = 0; i < index; i++) {
+            jumpableRandom.jump();
+        }
+        return Random.from(jumpableRandom);
     }
 
     public void validateGenerator(String generator)

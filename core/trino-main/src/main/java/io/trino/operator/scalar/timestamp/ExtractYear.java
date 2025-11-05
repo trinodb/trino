@@ -25,7 +25,7 @@ import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Year of the given timestamp")
 @ScalarFunction("year")
-public class ExtractYear
+public final class ExtractYear
 {
     private ExtractYear() {}
 

@@ -168,9 +168,7 @@ public class IterativeOptimizer
             context.checkTimeoutNotExhausted();
 
             done = true;
-            Iterator<Rule<?>> possiblyMatchingRules = ruleIndex.getCandidates(node).iterator();
-            while (possiblyMatchingRules.hasNext()) {
-                Rule<?> rule = possiblyMatchingRules.next();
+            for (Rule<?> rule : ruleIndex.getCandidates(node)) {
                 long timeStart = nanoTime();
                 long timeEnd;
                 boolean invoked = false;
@@ -180,11 +178,9 @@ public class IterativeOptimizer
                     invoked = true;
                     Rule.Result result = transform(node, rule, context);
                     timeEnd = nanoTime();
-                    if (result.getTransformedPlan().isPresent()) {
-                        changedPlanNodeIds.add(result.getTransformedPlan().get().getId());
-                    }
-                    if (result.getTransformedPlan().isPresent()) {
-                        node = context.memo.replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
+                    if (result.isPresent()) {
+                        changedPlanNodeIds.add(result.transformedPlan().get().getId());
+                        node = context.memo.replace(group, result.transformedPlan().get(), rule.getClass().getName());
 
                         applied = true;
                         done = false;
@@ -228,7 +224,7 @@ public class IterativeOptimizer
                                     0,
                                     false),
                             PlanPrinter.textLogicalPlan(
-                                    result.getTransformedPlan().get(),
+                                    result.transformedPlan().get(),
                                     plannerContext.getMetadata(),
                                     plannerContext.getFunctionManager(),
                                     StatsAndCosts.empty(),
@@ -245,7 +241,7 @@ public class IterativeOptimizer
             }
             stats.record(rule, duration, !result.isEmpty());
 
-            if (result.getTransformedPlan().isPresent()) {
+            if (result.isPresent()) {
                 return result;
             }
         }

@@ -48,6 +48,7 @@ public final class SessionRepresentation
     private final boolean clientTransactionSupport;
     private final String user;
     private final String originalUser;
+    private final Set<String> originalRoles;
     private final Set<String> groups;
     private final Set<String> originalUserGroups;
     private final Optional<String> principal;
@@ -81,6 +82,7 @@ public final class SessionRepresentation
             @JsonProperty("clientTransactionSupport") boolean clientTransactionSupport,
             @JsonProperty("user") String user,
             @JsonProperty("originalUser") String originalUser,
+            @JsonProperty("setOriginalRoles") Set<String> originalRoles,
             @JsonProperty("groups") Set<String> groups,
             @JsonProperty("originalUserGroups") Set<String> originalUserGroups,
             @JsonProperty("principal") Optional<String> principal,
@@ -112,6 +114,7 @@ public final class SessionRepresentation
         this.clientTransactionSupport = clientTransactionSupport;
         this.user = requireNonNull(user, "user is null");
         this.originalUser = requireNonNull(originalUser, "originalUser is null");
+        this.originalRoles = requireNonNull(originalRoles, "setOriginalRoles is null");
         this.groups = requireNonNull(groups, "groups is null");
         this.originalUserGroups = requireNonNull(originalUserGroups, "originalUserGroups is null");
         this.principal = requireNonNull(principal, "principal is null");
@@ -177,6 +180,12 @@ public final class SessionRepresentation
     public String getOriginalUser()
     {
         return originalUser;
+    }
+
+    @JsonProperty
+    public Set<String> getOriginalRoles()
+    {
+        return originalRoles;
     }
 
     @JsonProperty
@@ -350,6 +359,7 @@ public final class SessionRepresentation
         return Identity.forUser(originalUser)
                 .withGroups(originalUserGroups)
                 .withPrincipal(principal.map(BasicPrincipal::new))
+                .withEnabledRoles(originalRoles)
                 .withExtraCredentials(extraCredentials)
                 .build();
     }

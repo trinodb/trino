@@ -13,7 +13,6 @@
  */
 package io.trino.execution;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -27,17 +26,14 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.annotation.NotThreadSafe;
-import io.trino.event.SplitMonitor;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.TaskHandle;
-import io.trino.metadata.Split;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
-import io.trino.operator.DriverStats;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.TaskContext;
 import io.trino.spi.SplitWeight;
@@ -95,7 +91,6 @@ public class SqlTaskExecution
 
     private final Executor notificationExecutor;
 
-    private final SplitMonitor splitMonitor;
     private final DriverAndTaskTerminationTracker driverAndTaskTerminationTracker;
 
     private final Map<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithSplitLifeCycle;
@@ -124,7 +119,6 @@ public class SqlTaskExecution
             OutputBuffer outputBuffer,
             LocalExecutionPlan localExecutionPlan,
             TaskExecutor taskExecutor,
-            SplitMonitor splitMonitor,
             Tracer tracer,
             Executor notificationExecutor)
     {
@@ -137,7 +131,6 @@ public class SqlTaskExecution
         this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
 
-        this.splitMonitor = requireNonNull(splitMonitor, "splitMonitor is null");
         this.driverAndTaskTerminationTracker = new DriverAndTaskTerminationTracker(taskStateMachine);
 
         try (SetThreadName _ = new SetThreadName("Task-" + taskId)) {
@@ -406,10 +399,7 @@ public class SqlTaskExecution
         remainingSplitRunners.addAndGet(runners.size());
 
         // when split runner completes, update state and fire events
-        for (int i = 0; i < finishedFutures.size(); i++) {
-            ListenableFuture<Void> finishedFuture = finishedFutures.get(i);
-            DriverSplitRunner splitRunner = runners.get(i);
-
+        for (ListenableFuture<Void> finishedFuture : finishedFutures) {
             Futures.addCallback(finishedFuture, new FutureCallback<Object>()
             {
                 @Override
@@ -420,8 +410,6 @@ public class SqlTaskExecution
                         if (remainingSplitRunners.decrementAndGet() == 0) {
                             checkTaskCompletion();
                         }
-
-                        splitMonitor.splitCompletedEvent(taskId, getDriverStats());
                     }
                 }
 
@@ -435,25 +423,7 @@ public class SqlTaskExecution
                         if (remainingSplitRunners.decrementAndGet() == 0) {
                             checkTaskCompletion();
                         }
-
-                        // fire failed event with cause
-                        splitMonitor.splitFailedEvent(taskId, getDriverStats(), cause);
                     }
-                }
-
-                private DriverStats getDriverStats()
-                {
-                    DriverContext driverContext = splitRunner.getDriverContext();
-                    DriverStats driverStats;
-                    if (driverContext != null) {
-                        driverStats = driverContext.getDriverStats();
-                    }
-                    else {
-                        // split runner did not start successfully
-                        driverStats = new DriverStats();
-                    }
-
-                    return driverStats;
                 }
             }, notificationExecutor);
         }
@@ -625,10 +595,10 @@ public class SqlTaskExecution
             this.pipelineContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), partitioned);
             this.pipelineSpan = tracer.spanBuilder("pipeline")
                     .setParent(Context.current().with(taskSpan))
-                    .setAttribute(TrinoAttributes.QUERY_ID, taskId.getQueryId().toString())
-                    .setAttribute(TrinoAttributes.STAGE_ID, taskId.getStageId().toString())
+                    .setAttribute(TrinoAttributes.QUERY_ID, taskId.queryId().toString())
+                    .setAttribute(TrinoAttributes.STAGE_ID, taskId.stageId().toString())
                     .setAttribute(TrinoAttributes.TASK_ID, taskId.toString())
-                    .setAttribute(TrinoAttributes.PIPELINE_ID, taskId.getStageId() + "-" + pipelineContext.getPipelineId())
+                    .setAttribute(TrinoAttributes.PIPELINE_ID, taskId.stageId() + "-" + pipelineContext.getPipelineId())
                     .startSpan();
         }
 
@@ -815,7 +785,6 @@ public class SqlTaskExecution
     private static class DriverSplitRunner
             implements SplitRunner
     {
-        private static final Joiner.MapJoiner JOINER = Joiner.on(";").withKeyValueSeparator("=");
         private final DriverSplitRunnerFactory driverSplitRunnerFactory;
         private final DriverContext driverContext;
 
@@ -833,14 +802,6 @@ public class SqlTaskExecution
             this.driverSplitRunnerFactory = requireNonNull(driverSplitRunnerFactory, "driverSplitRunnerFactory is null");
             this.driverContext = requireNonNull(driverContext, "driverContext is null");
             this.partitionedSplit = partitionedSplit;
-        }
-
-        public synchronized DriverContext getDriverContext()
-        {
-            if (driver == null) {
-                return null;
-            }
-            return driver.getDriverContext();
         }
 
         @Override
@@ -893,7 +854,7 @@ public class SqlTaskExecution
         @Override
         public String getInfo()
         {
-            return (partitionedSplit == null) ? "" : formatSplitInfo(partitionedSplit.getSplit());
+            return (partitionedSplit == null) ? "" : partitionedSplit.getSplit().toString();
         }
 
         @Override
@@ -908,11 +869,6 @@ public class SqlTaskExecution
             if (driver != null) {
                 driver.close();
             }
-        }
-
-        private static String formatSplitInfo(Split split)
-        {
-            return split.getConnectorSplit().getClass().getSimpleName() + "{" + JOINER.join(split.getInfo()) + "}";
         }
     }
 

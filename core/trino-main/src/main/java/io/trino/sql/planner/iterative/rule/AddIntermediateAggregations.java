@@ -116,7 +116,6 @@ public class AddIntermediateAggregations
                     aggregation.getGroupingSets(),
                     aggregation.getPreGroupedSymbols(),
                     AggregationNode.Step.INTERMEDIATE,
-                    aggregation.getHashSymbol(),
                     aggregation.getGroupIdSymbol());
             source = ExchangeNode.gatheringExchange(idAllocator.getNextId(), ExchangeNode.Scope.LOCAL, source);
         }
@@ -129,8 +128,8 @@ public class AddIntermediateAggregations
      */
     private Optional<PlanNode> recurseToPartial(PlanNode node, Lookup lookup, PlanNodeIdAllocator idAllocator)
     {
-        if (node instanceof AggregationNode && ((AggregationNode) node).getStep() == AggregationNode.Step.PARTIAL) {
-            return Optional.of(addGatheringIntermediate((AggregationNode) node, idAllocator));
+        if (node instanceof AggregationNode aggregationNode && aggregationNode.getStep() == AggregationNode.Step.PARTIAL) {
+            return Optional.of(addGatheringIntermediate(aggregationNode, idAllocator));
         }
 
         if (!(node instanceof ExchangeNode) && !(node instanceof ProjectNode)) {

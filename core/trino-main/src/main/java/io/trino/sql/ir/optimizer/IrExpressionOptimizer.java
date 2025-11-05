@@ -192,7 +192,7 @@ public class IrExpressionOptimizer
             case Logical logical -> process(logical.terms(), session, bindings).map(arguments -> new Logical(logical.operator(), arguments));
             case Call call -> process(call.arguments(), session, bindings).map(arguments -> new Call(call.function(), arguments));
             case Array array -> process(array.elements(), session, bindings).map(elements -> new Array(array.elementType(), elements));
-            case Row row -> process(row.items(), session, bindings).map(fields -> new Row(fields));
+            case Row row -> process(row.items(), session, bindings).map(fields -> new Row(fields, row.type()));
             case Between between -> {
                 Optional<Expression> value = process(between.value(), session, bindings);
                 Optional<Expression> min = process(between.min(), session, bindings);

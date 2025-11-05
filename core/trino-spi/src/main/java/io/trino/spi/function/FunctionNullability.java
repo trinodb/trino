@@ -15,7 +15,6 @@ package io.trino.spi.function;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.spi.Experimental;
 
 import java.util.List;
 import java.util.Objects;
@@ -23,7 +22,6 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
-@Experimental(eta = "2022-10-31")
 public class FunctionNullability
 {
     private final boolean returnNullable;

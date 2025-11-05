@@ -30,8 +30,8 @@ import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.slice.Slice;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.Binding;
 import io.trino.sql.gen.CallSiteBinder;
@@ -157,7 +157,7 @@ public class InColumnarFilterGenerator
         Parameter outputPositions = arg("outputPositions", int[].class);
         Parameter offset = arg("offset", int.class);
         Parameter size = arg("size", int.class);
-        Parameter page = arg("page", Page.class);
+        Parameter page = arg("page", SourcePage.class);
 
         MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
@@ -205,7 +205,7 @@ public class InColumnarFilterGenerator
         Parameter activePositions = arg("activePositions", int[].class);
         Parameter offset = arg("offset", int.class);
         Parameter size = arg("size", int.class);
-        Parameter page = arg("page", Page.class);
+        Parameter page = arg("page", SourcePage.class);
 
         MethodDefinition method = classDefinition.declareMethod(
                 a(PUBLIC),
@@ -352,10 +352,10 @@ public class InColumnarFilterGenerator
             return false;
         }
         for (RowExpression expression : values) {
-            if (!(expression instanceof ConstantExpression)) {
+            if (!(expression instanceof ConstantExpression constantExpression)) {
                 throw new UnsupportedOperationException("IN clause columnar evaluation is supported only on input reference against constants");
             }
-            Object constant = ((ConstantExpression) expression).value();
+            Object constant = constantExpression.value();
             // NULL constants are skipped as they do not satisfy IN filter
             // NULL positions will need to be handled differently to allow IN filters to be composed (e.g. NOT IN)
             if (constant == null) {

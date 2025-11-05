@@ -4,7 +4,7 @@
 
 ```text
 DENY ( privilege [, ...] | ( ALL PRIVILEGES ) )
-ON ( table_name | TABLE table_name | SCHEMA schema_name)
+ON [ BRANCH branch_name IN ] ( table_name | TABLE table_name | SCHEMA schema_name)
 TO ( user | USER user | ROLE role )
 ```
 
@@ -37,6 +37,12 @@ Deny `SELECT` privilege on the table `orders` to everyone:
 
 ```
 DENY SELECT ON orders TO ROLE PUBLIC;
+```
+
+Deny `INSERT` privilege on the `audit` branch of the `orders` table to user `alice`:
+
+```sql
+DENY INSERT ON BRANCH audit IN orders TO alice;
 ```
 
 ## Limitations

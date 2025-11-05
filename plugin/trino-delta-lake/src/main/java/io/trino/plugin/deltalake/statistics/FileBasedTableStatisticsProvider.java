@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.deltalake.statistics;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.trino.filesystem.Location;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
@@ -25,6 +25,7 @@ import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.DoubleRange;
@@ -48,7 +49,14 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.createStatisticsPredicate;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
-import static io.trino.plugin.deltalake.DeltaLakeSplitManager.partitionMatchesPredicate;
+import static io.trino.plugin.deltalake.DeltaLakeSplitManager.buildSplitPath;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.fileModifiedTimeMatchesPredicate;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.fileSizeMatchesPredicate;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getFileModifiedTimeDomain;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getFileSizeDomain;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getPathDomain;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.partitionMatchesPredicate;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.pathMatchesPredicate;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
@@ -113,13 +121,10 @@ public class FileBasedTableStatisticsProvider
                 .filter(column -> predicatedColumnNames.contains(column.name()))
                 .collect(toImmutableList());
 
-        try (Stream<AddFileEntry> addEntries = transactionLogAccess.getActiveFiles(
-                session,
-                tableSnapshot,
-                tableHandle.getMetadataEntry(),
-                tableHandle.getProtocolEntry(),
-                tableHandle.getEnforcedPartitionConstraint(),
-                tableHandle.getProjectedColumns().orElse(ImmutableSet.of()))) {
+        Domain pathDomain = getPathDomain(tableHandle.getNonPartitionConstraint());
+        Domain fileModifiedDomain = getFileModifiedTimeDomain(tableHandle.getNonPartitionConstraint());
+        Domain fileSizeDomain = getFileSizeDomain(tableHandle.getNonPartitionConstraint());
+        try (Stream<AddFileEntry> addEntries = transactionLogAccess.getActiveFiles(session, tableHandle, tableSnapshot)) {
             Iterator<AddFileEntry> addEntryIterator = addEntries.iterator();
             while (addEntryIterator.hasNext()) {
                 AddFileEntry addEntry = addEntryIterator.next();
@@ -130,6 +135,19 @@ public class FileBasedTableStatisticsProvider
                 }
                 DeltaLakeFileStatistics stats = fileStatistics.get();
                 if (!partitionMatchesPredicate(addEntry.getCanonicalPartitionValues(), tableHandle.getEnforcedPartitionConstraint().getDomains().orElseThrow())) {
+                    continue;
+                }
+
+                String splitPath = buildSplitPath(Location.of(tableHandle.getLocation()), addEntry).toString();
+                if (!pathMatchesPredicate(pathDomain, splitPath)) {
+                    continue;
+                }
+
+                if (!fileModifiedTimeMatchesPredicate(fileModifiedDomain, addEntry.getModificationTime())) {
+                    continue;
+                }
+
+                if (!fileSizeMatchesPredicate(fileSizeDomain, addEntry.getSize())) {
                     continue;
                 }
 
@@ -194,7 +212,7 @@ public class FileBasedTableStatisticsProvider
 
         Optional<ExtendedStatistics> statistics = Optional.empty();
         if (isExtendedStatisticsEnabled(session)) {
-            statistics = statisticsAccess.readExtendedStatistics(session, tableHandle.getSchemaTableName(), tableHandle.getLocation());
+            statistics = statisticsAccess.readExtendedStatistics(session, tableHandle.getSchemaTableName(), tableHandle.getLocation(), tableHandle.toCredentialsHandle());
         }
 
         for (DeltaLakeColumnHandle column : columns) {

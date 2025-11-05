@@ -12,19 +12,20 @@
  * limitations under the License.
  */
 import { ReactNode } from 'react'
+import AppsOutlinedIcon from '@mui/icons-material/AppsOutlined'
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined'
 import DnsOutlinedIcon from '@mui/icons-material/DnsOutlined'
-import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined'
 import { RouteProps } from 'react-router-dom'
 import { Dashboard } from './components/Dashboard'
-import { Workers } from './components/Workers'
-import { QueryHistory } from './components/QueryHistory'
+import { DemoComponents } from './components/DemoComponents'
+import { WorkersList } from './components/WorkersList.tsx'
 import { Texts } from './constant'
 
 export interface RouterItem {
     itemKey?: string
     text?: string
     icon?: ReactNode
+    hidden?: boolean
     routeProps: RouteProps
 }
 
@@ -46,17 +47,18 @@ export const routers: RouterItems = [
         icon: <DnsOutlinedIcon />,
         routeProps: {
             path: '/workers',
-            element: <Workers />,
+            element: <WorkersList />,
         },
     },
     {
-        itemKey: 'query-history',
-        text: Texts.Menu.Drawer.QueryHistory,
-        icon: <HistoryOutlinedIcon />,
+        itemKey: 'demo-components',
+        text: Texts.Menu.Drawer.DemoComponents,
+        icon: <AppsOutlinedIcon />,
         routeProps: {
-            path: '/query-history',
-            element: <QueryHistory />,
+            path: '/demo-components',
+            element: <DemoComponents />,
         },
+        hidden: true,
     },
 ]
 

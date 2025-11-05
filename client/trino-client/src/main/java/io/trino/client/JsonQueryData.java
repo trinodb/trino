@@ -26,6 +26,14 @@ public class JsonQueryData
     public JsonQueryData(JsonNode node)
     {
         this.node = requireNonNull(node, "node is null");
+        if (node.isNull()) {
+            throw new IllegalArgumentException("JsonNode cannot be null");
+        }
+    }
+
+    public JsonNode getNode()
+    {
+        return node;
     }
 
     public JsonParser getJsonParser()
@@ -36,6 +44,12 @@ public class JsonQueryData
     @Override
     public boolean isNull()
     {
-        return node.isNull();
+        return false;
+    }
+
+    @Override
+    public long getRowsCount()
+    {
+        return node.size();
     }
 }

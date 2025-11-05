@@ -30,7 +30,6 @@ import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.event.client.EventClient;
 import io.airlift.json.JsonModule;
 import io.airlift.log.Logger;
 import io.trino.sql.parser.SqlParser;
@@ -49,6 +48,7 @@ import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.RefreshMaterializedView;
+import io.trino.sql.tree.RefreshView;
 import io.trino.sql.tree.RenameColumn;
 import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameTable;
@@ -153,8 +153,6 @@ public class VerifyCommand
             for (String clientType : config.getEventClients()) {
                 checkArgument(supportedEventClients.contains(clientType), "Unsupported event client: %s", clientType);
             }
-            Set<EventClient> eventClients = injector.getInstance(new Key<>() {});
-
             VerifierDao dao = injector.getInstance(VerifierDao.class);
 
             ImmutableList.Builder<QueryPair> queriesBuilder = ImmutableList.builder();
@@ -184,9 +182,9 @@ public class VerifyCommand
                     loadJdbcDriver(urls, config.getControlJdbcDriverName());
                 }
             }
-
             // TODO: construct this with Guice
-            int numFailedQueries = new Verifier(System.out, config, eventClients).run(queries);
+            int numFailedQueries = new Verifier(System.out, config, injector.getInstance(new Key<>(){}))
+                    .run(queries);
             System.exit((numFailedQueries > 0) ? 1 : 0);
         }
         catch (InterruptedException | MalformedURLException e) {
@@ -378,19 +376,22 @@ public class VerifyCommand
         if (statement instanceof CreateTableAsSelect) {
             return CREATE;
         }
-        if (statement instanceof CreateView) {
-            if (((CreateView) statement).isReplace()) {
+        if (statement instanceof CreateView createView) {
+            if (createView.isReplace()) {
                 return MODIFY;
             }
             return CREATE;
         }
-        if (statement instanceof CreateMaterializedView) {
-            if (((CreateMaterializedView) statement).isReplace()) {
+        if (statement instanceof CreateMaterializedView createMaterializedView) {
+            if (createMaterializedView.isReplace()) {
                 return MODIFY;
             }
             return CREATE;
         }
         if (statement instanceof RefreshMaterializedView) {
+            return MODIFY;
+        }
+        if (statement instanceof RefreshView) {
             return MODIFY;
         }
         if (statement instanceof DropMaterializedView) {
@@ -408,8 +409,8 @@ public class VerifyCommand
         if (statement instanceof Explain) {
             return READ;
         }
-        if (statement instanceof ExplainAnalyze) {
-            return statementToQueryType(((ExplainAnalyze) statement).getStatement());
+        if (statement instanceof ExplainAnalyze explainAnalyze) {
+            return statementToQueryType(explainAnalyze.getStatement());
         }
         if (statement instanceof Insert) {
             return MODIFY;

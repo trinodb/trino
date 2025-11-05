@@ -2,13 +2,13 @@ local exchange (GATHER, SINGLE, [])
     remote exchange (GATHER, SINGLE, [])
         local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
-                final aggregation over (acctbal, address, comment_5, custkey_4, name, name_9, phone)
+                final aggregation over (acctbal, address, comment_6, custkey_5, name, name_11, phone)
                     local exchange (GATHER, SINGLE, [])
-                        partial aggregation over (acctbal, address, comment_5, custkey_4, name, name_9, phone)
+                        partial aggregation over (acctbal, address, comment_6, custkey_5, name, name_11, phone)
                             join (INNER, REPLICATED):
                                 join (INNER, PARTITIONED):
-                                    remote exchange (REPARTITION, HASH, [custkey_4])
-                                        dynamic filter (custkey_4::EQUAL, nationkey::EQUAL)
+                                    remote exchange (REPARTITION, HASH, [custkey_5])
+                                        dynamic filter (custkey_5::EQUAL, nationkey::EQUAL)
                                             scan customer
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, [custkey])

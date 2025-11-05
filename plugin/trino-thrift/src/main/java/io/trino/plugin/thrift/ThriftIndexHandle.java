@@ -13,91 +13,26 @@
  */
 package io.trino.plugin.thrift;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorIndexHandle;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
-
-import java.util.Objects;
-import java.util.Optional;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class ThriftIndexHandle
+public record ThriftIndexHandle(SchemaTableName schemaTableName, TupleDomain<ColumnHandle> tupleDomain)
         implements ConnectorIndexHandle
 {
-    private final SchemaTableName schemaTableName;
-    private final TupleDomain<ColumnHandle> tupleDomain;
-    private final Optional<ConnectorSession> session;
-
-    public ThriftIndexHandle(
-            SchemaTableName schemaTableName,
-            TupleDomain<ColumnHandle> tupleDomain,
-            ConnectorSession session)
+    public ThriftIndexHandle
     {
-        this(schemaTableName, tupleDomain, Optional.of(requireNonNull(session, "session is null")));
-    }
-
-    @JsonCreator
-    public ThriftIndexHandle(
-            @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain)
-    {
-        this(schemaTableName, tupleDomain, Optional.empty());
-    }
-
-    private ThriftIndexHandle(
-            SchemaTableName schemaTableName,
-            TupleDomain<ColumnHandle> tupleDomain,
-            Optional<ConnectorSession> session)
-    {
-        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
-        this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
-        this.session = requireNonNull(session, "session is null");
-    }
-
-    @JsonProperty
-    public SchemaTableName getSchemaTableName()
-    {
-        return schemaTableName;
-    }
-
-    @JsonProperty
-    public TupleDomain<ColumnHandle> getTupleDomain()
-    {
-        return tupleDomain;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        ThriftIndexHandle other = (ThriftIndexHandle) obj;
-        return Objects.equals(this.schemaTableName, other.schemaTableName) &&
-                Objects.equals(this.tupleDomain, other.tupleDomain);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(schemaTableName, tupleDomain);
+        requireNonNull(schemaTableName, "schemaTableName is null");
+        requireNonNull(tupleDomain, "tupleDomain is null");
     }
 
     @Override
     public String toString()
     {
-        return format(
-                "%s, constraint = %s",
-                schemaTableName,
-                session.map(tupleDomain::toString).orElseGet(tupleDomain::toString));
+        return format("%s, constraint = %s", schemaTableName, tupleDomain.toString());
     }
 }

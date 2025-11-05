@@ -18,7 +18,7 @@ import jdk.incubator.vector.VectorOperators;
 
 import static io.trino.parquet.reader.flat.BitPackingUtils.bitCount;
 
-public class VectorBitPackingUtils
+public final class VectorBitPackingUtils
 {
     private static final ByteVector MASK_1 = ByteVector.broadcast(ByteVector.SPECIES_64, 1);
     private static final ByteVector LSHR_BYTE_VECTOR = ByteVector.fromArray(ByteVector.SPECIES_64, new byte[] {0, 1, 2, 3, 4, 5, 6, 7}, 0);

@@ -118,8 +118,8 @@ either:
   :::
 
 - The path to a local file in {doc}`PEM </security/inspect-pem>` or [HMAC](https://wikipedia.org/wiki/HMAC) format that contains a single key.
-  If the file path contains `$KEYID`, then Trino interpolates the `keyid`
-  from the JWT into the file path before loading this key. This enables support
+  If the file path contains `${KID}`, then Trino interpolates the `kid`
+  from the JWT header into the file path before loading this key. This enables support
   for setups with multiple keys.
 
 ## Using JWTs with clients

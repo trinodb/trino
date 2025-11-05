@@ -65,7 +65,7 @@ The following configuration properties are available:
 ### `mongodb.connection-url`
 
 A connection string containing the protocol, credential, and host info for use
-inconnection to your MongoDB deployment.
+in connecting to your MongoDB deployment.
 
 For example, the connection string may use the format
 `mongodb://<user>:<pass>@<host>:<port>/?<options>` or

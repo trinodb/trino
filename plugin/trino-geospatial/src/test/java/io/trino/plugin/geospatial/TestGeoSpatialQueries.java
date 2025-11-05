@@ -48,6 +48,18 @@ public class TestGeoSpatialQueries
     }
 
     @Test
+    public void testDistinctGeometry()
+    {
+        assertThat(query("""
+                         SELECT DISTINCT ST_GeometryFromText(point)
+                         FROM (VALUES 'POINT (-90 38.99)', 'POINT (-90 38.99)') t(point)
+                         """))
+                .result().matches(MaterializedResult.resultBuilder(getSession(), GEOMETRY)
+                        .row("POINT (-90 38.99)")
+                        .build());
+    }
+
+    @Test
     public void testGeometryResult()
     {
         assertThat(query("SELECT ST_Point(52.233, 21.016)"))

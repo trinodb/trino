@@ -18,6 +18,8 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
@@ -42,7 +44,7 @@ public class TestTablePartitioningWithSpecialChars
             "(11, 'with%%%%percents')," +
             "(12, 'with space')";
 
-    private static final ImmutableList<QueryAssert.Row> EXPECTED_PARTITION_VALUES = ImmutableList.of(
+    private static final List<QueryAssert.Row> EXPECTED_PARTITION_VALUES = ImmutableList.of(
             row(1, "with-hyphen"),
             row(2, "with.dot"),
             row(3, "with:colon"),

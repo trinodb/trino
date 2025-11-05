@@ -20,9 +20,9 @@ import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryState;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.ClusterMemoryManager;
-import io.trino.metadata.InternalNode;
-import io.trino.metadata.InternalNodeManager;
-import io.trino.metadata.NodeState;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
+import io.trino.node.NodeState;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.security.ResourceSecurity;
 import jakarta.ws.rs.GET;
@@ -37,6 +37,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Path("/ui/api/stats")
+@ResourceSecurity(WEB_UI)
 public class ClusterStatsResource
 {
     private final InternalNodeManager nodeManager;
@@ -53,7 +54,6 @@ public class ClusterStatsResource
         this.clusterMemoryManager = requireNonNull(clusterMemoryManager, "clusterMemoryManager is null");
     }
 
-    @ResourceSecurity(WEB_UI)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public ClusterStats getClusterStats()
@@ -91,8 +91,8 @@ public class ClusterStatsResource
             }
 
             if (!query.getState().isDone()) {
-                totalInputBytes += query.getQueryStats().getRawInputDataSize().toBytes();
-                totalInputRows += query.getQueryStats().getRawInputPositions();
+                totalInputBytes += query.getQueryStats().getPhysicalInputDataSize().toBytes() + query.getQueryStats().getInternalNetworkInputDataSize().toBytes();
+                totalInputRows += query.getQueryStats().getProcessedInputPositions();
                 totalCpuTimeSecs += roundToLong(query.getQueryStats().getTotalCpuTime().getValue(SECONDS), HALF_UP);
 
                 memoryReservation += query.getQueryStats().getUserMemoryReservation().toBytes();

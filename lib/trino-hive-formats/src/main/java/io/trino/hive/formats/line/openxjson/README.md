@@ -134,7 +134,15 @@ Values that fail to parse properly, or that are outside the allowed range, resul
 
 ### Formats
 
-* `YYYY-MM-DD` with any trailing text after a space
+* YYYY-MM-DD format where:
+  * Year can be 1-4 digits
+  * Month can be 1-2 digits
+  * Day can be 1-2 digits
+  * Any trailing text after the date portion is ignored
+  * Leading zeros are optional for month and day
+  * Date components use lenient resolution, meaning:
+    * Values that exceed normal ranges will roll over (e.g., month 13 becomes January of next year)
+    * Invalid dates will be adjusted to valid ones (e.g., "2023-02-30" becomes "2023-03-02")
 * Decimal number of days since `1970-01-01`
 * Hex `0x1234` days. Negative numbers are not supported.
 * Octal `01234` days. Negative numbers are not supported.
@@ -146,6 +154,8 @@ Values that fail to parse properly, or that are outside the allowed range, resul
 * Rcongiu does not support integer days since epoch format.
 * Starburst fails for boolean
 * Starburst and Rcongiu writes all `DATE` values as `null`
+* Starburst doesn't allow more than 10 digits for year, 2 digits for month, and 2 digits for day.
+* Rcongiu uses java.text.SimpleDateFormat and allows for any number of digits for year, month, and day. 
 
 ## TIMESTAMP
 

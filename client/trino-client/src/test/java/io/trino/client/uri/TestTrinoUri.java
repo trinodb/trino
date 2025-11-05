@@ -84,7 +84,7 @@ public class TestTrinoUri
         // property in url multiple times
         assertInvalid("trino://localhost:8080/blackhole?password=a&password=b", "Connection property password is in the URL multiple times");
 
-        // property not well formed, missing '='
+        // property not well-formed, missing '='
         assertInvalid("trino://localhost:8080/blackhole?password&user=abc", "Connection argument is not a valid connection property: 'password'");
 
         // property in both url and arguments
@@ -493,6 +493,17 @@ public class TestTrinoUri
 
         TrinoUri secureUri = createTrinoUri("trino://localhost?SSL=true");
         assertThat(secureUri.getHttpUri()).isEqualTo(URI.create("https://localhost:443"));
+    }
+
+    @Test
+    public void testValidateConnection()
+    {
+        TrinoUri uri = createTrinoUri("trino://localhost:8080");
+        assertThat(uri.isValidateConnection()).isFalse();
+        uri = createTrinoUri("trino://localhost:8080?validateConnection=true");
+        assertThat(uri.isValidateConnection()).isTrue();
+        uri = createTrinoUri("trino://localhost:8080?validateConnection=false");
+        assertThat(uri.isValidateConnection()).isFalse();
     }
 
     private static boolean isBuilderHelperMethod(String name)

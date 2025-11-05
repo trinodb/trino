@@ -21,7 +21,6 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlRow;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorMethodHandle;
 
@@ -99,8 +98,8 @@ public class RowType
     static {
         try {
             Lookup lookup = lookup();
-            READ_FLAT = lookup.findStatic(RowType.class, "megamorphicReadFlat", methodType(SqlRow.class, RowType.class, List.class, byte[].class, int.class, byte[].class));
-            READ_FLAT_TO_BLOCK = lookup.findStatic(RowType.class, "megamorphicReadFlatToBlock", methodType(void.class, RowType.class, List.class, byte[].class, int.class, byte[].class, BlockBuilder.class));
+            READ_FLAT = lookup.findStatic(RowType.class, "megamorphicReadFlat", methodType(SqlRow.class, RowType.class, List.class, byte[].class, int.class, byte[].class, int.class));
+            READ_FLAT_TO_BLOCK = lookup.findStatic(RowType.class, "megamorphicReadFlatToBlock", methodType(void.class, RowType.class, List.class, byte[].class, int.class, byte[].class, int.class, BlockBuilder.class));
             WRITE_FLAT = lookup.findStatic(RowType.class, "megamorphicWriteFlat", methodType(void.class, RowType.class, List.class, SqlRow.class, byte[].class, int.class, byte[].class, int.class));
             EQUAL = lookup.findStatic(RowType.class, "megamorphicEqualOperator", methodType(Boolean.class, List.class, SqlRow.class, SqlRow.class));
             CHAIN_EQUAL = lookup.findStatic(RowType.class, "chainEqual", methodType(Boolean.class, Boolean.class, int.class, MethodHandle.class, SqlRow.class, SqlRow.class));
@@ -190,11 +189,6 @@ public class RowType
 
     private static TypeSignature makeSignature(List<Field> fields)
     {
-        int size = fields.size();
-        if (size == 0) {
-            throw new IllegalArgumentException("Row type must have at least 1 field");
-        }
-
         List<TypeSignatureParameter> parameters = fields.stream()
                 .map(field -> new NamedTypeSignature(field.getName().map(RowFieldName::new), field.getType().getTypeSignature()))
                 .map(TypeSignatureParameter::namedTypeParameter)
@@ -238,7 +232,7 @@ public class RowType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
@@ -249,21 +243,10 @@ public class RowType
 
         int rawIndex = sqlRow.getRawIndex();
         for (int i = 0; i < sqlRow.getFieldCount(); i++) {
-            values.add(fields.get(i).getType().getObjectValue(session, sqlRow.getRawFieldBlock(i), rawIndex));
+            values.add(fields.get(i).getType().getObjectValue(sqlRow.getRawFieldBlock(i), rawIndex));
         }
 
         return Collections.unmodifiableList(values);
-    }
-
-    @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            writeObject(blockBuilder, getObject(block, position));
-        }
     }
 
     @Override
@@ -279,7 +262,8 @@ public class RowType
         int rawIndex = sqlRow.getRawIndex();
         ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
             for (int i = 0; i < sqlRow.getFieldCount(); i++) {
-                fields.get(i).getType().appendTo(sqlRow.getRawFieldBlock(i), rawIndex, fieldBuilders.get(i));
+                Block block = sqlRow.getRawFieldBlock(i);
+                fieldBuilders.get(i).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(rawIndex));
             }
         });
     }
@@ -318,20 +302,16 @@ public class RowType
     }
 
     @Override
-    public int relocateFlatVariableWidthOffsets(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset)
+    public int getFlatVariableWidthLength(byte[] fixedSizeSlice, int fixedSizeOffset)
     {
-        if (!flatVariableWidth) {
-            return 0;
-        }
-
-        int totalVariableSize = 0;
+        int variableSize = 0;
         for (Type fieldType : fieldTypes) {
-            if (fieldType.isFlatVariableWidth() && fixedSizeSlice[fixedSizeOffset] == 0) {
-                totalVariableSize += fieldType.relocateFlatVariableWidthOffsets(fixedSizeSlice, fixedSizeOffset + 1, variableSizeSlice, variableSizeOffset + totalVariableSize);
+            if (fixedSizeSlice[fixedSizeOffset] == 0) {
+                variableSize += fieldType.getFlatVariableWidthLength(fixedSizeSlice, fixedSizeOffset + 1);
             }
-            fixedSizeOffset += 1 + fieldType.getFlatFixedSize();
+            fixedSizeOffset += fieldType.getFlatFixedSize() + 1;
         }
-        return totalVariableSize;
+        return variableSize;
     }
 
     @Override
@@ -436,11 +416,12 @@ public class RowType
             List<MethodHandle> fieldReadFlatMethods,
             byte[] fixedSizeSlice,
             int fixedSizeOffset,
-            byte[] variableSizeSlice)
+            byte[] variableSizeSlice,
+            int variableSizeOffset)
             throws Throwable
     {
         return buildRowValue(rowType, fieldBuilders ->
-                readFlatFields(rowType, fieldReadFlatMethods, fixedSizeSlice, fixedSizeOffset, variableSizeSlice, fieldBuilders));
+                readFlatFields(rowType, fieldReadFlatMethods, fixedSizeSlice, fixedSizeOffset, variableSizeSlice, variableSizeOffset, fieldBuilders));
     }
 
     private static void megamorphicReadFlatToBlock(
@@ -449,11 +430,12 @@ public class RowType
             byte[] fixedSizeSlice,
             int fixedSizeOffset,
             byte[] variableSizeSlice,
+            int variableSizeOffset,
             BlockBuilder blockBuilder)
             throws Throwable
     {
         ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders ->
-                readFlatFields(rowType, fieldReadFlatMethods, fixedSizeSlice, fixedSizeOffset, variableSizeSlice, fieldBuilders));
+                readFlatFields(rowType, fieldReadFlatMethods, fixedSizeSlice, fixedSizeOffset, variableSizeSlice, variableSizeOffset, fieldBuilders));
     }
 
     private static void readFlatFields(
@@ -462,6 +444,7 @@ public class RowType
             byte[] fixedSizeSlice,
             int fixedSizeOffset,
             byte[] variableSizeSlice,
+            int variableSizeOffset,
             List<BlockBuilder> fieldBuilders)
             throws Throwable
     {
@@ -475,7 +458,10 @@ public class RowType
                 fieldBuilder.appendNull();
             }
             else {
-                fieldReadFlatMethods.get(fieldIndex).invokeExact(fixedSizeSlice, fixedSizeOffset + 1, variableSizeSlice, fieldBuilder);
+                fieldReadFlatMethods.get(fieldIndex).invokeExact(fixedSizeSlice, fixedSizeOffset + 1, variableSizeSlice, variableSizeOffset, fieldBuilder);
+                if (fieldType.isFlatVariableWidth()) {
+                    variableSizeOffset += fieldType.getFlatVariableWidthLength(fixedSizeSlice, fixedSizeOffset + 1);
+                }
             }
             fixedSizeOffset += 1 + fieldType.getFlatFixedSize();
         }
@@ -500,12 +486,10 @@ public class RowType
                 fixedSizeSlice[fixedSizeOffset] = 1;
             }
             else {
-                int fieldVariableLength = 0;
-                if (fieldType.isFlatVariableWidth()) {
-                    fieldVariableLength = fieldType.getFlatVariableWidthSize(fieldBlock, rawIndex);
-                }
                 fieldWriteFlatMethods.get(fieldIndex).invokeExact((Block) fieldBlock, rawIndex, fixedSizeSlice, fixedSizeOffset + 1, variableSizeSlice, variableSizeOffset);
-                variableSizeOffset += fieldVariableLength;
+                if (fieldType.isFlatVariableWidth()) {
+                    variableSizeOffset += fieldType.getFlatVariableWidthLength(fixedSizeSlice, fixedSizeOffset + 1);
+                }
             }
             fixedSizeOffset += 1 + fieldType.getFlatFixedSize();
         }
@@ -582,7 +566,7 @@ public class RowType
     private static Boolean chainEqual(Boolean previousFieldsEqual, int currentFieldIndex, MethodHandle currentFieldEqual, SqlRow leftRow, SqlRow rightRow)
             throws Throwable
     {
-        if (previousFieldsEqual == FALSE) {
+        if (FALSE.equals(previousFieldsEqual)) {
             return FALSE;
         }
 
@@ -596,7 +580,7 @@ public class RowType
         }
 
         Boolean result = (Boolean) currentFieldEqual.invokeExact(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
-        if (result == TRUE) {
+        if (TRUE.equals(result)) {
             // this field is equal, so the result is either true or unknown depending on the previous fields
             return previousFieldsEqual;
         }

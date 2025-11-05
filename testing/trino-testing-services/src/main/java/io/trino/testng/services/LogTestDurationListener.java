@@ -39,6 +39,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.Duration.nanosSince;
+import static io.trino.testing.SystemEnvironmentUtils.isEnvSet;
 import static io.trino.testng.services.Listeners.formatTestName;
 import static io.trino.testng.services.Listeners.reportListenerFailure;
 import static java.lang.String.format;
@@ -79,7 +80,7 @@ public class LogTestDurationListener
         if (System.getProperty("LogTestDurationListener.enabled") != null) {
             return Boolean.getBoolean("LogTestDurationListener.enabled");
         }
-        if (System.getenv("CONTINUOUS_INTEGRATION") != null) {
+        if (isEnvSet("CONTINUOUS_INTEGRATION")) {
             return true;
         }
         // LogTestDurationListener does not support concurrent invocations of same test method

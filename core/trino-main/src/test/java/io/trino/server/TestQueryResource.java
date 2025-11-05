@@ -26,7 +26,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.client.Column;
 import io.trino.client.QueryData;
-import io.trino.client.QueryDataClientJacksonModule;
+import io.trino.client.QueryDataJacksonModule;
 import io.trino.client.QueryResults;
 import io.trino.client.ResultRowsDecoder;
 import io.trino.execution.QueryInfo;
@@ -76,14 +76,14 @@ public class TestQueryResource
 {
     static final JsonCodec<List<BasicQueryInfo>> BASIC_QUERY_INFO_CODEC = new JsonCodecFactory(
             new ObjectMapperProvider()
-                    .withModules(Set.of(new QueryDataClientJacksonModule()))
+                    .withModules(Set.of(new QueryDataJacksonModule()))
                     .withJsonSerializers(Map.of(Span.class, new SpanSerializer(OpenTelemetry.noop())))
                     .withJsonDeserializers(Map.of(Span.class, new SpanDeserializer(OpenTelemetry.noop()))))
             .listJsonCodec(BasicQueryInfo.class);
 
     static final JsonCodec<QueryResults> QUERY_RESULTS_JSON_CODEC = new JsonCodecFactory(
             new ObjectMapperProvider()
-                    .withModules(Set.of(new QueryDataClientJacksonModule())))
+                    .withModules(Set.of(new QueryDataJacksonModule())))
             .jsonCodec(QueryResults.class);
 
     private HttpClient client;
@@ -163,12 +163,17 @@ public class TestQueryResource
         assertThat(infos).isEmpty();
         assertStateCounts(infos, 0, 0, 0);
 
+        infos = getQueryInfos("/v1/query?state=finished&state=failed&state=running");
+        assertThat(infos).hasSize(3);
+        assertStateCounts(infos, 2, 1, 0);
+
         server.getAccessControl().deny(privilege("query", VIEW_QUERY));
         try {
             assertThat(getQueryInfos("/v1/query")).isEmpty();
             assertThat(getQueryInfos("/v1/query?state=finished")).isEmpty();
             assertThat(getQueryInfos("/v1/query?state=failed")).isEmpty();
             assertThat(getQueryInfos("/v1/query?state=running")).isEmpty();
+            assertThat(getQueryInfos("/v1/query?state=finished&state=failed&state=running")).isEmpty();
         }
         finally {
             server.getAccessControl().reset();
@@ -189,11 +194,11 @@ public class TestQueryResource
         assertThat(queryInfoPruned.getRoutines().get(0).getRoutine()).isEqualTo("now");
         assertThat(queryInfoNotPruned.getRoutines().get(0).getRoutine()).isEqualTo("now");
 
-        assertThat(queryInfoPruned.getOutputStage()).isPresent();
-        assertThat(queryInfoNotPruned.getOutputStage()).isPresent();
+        assertThat(queryInfoPruned.getStages()).isPresent();
+        assertThat(queryInfoNotPruned.getStages()).isPresent();
 
-        assertThat(queryInfoPruned.getOutputStage().get().getTasks()).isEmpty();
-        assertThat(queryInfoNotPruned.getOutputStage().get().getTasks()).isNotEmpty();
+        assertThat(queryInfoPruned.getStages().get().getOutputStage().getTasks()).isEmpty();
+        assertThat(queryInfoNotPruned.getStages().get().getOutputStage().getTasks()).isNotEmpty();
     }
 
     @Test

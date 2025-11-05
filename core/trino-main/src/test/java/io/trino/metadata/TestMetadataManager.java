@@ -18,14 +18,17 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.FeaturesConfig;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.security.Identity;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.parser.SqlParser;
-import io.trino.testing.NotImplementedQueryManager;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
 
+import java.util.Set;
+
 import static io.trino.client.NodeVersion.UNKNOWN;
+import static io.trino.metadata.CatalogManager.NO_CATALOGS;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Objects.requireNonNull;
@@ -96,20 +99,31 @@ public final class TestMetadataManager
 
             if (languageFunctionManager == null) {
                 BlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager);
-                languageFunctionManager = new LanguageFunctionManager(new SqlParser(), typeManager, user -> ImmutableSet.of(), blockEncodingSerde);
+                LanguageFunctionEngineManager engineManager = new LanguageFunctionEngineManager();
+                languageFunctionManager = new LanguageFunctionManager(new SqlParser(), typeManager, _ -> ImmutableSet.of(), blockEncodingSerde, engineManager);
             }
 
             TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(_ -> new CatalogTableFunctions(ImmutableList.of()));
 
             return new MetadataManager(
                     new AllowAllAccessControl(),
-                    new DisabledSystemSecurityMetadata(),
+                    new SecurityMetadata(),
                     transactionManager,
                     globalFunctionCatalog,
                     languageFunctionManager,
                     tableFunctionRegistry,
                     typeManager,
-                    new NotImplementedQueryManager());
+                    NO_CATALOGS);
+        }
+    }
+
+    private static class SecurityMetadata
+            extends DisabledSystemSecurityMetadata
+    {
+        @Override
+        public Set<String> listEnabledRoles(Identity identity)
+        {
+            return ImmutableSet.of("system-role");
         }
     }
 }

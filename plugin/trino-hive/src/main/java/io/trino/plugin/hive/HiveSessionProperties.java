@@ -161,7 +161,7 @@ public final class HiveSessionProperties
         sessionProperties = ImmutableList.of(
                 booleanProperty(
                         BUCKET_EXECUTION_ENABLED,
-                        "Enable bucket-aware execution: only use a single worker per bucket",
+                        "Enable bucket-aware execution: use physical bucketing information to optimize queries",
                         hiveConfig.isBucketExecutionEnabled(),
                         false),
                 booleanProperty(
@@ -499,7 +499,7 @@ public final class HiveSessionProperties
                         value -> value),
                 booleanProperty(
                         PROJECTION_PUSHDOWN_ENABLED,
-                        "Projection push down enabled for hive",
+                        "Read only required fields from a row type",
                         hiveConfig.isProjectionPushdownEnabled(),
                         false),
                 enumProperty(

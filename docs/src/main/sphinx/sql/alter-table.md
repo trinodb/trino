@@ -5,8 +5,9 @@
 ```text
 ALTER TABLE [ IF EXISTS ] name RENAME TO new_name
 ALTER TABLE [ IF EXISTS ] name ADD COLUMN [ IF NOT EXISTS ] column_name data_type
-  [ NOT NULL ] [ COMMENT comment ]
+  [ DEFAULT default ] [ NOT NULL ] [ COMMENT comment ]
   [ WITH ( property_name = expression [, ...] ) ]
+  [ FIRST | LAST | AFTER after_column_name ]
 ALTER TABLE [ IF EXISTS ] name DROP COLUMN [ IF EXISTS ] column_name
 ALTER TABLE [ IF EXISTS ] name RENAME COLUMN [ IF EXISTS ] old_name TO new_name
 ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name SET DATA TYPE new_type
@@ -35,7 +36,7 @@ column already exists.
 
 The `ALTER TABLE SET PROPERTIES`  statement followed by a number of
 `property_name` and `expression` pairs applies the specified properties and
-values to a table. Ommitting an already-set property from this statement leaves
+values to a table. Omitting an already-set property from this statement leaves
 that property unchanged in the table.
 
 A property in a `SET PROPERTIES` statement can be set to `DEFAULT`, which
@@ -94,6 +95,18 @@ not already exists:
 
 ```
 ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS zip varchar;
+```
+
+Add column `id` as the first column to the `users` table:
+
+```
+ALTER TABLE users ADD COLUMN id varchar FIRST;
+```
+
+Add column `zip` after column `country` to the `users` table:
+
+```
+ALTER TABLE users ADD COLUMN zip varchar AFTER country;
 ```
 
 Drop column `zip` from the `users` table:

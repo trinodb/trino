@@ -16,13 +16,11 @@ package io.trino.spi.function;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.DoNotCall;
-import io.trino.spi.Experimental;
 
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-@Experimental(eta = "2022-10-31")
 public class LongVariableConstraint
 {
     private final String name;

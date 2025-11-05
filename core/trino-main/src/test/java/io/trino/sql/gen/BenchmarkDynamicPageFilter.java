@@ -20,8 +20,8 @@ import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -115,7 +115,7 @@ public class BenchmarkDynamicPageFilter
             List<Page> filterValues = createSingleColumnData(valueWriter, type, 0, filterSize);
             ImmutableList.Builder<Object> valuesBuilder = ImmutableList.builder();
             for (Page page : filterValues) {
-                Block block = page.getBlock(0).getLoadedBlock();
+                Block block = page.getBlock(0);
                 for (int position = 0; position < block.getPositionCount(); position++) {
                     valuesBuilder.add(readNativeValue(type, block, position));
                 }
@@ -173,7 +173,7 @@ public class BenchmarkDynamicPageFilter
         long rowsProcessed = 0;
         long rowsFiltered = 0;
         for (Page page : inputData) {
-            FilterEvaluator.SelectionResult result = filterEvaluator.evaluate(FULL_CONNECTOR_SESSION, positionsRange(0, page.getPositionCount()), page);
+            FilterEvaluator.SelectionResult result = filterEvaluator.evaluate(FULL_CONNECTOR_SESSION, positionsRange(0, page.getPositionCount()), SourcePage.create(page));
             SelectedPositions selectedPositions = result.selectedPositions();
             int selectedPositionCount = selectedPositions.size();
             rowsProcessed += page.getPositionCount();
@@ -198,14 +198,14 @@ public class BenchmarkDynamicPageFilter
 
             if (blockBuilder.getPositionCount() >= batchSize) {
                 Block block = blockBuilder.build();
-                pages.add(new Page(new LazyBlock(block.getPositionCount(), () -> block)));
+                pages.add(new Page(block));
                 batchSize = Math.min(1024, batchSize * 2);
                 blockBuilder = type.createBlockBuilder(null, batchSize);
             }
         }
         if (blockBuilder.getPositionCount() > 0) {
             Block block = blockBuilder.build();
-            pages.add(new Page(new LazyBlock(block.getPositionCount(), () -> block)));
+            pages.add(new Page(block));
         }
         return pages.build();
     }

@@ -14,10 +14,15 @@
 package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import io.trino.spi.block.SqlRow;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 
 public final class CustomFunctions
@@ -51,5 +56,20 @@ public final class CustomFunctions
     public static long customIdentityFunction(@SqlType(StandardTypes.BIGINT) long x)
     {
         return x;
+    }
+
+    @ScalarFunction("connector_session_varchar")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice varchar(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice greeting)
+    {
+        return Slices.utf8Slice(greeting.toStringUtf8() + " " + session.getUser());
+    }
+
+    @ScalarFunction("connector_session_row")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice row(ConnectorSession session, @TypeParameter("row(greeting varchar)") RowType rowType, @SqlType("row(varchar)") SqlRow sqlRow)
+    {
+        Slice message = rowType.getFields().getFirst().getType().getSlice(sqlRow.getRawFieldBlock(0), sqlRow.getRawIndex());
+        return Slices.utf8Slice(message.toStringUtf8() + " " + session.getUser());
     }
 }

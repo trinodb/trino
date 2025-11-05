@@ -131,8 +131,7 @@ public class CassandraSplitManager
         CassandraClusteringPredicatesExtractor clusteringPredicatesExtractor = new CassandraClusteringPredicatesExtractor(
                 cassandraTypeManager,
                 session.getTable(tableHandle.getSchemaTableName()).clusteringKeyColumns(),
-                partitionResult.unenforcedConstraint(),
-                session.getCassandraVersion());
+                partitionResult.unenforcedConstraint());
         return clusteringPredicatesExtractor.getClusteringKeyPredicates();
     }
 
@@ -145,8 +144,8 @@ public class CassandraSplitManager
         ImmutableList.Builder<ConnectorSplit> builder = ImmutableList.builder();
         List<CassandraTokenSplitManager.TokenSplit> tokenSplits = tokenSplitMgr.getSplits(schema, tableName, sessionSplitsPerNode);
         for (CassandraTokenSplitManager.TokenSplit tokenSplit : tokenSplits) {
-            String condition = buildTokenCondition(tokenExpression, tokenSplit.getTokenRange());
-            List<HostAddress> addresses = new HostAddressFactory().hostAddressNamesToHostAddressList(tokenSplit.getHosts());
+            String condition = buildTokenCondition(tokenExpression, tokenSplit.tokenRange());
+            List<HostAddress> addresses = new HostAddressFactory().hostAddressNamesToHostAddressList(tokenSplit.hosts());
             CassandraSplit split = new CassandraSplit(partitionId, condition, addresses);
             builder.add(split);
         }

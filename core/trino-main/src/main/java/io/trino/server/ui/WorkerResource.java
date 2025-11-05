@@ -22,9 +22,9 @@ import io.airlift.http.client.ResponseHandler;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.TaskId;
-import io.trino.metadata.InternalNode;
-import io.trino.metadata.InternalNodeManager;
-import io.trino.metadata.NodeState;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
+import io.trino.node.NodeState;
 import io.trino.security.AccessControl;
 import io.trino.server.ForWorkerInfo;
 import io.trino.server.GoneException;
@@ -49,12 +49,11 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
-import static io.trino.metadata.NodeState.ACTIVE;
-import static io.trino.metadata.NodeState.INACTIVE;
+import static io.trino.node.NodeState.ACTIVE;
+import static io.trino.node.NodeState.INACTIVE;
 import static io.trino.security.AccessControlUtil.checkCanViewQueryOwnedBy;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
@@ -62,6 +61,7 @@ import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON_TYPE;
 import static java.util.Objects.requireNonNull;
 
 @Path("/ui/api/worker")
+@ResourceSecurity(WEB_UI)
 public class WorkerResource
 {
     private final DispatchManager dispatchManager;
@@ -85,7 +85,6 @@ public class WorkerResource
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
     }
 
-    @ResourceSecurity(WEB_UI)
     @GET
     @Path("{nodeId}/status")
     public Response getStatus(@PathParam("nodeId") String nodeId)
@@ -93,7 +92,6 @@ public class WorkerResource
         return proxyJsonResponse(nodeId, "v1/status");
     }
 
-    @ResourceSecurity(WEB_UI)
     @GET
     @Path("{nodeId}/thread")
     public Response getThreads(@PathParam("nodeId") String nodeId)
@@ -101,7 +99,6 @@ public class WorkerResource
         return proxyJsonResponse(nodeId, "v1/thread");
     }
 
-    @ResourceSecurity(WEB_UI)
     @GET
     @Path("{nodeId}/task/{taskId}")
     public Response getThreads(
@@ -110,7 +107,7 @@ public class WorkerResource
             @Context HttpServletRequest servletRequest,
             @Context HttpHeaders httpHeaders)
     {
-        QueryId queryId = task.getQueryId();
+        QueryId queryId = task.queryId();
         Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId);
         if (queryInfo.isPresent()) {
             try {
@@ -124,12 +121,11 @@ public class WorkerResource
         throw new GoneException();
     }
 
-    @ResourceSecurity(WEB_UI)
     @GET
     public Response getWorkerList()
     {
-        Set<InternalNode> activeNodes = nodeManager.getAllNodes().getActiveNodes();
-        Set<InternalNode> inactiveNodes = nodeManager.getAllNodes().getInactiveNodes();
+        Set<InternalNode> activeNodes = nodeManager.getAllNodes().activeNodes();
+        Set<InternalNode> inactiveNodes = nodeManager.getAllNodes().inactiveNodes();
         Set<JsonNodeInfo> jsonNodes = new HashSet<>();
         for (Node node : activeNodes) {
             JsonNodeInfo jsonNode = new JsonNodeInfo(node.getNodeIdentifier(), node.getHostAndPort().getHostText(), node.getVersion(), node.isCoordinator(), ACTIVE.toString().toLowerCase(Locale.ENGLISH));
@@ -229,7 +225,7 @@ public class WorkerResource
                 if (!APPLICATION_JSON.equals(response.getHeader(CONTENT_TYPE))) {
                     throw new RuntimeException("Response received was not of type " + APPLICATION_JSON);
                 }
-                return toByteArray(response.getInputStream());
+                return response.getInputStream().readAllBytes();
             }
             catch (IOException e) {
                 throw new RuntimeException("Unable to read response from worker", e);

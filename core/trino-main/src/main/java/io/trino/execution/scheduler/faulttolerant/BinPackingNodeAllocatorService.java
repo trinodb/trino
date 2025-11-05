@@ -15,9 +15,8 @@ package io.trino.execution.scheduler.faulttolerant;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Ticker;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
@@ -33,21 +32,18 @@ import io.airlift.stats.CounterStat;
 import io.airlift.stats.DistributionStat;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.execution.TaskId;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.MemoryInfo;
 import io.trino.memory.MemoryManagerConfig;
-import io.trino.metadata.InternalNode;
-import io.trino.metadata.InternalNodeManager;
-import io.trino.metadata.InternalNodeManager.NodesSnapshot;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
+import io.trino.node.InternalNodeManager.NodesSnapshot;
 import io.trino.spi.HostAddress;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.memory.MemoryPoolInfo;
-import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.assertj.core.util.VisibleForTesting;
@@ -86,7 +82,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.EAGER_SPECULATIVE;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.SPECULATIVE;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.STANDARD;
@@ -119,7 +114,7 @@ public class BinPackingNodeAllocatorService
     private final DataSize eagerSpeculativeTasksNodeMemoryOvercommit;
     private final Ticker ticker;
 
-    private final ConcurrentNavigableMap<QueryId, Deque<PendingAcquire>> pendingAcquires = new ConcurrentSkipListMap<>(Ordering.natural().onResultOf(QueryId::getId));
+    private final ConcurrentNavigableMap<QueryId, Deque<PendingAcquire>> pendingAcquires = new ConcurrentSkipListMap<>(Ordering.natural().onResultOf(QueryId::id));
     private final Set<BinPackingNodeLease> fulfilledAcquires = newConcurrentHashSet();
     private final Duration allowedNoMatchingNodePeriod;
     private final Duration exhaustedNodeWaitPeriod;
@@ -351,6 +346,10 @@ public class BinPackingNodeAllocatorService
                 .map(entry -> new QueryPendingAcquires(entry.getKey(), entry.getValue().iterator()))
                 .collect(toCollection(ArrayList::new));
 
+        if (iterators.isEmpty()) {
+            return ImmutableList.<PendingAcquire>of().iterator();
+        }
+
         int startingIteratorIndex = 0;
         if (startingQueryId.isPresent()) {
             startingIteratorIndex = -1;
@@ -499,7 +498,7 @@ public class BinPackingNodeAllocatorService
                     switch (acquire.getLastReservationStatus()) {
                         case NONE_MATCHING -> pendingStandardNoneMatching++;
                         case NOT_ENOUGH_RESOURCES_NOW -> pendingStandardNotEnoughResources++;
-                        case null -> pendingStandardUnknown++;
+                        case UNKNOWN -> pendingStandardUnknown++;
                         case RESERVED -> {} // reserved in the meantime
                     }
                 }
@@ -507,7 +506,7 @@ public class BinPackingNodeAllocatorService
                     switch (acquire.getLastReservationStatus()) {
                         case NONE_MATCHING -> pendingSpeculativeNoneMatching++;
                         case NOT_ENOUGH_RESOURCES_NOW -> pendingSpeculativeNotEnoughResources++;
-                        case null -> pendingSpeculativeUnknown++;
+                        case UNKNOWN -> pendingSpeculativeUnknown++;
                         case RESERVED -> {} // reserved in the meantime
                     }
                 }
@@ -515,7 +514,7 @@ public class BinPackingNodeAllocatorService
                     switch (acquire.getLastReservationStatus()) {
                         case NONE_MATCHING -> pendingEagerSpeculativeNoneMatching++;
                         case NOT_ENOUGH_RESOURCES_NOW -> pendingEagerSpeculativeNotEnoughResources++;
-                        case null -> pendingEagerSpeculativeUnknown++;
+                        case UNKNOWN -> pendingEagerSpeculativeUnknown++;
                         case RESERVED -> {} // reserved in the meantime
                     }
                 }
@@ -564,7 +563,7 @@ public class BinPackingNodeAllocatorService
         private final Stopwatch noMatchingNodeStopwatch;
         private final Stopwatch notEnoughResourcesStopwatch;
 
-        @Nullable private volatile BinPackingSimulation.ReservationStatus lastReservationStatus;
+        private volatile BinPackingSimulation.ReservationStatus lastReservationStatus = BinPackingSimulation.ReservationStatus.UNKNOWN;
 
         private PendingAcquire(NodeRequirements nodeRequirements, BinPackingNodeLease lease, QueryId queryId, Ticker ticker)
         {
@@ -628,7 +627,6 @@ public class BinPackingNodeAllocatorService
             return lease.getExecutionClass();
         }
 
-        @Nullable
         public BinPackingSimulation.ReservationStatus getLastReservationStatus()
         {
             return lastReservationStatus;
@@ -770,8 +768,6 @@ public class BinPackingNodeAllocatorService
         private final Set<String> nodesWithoutMemory;
         private final Map<String, Long> nodesRemainingMemoryRuntimeAdjusted;
         private final Map<String, Long> speculativeMemoryReserved;
-        private final NonEvictableLoadingCache<CatalogHandle, List<InternalNode>> catalogNodes;
-        private final NonEvictableLoadingCache<CatalogHandle, List<InternalNode>> catalogWorkerNodes;
 
         private final Map<String, MemoryPoolInfo> nodeMemoryPoolInfos;
         private final boolean scheduleOnCoordinator;
@@ -796,22 +792,6 @@ public class BinPackingNodeAllocatorService
                     .collect(toImmutableList());
 
             this.workerNodesSorted = allNodesSorted.stream().filter(node -> !node.isCoordinator()).collect(toImmutableList());
-
-            this.catalogNodes = buildNonEvictableCache(
-                    CacheBuilder.newBuilder(),
-                    CacheLoader.from(catalogHandle -> {
-                        List<InternalNode> nodes = new ArrayList<>(allNodesSorted);
-                        nodes.retainAll(nodesSnapshot.getConnectorNodes(catalogHandle));
-                        return nodes;
-                    }));
-
-            this.catalogWorkerNodes = buildNonEvictableCache(
-                    CacheBuilder.newBuilder(),
-                    CacheLoader.from(catalogHandle -> {
-                        List<InternalNode> nodes = new ArrayList<>(workerNodesSorted);
-                        nodes.retainAll(nodesSnapshot.getConnectorNodes(catalogHandle));
-                        return nodes;
-                    }));
 
             allNodesByAddress = Multimaps.index(nodesSnapshot.getAllNodes(), InternalNode::getHostAndPort);
 
@@ -901,16 +881,16 @@ public class BinPackingNodeAllocatorService
                 Collection<InternalNode> preferred = allNodesByAddress.get(address.get());
                 if ((!preferred.isEmpty() && acquire.getNotEnoughResourcesPeriod().compareTo(exhaustedNodeWaitPeriod) < 0) || !requirements.isRemotelyAccessible()) {
                     // use preferred node if available
-                    candidates = getCandidatesWithCoordinator(requirements).stream().filter(preferred::contains).collect(toImmutableList());
+                    candidates = getCandidatesWithCoordinator().stream().filter(preferred::contains).collect(toImmutableList());
                 }
                 else {
                     // use all nodes if we do not have preferences or waited to long
-                    candidates = scheduleOnCoordinator ? getCandidatesWithCoordinator(requirements) : getCandidatesExceptCoordinator(requirements);
+                    candidates = scheduleOnCoordinator ? getCandidatesWithCoordinator() : getCandidatesExceptCoordinator();
                 }
             }
             else {
                 // standard candidates
-                candidates = scheduleOnCoordinator ? getCandidatesWithCoordinator(requirements) : getCandidatesExceptCoordinator(requirements);
+                candidates = scheduleOnCoordinator ? getCandidatesWithCoordinator() : getCandidatesExceptCoordinator();
             }
 
             if (candidates.isEmpty()) {
@@ -959,18 +939,14 @@ public class BinPackingNodeAllocatorService
             return ReserveResult.NOT_ENOUGH_RESOURCES_NOW;
         }
 
-        private List<InternalNode> getCandidatesExceptCoordinator(NodeRequirements requirements)
+        private List<InternalNode> getCandidatesExceptCoordinator()
         {
-            return requirements.getCatalogHandle()
-                    .map(catalogWorkerNodes::getUnchecked)
-                    .orElse(workerNodesSorted);
+            return workerNodesSorted;
         }
 
-        private List<InternalNode> getCandidatesWithCoordinator(NodeRequirements requirements)
+        private List<InternalNode> getCandidatesWithCoordinator()
         {
-            return requirements.getCatalogHandle()
-                    .map(catalogNodes::getUnchecked)
-                    .orElse(allNodesSorted);
+            return allNodesSorted;
         }
 
         private Comparator<InternalNode> resolveTiesWithSpeculativeMemory(Comparator<InternalNode> comparator)
@@ -999,6 +975,7 @@ public class BinPackingNodeAllocatorService
 
         public enum ReservationStatus
         {
+            UNKNOWN,
             NONE_MATCHING,
             NOT_ENOUGH_RESOURCES_NOW,
             RESERVED

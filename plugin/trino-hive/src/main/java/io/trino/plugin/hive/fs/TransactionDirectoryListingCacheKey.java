@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.fs;
 
 import io.trino.filesystem.Location;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Objects;
 
@@ -28,11 +29,13 @@ public class TransactionDirectoryListingCacheKey
 
     private final long transactionId;
     private final Location path;
+    private final SchemaTableName schemaTableName;
 
-    public TransactionDirectoryListingCacheKey(long transactionId, Location path)
+    public TransactionDirectoryListingCacheKey(long transactionId, Location path, SchemaTableName schemaTableName)
     {
         this.transactionId = transactionId;
         this.path = requireNonNull(path, "path is null");
+        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
     }
 
     public Location getPath()
@@ -40,9 +43,16 @@ public class TransactionDirectoryListingCacheKey
         return path;
     }
 
+    public SchemaTableName getSchemaTableName()
+    {
+        return schemaTableName;
+    }
+
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + estimatedSizeOf(path.toString());
+        return INSTANCE_SIZE +
+               estimatedSizeOf(path.toString()) +
+                schemaTableName.getRetainedSizeInBytes();
     }
 
     @Override
@@ -55,13 +65,15 @@ public class TransactionDirectoryListingCacheKey
             return false;
         }
         TransactionDirectoryListingCacheKey that = (TransactionDirectoryListingCacheKey) o;
-        return transactionId == that.transactionId && path.equals(that.path);
+        return transactionId == that.transactionId &&
+               path.equals(that.path) &&
+               schemaTableName.equals(that.schemaTableName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(transactionId, path);
+        return Objects.hash(transactionId, path, schemaTableName);
     }
 
     @Override
@@ -70,6 +82,7 @@ public class TransactionDirectoryListingCacheKey
         return toStringHelper(this)
                 .add("transactionId", transactionId)
                 .add("path", path)
+                .add("schemaTableName", schemaTableName)
                 .toString();
     }
 }

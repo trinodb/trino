@@ -14,7 +14,7 @@
 package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.ConfigurationException;
+import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -26,7 +26,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
+import static io.airlift.testing.ValidationAssertions.assertValidates;
 
 public class TestBigQueryProxyConfig
 {
@@ -78,26 +79,32 @@ public class TestBigQueryProxyConfig
         BigQueryProxyConfig config = new BigQueryProxyConfig();
         config.setUri(URI.create("http://localhost:8000/path"));
 
-        assertThatThrownBy(config::validate)
-                .isInstanceOf(ConfigurationException.class)
-                .hasMessageContaining("BigQuery RPC proxy URI cannot specify path");
+        assertFailsValidation(
+                config,
+                "uriValid",
+                "BigQuery RPC proxy URI cannot specify path",
+                AssertTrue.class);
 
         config.setUri(URI.create("http://localhost:8000"));
 
         config.setUsername("username");
 
-        assertThatThrownBy(config::validate)
-                .isInstanceOf(ConfigurationException.class)
-                .hasMessageContaining("bigquery.rpc-proxy.username was set but bigquery.rpc-proxy.password is empty");
+        assertFailsValidation(
+                config,
+                "passwordNonEmptyIfUserProvided",
+                "bigquery.rpc-proxy.username was set but bigquery.rpc-proxy.password is empty",
+                AssertTrue.class);
 
         config.setUsername(null);
         config.setPassword("password");
 
-        assertThatThrownBy(config::validate)
-                .isInstanceOf(ConfigurationException.class)
-                .hasMessageContaining("bigquery.rpc-proxy.password was set but bigquery.rpc-proxy.username is empty");
+        assertFailsValidation(
+                config,
+                "userNotEmptyIfPasswordProvided",
+                "bigquery.rpc-proxy.password was set but bigquery.rpc-proxy.username is empty",
+                AssertTrue.class);
 
         config.setUsername("username");
-        config.validate();
+        assertValidates(config);
     }
 }

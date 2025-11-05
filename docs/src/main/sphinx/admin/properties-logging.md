@@ -26,6 +26,18 @@ line. Any newlines in the field values, such as exception stack traces, are
 escaped as normal in the JSON object. This allows for capturing and indexing
 exceptions as singular fields in a logging search system.
 
+## `log.console-format`
+
+- **Type:** {ref}`prop-type-string`
+- **Default value:** `TEXT`
+
+The format for log records written to the console output, set to either `TEXT`
+or `JSON`. When set to `JSON`, the log record is formatted as a JSON object, one
+record per line. Any newlines in the field values, such as exception stack
+traces, are escaped as normal in the JSON object. This allows for capturing and
+indexing exceptions as singular fields in a logging search system when using
+console output and capturing it, as commonly configured in containers.
+
 ## `log.path`
 
 - **Type:** {ref}`prop-type-string`

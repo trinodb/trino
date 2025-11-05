@@ -24,6 +24,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public record MongoTableHandle(
         SchemaTableName schemaTableName,
@@ -47,6 +48,28 @@ public record MongoTableHandle(
         requireNonNull(constraint, "constraint is null");
         projectedColumns = ImmutableSet.copyOf(requireNonNull(projectedColumns, "projectedColumns is null"));
         requireNonNull(limit, "limit is null");
+    }
+
+    @Override
+    public String toString()
+    {
+        StringBuilder builder = new StringBuilder();
+        builder.append(remoteTableName);
+        filter.ifPresent(value -> builder.append(" filter=").append(value));
+        if (constraint.isNone()) {
+            builder.append(" constraint=FALSE");
+        }
+        else if (!constraint.isAll()) {
+            builder.append(" constraint on ");
+            builder.append(constraint.getDomains().orElseThrow().keySet().stream()
+                    .map(columnHandle -> ((MongoColumnHandle) columnHandle).baseName())
+                    .collect(joining(", ", "[", "]")));
+        }
+        if (!projectedColumns.isEmpty()) {
+            builder.append(" columns=").append(projectedColumns);
+        }
+        limit.ifPresent(value -> builder.append(" limit=").append(value));
+        return builder.toString();
     }
 
     public MongoTableHandle withProjectedColumns(Set<MongoColumnHandle> projectedColumns)

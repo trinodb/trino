@@ -37,6 +37,7 @@ public class SalesforceAuthenticatorFactory
     public PasswordAuthenticator create(Map<String, String> config)
     {
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.auth." + getName(),
                 binder -> {
                     configBinder(binder).bindConfig(SalesforceConfig.class);
                     binder.bind(SalesforceBasicAuthenticator.class).in(Scopes.SINGLETON);
@@ -46,6 +47,7 @@ public class SalesforceAuthenticatorFactory
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

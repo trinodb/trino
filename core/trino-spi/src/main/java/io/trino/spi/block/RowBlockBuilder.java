@@ -126,16 +126,17 @@ public class RowBlockBuilder
             return;
         }
 
-        List<Block> fieldBlocks = rowBlock.getFieldBlocks();
+        Block[] rawFieldBlocks = rowBlock.getRawFieldBlocks();
+        int startOffset = rowBlock.getOffsetBase();
+
         for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
-            appendToField(fieldBlocks.get(fieldId), position, fieldBlockBuilders[fieldId]);
+            appendToField(rawFieldBlocks[fieldId], startOffset + position, fieldBlockBuilders[fieldId]);
         }
         entryAdded(false);
     }
 
     private static void appendToField(Block fieldBlock, int position, BlockBuilder fieldBlockBuilder)
     {
-        fieldBlock = fieldBlock.getLoadedBlock();
         if (fieldBlock instanceof RunLengthEncodedBlock rleBlock) {
             fieldBlockBuilder.append(rleBlock.getValue(), 0);
         }
@@ -163,20 +164,25 @@ public class RowBlockBuilder
         RowBlock rowBlock = (RowBlock) block;
         ensureCapacity(positionCount + length);
 
-        List<Block> fieldBlocks = rowBlock.getFieldBlocks();
+        Block[] rawFieldBlocks = rowBlock.getRawFieldBlocks();
+        int startOffset = rowBlock.getOffsetBase();
+
         for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
-            appendRangeToField(fieldBlocks.get(fieldId), offset, length, fieldBlockBuilders[fieldId]);
+            appendRangeToField(rawFieldBlocks[fieldId], startOffset + offset, length, fieldBlockBuilders[fieldId]);
         }
 
         boolean[] rawRowIsNull = rowBlock.getRawRowIsNull();
         if (rawRowIsNull != null) {
             for (int i = 0; i < length; i++) {
-                if (rawRowIsNull[offset + i]) {
-                    rowIsNull[positionCount + i] = true;
-                    hasNullRow = true;
+                boolean isNull = rawRowIsNull[startOffset + offset + i];
+                hasNullRow |= isNull;
+                hasNonNullRow |= !isNull;
+                if (hasNullRow & hasNonNullRow) {
+                    System.arraycopy(rawRowIsNull, startOffset + offset + i, rowIsNull, positionCount + i, length - i);
+                    break;
                 }
                 else {
-                    hasNonNullRow = true;
+                    rowIsNull[positionCount + i] = isNull;
                 }
             }
         }
@@ -188,7 +194,6 @@ public class RowBlockBuilder
 
     private static void appendRangeToField(Block fieldBlock, int offset, int length, BlockBuilder fieldBlockBuilder)
     {
-        fieldBlock = fieldBlock.getLoadedBlock();
         if (fieldBlock instanceof RunLengthEncodedBlock rleBlock) {
             fieldBlockBuilder.appendRepeated(rleBlock.getValue(), 0, length);
         }
@@ -218,9 +223,11 @@ public class RowBlockBuilder
         RowBlock rowBlock = (RowBlock) block;
         ensureCapacity(positionCount + count);
 
-        List<Block> fieldBlocks = rowBlock.getFieldBlocks();
+        Block[] rawFieldBlocks = rowBlock.getRawFieldBlocks();
+        int startOffset = rowBlock.getOffsetBase();
+
         for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
-            appendRepeatedToField(fieldBlocks.get(fieldId), position, count, fieldBlockBuilders[fieldId]);
+            appendRepeatedToField(rawFieldBlocks[fieldId], startOffset + position, count, fieldBlockBuilders[fieldId]);
         }
 
         if (rowBlock.isNull(position)) {
@@ -240,7 +247,6 @@ public class RowBlockBuilder
 
     private static void appendRepeatedToField(Block fieldBlock, int position, int count, BlockBuilder fieldBlockBuilder)
     {
-        fieldBlock = fieldBlock.getLoadedBlock();
         if (fieldBlock instanceof RunLengthEncodedBlock rleBlock) {
             fieldBlockBuilder.appendRepeated(rleBlock.getValue(), 0, count);
         }
@@ -268,15 +274,29 @@ public class RowBlockBuilder
         RowBlock rowBlock = (RowBlock) block;
         ensureCapacity(positionCount + length);
 
-        List<Block> fieldBlocks = rowBlock.getFieldBlocks();
-        for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
-            appendPositionsToField(fieldBlocks.get(fieldId), positions, offset, length, fieldBlockBuilders[fieldId]);
+        Block[] rawFieldBlocks = rowBlock.getRawFieldBlocks();
+        int startOffset = rowBlock.getOffsetBase();
+
+        if (startOffset == 0) {
+            for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
+                appendPositionsToField(rawFieldBlocks[fieldId], positions, offset, length, fieldBlockBuilders[fieldId]);
+            }
+        }
+        else {
+            int[] adjustedPositions = new int[length];
+            for (int i = offset; i < offset + length; i++) {
+                adjustedPositions[i - offset] = startOffset + positions[i];
+            }
+
+            for (int fieldId = 0; fieldId < fieldBlockBuilders.length; fieldId++) {
+                appendPositionsToField(rawFieldBlocks[fieldId], adjustedPositions, 0, length, fieldBlockBuilders[fieldId]);
+            }
         }
 
         boolean[] rawRowIsNull = rowBlock.getRawRowIsNull();
         if (rawRowIsNull != null) {
             for (int i = 0; i < length; i++) {
-                if (rawRowIsNull[positions[offset + i]]) {
+                if (rawRowIsNull[startOffset + positions[offset + i]]) {
                     rowIsNull[positionCount + i] = true;
                     hasNullRow = true;
                 }
@@ -293,7 +313,6 @@ public class RowBlockBuilder
 
     private static void appendPositionsToField(Block fieldBlock, int[] positions, int offset, int length, BlockBuilder fieldBlockBuilder)
     {
-        fieldBlock = fieldBlock.getLoadedBlock();
         if (fieldBlock instanceof RunLengthEncodedBlock rleBlock) {
             fieldBlockBuilder.appendRepeated(rleBlock.getValue(), 0, length);
         }
@@ -330,10 +349,8 @@ public class RowBlockBuilder
     @Override
     public void resetTo(int position)
     {
-        if (currentEntryOpened) {
-            throw new IllegalStateException("Expected current entry to be closed but was opened");
-        }
         checkIndex(position, positionCount + 1);
+        currentEntryOpened = false;
         positionCount = position;
         for (BlockBuilder fieldBlockBuilder : fieldBlockBuilders) {
             fieldBlockBuilder.resetTo(position);
@@ -383,7 +400,7 @@ public class RowBlockBuilder
         for (int i = 0; i < fieldBlockBuilders.length; i++) {
             fieldBlocks[i] = fieldBlockBuilders[i].build();
         }
-        return createRowBlockInternal(positionCount, hasNullRow ? rowIsNull : null, fieldBlocks);
+        return createRowBlockInternal(0, positionCount, hasNullRow ? rowIsNull : null, fieldBlocks);
     }
 
     private void ensureCapacity(int capacity)
@@ -419,7 +436,7 @@ public class RowBlockBuilder
             fieldBlocks[i] = fieldBlockBuilders[i].newBlockBuilderLike(null).appendNull().build();
         }
 
-        RowBlock nullRowBlock = createRowBlockInternal(1, new boolean[] {true}, fieldBlocks);
+        RowBlock nullRowBlock = createRowBlockInternal(0, 1, new boolean[] {true}, fieldBlocks);
         return RunLengthEncodedBlock.create(nullRowBlock, length);
     }
 }

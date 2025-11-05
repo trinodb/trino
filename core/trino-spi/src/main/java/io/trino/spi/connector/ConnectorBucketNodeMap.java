@@ -17,6 +17,7 @@ import io.trino.spi.Node;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static java.lang.String.format;
 
@@ -24,18 +25,19 @@ public final class ConnectorBucketNodeMap
 {
     private final int bucketCount;
     private final Optional<List<Node>> bucketToNode;
+    private final long cacheKeyHint;
 
     public static ConnectorBucketNodeMap createBucketNodeMap(int bucketCount)
     {
-        return new ConnectorBucketNodeMap(bucketCount, Optional.empty());
+        return new ConnectorBucketNodeMap(bucketCount, Optional.empty(), ThreadLocalRandom.current().nextLong());
     }
 
     public static ConnectorBucketNodeMap createBucketNodeMap(List<Node> bucketToNode)
     {
-        return new ConnectorBucketNodeMap(bucketToNode.size(), Optional.of(bucketToNode));
+        return new ConnectorBucketNodeMap(bucketToNode.size(), Optional.of(bucketToNode), ThreadLocalRandom.current().nextLong());
     }
 
-    private ConnectorBucketNodeMap(int bucketCount, Optional<List<Node>> bucketToNode)
+    private ConnectorBucketNodeMap(int bucketCount, Optional<List<Node>> bucketToNode, long cacheKeyHint)
     {
         if (bucketCount <= 0) {
             throw new IllegalArgumentException("bucketCount must be positive");
@@ -45,6 +47,7 @@ public final class ConnectorBucketNodeMap
         }
         this.bucketCount = bucketCount;
         this.bucketToNode = bucketToNode.map(List::copyOf);
+        this.cacheKeyHint = cacheKeyHint;
     }
 
     public int getBucketCount()
@@ -60,5 +63,15 @@ public final class ConnectorBucketNodeMap
     public List<Node> getFixedMapping()
     {
         return bucketToNode.orElseThrow(() -> new IllegalArgumentException("No fixed bucket to node mapping"));
+    }
+
+    public long getCacheKeyHint()
+    {
+        return cacheKeyHint;
+    }
+
+    public ConnectorBucketNodeMap withCacheKeyHint(long cacheKeyHint)
+    {
+        return new ConnectorBucketNodeMap(bucketCount, bucketToNode, cacheKeyHint);
     }
 }

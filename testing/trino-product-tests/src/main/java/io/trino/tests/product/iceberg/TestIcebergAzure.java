@@ -19,10 +19,10 @@ import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tests.product.BaseTestTableFormats;
 import org.testng.annotations.Test;
 
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.tests.product.TestGroups.ICEBERG_AZURE;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class TestIcebergAzure
         extends BaseTestTableFormats
@@ -35,8 +35,8 @@ public class TestIcebergAzure
     @BeforeMethodWithContext
     public void setUp()
     {
-        String container = requireNonNull(System.getenv("ABFS_CONTAINER"), "Environment variable not set: ABFS_CONTAINER");
-        String account = requireNonNull(System.getenv("ABFS_ACCOUNT"), "Environment variable not set: ABFS_ACCOUNT");
+        String container = requireEnv("ABFS_CONTAINER");
+        String account = requireEnv("ABFS_ACCOUNT");
         schemaLocation = format("abfs://%s@%s.dfs.core.windows.net/%s", container, account, schema);
     }
 

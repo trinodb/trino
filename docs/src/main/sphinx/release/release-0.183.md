@@ -37,11 +37,11 @@
 - Improve error message for small ORC files that are completely corrupt or not actually ORC.
 - Add predicate pushdown for the hidden column `"$path"`.
 
-## TPCH
+## TPC-H
 
 - Add column statistics for schemas `tiny` and `sf1`.
 
-## TPCDS
+## TPC-DS
 
 - Add column statistics for schemas `tiny` and `sf1`.
 

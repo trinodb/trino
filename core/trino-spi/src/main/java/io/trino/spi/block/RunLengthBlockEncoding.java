@@ -28,6 +28,12 @@ public class RunLengthBlockEncoding
     }
 
     @Override
+    public Class<? extends Block> getBlockClass()
+    {
+        return RunLengthEncodedBlock.class;
+    }
+
+    @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) block;

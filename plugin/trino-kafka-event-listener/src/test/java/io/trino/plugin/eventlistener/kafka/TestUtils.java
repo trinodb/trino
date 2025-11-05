@@ -14,6 +14,7 @@
 
 package io.trino.plugin.eventlistener.kafka;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
@@ -26,8 +27,6 @@ import io.trino.spi.eventlistener.QueryFailureInfo;
 import io.trino.spi.eventlistener.QueryIOMetadata;
 import io.trino.spi.eventlistener.QueryMetadata;
 import io.trino.spi.eventlistener.QueryStatistics;
-import io.trino.spi.eventlistener.SplitCompletedEvent;
-import io.trino.spi.eventlistener.SplitStatistics;
 import io.trino.spi.eventlistener.StageOutputBufferUtilization;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -44,19 +43,17 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static java.time.Duration.ofMillis;
+import static java.time.Duration.ofSeconds;
 
 public final class TestUtils
 {
     private static final QueryIOMetadata queryIOMetadata;
     private static final QueryContext queryContext;
     private static final QueryMetadata queryMetadata;
-    private static final SplitStatistics splitStatistics;
     private static final QueryStatistics queryStatistics;
 
     private static final Optional<QueryFailureInfo> queryFailureInfo;
 
-    static final SplitCompletedEvent splitCompletedEvent;
     static final QueryCreatedEvent queryCreatedEvent;
     static final QueryCompletedEvent queryCompletedEvent;
 
@@ -68,6 +65,7 @@ public final class TestUtils
         queryContext = new QueryContext(
                 "user",
                 "originalUser",
+                Set.of(),
                 Optional.of("principal"),
                 Set.of(),
                 Set.of(), // groups
@@ -103,21 +101,11 @@ public final class TestUtils
                 Optional.empty(),
                 Optional.empty());
 
-        splitStatistics = new SplitStatistics(
-                ofMillis(1000),
-                ofMillis(2000),
-                ofMillis(3000),
-                ofMillis(4000),
-                1,
-                2,
-                Optional.of(Duration.ofMillis(100)),
-                Optional.of(Duration.ofMillis(200)));
-
         queryStatistics = new QueryStatistics(
-                ofMillis(1000),
-                ofMillis(1000),
-                ofMillis(1000),
-                ofMillis(1000),
+                ofSeconds(1),
+                ofSeconds(1),
+                ofSeconds(1),
+                ofSeconds(1),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -131,8 +119,7 @@ public final class TestUtils
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                0L,
-                0L,
+                Optional.empty(),
                 0L,
                 0L,
                 0L,
@@ -157,6 +144,9 @@ public final class TestUtils
                 Collections.emptyList(),
                 Collections.emptyList(),
                 Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                ImmutableMap.of(),
                 Optional.empty());
 
         queryFailureInfo = Optional.of(
@@ -167,18 +157,6 @@ public final class TestUtils
                         Optional.of("task"),
                         Optional.of("host"),
                         "testJson"));
-
-        splitCompletedEvent = new SplitCompletedEvent(
-                "queryId",
-                "stageId",
-                "taskId",
-                Optional.of("catalogName"),
-                Instant.now(),
-                Optional.of(Instant.now()),
-                Optional.of(Instant.now()),
-                splitStatistics,
-                Optional.empty(),
-                "payload");
 
         queryCreatedEvent = new QueryCreatedEvent(
                 Instant.now(),

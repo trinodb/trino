@@ -351,7 +351,7 @@ SELECT parse_duration('5m');
 :::
 
 :::{function} human_readable_seconds(double) -> varchar
-Formats the double value of `seconds` into a human readable string containing
+Formats the double value of `seconds` into a human-readable string containing
 `weeks`, `days`, `hours`, `minutes`, and `seconds`:
 
 ```

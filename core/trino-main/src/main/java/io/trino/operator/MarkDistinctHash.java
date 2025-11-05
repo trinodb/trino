@@ -31,9 +31,15 @@ public class MarkDistinctHash
     private final GroupByHash groupByHash;
     private long nextDistinctId;
 
-    public MarkDistinctHash(Session session, List<Type> types, boolean hasPrecomputedHash, FlatHashStrategyCompiler hashStrategyCompiler, UpdateMemory updateMemory)
+    public MarkDistinctHash(Session session, List<Type> types, FlatHashStrategyCompiler hashStrategyCompiler, UpdateMemory updateMemory)
     {
-        this.groupByHash = createGroupByHash(session, types, hasPrecomputedHash, 10_000, hashStrategyCompiler, updateMemory);
+        this.groupByHash = createGroupByHash(session, types, false, 10_000, hashStrategyCompiler, updateMemory);
+    }
+
+    private MarkDistinctHash(MarkDistinctHash other)
+    {
+        groupByHash = other.groupByHash.copy();
+        nextDistinctId = other.nextDistinctId;
     }
 
     public long getEstimatedSize()
@@ -78,5 +84,10 @@ public class MarkDistinctHash
         }
         checkState(nextDistinctId == groupCount);
         return BooleanType.wrapByteArrayAsBooleanBlockWithoutNulls(distinctMask);
+    }
+
+    public MarkDistinctHash copy()
+    {
+        return new MarkDistinctHash(this);
     }
 }

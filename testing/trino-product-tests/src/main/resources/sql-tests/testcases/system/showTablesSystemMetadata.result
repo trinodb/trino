@@ -5,5 +5,8 @@ schema_properties|
 table_properties|
 materialized_view_properties|
 materialized_views|
+schemas_authorization|
+tables_authorization|
+functions_authorization|
 column_properties|
 table_comments|

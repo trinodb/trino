@@ -1,4 +1,4 @@
-### ALTER TABLE RENAME TO
+### ALTER TABLE RENAME TO limitation
 
 The connector does not support renaming tables across multiple schemas. For
 example, the following statement is supported:

@@ -111,8 +111,8 @@ public class TestGenericRewrite
             @Override
             public Optional<ParameterizedExpression> defaultRewrite(ConnectorExpression expression)
             {
-                if (expression instanceof Variable) {
-                    return Optional.of(new ParameterizedExpression("\"" + ((Variable) expression).getName().replace("\"", "\"\"") + "\"", ImmutableList.of()));
+                if (expression instanceof Variable variable) {
+                    return Optional.of(new ParameterizedExpression("\"" + variable.getName().replace("\"", "\"\"") + "\"", ImmutableList.of()));
                 }
                 return Optional.empty();
             }

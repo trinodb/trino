@@ -41,7 +41,7 @@ The following table details all general configuration properties:
     to. This property is required.
   -
 * - `elasticsearch.port`
-  - Port to use to connecto to Elasticsearch.
+  - Port to use to connect to Elasticsearch.
   - `9200`
 * - `elasticsearch.default-schema-name`
   - The schema that contains all tables defined without a qualifying schema
@@ -126,7 +126,7 @@ to `PASSWORD`. Additionally the following options must be configured:
 * - Property name
   - Description
 * - `elasticsearch.auth.user`
-  - User name to use to connect to Elasticsearch.
+  - Username to use to connect to Elasticsearch.
 * - `elasticsearch.auth.password`
   - Password to use to connect to Elasticsearch.
 :::
@@ -167,7 +167,7 @@ The available configuration values are listed in the following table:
     to `true`.
 :::
 
-(elasticesearch-type-mapping)=
+(elasticsearch-type-mapping)=
 ## Type mapping
 
 Because Trino and Elasticsearch each support types that the other does not, this
@@ -402,6 +402,17 @@ SELECT * FROM "tweets: +trino SQL^2"
 The connector provides [globally available](sql-globally-available) and [read
 operation](sql-read-operations) statements to access data and metadata in the
 Elasticsearch catalog.
+
+### Wildcard table
+
+The connector provides support to query multiple tables using a concise
+[wildcard table](https://www.elastic.co/guide/en/elasticsearch/reference/current/search-multiple-indices.html)
+notation.
+
+```sql
+SELECT *
+FROM example.web."page_views_*";
+```
 
 ### Table functions
 

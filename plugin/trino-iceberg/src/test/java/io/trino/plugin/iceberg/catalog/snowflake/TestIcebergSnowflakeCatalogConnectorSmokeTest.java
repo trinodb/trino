@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.sql.SQLException;
+import java.util.Map;
 
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_JDBC_URI;
@@ -70,14 +71,14 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
             executeOnSnowflake(
                     """
                     CREATE OR REPLACE ICEBERG TABLE %s (
-                    	NATIONKEY NUMBER(38,0),
-                    	NAME STRING,
-                    	REGIONKEY NUMBER(38,0),
-                    	COMMENT STRING
+                        NATIONKEY NUMBER(38,0),
+                        NAME STRING,
+                        REGIONKEY NUMBER(38,0),
+                        COMMENT STRING
                     )
-                     EXTERNAL_VOLUME = '%s'
-                     CATALOG = 'SNOWFLAKE'
-                     BASE_LOCATION = '%s/'""".formatted(TpchTable.NATION.getTableName(), SNOWFLAKE_S3_EXTERNAL_VOLUME, TpchTable.NATION.getTableName()));
+                    EXTERNAL_VOLUME = '%s'
+                    CATALOG = 'SNOWFLAKE'
+                    BASE_LOCATION = '%s/'""".formatted(TpchTable.NATION.getTableName(), SNOWFLAKE_S3_EXTERNAL_VOLUME, TpchTable.NATION.getTableName()));
 
             executeOnSnowflake("INSERT INTO %s(NATIONKEY, NAME, REGIONKEY, COMMENT) SELECT N_NATIONKEY, N_NAME, N_REGIONKEY, N_COMMENT FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.%s"
                     .formatted(TpchTable.NATION.getTableName(), TpchTable.NATION.getTableName()));
@@ -86,19 +87,19 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
             executeOnSnowflake(
                     """
                     CREATE OR REPLACE ICEBERG TABLE %s (
-                    	REGIONKEY NUMBER(38,0),
-                    	NAME STRING,
-                    	COMMENT STRING
+                        REGIONKEY NUMBER(38,0),
+                        NAME STRING,
+                        COMMENT STRING
                     )
-                     EXTERNAL_VOLUME = '%s'
-                     CATALOG = 'SNOWFLAKE'
-                     BASE_LOCATION = '%s/'""".formatted(TpchTable.REGION.getTableName(), SNOWFLAKE_S3_EXTERNAL_VOLUME, TpchTable.REGION.getTableName()));
+                    EXTERNAL_VOLUME = '%s'
+                    CATALOG = 'SNOWFLAKE'
+                    BASE_LOCATION = '%s/'""".formatted(TpchTable.REGION.getTableName(), SNOWFLAKE_S3_EXTERNAL_VOLUME, TpchTable.REGION.getTableName()));
 
             executeOnSnowflake("INSERT INTO %s(REGIONKEY, NAME, COMMENT) SELECT R_REGIONKEY, R_NAME, R_COMMENT FROM SNOWFLAKE_SAMPLE_DATA.TPCH_SF1.%s"
                     .formatted(TpchTable.REGION.getTableName(), TpchTable.REGION.getTableName()));
         }
 
-        ImmutableMap<String, String> properties = ImmutableMap.<String, String>builder()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("fs.native-s3.enabled", "true")
                 .put("s3.aws-access-key", S3_ACCESS_KEY)
                 .put("s3.aws-secret-key", S3_SECRET_KEY)
@@ -119,6 +120,34 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
                                 .withSchemaName(SNOWFLAKE_TEST_SCHEMA.toLowerCase(ENGLISH))
                                 .build())
                 .build();
+    }
+
+    @Override
+    protected void createSchema(String schemaName)
+            throws SQLException
+    {
+        server.execute(schemaName, "CREATE SCHEMA " + schemaName);
+    }
+
+    @Override
+    protected void dropSchema(String schema)
+            throws SQLException
+    {
+        server.execute(schema, "DROP SCHEMA " + schema);
+    }
+
+    @Override
+    protected AutoCloseable createTable(String schema, String tableName, String tableDefinition)
+            throws SQLException
+    {
+        server.execute(schema,
+                """
+                CREATE OR REPLACE ICEBERG TABLE %s %s
+                 EXTERNAL_VOLUME = '%s'
+                 CATALOG = 'SNOWFLAKE'
+                 BASE_LOCATION = '%s/'
+                """.formatted(tableName, tableDefinition, SNOWFLAKE_S3_EXTERNAL_VOLUME, tableName));
+        return () -> server.execute(schema, "DROP TABLE %s".formatted(tableName));
     }
 
     @Override
@@ -610,7 +639,7 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     public void testExecuteDelete()
     {
         assertThatThrownBy(() -> assertUpdate("DELETE FROM " + TpchTable.REGION.getTableName()))
-                .hasMessageMatching("Failed to close manifest writer");
+                .hasMessageContaining("Failed to close manifest writer");
     }
 
     @Test

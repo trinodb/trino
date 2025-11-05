@@ -65,7 +65,7 @@ public class ConnectorTableProperties
     /**
      * The partitioning of the table across the worker nodes.
      * <p>
-     * If the table is node partitioned, the connector guarantees that each combination of values for
+     * If this value is present, the connector guarantees that each combination of values for
      * the distributed columns will be contained within a single worker.
      */
     public Optional<ConnectorTablePartitioning> getTablePartitioning()

@@ -192,11 +192,11 @@ public class SheetsMetadata
     @Override
     public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
     {
-        if (!(handle instanceof SheetFunctionHandle)) {
+        if (!(handle instanceof SheetFunctionHandle sheetFunctionHandle)) {
             return Optional.empty();
         }
 
-        ConnectorTableHandle tableHandle = ((SheetFunctionHandle) handle).getTableHandle();
+        ConnectorTableHandle tableHandle = sheetFunctionHandle.getTableHandle();
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(getColumnHandles(session, tableHandle).values());
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }

@@ -25,6 +25,7 @@ import com.google.common.collect.Multiset;
 import com.google.common.collect.Streams;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
@@ -34,8 +35,7 @@ import io.trino.metadata.TableLayout;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
-import io.trino.spi.connector.CatalogHandle;
-import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -110,6 +110,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -118,6 +119,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.sql.analyzer.QueryType.DESCRIBE;
 import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static java.lang.Boolean.FALSE;
@@ -222,6 +224,7 @@ public class Analysis
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
 
     private final Map<Field, ColumnHandle> columns = new LinkedHashMap<>();
+    private final Map<NodeRef<Node>, CorrespondingAnalysis> correspondingAnalysis = new LinkedHashMap<>();
 
     private final Map<NodeRef<SampledRelation>, Double> sampleRatios = new LinkedHashMap<>();
 
@@ -232,7 +235,9 @@ public class Analysis
     private final Map<NodeRef<Table>, List<Expression>> checkConstraints = new LinkedHashMap<>();
 
     private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
-    private final Map<NodeRef<Table>, Map<String, Expression>> columnMasks = new LinkedHashMap<>();
+    private final Map<NodeRef<Table>, Map<Field, Expression>> columnMasks = new LinkedHashMap<>();
+
+    private final Map<NodeRef<Table>, Map<ColumnHandle, Expression>> defaultColumnValues = new LinkedHashMap<>();
 
     private final Map<NodeRef<Unnest>, UnnestAnalysis> unnestAnalysis = new LinkedHashMap<>();
     private Optional<Create> create = Optional.empty();
@@ -765,6 +770,16 @@ public class Analysis
         return columns.get(field);
     }
 
+    public CorrespondingAnalysis getCorrespondingAnalysis(Node node)
+    {
+        return correspondingAnalysis.get(NodeRef.of(node));
+    }
+
+    public void setCorrespondingAnalysis(Node node, CorrespondingAnalysis correspondingAnalysis)
+    {
+        this.correspondingAnalysis.put(NodeRef.of(node), correspondingAnalysis);
+    }
+
     public Optional<AnalyzeMetadata> getAnalyzeMetadata()
     {
         return analyzeMetadata;
@@ -1161,17 +1176,30 @@ public class Analysis
         referenceChain.pop();
     }
 
-    public void addColumnMask(Table table, String column, Expression mask)
+    public void addColumnMask(Table table, Field column, Expression mask)
     {
-        Map<String, Expression> masks = columnMasks.computeIfAbsent(NodeRef.of(table), node -> new LinkedHashMap<>());
-        checkArgument(!masks.containsKey(column), "Mask already exists for column %s", column);
+        Map<Field, Expression> masks = columnMasks.computeIfAbsent(NodeRef.of(table), _ -> new LinkedHashMap<>());
+        checkArgument(!masks.containsKey(column), "Mask already exists for column %s", column.getName().orElse("(unknown)"));
 
         masks.put(column, mask);
     }
 
-    public Map<String, Expression> getColumnMasks(Table table)
+    public Map<Field, Expression> getColumnMasks(Table table)
     {
         return unmodifiableMap(columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of()));
+    }
+
+    public void addDefaultColumnValue(Table table, ColumnHandle column, Expression defaultValue)
+    {
+        Map<ColumnHandle, Expression> defaultValues = defaultColumnValues.computeIfAbsent(NodeRef.of(table), _ -> new LinkedHashMap<>());
+        checkArgument(!defaultValues.containsKey(column), "Default column value already exists for column");
+
+        defaultValues.put(column, defaultValue);
+    }
+
+    public Map<ColumnHandle, Expression> getDefaultColumnValues(Table table)
+    {
+        return unmodifiableMap(defaultColumnValues.getOrDefault(NodeRef.of(table), ImmutableMap.of()));
     }
 
     public List<TableInfo> getReferencedTables()
@@ -1189,7 +1217,7 @@ public class Analysis
                             .distinct()
                             .map(fieldName -> new ColumnInfo(
                                     fieldName,
-                                    Optional.ofNullable(columnMasks.getOrDefault(table, ImmutableMap.of()).get(fieldName))
+                                    resolveColumnMask(table.getNode().getName(), fieldName, columnMasks.getOrDefault(table, ImmutableMap.of()))
                                             .map(Expression::toString)))
                             .collect(toImmutableList());
 
@@ -1208,6 +1236,23 @@ public class Analysis
                             info.getReferenceChain());
                 })
                 .collect(toImmutableList());
+    }
+
+    private static Optional<Expression> resolveColumnMask(QualifiedName tableName, String fieldName, Map<Field, Expression> expressions)
+    {
+        QualifiedName qualifiedFieldName = concatIdentifier(tableName, fieldName);
+        return expressions.entrySet().stream()
+                .filter(fieldExpression -> fieldExpression.getKey().canResolve(qualifiedFieldName))
+                .collect(toOptional())
+                .map(Map.Entry::getValue);
+    }
+
+    private static QualifiedName concatIdentifier(QualifiedName tableName, String fieldName)
+    {
+        return QualifiedName.of(Stream.concat(
+                        tableName.getOriginalParts().stream(),
+                        Stream.of(new Identifier(fieldName)))
+                .collect(toImmutableList()));
     }
 
     public List<RoutineInfo> getRoutines()
@@ -1842,6 +1887,9 @@ public class Analysis
         private final List<ColumnHandle> dataColumnHandles;
         private final List<ColumnHandle> redistributionColumnHandles;
         private final List<List<ColumnHandle>> mergeCaseColumnHandles;
+        // Case number map to columns
+        private final Multimap<Integer, ColumnHandle> updateCaseColumnHandles;
+        private final Map<ColumnHandle, Expression> defaultColumnValues;
         private final Set<ColumnHandle> nonNullableColumnHandles;
         private final Map<ColumnHandle, Integer> columnHandleFieldNumbers;
         private final RowType mergeRowType;
@@ -1857,6 +1905,8 @@ public class Analysis
                 List<ColumnHandle> dataColumnHandles,
                 List<ColumnHandle> redistributionColumnHandles,
                 List<List<ColumnHandle>> mergeCaseColumnHandles,
+                Multimap<Integer, ColumnHandle> updateCaseColumnHandles,
+                Map<ColumnHandle, Expression> defaultColumnValues,
                 Set<ColumnHandle> nonNullableColumnHandles,
                 Map<ColumnHandle, Integer> columnHandleFieldNumbers,
                 RowType mergeRowType,
@@ -1871,6 +1921,8 @@ public class Analysis
             this.dataColumnHandles = requireNonNull(dataColumnHandles, "dataColumnHandles is null");
             this.redistributionColumnHandles = requireNonNull(redistributionColumnHandles, "redistributionColumnHandles is null");
             this.mergeCaseColumnHandles = requireNonNull(mergeCaseColumnHandles, "mergeCaseColumnHandles is null");
+            this.updateCaseColumnHandles = requireNonNull(updateCaseColumnHandles, "updateCaseColumnHandles is null");
+            this.defaultColumnValues = ImmutableMap.copyOf(defaultColumnValues);
             this.nonNullableColumnHandles = requireNonNull(nonNullableColumnHandles, "nonNullableColumnHandles is null");
             this.columnHandleFieldNumbers = requireNonNull(columnHandleFieldNumbers, "columnHandleFieldNumbers is null");
             this.mergeRowType = requireNonNull(mergeRowType, "mergeRowType is null");
@@ -1904,6 +1956,16 @@ public class Analysis
         public List<List<ColumnHandle>> getMergeCaseColumnHandles()
         {
             return mergeCaseColumnHandles;
+        }
+
+        public Multimap<Integer, ColumnHandle> getUpdateCaseColumnHandles()
+        {
+            return updateCaseColumnHandles;
+        }
+
+        public Map<ColumnHandle, Expression> getDefaultColumnValues()
+        {
+            return defaultColumnValues;
         }
 
         public Set<ColumnHandle> getNonNullableColumnHandles()
@@ -2517,6 +2579,16 @@ public class Analysis
             requireNonNull(transactionHandle, "transactionHandle is null");
             requireNonNull(parametersType, "parametersType is null");
             requireNonNull(orderedOutputColumns, "orderedOutputColumns is null");
+        }
+    }
+
+    public record CorrespondingAnalysis(List<Integer> indexes, List<Field> fields)
+    {
+        public CorrespondingAnalysis
+        {
+            indexes = ImmutableList.copyOf(indexes);
+            fields = ImmutableList.copyOf(fields);
+            checkArgument(indexes.size() == fields.size(), "indexes and fields must have the same size");
         }
     }
 }

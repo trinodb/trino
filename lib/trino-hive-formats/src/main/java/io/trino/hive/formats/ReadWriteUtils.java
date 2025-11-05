@@ -23,6 +23,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
+import java.io.DataInput;
 import java.io.IOException;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -67,7 +68,7 @@ public final class ReadWriteUtils
         return value < -120 || (value >= -112 && value < 0);
     }
 
-    public static long readVInt(TrinoDataInputStream in)
+    public static long readVInt(DataInput in)
             throws IOException
     {
         byte firstByte = in.readByte();
@@ -296,14 +297,14 @@ public final class ReadWriteUtils
     public static int calculateTruncationLength(Type type, Slice slice, int offset, int length)
     {
         requireNonNull(type, "type is null");
-        if (type instanceof VarcharType) {
-            if (((VarcharType) type).isUnbounded()) {
+        if (type instanceof VarcharType varcharType) {
+            if (varcharType.isUnbounded()) {
                 return length;
             }
-            return calculateTruncationLength(((VarcharType) type).getBoundedLength(), slice, offset, length);
+            return calculateTruncationLength(varcharType.getBoundedLength(), slice, offset, length);
         }
-        if (type instanceof CharType) {
-            int truncationLength = calculateTruncationLength(((CharType) type).getLength(), slice, offset, length);
+        if (type instanceof CharType charType) {
+            int truncationLength = calculateTruncationLength(charType.getLength(), slice, offset, length);
             // At run-time char(x) is represented without trailing spaces
             while (truncationLength > 0 && slice.getByte(offset + truncationLength - 1) == ' ') {
                 truncationLength--;

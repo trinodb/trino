@@ -19,7 +19,11 @@ public interface EventListener
 
     default void queryCompleted(QueryCompletedEvent queryCompletedEvent) {}
 
-    default void splitCompleted(SplitCompletedEvent splitCompletedEvent) {}
+    @Deprecated(forRemoval = true)
+    default void splitCompleted(SplitCompletedEvent splitCompletedEvent)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Specify whether the plan included in QueryCompletedEvent should be anonymized or not

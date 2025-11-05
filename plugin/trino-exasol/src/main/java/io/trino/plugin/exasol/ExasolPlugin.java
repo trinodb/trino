@@ -20,6 +20,6 @@ public class ExasolPlugin
 {
     public ExasolPlugin()
     {
-        super("exasol", new ExasolClientModule());
+        super("exasol", ExasolClientModule::new);
     }
 }

@@ -5,9 +5,6 @@ on:
     branches:
       - master
   pull_request:
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
   repository_dispatch:
     types: [test-with-secrets-command]
 
@@ -23,7 +20,7 @@ env:
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError"
   MAVEN_INSTALL_OPTS: "-Xmx3G -XX:+ExitOnOutOfMemoryError"
   MAVEN_FAST_INSTALL: "-B -V -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all"
-  MAVEN_COMPILE_COMMITS: "-B --quiet -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress -pl '!:trino-server-rpm'"
+  MAVEN_COMPILE_COMMITS: "-B --quiet -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress"
   MAVEN_GIB: "-P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.event.repository.default_branch }}"
   MAVEN_TEST: "-B -Dmaven.source.skip=true -Dair.check.skip-all --fail-at-end -P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.event.repository.default_branch }}"
   # Testcontainers kills image pulls if they don't make progress for > 30s and retries for 2m before failing. This means
@@ -50,6 +47,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  path-filters:
+    runs-on: ubuntu-latest
+    outputs:
+      docs: ${{ steps.filter.outputs.docs }}
+      non_docs: ${{ steps.filter.outputs.non_docs }}
+    steps:
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
+        id: filter
+        if: github.event_name == 'pull_request'
+        with:
+          # Note: `docs` output is currently unused. The docs changes are tested by maven-checks job, leveraging GIB impact analysis.
+          # TODO remove use of non_docs filters and remove `path-filters` job. Use GIB impact analysis to guard job skipping.
+          filters: |
+            docs: 'docs/**'
+            non_docs: '!docs/**'
+
   maven-checks:
     runs-on: ubuntu-latest
     name: maven-checks ${{ matrix.java-version }}
@@ -57,11 +70,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { java-version: 23, cache: 'true', cleanup-node: true }
-          - { java-version: 24-ea, cache: 'restore', cleanup-node: true }
+          - { java-version: 25, cache: 'true', cleanup-node: true }
+          - { java-version: 26-ea, cache: 'restore', cleanup-node: true }
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
           ref: |
@@ -69,7 +82,7 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
-        timeout-minutes: 10
+        timeout-minutes: 15
         with:
           cache: ${{ matrix.cache }}
           java-version: ${{ matrix.java-version }}
@@ -82,17 +95,19 @@ jobs:
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean verify -B --strict-checksums -V -T 1C -DskipTests -P ci -pl '!:trino-server-rpm'
+          $MAVEN clean verify -B --strict-checksums -V -T 1C -DskipTests -P ci
       - name: Remove Trino from local Maven repo to avoid caching it
         # Avoid caching artifacts built in this job, cache should only include dependencies
         if: steps.cache.outputs.cache-hit != 'true' && matrix.cache == 'true'
         run: rm -rf ~/.m2/repository/io/trino/trino-*
 
   artifact-checks:
+    needs: path-filters
+    if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
           ref: |
@@ -100,18 +115,14 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
-        timeout-minutes: 10
+        timeout-minutes: 15
         with:
           cache: 'restore'
           cleanup-node: true
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
-      - name: Test Server RPM
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN verify -B --strict-checksums -P ci -pl :trino-server-rpm
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs'
       - name: Test JDBC shading
         # Run only integration tests to verify JDBC driver shading
         run: |
@@ -119,19 +130,20 @@ jobs:
           $MAVEN failsafe:integration-test failsafe:verify -B --strict-checksums -P ci -pl :trino-jdbc
       - name: Clean Maven Output
         run: $MAVEN clean -pl '!:trino-server,!:trino-cli'
-      - uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cf # v3
+      - uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3
         with:
           platforms: arm64,ppc64le
       - name: Build and Test Docker Image
         run: core/docker/build.sh
 
   check-commits-dispatcher:
+    needs: path-filters
+    if: github.event_name == 'pull_request' && needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base
       - name: Block illegal commits
@@ -158,12 +170,13 @@ jobs:
   check-commit:
     needs: check-commits-dispatcher
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     if: github.event_name == 'pull_request' && needs.check-commits-dispatcher.outputs.matrix != ''
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.check-commits-dispatcher.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: matrix.commit != ''
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base
@@ -178,10 +191,12 @@ jobs:
           base_ref: ${{ github.event.pull_request.base.ref }}
 
   error-prone-checks:
+    needs: path-filters
+    if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
           ref: |
@@ -189,26 +204,29 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
-        timeout-minutes: 10
+        timeout-minutes: 15
         with:
           cache: restore
+          java-version: 25
       - name: Maven Install
         run: |
           # build everything to make sure dependencies of impacted modules are present
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server'
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # Skip checks, these are run in `maven-checks` job and e.g. checkstyle is expensive.
           $MAVEN ${MAVEN_TEST} -T 1C clean compile test-compile -DskipTests -Dair.check.skip-all=true ${MAVEN_GIB} -Dgib.buildUpstream=never -P errorprone-compiler \
-            -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+            -pl '!:trino-docs,!:trino-server'
 
   test-jdbc-compatibility:
+    needs: path-filters
+    if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # checkout tags so version in Manifest is set properly
           ref: |
@@ -216,13 +234,14 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
-        timeout-minutes: 10
+        timeout-minutes: 15
         with:
           cache: restore
+          cleanup-node: 'true'
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -pl '!:trino-docs,!:trino-server'
       - name: Test old JDBC vs current server
         id: tests-old
         run: |
@@ -244,6 +263,8 @@ jobs:
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
 
   hive-tests:
+    needs: path-filters
+    if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -253,7 +274,7 @@ jobs:
           # TODO: config-apache-hive3
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
           ref: |
@@ -261,7 +282,7 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
-        timeout-minutes: 10
+        timeout-minutes: 15
         with:
           cache: restore
       - name: Install Hive Module
@@ -279,16 +300,6 @@ jobs:
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ] && ( [ ! -f gib-impacted.log ] || grep -q plugin/trino-hive gib-impacted.log ); then
             $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P aws-tests
-          fi
-      - name: Run Hive Unity Tests
-        id: test-unity
-        env:
-          DATABRICKS_HOST: ${{ vars.TRINO_DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ secrets.TRINO_DATABRICKS_TOKEN }}
-          DATABRICKS_UNITY_CATALOG_NAME: ${{ vars.TRINO_DATABRICKS_UNITY_CATALOG_NAME }}
-        run: |
-          if [ "${DATABRICKS_TOKEN}" != "" ] && ( [ ! -f gib-impacted.log ] || grep -q plugin/trino-hive gib-impacted.log ); then
-            $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P unity-tests
           fi
       - name: Upload test results
         uses: ./.github/actions/process-test-results
@@ -310,10 +321,12 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
   test-other-modules:
+    needs: path-filters
+    if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
           ref: |
@@ -321,14 +334,14 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
-        timeout-minutes: 10
+        timeout-minutes: 15
         with:
           cache: restore
           cleanup-node: true
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server'
       - name: Maven Tests
         id: tests
         run: |
@@ -340,47 +353,56 @@ jobs:
             !:trino-delta-lake,
             !:trino-docs,
             !:trino-druid,
+            !:trino-duckdb,
             !:trino-elasticsearch,
             !:trino-exasol,
+            !:trino-faker,
             !:trino-faulttolerant-tests,
             !:trino-filesystem,
+            !:trino-filesystem-alluxio,
+            !:trino-filesystem-cache-alluxio,
             !:trino-filesystem-azure,
             !:trino-filesystem-gcs,
             !:trino-filesystem-manager,
             !:trino-filesystem-s3,
+            !:trino-geospatial,
             !:trino-google-sheets,
             !:trino-hdfs,
             !:trino-hive,
             !:trino-hsqldb,
+            !:trino-hive-formats,
             !:trino-hudi,
             !:trino-iceberg,
             !:trino-ignite,
             !:trino-jdbc,
             !:trino-kafka,
-            !:trino-kudu,
+            !:trino-lakehouse,
             !:trino-main,
             !:trino-mariadb,
             !:trino-memory,
             !:trino-mongodb,
             !:trino-mysql,
+            !:trino-openlineage,
             !:trino-opensearch,
             !:trino-oracle,
             !:trino-orc,
             !:trino-parquet,
-            !:trino-phoenix5,
             !:trino-pinot,
             !:trino-postgresql,
             !:trino-redis,
             !:trino-redshift,
             !:trino-resource-group-managers,
+            !:trino-server-core,
             !:trino-server,
-            !:trino-server-rpm,
             !:trino-singlestore,
             !:trino-snowflake,
+            !:trino-spi,
             !:trino-sqlserver,
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-tests,
-            !:trino-thrift'
+            !:trino-thrift,
+            !:trino-vertica,
+            !:trino-web-ui'
       - name: Upload test results
         uses: ./.github/actions/process-test-results
         if: always()
@@ -389,11 +411,13 @@ jobs:
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
 
   build-test-matrix:
+    needs: path-filters
+    if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
           ref: |
@@ -401,7 +425,7 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
-        timeout-minutes: 10
+        timeout-minutes: 15
         with:
           cache: restore
       - name: Update PR check
@@ -416,7 +440,7 @@ jobs:
       - name: Maven validate
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -P disable-check-spi-dependencies -pl '!:trino-docs'
+          $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -P disable-check-spi-dependencies
       - name: Set matrix
         id: set-matrix
         run: |
@@ -426,8 +450,14 @@ jobs:
           include:
             - modules:
                 - client/trino-jdbc
+                - core/trino-spi
+                - core/trino-web-ui
+            - modules:
                 - plugin/trino-base-jdbc
+                - plugin/trino-faker
+                - plugin/trino-geospatial
                 - plugin/trino-memory
+                - plugin/trino-openlineage
                 - plugin/trino-thrift
             - modules:
                 - lib/trino-orc
@@ -435,9 +465,13 @@ jobs:
             - modules:
                 - lib/trino-filesystem
                 - lib/trino-filesystem-azure
+                - lib/trino-filesystem-alluxio
+                - lib/trino-filesystem-cache-alluxio
+                - lib/trino-filesystem-gcs
                 - lib/trino-filesystem-manager
                 - lib/trino-filesystem-s3
                 - lib/trino-hdfs
+                - lib/trino-hive-formats
             - { modules: core/trino-main }
             - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
             - { modules: lib/trino-filesystem-gcs, profile: cloud-tests }
@@ -451,6 +485,7 @@ jobs:
             - { modules: plugin/trino-delta-lake, profile: cloud-tests }
             - { modules: plugin/trino-delta-lake, profile: fte-tests }
             - { modules: plugin/trino-druid }
+            - { modules: plugin/trino-duckdb }
             - { modules: plugin/trino-elasticsearch }
             - { modules: plugin/trino-exasol }
             - { modules: plugin/trino-google-sheets }
@@ -465,14 +500,13 @@ jobs:
             - { modules: plugin/trino-iceberg, profile: minio-and-avro }
             - { modules: plugin/trino-ignite }
             - { modules: plugin/trino-kafka }
-            - { modules: plugin/trino-kudu }
+            - { modules: plugin/trino-lakehouse }
             - { modules: plugin/trino-mariadb }
             - { modules: plugin/trino-mongodb }
             - { modules: plugin/trino-mysql }
             - { modules: plugin/trino-openlineage }
             - { modules: plugin/trino-opensearch }
             - { modules: plugin/trino-oracle }
-            - { modules: plugin/trino-phoenix5 }
             - { modules: plugin/trino-pinot }
             - { modules: plugin/trino-postgresql }
             - { modules: plugin/trino-redis }
@@ -483,7 +517,8 @@ jobs:
             - { modules: plugin/trino-singlestore }
             - { modules: plugin/trino-snowflake }
             - { modules: plugin/trino-snowflake, profile: cloud-tests }
-            - { modules: plugin/trino-sqlserver, runson: ubuntu-20.04 }
+            - { modules: plugin/trino-sqlserver }
+            - { modules: plugin/trino-vertica }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive }
@@ -495,7 +530,7 @@ jobs:
           echo "matrix=$(jq -c '.' matrix.json)" >> $GITHUB_OUTPUT
 
   test:
-    runs-on: ${{ matrix.runson || 'ubuntu-latest' }}
+    runs-on: 'ubuntu-latest'
     needs: build-test-matrix
     if: needs.build-test-matrix.outputs.matrix != '{}'
     strategy:
@@ -503,7 +538,7 @@ jobs:
       matrix: ${{ fromJson(needs.build-test-matrix.outputs.matrix) }}
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
           ref: |
@@ -511,11 +546,11 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
-        timeout-minutes: 10
+        timeout-minutes: 15
         with:
           cache: restore
-          cleanup-node: ${{ format('{0}', matrix.modules == 'plugin/trino-singlestore' || matrix.modules == 'plugin/trino-exasol') }}
-          java-version: ${{ matrix.jdk != '' && matrix.jdk || '23' }}
+          cleanup-node: ${{ format('{0}', matrix.modules == 'plugin/trino-singlestore' || matrix.modules == 'plugin/trino-exasol' || matrix.modules == 'plugin/trino-oracle') }}
+          java-version: ${{ matrix.jdk != '' && matrix.jdk || '25' }}
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -523,8 +558,7 @@ jobs:
       - name: Maven Tests
         id: tests
         if: >-
-          matrix.modules != 'plugin/trino-singlestore'
-          && ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-2'))
+          ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-2'))
           && ! (contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'cloud-tests'))
@@ -626,25 +660,20 @@ jobs:
             -Dtesting.azure-abfs-access-key="${ABFS_ACCESSKEY}" \
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
             -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}"
-      - name: Memsql Tests
-        id: tests-memsql
-        env:
-          MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
-        if: matrix.modules == 'plugin/trino-singlestore' && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.MEMSQL_LICENSE != '')
-        run: |
-          $MAVEN test ${MAVEN_TEST} -pl :trino-singlestore -Dmemsql.license=${MEMSQL_LICENSE}
       - name: Cloud BigQuery Tests
         id: tests-bq
         env:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
           GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
+          BIGQUERY_TESTING_BIGLAKE_CONNECTION_ID: ${{ vars.BIGQUERY_TESTING_BIGLAKE_CONNECTION_ID }}
           BIGQUERY_TESTING_PROJECT_ID: ${{ vars.BIGQUERY_TESTING_PROJECT_ID }}
           BIGQUERY_TESTING_PARENT_PROJECT_ID: ${{ vars.BIGQUERY_TESTING_PARENT_PROJECT_ID }}
         if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-2') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-1 \
-            -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
+            -Dtesting.bigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
+            -Dtesting.bigquery-connection-id="${BIGQUERY_TESTING_BIGLAKE_CONNECTION_ID}" \
             -Dtesting.bigquery-project-id="${BIGQUERY_TESTING_PROJECT_ID}" \
             -Dtesting.bigquery-parent-project-id="${BIGQUERY_TESTING_PARENT_PROJECT_ID}"
       - name: Cloud BigQuery Smoke Tests
@@ -655,7 +684,7 @@ jobs:
         if: matrix.modules == 'plugin/trino-bigquery' && contains(matrix.profile, 'cloud-tests-2') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-2 \
-            -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
+            -Dtesting.bigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
             -Dtesting.alternate-bq-project-id=bigquery-cicd-alternate
       - name: Cloud BigQuery Case Insensitive Mapping Tests
@@ -664,7 +693,7 @@ jobs:
           BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY }}
         if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-2') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != '')
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
+          $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dtesting.bigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
       - name: Cloud Snowflake Tests
         id: tests-snowflake
         env:
@@ -690,6 +719,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
           S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
+          S3_TABLES_BUCKET: ${{ vars.TRINO_S3_TABLES_BUCKET }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
           GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
           ABFS_CONTAINER: ${{ vars.AZURE_ABFS_HIERARCHICAL_CONTAINER }}
@@ -737,6 +767,7 @@ jobs:
           REDSHIFT_IAM_ROLES: ${{ vars.REDSHIFT_IAM_ROLES }}
           REDSHIFT_VPC_SECURITY_GROUP_IDS: ${{ vars.REDSHIFT_VPC_SECURITY_GROUP_IDS }}
           REDSHIFT_S3_TPCH_TABLES_ROOT: ${{ vars.REDSHIFT_S3_TPCH_TABLES_ROOT }}
+          REDSHIFT_S3_UNLOAD_ROOT: ${{ vars.REDSHIFT_S3_UNLOAD_ROOT }}
         if: >-
           contains(matrix.modules, 'trino-redshift') &&
           (contains(matrix.profile, 'cloud-tests') || contains(matrix.profile, 'fte-tests')) &&
@@ -749,6 +780,7 @@ jobs:
             -Dtest.redshift.jdbc.password="${REDSHIFT_PASSWORD}" \
             -Dtest.redshift.jdbc.endpoint="${REDSHIFT_ENDPOINT}:${REDSHIFT_PORT}/" \
             -Dtest.redshift.s3.tpch.tables.root="${REDSHIFT_S3_TPCH_TABLES_ROOT}" \
+            -Dtest.redshift.s3.unload.root="${REDSHIFT_S3_UNLOAD_ROOT}" \
             -Dtest.redshift.iam.role="${REDSHIFT_IAM_ROLES}" \
             -Dtest.redshift.aws.region="${AWS_REGION}" \
             -Dtest.redshift.aws.access-key="${AWS_ACCESS_KEY_ID}" \
@@ -783,7 +815,6 @@ jobs:
               || steps.tests-azure.outcome == 'failure'
               || steps.tests-gcs.outcome == 'failure'
               || steps.tests-delta.outcome == 'failure'
-              || steps.tests-memsql.outcome == 'failure'
               || steps.tests-bq.outcome == 'failure'
               || steps.tests-bq-ci.outcome == 'failure'
               || steps.tests-bq-smoke.outcome == 'failure'
@@ -806,12 +837,14 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
   build-pt:
+    needs: path-filters
+    if: github.event_name != 'pull_request' || needs.path-filters.outputs.non_docs == 'true'
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       product-tests-changed: ${{ steps.filter.outputs.product-tests }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
           ref: |
@@ -819,7 +852,7 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
-        timeout-minutes: 10
+        timeout-minutes: 15
         with:
           cache: restore
           cleanup-node: true
@@ -838,7 +871,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs'
       - name: Map impacted plugins to features
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -850,7 +883,7 @@ jobs:
           echo "Impacted plugin features:"
           cat impacted-features.log
       - name: Product tests artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: product tests and server tarball
           path: |
@@ -872,17 +905,18 @@ jobs:
             # suite-4 does not exist
             - suite-5
             - suite-6-non-generic
+            - suite-7-non-generic
             - suite-hive-transactional
             - suite-azure
-            - suite-delta-lake-databricks91
-            - suite-delta-lake-databricks104
-            - suite-delta-lake-databricks113
             - suite-delta-lake-databricks122
             - suite-delta-lake-databricks133
             - suite-delta-lake-databricks143
             - suite-delta-lake-databricks154
-            - suite-databricks-unity-http-hms
+            - suite-delta-lake-databricks164
+            - suite-exasol
+            - suite-ranger
             - suite-gcs
+            - suite-hive4
             - suite-clients
             - suite-functions
             - suite-tpch
@@ -891,6 +925,7 @@ jobs:
             - suite-parquet
             - suite-oauth2
             - suite-ldap
+            - suite-loki
             - suite-compatibility
             - suite-all-connectors-smoke
             - suite-delta-lake-oss
@@ -914,15 +949,6 @@ jobs:
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.GCP_CREDENTIALS_KEY != '' }}
 
-            - suite: suite-delta-lake-databricks91
-              ignore exclusion if: >-
-                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
-            - suite: suite-delta-lake-databricks104
-              ignore exclusion if: >-
-                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
-            - suite: suite-delta-lake-databricks113
-              ignore exclusion if: >-
-                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks122
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
@@ -935,9 +961,7 @@ jobs:
             - suite: suite-delta-lake-databricks154
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
-            - suite: suite-databricks-unity-http-hms
-              config: hdp3
-            - suite: suite-databricks-unity-http-hms
+            - suite: suite-delta-lake-databricks164
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-snowflake
@@ -959,10 +983,6 @@ jobs:
             # this suite is designed specifically for apache-hive3. TODO remove the suite once we can run all regular tests on apache-hive3.
             - config: apache-hive3
               suite: suite-hms-only
-            # Workaround for https://github.com/microsoft/mssql-docker/issues/899
-            - config: default
-              suite: suite-7-non-generic
-              runson: ubuntu-20.04
           EOF
       - name: Build PT matrix (all)
         if: |
@@ -988,17 +1008,11 @@ jobs:
           AWS_REGION: ""
           TRINO_AWS_ACCESS_KEY_ID: ""
           TRINO_AWS_SECRET_ACCESS_KEY: ""
-          DATABRICKS_91_JDBC_URL: ""
-          DATABRICKS_104_JDBC_URL: ""
-          DATABRICKS_113_JDBC_URL: ""
           DATABRICKS_122_JDBC_URL: ""
           DATABRICKS_133_JDBC_URL: ""
           DATABRICKS_143_JDBC_URL: ""
           DATABRICKS_154_JDBC_URL: ""
-          DATABRICKS_UNITY_JDBC_URL: ""
-          DATABRICKS_UNITY_CATALOG_NAME: ""
-          DATABRICKS_UNITY_EXTERNAL_LOCATION: ""
-          DATABRICKS_HOST: ""
+          DATABRICKS_164_JDBC_URL: ""
           DATABRICKS_LOGIN: ""
           DATABRICKS_TOKEN: ""
           GCP_CREDENTIALS_KEY: ""
@@ -1019,7 +1033,7 @@ jobs:
           echo "matrix=$(cat matrix.json)" >> $GITHUB_OUTPUT
 
   pt:
-    runs-on: ${{ matrix.runson || 'ubuntu-latest' }}
+    runs-on: 'ubuntu-latest'
     # explicitly define the name to avoid adding the value of the `ignore exclusion if` matrix item
     name: pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
     if: needs.build-pt.outputs.matrix != '{}'
@@ -1030,7 +1044,7 @@ jobs:
     timeout-minutes: 130
     needs: build-pt
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
           ref: |
@@ -1038,12 +1052,12 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
-        timeout-minutes: 10
+        timeout-minutes: 15
         with:
           # The job doesn't build anything, so the ~/.m2/repository cache isn't useful
           cache: 'false'
       - name: Product tests artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: product tests and server tarball
       - name: Fix artifact permissions
@@ -1066,17 +1080,11 @@ jobs:
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
           TRINO_AWS_ACCESS_KEY_ID: ${{ vars.TRINO_AWS_ACCESS_KEY_ID }}
           TRINO_AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
-          DATABRICKS_91_JDBC_URL: ${{ vars.DATABRICKS_91_JDBC_URL }}
-          DATABRICKS_104_JDBC_URL: ${{ vars.DATABRICKS_104_JDBC_URL }}
-          DATABRICKS_113_JDBC_URL: ${{ vars.DATABRICKS_113_JDBC_URL }}
           DATABRICKS_122_JDBC_URL: ${{ vars.DATABRICKS_122_JDBC_URL }}
           DATABRICKS_133_JDBC_URL: ${{ vars.DATABRICKS_133_JDBC_URL }}
           DATABRICKS_143_JDBC_URL: ${{ vars.DATABRICKS_143_JDBC_URL }}
           DATABRICKS_154_JDBC_URL: ${{ vars.DATABRICKS_154_JDBC_URL }}
-          DATABRICKS_UNITY_JDBC_URL: ${{ vars.DATABRICKS_UNITY_JDBC_URL }}
-          DATABRICKS_UNITY_CATALOG_NAME: ${{ vars.DATABRICKS_UNITY_CATALOG_NAME }}
-          DATABRICKS_UNITY_EXTERNAL_LOCATION: ${{ vars.DATABRICKS_UNITY_EXTERNAL_LOCATION }}
-          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_164_JDBC_URL: ${{ vars.DATABRICKS_164_JDBC_URL }}
           DATABRICKS_LOGIN: token
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
@@ -1112,3 +1120,38 @@ jobs:
           check_name: ${{ github.job }} with secrets
           conclusion: ${{ job.status }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  build-success:
+    if: ${{ always() }} # if `failure()` would not work for cancellations, `!success()` would not work for skipped jobs
+    runs-on: ubuntu-latest
+    needs:
+      - artifact-checks
+      - build-pt
+      - build-test-matrix
+      - check-commit
+      - check-commits-dispatcher
+      - error-prone-checks
+      - hive-tests
+      - maven-checks
+      - path-filters
+      - pt
+      - test
+      - test-jdbc-compatibility
+      - test-other-modules
+    steps:
+      - name: "Check results"
+        run: |
+          # generated by TestCiWorkflow
+          echo '${{ needs.artifact-checks.result }}' | grep -xE 'success|skipped' || { echo 'Job "artifact-checks" failed' >&2; exit 1; }
+          echo '${{ needs.build-pt.result }}' | grep -xE 'success|skipped' || { echo 'Job "build-pt" failed' >&2; exit 1; }
+          echo '${{ needs.build-test-matrix.result }}' | grep -xE 'success|skipped' || { echo 'Job "build-test-matrix" failed' >&2; exit 1; }
+          echo '${{ needs.check-commit.result }}' | grep -xE 'success|skipped' || { echo 'Job "check-commit" failed' >&2; exit 1; }
+          echo '${{ needs.check-commits-dispatcher.result }}' | grep -xE 'success|skipped' || { echo 'Job "check-commits-dispatcher" failed' >&2; exit 1; }
+          echo '${{ needs.error-prone-checks.result }}' | grep -xE 'success|skipped' || { echo 'Job "error-prone-checks" failed' >&2; exit 1; }
+          echo '${{ needs.hive-tests.result }}' | grep -xE 'success|skipped' || { echo 'Job "hive-tests" failed' >&2; exit 1; }
+          echo '${{ needs.maven-checks.result }}' | grep -xE 'success|skipped' || { echo 'Job "maven-checks" failed' >&2; exit 1; }
+          echo '${{ needs.path-filters.result }}' | grep -xE 'success|skipped' || { echo 'Job "path-filters" failed' >&2; exit 1; }
+          echo '${{ needs.pt.result }}' | grep -xE 'success|skipped' || { echo 'Job "pt" failed' >&2; exit 1; }
+          echo '${{ needs.test.result }}' | grep -xE 'success|skipped' || { echo 'Job "test" failed' >&2; exit 1; }
+          echo '${{ needs.test-jdbc-compatibility.result }}' | grep -xE 'success|skipped' || { echo 'Job "test-jdbc-compatibility" failed' >&2; exit 1; }
+          echo '${{ needs.test-other-modules.result }}' | grep -xE 'success|skipped' || { echo 'Job "test-other-modules" failed' >&2; exit 1; }

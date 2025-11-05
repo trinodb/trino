@@ -40,7 +40,7 @@ public final class RepeatFunction
     @SqlType("array(unknown)")
     public static Block repeat(
             @SqlNullable @SqlType("unknown") Boolean element,
-            @SqlType(StandardTypes.INTEGER) long count)
+            @SqlType(StandardTypes.BIGINT) long count)
     {
         checkCondition(element == null, INVALID_FUNCTION_ARGUMENT, "expect null values");
         BlockBuilder blockBuilder = createBlockBuilder(UNKNOWN, count);
@@ -52,7 +52,7 @@ public final class RepeatFunction
     public static Block repeat(
             @TypeParameter("T") Type type,
             @SqlNullable @SqlType("T") Object element,
-            @SqlType(StandardTypes.INTEGER) long count)
+            @SqlType(StandardTypes.BIGINT) long count)
     {
         BlockBuilder blockBuilder = createBlockBuilder(type, count);
         if (element == null) {
@@ -73,7 +73,7 @@ public final class RepeatFunction
     public static Block repeat(
             @TypeParameter("T") Type type,
             @SqlNullable @SqlType("T") Long element,
-            @SqlType(StandardTypes.INTEGER) long count)
+            @SqlType(StandardTypes.BIGINT) long count)
     {
         BlockBuilder blockBuilder = createBlockBuilder(type, count);
         if (element == null) {
@@ -90,7 +90,7 @@ public final class RepeatFunction
     public static Block repeat(
             @TypeParameter("T") Type type,
             @SqlNullable @SqlType("T") Boolean element,
-            @SqlType(StandardTypes.INTEGER) long count)
+            @SqlType(StandardTypes.BIGINT) long count)
     {
         BlockBuilder blockBuilder = createBlockBuilder(type, count);
         if (element == null) {
@@ -107,7 +107,7 @@ public final class RepeatFunction
     public static Block repeat(
             @TypeParameter("T") Type type,
             @SqlNullable @SqlType("T") Double element,
-            @SqlType(StandardTypes.INTEGER) long count)
+            @SqlType(StandardTypes.BIGINT) long count)
     {
         BlockBuilder blockBuilder = createBlockBuilder(type, count);
         if (element == null) {

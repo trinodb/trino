@@ -625,6 +625,12 @@ public class RedshiftClient
                     RedshiftClient::readTime,
                     RedshiftClient::writeTime));
         }
+        if ("binary varying".equals(type.jdbcTypeName().orElse(""))) {
+            return Optional.of(ColumnMapping.sliceMapping(
+                    VARBINARY,
+                    varbinaryReadFunction(),
+                    varbinaryWriteFunction()));
+        }
 
         switch (type.jdbcType()) {
             case Types.BIT: // Redshift uses this for booleans
@@ -677,12 +683,6 @@ public class RedshiftClient
                                 : createUnboundedVarcharType(),
                         true));
             }
-
-            case Types.LONGVARBINARY:
-                return Optional.of(ColumnMapping.sliceMapping(
-                        VARBINARY,
-                        varbinaryReadFunction(),
-                        varbinaryWriteFunction()));
 
             case Types.DATE:
                 return Optional.of(ColumnMapping.longMapping(
@@ -748,11 +748,11 @@ public class RedshiftClient
                     : WriteMapping.objectMapping(name, longDecimalWriteFunction(decimal));
         }
 
-        if (type instanceof CharType) {
+        if (type instanceof CharType charType) {
             // Redshift has no unbounded text/binary types, so if a CHAR is too
             // large for Redshift, we write as VARCHAR. If too large for that,
             // we use the largest VARCHAR Redshift supports.
-            int size = ((CharType) type).getLength();
+            int size = charType.getLength();
             if (size <= REDSHIFT_MAX_CHAR) {
                 return WriteMapping.sliceMapping(
                         format("char(%d)", size),
@@ -764,10 +764,10 @@ public class RedshiftClient
                     (statement, index, value) -> writeCharAsVarchar(statement, index, value, redshiftVarcharWidth));
         }
 
-        if (type instanceof VarcharType) {
+        if (type instanceof VarcharType varcharType) {
             // Redshift has no unbounded text/binary types, so if a VARCHAR is
             // larger than Redshift's limit, we make it that big instead.
-            int size = ((VarcharType) type).getLength()
+            int size = varcharType.getLength()
                     .filter(n -> n <= REDSHIFT_MAX_VARCHAR)
                     .orElse(REDSHIFT_MAX_VARCHAR);
             return WriteMapping.sliceMapping(format("varchar(%d)", size), varcharWriteFunction());
@@ -785,8 +785,8 @@ public class RedshiftClient
             return WriteMapping.longMapping("time", RedshiftClient::writeTime);
         }
 
-        if (type instanceof TimestampType) {
-            if (((TimestampType) type).isShort()) {
+        if (type instanceof TimestampType timestampType) {
+            if (timestampType.isShort()) {
                 return WriteMapping.longMapping(
                         "timestamp",
                         RedshiftClient::writeShortTimestamp);

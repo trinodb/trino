@@ -45,6 +45,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.AbstractMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -176,7 +177,9 @@ public class Console
         try (QueryRunner queryRunner = new QueryRunner(
                 uri,
                 session,
-                clientOptions.debug)) {
+                clientOptions.debug,
+                clientOptions.maxQueuedRows,
+                clientOptions.maxBufferedRows)) {
             if (hasQuery) {
                 return executeCommand(
                         queryRunner,
@@ -397,6 +400,13 @@ public class Console
             if (query.getSetAuthorizationUser().isPresent()) {
                 builder = builder.authorizationUser(query.getSetAuthorizationUser());
                 builder = builder.roles(ImmutableMap.of());
+            }
+
+            // update session originalRoles
+            if (!query.getSetOriginalRoles().isEmpty()) {
+                Set<ClientSelectedRole> originalRoles = new HashSet<>(session.getOriginalRoles());
+                originalRoles.addAll(query.getSetOriginalRoles());
+                builder = builder.originalRoles(originalRoles);
             }
 
             if (query.isResetAuthorizationUser()) {

@@ -14,16 +14,14 @@
 package io.trino.filesystem.hdfs;
 
 import com.google.common.collect.ImmutableMap;
-import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
-import io.trino.testing.TestingNodeManager;
+import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,11 +42,9 @@ class TestHdfsFileSystemManager
                 true,
                 true,
                 "test",
-                new TestingNodeManager(),
-                OpenTelemetry.noop());
+                new TestingConnectorContext());
 
-        Set<String> used = manager.configure();
-        assertThat(used).containsExactly("hive.dfs.verify-checksum", "hive.s3.region");
+        assertThat(manager.configure().keySet()).containsExactly("hive.dfs.verify-checksum", "hive.s3.region");
 
         TrinoFileSystemFactory factory = manager.create();
         TrinoFileSystem fileSystem = factory.create(ConnectorIdentity.ofUser("test"));

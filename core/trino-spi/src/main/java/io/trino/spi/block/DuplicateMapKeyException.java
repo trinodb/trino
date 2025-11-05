@@ -47,7 +47,7 @@ public class DuplicateMapKeyException
         if (hasDetailedMessage) {
             return this;
         }
-        String detailedMessage = format("Duplicate map keys (%s) are not allowed", keyType.getObjectValue(session, block, position));
+        String detailedMessage = format("Duplicate map keys (%s) are not allowed", keyType.getObjectValue(block, position));
         return new DuplicateMapKeyException(block, position, Optional.of(detailedMessage));
     }
 }

@@ -16,29 +16,31 @@ package io.trino.server.protocol;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
-import io.trino.client.JsonCodec;
 import io.trino.client.QueryData;
 import io.trino.client.QueryResults;
 import io.trino.client.ResultRowsDecoder;
 import io.trino.client.StatementStats;
+import io.trino.client.TrinoJsonCodec;
 import io.trino.client.TypedQueryData;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.EncodedQueryData;
-import io.trino.server.protocol.spooling.QueryDataJacksonModule;
+import io.trino.server.protocol.spooling.ServerQueryDataJacksonModule;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.client.ClientStandardTypes.BIGINT;
-import static io.trino.client.JsonCodec.jsonCodec;
+import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static io.trino.client.spooling.DataAttribute.ROWS_COUNT;
 import static io.trino.client.spooling.DataAttribute.ROW_OFFSET;
 import static io.trino.client.spooling.DataAttribute.SCHEMA;
@@ -54,16 +56,16 @@ import static org.assertj.core.api.Fail.fail;
 public class TestQueryDataSerialization
 {
     private static final List<Column> COLUMNS_LIST = ImmutableList.of(new Column("_col0", "bigint", new ClientTypeSignature("bigint")));
-    private static final JsonCodec<QueryResults> CLIENT_CODEC = jsonCodec(QueryResults.class);
-    private static final io.airlift.json.JsonCodec<QueryResults> SERVER_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
-            .withModules(Set.of(new QueryDataJacksonModule())))
+    private static final TrinoJsonCodec<QueryResults> CLIENT_CODEC = jsonCodec(QueryResults.class);
+    private static final JsonCodec<QueryResults> SERVER_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
+            .withModules(Set.of(new ServerQueryDataJacksonModule())))
             .jsonCodec(QueryResults.class);
 
     @Test
     public void testNullDataSerialization()
     {
         assertThat(serialize(null)).doesNotContain("data");
-        assertThat(serialize(TypedQueryData.of(null))).doesNotContain("data");
+        assertThat(serialize(QueryData.NULL)).doesNotContain("data");
     }
 
     @Test
@@ -79,7 +81,7 @@ public class TestQueryDataSerialization
     @Test
     public void testQueryDataSerialization()
     {
-        Iterable<List<Object>> values = ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(5L));
+        List<List<Object>> values = ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(5L));
         testRoundTrip(TypedQueryData.of(values), "[[1],[5]]");
     }
 
@@ -208,6 +210,8 @@ public class TestQueryDataSerialization
     {
         testSerializationRoundTrip(queryData, expectedDataRepresentation);
         assertEquals(deserialize(serialize(queryData)), queryData);
+
+        assertThat(serialize(deserialize(serialize(queryData)))).isEqualToIgnoringWhitespace(queryResultsJson(expectedDataRepresentation));
     }
 
     private void testSerializationRoundTrip(QueryData queryData, String expectedDataRepresentation)
@@ -243,14 +247,19 @@ public class TestQueryDataSerialization
                     "queuedSplits": 0,
                     "runningSplits": 0,
                     "completedSplits": 0,
+                    "planningTimeMillis": 0,
+                    "analysisTimeMillis": 0,
                     "cpuTimeMillis": 0,
                     "wallTimeMillis": 0,
                     "queuedTimeMillis": 0,
                     "elapsedTimeMillis": 0,
+                    "finishingTimeMillis": 0,
+                    "physicalInputTimeMillis": 0,
                     "processedRows": 0,
                     "processedBytes": 0,
                     "physicalInputBytes": 0,
                     "physicalWrittenBytes": 0,
+                    "internalNetworkInputBytes": 0,
                     "peakMemoryBytes": 0,
                     "spilledBytes": 0
                   },
@@ -308,7 +317,7 @@ public class TestQueryDataSerialization
                 null,
                 ImmutableList.of(),
                 null,
-                null));
+                OptionalLong.empty()));
     }
 
     private DataAttributes dataAttributes(long currentOffset, long rowCount, int byteSize)

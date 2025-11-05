@@ -17,13 +17,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.base.security.TestingSystemAccessControlContext;
 import io.trino.plugin.opa.AccessControlMethodHelpers.MethodWrapper;
 import io.trino.plugin.opa.AccessControlMethodHelpers.ReturningMethodWrapper;
 import io.trino.plugin.opa.AccessControlMethodHelpers.ThrowingMethodWrapper;
 import io.trino.plugin.opa.HttpClientUtils.InstrumentedHttpClient;
 import io.trino.plugin.opa.HttpClientUtils.MockResponse;
-import io.trino.plugin.opa.TestConstants.TestingSystemAccessControlContext;
 import io.trino.plugin.opa.schema.OpaViewExpression;
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -37,6 +38,7 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.VarcharType;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,6 +63,7 @@ import static io.trino.plugin.opa.TestConstants.OPA_SERVER_URI;
 import static io.trino.plugin.opa.TestConstants.SERVER_ERROR_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.TEST_COLUMN_MASKING_TABLE_NAME;
 import static io.trino.plugin.opa.TestConstants.TEST_IDENTITY;
+import static io.trino.plugin.opa.TestConstants.TEST_QUERY_ID;
 import static io.trino.plugin.opa.TestConstants.TEST_SECURITY_CONTEXT;
 import static io.trino.plugin.opa.TestConstants.UNDEFINED_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.columnMaskingOpaConfig;
@@ -75,10 +78,10 @@ import static io.trino.plugin.opa.TestHelpers.createOpaAuthorizer;
 import static io.trino.plugin.opa.TestHelpers.createResponseHandlerForParallelColumnMasking;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestOpaAccessControl
+final class TestOpaAccessControl
 {
     @Test
-    public void testResponseHasExtraFields()
+    void testResponseHasExtraFields()
     {
         InstrumentedHttpClient mockClient = createMockHttpClient(
                 OPA_SERVER_URI,
@@ -93,13 +96,13 @@ public class TestOpaAccessControl
                         }\
                         """));
         OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), mockClient);
-        authorizer.checkCanExecuteQuery(TEST_IDENTITY);
+        authorizer.checkCanExecuteQuery(TEST_IDENTITY, TEST_QUERY_ID);
     }
 
     @Test
-    public void testNoResourceAction()
+    void testNoResourceAction()
     {
-        testNoResourceAction("ExecuteQuery", OpaAccessControl::checkCanExecuteQuery);
+        testNoResourceAction("ExecuteQuery", (opaAccessControl, identity) -> opaAccessControl.checkCanExecuteQuery(identity, TEST_QUERY_ID));
         testNoResourceAction("ReadSystemInformation", OpaAccessControl::checkCanReadSystemInformation);
         testNoResourceAction("WriteSystemInformation", OpaAccessControl::checkCanWriteSystemInformation);
     }
@@ -117,7 +120,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testTableResourceActions()
+    void testTableResourceActions()
     {
         testTableResourceActions("ShowCreateTable", OpaAccessControl::checkCanShowCreateTable);
         testTableResourceActions("DropTable", OpaAccessControl::checkCanDropTable);
@@ -166,7 +169,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testTableWithPropertiesActions()
+    void testTableWithPropertiesActions()
     {
         testTableWithPropertiesActions("SetTableProperties", OpaAccessControl::checkCanSetTableProperties);
         testTableWithPropertiesActions("SetMaterializedViewProperties", OpaAccessControl::checkCanSetMaterializedViewProperties);
@@ -208,7 +211,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testIdentityResourceActions()
+    void testIdentityResourceActions()
     {
         testIdentityResourceActions("ViewQueryOwnedBy", OpaAccessControl::checkCanViewQueryOwnedBy);
         testIdentityResourceActions("KillQueryOwnedBy", OpaAccessControl::checkCanKillQueryOwnedBy);
@@ -240,9 +243,9 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testStringResourceAction()
+    void testStringResourceAction()
     {
-        testStringResourceAction("SetSystemSessionProperty", "systemSessionProperty", (accessControl, systemSecurityContext, argument) -> accessControl.checkCanSetSystemSessionProperty(systemSecurityContext.getIdentity(), argument));
+        testStringResourceAction("SetSystemSessionProperty", "systemSessionProperty", (accessControl, systemSecurityContext, argument) -> accessControl.checkCanSetSystemSessionProperty(systemSecurityContext.getIdentity(), TEST_QUERY_ID, argument));
         testStringResourceAction("CreateCatalog", "catalog", OpaAccessControl::checkCanCreateCatalog);
         testStringResourceAction("DropCatalog", "catalog", OpaAccessControl::checkCanDropCatalog);
         testStringResourceAction("ShowSchemas", "catalog", OpaAccessControl::checkCanShowSchemas);
@@ -270,7 +273,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testCanImpersonateUser()
+    void testCanImpersonateUser()
     {
         String expectedRequest =
                 """
@@ -289,7 +292,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testCanAccessCatalog()
+    void testCanAccessCatalog()
     {
         ReturningMethodWrapper wrappedMethod = new ReturningMethodWrapper(
                 accessControl -> accessControl.canAccessCatalog(TEST_SECURITY_CONTEXT, "test_catalog"));
@@ -308,7 +311,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testSchemaResourceActions()
+    void testSchemaResourceActions()
     {
         testSchemaResourceActions("DropSchema", OpaAccessControl::checkCanDropSchema);
         testSchemaResourceActions("ShowCreateSchema", OpaAccessControl::checkCanShowCreateSchema);
@@ -339,7 +342,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testCreateSchema()
+    void testCreateSchema()
     {
         CatalogSchemaName schema = new CatalogSchemaName("my_catalog", "my_schema");
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
@@ -361,9 +364,8 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testCreateSchemaWithProperties()
+    void testCreateSchemaWithProperties()
     {
-
         CatalogSchemaName schema = new CatalogSchemaName("my_catalog", "my_schema");
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
                 accessControl -> accessControl.checkCanCreateSchema(TEST_SECURITY_CONTEXT, schema, ImmutableMap.of("some_key", "some_value")));
@@ -386,7 +388,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testRenameSchema()
+    void testRenameSchema()
     {
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(accessControl -> accessControl.checkCanRenameSchema(
                 TEST_SECURITY_CONTEXT,
@@ -413,7 +415,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testRenameTableLikeObjects()
+    void testRenameTableLikeObjects()
     {
         testRenameTableLikeObject("RenameTable", OpaAccessControl::checkCanRenameTable);
         testRenameTableLikeObject("RenameView", OpaAccessControl::checkCanRenameView);
@@ -453,7 +455,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testSetSchemaAuthorization()
+    void testSetSchemaAuthorization()
     {
         CatalogSchemaName schema = new CatalogSchemaName("my_catalog", "my_schema");
         TrinoPrincipal principal = new TrinoPrincipal(PrincipalType.USER, "my_user");
@@ -481,7 +483,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testSetAuthorizationOnTableLikeObjects()
+    void testSetAuthorizationOnTableLikeObjects()
     {
         testSetAuthorizationOnTableLikeObject("SetTableAuthorization", OpaAccessControl::checkCanSetTableAuthorization);
         testSetAuthorizationOnTableLikeObject("SetViewAuthorization", OpaAccessControl::checkCanSetViewAuthorization);
@@ -523,7 +525,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testColumnOperationsOnTableLikeObjects()
+    void testColumnOperationsOnTableLikeObjects()
     {
         testColumnOperationOnTableLikeObject("SelectFromColumns", OpaAccessControl::checkCanSelectFromColumns);
         testColumnOperationOnTableLikeObject("UpdateTableColumns", OpaAccessControl::checkCanUpdateTableColumns);
@@ -561,7 +563,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testCanSetCatalogSessionProperty()
+    void testCanSetCatalogSessionProperty()
     {
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
                 accessControl -> accessControl.checkCanSetCatalogSessionProperty(TEST_SECURITY_CONTEXT, "my_catalog", "my_property"));
@@ -581,7 +583,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testFunctionResourceActions()
+    void testFunctionResourceActions()
     {
         CatalogSchemaRoutineName routine = new CatalogSchemaRoutineName("my_catalog", "my_schema", "my_routine_name");
         String baseRequest =
@@ -618,7 +620,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testCanExecuteTableProcedure()
+    void testCanExecuteTableProcedure()
     {
         CatalogSchemaTableName table = new CatalogSchemaTableName("my_catalog", "my_schema", "my_table");
         String expectedRequest =
@@ -643,7 +645,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testRequestContextContentsWithKnownTrinoVersion()
+    void testRequestContextContentsWithKnownTrinoVersion()
     {
         testRequestContextContentsForGivenTrinoVersion(
                 Optional.of(new TestingSystemAccessControlContext("12345.67890")),
@@ -651,7 +653,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testRequestContextContentsWithUnknownTrinoVersion()
+    void testRequestContextContentsWithUnknownTrinoVersion()
     {
         testRequestContextContentsForGivenTrinoVersion(Optional.empty(), "UNKNOWN");
     }
@@ -665,7 +667,7 @@ public class TestOpaAccessControl
                 accessControlContext);
         Identity sampleIdentityWithGroups = Identity.forUser("test_user").withGroups(ImmutableSet.of("some_group")).build();
 
-        authorizer.checkCanExecuteQuery(sampleIdentityWithGroups);
+        authorizer.checkCanExecuteQuery(sampleIdentityWithGroups, TEST_QUERY_ID);
 
         String expectedRequest =
                 """
@@ -688,7 +690,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testGetRowFiltersThrowsForIllegalResponse()
+    void testGetRowFiltersThrowsForIllegalResponse()
     {
         Consumer<OpaAccessControl> methodUnderTest = authorizer -> authorizer.getRowFilters(TEST_SECURITY_CONTEXT, TEST_COLUMN_MASKING_TABLE_NAME);
         assertAccessControlMethodThrowsForIllegalResponses(methodUnderTest, rowFilteringOpaConfig(), OPA_ROW_FILTERING_URI);
@@ -712,7 +714,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testGetRowFilters()
+    void testGetRowFilters()
     {
         // This example is a bit strange - an undefined policy would in most cases
         // result in an access denied situation. However, since this is row-level-filtering
@@ -794,7 +796,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testGetRowFiltersDoesNothingIfNotConfigured()
+    void testGetRowFiltersDoesNothingIfNotConfigured()
     {
         InstrumentedHttpClient httpClient = createMockHttpClient(
                 OPA_SERVER_URI,
@@ -814,7 +816,7 @@ public class TestOpaAccessControl
      * We test that it is a no-op if called.
      */
     @Test
-    public void testGetColumnMaskDoesNothing()
+    void testGetColumnMaskDoesNothing()
     {
         InstrumentedHttpClient httpClient = createMockHttpClient(
                 OPA_SERVER_URI,
@@ -829,7 +831,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testGetColumnMasks()
+    void testGetColumnMasks()
     {
         testGetColumnMasks(ImmutableMap.of(createColumnSchema("some-column"), "{}"), ImmutableMap.of());
 
@@ -898,7 +900,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testGetColumnMasksDoesNothingIfNotConfigured()
+    void testGetColumnMasksDoesNothingIfNotConfigured()
     {
         InstrumentedHttpClient httpClient = createMockHttpClient(
                 OPA_SERVER_URI,
@@ -915,7 +917,7 @@ public class TestOpaAccessControl
     }
 
     @Test
-    public void testGetColumnMasksThrowsForIllegalResponse()
+    void testGetColumnMasksThrowsForIllegalResponse()
     {
         OpaConfig opaConfig = columnMaskingOpaConfig();
 
@@ -958,6 +960,51 @@ public class TestOpaAccessControl
                 methodUnderTest,
                 OpaQueryException.class,
                 "Failed to deserialize");
+    }
+
+
+    @Test
+    public void testQueryIdPropagation()
+    {
+        QueryId queryId = new QueryId("20250718_081710_03427_trino");
+
+        SystemSecurityContext customSecurityContext = new SystemSecurityContext(TEST_IDENTITY, queryId, Instant.now());
+        CatalogSchemaTableName tableName = new CatalogSchemaTableName("my_catalog", "my_schema", "my_table");
+
+        ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(accessControl ->
+                accessControl.checkCanShowCreateTable(customSecurityContext, tableName));
+
+        String expectedActionRequest =
+                """
+                {
+                    "operation": "ShowCreateTable",
+                    "resource": {
+                        "table": {
+                            "catalogName": "%s",
+                            "schemaName": "%s",
+                            "tableName": "%s"
+                        }
+                    }
+                }
+                """.formatted(
+                        tableName.getCatalogName(),
+                        tableName.getSchemaTableName().getSchemaName(),
+                        tableName.getSchemaTableName().getTableName());
+
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, request -> {
+            JsonNode contextNode = request.path("input").path("context");
+
+            assertThat(contextNode.path("queryId").asText()).isEqualTo(queryId.id());
+            assertThat(contextNode.path("identity").path("user").asText()).isEqualTo(TEST_IDENTITY.getUser());
+            assertThat(contextNode.path("softwareStack").path("trinoVersion").asText()).isEqualTo("trino-version");
+
+            return OK_RESPONSE;
+        });
+
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), mockClient);
+
+        assertThat(wrappedMethod.isAccessAllowed(authorizer)).isTrue();
+        assertStringRequestsEqual(ImmutableSet.of(expectedActionRequest), mockClient.getRequests(), "/input/action");
     }
 
     private void testGetColumnMasks(Map<ColumnSchema, String> columnResponseContent, Map<ColumnSchema, OpaViewExpression> expectedResult)

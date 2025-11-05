@@ -15,6 +15,7 @@
 package io.trino.operator.aggregation.groupby;
 
 import com.google.common.primitives.Ints;
+import io.trino.operator.AggregationMetrics;
 import io.trino.operator.aggregation.AggregationTestUtils;
 import io.trino.operator.aggregation.GroupedAggregator;
 import io.trino.operator.aggregation.TestingAggregationFunction;
@@ -66,6 +67,6 @@ public class AggregationTestInput
     public GroupedAggregator createGroupedAggregator()
     {
         return function.createAggregatorFactory(SINGLE, Ints.asList(args), OptionalInt.empty())
-                .createGroupedAggregator();
+                .createGroupedAggregator(new AggregationMetrics());
     }
 }

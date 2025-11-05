@@ -64,7 +64,6 @@ import io.trino.hive.thrift.metastore.TxnToWriteId;
 import io.trino.hive.thrift.metastore.UnlockRequest;
 import io.trino.plugin.base.util.LoggingInvocationHandler;
 import io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport;
-import io.trino.spi.connector.RelationType;
 import jakarta.annotation.Nullable;
 import org.apache.thrift.TApplicationException;
 import org.apache.thrift.TException;
@@ -74,12 +73,13 @@ import org.apache.thrift.transport.TTransportException;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -90,8 +90,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.reflect.Reflection.newProxy;
 import static io.trino.hive.thrift.metastore.GrantRevokeType.GRANT;
 import static io.trino.hive.thrift.metastore.GrantRevokeType.REVOKE;
-import static io.trino.metastore.TableInfo.PRESTO_VIEW_COMMENT;
-import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
+import static io.trino.hive.thrift.metastore.hive_metastoreConstants.HIVE_FILTER_FIELD_PARAMS;
 import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.NOT_SUPPORTED;
 import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.SUPPORTED;
 import static io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport.UNKNOWN;
@@ -99,6 +98,7 @@ import static io.trino.plugin.hive.metastore.thrift.TxnUtils.createValidReadTxnL
 import static io.trino.plugin.hive.metastore.thrift.TxnUtils.createValidTxnWriteIdList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static org.apache.thrift.TApplicationException.UNKNOWN_METHOD;
 
 public class ThriftHiveMetastoreClient
@@ -109,14 +109,17 @@ public class ThriftHiveMetastoreClient
     private static final String CATALOG_DB_SEPARATOR = "#";
     private static final String DB_EMPTY_MARKER = "!";
 
+    private static final Pattern TABLE_PARAMETER_SAFE_KEY_PATTERN = Pattern.compile("^[a-zA-Z_]+$");
+    private static final Pattern TABLE_PARAMETER_SAFE_VALUE_PATTERN = Pattern.compile("^[a-zA-Z0-9\\s]*$");
+
     private final TransportSupplier transportSupplier;
     private TTransport transport;
     protected ThriftHiveMetastore.Iface client;
     private final String hostname;
 
     private final MetastoreSupportsDateStatistics metastoreSupportsDateStatistics;
-    private final boolean metastoreSupportsTableMeta;
     private final AtomicInteger chosenGetTableAlternative;
+    private final AtomicInteger chosenTableParamAlternative;
     private final AtomicInteger chosenAlterTransactionalTableAlternative;
     private final AtomicInteger chosenAlterPartitionsAlternative;
     private final Optional<String> catalogName;
@@ -126,8 +129,8 @@ public class ThriftHiveMetastoreClient
             String hostname,
             Optional<String> catalogName,
             MetastoreSupportsDateStatistics metastoreSupportsDateStatistics,
-            boolean metastoreSupportsTableMeta,
             AtomicInteger chosenGetTableAlternative,
+            AtomicInteger chosenTableParamAlternative,
             AtomicInteger chosenAlterTransactionalTableAlternative,
             AtomicInteger chosenAlterPartitionsAlternative)
             throws TTransportException
@@ -135,8 +138,8 @@ public class ThriftHiveMetastoreClient
         this.transportSupplier = requireNonNull(transportSupplier, "transportSupplier is null");
         this.hostname = requireNonNull(hostname, "hostname is null");
         this.metastoreSupportsDateStatistics = requireNonNull(metastoreSupportsDateStatistics, "metastoreSupportsDateStatistics is null");
-        this.metastoreSupportsTableMeta = metastoreSupportsTableMeta;
         this.chosenGetTableAlternative = requireNonNull(chosenGetTableAlternative, "chosenGetTableAlternative is null");
+        this.chosenTableParamAlternative = requireNonNull(chosenTableParamAlternative, "chosenTableParamAlternative is null");
         this.chosenAlterTransactionalTableAlternative = requireNonNull(chosenAlterTransactionalTableAlternative, "chosenAlterTransactionalTableAlternative is null");
         this.chosenAlterPartitionsAlternative = requireNonNull(chosenAlterPartitionsAlternative, "chosenAlterPartitionsAlternative is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
@@ -187,20 +190,6 @@ public class ThriftHiveMetastoreClient
     public List<TableMeta> getTableMeta(String databaseName)
             throws TException
     {
-        // TODO: remove this once Unity adds support for getTableMeta
-        if (!metastoreSupportsTableMeta) {
-            String catalogDatabaseName = prependCatalogToDbName(catalogName, databaseName);
-            Map<String, TableMeta> tables = new HashMap<>();
-            client.getTables(catalogDatabaseName, ".*").forEach(name -> tables.put(name, new TableMeta(databaseName, name, RelationType.TABLE.toString())));
-            client.getTablesByType(catalogDatabaseName, ".*", VIRTUAL_VIEW.name()).forEach(name -> {
-                TableMeta tableMeta = new TableMeta(databaseName, name, VIRTUAL_VIEW.name());
-                // This makes all views look like a Trino view, so that they are not filtered out during SHOW VIEWS
-                tableMeta.setComments(PRESTO_VIEW_COMMENT);
-                tables.put(name, tableMeta);
-            });
-            return ImmutableList.copyOf(tables.values());
-        }
-
         if (databaseName.indexOf('*') >= 0 || databaseName.indexOf('|') >= 0) {
             // in this case we replace any pipes with a glob and then filter the output
             return client.getTableMeta(prependCatalogToDbName(catalogName, databaseName.replace('|', '*')), "*", ImmutableList.of()).stream()
@@ -208,6 +197,41 @@ public class ThriftHiveMetastoreClient
                     .collect(toImmutableList());
         }
         return client.getTableMeta(prependCatalogToDbName(catalogName, databaseName), "*", ImmutableList.of());
+    }
+
+    @Override
+    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, Set<String> parameterValues)
+            throws TException
+    {
+        checkArgument(TABLE_PARAMETER_SAFE_KEY_PATTERN.matcher(parameterKey).matches(), "Parameter key contains invalid characters: '%s'", parameterKey);
+        /*
+         * The parameter value is restricted to have only alphanumeric characters so that it's safe
+         * to be used against HMS. When using with a LIKE operator, the HMS may want the parameter
+         * value to follow a Java regex pattern or an SQL pattern. And it's hard to predict the
+         * HMS's behavior from outside. Also, by restricting parameter values, we avoid the problem
+         * of how to quote them when passing within the filter string.
+         */
+        for (String parameterValue : parameterValues) {
+            checkArgument(TABLE_PARAMETER_SAFE_VALUE_PATTERN.matcher(parameterValue).matches(), "Parameter value contains invalid characters: '%s'", parameterValue);
+        }
+        /*
+         * Thrift call `get_table_names_by_filter` may be translated by Metastore to an SQL query against Metastore database.
+         * Hive 2.3 on some databases uses CLOB for table parameter value column and some databases disallow `=` predicate over
+         * CLOB values. At the same time, they allow `LIKE` predicates over them.
+         */
+        String filterWithEquals = parameterValues.stream()
+                .map(parameterValue -> HIVE_FILTER_FIELD_PARAMS + parameterKey + " = \"" + parameterValue + "\"")
+                .collect(joining(" or "));
+
+        String filterWithLike = parameterValues.stream()
+                .map(parameterValue -> HIVE_FILTER_FIELD_PARAMS + parameterKey + " LIKE \"" + parameterValue + "\"")
+                .collect(joining(" or "));
+
+        return alternativeCall(
+                ThriftHiveMetastoreClient::defaultIsValidExceptionalResponse,
+                chosenTableParamAlternative,
+                () -> client.getTableNamesByFilter(databaseName, filterWithEquals, (short) -1),
+                () -> client.getTableNamesByFilter(databaseName, filterWithLike, (short) -1));
     }
 
     @Override
@@ -730,7 +754,7 @@ public class ThriftHiveMetastoreClient
                 },
                 () -> {
                     table.setWriteId(originalWriteId);
-                    client.alterTableWithEnvironmentContext(table.getDbName(), table.getTableName(), table, environmentContext);
+                    client.alterTableWithEnvironmentContext(prependCatalogToDbName(catalogName, table.getDbName()), table.getTableName(), table, environmentContext);
                     return null;
                 });
     }
@@ -762,7 +786,11 @@ public class ThriftHiveMetastoreClient
     public void alterFunction(Function function)
             throws TException
     {
-        client.alterFunction(prependCatalogToDbName(catalogName, function.getDbName()), function.getFunctionName(), function);
+        // Hive 3 does not actually replace the content of the function
+        // https://github.com/apache/hive/blob/rel/release-3.1.2/standalone-metastore/src/main/java/org/apache/hadoop/hive/metastore/ObjectStore.java#L9310
+        // Fall back to use drop & create for doing the replace function operation
+        dropFunction(function.getDbName(), function.getFunctionName());
+        createFunction(function);
     }
 
     @Override

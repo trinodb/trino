@@ -19,43 +19,12 @@ import io.trino.spi.connector.SchemaTableName;
 import java.util.List;
 
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class PartitionNotFoundException
         extends NotFoundException
 {
-    private final SchemaTableName tableName;
-    private final List<String> partitionValues;
-
     public PartitionNotFoundException(SchemaTableName tableName, List<String> partitionValue)
     {
-        this(tableName, partitionValue, format("Partition '%s' not found", tableName), null);
-    }
-
-    public PartitionNotFoundException(SchemaTableName tableName, List<String> partitionValues, String message)
-    {
-        this(tableName, partitionValues, message, null);
-    }
-
-    public PartitionNotFoundException(SchemaTableName tableName, List<String> partitionValue, Throwable cause)
-    {
-        this(tableName, partitionValue, format("Partition '%s' not found", tableName), cause);
-    }
-
-    public PartitionNotFoundException(SchemaTableName tableName, List<String> partitionValues, String message, Throwable cause)
-    {
-        super(message, cause);
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
-    }
-
-    public SchemaTableName getTableName()
-    {
-        return tableName;
-    }
-
-    public List<String> getPartitionValues()
-    {
-        return partitionValues;
+        super(format("Partition '%s' not found", tableName), null);
     }
 }

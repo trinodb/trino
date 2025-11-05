@@ -120,7 +120,7 @@ public class TestRowBlockBuilder
             else {
                 SqlRow sqlRow = block.getRow(i);
                 actualValues.add(new TestRow(
-                        (String) VARCHAR.getObjectValue(null, sqlRow.getUnderlyingFieldBlock(0), sqlRow.getUnderlyingFieldPosition(0)),
+                        (String) VARCHAR.getObjectValue(sqlRow.getUnderlyingFieldBlock(0), sqlRow.getUnderlyingFieldPosition(0)),
                         INTEGER.getInt(sqlRow.getUnderlyingFieldBlock(1), sqlRow.getUnderlyingFieldPosition(1)),
                         BOOLEAN.getBoolean(sqlRow.getUnderlyingFieldBlock(2), sqlRow.getUnderlyingFieldPosition(2))));
             }

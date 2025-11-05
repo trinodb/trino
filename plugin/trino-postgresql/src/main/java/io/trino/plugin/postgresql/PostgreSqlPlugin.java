@@ -22,6 +22,6 @@ public class PostgreSqlPlugin
 {
     public PostgreSqlPlugin()
     {
-        super("postgresql", combine(new PostgreSqlClientModule(), new PostgreSqlConnectionFactoryModule()));
+        super("postgresql", () -> combine(new PostgreSqlClientModule(), new PostgreSqlConnectionFactoryModule()));
     }
 }

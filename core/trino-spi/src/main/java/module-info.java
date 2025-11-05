@@ -34,6 +34,7 @@ module trino.spi {
     exports io.trino.spi.resourcegroups;
     exports io.trino.spi.security;
     exports io.trino.spi.session;
+    exports io.trino.spi.spool;
     exports io.trino.spi.statistics;
     exports io.trino.spi.transaction;
     exports io.trino.spi.type;

@@ -82,8 +82,8 @@ public class BinaryColumnEncodingFactory
         if (DATE.equals(type)) {
             return new DateEncoding(type);
         }
-        if (type instanceof TimestampType) {
-            return new TimestampEncoding((TimestampType) type, timeZone);
+        if (type instanceof TimestampType timestampType) {
+            return new TimestampEncoding(timestampType, timeZone);
         }
         if (type instanceof ArrayType arrayType) {
             return new ListEncoding(arrayType, getEncoding(arrayType.getElementType()));

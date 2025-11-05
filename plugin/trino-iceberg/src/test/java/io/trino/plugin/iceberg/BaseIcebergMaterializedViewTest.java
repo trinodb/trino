@@ -15,15 +15,12 @@ package io.trino.plugin.iceberg;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.SplitWeight;
@@ -64,6 +61,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
@@ -482,7 +481,7 @@ public abstract class BaseIcebergMaterializedViewTest
 
         // Base MV on a snapshot "in the future"
         assertUpdate("REFRESH MATERIALIZED VIEW mv_on_rolled_back_the_mv", 1);
-        assertUpdate(format("CALL system.rollback_to_snapshot(CURRENT_SCHEMA, 'mv_on_rolled_back_base_table', %s)", firstSnapshot));
+        assertUpdate(format("ALTER TABLE mv_on_rolled_back_base_table EXECUTE rollback_to_snapshot(%s)", firstSnapshot));
 
         // View still can be queried
         assertThat(query("TABLE mv_on_rolled_back_the_mv"))
@@ -765,7 +764,7 @@ public abstract class BaseIcebergMaterializedViewTest
                     .executeWithPlan(getSession(), format("REFRESH MATERIALIZED VIEW %s", materializedViewName))
                     .queryId();
             String savedQueryId = getStorageTableMetadata(materializedViewName).currentSnapshot().summary().get("trino_query_id");
-            assertThat(savedQueryId).isEqualTo(refreshQueryId.getId());
+            assertThat(savedQueryId).isEqualTo(refreshQueryId.id());
         }
         finally {
             assertUpdate("DROP TABLE " + sourceTableName);
@@ -1115,11 +1114,9 @@ public abstract class BaseIcebergMaterializedViewTest
     private TableMetadata getStorageTableMetadata(String materializedViewName)
     {
         QueryRunner queryRunner = getQueryRunner();
-        TrinoFileSystem fileSystemFactory = ((IcebergConnector) queryRunner.getCoordinator().getConnector("iceberg")).getInjector()
-                .getInstance(TrinoFileSystemFactory.class)
-                .create(ConnectorIdentity.ofUser("test"));
+        TrinoFileSystem fileSystemFactory = getFileSystemFactory(queryRunner).create(ConnectorIdentity.ofUser("test"));
         Location metadataLocation = Location.of(getStorageMetadataLocation(materializedViewName));
-        return TableMetadataParser.read(new ForwardingFileIo(fileSystemFactory), metadataLocation.toString());
+        return TableMetadataParser.read(FILE_IO_FACTORY.create(fileSystemFactory), metadataLocation.toString());
     }
 
     private long getLatestSnapshotId(String tableName)
@@ -1150,7 +1147,7 @@ public abstract class BaseIcebergMaterializedViewTest
         }
     }
 
-    public static class SequenceTableFunctionHandle
+    public record SequenceTableFunctionHandle()
             implements ConnectorTableFunctionHandle {}
 
     public static class SequenceTableFunctionProcessorProvider
@@ -1194,12 +1191,6 @@ public abstract class BaseIcebergMaterializedViewTest
             implements ConnectorSplit
     {
         private static final int INSTANCE_SIZE = instanceSize(SequenceConnectorSplit.class);
-
-        @Override
-        public Map<String, String> getSplitInfo()
-        {
-            return ImmutableMap.of();
-        }
 
         @JsonIgnore
         @Override

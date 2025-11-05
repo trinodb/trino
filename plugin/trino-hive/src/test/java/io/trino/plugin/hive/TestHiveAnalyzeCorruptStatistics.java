@@ -14,7 +14,7 @@
 package io.trino.plugin.hive;
 
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -28,13 +28,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestHiveAnalyzeCorruptStatistics
         extends AbstractTestQueryFramework
 {
-    private HiveMinioDataLake hiveMinioDataLake;
+    private Hive3MinioDataLake hiveMinioDataLake;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake("test-analyze"));
+        hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake("test-analyze"));
         hiveMinioDataLake.start();
 
         return S3HiveQueryRunner.builder(hiveMinioDataLake)

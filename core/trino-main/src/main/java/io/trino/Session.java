@@ -23,12 +23,12 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.trino.client.ProtocolHeaders;
+import io.trino.connector.CatalogHandle;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.Identity;
@@ -206,7 +206,10 @@ public final class Session
 
     public TimeZoneKey getTimeZoneKey()
     {
-        return timeZoneKey;
+        // Allow overriding timezone key with a session property regardless of it's source
+        return SystemSessionProperties.getTimeZoneId(this)
+                .map(TimeZoneKey::getTimeZoneKey)
+                .orElse(timeZoneKey);
     }
 
     public Locale getLocale()
@@ -416,6 +419,11 @@ public final class Session
                     .putAll(catalogEntry.getValue());
         }
 
+        return withProperties(systemProperties, catalogProperties);
+    }
+
+    public Session withProperties(Map<String, String> systemProperties, Map<String, Map<String, String>> catalogProperties)
+    {
         return new Session(
                 queryId,
                 querySpan,
@@ -533,12 +541,13 @@ public final class Session
     public SessionRepresentation toSessionRepresentation()
     {
         return new SessionRepresentation(
-                queryId.toString(),
+                queryId.id(),
                 querySpan,
                 transactionId,
                 clientTransactionSupport,
                 identity.getUser(),
                 originalIdentity.getUser(),
+                originalIdentity.getEnabledRoles(),
                 identity.getGroups(),
                 originalIdentity.getGroups(),
                 identity.getPrincipal().map(Principal::toString),
@@ -652,6 +661,7 @@ public final class Session
                 .setRemoteUserAddress(getRemoteUserAddress().orElse(null))
                 .setUserAgent(getUserAgent().orElse(null))
                 .setClientInfo(getClientInfo().orElse(null))
+                .setTraceToken(getTraceToken())
                 .setStart(getStart())
                 .build();
     }

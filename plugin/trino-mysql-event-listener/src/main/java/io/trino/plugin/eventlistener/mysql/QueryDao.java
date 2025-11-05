@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.eventlistener.mysql;
 
-import org.jdbi.v3.sqlobject.customizer.BindBean;
+import org.jdbi.v3.sqlobject.customizer.BindMethods;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
 
 public interface QueryDao
@@ -32,7 +32,7 @@ public interface QueryDao
             "  trace_token VARCHAR(255) NULL,\n" +
             "  remote_client_address VARCHAR(255) NULL,\n" +
             "  user_agent VARCHAR(255) NULL,\n" +
-            "  client_info VARCHAR(255) NULL,\n" +
+            "  client_info MEDIUMTEXT NULL,\n" +
             "  client_tags_json MEDIUMTEXT NOT NULL,\n" +
             "  source VARCHAR(255) NULL,\n" +
             "  catalog VARCHAR(255) NULL,\n" +
@@ -231,5 +231,5 @@ public interface QueryDao
             " :retryPolicy,\n" +
             " :operatorSummariesJson\n" +
             ")")
-    void store(@BindBean QueryEntity entity);
+    void store(@BindMethods QueryEntity entity);
 }

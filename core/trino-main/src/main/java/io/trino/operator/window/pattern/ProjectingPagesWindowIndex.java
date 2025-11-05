@@ -223,7 +223,8 @@ public class ProjectingPagesWindowIndex
             pagesIndex.appendTo(channel, position(position), output);
         }
         int channelIndex = channel - firstProjectedChannel;
-        projectedTypes.get(channelIndex).appendTo(compute(position, channelIndex), 0, output);
+        Block block = compute(position, channelIndex);
+        output.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(0));
     }
 
     @Override

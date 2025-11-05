@@ -33,12 +33,20 @@ import static java.lang.String.format;
 
 public class OpenLineageHttpTransportConfig
 {
+    public enum Compression
+    {
+        NONE, GZIP
+    }
+
     private URI url;
     private String endpoint;
     private Optional<String> apiKey = Optional.empty();
     private Duration timeout = new Duration(5000, TimeUnit.MILLISECONDS);
     private Map<String, String> headers = new HashMap<>();
     private Map<String, String> urlParams = new HashMap<>();
+    // Most of OpenLineage HTTP servers support GZIP compression,
+    // but users may use custom servers that don't. Use NONE for compatibility
+    private Compression compression = Compression.NONE;
 
     @NotNull
     public URI getUrl()
@@ -135,6 +143,20 @@ public class OpenLineageHttpTransportConfig
             throw new IllegalArgumentException(format("Cannot parse url params from property openlineage-event-listener.transport.url-params; value provided was %s, " +
                     "expected format is \"url-param-1: url param value 1, ...\"", String.join(", ", urlParas)), e);
         }
+        return this;
+    }
+
+    @NotNull
+    public Compression getCompression()
+    {
+        return compression;
+    }
+
+    @Config("openlineage-event-listener.transport.compression")
+    @ConfigDescription("Compression codec using for HTTP body")
+    public OpenLineageHttpTransportConfig setCompression(Compression compression)
+    {
+        this.compression = compression;
         return this;
     }
 }

@@ -27,7 +27,9 @@ import io.trino.plugin.jdbc.TimestampTimeZoneDomain;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -44,9 +46,11 @@ import io.trino.spi.type.Type;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.jdbc.JdbcMetadata.getColumns;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -100,6 +104,9 @@ public class IgniteMetadata
         ImmutableList.Builder<JdbcTypeHandle> columnJdbcTypeHandles = ImmutableList.builder();
         for (ColumnHandle column : columns) {
             JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
+            if (IGNITE_DUMMY_ID.equalsIgnoreCase(columnHandle.getColumnName())) {
+                continue;
+            }
             columnNames.add(columnHandle.getColumnName());
             columnTypes.add(columnHandle.getColumnType());
             columnJdbcTypeHandles.add(columnHandle.getJdbcTypeHandle());
@@ -123,6 +130,58 @@ public class IgniteMetadata
             Collection<ComputedStatistics> computedStatistics)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateColumnHandles, RetryMode retryMode)
+    {
+        JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
+
+        SchemaTableName schemaTableName = handle.getRequiredNamedRelation().getSchemaTableName();
+        RemoteTableName remoteTableName = handle.getRequiredNamedRelation().getRemoteTableName();
+
+        List<JdbcColumnHandle> primaryKeys = igniteClient.getPrimaryKeys(session, handle.getRequiredNamedRelation().getRemoteTableName());
+        List<JdbcColumnHandle> columns = igniteClient.getColumns(session, schemaTableName, remoteTableName).stream()
+                .filter(column -> !IGNITE_DUMMY_ID.equalsIgnoreCase(column.getColumnName()))
+                .collect(toImmutableList());
+
+        for (Collection<ColumnHandle> updateColumns : updateColumnHandles.values()) {
+            for (ColumnHandle column : updateColumns) {
+                checkArgument(columns.contains(column), "the update column not found in the target table");
+                checkArgument(!primaryKeys.contains(column), "Ignite does not allow update primary key");
+            }
+        }
+
+        if (handle.getColumns().isPresent()) {
+            handle = new JdbcTableHandle(
+                    handle.getRelationHandle(),
+                    handle.getConstraint(),
+                    handle.getConstraintExpressions(),
+                    handle.getSortOrder(),
+                    handle.getLimit(),
+                    Optional.of(columns),
+                    handle.getOtherReferencedTables(),
+                    handle.getNextSyntheticColumnId(),
+                    handle.getAuthorization(),
+                    handle.getUpdateAssignments());
+        }
+
+        return new IgniteMergeTableHandle(
+                handle,
+                (IgniteOutputTableHandle) beginInsert(session, new JdbcTableHandle(schemaTableName, remoteTableName, Optional.empty()), ImmutableList.copyOf(columns), retryMode),
+                primaryKeys,
+                columns,
+                updateColumnHandles);
+    }
+
+    @Override
+    public void finishMerge(
+            ConnectorSession session,
+            ConnectorMergeTableHandle tableHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
+    {
     }
 
     @Override
@@ -195,14 +254,21 @@ public class IgniteMetadata
     }
 
     @Override
-    public void addColumn(ConnectorSession session, ConnectorTableHandle table, ColumnMetadata columnMetadata)
+    public void addColumn(ConnectorSession session, ConnectorTableHandle table, ColumnMetadata columnMetadata, ColumnPosition position)
     {
         if (!columnMetadata.isNullable()) {
             // https://issues.apache.org/jira/browse/IGNITE-18829
             // Add not null column to non-empty table Ignite doesn't give the default value
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding not null columns");
         }
-        JdbcTableHandle handle = (JdbcTableHandle) table;
-        igniteClient.addColumn(session, handle, columnMetadata);
+
+        switch (position) {
+            case ColumnPosition.First _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with FIRST clause");
+            case ColumnPosition.After _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with AFTER clause");
+            case ColumnPosition.Last _ -> {
+                JdbcTableHandle handle = (JdbcTableHandle) table;
+                igniteClient.addColumn(session, handle, columnMetadata, position);
+            }
+        }
     }
 }

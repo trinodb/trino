@@ -116,12 +116,12 @@ public final class ProtobufUtils
         }
 
         for (TypeElement element : protoFileElement.getTypes()) {
-            if (element instanceof MessageElement) {
-                builder.addMessageType(processMessage((MessageElement) element, definedMessages));
+            if (element instanceof MessageElement messageElement) {
+                builder.addMessageType(processMessage(messageElement, definedMessages));
                 definedMessages.add(element.getName());
             }
-            if (element instanceof EnumElement) {
-                builder.addEnumType(processEnum((EnumElement) element));
+            if (element instanceof EnumElement enumElement) {
+                builder.addEnumType(processEnum(enumElement));
             }
         }
 
@@ -140,11 +140,11 @@ public final class ProtobufUtils
         builder.setName(message.getName());
         Set<String> definedMessages = new HashSet<>(globallyDefinedMessages);
         for (TypeElement typeElement : message.getNestedTypes()) {
-            if (typeElement instanceof EnumElement) {
-                builder.addEnumType(processEnum((EnumElement) typeElement));
+            if (typeElement instanceof EnumElement enumElement) {
+                builder.addEnumType(processEnum(enumElement));
             }
-            if (typeElement instanceof MessageElement) {
-                builder.addNestedType(processMessage((MessageElement) typeElement, definedMessages));
+            if (typeElement instanceof MessageElement messageElement) {
+                builder.addNestedType(processMessage(messageElement, definedMessages));
                 definedMessages.add(typeElement.getName());
             }
         }

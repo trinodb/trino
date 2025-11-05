@@ -43,7 +43,7 @@ public class TestCassandraProtocolVersionV3ConnectorSmokeTest
     @Override
     public void testInsertDate()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", "(a_date date)")) {
+        try (TestTable table = newTrinoTable("test_insert_", "(a_date date)")) {
             assertUpdate("INSERT INTO " + table.getName() + " (a_date) VALUES ('2020-05-11')", 1);
             assertThat(query("SELECT a_date FROM " + table.getName())).matches("VALUES (CAST('2020-05-11' AS varchar))");
         }

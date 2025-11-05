@@ -20,10 +20,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.cache.identity.IdentityCacheMapping;
+import io.trino.plugin.base.cache.identity.SingletonIdentityCacheMapping;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.credential.ExtraCredentialConfig;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -85,7 +88,7 @@ public class TestCachingJdbcClient
 {
     private static final Duration FOREVER = new Duration(1, DAYS);
 
-    private static final ImmutableList<PropertyMetadata<?>> PROPERTY_METADATA = ImmutableList.of(
+    private static final List<PropertyMetadata<?>> PROPERTY_METADATA = ImmutableList.of(
             stringProperty(
                     "session_name",
                     "Session name",
@@ -1090,7 +1093,7 @@ public class TestCachingJdbcClient
     private JdbcColumnHandle addColumn(JdbcClient client, JdbcTableHandle tableHandle, String columnName)
     {
         ColumnMetadata columnMetadata = new ColumnMetadata(columnName, INTEGER);
-        client.addColumn(SESSION, tableHandle, columnMetadata);
+        client.addColumn(SESSION, tableHandle, columnMetadata, new ColumnPosition.Last());
         return getColumns(SESSION, client, tableHandle)
                 .stream()
                 .filter(jdbcColumnHandle -> jdbcColumnHandle.getColumnMetadata().equals(columnMetadata))

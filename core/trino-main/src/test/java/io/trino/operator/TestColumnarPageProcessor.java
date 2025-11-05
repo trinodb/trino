@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.FunctionManager;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
@@ -54,7 +55,7 @@ public class TestColumnarPageProcessor
                         SESSION,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        page))
+                        SourcePage.create(page)))
                 .orElseThrow(() -> new AssertionError("page is not present"));
         assertPageEquals(types, outputPage, page);
     }
@@ -69,7 +70,7 @@ public class TestColumnarPageProcessor
                         SESSION,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        page))
+                        SourcePage.create(page)))
                 .orElseThrow(() -> new AssertionError("page is not present"));
         assertPageEquals(types, outputPage, page);
     }
@@ -81,7 +82,7 @@ public class TestColumnarPageProcessor
 
     private PageProcessor newPageProcessor()
     {
-        return new ExpressionCompiler(functionManager, new PageFunctionCompiler(functionManager, 0), new ColumnarFilterCompiler(functionManager, 0))
+        return new ExpressionCompiler(new PageFunctionCompiler(functionManager, 0), new ColumnarFilterCompiler(functionManager, 0))
                 .compilePageProcessor(Optional.empty(), ImmutableList.of(field(0, types.get(0)), field(1, types.get(1))), MAX_BATCH_SIZE).get();
     }
 }

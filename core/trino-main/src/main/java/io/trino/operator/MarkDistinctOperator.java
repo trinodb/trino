@@ -24,7 +24,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -39,7 +38,6 @@ public class MarkDistinctOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final Optional<Integer> hashChannel;
         private final List<Integer> markDistinctChannels;
         private final List<Type> types;
         private final FlatHashStrategyCompiler hashStrategyCompiler;
@@ -50,14 +48,12 @@ public class MarkDistinctOperator
                 PlanNodeId planNodeId,
                 List<? extends Type> sourceTypes,
                 Collection<Integer> markDistinctChannels,
-                Optional<Integer> hashChannel,
                 FlatHashStrategyCompiler hashStrategyCompiler)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.markDistinctChannels = ImmutableList.copyOf(requireNonNull(markDistinctChannels, "markDistinctChannels is null"));
             checkArgument(!markDistinctChannels.isEmpty(), "markDistinctChannels is empty");
-            this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             this.hashStrategyCompiler = requireNonNull(hashStrategyCompiler, "hashStrategyCompiler is null");
             this.types = ImmutableList.<Type>builder()
                     .addAll(sourceTypes)
@@ -70,7 +66,7 @@ public class MarkDistinctOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, MarkDistinctOperator.class.getSimpleName());
-            return new MarkDistinctOperator(operatorContext, types, markDistinctChannels, hashChannel, hashStrategyCompiler);
+            return new MarkDistinctOperator(operatorContext, types, markDistinctChannels, hashStrategyCompiler);
         }
 
         @Override
@@ -82,7 +78,7 @@ public class MarkDistinctOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new MarkDistinctOperatorFactory(operatorId, planNodeId, types.subList(0, types.size() - 1), markDistinctChannels, hashChannel, hashStrategyCompiler);
+            return new MarkDistinctOperatorFactory(operatorId, planNodeId, types.subList(0, types.size() - 1), markDistinctChannels, hashStrategyCompiler);
         }
     }
 
@@ -97,29 +93,19 @@ public class MarkDistinctOperator
     // for yield when memory is not available
     private Work<Block> unfinishedWork;
 
-    public MarkDistinctOperator(OperatorContext operatorContext, List<Type> types, List<Integer> markDistinctChannels, Optional<Integer> hashChannel, FlatHashStrategyCompiler hashStrategyCompiler)
+    public MarkDistinctOperator(OperatorContext operatorContext, List<Type> types, List<Integer> markDistinctChannels, FlatHashStrategyCompiler hashStrategyCompiler)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
-        requireNonNull(hashChannel, "hashChannel is null");
         requireNonNull(markDistinctChannels, "markDistinctChannels is null");
 
         ImmutableList.Builder<Type> distinctTypes = ImmutableList.builder();
         for (int channel : markDistinctChannels) {
             distinctTypes.add(types.get(channel));
         }
-        if (hashChannel.isPresent()) {
-            this.markDistinctChannels = new int[markDistinctChannels.size() + 1];
-            for (int i = 0; i < markDistinctChannels.size(); i++) {
-                this.markDistinctChannels[i] = markDistinctChannels.get(i);
-            }
-            this.markDistinctChannels[markDistinctChannels.size()] = hashChannel.get();
-        }
-        else {
-            this.markDistinctChannels = Ints.toArray(markDistinctChannels);
-        }
+        this.markDistinctChannels = Ints.toArray(markDistinctChannels);
 
-        this.markDistinctHash = new MarkDistinctHash(operatorContext.getSession(), distinctTypes.build(), hashChannel.isPresent(), hashStrategyCompiler, this::updateMemoryReservation);
+        this.markDistinctHash = new MarkDistinctHash(operatorContext.getSession(), distinctTypes.build(), hashStrategyCompiler, this::updateMemoryReservation);
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
     }
 

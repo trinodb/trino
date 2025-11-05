@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.AssertTrue;
@@ -29,6 +30,7 @@ import java.util.Set;
 import static jakarta.validation.constraints.Pattern.Flag.CASE_INSENSITIVE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+@DefunctConfig("remote-query-async-cancellation.enabled")
 public class BaseJdbcConfig
 {
     private static final String METADATA_CACHE_TTL = "metadata.cache-ttl";

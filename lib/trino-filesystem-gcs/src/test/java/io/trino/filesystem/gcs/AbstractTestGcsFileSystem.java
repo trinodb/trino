@@ -35,7 +35,6 @@ import java.util.Base64;
 import static com.google.cloud.storage.Storage.BlobTargetOption.doesNotExist;
 import static io.trino.filesystem.encryption.EncryptionKey.randomAes256;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -48,11 +47,6 @@ public abstract class AbstractTestGcsFileSystem
     private Storage storage;
     private GcsFileSystemFactory gcsFileSystemFactory;
 
-    protected static String getRequiredEnvironmentVariable(String name)
-    {
-        return requireNonNull(System.getenv(name), "Environment variable not set: " + name);
-    }
-
     protected void initialize(String gcpCredentialKey)
             throws IOException
     {
@@ -62,7 +56,7 @@ public abstract class AbstractTestGcsFileSystem
         // For gcp testing this corresponds to the Cluster Storage Admin and Cluster Storage Object Admin roles
         byte[] jsonKeyBytes = Base64.getDecoder().decode(gcpCredentialKey);
         GcsFileSystemConfig config = new GcsFileSystemConfig().setJsonKey(new String(jsonKeyBytes, UTF_8));
-        GcsStorageFactory storageFactory = new GcsStorageFactory(config);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new GcsServiceAccountAuth(config));
         this.gcsFileSystemFactory = new GcsFileSystemFactory(config, storageFactory);
         this.storage = storageFactory.create(ConnectorIdentity.ofUser("test"));
         String bucket = RemoteStorageHelper.generateBucketName();

@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.deltalake.delete;
 
-import io.trino.spi.Page;
+import io.trino.spi.connector.SourcePage;
 
 import java.util.function.Function;
 
 public interface PageFilter
-        extends Function<Page, Page> {}
+        extends Function<SourcePage, SourcePage> {}

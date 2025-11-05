@@ -15,8 +15,10 @@ CPU
 Datafaker
 DNS
 ETL
+GCS
 Guice
 gzip
+hdfs
 HDFS
 ipsum
 JDBC
@@ -38,5 +40,6 @@ rowId
 SPI
 subnet
 TLS
+trino
 Trino
 truststore

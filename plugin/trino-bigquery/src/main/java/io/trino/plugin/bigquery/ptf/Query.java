@@ -48,6 +48,7 @@ import io.trino.spi.predicate.TupleDomain;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.bigquery.ViewMaterializationCache.TEMP_TABLE_PREFIX;
@@ -118,15 +119,15 @@ public class Query
             Schema schema = client.getSchema(query);
 
             BigQueryQueryRelationHandle queryRelationHandle = new BigQueryQueryRelationHandle(query, new RemoteTableName(destinationTable), useStorageApi);
-            BigQueryTableHandle tableHandle = new BigQueryTableHandle(queryRelationHandle, TupleDomain.all(), Optional.empty());
+            BigQueryTableHandle tableHandle = new BigQueryTableHandle(queryRelationHandle, TupleDomain.all(), Optional.empty(), OptionalLong.empty());
 
             ImmutableList.Builder<BigQueryColumnHandle> columnsBuilder = ImmutableList.builderWithExpectedSize(schema.getFields().size());
             for (com.google.cloud.bigquery.Field field : schema.getFields()) {
-                if (!typeManager.isSupportedType(field)) {
+                if (!typeManager.isSupportedType(field, useStorageApi)) {
                     // TODO: Skip unsupported type instead of throwing an exception
                     throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + field.getType());
                 }
-                columnsBuilder.add(typeManager.toColumnHandle(field));
+                columnsBuilder.add(typeManager.toColumnHandle(field, useStorageApi));
             }
 
             Descriptor returnedType = new Descriptor(columnsBuilder.build().stream()

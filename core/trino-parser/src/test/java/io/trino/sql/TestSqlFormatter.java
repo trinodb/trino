@@ -16,21 +16,32 @@ package io.trino.sql;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AllColumns;
+import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.ColumnDefinition;
+import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
+import io.trino.sql.tree.CreateBranch;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.CreateView;
+import io.trino.sql.tree.Delete;
+import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.ExecuteImmediate;
+import io.trino.sql.tree.FastForwardBranch;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.Merge;
+import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
+import io.trino.sql.tree.RefreshView;
+import io.trino.sql.tree.ShowBranches;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowFunctions;
@@ -38,17 +49,24 @@ import io.trino.sql.tree.ShowSchemas;
 import io.trino.sql.tree.ShowSession;
 import io.trino.sql.tree.ShowTables;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.Table;
+import io.trino.sql.tree.Update;
+import io.trino.sql.tree.UpdateAssignment;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.function.BiFunction;
 
+import static io.trino.sql.QueryUtil.aliased;
+import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.table;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.tree.CreateView.Security.DEFINER;
 import static io.trino.sql.tree.SaveMode.FAIL;
+import static io.trino.sql.tree.SaveMode.IGNORE;
+import static io.trino.sql.tree.SaveMode.REPLACE;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -223,6 +241,7 @@ public class TestSqlFormatter
             NodeLocation location = new NodeLocation(1, 1);
             Identifier type = new Identifier(location, "VARCHAR", false);
             return new CreateTable(
+                    new NodeLocation(1, 1),
                     QualifiedName.of(ImmutableList.of(new Identifier(tableName, false))),
                     ImmutableList.of(new ColumnDefinition(
                             QualifiedName.of(columnName),
@@ -244,6 +263,7 @@ public class TestSqlFormatter
         // Create a table with table comment
         assertThat(formatSql(
                 new CreateTable(
+                        new NodeLocation(1, 1),
                         QualifiedName.of(ImmutableList.of(new Identifier("test", false))),
                         ImmutableList.of(new ColumnDefinition(
                                 QualifiedName.of("col"),
@@ -262,6 +282,7 @@ public class TestSqlFormatter
         // Create a table with column comment
         assertThat(formatSql(
                 new CreateTable(
+                        new NodeLocation(1, 1),
                         QualifiedName.of(ImmutableList.of(new Identifier("test", false))),
                         ImmutableList.of(new ColumnDefinition(
                                 QualifiedName.of("col"),
@@ -279,6 +300,7 @@ public class TestSqlFormatter
         // Create a table with column properties
         assertThat(formatSql(
                 new CreateTable(
+                        new NodeLocation(1, 1),
                         QualifiedName.of(ImmutableList.of(new Identifier("test", false))),
                         ImmutableList.of(new ColumnDefinition(
                                 QualifiedName.of("col"),
@@ -305,6 +327,7 @@ public class TestSqlFormatter
         BiFunction<String, String, CreateTableAsSelect> createTableAsSelect = (tableName, columnName) -> {
             Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
             return new CreateTableAsSelect(
+                    new NodeLocation(1, 1),
                     QualifiedName.of(ImmutableList.of(new Identifier(tableName, false))),
                     query,
                     FAIL,
@@ -322,6 +345,7 @@ public class TestSqlFormatter
 
         assertThat(formatSql(
                 new CreateTableAsSelect(
+                        new NodeLocation(1, 1),
                         QualifiedName.of(ImmutableList.of(new Identifier("test", false))),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
                         FAIL,
@@ -457,6 +481,7 @@ public class TestSqlFormatter
                                 true,
                                 emptyList(),
                                 Optional.empty()),
+                        Optional.empty(),
                         false, false)))
                 .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR");
         assertThat(formatSql(
@@ -468,8 +493,48 @@ public class TestSqlFormatter
                                 true,
                                 emptyList(),
                                 Optional.of("攻殻機動隊")),
+                        Optional.empty(),
                         false, false)))
                 .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR COMMENT '攻殻機動隊'");
+        assertThat(formatSql(
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("c"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
+                                true,
+                                emptyList(),
+                                Optional.empty()),
+                        Optional.of(new ColumnPosition.First()),
+                        false,
+                        false)))
+                .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR FIRST");
+        assertThat(formatSql(
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("c"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
+                                true,
+                                emptyList(),
+                                Optional.empty()),
+                        Optional.of(new ColumnPosition.Last()),
+                        false,
+                        false)))
+                .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR LAST");
+        assertThat(formatSql(
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("c"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
+                                true,
+                                emptyList(),
+                                Optional.empty()),
+                        Optional.of(new ColumnPosition.After(identifier("b"))),
+                        false,
+                        false)))
+                .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR AFTER b");
     }
 
     @Test
@@ -506,6 +571,14 @@ public class TestSqlFormatter
     }
 
     @Test
+    public void testRefreshView()
+    {
+        assertThat(formatSql(
+                new RefreshView(new NodeLocation(1, 1), QualifiedName.of("catalog", "schema", "view"))))
+                .isEqualTo("ALTER VIEW catalog.schema.view REFRESH");
+    }
+
+    @Test
     public void testExecuteImmediate()
     {
         assertThat(formatSql(
@@ -527,5 +600,166 @@ public class TestSqlFormatter
                         ImmutableList.of())))
                 .isEqualTo("EXECUTE IMMEDIATE\n" +
                         "'SELECT * FROM foo WHERE col1 = ''攻殻機動隊'''");
+    }
+
+    @Test
+    void testInsertWithBranch()
+    {
+        assertThat(formatSql(new Insert(
+                new NodeLocation(1, 1),
+                new Table(new NodeLocation(1, 1), QualifiedName.of("t"), Optional.of(new Identifier("main"))),
+                Optional.empty(),
+                simpleQuery(selectList(new AllColumns(new NodeLocation(1, 1))), table(QualifiedName.of("s"))))))
+                .isEqualTo(
+                        """
+                        INSERT INTO t@main
+                        SELECT *
+                        FROM
+                          s
+                        """);
+    }
+
+    @Test
+    void testDeleteWithBranch()
+    {
+        assertThat(formatSql(new Delete(
+                new NodeLocation(1, 1),
+                new Table(new NodeLocation(1, 1), QualifiedName.of("t"), Optional.of(new Identifier("main"))),
+                Optional.empty())))
+                .isEqualTo("DELETE FROM t@main");
+    }
+
+    @Test
+    void testUpdateWithBranch()
+    {
+        assertThat(formatSql(new Update(
+                new NodeLocation(1, 1),
+                new Table(new NodeLocation(1, 1), QualifiedName.of("t"), Optional.of(new Identifier("main"))),
+                ImmutableList.of(new UpdateAssignment(new Identifier("bar"), new LongLiteral(new NodeLocation(1, 1), "23"))),
+                Optional.empty())))
+                .isEqualTo(
+                        """
+                        UPDATE t@main SET
+                           bar = 23\
+                        """);
+    }
+
+    @Test
+    void testMergeWithBranch()
+    {
+        assertThat(formatSql(new Merge(
+                new NodeLocation(1, 1),
+                new Table(new NodeLocation(1, 1), QualifiedName.of("t"), Optional.of(new Identifier("main"))),
+                aliased(table(QualifiedName.of("changes")), "c"),
+                new BooleanLiteral(new NodeLocation(1, 1), "true"),
+                ImmutableList.of(new MergeDelete(new NodeLocation(1, 1), Optional.empty())))))
+                .isEqualTo(
+                        """
+                        MERGE INTO t@main
+                           USING changes c
+                           ON true
+                        WHEN MATCHED
+                           THEN DELETE\
+                        """);
+    }
+
+    @Test
+    void testCreateBranch()
+    {
+        assertThat(formatSql(
+                new CreateBranch(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("a"),
+                        new Identifier("branch"),
+                        Optional.empty(),
+                        IGNORE,
+                        ImmutableList.of())))
+                .isEqualTo("CREATE BRANCH IF NOT EXISTS branch IN TABLE a");
+
+        assertThat(formatSql(
+                new CreateBranch(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("a"),
+                        new Identifier("branch"),
+                        Optional.empty(),
+                        REPLACE,
+                        ImmutableList.of())))
+                .isEqualTo("CREATE OR REPLACE BRANCH branch IN TABLE a");
+
+        assertThat(formatSql(
+                new CreateBranch(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("a"),
+                        new Identifier("branch"),
+                        Optional.empty(),
+                        FAIL,
+                        ImmutableList.of())))
+                .isEqualTo("CREATE BRANCH branch IN TABLE a");
+
+        assertThat(formatSql(
+                new CreateBranch(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("a"),
+                        new Identifier("branch"),
+                        Optional.of(new Identifier("other")),
+                        FAIL,
+                        ImmutableList.of())))
+                .isEqualTo("CREATE BRANCH branch IN TABLE a FROM other");
+
+        assertThat(formatSql(
+                new CreateBranch(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("a"),
+                        new Identifier("branch"),
+                        Optional.empty(),
+                        FAIL,
+                        ImmutableList.of(new Property(new Identifier("property_1"), new StringLiteral("property_value"))))))
+                .isEqualTo(
+                        """
+                        CREATE BRANCH branch
+                        WITH (
+                           property_1 = 'property_value'
+                        ) IN TABLE a\
+                        """);
+    }
+
+    @Test
+    void testDropBranch()
+    {
+        assertThat(formatSql(
+                new DropBranch(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("a"),
+                        false,
+                        new Identifier("branch"))))
+                .isEqualTo("DROP BRANCH branch IN TABLE a");
+
+        assertThat(formatSql(
+                new DropBranch(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("a"),
+                        true,
+                        new Identifier("branch"))))
+                .isEqualTo("DROP BRANCH IF EXISTS branch IN TABLE a");
+    }
+
+    @Test
+    void testFastForwardBranch()
+    {
+        assertThat(formatSql(
+                new FastForwardBranch(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("a"),
+                        new Identifier("source"),
+                        new Identifier("target"))))
+                .isEqualTo("ALTER BRANCH source IN TABLE a FAST FORWARD TO target");
+    }
+
+    @Test
+    public void testShowBranches()
+    {
+        assertThat(formatSql(
+                new ShowBranches(new NodeLocation(1, 1), QualifiedName.of("a"))))
+                .isEqualTo("SHOW BRANCHES FROM TABLE a");
     }
 }

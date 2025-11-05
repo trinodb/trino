@@ -79,16 +79,16 @@ public class ThriftSplitManager
         ThriftTableHandle tableHandle = (ThriftTableHandle) table;
         return new ThriftSplitSource(
                 client.get(thriftHeaderProvider.getHeaders(session)),
-                new TrinoThriftSchemaTableName(tableHandle.getSchemaName(), tableHandle.getTableName()),
-                tableHandle.getDesiredColumns().map(ThriftSplitManager::columnNames),
-                tupleDomainToThriftTupleDomain(tableHandle.getConstraint()));
+                new TrinoThriftSchemaTableName(tableHandle.schemaName(), tableHandle.tableName()),
+                tableHandle.desiredColumns().map(ThriftSplitManager::columnNames),
+                tupleDomainToThriftTupleDomain(tableHandle.constraint()));
     }
 
     private static Set<String> columnNames(Set<ColumnHandle> columns)
     {
         return columns.stream()
                 .map(ThriftColumnHandle.class::cast)
-                .map(ThriftColumnHandle::getColumnName)
+                .map(ThriftColumnHandle::columnName)
                 .collect(toImmutableSet());
     }
 

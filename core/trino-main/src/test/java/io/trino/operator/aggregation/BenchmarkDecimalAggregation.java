@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.operator.AggregationMetrics;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -62,7 +63,7 @@ public class BenchmarkDecimalAggregation
     @OperationsPerInvocation(ELEMENT_COUNT)
     public GroupedAggregator benchmark(BenchmarkData data)
     {
-        GroupedAggregator aggregator = data.getPartialAggregatorFactory().createGroupedAggregator();
+        GroupedAggregator aggregator = data.getPartialAggregatorFactory().createGroupedAggregator(new AggregationMetrics());
         aggregator.processPage(data.getGroupCount(), data.getGroupIds(), data.getValues());
         return aggregator;
     }
@@ -71,7 +72,7 @@ public class BenchmarkDecimalAggregation
     @OperationsPerInvocation(ELEMENT_COUNT)
     public Block benchmarkEvaluateIntermediate(BenchmarkData data)
     {
-        GroupedAggregator aggregator = data.getPartialAggregatorFactory().createGroupedAggregator();
+        GroupedAggregator aggregator = data.getPartialAggregatorFactory().createGroupedAggregator(new AggregationMetrics());
         aggregator.processPage(data.getGroupCount(), data.getGroupIds(), data.getValues());
         BlockBuilder builder = aggregator.getType().createBlockBuilder(null, data.getGroupCount());
         for (int groupId = 0; groupId < data.getGroupCount(); groupId++) {
@@ -83,7 +84,7 @@ public class BenchmarkDecimalAggregation
     @Benchmark
     public Block benchmarkEvaluateFinal(BenchmarkData data)
     {
-        GroupedAggregator aggregator = data.getFinalAggregatorFactory().createGroupedAggregator();
+        GroupedAggregator aggregator = data.getFinalAggregatorFactory().createGroupedAggregator(new AggregationMetrics());
         // Add the intermediate input multiple times to invoke the combine behavior
         aggregator.processPage(data.getGroupCount(), data.getGroupIds(), data.getIntermediateValues());
         aggregator.processPage(data.getGroupCount(), data.getGroupIds(), data.getIntermediateValues());
@@ -138,7 +139,7 @@ public class BenchmarkDecimalAggregation
                 ids[i] = RANDOM.nextInt(groupCount);
             }
             groupIds = ids;
-            intermediateValues = new Page(createIntermediateValues(partialAggregatorFactory.createGroupedAggregator(), groupIds, values));
+            intermediateValues = new Page(createIntermediateValues(partialAggregatorFactory.createGroupedAggregator(new AggregationMetrics()), groupIds, values));
         }
 
         private Block createIntermediateValues(GroupedAggregator aggregator, int[] groupIds, Page inputPage)

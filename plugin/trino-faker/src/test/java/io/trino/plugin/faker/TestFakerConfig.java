@@ -29,7 +29,10 @@ final class TestFakerConfig
     {
         assertRecordedDefaults(recordDefaults(FakerConfig.class)
                 .setNullProbability(0.5)
-                .setDefaultLimit(1000L));
+                .setDefaultLimit(1000L)
+                .setLocale("en")
+                .setSequenceDetectionEnabled(true)
+                .setDictionaryDetectionEnabled(true));
     }
 
     @Test
@@ -38,11 +41,17 @@ final class TestFakerConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("faker.null-probability", "1.0")
                 .put("faker.default-limit", "10")
+                .put("faker.locale", "pl-PL")
+                .put("faker.sequence-detection-enabled", "false")
+                .put("faker.dictionary-detection-enabled", "false")
                 .buildOrThrow();
 
         FakerConfig expected = new FakerConfig()
                 .setNullProbability(1.0)
-                .setDefaultLimit(10L);
+                .setDefaultLimit(10L)
+                .setLocale("pl-PL")
+                .setSequenceDetectionEnabled(false)
+                .setDictionaryDetectionEnabled(false);
 
         assertFullMapping(properties, expected);
     }

@@ -13,11 +13,16 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
+import io.airlift.slice.SizeOf;
 import jakarta.annotation.Nullable;
 
 import java.util.Map;
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public record RemoveFileEntry(
@@ -27,9 +32,20 @@ public record RemoveFileEntry(
         boolean dataChange,
         Optional<DeletionVectorEntry> deletionVector)
 {
+    private static final int INSTANCE_SIZE = instanceSize(RemoveFileEntry.class);
+
     public RemoveFileEntry
     {
         requireNonNull(path, "path is null");
         requireNonNull(deletionVector, "deletionVector is null");
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(path)
+                + estimatedSizeOf(partitionValues, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf)
+                + SIZE_OF_LONG
+                + sizeOf(deletionVector, DeletionVectorEntry::getRetainedSizeInBytes);
     }
 }

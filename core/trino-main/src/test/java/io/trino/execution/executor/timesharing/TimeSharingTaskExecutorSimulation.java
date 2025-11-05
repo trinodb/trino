@@ -27,9 +27,9 @@ import io.trino.execution.executor.timesharing.SplitGenerators.L4LeafSplitGenera
 import io.trino.execution.executor.timesharing.SplitGenerators.QuantaExceedingSplitGenerator;
 import io.trino.execution.executor.timesharing.SplitGenerators.SimpleLeafSplitGenerator;
 import io.trino.execution.executor.timesharing.SplitGenerators.SlowLeafSplitGenerator;
-import org.joda.time.DateTime;
 
 import java.io.Closeable;
+import java.time.Instant;
 import java.util.List;
 import java.util.LongSummaryStatistics;
 import java.util.Map;
@@ -114,7 +114,7 @@ public class TimeSharingTaskExecutorSimulation
         SECONDS.sleep(5);
 
         System.out.println();
-        System.out.println("Simulation finished at " + DateTime.now() + ". Runtime: " + nanosSince(start));
+        System.out.println("Simulation finished at " + Instant.now() + ". Runtime: " + nanosSince(start));
         System.out.println();
 
         printSummaryStats(controller, taskExecutor);
@@ -439,7 +439,7 @@ public class TimeSharingTaskExecutorSimulation
 
     private static String formatNanos(List<Long> list)
     {
-        LongSummaryStatistics stats = list.stream().mapToLong(Long::new).summaryStatistics();
+        LongSummaryStatistics stats = list.stream().mapToLong(value -> value).summaryStatistics();
         return format(
                 "Min: %8s  Max: %8s  Avg: %8s  Sum: %8s",
                 succinctNanos(stats.getMin() == Long.MAX_VALUE ? 0 : stats.getMin()),

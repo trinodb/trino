@@ -14,6 +14,7 @@
 package io.trino.plugin.memory;
 
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
@@ -22,12 +23,14 @@ import static java.util.Objects.requireNonNull;
 
 public record MemoryTableHandle(
         long id,
+        SchemaTableName name,
         OptionalLong limit,
         OptionalDouble sampleRatio)
         implements ConnectorTableHandle
 {
     public MemoryTableHandle
     {
+        requireNonNull(name, "name is null");
         requireNonNull(limit, "limit is null");
         requireNonNull(sampleRatio, "sampleRatio is null");
     }
@@ -36,9 +39,19 @@ public record MemoryTableHandle(
     public String toString()
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(id);
-        limit.ifPresent(value -> builder.append("(limit:" + value + ")"));
-        sampleRatio.ifPresent(value -> builder.append("(sampleRatio:" + value + ")"));
+        builder.append(name);
+        limit.ifPresent(value -> builder.append(" limit=").append(value));
+        sampleRatio.ifPresent(value -> builder.append(" sampleRatio=").append(value));
         return builder.toString();
+    }
+
+    public MemoryTableHandle withLimit(long limit)
+    {
+        return new MemoryTableHandle(id, name, OptionalLong.of(limit), sampleRatio);
+    }
+
+    public MemoryTableHandle withSampleRatio(double sampleRatio)
+    {
+        return new MemoryTableHandle(id, name, limit, OptionalDouble.of(sampleRatio));
     }
 }

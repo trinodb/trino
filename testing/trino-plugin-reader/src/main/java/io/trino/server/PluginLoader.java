@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.Plugin;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.function.Supplier;
@@ -33,6 +33,7 @@ public class PluginLoader
     public static final String BLOCK_ENCODING = "blockEncoding:";
     public static final String PARAMETRIC_TYPE = "parametricType:";
     public static final String FUNCTION = "function:";
+    public static final String LANGUAGE_FUNCTION_ENGINE = "languageFunctionEngine:";
     public static final String SYSTEM_ACCESS_CONTROL = "systemAccessControl:";
     public static final String GROUP_PROVIDER = "groupProvider:";
     public static final String PASSWORD_AUTHENTICATOR = "passwordAuthenticator:";
@@ -54,6 +55,7 @@ public class PluginLoader
         plugin.getFunctions().forEach(functionClass -> extractFunctions(functionClass)
                 .getFunctions()
                 .forEach(function -> System.out.println(FUNCTION + function.getSignature())));
+        plugin.getLanguageFunctionEngines().forEach(engine -> System.out.println(LANGUAGE_FUNCTION_ENGINE + engine.getLanguage()));
         plugin.getSystemAccessControlFactories().forEach(factory -> System.out.println(SYSTEM_ACCESS_CONTROL + factory.getName()));
         plugin.getGroupProviderFactories().forEach(factory -> System.out.println(GROUP_PROVIDER + factory.getName()));
         plugin.getPasswordAuthenticatorFactories().forEach(factory -> System.out.println(PASSWORD_AUTHENTICATOR + factory.getName()));
@@ -65,10 +67,10 @@ public class PluginLoader
         plugin.getExchangeManagerFactories().forEach(factory -> System.out.println(EXCHANGE_MANAGER + factory.getName()));
     }
 
-    public static List<Plugin> loadPlugins(File path)
+    public static List<Plugin> loadPlugins(List<Path> path)
     {
         ServerPluginsProviderConfig config = new ServerPluginsProviderConfig();
-        config.setInstalledPluginsDir(path);
+        config.setInstalledPluginsDirs(path);
         ServerPluginsProvider pluginsProvider = new ServerPluginsProvider(config, directExecutor());
         ImmutableList.Builder<Plugin> plugins = ImmutableList.builder();
         pluginsProvider.loadPlugins((plugin, createClassLoader) -> loadPlugin(createClassLoader, plugins), PluginManager::createClassLoader);

@@ -27,7 +27,6 @@ import org.apache.commons.compress.utils.IOUtils;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
@@ -45,6 +44,7 @@ import static io.trino.tests.product.launcher.util.DirectoryUtils.getOnlyDescend
 import static io.trino.tests.product.launcher.util.UriDownloader.download;
 import static java.nio.file.Files.exists;
 import static java.nio.file.Files.isDirectory;
+import static java.nio.file.Files.newInputStream;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -79,6 +79,7 @@ public abstract class TarDownloadingJdkProvider
     {
         ensureDownloadPathExists();
         String javaHome = getJavaHome();
+        log.info("Setting JAVA_HOME to: %s for container: %s", javaHome, container.getLogicalName());
         return container
                 .withCreateContainerCmdModifier(cmd -> {
                     DockerArchitectureInfo architecture = getDockerArchitectureInfo(DockerImageName.parse(container.getDockerImageName()));
@@ -132,7 +133,7 @@ public abstract class TarDownloadingJdkProvider
     private static void extractTar(Path filePath, Path extractPath)
     {
         try {
-            try (TarArchiveInputStream archiveStream = new TarArchiveInputStream(new GzipCompressorInputStream(new FileInputStream(filePath.toFile())))) {
+            try (TarArchiveInputStream archiveStream = new TarArchiveInputStream(new GzipCompressorInputStream(newInputStream(filePath)))) {
                 TarArchiveEntry entry;
                 while ((entry = archiveStream.getNextTarEntry()) != null) {
                     if (!archiveStream.canReadEntryData(entry)) {

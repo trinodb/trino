@@ -49,6 +49,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
@@ -75,17 +76,16 @@ import static io.airlift.bytecode.Access.STATIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
+import static io.airlift.bytecode.expression.BytecodeExpressions.add;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantClass;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantLong;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.getStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
-import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
 import static io.airlift.bytecode.expression.BytecodeExpressions.setStatic;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.join.JoinUtils.getSingleBigintJoinChannel;
@@ -94,9 +94,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
-import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
@@ -236,13 +234,12 @@ public class JoinCompiler
             FieldDefinition channelField = classDefinition.declareField(a(PRIVATE, FINAL), "joinChannel_" + i, type(List.class, Block.class));
             joinChannelFields.add(channelField);
         }
-        FieldDefinition hashChannelField = classDefinition.declareField(a(PRIVATE, FINAL), "hashChannel", type(List.class, Block.class));
 
-        generateConstructor(classDefinition, joinChannels, sizeField, instanceSizeField, channelFields, joinChannelFields, hashChannelField);
+        generateConstructor(classDefinition, joinChannels, sizeField, instanceSizeField, channelFields, joinChannelFields);
         generateGetChannelCountMethod(classDefinition, outputChannels.size());
         generateGetSizeInBytesMethod(classDefinition, sizeField);
-        generateAppendToMethod(classDefinition, callSiteBinder, types, outputChannels, channelFields);
-        generateHashPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, hashChannelField);
+        generateAppendToMethod(classDefinition, outputChannels, channelFields);
+        generateHashPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generateHashRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
         generateRowEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
         generateRowIdenticalToRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
@@ -266,12 +263,10 @@ public class JoinCompiler
             FieldDefinition sizeField,
             FieldDefinition instanceSizeField,
             List<FieldDefinition> channelFields,
-            List<FieldDefinition> joinChannelFields,
-            FieldDefinition hashChannelField)
+            List<FieldDefinition> joinChannelFields)
     {
         Parameter channels = arg("channels", type(List.class, type(List.class, Block.class)));
-        Parameter hashChannel = arg("hashChannel", type(OptionalInt.class));
-        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), channels, hashChannel);
+        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC), channels);
 
         Variable thisVariable = constructorDefinition.getThis();
 
@@ -304,16 +299,6 @@ public class JoinCompiler
 
             constructor.append(thisVariable.setField(joinChannelFields.get(index), joinChannel));
         }
-
-        constructor.comment("Set hashChannel");
-        constructor.append(new IfStatement()
-                .condition(hashChannel.invoke("isPresent", boolean.class))
-                .ifTrue(thisVariable.setField(
-                        hashChannelField,
-                        channels.invoke("get", Object.class, hashChannel.invoke("getAsInt", int.class))))
-                .ifFalse(thisVariable.setField(
-                        hashChannelField,
-                        constantNull(hashChannelField.getType()))));
         constructor.ret();
     }
 
@@ -338,7 +323,7 @@ public class JoinCompiler
                 .retLong();
     }
 
-    private static void generateAppendToMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> types, List<Integer> outputChannels, List<FieldDefinition> channelFields)
+    private static void generateAppendToMethod(ClassDefinition classDefinition, List<Integer> outputChannels, List<FieldDefinition> channelFields)
     {
         Parameter blockIndex = arg("blockIndex", int.class);
         Parameter blockPosition = arg("blockPosition", int.class);
@@ -350,26 +335,23 @@ public class JoinCompiler
         BytecodeBlock appendToBody = appendToMethod.getBody();
 
         int pageBuilderOutputChannel = 0;
+        Variable block = appendToMethod.getScope().declareVariable(Block.class, "block");
         for (int outputChannel : outputChannels) {
-            Type type = types.get(outputChannel);
-            BytecodeExpression typeExpression = constantType(callSiteBinder, type);
+            appendToBody.append(block.set(
+                    thisVariable.getField(channelFields.get(outputChannel))
+                            .invoke("get", Object.class, blockIndex)
+                            .cast(Block.class)));
 
-            BytecodeExpression block = thisVariable
-                    .getField(channelFields.get(outputChannel))
-                    .invoke("get", Object.class, blockIndex)
-                    .cast(Block.class);
-
+            BytecodeExpression blockBuilderExpression = pageBuilder
+                    .invoke("getBlockBuilder", BlockBuilder.class, add(outputChannelOffset, constantInt(pageBuilderOutputChannel)));
             appendToBody
-                    .comment("%s.appendTo(channel_%s.get(outputChannel), blockPosition, pageBuilder.getBlockBuilder(outputChannelOffset + %s));", type.getClass(), outputChannel, pageBuilderOutputChannel)
-                    .append(typeExpression)
-                    .append(block)
-                    .append(blockPosition)
-                    .append(pageBuilder)
-                    .append(outputChannelOffset)
-                    .push(pageBuilderOutputChannel++)
-                    .append(OpCode.IADD)
-                    .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class)
-                    .invokeInterface(Type.class, "appendTo", void.class, Block.class, int.class, BlockBuilder.class);
+                    .comment("pageBuilder.getBlockBuilder(outputChannelOffset + %s).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(blockPosition));", pageBuilderOutputChannel)
+                    .append(blockBuilderExpression.invoke(
+                            "append",
+                            void.class,
+                            block.invoke("getUnderlyingValueBlock", ValueBlock.class),
+                            block.invoke("getUnderlyingValuePosition", int.class, blockPosition)));
+            pageBuilderOutputChannel++;
         }
         appendToBody.ret();
     }
@@ -406,7 +388,7 @@ public class JoinCompiler
                 .append(constantFalse().ret());
     }
 
-    private void generateHashPositionMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> joinChannelTypes, List<FieldDefinition> joinChannelFields, FieldDefinition hashChannelField)
+    private void generateHashPositionMethod(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> joinChannelTypes, List<FieldDefinition> joinChannelFields)
     {
         Parameter blockIndex = arg("blockIndex", int.class);
         Parameter blockPosition = arg("blockPosition", int.class);
@@ -416,24 +398,6 @@ public class JoinCompiler
                 type(long.class),
                 blockIndex,
                 blockPosition);
-
-        Variable thisVariable = hashPositionMethod.getThis();
-        BytecodeExpression hashChannel = thisVariable.getField(hashChannelField);
-        BytecodeExpression bigintType = constantType(callSiteBinder, BIGINT);
-
-        IfStatement ifStatement = new IfStatement();
-        ifStatement.condition(notEqual(hashChannel, constantNull(hashChannelField.getType())));
-        ifStatement.ifTrue(
-                bigintType.invoke(
-                                "getLong",
-                                long.class,
-                                hashChannel.invoke("get", Object.class, blockIndex).cast(Block.class),
-                                blockPosition)
-                        .ret());
-
-        hashPositionMethod
-                .getBody()
-                .append(ifStatement);
 
         Variable resultVariable = hashPositionMethod.getScope().declareVariable(long.class, "result");
         hashPositionMethod.getBody().push(0L).putVariable(resultVariable);
@@ -1052,13 +1016,12 @@ public class JoinCompiler
                 Session session,
                 LongArrayList addresses,
                 List<ObjectArrayList<Block>> channels,
-                OptionalInt hashChannel,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
                 Optional<Integer> sortChannel,
                 List<JoinFilterFunctionFactory> searchFunctionFactories,
                 HashArraySizeSupplier hashArraySizeSupplier)
         {
-            PagesHashStrategy pagesHashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
+            PagesHashStrategy pagesHashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels);
             try {
                 return constructor.newInstance(session, pagesHashStrategy, addresses, channels, filterFunctionFactory, sortChannel, searchFunctionFactories, hashArraySizeSupplier, singleBigintJoinChannel);
             }
@@ -1075,17 +1038,17 @@ public class JoinCompiler
         public PagesHashStrategyFactory(Class<? extends PagesHashStrategy> pagesHashStrategyClass)
         {
             try {
-                constructor = pagesHashStrategyClass.getConstructor(List.class, OptionalInt.class);
+                constructor = pagesHashStrategyClass.getConstructor(List.class);
             }
             catch (NoSuchMethodException e) {
                 throw new RuntimeException(e);
             }
         }
 
-        public PagesHashStrategy createPagesHashStrategy(List<ObjectArrayList<Block>> channels, OptionalInt hashChannel)
+        public PagesHashStrategy createPagesHashStrategy(List<ObjectArrayList<Block>> channels)
         {
             try {
-                return constructor.newInstance(channels, hashChannel);
+                return constructor.newInstance(channels);
             }
             catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);

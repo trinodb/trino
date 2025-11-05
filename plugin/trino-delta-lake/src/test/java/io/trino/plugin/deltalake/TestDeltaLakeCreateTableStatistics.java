@@ -15,10 +15,11 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
@@ -62,13 +63,14 @@ public class TestDeltaLakeCreateTableStatistics
 {
     private String bucketName;
     private TransactionLogAccess transactionLogAccess;
+    private TrinoFileSystemFactory fileSystemFactory;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         this.bucketName = "delta-test-create-table-statistics-" + randomNameSuffix();
-        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        Hive3MinioDataLake hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
         hiveMinioDataLake.start();
 
         return DeltaLakeQueryRunner.builder()
@@ -82,6 +84,7 @@ public class TestDeltaLakeCreateTableStatistics
     public void initTransactionLogAccess()
     {
         transactionLogAccess = getConnectorService(getQueryRunner(), TransactionLogAccess.class);
+        fileSystemFactory = getConnectorService(getQueryRunner(), TrinoFileSystemFactory.class);
     }
 
     @Test
@@ -488,6 +491,6 @@ public class TestDeltaLakeCreateTableStatistics
     protected List<AddFileEntry> getAddFileEntries(String tableName)
             throws IOException
     {
-        return getTableActiveFiles(transactionLogAccess, format("s3://%s/%s", bucketName, tableName));
+        return getTableActiveFiles(transactionLogAccess, fileSystemFactory, format("s3://%s/%s", bucketName, tableName));
     }
 }

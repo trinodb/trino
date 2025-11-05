@@ -194,7 +194,7 @@ public class AzureBlobFileSystemExchangeStorage
             ImmutableList.Builder<FileStatus> fileStatuses = ImmutableList.builder();
             for (PagedResponse<BlobItem> pagedResponse : pagedResponseList) {
                 for (BlobItem blobItem : pagedResponse.getValue()) {
-                    if (blobItem.isPrefix() != Boolean.TRUE) {
+                    if (!blobItem.isPrefix().equals(Boolean.TRUE)) {
                         URI uri;
                         try {
                             uri = new URI(dir.getScheme(), dir.getUserInfo(), dir.getHost(), -1, PATH_SEPARATOR + blobItem.getName(), null, dir.getFragment());

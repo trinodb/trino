@@ -66,6 +66,7 @@ public abstract class BaseSqlServerConnectorTest
                  SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                  SUPPORTS_DROP_SCHEMA_CASCADE,
                  SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
+                 SUPPORTS_MAP_TYPE,
                  SUPPORTS_NEGATIVE_DATE,
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
                  SUPPORTS_RENAME_SCHEMA,
@@ -222,6 +223,15 @@ public abstract class BaseSqlServerConnectorTest
                 .returnsEmptyResult()
                 .isFullyPushedDown();
 
+        // varchar predicate over join
+        Session joinPushdownEnabled = joinPushdownEnabled(getSession());
+        assertThat(query(joinPushdownEnabled, "SELECT c.name, n.name FROM customer c JOIN nation n ON c.custkey = n.nationkey WHERE n.name = 'POLAND'"))
+                .isFullyPushedDown();
+
+        // join on varchar columns
+        assertThat(query(joinPushdownEnabled, "SELECT n.name, n2.regionkey FROM nation n JOIN nation n2 ON n.name = n2.name"))
+                .isFullyPushedDown();
+
         // bigint equality
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey = 19"))
                 .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
@@ -285,15 +295,6 @@ public abstract class BaseSqlServerConnectorTest
             assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE long_decimal = 123456789.987654321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
-
-            // varchar predicate over join
-            Session joinPushdownEnabled = joinPushdownEnabled(getSession());
-            assertThat(query(joinPushdownEnabled, "SELECT c.name, n.name FROM customer c JOIN nation n ON c.custkey = n.nationkey WHERE n.name = 'POLAND'"))
-                    .isFullyPushedDown();
-
-            // join on varchar columns
-            assertThat(query(joinPushdownEnabled, "SELECT n.name, n2.regionkey FROM nation n JOIN nation n2 ON n.name = n2.name"))
-                    .isFullyPushedDown();
         }
     }
 
@@ -321,6 +322,18 @@ public abstract class BaseSqlServerConnectorTest
             assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE collate_column < 'no_collation'"))
                     .matches("VALUES " +
                             "(CAST('collation' AS varchar(25)))")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE collate_column LIKE 'collation'"))
+                    .matches("VALUES " +
+                            "(CAST('collation' AS varchar(25)))")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE collate_column LIKE '%no_collation%'"))
+                    .matches("VALUES " +
+                            "(CAST('no_collation' AS varchar(25)))")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE collate_column LIKE '%no_collation%'  ESCAPE '$'"))
+                    .matches("VALUES " +
+                            "(CAST('no_collation' AS varchar(25)))")
                     .isNotFullyPushedDown(FilterNode.class);
         }
     }
@@ -362,7 +375,7 @@ public abstract class BaseSqlServerConnectorTest
         // Override this because by enabling this flag SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
         // we assume that we also support range pushdowns, but for now we only support 'not equal' pushdown,
         // so cannot enable this flag for now
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
+        try (TestTable table = newTrinoTable("test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE col != 'A'", 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 'A', null");
         }
@@ -833,7 +846,7 @@ public abstract class BaseSqlServerConnectorTest
     public void testConstantUpdateWithVarcharInequalityPredicates()
     {
         // Sql Server supports push down predicate for not equal operator
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"))) {
+        try (TestTable table = newTrinoTable("test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"))) {
             assertUpdate("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 != 'A'", 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a'), (2, 'A')");
         }

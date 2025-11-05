@@ -34,7 +34,8 @@ public class TestJdbcWriteConfig
         assertRecordedDefaults(recordDefaults(JdbcWriteConfig.class)
                 .setWriteBatchSize(1000)
                 .setWriteParallelism(8)
-                .setNonTransactionalInsert(false));
+                .setNonTransactionalInsert(false)
+                .setNonTransactionalMerge(false));
     }
 
     @Test
@@ -43,12 +44,14 @@ public class TestJdbcWriteConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("write.batch-size", "24")
                 .put("insert.non-transactional-insert.enabled", "true")
+                .put("merge.non-transactional-merge.enabled", "true")
                 .put("write.parallelism", "16")
                 .buildOrThrow();
 
         JdbcWriteConfig expected = new JdbcWriteConfig()
                 .setWriteBatchSize(24)
                 .setNonTransactionalInsert(true)
+                .setNonTransactionalMerge(true)
                 .setWriteParallelism(16);
 
         assertFullMapping(properties, expected);

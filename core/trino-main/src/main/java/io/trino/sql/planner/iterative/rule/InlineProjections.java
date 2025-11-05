@@ -161,7 +161,7 @@ public class InlineProjections
         Set<Symbol> childOutputSet = ImmutableSet.copyOf(child.getOutputSymbols());
 
         Map<Symbol, Long> dependencies = parent.getAssignments()
-                .getExpressions().stream()
+                .expressions().stream()
                 .flatMap(expression -> SymbolsExtractor.extractAll(expression).stream())
                 .filter(childOutputSet::contains)
                 .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
@@ -179,10 +179,8 @@ public class InlineProjections
                     // skip dereferences, otherwise, inlining can cause conflicts with PushdownDereferences
                     Expression assignment = child.getAssignments().get(entry.getKey());
 
-                    if (assignment instanceof FieldReference) {
-                        if (((FieldReference) assignment).base().type() instanceof RowType) {
-                            return false;
-                        }
+                    if (assignment instanceof FieldReference fieldReference) {
+                        return !(fieldReference.base().type() instanceof RowType);
                     }
 
                     return true;

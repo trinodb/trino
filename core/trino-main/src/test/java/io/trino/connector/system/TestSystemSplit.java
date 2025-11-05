@@ -18,6 +18,8 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.predicate.TupleDomain;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
+
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -26,12 +28,13 @@ public class TestSystemSplit
     @Test
     public void testSerialization()
     {
-        SystemSplit expected = new SystemSplit(HostAddress.fromParts("127.0.0.1", 0), TupleDomain.all());
+        SystemSplit expected = new SystemSplit(HostAddress.fromParts("127.0.0.1", 0), TupleDomain.all(), Optional.of("catalog"));
 
         JsonCodec<SystemSplit> codec = jsonCodec(SystemSplit.class);
         SystemSplit actual = codec.fromJson(codec.toJson(expected));
 
         assertThat(actual.getAddresses()).isEqualTo(expected.getAddresses());
         assertThat(actual.getConstraint()).isEqualTo(expected.getConstraint());
+        assertThat(actual.getCatalogName()).isEqualTo(expected.getCatalogName());
     }
 }

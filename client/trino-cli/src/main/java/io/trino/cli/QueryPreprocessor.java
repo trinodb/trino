@@ -13,7 +13,6 @@
  */
 package io.trino.cli;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.Futures;
@@ -86,7 +85,7 @@ public final class QueryPreprocessor
         }
         finally {
             if (isRealTerminal()) {
-                System.out.print("\r" + Strings.repeat(" ", PREPROCESSING_QUERY_MESSAGE.length()) + "\r");
+                System.out.print("\r" + " ".repeat(PREPROCESSING_QUERY_MESSAGE.length()) + "\r");
                 System.out.flush();
             }
             terminal.handle(Signal.INT, oldHandler);

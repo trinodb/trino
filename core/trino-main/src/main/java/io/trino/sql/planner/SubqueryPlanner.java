@@ -112,16 +112,17 @@ class SubqueryPlanner
 
     public PlanBuilder handleSubqueries(PlanBuilder builder, io.trino.sql.tree.Expression expression, Analysis.SubqueryAnalysis subqueries)
     {
-        for (Cluster<io.trino.sql.tree.InPredicate> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, subqueries.getInPredicatesSubqueries()))) {
+        Iterable<Node> allSubExpressions = Traverser.forTree(recurseExpression(builder)).depthFirstPreOrder(expression);
+        for (Cluster<io.trino.sql.tree.InPredicate> cluster : cluster(builder.getScope(), selectSubqueries(builder, allSubExpressions, subqueries.getInPredicatesSubqueries()))) {
             builder = planInPredicate(builder, cluster, subqueries);
         }
-        for (Cluster<SubqueryExpression> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, subqueries.getSubqueries()))) {
+        for (Cluster<SubqueryExpression> cluster : cluster(builder.getScope(), selectSubqueries(builder, allSubExpressions, subqueries.getSubqueries()))) {
             builder = planScalarSubquery(builder, cluster);
         }
-        for (Cluster<ExistsPredicate> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, subqueries.getExistsSubqueries()))) {
+        for (Cluster<ExistsPredicate> cluster : cluster(builder.getScope(), selectSubqueries(builder, allSubExpressions, subqueries.getExistsSubqueries()))) {
             builder = planExists(builder, cluster);
         }
-        for (Cluster<QuantifiedComparisonExpression> cluster : cluster(builder.getScope(), selectSubqueries(builder, expression, subqueries.getQuantifiedComparisonSubqueries()))) {
+        for (Cluster<QuantifiedComparisonExpression> cluster : cluster(builder.getScope(), selectSubqueries(builder, allSubExpressions, subqueries.getQuantifiedComparisonSubqueries()))) {
             builder = planQuantifiedComparison(builder, cluster, subqueries);
         }
 
@@ -132,25 +133,25 @@ class SubqueryPlanner
      * Find subqueries from the candidate set that are children of the given parent
      * and that have not already been handled in the subplan
      */
-    private <T extends io.trino.sql.tree.Expression> List<T> selectSubqueries(PlanBuilder subPlan, io.trino.sql.tree.Expression parent, List<T> candidates)
+    private <T extends io.trino.sql.tree.Expression> List<T> selectSubqueries(PlanBuilder subPlan, Iterable<Node> allSubExpressions, List<T> candidates)
     {
-        SuccessorsFunction<Node> recurse = expression -> {
-            if (!(expression instanceof io.trino.sql.tree.Expression) ||
-                    (!analysis.isColumnReference((io.trino.sql.tree.Expression) expression) && // no point in following dereference chains
-                            !subPlan.canTranslate((io.trino.sql.tree.Expression) expression))) { // don't consider subqueries under parts of the expression that have already been handled
-                return expression.getChildren();
-            }
-
-            return ImmutableList.of();
-        };
-
-        Iterable<Node> allSubExpressions = Traverser.forTree(recurse).depthFirstPreOrder(parent);
-
         return candidates
                 .stream()
                 .filter(candidate -> stream(allSubExpressions).anyMatch(child -> child == candidate))
                 .filter(candidate -> !subPlan.canTranslate(candidate))
                 .collect(toImmutableList());
+    }
+
+    private SuccessorsFunction<Node> recurseExpression(PlanBuilder subPlan)
+    {
+        return expression -> {
+            if (!(expression instanceof io.trino.sql.tree.Expression value) ||
+                    (!analysis.isColumnReference(value) && // no point in following dereference chains
+                            !subPlan.canTranslate(value))) { // don't consider subqueries under parts of the expression that have already been handled
+                return expression.getChildren();
+            }
+            return ImmutableList.of();
+        };
     }
 
     /**

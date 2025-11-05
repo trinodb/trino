@@ -39,7 +39,9 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.testing.TestingSession.testSession;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -88,7 +90,7 @@ public class TestDropCatalogTask
     }
 
     @Test
-    public void testDuplicatedCreateCatalogIfNotExists()
+    public void testDuplicatedDropCatalogIfNotExists()
     {
         queryRunner.createCatalog(TEST_CATALOG, "tpch", ImmutableMap.of());
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isTrue();
@@ -111,6 +113,19 @@ public class TestDropCatalogTask
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
     }
 
+    @Test
+    void testDropSystemCatalog()
+    {
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), "system")).isTrue();
+
+        DropCatalog statement = new DropCatalog(new NodeLocation(1, 1), new Identifier("system"), false, false);
+        assertTrinoExceptionThrownBy(() -> task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("Dropping system catalog is not allowed");
+
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), "system")).isTrue();
+    }
+
     private QueryStateMachine createNewQuery()
     {
         return QueryStateMachine.begin(
@@ -129,6 +144,7 @@ public class TestDropCatalogTask
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
+                Optional.empty(),
                 new NodeVersion("test"));
     }
 }

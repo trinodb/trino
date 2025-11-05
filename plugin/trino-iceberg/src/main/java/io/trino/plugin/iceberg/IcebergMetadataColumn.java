@@ -27,6 +27,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public enum IcebergMetadataColumn
 {
+    PARTITION(MetadataColumns.PARTITION_COLUMN_ID, "$partition", VARCHAR, PRIMITIVE), // Avoid row type considering partition evolutions
     FILE_PATH(MetadataColumns.FILE_PATH.fieldId(), "$path", VARCHAR, PRIMITIVE),
     FILE_MODIFIED_TIME(Integer.MAX_VALUE - 1001, "$file_modified_time", TIMESTAMP_TZ_MILLIS, PRIMITIVE), // https://github.com/apache/iceberg/issues/5240
     /**/;

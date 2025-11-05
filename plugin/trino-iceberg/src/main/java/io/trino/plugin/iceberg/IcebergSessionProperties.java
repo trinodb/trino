@@ -19,7 +19,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
-import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -65,7 +64,6 @@ public final class IcebergSessionProperties
         implements SessionPropertiesProvider
 {
     public static final String SPLIT_SIZE = "experimental_split_size";
-    private static final String COMPRESSION_CODEC = "compression_codec";
     private static final String USE_FILE_SIZE_FROM_METADATA = "use_file_size_from_metadata";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
@@ -109,6 +107,9 @@ public final class IcebergSessionProperties
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
     private static final String QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS = "query_partition_filter_required_schemas";
     private static final String INCREMENTAL_REFRESH_ENABLED = "incremental_refresh_enabled";
+    public static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
+    public static final String FILE_BASED_CONFLICT_DETECTION_ENABLED = "file_based_conflict_detection_enabled";
+    private static final String MAX_PARTITIONS_PER_WRITER = "max_partitions_per_writer";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -128,12 +129,6 @@ public final class IcebergSessionProperties
                         // See https://github.com/trinodb/trino/issues/9018#issuecomment-1752929193 for further discussion.
                         null,
                         true))
-                .add(enumProperty(
-                        COMPRESSION_CODEC,
-                        "Compression codec to use when writing files",
-                        HiveCompressionCodec.class,
-                        icebergConfig.getCompressionCodec(),
-                        false))
                 .add(booleanProperty(
                         USE_FILE_SIZE_FROM_METADATA,
                         "Use file size stored in Iceberg metadata",
@@ -392,6 +387,28 @@ public final class IcebergSessionProperties
                         "Enable Incremental refresh for MVs backed by Iceberg tables, when possible.",
                         icebergConfig.isIncrementalRefreshEnabled(),
                         false))
+                .add(booleanProperty(
+                        BUCKET_EXECUTION_ENABLED,
+                        "Enable bucket-aware execution: use physical bucketing information to optimize queries",
+                        icebergConfig.isBucketExecutionEnabled(),
+                        false))
+                .add(booleanProperty(
+                        FILE_BASED_CONFLICT_DETECTION_ENABLED,
+                        "Enable file-based conflict detection: take partition information from the actual written files as a source for the conflict detection system",
+                        icebergConfig.isFileBasedConflictDetectionEnabled(),
+                        false))
+                .add(integerProperty(
+                        MAX_PARTITIONS_PER_WRITER,
+                        "Maximum number of partitions per writer",
+                        icebergConfig.getMaxPartitionsPerWriter(),
+                        value -> {
+                            if (value < 1 || value > icebergConfig.getMaxPartitionsPerWriter()) {
+                                throw new TrinoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s must be between 1 and %s", MAX_PARTITIONS_PER_WRITER, icebergConfig.getMaxPartitionsPerWriter()));
+                            }
+                        },
+                        false))
                 .build();
     }
 
@@ -491,11 +508,6 @@ public final class IcebergSessionProperties
     public static Optional<DataSize> getSplitSize(ConnectorSession session)
     {
         return Optional.ofNullable(session.getProperty(SPLIT_SIZE, DataSize.class));
-    }
-
-    public static HiveCompressionCodec getCompressionCodec(ConnectorSession session)
-    {
-        return session.getProperty(COMPRESSION_CODEC, HiveCompressionCodec.class);
     }
 
     public static boolean isUseFileSizeFromMetadata(ConnectorSession session)
@@ -634,5 +646,20 @@ public final class IcebergSessionProperties
     public static boolean isIncrementalRefreshEnabled(ConnectorSession session)
     {
         return session.getProperty(INCREMENTAL_REFRESH_ENABLED, Boolean.class);
+    }
+
+    public static boolean isBucketExecutionEnabled(ConnectorSession session)
+    {
+        return session.getProperty(BUCKET_EXECUTION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isFileBasedConflictDetectionEnabled(ConnectorSession session)
+    {
+        return session.getProperty(FILE_BASED_CONFLICT_DETECTION_ENABLED, Boolean.class);
+    }
+
+    public static int maxPartitionsPerWriter(ConnectorSession session)
+    {
+        return session.getProperty(MAX_PARTITIONS_PER_WRITER, Integer.class);
     }
 }

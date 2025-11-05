@@ -148,7 +148,7 @@ public class ShowStatsRewrite
         {
             Query query = getRelation(node);
             Plan plan = queryExplainer.getLogicalPlan(session, query, parameters, warningCollector, planOptimizersStatsCollector);
-            CachingStatsProvider cachingStatsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(metadata, session));
+            CachingStatsProvider cachingStatsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(metadata, session, () -> false));
             PlanNodeStatsEstimate stats = cachingStatsProvider.getStats(plan.getRoot());
             return rewriteShowStats(plan, stats);
         }
@@ -257,16 +257,16 @@ public class ShowStatsRewrite
             if (type.equals(DATE)) {
                 return new StringLiteral(LocalDate.ofEpochDay(round(value)).toString());
             }
-            if (type instanceof TimestampType) {
+            if (type instanceof TimestampType timestampType) {
                 @SuppressWarnings("NumericCastThatLosesPrecision")
                 long epochMicros = (long) value;
-                int outputPrecision = min(((TimestampType) type).getPrecision(), TimestampType.MAX_SHORT_PRECISION);
+                int outputPrecision = min(timestampType.getPrecision(), TimestampType.MAX_SHORT_PRECISION);
                 return new StringLiteral(TimestampToVarcharCast.cast(outputPrecision, epochMicros).toStringUtf8());
             }
-            if (type instanceof TimestampWithTimeZoneType) {
+            if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
                 @SuppressWarnings("NumericCastThatLosesPrecision")
                 long millisUtc = (long) value;
-                int outputPrecision = min(((TimestampWithTimeZoneType) type).getPrecision(), TimestampWithTimeZoneType.MAX_SHORT_PRECISION);
+                int outputPrecision = min(timestampWithTimeZoneType.getPrecision(), TimestampWithTimeZoneType.MAX_SHORT_PRECISION);
                 return new StringLiteral(TimestampWithTimeZoneToVarcharCast.cast(outputPrecision, packDateTimeWithZone(millisUtc, UTC_KEY)).toStringUtf8());
             }
             throw new IllegalArgumentException("Unexpected type: " + type);

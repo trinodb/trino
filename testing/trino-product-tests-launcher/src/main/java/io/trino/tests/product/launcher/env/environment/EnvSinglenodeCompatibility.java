@@ -107,7 +107,10 @@ public class EnvSinglenodeCompatibility
     private String getConfigFileFor(String dockerImage)
     {
         if (getVersionFromDockerImageName(dockerImage) < 369) {
-            return "config-with-system-memory.properties";
+            return "config-pre369.properties";
+        }
+        if (getVersionFromDockerImageName(dockerImage) >= 477) {
+            return "config-post477.properties";
         }
         return "config.properties";
     }
@@ -115,7 +118,7 @@ public class EnvSinglenodeCompatibility
     private String getHiveConfigFor(String dockerImage)
     {
         if (getVersionFromDockerImageName(dockerImage) < 359) {
-            return "hive-hadoop2.properties";
+            return "hive-pre359.properties";
         }
         return "hive.properties";
     }
@@ -123,7 +126,7 @@ public class EnvSinglenodeCompatibility
     private String getIcebergConfigFor(String dockerImage)
     {
         if (getVersionFromDockerImageName(dockerImage) < 359) {
-            return "iceberg_old.properties";
+            return "iceberg-pre359.properties";
         }
         return "iceberg.properties";
     }
@@ -158,8 +161,8 @@ public class EnvSinglenodeCompatibility
 
         public Config(Map<String, String> extraOptions)
         {
-            this.compatibilityTestVersion = parseInt(requireNonNull(extraOptions.get(TEST_DOCKER_VERSION), () -> format("Required extra option %s is null", TEST_DOCKER_VERSION)));
-            this.compatibilityTestDockerImage = requireNonNull(extraOptions.get(TEST_DOCKER_IMAGE), () -> format("Required extra option %s is null", TEST_DOCKER_IMAGE));
+            this.compatibilityTestVersion = parseInt(requireNonNull(extraOptions.get(TEST_DOCKER_VERSION), () -> format("Required extra option compatibility.%s is null", TEST_DOCKER_VERSION)));
+            this.compatibilityTestDockerImage = requireNonNull(extraOptions.get(TEST_DOCKER_IMAGE), () -> format("Required extra option compatibility.%s is null", TEST_DOCKER_IMAGE));
         }
 
         public int getCompatibilityTestVersion()

@@ -137,7 +137,7 @@ public final class SparkMetastoreUtil
                     toDecimal(parameters.get(field + COLUMN_MAX)),
                     nullsCount,
                     distinctValuesWithNullCount);
-            case TIMESTAMPLOCALTZ, INTERVAL_YEAR_MONTH, INTERVAL_DAY_TIME, VOID, UNKNOWN -> HiveColumnStatistics.empty();
+            case TIMESTAMPLOCALTZ, INTERVAL_YEAR_MONTH, INTERVAL_DAY_TIME, VARIANT, VOID, UNKNOWN -> HiveColumnStatistics.empty();
         };
     }
 

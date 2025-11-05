@@ -228,7 +228,7 @@ public class TestOpenxJsonFormat
         assertLine(ImmutableList.of(new Column("a_b", BIGINT, 0)), "{\"a.b\":42}", singletonList(42L), dotsInFieldNames);
         // todo Starburst is always case-sensitive for dotted names
         internalAssertLineHive(ImmutableList.of(new Column("a_b", BIGINT, 0)), "{\"a.B\":42}", singletonList(null), dotsInFieldNames);
-        internalAssertLineTrino(ImmutableList.of(new Column("a_b", BIGINT, 0)), "{\"a.B\":42}", singletonList(42L), dotsInFieldNames);
+        internalAssertLineTrino(ImmutableList.of(new Column("a_b", BIGINT, 0)), "{\"a.B\":42}", singletonList(42L), dotsInFieldNames, false);
 
         // row value
         assertValue(rowType(field("a", rowType(field("x_y", BIGINT)))), "{\"a\":{\"x.y\":42}}", singletonList(singletonList(null)), DEFAULT_OPEN_X_JSON_OPTIONS, false);
@@ -265,8 +265,8 @@ public class TestOpenxJsonFormat
         assertLine(ImmutableList.of(new Column("apple", BIGINT, 0)), "{\"a\":42}", singletonList(null), DEFAULT_OPEN_X_JSON_OPTIONS);
         assertLine(ImmutableList.of(new Column("apple", BIGINT, 0)), "{\"a\":42}", singletonList(42L), mappedFieldNames);
         // mappings follow case sensitivity
-        internalAssertLineTrino(ImmutableList.of(new Column("apple", BIGINT, 0)), "{\"A\":42}", singletonList(42L), mappedFieldNames);
-        internalAssertLineTrino(ImmutableList.of(new Column("apple", BIGINT, 0)), "{\"A\":42}", singletonList(null), caseSensitiveMapping);
+        internalAssertLineTrino(ImmutableList.of(new Column("apple", BIGINT, 0)), "{\"A\":42}", singletonList(42L), mappedFieldNames, false);
+        internalAssertLineTrino(ImmutableList.of(new Column("apple", BIGINT, 0)), "{\"A\":42}", singletonList(null), caseSensitiveMapping, false);
         // declared mappings are case-sensitive
         assertLine(ImmutableList.of(new Column("Apple", BIGINT, 0)), "{\"a\":42}", singletonList(42L), mappedFieldNames);
 
@@ -884,14 +884,36 @@ public class TestOpenxJsonFormat
         assertDate("\"1970-01-02\"", 1);
         assertDate("\"1969-12-31\"", -1);
 
-        // Hive ignores everything after the first space
-        assertDate("\"1986-01-01 anything is allowed here\"", LocalDate.of(1986, 1, 1).toEpochDay());
+        // Single digit month and day
+        assertDate("\"2025-4-2 12341234\"", LocalDate.of(2025, 4, 2).toEpochDay());
+        assertDate("\"2025-09-1 12341234\"", LocalDate.of(2025, 9, 1).toEpochDay());
+        assertDate("\"2025-8-01 12341234\"", LocalDate.of(2025, 8, 1).toEpochDay());
 
-        assertDate("\"1986-01-01\"", LocalDate.of(1986, 1, 1).toEpochDay());
+        // Hive ignores everything after yyyy-mm-dd
+        long day = LocalDate.of(1986, 1, 1).toEpochDay();
+        SqlDate sqlDate = new SqlDate((int) day);
+        assertDate("\"1986-01-01 anything is allowed here\"", day);
+        assertValueTrinoOnly(DATE, "\"1986-01-01T00:00:00.000Z\"", sqlDate);
+        assertValueTrinoOnly(DATE, "\"1986-01-01AA00:00:00.000Z\"", sqlDate);
+
+        // Test bad yyyy-mm-dd formats
+        // Cascading when number of digits are allowed
         assertDate("\"1986-01-33\"", LocalDate.of(1986, 2, 2).toEpochDay());
+        assertDate("\"2023-80-80\"", LocalDate.of(2029, 10, 19).toEpochDay());
+        assertValueTrino(DATE, "\"9999-99-99\"", new SqlDate((int) LocalDate.of(10007, 6, 7).toEpochDay()), DEFAULT_OPEN_X_JSON_OPTIONS, true, true);
+        assertValueHive(DATE, "\"9999-99-99\"", new SqlDate((int) LocalDate.of(10007, 6, 7).toEpochDay()), DEFAULT_OPEN_X_JSON_OPTIONS, true);
 
-        assertDate("\"5881580-07-11\"", Integer.MAX_VALUE);
-        assertDate("\"-5877641-06-23\"", Integer.MIN_VALUE);
+        // Digits are more than allowed in year, month, or day
+        assertValueTrinoOnly(DATE, "\"02025-01-01\"", null);
+        assertValueTrinoOnly(DATE, "\"2025-011-01\"", null);
+        assertValueTrinoOnly(DATE, "\"2025-01-011\"", null);
+
+        // Digits are more than allowed in year, month, or day and cascading
+        assertValueTrinoOnly(DATE, "\"202510-01-01\"", null);
+        assertValueTrinoOnly(DATE, "\"2025-100-01\"", null);
+        assertValueTrinoOnly(DATE, "\"2025-01-100\"", null);
+        assertValueTrinoOnly(DATE, "\"5881580-07-11\"", null);
+        assertValueTrinoOnly(DATE, "\"-5877641-06-23\"", null);
 
         // Hive does not enforce size bounds and truncates the results in Date.toEpochDay
         assertValueTrinoOnly(DATE, "\"5881580-07-12\"", null);
@@ -902,20 +924,20 @@ public class TestOpenxJsonFormat
         assertDate("1", 1, false);
         assertDate("-1", -1, false);
         assertDate("123", 123, false);
-        assertDate(String.valueOf(Integer.MAX_VALUE), Integer.MAX_VALUE, false);
-        assertDate(String.valueOf(Integer.MIN_VALUE), Integer.MIN_VALUE, false);
+        assertValueTrinoOnly(DATE, String.valueOf(Integer.MAX_VALUE), new SqlDate(Integer.MAX_VALUE), DEFAULT_OPEN_X_JSON_OPTIONS, true);
+        assertValueTrinoOnly(DATE, String.valueOf(Integer.MIN_VALUE), new SqlDate(Integer.MIN_VALUE), DEFAULT_OPEN_X_JSON_OPTIONS, true);
 
         // hex
         assertDate("0x0", 0, false);
         assertDate("0x1", 1, false);
         assertDate("0x123", 0x123, false);
-        assertDate("0x" + Long.toUnsignedString(Integer.MAX_VALUE, 16), Integer.MAX_VALUE, false);
+        assertValueTrinoOnly(DATE, "0x" + Long.toUnsignedString(Integer.MAX_VALUE, 16), new SqlDate(Integer.MAX_VALUE), DEFAULT_OPEN_X_JSON_OPTIONS, true);
 
         // octal
         assertDate("00", 0, false);
         assertDate("01", 1, false);
         assertDate("0123", 83, false);
-        assertDate("0" + Long.toUnsignedString(Integer.MAX_VALUE, 8), Integer.MAX_VALUE, false);
+        assertValueTrinoOnly(DATE, "0" + Long.toUnsignedString(Integer.MAX_VALUE, 8), new SqlDate(Integer.MAX_VALUE), DEFAULT_OPEN_X_JSON_OPTIONS, true);
 
         // out of bounds
         assertValueTrinoOnly(DATE, String.valueOf(Integer.MAX_VALUE + 1L), null);
@@ -1194,7 +1216,7 @@ public class TestOpenxJsonFormat
     private static void assertLine(List<Column> columns, String line, List<Object> expectedValues, OpenXJsonOptions options)
     {
         internalAssertLineHive(columns, line, expectedValues, options);
-        internalAssertLineTrino(columns, line, expectedValues, options);
+        internalAssertLineTrino(columns, line, expectedValues, options, false);
     }
 
     private static void assertValueTrinoOnly(Type type, String jsonValue, Object expectedValue)
@@ -1204,29 +1226,41 @@ public class TestOpenxJsonFormat
 
     private static void assertValueTrinoOnly(Type type, String jsonValue, Object expectedValue, OpenXJsonOptions defaultOpenXJsonOptions)
     {
-        assertValueTrino(type, jsonValue, expectedValue, defaultOpenXJsonOptions, true);
+        assertValueTrinoOnly(type, jsonValue, expectedValue, defaultOpenXJsonOptions, false);
+    }
+
+    private static void assertValueTrinoOnly(Type type, String jsonValue, Object expectedValue, OpenXJsonOptions defaultOpenXJsonOptions, boolean readOnly)
+    {
+        assertValueTrino(type, jsonValue, expectedValue, defaultOpenXJsonOptions, true, readOnly);
         assertThatThrownBy(() -> assertValueHive(type, jsonValue, expectedValue, defaultOpenXJsonOptions, true));
     }
 
     private static void assertValueTrino(Type type, String jsonValue, Object expectedValue, OpenXJsonOptions options, boolean testMapKey)
     {
-        internalAssertValueTrino(type, jsonValue, expectedValue, options);
-        internalAssertValueTrino(new ArrayType(type), "[" + jsonValue + "]", singletonList(expectedValue), options);
+        assertValueTrino(type, jsonValue, expectedValue, options, testMapKey, false);
+    }
+
+    private static void assertValueTrino(Type type, String jsonValue, Object expectedValue, OpenXJsonOptions options, boolean testMapKey, boolean readOnly)
+    {
+        internalAssertValueTrino(type, jsonValue, expectedValue, options, readOnly);
+        internalAssertValueTrino(new ArrayType(type), "[" + jsonValue + "]", singletonList(expectedValue), options, readOnly);
         internalAssertValueTrino(
                 rowType(field("a", type), field("nested", type), field("b", type)),
                 "{ \"nested\" : " + jsonValue + " }",
                 Arrays.asList(null, expectedValue, null),
-                options);
+                options,
+                readOnly);
         if (expectedValue != null) {
             internalAssertValueTrino(
                     new MapType(BIGINT, type, TYPE_OPERATORS),
                     "{ \"1234\" : " + jsonValue + " }",
                     singletonMap(1234L, expectedValue),
-                    options);
+                    options,
+                    readOnly);
         }
         if (expectedValue != null && isScalarType(type)) {
             if (testMapKey) {
-                internalAssertValueTrino(toMapKeyType(type), toMapKeyJson(jsonValue), toMapKeyExpectedValue(expectedValue), options);
+                internalAssertValueTrino(toMapKeyType(type), toMapKeyJson(jsonValue), toMapKeyExpectedValue(expectedValue), options, readOnly);
             }
             else {
                 internalAssertValueFailsTrino(toMapKeyType(type), toMapKeyJson(jsonValue), options);
@@ -1236,19 +1270,24 @@ public class TestOpenxJsonFormat
 
     private static void internalAssertValueTrino(Type type, String jsonValue, Object expectedValue, OpenXJsonOptions options)
     {
-        List<Column> columns = ImmutableList.of(new Column("test", type, 2));
-        internalAssertLineTrino(columns, "{\"test\" : " + jsonValue + "}", singletonList(expectedValue), options);
-        internalAssertLineTrino(columns, "[ , 42, " + jsonValue + ", 99]", singletonList(expectedValue), options);
+        internalAssertValueTrino(type, jsonValue, expectedValue, options, false);
     }
 
-    private static void internalAssertLineTrino(List<Column> columns, String line, List<Object> expectedValues, OpenXJsonOptions options)
+    private static void internalAssertValueTrino(Type type, String jsonValue, Object expectedValue, OpenXJsonOptions options, boolean readOnly)
+    {
+        List<Column> columns = ImmutableList.of(new Column("test", type, 2));
+        internalAssertLineTrino(columns, "{\"test\" : " + jsonValue + "}", singletonList(expectedValue), options, readOnly);
+        internalAssertLineTrino(columns, "[ , 42, " + jsonValue + ", 99]", singletonList(expectedValue), options, readOnly);
+    }
+
+    private static void internalAssertLineTrino(List<Column> columns, String line, List<Object> expectedValues, OpenXJsonOptions options, boolean readOnly)
     {
         // read normal json
         List<Object> actualValues = readTrinoLine(columns, line, options);
         assertColumnValuesEquals(columns, actualValues, expectedValues);
 
         // if type is not supported (e.g., Map with complex key), skip round trip test
-        if (!columns.stream().map(Column::type).allMatch(OpenXJsonSerializer::isSupportedType)) {
+        if (readOnly || !columns.stream().map(Column::type).allMatch(OpenXJsonSerializer::isSupportedType)) {
             return;
         }
 

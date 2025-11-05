@@ -27,8 +27,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.SystemSessionProperties.COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES;
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.statistics.MetricComparisonStrategies.absoluteError;
@@ -62,8 +60,8 @@ public class TestTpchLocalStats
         QueryRunner queryRunner = new StandaloneQueryRunner(defaultSession);
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch", ImmutableMap.<String, String>builder()
-                .put(TPCH_SPLITS_PER_NODE, "1")
-                .put(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.STANDARD.name())
+                .put("tpch.splits-per-node", "1")
+                .put("tpch.column-naming", ColumnNaming.STANDARD.name())
                 .buildOrThrow());
         statisticsAssertion = new StatisticsAssertion(queryRunner);
     }

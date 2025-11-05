@@ -14,10 +14,11 @@
 package io.trino.server;
 
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
-import io.trino.client.ServerInfo;
-import io.trino.metadata.NodeState;
+import io.trino.execution.QueryIdGenerator;
+import io.trino.node.NodeState;
 import io.trino.server.security.ResourceSecurity;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
@@ -31,8 +32,6 @@ import jakarta.ws.rs.core.Response;
 import java.util.Optional;
 
 import static io.airlift.units.Duration.nanosSince;
-import static io.trino.metadata.NodeState.ACTIVE;
-import static io.trino.metadata.NodeState.SHUTTING_DOWN;
 import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_WRITE;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
@@ -43,21 +42,33 @@ import static java.util.Objects.requireNonNull;
 @Path("/v1/info")
 public class ServerInfoResource
 {
+    private static final Logger log = Logger.get(ServerInfoResource.class);
+
+    private final String nodeId;
     private final NodeVersion version;
     private final String environment;
     private final boolean coordinator;
-    private final GracefulShutdownHandler shutdownHandler;
+    private final NodeStateManager nodeStateManager;
     private final StartupStatus startupStatus;
+    private final Optional<QueryIdGenerator> queryIdGenerator;
     private final long startTime = System.nanoTime();
 
     @Inject
-    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, GracefulShutdownHandler shutdownHandler, StartupStatus startupStatus)
+    public ServerInfoResource(
+            NodeVersion nodeVersion,
+            NodeInfo nodeInfo,
+            ServerConfig serverConfig,
+            NodeStateManager nodeStateManager,
+            StartupStatus startupStatus,
+            Optional<QueryIdGenerator> queryIdGenerator)
     {
+        this.nodeId = nodeInfo.getNodeId();
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = nodeInfo.getEnvironment();
         this.coordinator = serverConfig.isCoordinator();
-        this.shutdownHandler = requireNonNull(shutdownHandler, "shutdownHandler is null");
+        this.nodeStateManager = requireNonNull(nodeStateManager, "nodeStateManager is null");
         this.startupStatus = requireNonNull(startupStatus, "startupStatus is null");
+        this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
     }
 
     @ResourceSecurity(PUBLIC)
@@ -66,7 +77,15 @@ public class ServerInfoResource
     public ServerInfo getInfo()
     {
         boolean starting = !startupStatus.isStartupComplete();
-        return new ServerInfo(version, environment, coordinator, starting, Optional.of(nanosSince(startTime)));
+        return new ServerInfo(
+                nodeId,
+                nodeStateManager.getServerState(),
+                version,
+                environment,
+                coordinator,
+                queryIdGenerator.map(QueryIdGenerator::getCoordinatorId),
+                starting,
+                nanosSince(startTime));
     }
 
     @ResourceSecurity(MANAGEMENT_WRITE)
@@ -77,13 +96,14 @@ public class ServerInfoResource
     public Response updateState(NodeState state)
     {
         requireNonNull(state, "state is null");
-        return switch (state) {
-            case SHUTTING_DOWN -> {
-                shutdownHandler.requestShutdown();
-                yield Response.ok().build();
-            }
-            case ACTIVE, INACTIVE -> throw new BadRequestException(format("Invalid state transition to %s", state));
-        };
+        log.info("Worker State change requested: %s -> %s", nodeStateManager.getServerState().toString(), state.toString());
+        try {
+            nodeStateManager.transitionState(state);
+            return Response.ok().build();
+        }
+        catch (IllegalStateException e) {
+            throw new BadRequestException(format("Invalid state transition to %s", state));
+        }
     }
 
     @ResourceSecurity(PUBLIC)
@@ -92,10 +112,7 @@ public class ServerInfoResource
     @Produces(APPLICATION_JSON)
     public NodeState getServerState()
     {
-        if (shutdownHandler.isShutdownRequested()) {
-            return SHUTTING_DOWN;
-        }
-        return ACTIVE;
+        return nodeStateManager.getServerState();
     }
 
     @ResourceSecurity(PUBLIC)

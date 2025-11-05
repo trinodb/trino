@@ -52,6 +52,7 @@ import io.trino.plugin.hive.util.ValidWriteIdList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
@@ -148,6 +149,7 @@ public class BackgroundHiveSplitLoader
 
     private final Table table;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
+    private final Constraint constraint;
     private final DynamicFilter dynamicFilter;
     private final long dynamicFilteringWaitTimeoutMillis;
     private final TypeManager typeManager;
@@ -192,6 +194,7 @@ public class BackgroundHiveSplitLoader
             Table table,
             Iterator<HivePartitionMetadata> partitions,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
+            Constraint constraint,
             DynamicFilter dynamicFilter,
             Duration dynamicFilteringWaitTimeout,
             TypeManager typeManager,
@@ -209,6 +212,7 @@ public class BackgroundHiveSplitLoader
     {
         this.table = table;
         this.compactEffectivePredicate = compactEffectivePredicate;
+        this.constraint = constraint;
         this.dynamicFilter = dynamicFilter;
         this.dynamicFilteringWaitTimeoutMillis = dynamicFilteringWaitTimeout.toMillis();
         this.typeManager = typeManager;
@@ -423,6 +427,7 @@ public class BackgroundHiveSplitLoader
                     schema,
                     partitionKeys,
                     effectivePredicate,
+                    constraint,
                     partitionMatchSupplier,
                     partition.getHiveColumnCoercions(),
                     Optional.empty(),
@@ -475,6 +480,7 @@ public class BackgroundHiveSplitLoader
                 schema,
                 partitionKeys,
                 effectivePredicate,
+                constraint,
                 partitionMatchSupplier,
                 partition.getHiveColumnCoercions(),
                 bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty(),
@@ -525,7 +531,7 @@ public class BackgroundHiveSplitLoader
     {
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session);
         // Check if location is cached BEFORE using the directoryLister
-        boolean isCached = directoryLister.isCached(location);
+        boolean isCached = directoryLister.isCached(location, table.getSchemaTableName());
 
         Map<String, TrinoFileStatus> fileStatuses = new HashMap<>();
         Iterator<TrinoFileStatus> fileStatusIterator = new HiveFileIterator(table, location, trinoFileSystem, directoryLister, RECURSE);
@@ -540,7 +546,7 @@ public class BackgroundHiveSplitLoader
                     .anyMatch(path -> !fileStatuses.containsKey(path.path()));
             // Invalidate the cache and reload
             if (missing) {
-                directoryLister.invalidate(location);
+                directoryLister.invalidate(location, table.getSchemaTableName());
 
                 fileStatuses.clear();
                 fileStatusIterator = new HiveFileIterator(table, location, trinoFileSystem, directoryLister, RECURSE);
@@ -900,23 +906,23 @@ public class BackgroundHiveSplitLoader
         private final int readBucketCount;
         private final IntPredicate bucketFilter;
 
-        public static Optional<BucketSplitInfo> createBucketSplitInfo(Optional<HiveBucketHandle> bucketHandle, Optional<HiveBucketFilter> bucketFilter)
+        public static Optional<BucketSplitInfo> createBucketSplitInfo(Optional<HiveTablePartitioning> tablePartitioning, Optional<HiveBucketFilter> bucketFilter)
         {
-            requireNonNull(bucketHandle, "bucketHandle is null");
+            requireNonNull(tablePartitioning, "tablePartitioning is null");
             requireNonNull(bucketFilter, "bucketFilter is null");
 
-            if (bucketHandle.isEmpty()) {
-                checkArgument(bucketFilter.isEmpty(), "bucketHandle must be present if bucketFilter is present");
+            if (tablePartitioning.isEmpty()) {
+                checkArgument(bucketFilter.isEmpty(), "tablePartitioning must be present if bucketFilter is present");
                 return Optional.empty();
             }
 
-            BucketingVersion bucketingVersion = bucketHandle.get().bucketingVersion();
-            int tableBucketCount = bucketHandle.get().tableBucketCount();
-            int readBucketCount = bucketHandle.get().readBucketCount();
+            BucketingVersion bucketingVersion = tablePartitioning.get().partitioningHandle().getBucketingVersion();
+            int tableBucketCount = tablePartitioning.get().tableBucketCount();
+            int readBucketCount = tablePartitioning.get().partitioningHandle().getBucketCount();
 
-            List<HiveColumnHandle> bucketColumns = bucketHandle.get().columns();
+            List<HiveColumnHandle> bucketColumns = tablePartitioning.get().columns();
             IntPredicate predicate = bucketFilter
-                    .<IntPredicate>map(filter -> filter.getBucketsToKeep()::contains)
+                    .<IntPredicate>map(filter -> filter.bucketsToKeep()::contains)
                     .orElse(bucket -> true);
             return Optional.of(new BucketSplitInfo(bucketingVersion, bucketColumns, tableBucketCount, readBucketCount, predicate));
         }

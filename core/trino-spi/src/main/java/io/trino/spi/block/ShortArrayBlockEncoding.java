@@ -15,11 +15,13 @@ package io.trino.spi.block;
 
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import jakarta.annotation.Nullable;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
 import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
 import static java.lang.System.arraycopy;
+import static java.util.Objects.checkFromIndexSize;
 
 public class ShortArrayBlockEncoding
         implements BlockEncoding
@@ -33,25 +35,35 @@ public class ShortArrayBlockEncoding
     }
 
     @Override
+    public Class<? extends Block> getBlockClass()
+    {
+        return ShortArrayBlock.class;
+    }
+
+    @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         ShortArrayBlock shortArrayBlock = (ShortArrayBlock) block;
         int positionCount = shortArrayBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
 
-        encodeNullsAsBits(sliceOutput, shortArrayBlock);
+        int rawOffset = shortArrayBlock.getRawValuesOffset();
+        @Nullable
+        boolean[] isNull = shortArrayBlock.getRawValueIsNull();
+        short[] rawValues = shortArrayBlock.getRawValues();
+        checkFromIndexSize(rawOffset, positionCount, rawValues.length);
 
-        if (!shortArrayBlock.mayHaveNull()) {
-            sliceOutput.writeShorts(shortArrayBlock.getRawValues(), shortArrayBlock.getRawValuesOffset(), shortArrayBlock.getPositionCount());
+        encodeNullsAsBits(sliceOutput, isNull, rawOffset, positionCount);
+
+        if (isNull == null) {
+            sliceOutput.writeShorts(rawValues, rawOffset, positionCount);
         }
         else {
             short[] valuesWithoutNull = new short[positionCount];
             int nonNullPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = shortArrayBlock.getShort(i);
-                if (!shortArrayBlock.isNull(i)) {
-                    nonNullPositionCount++;
-                }
+                valuesWithoutNull[nonNullPositionCount] = rawValues[i + rawOffset];
+                nonNullPositionCount += isNull[i + rawOffset] ? 0 : 1;
             }
 
             sliceOutput.writeInt(nonNullPositionCount);

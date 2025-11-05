@@ -18,8 +18,8 @@ import com.google.common.io.Resources;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.metadata.ParquetMetadata;
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
@@ -35,7 +35,6 @@ import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeType.TIME_NANOS;
 import static io.trino.spi.type.TimeType.TIME_SECONDS;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTimeMillis
@@ -59,22 +58,22 @@ public class TestTimeMillis
 
         ParquetDataSource dataSource = new FileParquetDataSource(
                 new File(Resources.getResource("time_millis_int32.snappy.parquet").toURI()),
-                new ParquetReaderOptions());
+                ParquetReaderOptions.defaultOptions());
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), types, columnNames);
 
-        Page page = reader.nextPage();
-        Block block = page.getBlock(0).getLoadedBlock();
+        SourcePage page = reader.nextPage();
+        Block block = page.getBlock(0);
         assertThat(block.getPositionCount()).isEqualTo(1);
         // TIME '15:03:00'
-        assertThat(timeType.getObjectValue(SESSION, block, 0))
+        assertThat(timeType.getObjectValue(block, 0))
                 .isEqualTo(SqlTime.newInstance(precision, 54180000000000000L));
 
         // TIME '23:59:59.999'
-        block = page.getBlock(1).getLoadedBlock();
+        block = page.getBlock(1);
         assertThat(block.getPositionCount()).isEqualTo(1);
         // Rounded up to 0 if precision < 3
-        assertThat(timeType.getObjectValue(SESSION, block, 0))
+        assertThat(timeType.getObjectValue(block, 0))
                 .isEqualTo(SqlTime.newInstance(precision, timeType == TIME_SECONDS ? 0L : 86399999000000000L));
     }
 }

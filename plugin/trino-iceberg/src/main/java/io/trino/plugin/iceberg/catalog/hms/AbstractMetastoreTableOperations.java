@@ -16,14 +16,13 @@ package io.trino.plugin.iceberg.catalog.hms;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Table;
-import io.trino.plugin.hive.TableAlreadyExistsException;
+import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
+import io.trino.plugin.iceberg.CreateTableException;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.io.FileIO;
@@ -47,6 +46,8 @@ import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_LOCATION_PROP;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
+import static org.apache.iceberg.TableProperties.CURRENT_SNAPSHOT_ID;
+import static org.apache.iceberg.TableProperties.CURRENT_SNAPSHOT_TIMESTAMP;
 
 @NotThreadSafe
 public abstract class AbstractMetastoreTableOperations
@@ -124,21 +125,28 @@ public abstract class AbstractMetastoreTableOperations
         try {
             metastore.createTable(table, privileges);
         }
-        catch (SchemaNotFoundException | TableAlreadyExistsException e) {
-            // clean up metadata files corresponding to the current transaction
+        catch (Exception e) {
+            // clean up metadata file corresponding to the current transaction
             fileIo.deleteFile(newMetadataLocation);
-            throw e;
+            // wrap exception in CleanableFailure to ensure that manifest list Avro files are also cleaned up
+            throw new CreateTableException(e, getSchemaTableName());
         }
     }
 
     protected Table.Builder updateMetastoreTable(Table.Builder builder, TableMetadata metadata, String metadataLocation, Optional<String> previousMetadataLocation)
     {
-        return builder
+        builder
                 .setDataColumns(toHiveColumns(metadata.schema().columns()))
                 .withStorage(storage -> storage.setLocation(metadata.location()))
                 .setParameter(METADATA_LOCATION_PROP, metadataLocation)
                 .setParameter(PREVIOUS_METADATA_LOCATION_PROP, previousMetadataLocation)
                 .setParameter(TABLE_COMMENT, Optional.ofNullable(metadata.properties().get(TABLE_COMMENT)));
+        if (metadata.currentSnapshot() != null) {
+            builder
+                    .setParameter(CURRENT_SNAPSHOT_ID, String.valueOf(metadata.currentSnapshot().snapshotId()))
+                    .setParameter(CURRENT_SNAPSHOT_TIMESTAMP, String.valueOf(metadata.currentSnapshot().timestampMillis()));
+        }
+        return builder;
     }
 
     protected Table getTable()

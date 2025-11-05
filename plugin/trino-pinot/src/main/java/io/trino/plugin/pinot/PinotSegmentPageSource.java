@@ -19,12 +19,12 @@ import io.airlift.slice.Slices;
 import io.trino.plugin.pinot.client.PinotDataFetcher;
 import io.trino.plugin.pinot.client.PinotDataTableWithSize;
 import io.trino.plugin.pinot.conversion.PinotTimestamps;
-import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
@@ -111,7 +111,7 @@ public class PinotSegmentPageSource
      * @return constructed page for pinot data.
      */
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         if (isFinished()) {
             close();
@@ -153,7 +153,7 @@ public class PinotSegmentPageSource
             }
         }
 
-        return pageBuilder.build();
+        return SourcePage.create(pageBuilder.build());
     }
 
     private static Map<Integer, RoaringBitmap> buildColumnIdToNullRowId(DataTable dataTable, List<PinotColumnHandle> columnHandles)

@@ -14,7 +14,6 @@
 package io.trino.execution.buffer;
 
 import com.google.common.collect.AbstractIterator;
-import com.google.common.io.ByteStreams;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -33,7 +32,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.io.ByteStreams.readFully;
+import static com.google.common.base.Verify.verify;
 import static io.trino.block.BlockSerdeUtil.readBlock;
 import static io.trino.block.BlockSerdeUtil.writeBlock;
 import static io.trino.execution.buffer.PageCodecMarker.COMPRESSED;
@@ -158,7 +157,7 @@ public final class PagesSerdeUtil
         protected Page computeNext()
         {
             try {
-                int read = ByteStreams.read(inputStream, headerBuffer, 0, headerBuffer.length);
+                int read = inputStream.readNBytes(headerBuffer, 0, headerBuffer.length);
                 if (read <= 0) {
                     return endOfData();
                 }
@@ -195,7 +194,7 @@ public final class PagesSerdeUtil
         protected Slice computeNext()
         {
             try {
-                int read = ByteStreams.read(inputStream, headerBuffer, 0, headerBuffer.length);
+                int read = inputStream.readNBytes(headerBuffer, 0, headerBuffer.length);
                 if (read <= 0) {
                     return endOfData();
                 }
@@ -219,7 +218,8 @@ public final class PagesSerdeUtil
         int compressedSize = headerSlice.getIntUnchecked(SERIALIZED_PAGE_COMPRESSED_SIZE_OFFSET);
         byte[] outputBuffer = new byte[SERIALIZED_PAGE_HEADER_SIZE + compressedSize];
         headerSlice.getBytes(0, outputBuffer, 0, SERIALIZED_PAGE_HEADER_SIZE);
-        readFully(inputStream, outputBuffer, SERIALIZED_PAGE_HEADER_SIZE, compressedSize);
+        int bytes = inputStream.readNBytes(outputBuffer, SERIALIZED_PAGE_HEADER_SIZE, compressedSize);
+        verify(bytes == compressedSize, "expected to read %s bytes, but read %s", compressedSize, bytes);
         return Slices.wrappedBuffer(outputBuffer);
     }
 }

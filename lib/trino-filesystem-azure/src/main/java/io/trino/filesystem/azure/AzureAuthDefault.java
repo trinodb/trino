@@ -17,11 +17,21 @@ import com.azure.core.credential.TokenCredential;
 import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
+import com.google.inject.Inject;
 
 public final class AzureAuthDefault
         implements AzureAuth
 {
-    private final TokenCredential credential = new DefaultAzureCredentialBuilder().build();
+    private final TokenCredential credential;
+
+    @Inject
+    public AzureAuthDefault(AzureAuthManagedIdentityConfig config)
+    {
+        DefaultAzureCredentialBuilder builder = new DefaultAzureCredentialBuilder();
+        config.getClientId().ifPresent(builder::managedIdentityClientId);
+        config.getResourceId().ifPresent(builder::managedIdentityResourceId);
+        credential = builder.build();
+    }
 
     @Override
     public void setAuth(String storageAccount, BlobContainerClientBuilder builder)

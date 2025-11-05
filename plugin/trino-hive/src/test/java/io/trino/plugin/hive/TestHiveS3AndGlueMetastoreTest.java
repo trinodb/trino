@@ -33,10 +33,10 @@ import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.TW
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -45,7 +45,7 @@ public class TestHiveS3AndGlueMetastoreTest
 {
     public TestHiveS3AndGlueMetastoreTest()
     {
-        super("partitioned_by", "external_location", requireNonNull(System.getenv("S3_BUCKET"), "Environment S3_BUCKET was not set"));
+        super("partitioned_by", "external_location", requireEnv("S3_BUCKET"));
     }
 
     @Override
@@ -62,8 +62,6 @@ public class TestHiveS3AndGlueMetastoreTest
                 .addHiveProperty("hive.metastore.glue.default-warehouse-dir", schemaPath())
                 .addHiveProperty("hive.security", "allow-all")
                 .addHiveProperty("hive.non-managed-table-writes-enabled", "true")
-                .addHiveProperty("hive.partition-projection-enabled", "true")
-                .addHiveProperty("fs.hadoop.enabled", "false")
                 .addHiveProperty("fs.native-s3.enabled", "true")
                 .build();
         queryRunner.execute("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaPath() + "')");

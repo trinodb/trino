@@ -21,7 +21,7 @@ import io.trino.client.NodeVersion;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
-import io.trino.metadata.InternalNode;
+import io.trino.node.InternalNode;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryPoolInfo;
@@ -73,7 +73,7 @@ public final class LowMemoryKillerTestingUtils
                     ImmutableMap.of(),
                     tasksMemoryInfoForNode(entry.getKey().getNodeIdentifier(), tasks),
                     ImmutableMap.of());
-            result.add(new MemoryInfo(7, memoryPoolInfo));
+            result.add(new MemoryInfo(7, 0, memoryPoolInfo));
         }
         return result.build();
     }

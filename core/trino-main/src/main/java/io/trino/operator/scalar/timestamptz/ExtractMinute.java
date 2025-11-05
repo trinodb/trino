@@ -27,7 +27,7 @@ import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @Description("Minute of the hour of the given timestamp")
 @ScalarFunction("minute")
-public class ExtractMinute
+public final class ExtractMinute
 {
     private ExtractMinute() {}
 

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsProvider;
@@ -247,13 +248,11 @@ public final class PlanMatchPattern
     public static PlanMatchPattern indexJoin(
             IndexJoinNode.Type type,
             List<ExpectedValueProvider<IndexJoinNode.EquiJoinClause>> criteria,
-            Optional<String> probeHashSymbol,
-            Optional<String> indexHashSymbol,
             PlanMatchPattern probeSource,
             PlanMatchPattern indexSource)
     {
         return node(IndexJoinNode.class, probeSource, indexSource)
-                .with(new IndexJoinMatcher(type, criteria, probeHashSymbol.map(SymbolAlias::new), indexHashSymbol.map(SymbolAlias::new)));
+                .with(new IndexJoinMatcher(type, criteria));
     }
 
     public static ExpectedValueProvider<IndexJoinNode.EquiJoinClause> indexJoinEquiClause(String probe, String index)
@@ -361,16 +360,7 @@ public final class PlanMatchPattern
     {
         return node(DistinctLimitNode.class, source).with(new DistinctLimitMatcher(
                 limit,
-                toSymbolAliases(distinctSymbols),
-                Optional.empty()));
-    }
-
-    public static PlanMatchPattern distinctLimit(long limit, List<String> distinctSymbols, String hashSymbol, PlanMatchPattern source)
-    {
-        return node(DistinctLimitNode.class, source).with(new DistinctLimitMatcher(
-                limit,
-                toSymbolAliases(distinctSymbols),
-                Optional.of(new SymbolAlias(hashSymbol))));
+                toSymbolAliases(distinctSymbols)));
     }
 
     public static PlanMatchPattern markDistinct(
@@ -380,20 +370,7 @@ public final class PlanMatchPattern
     {
         return node(MarkDistinctNode.class, source).with(new MarkDistinctMatcher(
                 new SymbolAlias(markerSymbol),
-                toSymbolAliases(distinctSymbols),
-                Optional.empty()));
-    }
-
-    public static PlanMatchPattern markDistinct(
-            String markerSymbol,
-            List<String> distinctSymbols,
-            String hashSymbol,
-            PlanMatchPattern source)
-    {
-        return node(MarkDistinctNode.class, source).with(new MarkDistinctMatcher(
-                new SymbolAlias(markerSymbol),
-                toSymbolAliases(distinctSymbols),
-                Optional.of(new SymbolAlias(hashSymbol))));
+                toSymbolAliases(distinctSymbols)));
     }
 
     public static PlanMatchPattern window(Consumer<WindowMatcher.Builder> handler, PlanMatchPattern source)
@@ -523,12 +500,12 @@ public final class PlanMatchPattern
         return spatialJoin(expectedFilter, Optional.empty(), left, right);
     }
 
-    public static PlanMatchPattern spatialJoin(Expression expectedFilter, Optional<String> kdbTree, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern spatialJoin(Expression expectedFilter, Optional<Slice> kdbTree, PlanMatchPattern left, PlanMatchPattern right)
     {
         return spatialJoin(expectedFilter, kdbTree, Optional.empty(), left, right);
     }
 
-    public static PlanMatchPattern spatialJoin(Expression filter, Optional<String> kdbTree, Optional<List<String>> outputSymbols, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern spatialJoin(Expression filter, Optional<Slice> kdbTree, Optional<List<String>> outputSymbols, PlanMatchPattern left, PlanMatchPattern right)
     {
         return node(SpatialJoinNode.class, left, right).with(
                 new SpatialJoinMatcher(SpatialJoinNode.Type.INNER, filter, kdbTree, outputSymbols));
@@ -1105,7 +1082,17 @@ public final class PlanMatchPattern
 
     public static ExpectedValueProvider<WindowFunction> windowFunction(String name, List<String> args, WindowNode.Frame frame)
     {
-        return new WindowFunctionProvider(name, frame, toSymbolAliases(args));
+        return windowFunction(name, args, frame, ImmutableList.of());
+    }
+
+    public static ExpectedValueProvider<WindowFunction> windowFunction(String name, List<String> args, WindowNode.Frame frame, List<PlanMatchPattern.Ordering> orderBy)
+    {
+        return windowFunction(name, args, frame, orderBy, false);
+    }
+
+    public static ExpectedValueProvider<WindowFunction> windowFunction(String name, List<String> args, WindowNode.Frame frame, List<PlanMatchPattern.Ordering> orderBy, boolean distinct)
+    {
+        return new WindowFunctionProvider(name, frame, toSymbolAliases(args), orderBy, distinct);
     }
 
     public static List<Expression> toSymbolReferences(List<PlanTestSymbol> aliases, SymbolAliases symbolAliases)

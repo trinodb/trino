@@ -14,8 +14,8 @@
 package io.trino.plugin.opensearch;
 
 import io.trino.plugin.opensearch.client.OpenSearchClient;
-import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -59,12 +59,12 @@ class CountQueryPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         int batch = toIntExact(Math.min(BATCH_SIZE, remaining));
         remaining -= batch;
 
-        return new Page(batch);
+        return SourcePage.create(batch);
     }
 
     @Override

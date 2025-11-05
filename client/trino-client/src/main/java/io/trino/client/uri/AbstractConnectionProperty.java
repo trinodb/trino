@@ -94,7 +94,7 @@ abstract class AbstractConnectionProperty<V, T>
     {
         Object value = properties.get(key);
         if (value == null) {
-            if (isRequired(properties) && !defaultValue.isPresent()) {
+            if (isRequired(properties) && defaultValue.isEmpty()) {
                 throw new RuntimeException(format("Connection property %s is required", key));
             }
             return defaultValue;
@@ -173,7 +173,7 @@ abstract class AbstractConnectionProperty<V, T>
 
     protected static <V, T> Converter<V, T> converter(Function<V, T> decoder, Function<T, V> encoder)
     {
-        return new Converter<V, T>()
+        return new Converter<>()
         {
             @Override
             public T decode(V value)
@@ -191,7 +191,7 @@ abstract class AbstractConnectionProperty<V, T>
 
     protected static final Converter<String, String> STRING_CONVERTER = converter(identity(), identity());
 
-    protected static final Converter<String, String> NON_EMPTY_STRING_CONVERTER = new Converter<String, String>()
+    protected static final Converter<String, String> NON_EMPTY_STRING_CONVERTER = new Converter<>()
     {
         @Override
         public String decode(String value)
@@ -207,7 +207,7 @@ abstract class AbstractConnectionProperty<V, T>
         }
     };
 
-    protected static final Converter<String, File> FILE_CONVERTER = new Converter<String, File>()
+    protected static final Converter<String, File> FILE_CONVERTER = new Converter<>()
     {
         @Override
         public File decode(String value)
@@ -222,7 +222,7 @@ abstract class AbstractConnectionProperty<V, T>
         }
     };
 
-    protected static final Converter<String, Boolean> BOOLEAN_CONVERTER = new Converter<String, Boolean>()
+    protected static final Converter<String, Boolean> BOOLEAN_CONVERTER = new Converter<>()
     {
         @Override
         public Boolean decode(String value)

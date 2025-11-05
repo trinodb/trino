@@ -29,7 +29,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.DynamicFilterConfig;
-import io.trino.execution.SqlQueryExecution;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.metadata.FunctionManager;
@@ -38,7 +37,6 @@ import io.trino.operator.RetryPolicy;
 import io.trino.operator.join.JoinUtils;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -121,9 +119,8 @@ public class DynamicFilterService
         this.smallMaxSizePerFilter = dynamicFilterConfig.getSmallMaxSizePerFilter();
     }
 
-    public void registerQuery(SqlQueryExecution sqlQueryExecution, SubPlan fragmentedPlan)
+    public void registerQuery(Session session, PlanNode queryPlan, SubPlan fragmentedPlan)
     {
-        PlanNode queryPlan = sqlQueryExecution.getQueryPlan().orElseThrow().getRoot();
         Set<DynamicFilterId> dynamicFilters = getProducedDynamicFilters(queryPlan);
         Set<DynamicFilterId> replicatedDynamicFilters = getReplicatedDynamicFilters(queryPlan);
 
@@ -134,8 +131,8 @@ public class DynamicFilterService
         // register query only if it contains dynamic filters
         if (!dynamicFilters.isEmpty()) {
             registerQuery(
-                    sqlQueryExecution.getQueryId(),
-                    sqlQueryExecution.getSession(),
+                    session.getQueryId(),
+                    session,
                     dynamicFilters,
                     lazyDynamicFilters,
                     replicatedDynamicFilters);
@@ -182,7 +179,7 @@ public class DynamicFilterService
         dynamicFilterContexts.put(queryId, context.createContextForQueryRetry(attemptId));
     }
 
-    public DynamicFiltersStats getDynamicFilteringStats(QueryId queryId, Session session)
+    public DynamicFiltersStats getDynamicFilteringStats(QueryId queryId)
     {
         DynamicFilterContext context = dynamicFilterContexts.get(queryId);
         if (context == null) {
@@ -194,14 +191,13 @@ public class DynamicFilterService
         int replicatedFilters = context.getReplicatedDynamicFilters().size();
         int totalDynamicFilters = context.getTotalDynamicFilters();
 
-        ConnectorSession connectorSession = session.toConnectorSession();
         List<DynamicFilterDomainStats> dynamicFilterDomainStats = context.getDynamicFilterSummaries().entrySet().stream()
                 .map(entry -> {
                     DynamicFilterId dynamicFilterId = entry.getKey();
                     return new DynamicFilterDomainStats(
                             dynamicFilterId,
                             // use small limit for readability
-                            entry.getValue().toString(connectorSession, 2),
+                            entry.getValue().toString(2),
                             context.getDynamicFilterCollectionDuration(dynamicFilterId));
                 })
                 .collect(toImmutableList());
@@ -384,8 +380,8 @@ public class DynamicFilterService
 
     public void addTaskDynamicFilters(TaskId taskId, Map<DynamicFilterId, Domain> newDynamicFilters)
     {
-        DynamicFilterContext context = dynamicFilterContexts.get(taskId.getQueryId());
-        int taskAttemptId = taskId.getAttemptId();
+        DynamicFilterContext context = dynamicFilterContexts.get(taskId.queryId());
+        int taskAttemptId = taskId.attemptId();
         if (context == null || taskAttemptId < context.getAttemptId()) {
             // query has been removed or dynamic filters are from a previous query attempt
             return;
@@ -393,14 +389,14 @@ public class DynamicFilterService
         checkState(
                 context.isTaskRetriesEnabled() || taskAttemptId == context.getAttemptId(),
                 "Query %s retry attempt %s has not been registered with dynamic filter service",
-                taskId.getQueryId(),
+                taskId.queryId(),
                 taskAttemptId);
         context.addTaskDynamicFilters(taskId, newDynamicFilters);
     }
 
     public void stageCannotScheduleMoreTasks(StageId stageId, int attemptId, int numberOfTasks)
     {
-        DynamicFilterContext context = dynamicFilterContexts.get(stageId.getQueryId());
+        DynamicFilterContext context = dynamicFilterContexts.get(stageId.queryId());
         if (context == null || attemptId < context.getAttemptId()) {
             // query has been removed or not registered (e.g. dynamic filtering is disabled)
             // or a newer attempt has already been triggered
@@ -501,14 +497,14 @@ public class DynamicFilterService
 
     private static Set<DynamicFilterId> getDynamicFiltersProducedInPlanNode(PlanNode planNode)
     {
-        if (planNode instanceof JoinNode) {
-            return ((JoinNode) planNode).getDynamicFilters().keySet();
+        if (planNode instanceof JoinNode joinNode) {
+            return joinNode.getDynamicFilters().keySet();
         }
-        if (planNode instanceof SemiJoinNode) {
-            return ((SemiJoinNode) planNode).getDynamicFilterId().map(ImmutableSet::of).orElse(ImmutableSet.of());
+        if (planNode instanceof SemiJoinNode semiJoinNode) {
+            return semiJoinNode.getDynamicFilterId().map(ImmutableSet::of).orElse(ImmutableSet.of());
         }
-        if (planNode instanceof DynamicFilterSourceNode) {
-            return ((DynamicFilterSourceNode) planNode).getDynamicFilters().keySet();
+        if (planNode instanceof DynamicFilterSourceNode dynamicFilterSourceNode) {
+            return dynamicFilterSourceNode.getDynamicFilters().keySet();
         }
         throw new IllegalStateException("getDynamicFiltersProducedInPlanNode called with neither JoinNode nor SemiJoinNode");
     }
@@ -736,7 +732,7 @@ public class DynamicFilterService
         private void collectPartitioned(TaskId taskId, Domain domain)
         {
             synchronized (collectedTasks) {
-                if (!collectedTasks.checkedAdd(taskId.getPartitionId())) {
+                if (!collectedTasks.checkedAdd(taskId.partitionId())) {
                     return;
                 }
             }
@@ -973,7 +969,7 @@ public class DynamicFilterService
                 collectionContext.collect(taskId, domain);
             });
 
-            if (stageDynamicFilters.computeIfAbsent(taskId.getStageId(), key -> newConcurrentHashSet()).addAll(newDynamicFilters.keySet())) {
+            if (stageDynamicFilters.computeIfAbsent(taskId.stageId(), key -> newConcurrentHashSet()).addAll(newDynamicFilters.keySet())) {
                 updateExpectedTaskCount();
             }
         }

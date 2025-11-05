@@ -27,7 +27,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.decoder.protobuf.ProtobufErrorCode.INVALID_PROTO_FILE;
 import static io.trino.decoder.protobuf.ProtobufRowDecoderFactory.DEFAULT_MESSAGE;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FileDescriptorProvider
@@ -58,7 +57,7 @@ public class FileDescriptorProvider
     {
         try {
             Descriptor descriptor = ProtobufUtils.getFileDescriptor(getContents(url)).findMessageTypeByName(DEFAULT_MESSAGE);
-            checkState(descriptor != null, format("Message %s not found", DEFAULT_MESSAGE));
+            checkState(descriptor != null, "Message %s not found", DEFAULT_MESSAGE);
             return descriptor;
         }
         catch (Descriptors.DescriptorValidationException e) {

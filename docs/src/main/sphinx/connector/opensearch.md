@@ -129,7 +129,7 @@ to `PASSWORD`. Additionally the following options must be configured:
 * - Property name
   - Description
 * - `opensearch.auth.user`
-  - User name to use to connect to OpenSearch.
+  - Username to use to connect to OpenSearch.
 * - `opensearch.auth.password`
   - Password to use to connect to OpenSearch.
 :::
@@ -396,6 +396,17 @@ The following hidden columns are available:
 The connector provides [globally available](sql-globally-available) and
 [read operation](sql-read-operations) statements to access data and
 metadata in the OpenSearch catalog.
+
+### Wildcard table
+
+The connector provides support to query multiple tables using a concise
+[wildcard table](https://opensearch.org/docs/latest/api-reference/multi-search/#metadata-only-options)
+notation.
+
+```sql
+SELECT *
+FROM example.web."page_views_*";
+```
 
 ### Table functions
 

@@ -16,13 +16,14 @@ package io.trino.cache;
 import com.google.common.cache.ForwardingLoadingCache;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ForwardingConcurrentMap;
+import org.jetbrains.annotations.NotNullByDefault;
 
 import java.util.concurrent.ConcurrentMap;
 
 import static java.util.Objects.requireNonNull;
 
 // package-private. The interface provides deprecation and javadoc to help at call sites
-@ElementTypesAreNonnullByDefault
+@NotNullByDefault
 class NonKeyEvictableLoadingCacheImpl<K, V>
         extends ForwardingLoadingCache<K, V>
         implements NonKeyEvictableLoadingCache<K, V>

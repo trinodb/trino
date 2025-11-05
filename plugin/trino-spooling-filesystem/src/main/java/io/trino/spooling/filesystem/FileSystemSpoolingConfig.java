@@ -30,7 +30,9 @@ public class FileSystemSpoolingConfig
     private String location;
     private Layout layout = SIMPLE;
     private Duration ttl = new Duration(12, HOURS);
+    private Duration directAccessTtl = new Duration(1, HOURS);
     private boolean encryptionEnabled = true;
+    private boolean explicitAckEnabled = true;
     private boolean pruningEnabled = true;
     private Duration pruningInterval = new Duration(5, MINUTES);
     private long pruningBatchSize = 250;
@@ -89,7 +91,7 @@ public class FileSystemSpoolingConfig
     }
 
     @Config("fs.layout")
-    @ConfigDescription("Spooled segments filesystem layout")
+    @ConfigDescription("File system layout for spooled segments storage")
     public FileSystemSpoolingConfig setLayout(Layout layout)
     {
         this.layout = layout;
@@ -101,11 +103,24 @@ public class FileSystemSpoolingConfig
         return ttl;
     }
 
-    @ConfigDescription("Maximum duration for the client to retrieve spooled segment before it expires")
     @Config("fs.segment.ttl")
+    @ConfigDescription("Maximum duration for the client to retrieve spooled segment before it expires")
     public FileSystemSpoolingConfig setTtl(Duration ttl)
     {
         this.ttl = ttl;
+        return this;
+    }
+
+    public Duration getDirectAccessTtl()
+    {
+        return directAccessTtl;
+    }
+
+    @ConfigDescription("Maximum duration for the client to retrieve spooled segment from the direct URI")
+    @Config("fs.segment.direct.ttl")
+    public FileSystemSpoolingConfig setDirectAccessTtl(Duration directAccessTtl)
+    {
+        this.directAccessTtl = directAccessTtl;
         return this;
     }
 
@@ -114,11 +129,24 @@ public class FileSystemSpoolingConfig
         return encryptionEnabled;
     }
 
-    @ConfigDescription("Encrypt segments with ephemeral keys")
     @Config("fs.segment.encryption")
+    @ConfigDescription("Encrypt segments with ephemeral keys")
     public FileSystemSpoolingConfig setEncryptionEnabled(boolean encryptionEnabled)
     {
         this.encryptionEnabled = encryptionEnabled;
+        return this;
+    }
+
+    public boolean isExplicitAckEnabled()
+    {
+        return explicitAckEnabled;
+    }
+
+    @ConfigDescription("Enables deletion of segments on client acknowledgment")
+    @Config("fs.segment.explicit-ack")
+    public FileSystemSpoolingConfig setExplicitAckEnabled(boolean explicitAckEnabled)
+    {
+        this.explicitAckEnabled = explicitAckEnabled;
         return this;
     }
 
@@ -127,8 +155,8 @@ public class FileSystemSpoolingConfig
         return pruningEnabled;
     }
 
-    @ConfigDescription("Prune expired segments periodically")
     @Config("fs.segment.pruning.enabled")
+    @ConfigDescription("Prune expired segments periodically")
     public FileSystemSpoolingConfig setPruningEnabled(boolean pruningEnabled)
     {
         this.pruningEnabled = pruningEnabled;
@@ -140,8 +168,8 @@ public class FileSystemSpoolingConfig
         return pruningInterval;
     }
 
-    @ConfigDescription("Interval to prune expired segments")
     @Config("fs.segment.pruning.interval")
+    @ConfigDescription("Interval to prune expired segments")
     public FileSystemSpoolingConfig setPruningInterval(Duration pruningInterval)
     {
         this.pruningInterval = pruningInterval;
@@ -153,8 +181,8 @@ public class FileSystemSpoolingConfig
         return pruningBatchSize;
     }
 
-    @ConfigDescription("Prune expired segments in batches of provided size")
     @Config("fs.segment.pruning.batch-size")
+    @ConfigDescription("Prune expired segments in batches of provided size")
     public FileSystemSpoolingConfig setPruningBatchSize(long pruningBatchSize)
     {
         this.pruningBatchSize = pruningBatchSize;

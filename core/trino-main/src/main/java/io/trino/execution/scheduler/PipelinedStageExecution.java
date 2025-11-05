@@ -35,10 +35,11 @@ import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
-import io.trino.failuredetector.FailureDetector;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
 import io.trino.spi.TrinoException;
+import io.trino.spi.metrics.Metrics;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
@@ -51,6 +52,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -74,7 +76,6 @@ import static io.trino.execution.scheduler.StageExecution.State.RUNNING;
 import static io.trino.execution.scheduler.StageExecution.State.SCHEDULED;
 import static io.trino.execution.scheduler.StageExecution.State.SCHEDULING;
 import static io.trino.execution.scheduler.StageExecution.State.SCHEDULING_SPLITS;
-import static io.trino.failuredetector.FailureDetector.State.GONE;
 import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_HOST_GONE;
@@ -110,8 +111,9 @@ public class PipelinedStageExecution
     private final SqlStage stage;
     private final Map<PlanFragmentId, PipelinedOutputBufferManager> outputBufferManagers;
     private final TaskLifecycleListener taskLifecycleListener;
-    private final FailureDetector failureDetector;
+    private final InternalNodeManager nodeManager;
     private final Optional<int[]> bucketToPartition;
+    private final OptionalInt skewedBucketCount;
     private final Map<PlanFragmentId, RemoteSourceNode> exchangeSources;
     private final int attempt;
 
@@ -135,9 +137,10 @@ public class PipelinedStageExecution
             SqlStage stage,
             Map<PlanFragmentId, PipelinedOutputBufferManager> outputBufferManagers,
             TaskLifecycleListener taskLifecycleListener,
-            FailureDetector failureDetector,
+            InternalNodeManager nodeManager,
             Executor executor,
             Optional<int[]> bucketToPartition,
+            OptionalInt skewedBucketCount,
             int attempt)
     {
         PipelinedStageStateMachine stateMachine = new PipelinedStageStateMachine(stage.getStageId(), executor);
@@ -152,8 +155,9 @@ public class PipelinedStageExecution
                 stage,
                 outputBufferManagers,
                 taskLifecycleListener,
-                failureDetector,
+                nodeManager,
                 bucketToPartition,
+                skewedBucketCount,
                 exchangeSources.buildOrThrow(),
                 attempt);
         execution.initialize();
@@ -165,8 +169,9 @@ public class PipelinedStageExecution
             SqlStage stage,
             Map<PlanFragmentId, PipelinedOutputBufferManager> outputBufferManagers,
             TaskLifecycleListener taskLifecycleListener,
-            FailureDetector failureDetector,
+            InternalNodeManager nodeManager,
             Optional<int[]> bucketToPartition,
+            OptionalInt skewedBucketCount,
             Map<PlanFragmentId, RemoteSourceNode> exchangeSources,
             int attempt)
     {
@@ -174,8 +179,9 @@ public class PipelinedStageExecution
         this.stage = requireNonNull(stage, "stage is null");
         this.outputBufferManagers = ImmutableMap.copyOf(requireNonNull(outputBufferManagers, "outputBufferManagers is null"));
         this.taskLifecycleListener = requireNonNull(taskLifecycleListener, "taskLifecycleListener is null");
-        this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.bucketToPartition = requireNonNull(bucketToPartition, "bucketToPartition is null");
+        this.skewedBucketCount = requireNonNull(skewedBucketCount, "skewedBucketCount is null");
         this.exchangeSources = ImmutableMap.copyOf(requireNonNull(exchangeSources, "exchangeSources is null"));
         this.attempt = attempt;
     }
@@ -271,7 +277,7 @@ public class PipelinedStageExecution
     @Override
     public synchronized void failTask(TaskId taskId, Throwable failureCause)
     {
-        RemoteTask task = requireNonNull(tasks.get(taskId.getPartitionId()), () -> "task not found: " + taskId);
+        RemoteTask task = requireNonNull(tasks.get(taskId.partitionId()), () -> "task not found: " + taskId);
         task.failLocallyImmediately(failureCause);
         fail(failureCause);
     }
@@ -295,6 +301,7 @@ public class PipelinedStageExecution
                 partition,
                 attempt,
                 bucketToPartition,
+                skewedBucketCount,
                 outputBuffers,
                 initialSplits,
                 ImmutableSet.of(),
@@ -310,10 +317,10 @@ public class PipelinedStageExecution
         tasks.put(partition, task);
 
         ImmutableMultimap.Builder<PlanNodeId, Split> exchangeSplits = ImmutableMultimap.builder();
-        sourceTasks.forEach((fragmentId, sourceTask) -> {
+        sourceTasks.forEach((sourceFragmentId, sourceTask) -> {
             TaskStatus status = sourceTask.getTaskStatus();
             if (status.getState() != TaskState.FINISHED) {
-                PlanNodeId planNodeId = exchangeSources.get(fragmentId).getId();
+                PlanNodeId planNodeId = exchangeSources.get(sourceFragmentId).getId();
                 exchangeSplits.put(planNodeId, createExchangeSplit(sourceTask, task));
             }
         });
@@ -330,7 +337,7 @@ public class PipelinedStageExecution
         taskLifecycleListener.taskCreated(stage.getFragment().getId(), task);
 
         // update output buffers
-        OutputBufferId outputBufferId = new OutputBufferId(task.getTaskId().getPartitionId());
+        OutputBufferId outputBufferId = new OutputBufferId(task.getTaskId().partitionId());
         updateSourceTasksOutputBuffers(outputBufferManager -> outputBufferManager.addOutputBuffer(outputBufferId));
 
         return Optional.of(task);
@@ -352,7 +359,7 @@ public class PipelinedStageExecution
                         .map(this::rewriteTransportFailure)
                         .map(ExecutionFailureInfo::toException)
                         // task is failed or failing, so we need to create a synthetic exception to fail the stage now
-                        .orElseGet(() -> new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
+                        .orElseGet(() -> new TrinoException(GENERIC_INTERNAL_ERROR, format("Task %s failed for an unknown reason", taskStatus.getTaskId())));
                 fail(failure);
                 break;
             case CANCELING:
@@ -360,7 +367,7 @@ public class PipelinedStageExecution
             case ABORTING:
             case ABORTED:
                 // A task should only be in the aborting, aborted, canceling, or canceled state if the STAGE is done (ABORTED or FAILED)
-                fail(new TrinoException(GENERIC_INTERNAL_ERROR, format("A task is in the %s state but stage is %s", taskState, stateMachine.getState())));
+                fail(new TrinoException(GENERIC_INTERNAL_ERROR, format("Task %s is in the %s state but stage %s is %s", taskStatus.getTaskId(), taskState, stateMachine.getStageId(), stateMachine.getState())));
                 break;
             case FLUSHING:
                 newFlushingOrFinishedTaskObserved = addFlushingTask(taskStatus.getTaskId());
@@ -435,7 +442,7 @@ public class PipelinedStageExecution
 
     private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)
     {
-        if (executionFailureInfo.getRemoteHost() == null || failureDetector.getState(executionFailureInfo.getRemoteHost()) != GONE) {
+        if (executionFailureInfo.getRemoteHost() == null || !nodeManager.isGone(executionFailureInfo.getRemoteHost())) {
             return executionFailureInfo;
         }
 
@@ -530,15 +537,16 @@ public class PipelinedStageExecution
     @Override
     public boolean isAnyTaskBlocked()
     {
-        return getTaskStatuses().stream()
+        return tasks.values().stream()
+                .map(RemoteTask::getTaskStatus)
                 .map(TaskStatus::getOutputBufferStatus)
                 .anyMatch(OutputBufferStatus::isOverutilized);
     }
 
     @Override
-    public void recordGetSplitTime(long start)
+    public void recordSplitSourceMetrics(PlanNodeId nodeId, Metrics metrics, long start)
     {
-        stage.recordGetSplitTime(start);
+        stage.recordSplitSourceMetrics(nodeId, metrics, start);
     }
 
     @Override
@@ -581,7 +589,7 @@ public class PipelinedStageExecution
     {
         // Fetch the results from the buffer assigned to the task based on id
         URI exchangeLocation = sourceTask.getTaskStatus().getSelf();
-        URI splitLocation = uriBuilderFrom(exchangeLocation).appendPath("results").appendPath(String.valueOf(destinationTask.getTaskId().getPartitionId())).build();
+        URI splitLocation = uriBuilderFrom(exchangeLocation).appendPath("results").appendPath(String.valueOf(destinationTask.getTaskId().partitionId())).build();
         return new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new DirectExchangeInput(sourceTask.getTaskId(), splitLocation.toString())));
     }
 
@@ -599,6 +607,11 @@ public class PipelinedStageExecution
 
             state = new StateMachine<>("Pipelined stage execution " + stageId, executor, PLANNED, TERMINAL_STAGE_STATES);
             state.addStateChangeListener(state -> log.debug("Pipelined stage execution %s is %s", stageId, state));
+        }
+
+        public StageId getStageId()
+        {
+            return stageId;
         }
 
         public State getState()

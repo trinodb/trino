@@ -18,14 +18,12 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.trino.plugin.base.CatalogNameModule;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.plugin.kafka.security.KafkaSecurityModule;
-import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.type.TypeManager;
 
 import java.util.List;
 import java.util.Map;
@@ -57,23 +55,23 @@ public class KafkaConnectorFactory
         checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.catalog." + catalogName,
                 ImmutableList.<Module>builder()
-                        .add(new CatalogNameModule(catalogName))
                         .add(new JsonModule())
-                        .add(new TypeDeserializerModule(context.getTypeManager()))
-                        .add(new KafkaConnectorModule(context.getTypeManager()))
+                        .add(new TypeDeserializerModule())
+                        .add(new KafkaConnectorModule())
                         .add(new KafkaClientsModule())
                         .add(new KafkaSecurityModule())
+                        .add(new ConnectorContextModule(catalogName, context))
                         .add(binder -> {
                             binder.bind(ClassLoader.class).toInstance(KafkaConnectorFactory.class.getClassLoader());
-                            binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                            binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         })
                         .addAll(extensions)
                         .build());
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

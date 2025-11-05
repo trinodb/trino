@@ -14,6 +14,7 @@
 package io.trino.testing;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchMetadata;
 import io.trino.plugin.tpch.TpchTableHandle;
@@ -190,12 +191,14 @@ public class H2QueryRunner
     public MaterializedResult execute(Session session, @Language("SQL") String sql, List<? extends Type> resultTypes)
     {
         MaterializedResult materializedRows = new MaterializedResult(
+                Optional.of(session),
                 handle.setSqlParser(new RawSqlParser())
                         .setTemplateEngine((template, context) -> template)
                         .createQuery(sql)
                         .map(rowMapper(resultTypes))
                         .list(),
-                resultTypes);
+                resultTypes,
+                ImmutableList.of());
 
         return materializedRows;
     }

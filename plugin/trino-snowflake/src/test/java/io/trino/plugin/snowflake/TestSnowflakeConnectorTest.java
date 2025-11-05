@@ -70,6 +70,7 @@ public class TestSnowflakeConnectorTest
                  SUPPORTS_ARRAY,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                 SUPPORTS_MAP_TYPE,
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
                  SUPPORTS_ROW_TYPE,
@@ -198,7 +199,7 @@ public class TestSnowflakeConnectorTest
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return "NULL result in a non-nullable column";
+        return ".* failed on column NOT_NULL_COL with error: NULL result in a non-nullable column";
     }
 
     @Test

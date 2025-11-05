@@ -52,11 +52,11 @@ public final class Utils
 
     static RuntimeException handleThrowable(Throwable throwable)
     {
-        if (throwable instanceof Error) {
-            throw (Error) throwable;
+        if (throwable instanceof Error error) {
+            throw error;
         }
-        if (throwable instanceof RuntimeException) {
-            throw (RuntimeException) throwable;
+        if (throwable instanceof RuntimeException runtimeException) {
+            throw runtimeException;
         }
         return new RuntimeException(throwable);
     }

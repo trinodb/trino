@@ -27,6 +27,8 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionOption;
 import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -55,9 +57,13 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
+import org.apache.iceberg.ManifestFile;
+import org.apache.iceberg.ManifestFiles;
+import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -69,6 +75,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type.PrimitiveType;
 import org.apache.iceberg.types.TypeUtil;
@@ -76,6 +83,7 @@ import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StructType;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -84,7 +92,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -111,15 +118,22 @@ import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnMetadata;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnHandle;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnMetadata;
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
+import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.IcebergMetadata.calculateTableCompressionProperties;
+import static io.trino.plugin.iceberg.IcebergTableProperties.COMPRESSION_CODEC;
+import static io.trino.plugin.iceberg.IcebergTableProperties.DATA_LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_COMMIT_RETRY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.OBJECT_STORE_LAYOUT_ENABLED_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY;
@@ -129,6 +143,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SUPPORTED_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
+import static io.trino.plugin.iceberg.IcebergTableProperties.validateCompression;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
@@ -157,6 +172,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
+import static java.lang.Boolean.parseBoolean;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
@@ -165,19 +181,23 @@ import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Comparator.comparing;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.TableProperties.AVRO_COMPRESSION;
+import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED_DEFAULT;
-import static org.apache.iceberg.TableProperties.OBJECT_STORE_PATH;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_FPP;
+import static org.apache.iceberg.TableProperties.ORC_COMPRESSION;
 import static org.apache.iceberg.TableProperties.PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX;
+import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
-import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
+import static org.apache.iceberg.TableUtil.formatVersion;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
@@ -193,6 +213,7 @@ public final class IcebergUtil
     public static final String METADATA_FOLDER_NAME = "metadata";
     public static final String METADATA_FILE_EXTENSION = ".metadata.json";
     public static final String TRINO_QUERY_ID_NAME = "trino_query_id";
+    public static final String TRINO_USER_NAME = "trino_user";
     // For backward compatibility only. DO NOT USE.
     private static final String BROKEN_ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
     // For backward compatibility only. DO NOT USE.
@@ -211,7 +232,7 @@ public final class IcebergUtil
 
     private IcebergUtil() {}
 
-    public static Table loadIcebergTable(TrinoCatalog catalog, IcebergTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
+    public static BaseTable loadIcebergTable(TrinoCatalog catalog, IcebergTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
     {
         TableOperations operations = tableOperationsProvider.createTableOperations(
                 catalog,
@@ -223,7 +244,7 @@ public final class IcebergUtil
         return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
     }
 
-    public static Table getIcebergTableWithMetadata(
+    public static BaseTable getIcebergTableWithMetadata(
             TrinoCatalog catalog,
             IcebergTableOperationsProvider tableOperationsProvider,
             ConnectorSession session,
@@ -293,13 +314,20 @@ public final class IcebergUtil
         return ImmutableList.copyOf(path.reversed());
     }
 
-    public static Map<String, Object> getIcebergTableProperties(Table icebergTable)
+    public static Map<String, Object> getIcebergTableProperties(BaseTable icebergTable)
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
-        properties.put(FILE_FORMAT_PROPERTY, getFileFormat(icebergTable));
+        IcebergFileFormat fileFormat = getFileFormat(icebergTable);
+        properties.put(FILE_FORMAT_PROPERTY, fileFormat);
         if (!icebergTable.spec().fields().isEmpty()) {
             properties.put(PARTITIONING_PROPERTY, toPartitionFields(icebergTable.spec()));
         }
+
+        Optional<HiveCompressionCodec> compressionCodec = getHiveCompressionCodec(fileFormat, icebergTable.properties());
+
+        validateCompression(fileFormat, compressionCodec);
+
+        compressionCodec.ifPresent(hiveCompressionCodec -> properties.put(COMPRESSION_CODEC, HiveCompressionOption.valueOf(hiveCompressionCodec.name())));
 
         SortOrder sortOrder = icebergTable.sortOrder();
         // TODO: Support sort column transforms (https://github.com/trinodb/trino/issues/15088)
@@ -312,8 +340,13 @@ public final class IcebergUtil
             properties.put(LOCATION_PROPERTY, icebergTable.location());
         }
 
-        int formatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
+        int formatVersion = formatVersion(icebergTable);
         properties.put(FORMAT_VERSION_PROPERTY, formatVersion);
+
+        if (icebergTable.properties().containsKey(COMMIT_NUM_RETRIES)) {
+            int commitNumRetries = parseInt(icebergTable.properties().get(COMMIT_NUM_RETRIES));
+            properties.put(MAX_COMMIT_RETRY, commitNumRetries);
+        }
 
         // iceberg ORC format bloom filter properties
         Optional<String> orcBloomFilterColumns = getOrcBloomFilterColumns(icebergTable.properties());
@@ -332,6 +365,13 @@ public final class IcebergUtil
             properties.put(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY, ImmutableList.copyOf(parquetBloomFilterColumns));
         }
 
+        if (parseBoolean(icebergTable.properties().getOrDefault(OBJECT_STORE_ENABLED, "false"))) {
+            properties.put(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY, true);
+        }
+
+        Optional<String> dataLocation = Optional.ofNullable(icebergTable.properties().get(WRITE_DATA_LOCATION));
+        dataLocation.ifPresent(location -> properties.put(DATA_LOCATION_PROPERTY, location));
+
         return properties.buildOrThrow();
     }
 
@@ -340,12 +380,11 @@ public final class IcebergUtil
     // These methods maintain backward compatibility for existing table.
     public static Optional<String> getOrcBloomFilterColumns(Map<String, String> properties)
     {
-        Optional<String> orcBloomFilterColumns = Stream.of(
+        return Stream.of(
                         properties.get(ORC_BLOOM_FILTER_COLUMNS),
                         properties.get(BROKEN_ORC_BLOOM_FILTER_COLUMNS_KEY))
                 .filter(Objects::nonNull)
                 .findFirst();
-        return orcBloomFilterColumns;
     }
 
     public static Set<String> getParquetBloomFilterColumns(Map<String, String> properties)
@@ -386,6 +425,7 @@ public final class IcebergUtil
                                 .setComment(Optional.ofNullable(column.doc()))
                                 .build())
                 .forEach(columns::add);
+        columns.add(partitionColumnMetadata());
         columns.add(pathColumnMetadata());
         columns.add(fileModifiedTimeColumnMetadata());
         return columns.build();
@@ -395,7 +435,7 @@ public final class IcebergUtil
     {
         NestedField fieldToUpdate = schema.findField(columnName);
         checkArgument(fieldToUpdate != null, "Field %s does not exist", columnName);
-        NestedField updatedField = NestedField.of(fieldToUpdate.fieldId(), fieldToUpdate.isOptional(), fieldToUpdate.name(), fieldToUpdate.type(), comment);
+        NestedField updatedField = NestedField.from(fieldToUpdate).withDoc(comment).build();
         List<NestedField> newFields = schema.columns().stream()
                 .map(field -> (field.fieldId() == updatedField.fieldId()) ? updatedField : field)
                 .toList();
@@ -410,21 +450,25 @@ public final class IcebergUtil
 
     private static IcebergColumnHandle createColumnHandle(NestedField baseColumn, NestedField childColumn, TypeManager typeManager, List<Integer> path)
     {
-        return new IcebergColumnHandle(
-                createColumnIdentity(baseColumn),
-                toTrinoType(baseColumn.type(), typeManager),
-                path,
-                toTrinoType(childColumn.type(), typeManager),
-                childColumn.isOptional(),
-                Optional.ofNullable(childColumn.doc()));
+        return IcebergColumnHandle.builder(createColumnIdentity(baseColumn))
+                .fieldType(toTrinoType(baseColumn.type(), typeManager), toTrinoType(childColumn.type(), typeManager))
+                .path(path)
+                .nullable(childColumn.isOptional())
+                .comment(childColumn.doc())
+                .build();
     }
 
     public static Schema schemaFromHandles(List<IcebergColumnHandle> columns)
     {
+        return structTypeFromHandles(columns).asSchema();
+    }
+
+    public static StructType structTypeFromHandles(List<IcebergColumnHandle> columns)
+    {
         List<NestedField> icebergColumns = columns.stream()
                 .map(column -> NestedField.optional(column.getId(), column.getName(), toIcebergType(column.getType(), column.getColumnIdentity())))
                 .collect(toImmutableList());
-        return new Schema(StructType.of(icebergColumns).asStructType().fields());
+        return StructType.of(icebergColumns);
     }
 
     public static Map<PartitionField, Integer> getIdentityPartitions(PartitionSpec partitionSpec)
@@ -438,6 +482,33 @@ public final class IcebergUtil
             }
         }
         return columns.buildOrThrow();
+    }
+
+    public static List<NestedField> primitiveFields(Schema schema)
+    {
+        return primitiveFields(schema.columns())
+                .collect(toImmutableList());
+    }
+
+    private static Stream<NestedField> primitiveFields(List<NestedField> nestedFields)
+    {
+        return nestedFields.stream()
+                .flatMap(IcebergUtil::primitiveFields);
+    }
+
+    private static Stream<NestedField> primitiveFields(NestedField nestedField)
+    {
+        org.apache.iceberg.types.Type type = nestedField.type();
+        if (type.isPrimitiveType()) {
+            return Stream.of(nestedField);
+        }
+
+        if (type.isNestedType()) {
+            return primitiveFields(type.asNestedType().fields())
+                    .map(field -> NestedField.from(field).withName(nestedField.name() + "." + field.name()).build());
+        }
+
+        throw new IllegalStateException("Unsupported field type: " + nestedField);
     }
 
     public static Map<Integer, PrimitiveType> primitiveFieldTypes(Schema schema)
@@ -475,7 +546,7 @@ public final class IcebergUtil
     {
         return IcebergFileFormat.fromIceberg(FileFormat.valueOf(storageProperties
                 .getOrDefault(DEFAULT_FILE_FORMAT, DEFAULT_FILE_FORMAT_DEFAULT)
-                .toUpperCase(Locale.ENGLISH)));
+                .toUpperCase(ENGLISH)));
     }
 
     public static Optional<String> getTableComment(Table table)
@@ -508,7 +579,7 @@ public final class IcebergUtil
                 .collect(toImmutableList());
 
         if (partitionSpecs.isEmpty()) {
-            return false;
+            return canEnforceConstraintWithinPartitioningSpec(typeOperators, table.spec(), columnHandle, domain);
         }
 
         return partitionSpecs.stream().allMatch(spec -> canEnforceConstraintWithinPartitioningSpec(typeOperators, spec, columnHandle, domain));
@@ -546,7 +617,7 @@ public final class IcebergUtil
         }
         ValueSet valueSet = domain.getValues();
 
-        boolean canEnforce = valueSet.getValuesProcessor().transform(
+        return valueSet.getValuesProcessor().transform(
                 ranges -> {
                     MethodHandle targetTypeEqualOperator = typeOperators.getEqualOperator(
                             transform.type(), InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
@@ -559,7 +630,6 @@ public final class IcebergUtil
                 },
                 discreteValues -> false,
                 allOrNone -> true);
-        return canEnforce;
     }
 
     private static boolean canEnforceRangeWithPartitioningField(PartitionField field, ColumnTransform transform, Range range, MethodHandle targetTypeEqualOperator)
@@ -764,7 +834,13 @@ public final class IcebergUtil
             if (!column.isHidden()) {
                 int index = icebergColumns.size() + 1;
                 org.apache.iceberg.types.Type type = toIcebergTypeForNewColumn(column.getType(), nextFieldId);
-                NestedField field = NestedField.of(index, column.isNullable(), column.getName(), type, column.getComment());
+                NestedField field = NestedField.builder()
+                        .withId(index)
+                        .isOptional(column.isNullable())
+                        .withName(column.getName())
+                        .ofType(type)
+                        .withDoc(column.getComment())
+                        .build();
                 icebergColumns.add(field);
             }
         }
@@ -779,7 +855,7 @@ public final class IcebergUtil
         for (ViewColumn column : columns) {
             Type trinoType = typeManager.getType(column.getType());
             org.apache.iceberg.types.Type type = toIcebergTypeForNewColumn(trinoType, nextFieldId);
-            NestedField field = NestedField.of(nextFieldId.getAndIncrement(), false, column.getName(), type, column.getComment().orElse(null));
+            NestedField field = NestedField.required(nextFieldId.getAndIncrement(), column.getName(), type, column.getComment().orElse(null));
             icebergColumns.add(field);
         }
         org.apache.iceberg.types.Type icebergSchema = StructType.of(icebergColumns);
@@ -800,10 +876,25 @@ public final class IcebergUtil
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
         SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
 
+        Transaction transaction;
+
         if (replace) {
-            return catalog.newCreateOrReplaceTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, tableLocation, createTableProperties(tableMetadata, allowedExtraProperties));
+            transaction = catalog.newCreateOrReplaceTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, tableLocation, createTableProperties(tableMetadata, allowedExtraProperties));
         }
-        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, tableLocation, createTableProperties(tableMetadata, allowedExtraProperties));
+        else {
+            transaction = catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, Optional.ofNullable(tableLocation), createTableProperties(tableMetadata, allowedExtraProperties));
+        }
+
+        // If user doesn't set compression-codec for parquet, we need to remove write.parquet.compression-codec property,
+        // Otherwise Iceberg will set write.parquet.compression-codec to zstd by default.
+        String parquetCompressionValue = transaction.table().properties().get(PARQUET_COMPRESSION);
+        if (parquetCompressionValue != null && parquetCompressionValue.isEmpty()) {
+            transaction.updateProperties()
+                    .remove(PARQUET_COMPRESSION)
+                    .commit();
+        }
+
+        return transaction;
     }
 
     public static Map<String, String> createTableProperties(ConnectorTableMetadata tableMetadata, Predicate<String> allowedExtraProperties)
@@ -812,12 +903,40 @@ public final class IcebergUtil
         IcebergFileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
         propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toIceberg().toString());
         propertiesBuilder.put(FORMAT_VERSION, Integer.toString(IcebergTableProperties.getFormatVersion(tableMetadata.getProperties())));
+        IcebergTableProperties.getMaxCommitRetry(tableMetadata.getProperties())
+                .ifPresent(value -> propertiesBuilder.put(COMMIT_NUM_RETRIES, Integer.toString(value)));
+
+        Optional<HiveCompressionCodec> compressionCodec = IcebergTableProperties.getCompressionCodec(tableMetadata.getProperties());
+
+        validateCompression(fileFormat, compressionCodec);
+
+        Map<String, String> tableCompressionProperties = calculateTableCompressionProperties(fileFormat, fileFormat, ImmutableMap.of(), tableMetadata.getProperties());
+
+        tableCompressionProperties.forEach(propertiesBuilder::put);
+
+        // Iceberg will set write.parquet.compression-codec to zstd by default if this property is not set: https://github.com/trinodb/trino/issues/20401,
+        // but we don't want to set this property if this is not explicitly set by customer via set table properties.
+        if (!(fileFormat == PARQUET && compressionCodec.isPresent())) {
+            propertiesBuilder.put(PARQUET_COMPRESSION, "");
+        }
+
+        boolean objectStoreLayoutEnabled = IcebergTableProperties.getObjectStoreLayoutEnabled(tableMetadata.getProperties());
+        if (objectStoreLayoutEnabled) {
+            propertiesBuilder.put(OBJECT_STORE_ENABLED, "true");
+        }
+        Optional<String> dataLocation = IcebergTableProperties.getDataLocation(tableMetadata.getProperties());
+        dataLocation.ifPresent(location -> {
+            if (!objectStoreLayoutEnabled) {
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "Data location can only be set when object store layout is enabled");
+            }
+            propertiesBuilder.put(WRITE_DATA_LOCATION, location);
+        });
 
         // iceberg ORC format bloom filter properties used by create table
         List<String> orcBloomFilterColumns = IcebergTableProperties.getOrcBloomFilterColumns(tableMetadata.getProperties());
         if (!orcBloomFilterColumns.isEmpty()) {
             checkFormatForProperty(fileFormat.toIceberg(), FileFormat.ORC, ORC_BLOOM_FILTER_COLUMNS_PROPERTY);
-            validateOrcBloomFilterColumns(tableMetadata, orcBloomFilterColumns);
+            validateOrcBloomFilterColumns(tableMetadata.getColumns(), orcBloomFilterColumns);
             propertiesBuilder.put(ORC_BLOOM_FILTER_COLUMNS, Joiner.on(",").join(orcBloomFilterColumns));
             propertiesBuilder.put(ORC_BLOOM_FILTER_FPP, String.valueOf(IcebergTableProperties.getOrcBloomFilterFpp(tableMetadata.getProperties())));
         }
@@ -826,7 +945,7 @@ public final class IcebergUtil
         List<String> parquetBloomFilterColumns = IcebergTableProperties.getParquetBloomFilterColumns(tableMetadata.getProperties());
         if (!parquetBloomFilterColumns.isEmpty()) {
             checkFormatForProperty(fileFormat.toIceberg(), FileFormat.PARQUET, PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
-            validateParquetBloomFilterColumns(tableMetadata, parquetBloomFilterColumns);
+            validateParquetBloomFilterColumns(tableMetadata.getColumns(), parquetBloomFilterColumns);
             for (String column : parquetBloomFilterColumns) {
                 propertiesBuilder.put(PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX + column, "true");
             }
@@ -839,11 +958,21 @@ public final class IcebergUtil
         Map<String, String> baseProperties = propertiesBuilder.buildOrThrow();
         Map<String, String> extraProperties = IcebergTableProperties.getExtraProperties(tableMetadata.getProperties()).orElseGet(ImmutableMap::of);
 
+        verifyExtraProperties(baseProperties.keySet(), extraProperties, allowedExtraProperties);
+
+        return ImmutableMap.<String, String>builder()
+                .putAll(baseProperties)
+                .putAll(extraProperties)
+                .buildOrThrow();
+    }
+
+    public static void verifyExtraProperties(Set<String> basePropertyKeys, Map<String, String> extraProperties, Predicate<String> allowedExtraProperties)
+    {
         Set<String> illegalExtraProperties = ImmutableSet.<String>builder()
                 .addAll(Sets.intersection(
                         ImmutableSet.<String>builder()
                                 .add(TABLE_COMMENT)
-                                .addAll(baseProperties.keySet())
+                                .addAll(basePropertyKeys)
                                 .addAll(SUPPORTED_PROPERTIES)
                                 .addAll(PROTECTED_ICEBERG_NATIVE_PROPERTIES)
                                 .build(),
@@ -858,11 +987,32 @@ public final class IcebergUtil
                     INVALID_TABLE_PROPERTY,
                     format("Illegal keys in extra_properties: %s", illegalExtraProperties));
         }
+    }
 
-        return ImmutableMap.<String, String>builder()
-                .putAll(baseProperties)
-                .putAll(extraProperties)
-                .buildOrThrow();
+    public static Optional<HiveCompressionCodec> getHiveCompressionCodec(IcebergFileFormat icebergFileFormat, Map<String, String> storageProperties)
+    {
+        String compressionProperty = getCompressionPropertyName(icebergFileFormat);
+
+        return Optional.ofNullable(storageProperties.get(compressionProperty))
+                .filter(value -> !value.isEmpty())
+                .map(value -> {
+                    try {
+                        return HiveCompressionCodec.valueOf(value.toUpperCase(ENGLISH));
+                    }
+                    catch (IllegalArgumentException e) {
+                        throw new TrinoException(INVALID_TABLE_PROPERTY,
+                                format("Compression codec %s is unsupported.", value));
+                    }
+                });
+    }
+
+    public static String getCompressionPropertyName(IcebergFileFormat fileFormat)
+    {
+        return switch (fileFormat) {
+            case AVRO -> AVRO_COMPRESSION;
+            case ORC -> ORC_COMPRESSION;
+            case PARQUET -> PARQUET_COMPRESSION;
+        };
     }
 
     /**
@@ -931,27 +1081,16 @@ public final class IcebergUtil
                 .snapshotId();
     }
 
-    public static void validateTableCanBeDropped(Table table)
-    {
-        // TODO: support path override in Iceberg table creation: https://github.com/trinodb/trino/issues/8861
-        if (table.properties().containsKey(OBJECT_STORE_PATH) ||
-                table.properties().containsKey("write.folder-storage.path") || // Removed from Iceberg as of 0.14.0, but preserved for backward compatibility
-                table.properties().containsKey(WRITE_METADATA_LOCATION) ||
-                table.properties().containsKey(WRITE_DATA_LOCATION)) {
-            throw new TrinoException(NOT_SUPPORTED, "Table contains Iceberg path override properties and cannot be dropped from Trino: " + table.name());
-        }
-    }
-
-    private static void checkFormatForProperty(FileFormat actualStorageFormat, FileFormat expectedStorageFormat, String propertyName)
+    public static void checkFormatForProperty(FileFormat actualStorageFormat, FileFormat expectedStorageFormat, String propertyName)
     {
         if (actualStorageFormat != expectedStorageFormat) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", propertyName, actualStorageFormat));
         }
     }
 
-    private static void validateOrcBloomFilterColumns(ConnectorTableMetadata tableMetadata, List<String> orcBloomFilterColumns)
+    public static void validateOrcBloomFilterColumns(List<ColumnMetadata> columns, List<String> orcBloomFilterColumns)
     {
-        Set<String> allColumns = tableMetadata.getColumns().stream()
+        Set<String> allColumns = columns.stream()
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableSet());
         if (!allColumns.containsAll(orcBloomFilterColumns)) {
@@ -959,9 +1098,9 @@ public final class IcebergUtil
         }
     }
 
-    private static void validateParquetBloomFilterColumns(ConnectorTableMetadata tableMetadata, List<String> parquetBloomFilterColumns)
+    public static void validateParquetBloomFilterColumns(List<ColumnMetadata> columns, List<String> parquetBloomFilterColumns)
     {
-        Map<String, Type> columnTypes = tableMetadata.getColumns().stream()
+        Map<String, Type> columnTypes = columns.stream()
                 .collect(toImmutableMap(ColumnMetadata::getName, ColumnMetadata::getType));
         for (String column : parquetBloomFilterColumns) {
             Type type = columnTypes.get(column);
@@ -986,7 +1125,7 @@ public final class IcebergUtil
         if (matcher.matches()) {
             return parseInt(matcher.group("version"));
         }
-        throw new TrinoException(ICEBERG_BAD_DATA, "Invalid metadata file name: " + metadataFileName);
+        throw new TrinoException(ICEBERG_INVALID_METADATA, "Invalid metadata file name: " + metadataFileName);
     }
 
     public static String fixBrokenMetadataLocation(String location)
@@ -1013,6 +1152,7 @@ public final class IcebergUtil
     public static void commit(SnapshotUpdate<?> update, ConnectorSession session)
     {
         update.set(TRINO_QUERY_ID_NAME, session.getQueryId());
+        update.set(TRINO_USER_NAME, session.getUser());
         update.commit();
     }
 
@@ -1049,10 +1189,21 @@ public final class IcebergUtil
                         latestMetadataLocations));
             }
         }
-        catch (IOException e) {
+        catch (IOException | UncheckedIOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed checking table location: " + location, e);
         }
         return getOnlyElement(latestMetadataLocations).toString();
+    }
+
+    public static Domain getPartitionDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)
+    {
+        IcebergColumnHandle partitionColumn = partitionColumnHandle();
+        Domain domain = effectivePredicate.getDomains().orElseThrow(() -> new IllegalArgumentException("Unexpected NONE tuple domain"))
+                .get(partitionColumn);
+        if (domain == null) {
+            return Domain.all(partitionColumn.getType());
+        }
+        return domain;
     }
 
     public static Domain getPathDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)
@@ -1066,7 +1217,7 @@ public final class IcebergUtil
         return domain;
     }
 
-    public static Domain getFileModifiedTimePathDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)
+    public static Domain getFileModifiedTimeDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)
     {
         IcebergColumnHandle fileModifiedTimeColumn = fileModifiedTimeColumnHandle();
         Domain domain = effectivePredicate.getDomains().orElseThrow(() -> new IllegalArgumentException("Unexpected NONE tuple domain"))
@@ -1083,8 +1234,21 @@ public final class IcebergUtil
             TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(path));
             return inputFile.lastModified().toEpochMilli();
         }
-        catch (IOException e) {
+        catch (IOException | UncheckedIOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to get file modification time: " + path, e);
         }
+    }
+
+    public static ManifestReader<? extends ContentFile<?>> readerForManifest(ManifestFile manifest, Table table)
+    {
+        return readerForManifest(manifest, table.io(), table.specs());
+    }
+
+    public static ManifestReader<? extends ContentFile<?>> readerForManifest(ManifestFile manifest, FileIO fileIO, Map<Integer, PartitionSpec> specsById)
+    {
+        return switch (manifest.content()) {
+            case DATA -> ManifestFiles.read(manifest, fileIO);
+            case DELETES -> ManifestFiles.readDeleteManifest(manifest, fileIO, specsById);
+        };
     }
 }

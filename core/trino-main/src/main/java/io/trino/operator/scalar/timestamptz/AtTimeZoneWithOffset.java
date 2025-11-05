@@ -26,7 +26,7 @@ import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.util.Failures.checkCondition;
 
 @ScalarFunction(value = "at_timezone", hidden = true)
-public class AtTimeZoneWithOffset
+public final class AtTimeZoneWithOffset
 {
     private AtTimeZoneWithOffset() {}
 

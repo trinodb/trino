@@ -122,7 +122,7 @@ public class TestJoinEnumerator
                 Optional.empty(),
                 noLookup(),
                 planTester.getDefaultSession(),
-                new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), planTester.getDefaultSession()),
+                new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), planTester.getDefaultSession(), () -> false),
                 RuntimeInfoProvider.noImplementation());
         CachingCostProvider costProvider = new CachingCostProvider(
                 planTester.getCostCalculator(),

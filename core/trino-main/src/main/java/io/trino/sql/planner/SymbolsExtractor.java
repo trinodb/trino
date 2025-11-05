@@ -110,6 +110,7 @@ public final class SymbolsExtractor
         for (Expression argument : function.getArguments()) {
             builder.addAll(extractAll(argument));
         }
+        function.getOrderingScheme().ifPresent(orderBy -> builder.addAll(orderBy.orderBy()));
         function.getFrame().getEndValue().ifPresent(builder::add);
         function.getFrame().getSortKeyCoercedForFrameEndComparison().ifPresent(builder::add);
         function.getFrame().getStartValue().ifPresent(builder::add);

@@ -17,7 +17,6 @@ import io.trino.spi.type.Int128;
 import jakarta.annotation.Nullable;
 
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -26,6 +25,7 @@ import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
 
@@ -74,12 +74,6 @@ public final class Int128ArrayBlock
     }
 
     @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.of(SIZE_IN_BYTES_PER_POSITION);
-    }
-
-    @Override
     public long getSizeInBytes()
     {
         return SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
@@ -89,12 +83,6 @@ public final class Int128ArrayBlock
     public long getRegionSizeInBytes(int position, int length)
     {
         return SIZE_IN_BYTES_PER_POSITION * (long) length;
-    }
-
-    @Override
-    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
-    {
-        return (long) SIZE_IN_BYTES_PER_POSITION * selectedPositionsCount;
     }
 
     @Override
@@ -151,6 +139,20 @@ public final class Int128ArrayBlock
     }
 
     @Override
+    public boolean hasNull()
+    {
+        if (valueIsNull == null) {
+            return false;
+        }
+        for (int i = 0; i < positionCount; i++) {
+            if (valueIsNull[i + positionOffset]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(this, position);
@@ -175,6 +177,7 @@ public final class Int128ArrayBlock
     {
         checkArrayRange(positions, offset, length);
 
+        boolean hasNull = false;
         boolean[] newValueIsNull = null;
         if (valueIsNull != null) {
             newValueIsNull = new boolean[length];
@@ -184,12 +187,14 @@ public final class Int128ArrayBlock
             int position = positions[offset + i];
             checkReadablePosition(this, position);
             if (valueIsNull != null) {
-                newValueIsNull[i] = valueIsNull[position + positionOffset];
+                boolean isNull = valueIsNull[position + positionOffset];
+                newValueIsNull[i] = isNull;
+                hasNull |= isNull;
             }
             newValues[i * 2] = values[(position + positionOffset) * 2];
             newValues[(i * 2) + 1] = values[((position + positionOffset) * 2) + 1];
         }
-        return new Int128ArrayBlock(0, length, newValueIsNull, newValues);
+        return new Int128ArrayBlock(0, length, hasNull ? newValueIsNull : null, newValues);
     }
 
     @Override
@@ -206,19 +211,13 @@ public final class Int128ArrayBlock
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         positionOffset += this.positionOffset;
-        boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
+        boolean[] newValueIsNull = compactIsNull(valueIsNull, positionOffset, length);
         long[] newValues = compactArray(values, positionOffset * 2, length * 2);
 
         if (newValueIsNull == valueIsNull && newValues == values) {
             return this;
         }
         return new Int128ArrayBlock(0, length, newValueIsNull, newValues);
-    }
-
-    @Override
-    public String getEncodingName()
-    {
-        return Int128ArrayBlockEncoding.NAME;
     }
 
     @Override

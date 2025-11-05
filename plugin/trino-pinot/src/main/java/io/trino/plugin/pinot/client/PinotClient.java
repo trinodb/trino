@@ -396,8 +396,8 @@ public class PinotClient
         }
         catch (ExecutionException e) {
             Throwable throwable = e.getCause();
-            if (throwable instanceof PinotException) {
-                throw (PinotException) throwable;
+            if (throwable instanceof PinotException pinotException) {
+                throw pinotException;
             }
             throw new PinotException(PINOT_UNABLE_TO_FIND_BROKER, Optional.empty(), "Error when getting brokers for table " + table, throwable);
         }

@@ -37,7 +37,7 @@ import static java.lang.Math.floorMod;
 import static java.lang.String.format;
 
 @ScalarFunction(value = "$at_timezone", hidden = true)
-public class AtTimeZone
+public final class AtTimeZone
 {
     private AtTimeZone() {}
 

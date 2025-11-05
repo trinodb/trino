@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 
 import java.util.Set;
@@ -54,8 +55,10 @@ public final class FairScheduler
     public static final long QUANTUM_NANOS = TimeUnit.MILLISECONDS.toNanos(1000);
 
     private final ExecutorService schedulerExecutor;
+    private final ThreadPoolExecutorMBean schedulerExecutorMBean;
     private final ListeningExecutorService taskExecutor;
     private final ThreadPoolExecutor executor; // instance underlying taskExecutor, for diagnostics
+    private final ThreadPoolExecutorMBean executorMBean;
     private final BlockingSchedulingQueue<Group, TaskControl> queue = new BlockingSchedulingQueue<>();
     private final Reservation<TaskControl> concurrencyControl;
     private final Ticker ticker;
@@ -72,8 +75,10 @@ public final class FairScheduler
         concurrencyControl = new Reservation<>(maxConcurrentTasks);
 
         schedulerExecutor = Executors.newCachedThreadPool(daemonThreadsNamed("fair-scheduler-%d"));
+        schedulerExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) schedulerExecutor);
 
         executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(), daemonThreadsNamed(threadNameFormat));
+        executorMBean = new ThreadPoolExecutorMBean(executor);
         taskExecutor = MoreExecutors.listeningDecorator(executor);
     }
 
@@ -335,5 +340,28 @@ public final class FairScheduler
                 .add("concurrencyControl=" + concurrencyControl)
                 .add("closed=" + closed)
                 .toString();
+    }
+
+    //
+    // STATS, exposed from ThreadPerDriverTaskExecutor
+    //
+    public ThreadPoolExecutorMBean getSchedulerExecutor()
+    {
+        return schedulerExecutorMBean;
+    }
+
+    public ThreadPoolExecutorMBean getTaskExecutor()
+    {
+        return executorMBean;
+    }
+
+    public int getConcurrencyControlTotalSlots()
+    {
+        return concurrencyControl.totalSlots();
+    }
+
+    public int getConcurrencyControlAvailableSlots()
+    {
+        return concurrencyControl.availableSlots();
     }
 }

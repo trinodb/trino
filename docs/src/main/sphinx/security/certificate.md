@@ -46,7 +46,7 @@ Several rules emerge from these steps:
 
 Trino validates certificates based on the distinguished name (DN) from the
 X.509 `Subject` field. You can use {doc}`user mapping
-</security/user-mapping>` to map the subject DN to a Trino user name.
+</security/user-mapping>` to map the subject DN to a Trino username.
 
 There are three levels of client certificate support possible. From the point of
 view of the server:
@@ -68,7 +68,7 @@ authentication type <authentication-types>` in {ref}`etc/config.properties
 http-server.authentication.type=CERTIFICATE
 ```
 
-You can specify certificate authentication along with another authenticaton
+You can specify certificate authentication along with another authentication
 method, such as `PASSWORD`. In this case, authentication is performed in the
 order of entries, and the first successful authentication results in access.
 For example, the following setting shows the use of two authentication types:

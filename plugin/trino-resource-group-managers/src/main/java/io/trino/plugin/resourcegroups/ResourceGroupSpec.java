@@ -49,11 +49,12 @@ public class ResourceGroupSpec
     private final Optional<Boolean> jmxExport;
     private final Optional<Duration> softCpuLimit;
     private final Optional<Duration> hardCpuLimit;
+    private final Optional<DataSize> hardPhysicalDataScanLimit;
 
     @JsonCreator
     public ResourceGroupSpec(
             @JsonProperty("name") ResourceGroupNameTemplate name,
-            @JsonProperty("softMemoryLimit") String softMemoryLimit,
+            @JsonProperty("softMemoryLimit") Optional<String> softMemoryLimit,
             @JsonProperty("maxQueued") int maxQueued,
             @JsonProperty("softConcurrencyLimit") Optional<Integer> softConcurrencyLimit,
             @JsonProperty("hardConcurrencyLimit") Optional<Integer> hardConcurrencyLimit,
@@ -63,7 +64,8 @@ public class ResourceGroupSpec
             @JsonProperty("subGroups") Optional<List<ResourceGroupSpec>> subGroups,
             @JsonProperty("jmxExport") Optional<Boolean> jmxExport,
             @JsonProperty("softCpuLimit") Optional<Duration> softCpuLimit,
-            @JsonProperty("hardCpuLimit") Optional<Duration> hardCpuLimit)
+            @JsonProperty("hardCpuLimit") Optional<Duration> hardCpuLimit,
+            @JsonProperty("hardPhysicalDataScanLimit") Optional<DataSize> hardPhysicalDataScanLimit)
     {
         this.softCpuLimit = requireNonNull(softCpuLimit, "softCpuLimit is null");
         this.hardCpuLimit = requireNonNull(hardCpuLimit, "hardCpuLimit is null");
@@ -72,6 +74,7 @@ public class ResourceGroupSpec
         checkArgument(maxQueued >= 0, "maxQueued is negative");
         this.maxQueued = maxQueued;
         this.softConcurrencyLimit = softConcurrencyLimit;
+        this.hardPhysicalDataScanLimit = requireNonNull(hardPhysicalDataScanLimit, "hardPhysicalDataScanLimit is null");
 
         checkArgument(hardConcurrencyLimit.isPresent() || maxRunning.isPresent(), "Missing required property: hardConcurrencyLimit");
         this.hardConcurrencyLimit = hardConcurrencyLimit.orElseGet(maxRunning::get);
@@ -83,15 +86,21 @@ public class ResourceGroupSpec
         this.schedulingWeight = requireNonNull(schedulingWeight, "schedulingWeight is null");
 
         requireNonNull(softMemoryLimit, "softMemoryLimit is null");
-        Matcher matcher = PERCENT_PATTERN.matcher(softMemoryLimit);
-        if (matcher.matches()) {
+        if (softMemoryLimit.isEmpty()) {
             this.softMemoryLimit = Optional.empty();
-            this.softMemoryLimitFraction = Optional.of(Double.parseDouble(matcher.group(1)) / 100.0);
-            checkArgument(softMemoryLimitFraction.get() <= 1.0, "softMemoryLimit percentage is over 100%");
+            this.softMemoryLimitFraction = Optional.of(1.0);
         }
         else {
-            this.softMemoryLimit = Optional.of(DataSize.valueOf(softMemoryLimit));
-            this.softMemoryLimitFraction = Optional.empty();
+            Matcher matcher = PERCENT_PATTERN.matcher(softMemoryLimit.get());
+            if (matcher.matches()) {
+                this.softMemoryLimit = Optional.empty();
+                this.softMemoryLimitFraction = Optional.of(Double.parseDouble(matcher.group(1)) / 100.0);
+                checkArgument(softMemoryLimitFraction.get() <= 1.0, "softMemoryLimit percentage is over 100%");
+            }
+            else {
+                this.softMemoryLimit = Optional.of(DataSize.valueOf(softMemoryLimit.get()));
+                this.softMemoryLimitFraction = Optional.empty();
+            }
         }
 
         this.subGroups = ImmutableList.copyOf(subGroups.orElse(ImmutableList.of()));
@@ -161,18 +170,23 @@ public class ResourceGroupSpec
         return hardCpuLimit;
     }
 
+    public Optional<DataSize> getHardPhysicalDataScanLimit()
+    {
+        return hardPhysicalDataScanLimit;
+    }
+
     @Override
     public boolean equals(Object other)
     {
         if (other == this) {
             return true;
         }
-        if (!(other instanceof ResourceGroupSpec)) {
+        if (!(other instanceof ResourceGroupSpec that)) {
             return false;
         }
-        ResourceGroupSpec that = (ResourceGroupSpec) other;
         return (name.equals(that.name) &&
                 softMemoryLimit.equals(that.softMemoryLimit) &&
+                softMemoryLimitFraction.equals(that.softMemoryLimitFraction) &&
                 maxQueued == that.maxQueued &&
                 softConcurrencyLimit.equals(that.softConcurrencyLimit) &&
                 hardConcurrencyLimit == that.hardConcurrencyLimit &&
@@ -181,7 +195,8 @@ public class ResourceGroupSpec
                 subGroups.equals(that.subGroups) &&
                 jmxExport.equals(that.jmxExport) &&
                 softCpuLimit.equals(that.softCpuLimit) &&
-                hardCpuLimit.equals(that.hardCpuLimit));
+                hardCpuLimit.equals(that.hardCpuLimit) &&
+                hardPhysicalDataScanLimit.equals(that.hardPhysicalDataScanLimit));
     }
 
     // Subgroups not included, used to determine whether a group needs to be reconfigured
@@ -199,7 +214,8 @@ public class ResourceGroupSpec
                 schedulingWeight.equals(other.schedulingWeight) &&
                 jmxExport.equals(other.jmxExport) &&
                 softCpuLimit.equals(other.softCpuLimit) &&
-                hardCpuLimit.equals(other.hardCpuLimit));
+                hardCpuLimit.equals(other.hardCpuLimit) &&
+                hardPhysicalDataScanLimit.equals(other.hardPhysicalDataScanLimit));
     }
 
     @Override
@@ -216,7 +232,8 @@ public class ResourceGroupSpec
                 subGroups,
                 jmxExport,
                 softCpuLimit,
-                hardCpuLimit);
+                hardCpuLimit,
+                hardPhysicalDataScanLimit);
     }
 
     @Override
@@ -233,6 +250,7 @@ public class ResourceGroupSpec
                 .add("jmxExport", jmxExport)
                 .add("softCpuLimit", softCpuLimit)
                 .add("hardCpuLimit", hardCpuLimit)
+                .add("hardPhysicalDataScanLimit", hardPhysicalDataScanLimit)
                 .toString();
     }
 }

@@ -142,11 +142,11 @@ Permissions required for executing functions:
 * - `CREATE FUNCTION`
   - `all`
   - `ownership`
-  -  Not all connectors support [catalog routines](routine-catalog).
+  -  Not all connectors support [](udf-catalog).
 * - `DROP FUNCTION`
   - `all`
   - `ownership`
-  -  Not all connectors support [catalog routines](routine-catalog).
+  -  Not all connectors support [](udf-catalog).
 :::
 
 (system-file-auth-visibility)=
@@ -168,7 +168,7 @@ visible. Specifically:
 
 Each catalog rule is composed of the following fields:
 
-- `user` (optional): regex to match against user name. Defaults to `.*`.
+- `user` (optional): regex to match against username. Defaults to `.*`.
 - `role` (optional): regex to match against role names. Defaults to `.*`.
 - `group` (optional): regex to match against group names. Defaults to `.*`.
 - `catalog` (optional): regex to match against catalog name. Defaults to
@@ -178,7 +178,7 @@ Each catalog rule is composed of the following fields:
   `none`. Setting this value to `read-only` has the same behavior as the
   `read-only` system access control plugin.
 
-In order for a rule to apply the user name must match the regular expression
+In order for a rule to apply the username must match the regular expression
 specified in `user` attribute.
 
 For role names, a rule can be applied if at least one of the currently enabled
@@ -242,7 +242,7 @@ For group-based rules to match, users need to be assigned to groups by a
 
 Each schema rule is composed of the following fields:
 
-- `user` (optional): regex to match against user name. Defaults to `.*`.
+- `user` (optional): regex to match against username. Defaults to `.*`.
 - `role` (optional): regex to match against role names. Defaults to `.*`.
 - `group` (optional): regex to match against group names. Defaults to `.*`.
 - `catalog` (optional): regex to match against catalog name. Defaults to
@@ -281,7 +281,7 @@ from ownership of any schema, you can use the following rules:
 
 Each table rule is composed of the following fields:
 
-- `user` (optional): regex to match against user name. Defaults to `.*`.
+- `user` (optional): regex to match against username. Defaults to `.*`.
 - `role` (optional): regex to match against role names. Defaults to `.*`.
 - `group` (optional): regex to match against group names. Defaults to `.*`.
 - `catalog` (optional): regex to match against catalog name. Defaults to
@@ -384,7 +384,7 @@ you cannot override this behavior by adding a rule.
 
 Each function rule is composed of the following fields:
 
-- `user` (optional): regular expression to match against user name.
+- `user` (optional): regular expression to match against username.
   Defaults to `.*`.
 - `role` (optional): regular expression to match against role names.
   Defaults to `.*`.
@@ -432,7 +432,8 @@ any catalog, and allows all users to create, drop, and execute functions (includ
 (system-file-procedure-rules)=
 #### Procedure rules
 
-These rules control the ability of a user to execute procedures.
+These rules control the ability of a user to execute procedures using the
+[CALL](/sql/call) statement.
 
 Procedures are used for administrative operations on a specific catalog, such as
 registering external tables or flushing the connector's cache. Available
@@ -445,7 +446,7 @@ authorization is denied. If procedure rules are not present, only procedures in
 
 Each procedure rule is composed of the following fields:
 
-- `user` (optional): regular expression to match against user name.
+- `user` (optional): regular expression to match against username.
   Defaults to `.*`.
 - `role` (optional): regular expression to match against role names.
   Defaults to `.*`.
@@ -490,6 +491,15 @@ connector](/connector/delta-lake). It allows all users to execute the
 }
 ```
 
+(system-file-table-procedure-rules)=
+#### Table procedure rules
+
+Table procedures are executed using the
+[ALTER TABLE ... EXECUTE](alter-table-execute) syntax.
+
+File-based access control does not support privileges for table procedures and
+therefore all are effectively allowed.
+
 (verify-rules)=
 #### Verify configuration
 
@@ -526,7 +536,7 @@ rule, read from top to bottom. If no rules are specified, all users are allowed
 set any session property. If no rule matches, setting the session property is
 denied. System session property rules are composed of the following fields:
 
-- `user` (optional): regex to match against user name. Defaults to `.*`.
+- `user` (optional): regex to match against username. Defaults to `.*`.
 - `role` (optional): regex to match against role names. Defaults to `.*`.
 - `group` (optional): regex to match against group names. Defaults to `.*`.
 - `property` (optional): regex to match against the property name. Defaults to
@@ -559,7 +569,7 @@ to bottom. If no rules are specified, all users are allowed to execute queries,
 and to view or kill queries owned by any user. If no rule matches, query
 management is denied. Each rule is composed of the following fields:
 
-- `user` (optional): regex to match against user name. Defaults to `.*`.
+- `user` (optional): regex to match against username. Defaults to `.*`.
 - `role` (optional): regex to match against role names. Defaults to `.*`.
 - `group` (optional): regex to match against group names. Defaults to `.*`.
 - `queryOwner` (optional): regex to match against the query owner name.
@@ -614,7 +624,7 @@ Each impersonation rule is composed of the following fields:
 - `allow` (optional): boolean indicating if the authentication should be
   allowed. Defaults to `true`.
 
-The impersonation rules are a bit different than the other rules: The attribute
+The impersonation rules are a bit different from the other rules: The attribute
 `new_user` is required to not accidentally prevent more access than intended.
 Doing so it was possible to make the attribute `allow` optional.
 
@@ -632,21 +642,21 @@ allows a user in the form `team_backend` to impersonate the
 
 :::{warning}
 Principal rules are deprecated. Instead, use {doc}`/security/user-mapping`
-which specifies how a complex authentication user name is mapped to a simple
-user name for Trino, and impersonation rules defined above.
+which specifies how a complex authentication username is mapped to a simple
+username for Trino, and impersonation rules defined above.
 :::
 
 These rules serve to enforce a specific matching between a principal and a
-specified user name. The principal is granted authorization as a user, based
+specified username. The principal is granted authorization as a user, based
 on the first matching rule read from top to bottom. If no rules are specified,
 no checks are performed. If no rule matches, user authorization is denied.
 Each rule is composed of the following fields:
 
 - `principal` (required): regex to match and group against principal.
-- `user` (optional): regex to match against user name. If matched, it
+- `user` (optional): regex to match against username. If matched, it
   grants or denies the authorization based on the value of `allow`.
 - `principal_to_user` (optional): replacement string to substitute against
-  principal. If the result of the substitution is same as the user name, it
+  principal. If the result of the substitution is same as the username, it
   grants or denies the authorization based on the value of `allow`.
 - `allow` (required): boolean indicating whether a principal can be authorized
   as a user.
@@ -723,7 +733,7 @@ composed of the following fields:
 
 - `role` (optional): regex to match against role. If matched, it
   grants or denies the authorization based on the value of `allow`.
-- `user` (optional): regex to match against user name. If matched, it
+- `user` (optional): regex to match against username. If matched, it
   grants or denies the authorization based on the value of `allow`.
 - `allow` (required): set of access permissions granted to user. Values:
   `read`, `write`
@@ -832,7 +842,7 @@ default to `.*` if not specified.
 
 These rules govern who is considered an owner of a schema.
 
-- `user` (optional): regex to match against user name.
+- `user` (optional): regex to match against username.
 - `group` (optional): regex to match against every user group the user belongs
   to.
 - `schema` (optional): regex to match against schema name.
@@ -842,7 +852,7 @@ These rules govern who is considered an owner of a schema.
 
 These rules govern the privileges granted on specific tables.
 
-- `user` (optional): regex to match against user name.
+- `user` (optional): regex to match against username.
 - `group` (optional): regex to match against every user group the user belongs
   to.
 - `schema` (optional): regex to match against schema name.
@@ -880,7 +890,7 @@ When these rules are present, the authorization is based on the first matching
 rule, processed from top to bottom. If no rules match, the authorization is
 denied. If function rules are not present, access is not allowed.
 
-- `user` (optional): regular expression to match against user name.
+- `user` (optional): regular expression to match against username.
   Defaults to `.*`.
 - `group` (optional): regular expression to match against group names.
   Defaults to `.*`.
@@ -924,7 +934,7 @@ in the `function` schema of this catalog:
 
 These rules govern who may set session properties.
 
-- `user` (optional): regex to match against user name.
+- `user` (optional): regex to match against username.
 - `group` (optional): regex to match against every user group the user belongs
   to.
 - `property` (optional): regex to match against session property name.

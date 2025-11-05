@@ -67,7 +67,7 @@ public class TestHiveFaultTolerantExecutionCoordinatorExcludedTest
     {
         String query = "SELECT name, nationkey, regionkey FROM nation";
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", "AS " + query + " WITH NO DATA")) {
+        try (TestTable table = newTrinoTable("test_insert_", "AS " + query + " WITH NO DATA")) {
             assertQuery("SELECT count(*) FROM " + table.getName(), "SELECT 0");
 
             assertUpdate("INSERT INTO " + table.getName() + " " + query, 25);

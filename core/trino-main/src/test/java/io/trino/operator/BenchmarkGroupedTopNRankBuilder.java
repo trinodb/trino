@@ -18,6 +18,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.gen.OrderingCompiler;
 import io.trino.tpch.LineItem;
 import io.trino.tpch.LineItemGenerator;
 import io.trino.type.BlockTypeOperators;
@@ -36,6 +37,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
@@ -83,14 +85,19 @@ public class BenchmarkGroupedTopNRankBuilder
             types = ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, BIGINT);
             TypeOperators typeOperators = new TypeOperators();
             BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
-            comparator = new SimplePageWithPositionComparator(
-                    types,
-                    ImmutableList.of(EXTENDED_PRICE, STATUS),
-                    ImmutableList.of(DESC_NULLS_LAST, ASC_NULLS_FIRST),
-                    typeOperators);
+            OrderingCompiler orderingCompiler = new OrderingCompiler(typeOperators);
+            List<Integer> sortChannels = ImmutableList.of(EXTENDED_PRICE, STATUS);
+            List<Type> sortTypes = sortChannels.stream()
+                    .map(types::get)
+                    .collect(toImmutableList());
+
+            comparator = orderingCompiler.compilePageWithPositionComparator(
+                    sortTypes,
+                    sortChannels,
+                    ImmutableList.of(DESC_NULLS_LAST, ASC_NULLS_FIRST));
             equalsAndHash = new SimplePageWithPositionEqualsAndHash(
-                    types,
-                    ImmutableList.of(EXTENDED_PRICE, STATUS),
+                    sortTypes,
+                    sortChannels,
                     blockTypeOperators);
 
             page = createInputPage(positions, types);

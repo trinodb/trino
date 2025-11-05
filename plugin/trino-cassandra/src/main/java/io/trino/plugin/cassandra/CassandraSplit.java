@@ -13,71 +13,26 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 
-public class CassandraSplit
+public record CassandraSplit(String partitionId, String splitCondition, List<HostAddress> addresses)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(CassandraSplit.class);
 
-    private final String partitionId;
-    private final List<HostAddress> addresses;
-    private final String splitCondition;
-
-    @JsonCreator
-    public CassandraSplit(
-            @JsonProperty("partitionId") String partitionId,
-            @JsonProperty("splitCondition") String splitCondition,
-            @JsonProperty("addresses") List<HostAddress> addresses)
+    public CassandraSplit
     {
         requireNonNull(partitionId, "partitionId is null");
-        requireNonNull(addresses, "addresses is null");
-
-        this.partitionId = partitionId;
-        this.addresses = ImmutableList.copyOf(addresses);
-        this.splitCondition = splitCondition;
-    }
-
-    @JsonProperty
-    public String getSplitCondition()
-    {
-        return splitCondition;
-    }
-
-    @JsonProperty
-    public String getPartitionId()
-    {
-        return partitionId;
-    }
-
-    @JsonProperty
-    @Override
-    public List<HostAddress> getAddresses()
-    {
-        return addresses;
-    }
-
-    @Override
-    public Map<String, String> getSplitInfo()
-    {
-        return ImmutableMap.<String, String>builder()
-                .put("hosts", addresses.stream().map(HostAddress::toString).collect(joining(",")))
-                .put("partitionId", partitionId)
-                .buildOrThrow();
+        addresses = ImmutableList.copyOf(addresses);
     }
 
     @Override

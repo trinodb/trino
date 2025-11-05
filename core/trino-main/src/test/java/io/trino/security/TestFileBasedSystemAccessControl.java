@@ -24,6 +24,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TestMetadataManager;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.plugin.base.security.FileBasedSystemAccessControl;
+import io.trino.plugin.base.security.TestingSystemAccessControlContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -33,18 +34,20 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import javax.security.auth.kerberos.KerberosPrincipal;
 
-import java.io.File;
 import java.io.UncheckedIOException;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.io.Files.copy;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
@@ -54,9 +57,9 @@ import static io.trino.testing.TestingEventListenerManager.emptyEventListenerMan
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.lang.Thread.sleep;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.util.Files.newTemporaryFile;
 
 public class TestFileBasedSystemAccessControl
 {
@@ -85,6 +88,7 @@ public class TestFileBasedSystemAccessControl
 
     @Test
     public void testCanImpersonateUserOperations()
+            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_impersonation.json");
@@ -150,7 +154,7 @@ public class TestFileBasedSystemAccessControl
                 DefaultSystemAccessControl.NAME);
         accessControlManager.loadSystemAccessControl(
                 FileBasedSystemAccessControl.NAME,
-                ImmutableMap.of("security.config-file", new File("../../docs/src/main/sphinx/security/user-impersonation.json").getAbsolutePath()));
+                ImmutableMap.of("security.config-file", Paths.get("../../docs/src/main/sphinx/security/user-impersonation.json").toAbsolutePath().toString()));
 
         accessControlManager.checkCanImpersonateUser(admin, "charlie");
         assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(admin, "bob"))
@@ -165,6 +169,7 @@ public class TestFileBasedSystemAccessControl
 
     @Test
     public void testCanSetUserOperations()
+            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_principal.json");
@@ -192,6 +197,7 @@ public class TestFileBasedSystemAccessControl
 
     @Test
     public void testSystemInformation()
+            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
@@ -221,6 +227,7 @@ public class TestFileBasedSystemAccessControl
 
     @Test
     public void testCatalogOperations()
+            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
@@ -240,6 +247,7 @@ public class TestFileBasedSystemAccessControl
 
     @Test
     public void testCatalogOperationsReadOnly()
+            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
@@ -259,6 +267,7 @@ public class TestFileBasedSystemAccessControl
 
     @Test
     public void testSchemaOperations()
+            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
@@ -283,6 +292,7 @@ public class TestFileBasedSystemAccessControl
 
     @Test
     public void testSchemaOperationsReadOnly()
+            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
@@ -320,6 +330,7 @@ public class TestFileBasedSystemAccessControl
 
     @Test
     public void testTableOperations()
+            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
@@ -469,6 +480,7 @@ public class TestFileBasedSystemAccessControl
 
     @Test
     public void testTableOperationsReadOnly()
+            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
@@ -531,6 +543,7 @@ public class TestFileBasedSystemAccessControl
 
     @Test
     public void testViewOperations()
+            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
@@ -648,6 +661,7 @@ public class TestFileBasedSystemAccessControl
 
     @Test
     public void testViewOperationsReadOnly()
+            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
@@ -688,6 +702,7 @@ public class TestFileBasedSystemAccessControl
 
     @Test
     public void testMaterializedViewAccess()
+            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
@@ -747,6 +762,7 @@ public class TestFileBasedSystemAccessControl
 
     @Test
     public void testReadOnlyMaterializedViewAccess()
+            throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
         Metadata metadata = TestMetadataManager.builder().withTransactionManager(transactionManager).build();
@@ -796,7 +812,7 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
-    public void testRefreshing()
+    public void testRefreshing(@TempDir Path tempDir)
             throws Exception
     {
         TransactionManager transactionManager = createTestTransactionManager();
@@ -809,12 +825,11 @@ public class TestFileBasedSystemAccessControl
                 OpenTelemetry.noop(),
                 new SecretsResolver(ImmutableMap.of()),
                 DefaultSystemAccessControl.NAME);
-        File configFile = newTemporaryFile();
-        configFile.deleteOnExit();
-        copy(new File(getResourcePath("catalog.json")), configFile);
+        Path configFile = tempDir.resolve("catalog.json");
+        Files.copy(getResourcePath("catalog.json"), configFile, REPLACE_EXISTING);
 
         accessControlManager.loadSystemAccessControl(FileBasedSystemAccessControl.NAME, ImmutableMap.of(
-                SECURITY_CONFIG_FILE, configFile.getAbsolutePath(),
+                SECURITY_CONFIG_FILE, configFile.toAbsolutePath().toString(),
                 SECURITY_REFRESH_PERIOD, "1ms"));
 
         transaction(transactionManager, metadata, accessControlManager)
@@ -824,7 +839,7 @@ public class TestFileBasedSystemAccessControl
                     accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId, queryStart), aliceView);
                 });
 
-        copy(new File(getResourcePath("security-config-file-with-unknown-rules.json")), configFile);
+        Files.copy(getResourcePath("security-config-file-with-unknown-rules.json"), configFile, REPLACE_EXISTING);
         sleep(2);
 
         assertThatThrownBy(() -> transaction(transactionManager, metadata, accessControlManager)
@@ -841,7 +856,7 @@ public class TestFileBasedSystemAccessControl
                 .isInstanceOf(UncheckedIOException.class)
                 .hasMessageStartingWith("Failed to convert JSON tree node");
 
-        copy(new File(getResourcePath("catalog.json")), configFile);
+        Files.copy(getResourcePath("catalog.json"), configFile, REPLACE_EXISTING);
         sleep(2);
 
         transaction(transactionManager, metadata, accessControlManager)
@@ -867,6 +882,7 @@ public class TestFileBasedSystemAccessControl
     }
 
     private AccessControlManager newAccessControlManager(TransactionManager transactionManager, String resourceName)
+            throws URISyntaxException
     {
         AccessControlManager accessControlManager = new AccessControlManager(
                 NodeVersion.UNKNOWN,
@@ -877,30 +893,26 @@ public class TestFileBasedSystemAccessControl
                 new SecretsResolver(ImmutableMap.of()),
                 DefaultSystemAccessControl.NAME);
 
-        accessControlManager.loadSystemAccessControl(FileBasedSystemAccessControl.NAME, ImmutableMap.of("security.config-file", getResourcePath(resourceName)));
+        accessControlManager.loadSystemAccessControl(FileBasedSystemAccessControl.NAME, ImmutableMap.of("security.config-file", getResourcePath(resourceName).toString()));
 
         return accessControlManager;
     }
 
-    private String getResourcePath(String resourceName)
+    private Path getResourcePath(String resourceName)
+            throws URISyntaxException
     {
-        try {
-            return new File(getResource(resourceName).toURI()).getPath();
-        }
-        catch (URISyntaxException e) {
-            throw new RuntimeException(e);
-        }
+        return Paths.get(getResource(resourceName).toURI());
     }
 
     @Test
     public void parseUnknownRules()
     {
-        assertThatThrownBy(() -> parse(getResourcePath("security-config-file-with-unknown-rules.json")))
+        assertThatThrownBy(() -> parse(getResourcePath("security-config-file-with-unknown-rules.json").toString()))
                 .hasMessageContaining("Failed to convert JSON tree node");
     }
 
     private void parse(String path)
     {
-        new FileBasedSystemAccessControl.Factory().create(ImmutableMap.of(SECURITY_CONFIG_FILE, path));
+        new FileBasedSystemAccessControl.Factory().create(ImmutableMap.of(SECURITY_CONFIG_FILE, path), new TestingSystemAccessControlContext());
     }
 }

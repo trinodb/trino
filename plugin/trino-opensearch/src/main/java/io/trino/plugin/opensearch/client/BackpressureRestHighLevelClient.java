@@ -104,8 +104,8 @@ public class BackpressureRestHighLevelClient
 
     private static boolean isBackpressure(Throwable throwable)
     {
-        return (throwable instanceof OpenSearchStatusException) &&
-                (((OpenSearchStatusException) throwable).status() == RestStatus.TOO_MANY_REQUESTS);
+        return throwable instanceof OpenSearchStatusException openSearchStatusException &&
+                openSearchStatusException.status() == RestStatus.TOO_MANY_REQUESTS;
     }
 
     private void onComplete(ExecutionCompletedEvent<ActionResponse> executionCompletedEvent)

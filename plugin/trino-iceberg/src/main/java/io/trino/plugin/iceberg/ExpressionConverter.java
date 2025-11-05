@@ -52,7 +52,7 @@ public final class ExpressionConverter
 {
     private ExpressionConverter() {}
 
-    public static boolean isConvertableToIcebergExpression(Domain domain)
+    public static boolean isConvertibleToIcebergExpression(Domain domain)
     {
         if (isStructuralType(domain.getType())) {
             // structural types cannot be used to filter a table scan in Iceberg library.
@@ -81,7 +81,7 @@ public final class ExpressionConverter
             IcebergColumnHandle columnHandle = entry.getKey();
             checkArgument(!isMetadataColumnId(columnHandle.getId()), "Constraint on an unexpected column %s", columnHandle);
             Domain domain = entry.getValue();
-            checkArgument(isConvertableToIcebergExpression(domain), "Unexpected not convertable domain on column %s: %s", columnHandle, domain);
+            checkArgument(isConvertibleToIcebergExpression(domain), "Unexpected not convertible domain on column %s: %s", columnHandle, domain);
             conjuncts.add(toIcebergExpression(columnHandle.getQualifiedName(), columnHandle.getType(), domain));
         }
         return and(conjuncts);

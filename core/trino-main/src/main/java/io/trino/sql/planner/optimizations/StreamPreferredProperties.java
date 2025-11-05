@@ -268,7 +268,7 @@ public class StreamPreferredProperties
             return this;
         }
 
-        ImmutableSet<Symbol> availableSymbols = ImmutableSet.copyOf(symbols);
+        Set<Symbol> availableSymbols = ImmutableSet.copyOf(symbols);
         if (exactColumnOrder) {
             if (availableSymbols.containsAll(partitioningColumns.get())) {
                 return this;

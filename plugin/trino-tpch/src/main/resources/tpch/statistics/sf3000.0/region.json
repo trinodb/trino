@@ -1,18 +1,18 @@
  {
-    "rowCount" : 5.0,
+    "rowCount" : 5,
      "columns" : {
         "r_regionkey" : {
-             "distinctValuesCount" : 5.0,
+             "distinctValuesCount" : 5,
              "min" : 0,
              "max" : 4
         },
         "r_comment" : {
-             "dataSize" : 330.0,
-             "distinctValuesCount" : 6.0
+             "dataSize" : 330,
+             "distinctValuesCount" : 6
         },
         "r_name" : {
-             "dataSize" : 34.0,
-             "distinctValuesCount" : 7.0
+             "dataSize" : 34,
+             "distinctValuesCount" : 7
         }
     }
 }

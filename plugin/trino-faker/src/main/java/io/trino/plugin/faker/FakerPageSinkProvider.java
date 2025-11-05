@@ -30,6 +30,10 @@ import java.util.concurrent.CompletableFuture;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
+/**
+ * Faker connector doesn't write any data, the passthrough implementation here is provided only
+ * to allow CTAS queries to collect statistics about source data for table creation in Faker.
+ */
 public class FakerPageSinkProvider
         implements ConnectorPageSinkProvider
 {
@@ -51,7 +55,7 @@ public class FakerPageSinkProvider
         @Override
         public CompletableFuture<?> appendPage(Page page)
         {
-            throw new UnsupportedOperationException("The faker connector does not support writes");
+            return NOT_BLOCKED;
         }
 
         @Override
@@ -63,7 +67,6 @@ public class FakerPageSinkProvider
         @Override
         public void abort()
         {
-            throw new UnsupportedOperationException("The faker connector does not support writes");
         }
     }
 }

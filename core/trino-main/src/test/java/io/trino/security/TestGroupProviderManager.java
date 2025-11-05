@@ -20,13 +20,16 @@ import io.airlift.testing.TempFile;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.GroupProviderFactory;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Map;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestGroupProviderManager
 {
@@ -46,17 +49,78 @@ public class TestGroupProviderManager
         }
     };
 
-    @Test
-    public void testGroupProviderIsLoaded()
+    @ParameterizedTest
+    @ValueSource(strings = {"", "group-provider.group-case=keep", "group-provider.group-case=KEEP"})
+    public void testGroupProviderIsLoaded(String additional)
             throws IOException
     {
         try (TempFile tempFile = new TempFile()) {
-            Files.write(tempFile.path(), "group-provider.name=testGroupProvider".getBytes(UTF_8));
+            Files.writeString(tempFile.path(), """
+                group-provider.name=testGroupProvider
+                """ + additional);
+
             GroupProviderManager groupProviderManager = new GroupProviderManager(new SecretsResolver(ImmutableMap.of()));
             groupProviderManager.addGroupProviderFactory(TEST_GROUP_PROVIDER_FACTORY);
             groupProviderManager.loadConfiguredGroupProvider(tempFile.file());
-            assertThat(groupProviderManager.getGroups("alice")).isEqualTo(ImmutableSet.of("test", "alice"));
-            assertThat(groupProviderManager.getGroups("bob")).isEqualTo(ImmutableSet.of("test", "bob"));
+
+            assertThat(groupProviderManager.getGroups("Alice")).isEqualTo(ImmutableSet.of("test", "Alice"));
+            assertThat(groupProviderManager.getGroups("Bob")).isEqualTo(ImmutableSet.of("test", "Bob"));
+        }
+    }
+
+    @Test
+    void setTestGroupProviderUpperCase() throws Exception
+    {
+        try (TempFile tempFile = new TempFile()) {
+            Files.writeString(tempFile.path(), """
+                group-provider.name=testGroupProvider
+                group-provider.group-case=upper
+                """);
+
+            GroupProviderManager groupProviderManager = new GroupProviderManager(new SecretsResolver(ImmutableMap.of()));
+            groupProviderManager.addGroupProviderFactory(TEST_GROUP_PROVIDER_FACTORY);
+            groupProviderManager.loadConfiguredGroupProvider(tempFile.file());
+
+            assertThat(groupProviderManager.getGroups("Alice")).isEqualTo(ImmutableSet.of("TEST", "ALICE"));
+            assertThat(groupProviderManager.getGroups("Bob")).isEqualTo(ImmutableSet.of("TEST", "BOB"));
+        }
+    }
+
+    @Test
+    void setTestGroupProviderLowerCase() throws Exception
+    {
+        try (TempFile tempFile = new TempFile()) {
+            Files.writeString(tempFile.path(), """
+                group-provider.name=testGroupProvider
+                group-provider.group-case=lower
+                """);
+
+            GroupProviderManager groupProviderManager = new GroupProviderManager(new SecretsResolver(ImmutableMap.of()));
+            groupProviderManager.addGroupProviderFactory(TEST_GROUP_PROVIDER_FACTORY);
+            groupProviderManager.loadConfiguredGroupProvider(tempFile.file());
+
+            assertThat(groupProviderManager.getGroups("Alice")).isEqualTo(ImmutableSet.of("test", "alice"));
+            assertThat(groupProviderManager.getGroups("Bob")).isEqualTo(ImmutableSet.of("test", "bob"));
+        }
+    }
+
+    @Test
+    void setTestGroupProviderInvalidCase() throws Exception
+    {
+        try (TempFile tempFile = new TempFile()) {
+            Files.writeString(tempFile.path(), """
+                group-provider.name=testGroupProvider
+                group-provider.group-case=invalid
+                """);
+
+            GroupProviderManager groupProviderManager = new GroupProviderManager(new SecretsResolver(ImmutableMap.of()));
+            groupProviderManager.addGroupProviderFactory(TEST_GROUP_PROVIDER_FACTORY);
+
+            assertThatThrownBy(() -> groupProviderManager.loadConfiguredGroupProvider(tempFile.file()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(format(
+                    "Group provider configuration %s does not contain valid group-provider.group-case. Expected one of: [KEEP, LOWER, UPPER]",
+                    tempFile.path().toAbsolutePath()));
         }
     }
 }

@@ -15,6 +15,7 @@ properties, refer to the {doc}`connector documentation </connector/>`.
 :titlesonly: true
 
 General <properties-general>
+Client protocol <properties-client-protocol>
 HTTP server <properties-http-server>
 Resource management <properties-resource-management>
 Query management <properties-query-management>
@@ -92,6 +93,15 @@ For example, `0s` and `0m` both mean the same thing.
 Properties of type `duration` also support decimal values, such as `2.25d`.
 These are handled as a fractional value of the specified unit. For example, the
 value `1.5m` equals one and a half minutes, or 90 seconds.
+
+(prop-type-heap-size)=
+### `heap size`
+
+Properties of type `heap size` support values that specify an amount of heap memory.
+These values can be provided in the same format as the `data size` property, or as `double`
+values followed by a `%` suffix. The `%` suffix indicates a percentage of the maximum heap 
+memory available on the node. The minimum allowed value is `1B`, and the maximum is `100%`, 
+which corresponds to the maximum heap memory available on the node.
 
 (prop-type-integer)=
 ### `integer`

@@ -152,7 +152,7 @@ public class OpenXJsonSerializer
         }
         else if (type instanceof DecimalType) {
             // decimal type is read-only in Hive, but we support it
-            SqlDecimal value = (SqlDecimal) type.getObjectValue(null, block, position);
+            SqlDecimal value = (SqlDecimal) type.getObjectValue(block, position);
             return value.toBigDecimal().toString();
         }
         else if (REAL.equals(type)) {
@@ -166,7 +166,7 @@ public class OpenXJsonSerializer
             return HiveFormatUtils.formatHiveDate(block, position);
         }
         else if (type instanceof TimestampType) {
-            SqlTimestamp objectValue = (SqlTimestamp) type.getObjectValue(null, block, position);
+            SqlTimestamp objectValue = (SqlTimestamp) type.getObjectValue(block, position);
             LocalDateTime localDateTime = objectValue.toLocalDateTime();
             return UTC_PRINT_FORMATTER.format(localDateTime);
         }
@@ -269,18 +269,18 @@ public class OpenXJsonSerializer
         }
 
         return BOOLEAN.equals(type) ||
-               BIGINT.equals(type) ||
-               INTEGER.equals(type) ||
-               SMALLINT.equals(type) ||
-               TINYINT.equals(type) ||
-               type instanceof DecimalType ||
-               REAL.equals(type) ||
-               DOUBLE.equals(type) ||
-               DATE.equals(type) ||
-               type instanceof TimestampType ||
-               VARBINARY.equals(type) ||
-               type instanceof VarcharType ||
-               type instanceof CharType;
+                BIGINT.equals(type) ||
+                INTEGER.equals(type) ||
+                SMALLINT.equals(type) ||
+                TINYINT.equals(type) ||
+                type instanceof DecimalType ||
+                REAL.equals(type) ||
+                DOUBLE.equals(type) ||
+                DATE.equals(type) ||
+                type instanceof TimestampType ||
+                VARBINARY.equals(type) ||
+                type instanceof VarcharType ||
+                type instanceof CharType;
     }
 
     private static boolean isStructuralType(Type type)

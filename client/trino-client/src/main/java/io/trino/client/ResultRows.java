@@ -13,18 +13,27 @@
  */
 package io.trino.client;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.google.common.base.Verify.verify;
+import static io.trino.client.CloseableLimitingIterator.limit;
 import static java.util.Collections.emptyIterator;
 
 /**
  * Allows iterating over decoded result data in row-wise manner.
+ * <p>
+ * Iterator can be acquired only once, and it should be closed after use.
  */
 public interface ResultRows
-        extends Iterable<List<Object>>
+        extends Iterable<List<Object>>, Closeable
 {
     ResultRows NULL_ROWS = new ResultRows() {
+        @Override
+        public void close() {}
+
         @Override
         public boolean isNull()
         {
@@ -38,11 +47,40 @@ public interface ResultRows
         {
             return emptyIterator();
         }
+
+        @Override
+        public String toString()
+        {
+            return "EmptyResultRows{}";
+        }
     };
 
-    static ResultRows fromIterableRows(Iterable<List<Object>> values)
+    static ResultRows wrapIterator(CloseableIterator<List<Object>> iterator, long maxRows)
     {
-        return values::iterator;
+        return new ResultRows() {
+            private volatile boolean fetched;
+
+            @Override
+            public void close()
+                    throws IOException
+            {
+                iterator.close();
+            }
+
+            @Override
+            public Iterator<List<Object>> iterator()
+            {
+                verify(!fetched, "Iterator already fetched");
+                fetched = true;
+                return limit(iterator, maxRows);
+            }
+
+            @Override
+            public String toString()
+            {
+                return "ResultRows{iterator=" + iterator + "}";
+            }
+        };
     }
 
     default boolean isNull()

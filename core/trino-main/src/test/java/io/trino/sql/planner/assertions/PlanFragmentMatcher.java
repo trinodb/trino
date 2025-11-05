@@ -61,7 +61,7 @@ public class PlanFragmentMatcher
             return false;
         }
         if (planPattern.isPresent()) {
-            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(metadata, session));
+            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(metadata, session, () -> false));
             MatchResult matches = fragment.getRoot().accept(new PlanMatchingVisitor(session, metadata, statsProvider, noLookup()), planPattern.get());
             if (!matches.isMatch()) {
                 return false;
@@ -73,10 +73,7 @@ public class PlanFragmentMatcher
         if (inputPartitionCount.isPresent() && !inputPartitionCount.equals(fragment.getPartitionCount())) {
             return false;
         }
-        if (outputPartitionCount.isPresent() && !outputPartitionCount.equals(fragment.getOutputPartitioningScheme().getPartitionCount())) {
-            return false;
-        }
-        return true;
+        return outputPartitionCount.isEmpty() || outputPartitionCount.equals(fragment.getOutputPartitioningScheme().getPartitionCount());
     }
 
     @Override

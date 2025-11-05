@@ -34,7 +34,7 @@ public final class TestingRedshiftServer
     public static final String TEST_DATABASE = "testdb";
     public static final String TEST_SCHEMA = "test_schema";
 
-    public static final String JDBC_URL = "jdbc:redshift://" + JDBC_ENDPOINT + TEST_DATABASE;
+    public static final String JDBC_URL = "jdbc:redshift://" + JDBC_ENDPOINT + TEST_DATABASE + "?connectTimeout=0";
 
     public static void executeInRedshiftWithRetry(String sql)
     {

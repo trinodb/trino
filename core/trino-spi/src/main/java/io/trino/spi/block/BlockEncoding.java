@@ -25,6 +25,8 @@ public interface BlockEncoding
      */
     String getName();
 
+    Class<? extends Block> getBlockClass();
+
     /**
      * Read a block from the specified input.  The returned
      * block should begin at the specified position.

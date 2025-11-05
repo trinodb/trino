@@ -23,6 +23,7 @@ import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToTimestampWith
 import io.trino.operator.scalar.timetz.TimeWithTimeZoneToTimeWithTimeZoneCast;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
@@ -73,7 +74,7 @@ public class BenchmarkCastTimestampToVarchar
     @Benchmark
     public List<Optional<Page>> benchmarkCastToVarchar(BenchmarkData data)
     {
-        return ImmutableList.copyOf(data.pageProcessor.process(SESSION, data.yieldSignal, data.localMemoryContext, data.page));
+        return ImmutableList.copyOf(data.pageProcessor.process(SESSION, data.yieldSignal, data.localMemoryContext, SourcePage.create(data.page)));
     }
 
     @State(Scope.Thread)

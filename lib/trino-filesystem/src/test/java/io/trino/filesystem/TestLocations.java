@@ -79,4 +79,17 @@ public class TestLocations
         assertThat(areDirectoryLocationsEquivalent(Location.of(rightLocation), Location.of(leftLocation))).as("equivalence of '%s' in relation to '%s'", rightLocation, leftLocation)
                 .isEqualTo(equivalent);
     }
+
+    @Test
+    void testIsS3Tables()
+    {
+        assertThat(Locations.isS3Tables("s3://e97725d9-dbfb-4334-784sox7edps35ncq16arh546frqa1use2b--table-s3")).isTrue();
+        assertThat(Locations.isS3Tables("s3://75fed916-b871-4909-mx9t6iohbseks57q16e5y6nf1c8gguse2b--table-s3")).isTrue();
+
+        assertThat(Locations.isS3Tables("s3://e97725d9-dbfb-4334-784sox7edps35ncq16arh546frqa1use2b--table-s3/")).isFalse();
+        assertThat(Locations.isS3Tables("s3://75fed916-b871-4909-mx9t6iohbseks57q16e5y6nf1c8gguse2b--table-s3/")).isFalse();
+        assertThat(Locations.isS3Tables("s3://75fed916-b871-4909/mx9t6iohbseks57q16e5y6nf1c8gguse2b--table-s3")).isFalse();
+        assertThat(Locations.isS3Tables("s3://test-bucket")).isFalse();
+        assertThat(Locations.isS3Tables("s3://test-bucket/default")).isFalse();
+    }
 }

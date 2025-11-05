@@ -25,7 +25,7 @@ import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Hour of the day of the given timestamp")
 @ScalarFunction("hour")
-public class ExtractHour
+public final class ExtractHour
 {
     private ExtractHour() {}
 

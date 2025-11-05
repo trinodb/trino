@@ -143,7 +143,7 @@ public class TestTypeValidator
                 Optional.empty(),
                 Optional.empty());
 
-        WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toSymbolReference()), frame, false);
+        WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toSymbolReference()), Optional.empty(), frame, false, false);
 
         DataOrganizationSpecification specification = new DataOrganizationSpecification(ImmutableList.of(), Optional.empty());
 
@@ -152,7 +152,6 @@ public class TestTypeValidator
                 baseTableScan,
                 specification,
                 ImmutableMap.of(windowSymbol, function),
-                Optional.empty(),
                 ImmutableSet.of(),
                 0);
 
@@ -238,7 +237,7 @@ public class TestTypeValidator
                 Optional.empty(),
                 Optional.empty());
 
-        WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnA.toSymbolReference()), frame, false);
+        WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnA.toSymbolReference()), Optional.empty(), frame, false, false);
 
         DataOrganizationSpecification specification = new DataOrganizationSpecification(ImmutableList.of(), Optional.empty());
 
@@ -247,7 +246,6 @@ public class TestTypeValidator
                 baseTableScan,
                 specification,
                 ImmutableMap.of(windowSymbol, function),
-                Optional.empty(),
                 ImmutableSet.of(),
                 0);
 
@@ -271,7 +269,7 @@ public class TestTypeValidator
                 Optional.empty(),
                 Optional.empty());
 
-        WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toSymbolReference()), frame, false);
+        WindowNode.Function function = new WindowNode.Function(resolvedFunction, ImmutableList.of(columnC.toSymbolReference()), Optional.empty(), frame, false, false);
 
         DataOrganizationSpecification specification = new DataOrganizationSpecification(ImmutableList.of(), Optional.empty());
 
@@ -280,7 +278,6 @@ public class TestTypeValidator
                 baseTableScan,
                 specification,
                 ImmutableMap.of(windowSymbol, function),
-                Optional.empty(),
                 ImmutableSet.of(),
                 0);
 

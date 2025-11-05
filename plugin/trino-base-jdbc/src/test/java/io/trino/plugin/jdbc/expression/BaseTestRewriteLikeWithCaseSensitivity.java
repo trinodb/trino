@@ -63,8 +63,8 @@ public abstract class BaseTestRewriteLikeWithCaseSensitivity
             @Override
             public Optional<ParameterizedExpression> defaultRewrite(ConnectorExpression expression)
             {
-                if (expression instanceof Variable) {
-                    String name = ((Variable) expression).getName();
+                if (expression instanceof Variable variable) {
+                    String name = variable.getName();
                     return Optional.of(new ParameterizedExpression("\"" + name.replace("\"", "\"\"") + "\"", ImmutableList.of(new QueryParameter(expression.getType(), Optional.of(name)))));
                 }
                 return Optional.empty();

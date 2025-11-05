@@ -48,7 +48,7 @@ public class TestBigQueryWithProxyTest
     void testCreateTableAsSelect()
     {
         // This test covers all client (BigQuery, BigQueryReadClient and BigQueryWriteClient)
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test.test_ctas", "AS SELECT 42 x")) {
+        try (TestTable table = newTrinoTable("test.test_ctas", "AS SELECT 42 x")) {
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 42");
         }
     }

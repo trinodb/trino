@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.trino.tempto.assertions.QueryAssert;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
@@ -42,7 +44,7 @@ public class TestDeltaLakePartitioningCompatibility
         String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
         String tableDirectory = "delta-compatibility-test-" + tableName;
 
-        ImmutableList<QueryAssert.Row> expected = ImmutableList.of(
+        List<QueryAssert.Row> expected = ImmutableList.of(
                 row(1, "with-hyphen"),
                 row(2, "with.dot"),
                 row(3, "with:colon"),
@@ -92,7 +94,7 @@ public class TestDeltaLakePartitioningCompatibility
         String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
         String tableDirectory = "delta-compatibility-test-" + tableName;
 
-        ImmutableList<QueryAssert.Row> expected = ImmutableList.of(
+        List<QueryAssert.Row> expected = ImmutableList.of(
                 row(1, "with-hyphen"),
                 row(2, "with.dot"),
                 row(3, "with:colon"),
@@ -145,7 +147,7 @@ public class TestDeltaLakePartitioningCompatibility
         String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
         String tableDirectory = "delta-compatibility-test-" + tableName;
 
-        ImmutableList<QueryAssert.Row> expected = ImmutableList.of(
+        List<QueryAssert.Row> expected = ImmutableList.of(
                 row(1, "with-hyphen"),
                 row(2, "with.dot"),
                 row(3, "with:colon"),
@@ -197,7 +199,7 @@ public class TestDeltaLakePartitioningCompatibility
         String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
         String tableDirectory = "delta-compatibility-test-" + tableName;
 
-        ImmutableList<QueryAssert.Row> expected = ImmutableList.of(
+        List<QueryAssert.Row> expected = ImmutableList.of(
                 row(1, "with-hyphen"),
                 row(2, "with.dot"),
                 row(3, "with:colon"),
@@ -252,7 +254,7 @@ public class TestDeltaLakePartitioningCompatibility
         String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
         String tableDirectory = "delta-compatibility-test-" + tableName;
 
-        ImmutableList<QueryAssert.Row> expected = ImmutableList.of(
+        List<QueryAssert.Row> expected = ImmutableList.of(
                 row(101, "with-hyphen"),
                 row(102, "with.dot"),
                 row(103, "with:colon"),
@@ -304,7 +306,7 @@ public class TestDeltaLakePartitioningCompatibility
         String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
         String tableDirectory = "delta-compatibility-test-" + tableName;
 
-        ImmutableList<QueryAssert.Row> expected = ImmutableList.of(
+        List<QueryAssert.Row> expected = ImmutableList.of(
                 row(101, "with-hyphen"),
                 row(102, "with.dot"),
                 row(103, "with:colon"),
@@ -353,7 +355,7 @@ public class TestDeltaLakePartitioningCompatibility
         String tableName = "test_dl_create_table_partition_changed_by_spark_" + randomNameSuffix();
         String tableDirectory = "delta-compatibility-test-" + tableName;
 
-        ImmutableList<QueryAssert.Row> expected = ImmutableList.of(row(1, "part"));
+        List<QueryAssert.Row> expected = ImmutableList.of(row(1, "part"));
 
         onDelta().executeQuery(format("CREATE TABLE default.%s " +
                         "USING DELTA " +

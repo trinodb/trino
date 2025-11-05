@@ -87,7 +87,7 @@ public class AddFileEntry
             @Nullable Map<String, String> tags,
             Optional<DeletionVectorEntry> deletionVector)
     {
-        this.path = path;
+        this.path = requireNonNull(path, "path is null");
         this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
         this.canonicalPartitionValues = requireNonNull(canonicalPartitionValues, "canonicalPartitionValues is null");
         this.size = size;
@@ -241,6 +241,12 @@ public class AddFileEntry
         }
         totalSize += estimatedSizeOf(partitionValues, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf);
         totalSize += estimatedSizeOf(tags, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf);
+        if (deletionVector.isPresent()) {
+            totalSize += deletionVector.get().getRetainedSizeInBytes();
+        }
+        if (!canonicalPartitionValues.isEmpty()) {
+            totalSize += estimatedSizeOf(canonicalPartitionValues, SizeOf::estimatedSizeOf, partitionValues -> partitionValues.map(SizeOf::estimatedSizeOf).orElse(0L));
+        }
         return totalSize;
     }
 }

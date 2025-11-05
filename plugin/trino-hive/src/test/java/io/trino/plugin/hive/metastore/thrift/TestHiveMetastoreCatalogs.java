@@ -17,10 +17,10 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.HiveQueryRunner;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -52,7 +52,7 @@ public class TestHiveMetastoreCatalogs
             throws Exception
     {
         this.bucketName = "test-hive-metastore-catalogs-" + randomNameSuffix();
-        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName, HiveHadoop.HIVE3_IMAGE));
+        Hive3MinioDataLake hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName, HiveHadoop.HIVE3_IMAGE));
         hiveMinioDataLake.start();
 
         QueryRunner queryRunner = HiveQueryRunner.builder()
@@ -75,12 +75,11 @@ public class TestHiveMetastoreCatalogs
         return queryRunner;
     }
 
-    private static Map<String, String> buildHiveProperties(HiveMinioDataLake hiveMinioDataLake)
+    private static Map<String, String> buildHiveProperties(Hive3MinioDataLake hiveMinioDataLake)
     {
         return ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "thrift")
-                .put("hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
-                .put("fs.hadoop.enabled", "false")
+                .put("hive.metastore.uri", hiveMinioDataLake.getHiveMetastoreEndpoint().toString())
                 .put("fs.native-s3.enabled", "true")
                 .put("s3.path-style-access", "true")
                 .put("s3.region", MINIO_REGION)

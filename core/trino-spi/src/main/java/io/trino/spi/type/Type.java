@@ -119,7 +119,7 @@ public interface Type
      * {@code position}. This is the value returned to the user via the
      * REST endpoint and therefore must be JSON serializable.
      */
-    Object getObjectValue(ConnectorSession session, Block block, int position);
+    Object getObjectValue(Block block, int position);
 
     /**
      * Gets the value at the {@code block} {@code position} as a boolean.
@@ -145,6 +145,12 @@ public interface Type
      * Gets the value at the {@code block} {@code position} as an Object.
      */
     Object getObject(Block block, int position);
+
+    @Deprecated
+    default Object getObject(ConnectorSession ignored, Block block, int position)
+    {
+        return getObject(block, position);
+    }
 
     /**
      * Writes the boolean value into the {@code BlockBuilder}.
@@ -177,9 +183,13 @@ public interface Type
     void writeObject(BlockBuilder blockBuilder, Object value);
 
     /**
-     * Append the value at {@code position} in {@code block} to {@code blockBuilder}.
+     * @deprecated Use {@link BlockBuilder#append}
      */
-    void appendTo(Block block, int position, BlockBuilder blockBuilder);
+    @Deprecated(forRemoval = true)
+    default void appendTo(Block block, int position, BlockBuilder blockBuilder)
+    {
+        blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
+    }
 
     /**
      * Return the range of possible values for this type, if available.
@@ -247,14 +257,9 @@ public interface Type
     int getFlatVariableWidthSize(Block block, int position);
 
     /**
-     * Update the variable width offsets recorded in the value.
-     * This method is called after the value has been moved to a new location, and therefore the offsets
-     * need to be updated.
-     * Returns the length of the variable width data, so container types can update their offsets.
-     *
-     * @return the length of the variable width data
+     * Returns the variable width size of the value already written at the specified position within a flat buffer
      */
-    int relocateFlatVariableWidthOffsets(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset);
+    int getFlatVariableWidthLength(byte[] fixedSizeSlice, int fixedSizeOffset);
 
     final class Range
     {

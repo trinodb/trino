@@ -44,10 +44,10 @@ import static io.trino.plugin.opa.TestHelpers.createMockHttpClient;
 import static io.trino.plugin.opa.TestHelpers.createOpaAuthorizer;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestOpaAccessControlFiltering
+final class TestOpaAccessControlFiltering
 {
     @Test
-    public void testFilterViewQueryOwnedBy()
+    void testFilterViewQueryOwnedBy()
     {
         Identity userOne = Identity.ofUser("user-one");
         Identity userTwo = Identity.ofUser("user-two");
@@ -97,7 +97,7 @@ public class TestOpaAccessControlFiltering
     }
 
     @Test
-    public void testFilterCatalogs()
+    void testFilterCatalogs()
     {
         Set<String> requestedCatalogs = ImmutableSet.of("catalog_one", "catalog_two");
         assertAccessControlMethodThrowsForIllegalResponses(
@@ -142,7 +142,7 @@ public class TestOpaAccessControlFiltering
     }
 
     @Test
-    public void testFilterSchemas()
+    void testFilterSchemas()
     {
         Set<String> requestedSchemas = ImmutableSet.of("schema_one", "schema_two");
         assertAccessControlMethodThrowsForIllegalResponses(
@@ -178,7 +178,7 @@ public class TestOpaAccessControlFiltering
     }
 
     @Test
-    public void testFilterTables()
+    void testFilterTables()
     {
         Set<SchemaTableName> tables = ImmutableSet.<SchemaTableName>builder()
                 .add(new SchemaTableName("schema_one", "table_one"))
@@ -217,7 +217,7 @@ public class TestOpaAccessControlFiltering
     }
 
     @Test
-    public void testFilterColumns()
+    void testFilterColumns()
     {
         SchemaTableName tableOne = SchemaTableName.schemaTableName("my_schema", "table_one");
         SchemaTableName tableTwo = SchemaTableName.schemaTableName("my_schema", "table_two");
@@ -282,7 +282,7 @@ public class TestOpaAccessControlFiltering
     }
 
     @Test
-    public void testFilterFunctions()
+    void testFilterFunctions()
     {
         SchemaFunctionName functionOne = new SchemaFunctionName("my_schema", "function_one");
         SchemaFunctionName functionTwo = new SchemaFunctionName("my_schema", "function_two");

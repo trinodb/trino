@@ -19,7 +19,6 @@ import io.airlift.slice.Slices;
 import jakarta.annotation.Nullable;
 
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -28,7 +27,7 @@ import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
-import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static io.trino.spi.block.BlockUtil.compactSlice;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
@@ -119,12 +118,6 @@ public final class VariableWidthBlock
     }
 
     @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.empty(); // size varies per element and is not fixed
-    }
-
-    @Override
     public long getSizeInBytes()
     {
         return sizeInBytes;
@@ -134,24 +127,6 @@ public final class VariableWidthBlock
     public long getRegionSizeInBytes(int position, int length)
     {
         return offsets[arrayOffset + position + length] - offsets[arrayOffset + position] + ((Integer.BYTES + Byte.BYTES) * (long) length);
-    }
-
-    @Override
-    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
-    {
-        if (selectedPositionsCount == 0) {
-            return 0;
-        }
-        if (selectedPositionsCount == positionCount) {
-            return getSizeInBytes();
-        }
-        long sizeInBytes = 0;
-        for (int i = 0; i < positions.length; ++i) {
-            if (positions[i]) {
-                sizeInBytes += offsets[arrayOffset + i + 1] - offsets[arrayOffset + i];
-            }
-        }
-        return sizeInBytes + (Integer.BYTES + Byte.BYTES) * (long) selectedPositionsCount;
     }
 
     @Override
@@ -189,6 +164,20 @@ public final class VariableWidthBlock
     public boolean mayHaveNull()
     {
         return valueIsNull != null;
+    }
+
+    @Override
+    public boolean hasNull()
+    {
+        if (valueIsNull == null) {
+            return false;
+        }
+        for (int i = 0; i < positionCount; i++) {
+            if (valueIsNull[i + arrayOffset]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -230,18 +219,22 @@ public final class VariableWidthBlock
         }
 
         SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
+        boolean hasNull = false;
         boolean[] newValueIsNull = null;
         int firstPosition = positions[offset];
         if (valueIsNull != null) {
             newValueIsNull = new boolean[length];
             newValueIsNull[0] = valueIsNull[firstPosition + arrayOffset];
+            hasNull |= newValueIsNull[0];
         }
         int currentStart = getPositionOffset(firstPosition);
         int currentEnd = getPositionOffset(firstPosition + 1);
         for (int i = 1; i < length; i++) {
             int position = positions[offset + i];
             if (valueIsNull != null) {
-                newValueIsNull[i] = valueIsNull[position + arrayOffset];
+                boolean isNull = valueIsNull[position + arrayOffset];
+                newValueIsNull[i] = isNull;
+                hasNull |= isNull;
             }
             // Null positions must have valid offsets for getSliceLength to work correctly on the next non-null position
             int currentOffset = getPositionOffset(position);
@@ -254,7 +247,7 @@ public final class VariableWidthBlock
         }
         // Copy last range of bytes
         newSlice.writeBytes(slice, currentStart, currentEnd - currentStart);
-        return new VariableWidthBlock(0, length, newSlice.slice(), newOffsets, newValueIsNull);
+        return new VariableWidthBlock(0, length, newSlice.slice(), newOffsets, hasNull ? newValueIsNull : null);
     }
 
     @Override
@@ -273,18 +266,12 @@ public final class VariableWidthBlock
 
         int[] newOffsets = compactOffsets(offsets, positionOffset, length);
         Slice newSlice = compactSlice(slice, offsets[positionOffset], newOffsets[length]);
-        boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
+        boolean[] newValueIsNull = compactIsNull(valueIsNull, positionOffset, length);
 
         if (newOffsets == offsets && newSlice == slice && newValueIsNull == valueIsNull) {
             return this;
         }
         return new VariableWidthBlock(0, length, newSlice, newOffsets, newValueIsNull);
-    }
-
-    @Override
-    public String getEncodingName()
-    {
-        return VariableWidthBlockEncoding.NAME;
     }
 
     @Override

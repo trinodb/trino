@@ -13,6 +13,7 @@
  */
 package io.trino.testing;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MoreCollectors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -21,6 +22,7 @@ import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.cost.StatsAndCosts;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.QueryState;
@@ -32,6 +34,8 @@ import io.trino.execution.TaskState;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.MemoryPool;
+import io.trino.metadata.FunctionManager;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.OperatorStats;
@@ -55,6 +59,7 @@ import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
+import io.trino.testing.sql.TestTable;
 import org.assertj.core.api.AssertProvider;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
@@ -76,10 +81,11 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.execution.StageInfo.getAllStages;
+import static io.trino.execution.StagesInfo.getAllStages;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
+import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
@@ -226,7 +232,7 @@ public abstract class AbstractTestQueryFramework
                         List<TaskInfo> taskInfos = taskManager.getAllTaskInfo();
                         for (TaskInfo taskInfo : taskInfos) {
                             TaskId taskId = taskInfo.taskStatus().getTaskId();
-                            QueryId queryId = taskId.getQueryId();
+                            QueryId queryId = taskId.queryId();
                             TaskState taskState = taskInfo.taskStatus().getState();
                             if (!taskState.isDone()) {
                                 try {
@@ -247,11 +253,11 @@ public abstract class AbstractTestQueryFramework
     private static String createQueryDebuggingSummary(BasicQueryInfo basicQueryInfo, QueryInfo queryInfo)
     {
         String queryDetails = format("Query %s [%s]: %s", basicQueryInfo.getQueryId(), basicQueryInfo.getState(), basicQueryInfo.getQuery());
-        if (queryInfo.getOutputStage().isEmpty()) {
+        if (queryInfo.getStages().isEmpty()) {
             return queryDetails + " -- <no output stage present>";
         }
         else {
-            return queryDetails + getAllStages(queryInfo.getOutputStage()).stream()
+            return queryDetails + getAllStages(queryInfo.getStages()).stream()
                     .map(stageInfo -> {
                         String stageDetail = format("Stage %s [%s]", stageInfo.getStageId(), stageInfo.getState());
                         if (stageInfo.getTasks().isEmpty()) {
@@ -423,6 +429,11 @@ public abstract class AbstractTestQueryFramework
     protected void assertUpdate(Session session, @Language("SQL") String sql, long count, Consumer<Plan> planAssertion)
     {
         QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.of(count), Optional.of(planAssertion));
+    }
+
+    protected void assertUpdate(Session session, @Language("SQL") String sql, Consumer<Plan> planAssertion)
+    {
+        QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.empty(), Optional.of(planAssertion));
     }
 
     protected void assertQuerySucceeds(@Language("SQL") String sql)
@@ -610,6 +621,13 @@ public abstract class AbstractTestQueryFramework
         return formatSql(SQL_PARSER.createStatement(sql));
     }
 
+    protected String formatPlan(Session session, Plan plan)
+    {
+        Metadata metadata = getDistributedQueryRunner().getPlannerContext().getMetadata();
+        FunctionManager functionManager = getDistributedQueryRunner().getPlannerContext().getFunctionManager();
+        return inTransaction(session, transactionSession -> textLogicalPlan(plan.getRoot(), metadata, functionManager, StatsAndCosts.empty(), transactionSession, 0, false));
+    }
+
     protected String getExplainPlan(@Language("SQL") String query, ExplainType.Type planType)
     {
         return getExplainPlan(getSession(), query, planType);
@@ -654,6 +672,16 @@ public abstract class AbstractTestQueryFramework
             return Optional.of(runner);
         }
         return Optional.empty();
+    }
+
+    protected TestTable newTrinoTable(String namePrefix, @Language("SQL") String tableDefinition)
+    {
+        return newTrinoTable(namePrefix, tableDefinition, ImmutableList.of());
+    }
+
+    protected TestTable newTrinoTable(String namePrefix, @Language("SQL") String tableDefinition, List<String> rowsToInsert)
+    {
+        return new TestTable(getQueryRunner()::execute, namePrefix, tableDefinition, rowsToInsert);
     }
 
     protected Session noJoinReordering()
@@ -730,6 +758,18 @@ public abstract class AbstractTestQueryFramework
             getQueryRunner().getPlannerContext().getMetadata().getCatalogHandle(transactionSession, tableHandle.catalogHandle().getCatalogName().toString());
             return getQueryRunner().getPlannerContext().getMetadata().getTableName(transactionSession, tableHandle);
         });
+    }
+
+    protected String getTableComment(String tableName)
+    {
+        Session session = getSession();
+        return getTableComment(session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), tableName);
+    }
+
+    protected String getTableComment(String catalogName, String schemaName, String tableName)
+    {
+        return (String) computeScalar("SELECT comment FROM system.metadata.table_comments " +
+                "WHERE catalog_name = '" + catalogName + "' AND schema_name = '" + schemaName + "' AND table_name = '" + tableName + "'");
     }
 
     private <T> T inTransaction(Session session, Function<Session, T> transactionSessionConsumer)

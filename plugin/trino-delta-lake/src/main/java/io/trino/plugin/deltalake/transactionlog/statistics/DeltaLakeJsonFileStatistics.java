@@ -23,6 +23,7 @@ import io.airlift.slice.SizeOf;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.transactionlog.CanonicalColumnName;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
@@ -141,7 +142,17 @@ public class DeltaLakeJsonFileStatistics
         if (!columnHandle.isBaseColumn()) {
             return Optional.empty();
         }
-        Object columnValue = deserializeColumnValue(columnHandle, statValue, DeltaLakeJsonFileStatistics::readStatisticsTimestamp, DeltaLakeJsonFileStatistics::readStatisticsTimestampWithZone);
+
+        Object columnValue;
+        try {
+            columnValue = deserializeColumnValue(columnHandle, statValue, DeltaLakeJsonFileStatistics::readStatisticsTimestamp, DeltaLakeJsonFileStatistics::readStatisticsTimestampWithZone);
+        }
+        catch (TrinoException e) {
+            // Catching exception and returning empty stats so that one un-serializable column doesn't prevent the use of statistics for all columns
+            // TODO ensure that we are able to deserialize all valid values
+            log.debug("Cannot deserialize column value, skipping statistics: %s", e.getMessage());
+            return Optional.empty();
+        }
 
         Type columnType = columnHandle.baseType();
         if (columnType.equals(DATE)) {

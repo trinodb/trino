@@ -53,11 +53,6 @@ public abstract class AbstractTestAzureFileSystem
 {
     private final EncryptionKey key = EncryptionKey.randomAes256();
 
-    protected static String getRequiredEnvironmentVariable(String name)
-    {
-        return requireNonNull(System.getenv(name), "Environment variable not set: " + name);
-    }
-
     protected enum AccountKind
     {
         HIERARCHICAL, FLAT
@@ -75,17 +70,23 @@ public abstract class AbstractTestAzureFileSystem
     protected void initializeWithAccessKey(String account, String accountKey, AccountKind accountKind)
             throws IOException
     {
-        initialize(account, new AzureAuthAccessKey(accountKey), accountKind);
+        initialize(account, new AzureAuthAccessKey(accountKey), accountKind, false);
+    }
+
+    protected void initializeWithAccessKeyAndMultipartWrites(String account, String accountKey, AccountKind accountKind)
+            throws IOException
+    {
+        initialize(account, new AzureAuthAccessKey(accountKey), accountKind, true);
     }
 
     protected void initializeWithOAuth(String account, String tenantId, String clientId, String clientSecret, AccountKind accountKind)
             throws IOException
     {
         String clientEndpoint = "https://login.microsoftonline.com/%s/oauth2/v2.0/token".formatted(tenantId);
-        initialize(account, new AzureAuthOauth(clientEndpoint, tenantId, clientId, clientSecret), accountKind);
+        initialize(account, new AzureAuthOauth(clientEndpoint, tenantId, clientId, clientSecret), accountKind, false);
     }
 
-    private void initialize(String account, AzureAuth azureAuth, AccountKind accountKind)
+    private void initialize(String account, AzureAuth azureAuth, AccountKind accountKind, boolean multipartWriteEnabled)
             throws IOException
     {
         this.account = requireNonNull(account, "account is null");
@@ -112,7 +113,8 @@ public abstract class AbstractTestAzureFileSystem
         fileSystemFactory = new AzureFileSystemFactory(
                 OpenTelemetry.noop(),
                 azureAuth,
-                new AzureFileSystemConfig());
+                new AzureFileSystemConfig()
+                        .setMultipartWriteEnabled(multipartWriteEnabled));
         fileSystem = fileSystemFactory.create(ConnectorIdentity.ofUser("test"));
 
         cleanupFiles();

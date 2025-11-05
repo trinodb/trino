@@ -31,6 +31,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -140,6 +141,11 @@ public class TrinoDatabaseMetaData
     public String getDatabaseProductVersion()
             throws SQLException
     {
+        Optional<String> serverVersion = connection.getServerVersion();
+        if (serverVersion.isPresent()) {
+            return serverVersion.orElseThrow();
+        }
+
         try (ResultSet rs = select("SELECT version()")) {
             rs.next();
             return rs.getString(1);
@@ -1432,13 +1438,11 @@ public class TrinoDatabaseMetaData
 
         Stream.of(ClientInfoProperty.values())
                 .sorted(Comparator.comparing(ClientInfoProperty::getPropertyName))
-                .forEach(clientInfoProperty -> {
-                    results.add(newArrayList(
-                            clientInfoProperty.getPropertyName(),
-                            VARCHAR_UNBOUNDED_LENGTH,
-                            null,
-                            null));
-                });
+                .forEach(clientInfoProperty -> results.add(newArrayList(
+                        clientInfoProperty.getPropertyName(),
+                        VARCHAR_UNBOUNDED_LENGTH,
+                        null,
+                        null)));
 
         return new InMemoryTrinoResultSet(columns.build(), results.build());
     }

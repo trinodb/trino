@@ -99,7 +99,7 @@ public class PushProjectionIntoTableScan
 
         // Extract translatable components from projection expressions. Prepare a mapping from these internal
         // expression nodes to corresponding ConnectorExpression translations.
-        Map<NodeRef<Expression>, ConnectorExpression> partialTranslations = project.getAssignments().getMap().entrySet().stream()
+        Map<NodeRef<Expression>, ConnectorExpression> partialTranslations = project.getAssignments().assignments().entrySet().stream()
                 .flatMap(expression ->
                         extractPartialTranslations(
                                 expression.getValue(),
@@ -171,10 +171,10 @@ public class PushProjectionIntoTableScan
             for (int i = 0; i < connectorPartialProjections.size(); i++) {
                 ConnectorExpression inputConnectorExpression = connectorPartialProjections.get(i);
                 ConnectorExpression resultConnectorExpression = newConnectorPartialProjections.get(i);
-                if (!(resultConnectorExpression instanceof Variable)) {
+                if (!(resultConnectorExpression instanceof Variable variable)) {
                     continue;
                 }
-                String resultVariableName = ((Variable) resultConnectorExpression).getName();
+                String resultVariableName = variable.getName();
                 Expression inputExpression = ConnectorExpressionTranslator.translate(session, inputConnectorExpression, plannerContext, inputVariableMappings);
                 SymbolStatsEstimate symbolStatistics = scalarStatsCalculator.calculate(inputExpression, statistics, session);
                 builder.addSymbolStatistics(variableMappings.get(resultVariableName), symbolStatistics);

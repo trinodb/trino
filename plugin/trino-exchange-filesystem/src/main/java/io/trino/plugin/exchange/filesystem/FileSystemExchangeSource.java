@@ -45,7 +45,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
-import static io.trino.plugin.exchange.filesystem.MetricsBuilder.SOURCE_FILES_TOTAL;
 import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.INCLUDED;
 import static java.util.Objects.requireNonNull;
 
@@ -71,7 +70,7 @@ public class FileSystemExchangeSource
     private final AtomicBoolean closed = new AtomicBoolean();
 
     private final MetricsBuilder metricsBuilder = new MetricsBuilder();
-    private final CounterMetricBuilder totalFilesMetric = metricsBuilder.getCounterMetric(SOURCE_FILES_TOTAL);
+    private final CounterMetricBuilder totalFilesMetric = metricsBuilder.getCounterMetric("FileSystemExchangeSource.filesTotal");
 
     public FileSystemExchangeSource(
             FileSystemExchangeStorage exchangeStorage,

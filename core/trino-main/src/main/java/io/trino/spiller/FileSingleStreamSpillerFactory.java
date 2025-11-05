@@ -22,6 +22,7 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.FeaturesConfig;
 import io.trino.cache.NonKeyEvictableLoadingCache;
+import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.buffer.CompressionCodec;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.LocalMemoryContext;
@@ -46,6 +47,7 @@ import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.FeaturesConfig.SPILLER_SPILL_PATH;
 import static io.trino.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
+import static io.trino.execution.buffer.PagesSerdes.createSpillingPagesSerdeFactory;
 import static io.trino.spi.StandardErrorCode.OUT_OF_SPILL_SPACE;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static java.lang.String.format;
@@ -79,11 +81,12 @@ public class FileSingleStreamSpillerFactory
     private final SpillerStats spillerStats;
     private final double maxUsedSpaceThreshold;
     private final boolean spillEncryptionEnabled;
+    private final int spillFileCount;
     private int roundRobinIndex;
     private final NonKeyEvictableLoadingCache<Path, Boolean> spillPathHealthCache;
 
     @Inject
-    public FileSingleStreamSpillerFactory(BlockEncodingSerde blockEncodingSerde, SpillerStats spillerStats, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig)
+    public FileSingleStreamSpillerFactory(BlockEncodingSerde blockEncodingSerde, SpillerStats spillerStats, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig, TaskManagerConfig taskManagerConfig)
     {
         this(
                 listeningDecorator(newFixedThreadPool(
@@ -92,6 +95,7 @@ public class FileSingleStreamSpillerFactory
                 requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"),
                 spillerStats,
                 featuresConfig.getSpillerSpillPaths(),
+                Math.min(featuresConfig.getSpillerThreads(), taskManagerConfig.getTaskConcurrency()),
                 featuresConfig.getSpillMaxUsedSpaceThreshold(),
                 nodeSpillConfig.getSpillCompressionCodec(),
                 nodeSpillConfig.isSpillEncryptionEnabled());
@@ -103,11 +107,12 @@ public class FileSingleStreamSpillerFactory
             BlockEncodingSerde blockEncodingSerde,
             SpillerStats spillerStats,
             List<Path> spillPaths,
+            int spillFileCount,
             double maxUsedSpaceThreshold,
             CompressionCodec compressionCodec,
             boolean spillEncryptionEnabled)
     {
-        this.serdeFactory = new PagesSerdeFactory(blockEncodingSerde, compressionCodec);
+        this.serdeFactory = createSpillingPagesSerdeFactory(blockEncodingSerde, compressionCodec);
         this.executor = requireNonNull(executor, "executor is null");
         this.spillerStats = requireNonNull(spillerStats, "spillerStats cannot be null");
         requireNonNull(spillPaths, "spillPaths is null");
@@ -123,6 +128,7 @@ public class FileSingleStreamSpillerFactory
                 throw new IllegalArgumentException(format("spill path %s is not accessible, it must be +rwx; adjust %s config property or filesystem permissions", path, SPILLER_SPILL_PATH));
             }
         });
+        this.spillFileCount = spillFileCount;
         this.maxUsedSpaceThreshold = maxUsedSpaceThreshold;
         this.spillEncryptionEnabled = spillEncryptionEnabled;
         this.roundRobinIndex = 0;
@@ -164,14 +170,19 @@ public class FileSingleStreamSpillerFactory
     }
 
     @Override
-    public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, LocalMemoryContext memoryContext)
+    public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, LocalMemoryContext memoryContext, boolean parallelSpill)
     {
         Optional<SecretKey> encryptionKey = spillEncryptionEnabled ? Optional.of(createRandomAesEncryptionKey()) : Optional.empty();
+        int spillFileCount = parallelSpill ? this.spillFileCount : 1;
+        ImmutableList.Builder<Path> paths = ImmutableList.builderWithExpectedSize(spillFileCount);
+        for (int i = 0; i < spillFileCount; i++) {
+            paths.add(getNextSpillPath());
+        }
         return new FileSingleStreamSpiller(
                 serdeFactory,
                 encryptionKey,
                 executor,
-                getNextSpillPath(),
+                paths.build(),
                 spillerStats,
                 spillContext,
                 memoryContext,

@@ -14,19 +14,18 @@
 package io.trino.plugin.geospatial;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractLongType;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeSignature;
 
 public class BingTileType
         extends AbstractLongType
 {
     public static final BingTileType BING_TILE = new BingTileType();
-    public static final String NAME = "BingTile";
 
     private BingTileType()
     {
-        super(new TypeSignature(NAME));
+        super(new TypeSignature(StandardTypes.BING_TILE));
     }
 
     @Override
@@ -36,7 +35,7 @@ public class BingTileType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;

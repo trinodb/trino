@@ -85,7 +85,7 @@ public class LeastWastedEffortTaskLowMemoryKiller
     {
         Stream<SimpleEntry<TaskId, Long>> stream = memoryPool.getTaskMemoryReservations().entrySet().stream()
                 .map(entry -> new SimpleEntry<>(TaskId.valueOf(entry.getKey()), entry.getValue()))
-                .filter(entry -> queriesWithTaskRetryPolicy.contains(entry.getKey().getQueryId()));
+                .filter(entry -> queriesWithTaskRetryPolicy.contains(entry.getKey().queryId()));
 
         if (onlySpeculative) {
             stream = stream.filter(entry -> {

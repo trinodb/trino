@@ -16,7 +16,7 @@ package io.trino.sql.planner;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.tree.SortItem;
 
-public class OrderingTranslator
+public final class OrderingTranslator
 {
     private OrderingTranslator() {}
 

@@ -26,6 +26,7 @@ import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.ShortArrayBlock;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
@@ -180,7 +181,7 @@ public class BenchmarkColumnarFilter
                     new DriverYieldSignal(),
                     context,
                     new PageProcessorMetrics(),
-                    inputPage);
+                    SourcePage.create(inputPage));
             if (workProcessor.process() && !workProcessor.isFinished()) {
                 outputRows += workProcessor.getResult().getPositionCount();
             }

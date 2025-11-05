@@ -147,7 +147,7 @@ public class TestEffectivePredicateExtractor
                     TEST_CATALOG_HANDLE,
                     TestingConnectorTransactionHandle.INSTANCE,
                     new ConnectorTableProperties(
-                            ((PredicatedTableHandle) handle.connectorHandle()).getPredicate(),
+                            ((PredicatedTableHandle) handle.connectorHandle()).predicate(),
                             Optional.empty(),
                             Optional.empty(),
                             ImmutableList.of()));
@@ -176,11 +176,13 @@ public class TestEffectivePredicateExtractor
                 .buildOrThrow();
 
         Map<Symbol, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b"), new Symbol(BIGINT, "c"), new Symbol(BIGINT, "d"), new Symbol(BIGINT, "e"), new Symbol(BIGINT, "f"))));
-        baseTableScan = TableScanNode.newInstance(
+        baseTableScan = new TableScanNode(
                 newId(),
                 makeTableHandle(TupleDomain.all()),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
+                TupleDomain.all(),
+                Optional.empty(),
                 false,
                 Optional.empty());
 
@@ -414,7 +416,6 @@ public class TestEffectivePredicateExtractor
                                 ImmutableList.of(new Symbol(BIGINT, "a")),
                                 ImmutableMap.of(new Symbol(BIGINT, "a"), SortOrder.ASC_NULLS_LAST)))),
                 ImmutableMap.of(),
-                Optional.empty(),
                 ImmutableSet.of(),
                 0);
 
@@ -432,11 +433,13 @@ public class TestEffectivePredicateExtractor
     {
         // Effective predicate is True if there is no effective predicate
         Map<Symbol, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b"), new Symbol(DOUBLE, "c"), new Symbol(REAL, "d"))));
-        PlanNode node = TableScanNode.newInstance(
+        PlanNode node = new TableScanNode(
                 newId(),
                 makeTableHandle(TupleDomain.all()),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
+                TupleDomain.all(),
+                Optional.empty(),
                 false,
                 Optional.empty());
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node);
@@ -744,8 +747,6 @@ public class TestEffectivePredicateExtractor
                 Optional.of(lessThanOrEqual(new Reference(BIGINT, "b"), new Reference(BIGINT, "e"))),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 ImmutableMap.of(),
                 Optional.empty());
 
@@ -786,8 +787,6 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 ImmutableMap.of(),
                 Optional.empty());
 
@@ -815,8 +814,6 @@ public class TestEffectivePredicateExtractor
                 rightScan.getOutputSymbols(),
                 false,
                 Optional.of(FALSE),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of(),
@@ -852,8 +849,6 @@ public class TestEffectivePredicateExtractor
                 left.getOutputSymbols(),
                 right.getOutputSymbols(),
                 false,
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -899,8 +894,6 @@ public class TestEffectivePredicateExtractor
                 left.getOutputSymbols(),
                 right.getOutputSymbols(),
                 false,
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -953,8 +946,6 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 ImmutableMap.of(),
                 Optional.empty());
 
@@ -999,8 +990,6 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 ImmutableMap.of(),
                 Optional.empty());
 
@@ -1021,8 +1010,6 @@ public class TestEffectivePredicateExtractor
                 filter(baseTableScan, and(greaterThan(new Reference(BIGINT, "a"), bigintLiteral(10)), lessThan(new Reference(BIGINT, "a"), bigintLiteral(100)))),
                 filter(baseTableScan, greaterThan(new Reference(BIGINT, "a"), bigintLiteral(5))),
                 new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b"), new Symbol(DOUBLE, "c"),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 
@@ -1168,19 +1155,6 @@ public class TestEffectivePredicateExtractor
         }
     }
 
-    private static class PredicatedTableHandle
-            implements ConnectorTableHandle
-    {
-        private final TupleDomain<ColumnHandle> predicate;
-
-        public PredicatedTableHandle(TupleDomain<ColumnHandle> predicate)
-        {
-            this.predicate = predicate;
-        }
-
-        public TupleDomain<ColumnHandle> getPredicate()
-        {
-            return predicate;
-        }
-    }
+    private record PredicatedTableHandle(TupleDomain<ColumnHandle> predicate)
+            implements ConnectorTableHandle {}
 }

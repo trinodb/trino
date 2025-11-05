@@ -187,13 +187,13 @@ public class UnwrapCastInComparison
             Type sourceType = cast.expression().type();
             Type targetType = expression.right().type();
 
-            if (sourceType instanceof TimestampType && targetType == DATE) {
-                return unwrapTimestampToDateCast((TimestampType) sourceType, operator, cast.expression(), (long) rightValue).orElse(expression);
+            if (sourceType instanceof TimestampType timestampType && targetType == DATE) {
+                return unwrapTimestampToDateCast(timestampType, operator, cast.expression(), (long) rightValue).orElse(expression);
             }
 
-            if (targetType instanceof TimestampWithTimeZoneType) {
+            if (targetType instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
                 // Note: two TIMESTAMP WITH TIME ZONE values differing in zone only (same instant) are considered equal.
-                rightValue = withTimeZone(((TimestampWithTimeZoneType) targetType), rightValue, session.getTimeZoneKey());
+                rightValue = withTimeZone(timestampWithTimeZoneType, rightValue, session.getTimeZoneKey());
             }
 
             if (!hasInjectiveImplicitCoercion(sourceType, targetType, rightValue)) {
@@ -409,8 +409,8 @@ public class UnwrapCastInComparison
                         (realValue > -1L << 23 && realValue < 1L << 23); // in (-2^23, 2^23), bigint (and integer) follows an injective implicit coercion w.r.t real
             }
 
-            if (source instanceof DecimalType) {
-                int precision = ((DecimalType) source).getPrecision();
+            if (source instanceof DecimalType decimalType) {
+                int precision = decimalType.getPrecision();
 
                 if (precision > 15 && target.equals(DOUBLE)) {
                     // decimal(p,s) with p > 15 doesn't fit in a double without loss
@@ -431,11 +431,7 @@ public class UnwrapCastInComparison
                     }
 
                     // Cast from DATE to TIMESTAMP WITH TIME ZONE is not monotonic when there is a forward DST change in the session zone
-                    if (!isTimestampToTimestampWithTimeZoneInjectiveAt(session.getTimeZoneKey().getZoneId(), getInstantWithTruncation(timestampWithTimeZoneType, value))) {
-                        return false;
-                    }
-
-                    return true;
+                    return isTimestampToTimestampWithTimeZoneInjectiveAt(session.getTimeZoneKey().getZoneId(), getInstantWithTruncation(timestampWithTimeZoneType, value));
                 }
                 if (source instanceof TimestampType) {
                     // Cast from TIMESTAMP WITH TIME ZONE to TIMESTAMP and back to TIMESTAMP WITH TIME ZONE does not round trip, unless the value's zone is equal to session zone
@@ -444,11 +440,7 @@ public class UnwrapCastInComparison
                     }
 
                     // Cast from TIMESTAMP to TIMESTAMP WITH TIME ZONE is not monotonic when there is a forward DST change in the session zone
-                    if (!isTimestampToTimestampWithTimeZoneInjectiveAt(session.getTimeZoneKey().getZoneId(), getInstantWithTruncation(timestampWithTimeZoneType, value))) {
-                        return false;
-                    }
-
-                    return true;
+                    return isTimestampToTimestampWithTimeZoneInjectiveAt(session.getTimeZoneKey().getZoneId(), getInstantWithTruncation(timestampWithTimeZoneType, value));
                 }
                 // CAST from TIMESTAMP WITH TIME ZONE to d and back to TIMESTAMP WITH TIME ZONE does not round trip for most types d
                 // TODO add test coverage
@@ -541,9 +533,7 @@ public class UnwrapCastInComparison
         ZoneOffsetTransition transition = zone.getRules().previousTransition(instant.plusNanos(1));
         if (transition != null) {
             // DST change forward and the instant is ambiguous, being within the 'gap' area non-monotonic remapping
-            if (!transition.getDuration().isNegative() && !transition.getDateTimeAfter().minusNanos(1).atZone(zone).toInstant().isBefore(instant)) {
-                return false;
-            }
+            return transition.getDuration().isNegative() || transition.getDateTimeAfter().minusNanos(1).atZone(zone).toInstant().isBefore(instant);
         }
         return true;
     }

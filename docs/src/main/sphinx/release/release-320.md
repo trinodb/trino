@@ -10,7 +10,7 @@
 - Avoid unnecessary evaluation of redundant filters. ({issue}`1516`)
 - Improve performance of certain window functions when using bounded window
   frames (e.g., `ROWS BETWEEN ... PRECEDING AND ... FOLLOWING`). ({issue}`464`)
-- Add {doc}`/connector/kinesis`. ({issue}`476`)
+- Add Kinesis connector. ({issue}`476`)
 - Add {func}`geometry_from_hadoop_shape`. ({issue}`1593`)
 - Add {func}`at_timezone`. ({issue}`1612`)
 - Add {func}`with_timezone`. ({issue}`1612`)

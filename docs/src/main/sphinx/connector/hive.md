@@ -47,12 +47,16 @@ In the case of serializable formats, only specific
 
 - RCText - RCFile using `ColumnarSerDe`
 - RCBinary - RCFile using `LazyBinaryColumnarSerDe`
-- SequenceFile
+- SequenceFile with `org.apache.hadoop.io.Text`
+- SequenceFile with `org.apache.hadoop.io.BytesWritable` containing protocol
+  buffer records using
+  `com.twitter.elephantbird.hive.serde.ProtobufDeserializer`
 - CSV - using `org.apache.hadoop.hive.serde2.OpenCSVSerde`
 - JSON - using `org.apache.hive.hcatalog.data.JsonSerDe`
 - OPENX_JSON - OpenX JSON SerDe from `org.openx.data.jsonserde.JsonSerDe`. Find
   more [details about the Trino implementation in the source repository](https://github.com/trinodb/trino/tree/master/lib/trino-hive-formats/src/main/java/io/trino/hive/formats/line/openxjson/README.md).
 - TextFile
+- ESRI - using `com.esri.hadoop.hive.serde.EsriJsonSerDe`
 
 (hive-configuration)=
 ## General configuration
@@ -209,6 +213,13 @@ Hive connector documentation.
       in schemas `fruit` and `vegetable`
     * `*` to cache listings for all tables in all schemas
   -
+* - `hive.file-status-cache.excluded-tables`
+  - Whereas `hive.file-status-cache-tables` is an inclusion list, this is an exclusion list for the cache. 
+      * `fruit.apple,fruit.orange` to *NOT* cache listings only for tables
+        `apple` and `orange` in schema `fruit`
+      * `fruit.*,vegetable.*` to *NOT* cache listings for all tables
+        in schemas `fruit` and `vegetable`
+  -  
 * - `hive.file-status-cache.max-retained-size`
   - Maximum retained size of cached file status entries.
   - `1GB`
@@ -283,14 +294,41 @@ Hive connector documentation.
   - `false`
 * - `hive.partition-projection-enabled`
   - Enables Athena partition projection support
-  - `false`
+  - `true`
+* - `hive.s3-glacier-filter`
+  - Filter S3 objects based on their storage class and restored status if applicable. Possible
+    values are
+      * `READ_ALL` - read files from all S3 storage classes
+      * `READ_NON_GLACIER` - read files from non S3 Glacier storage classes
+      * `READ_NON_GLACIER_AND_RESTORED` - read files from non S3 Glacier storage classes and 
+        restored objects from Glacier storage class
+  - `READ_ALL`
 * - `hive.max-partition-drops-per-query`
   - Maximum number of partitions to drop in a single query.
   - 100,000
+* - `hive.metastore.partition-batch-size.max`
+  - Maximum number of partitions processed in a single batch.
+  - 100
 * - `hive.single-statement-writes`
   - Enables auto-commit for all writes. This can be used to disallow
     multi-statement write transactions.
   - `false`
+* - `hive.metadata.parallelism`
+  - Number of threads used for retrieving metadata. Currently, only table loading
+    is parallelized.
+  - `8`
+* - `hive.protobuf.descriptors.location`
+  - Path to a directory where binary Protocol Buffer descriptor files are 
+    stored to be used for reading tables stored in the
+    `com.twitter.elephantbird.hive.serde.ProtobufDeserializer` format.
+  -
+* - `hive.protobuf.descriptors.cache.max-size`
+  - Maximum size of the Protocol Buffer descriptors cache
+  - `64`
+* - `hive.protobuf.descriptors.cache.refresh-interval`
+  - [Duration](prop-type-duration) after which loaded Protocol Buffer descriptors
+    should be reloaded from disk.
+  - `1d`
 :::
 
 (hive-file-system-configuration)=
@@ -379,6 +417,43 @@ limitations and differences:
 - `GRANT privilege ON SCHEMA schema` is not supported. Schema ownership can be
   changed with `ALTER SCHEMA schema SET AUTHORIZATION user`
 
+(hive-parquet-encryption)=
+## Parquet encryption
+
+The Hive connector supports reading Parquet files encrypted with Parquet
+Modular Encryption (PME). Decryption keys can be provided via environment
+variables. Writing encrypted Parquet files is not supported.
+
+:::{list-table} Parquet encryption properties
+:widths: 35, 50, 15
+:header-rows: 1
+
+* - Property name
+  - Description
+  - Default
+* - `pme.environment-key-retriever.enabled`
+  - Enable the key retriever that reads decryption keys from
+    environment variables.
+  - `false`
+* - `pme.aad-prefix`
+  - AAD prefix used when decoding Parquet files. Must match the prefix used
+    when the files were written, if applicable.
+  -
+* - `pme.check-footer-integrity`
+  - Validate signature for plaintext footer files.
+  - `true`
+:::
+
+When `pme.environment-key-retriever.enabled` is set, provide keys with
+environment variables:
+
+- `pme.environment-key-retriever.footer-keys`
+- `pme.environment-key-retriever.column-keys`
+
+Each variable accepts either a single base64-encoded key, or a comma-separated
+list of `id:key` pairs (base64-encoded keys) where `id` must match the key
+metadata embedded in the Parquet file.
+
 (hive-sql-support)=
 ## SQL support
 
@@ -399,7 +474,7 @@ configured object storage system and metadata stores:
   - {ref}`sql-view-management`; see also
     {ref}`Hive-specific view management <hive-sql-view-management>`
 
-- [](sql-routine-management)
+- [](udf-management)
 - {ref}`sql-security-operations`: see also
   {ref}`SQL standard-based authorization for object storage <hive-sql-standard-based-authorization>`
 
@@ -528,6 +603,19 @@ CALL system.drop_stats(
     schema_name => 'web',
     table_name => 'page_views',
     partition_values => ARRAY[ARRAY['2016-08-09', 'US']]);
+```
+
+Tables created in Hive with
+[Twitter Elephantbird](https://github.com/twitter/elephant-bird/wiki/How-to-use-Elephant-Bird-with-Hive)
+are supported to read. The binary protobuf descriptor as mentioned in the
+`serialization.class` should be stored in a directory that is configured via
+`hive.protobuf.descriptors.location` on every worker.
+```
+...
+row format serde "com.twitter.elephantbird.hive.serde.ProtobufDeserializer"
+with serdeproperties (
+    "serialization.class"="com.example.proto.gen.Storage$User"
+)
 ```
 
 (hive-procedures)=
@@ -684,7 +772,7 @@ maximum value of `127`).
 
 Trino supports querying and manipulating Hive tables with the Avro storage
 format, which has the schema set based on an Avro schema file/literal. Trino is
-also capable of creating the tables in Trino by infering the schema from a
+also capable of creating the tables in Trino by inferring the schema from a
 valid Avro schema file located locally, or remotely in HDFS/Web server.
 
 To specify that the Avro schema should be used for interpreting table data, use

@@ -1,7 +1,7 @@
 #### JSON decoder
 
 The JSON decoder converts the bytes representing a message or key into
-Javascript Object Notaion (JSON) according to {rfc}`4627`. The message or key
+Javascript Object Notation (JSON) according to {rfc}`4627`. The message or key
 must convert into a JSON object, not an array or simple type.
 
 For fields, the following attributes are supported:

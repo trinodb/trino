@@ -16,9 +16,13 @@ package io.trino.plugin.bigquery;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.tpch.TpchTable.NATION;
 import static java.lang.String.format;
@@ -27,13 +31,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TestBigQueryParentProjectId
         extends AbstractTestQueryFramework
 {
-    private final String testingProjectId;
-    private final String testingParentProjectId;
+    private final String projectId;
+    private final String parentProjectId;
 
     TestBigQueryParentProjectId()
     {
-        testingProjectId = requiredNonEmptySystemProperty("testing.bigquery-project-id");
-        testingParentProjectId = requiredNonEmptySystemProperty("testing.bigquery-parent-project-id");
+        projectId = requiredNonEmptySystemProperty("testing.bigquery-project-id");
+        parentProjectId = requiredNonEmptySystemProperty("testing.bigquery-parent-project-id");
     }
 
     @Override
@@ -42,8 +46,7 @@ class TestBigQueryParentProjectId
     {
         return BigQueryQueryRunner.builder()
                 .setConnectorProperties(ImmutableMap.<String, String>builder()
-                        .put("bigquery.project-id", testingProjectId)
-                        .put("bigquery.parent-project-id", testingParentProjectId)
+                        .put("bigquery.parent-project-id", parentProjectId)
                         .buildOrThrow())
                 .setInitialTables(ImmutableList.of(NATION))
                 .build();
@@ -51,10 +54,67 @@ class TestBigQueryParentProjectId
 
     @Test
     void testQueriesWithParentProjectId()
+            throws Exception
     {
+        // tpch schema is available in both projects
         assertThat(computeScalar("SELECT name FROM bigquery.tpch.nation WHERE nationkey = 0")).isEqualTo("ALGERIA");
         assertThat(computeScalar("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT name FROM tpch.nation WHERE nationkey = 0'))")).isEqualTo("ALGERIA");
-        assertThat(computeScalar(format("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT name FROM %s.tpch.nation WHERE nationkey = 0'))", testingProjectId)))
+        assertThat(computeScalar(format("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT name FROM %s.tpch.nation WHERE nationkey = 0'))", projectId)))
                 .isEqualTo("ALGERIA");
+        assertThat(computeScalar(format("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT name FROM %s.tpch.nation WHERE nationkey = 0'))", parentProjectId)))
+                .isEqualTo("ALGERIA");
+
+        String trinoSchema = "someschema_" + randomNameSuffix();
+        try (AutoCloseable ignored = withSchema(trinoSchema); TestTable table = newTrinoTable("%s.table".formatted(trinoSchema), "(col1 INT)")) {
+            String tableName = table.getName().split("\\.")[1];
+            // schema created in parentProjectId by default
+            assertThat(computeActual(format(
+                    "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT schema_name FROM `%s.region-us.INFORMATION_SCHEMA.SCHEMATA`'))",
+                    projectId)))
+                    .doesNotContain(row(trinoSchema));
+            // If Parent project ID is not provided, PTF calls to unprefixed datasets go to credentials JSON default project ID.
+            // In this configuration, credentials JSON project ID is equal to "testing.bigquery-project-id"
+            assertThat(computeActual("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT schema_name FROM INFORMATION_SCHEMA.SCHEMATA'))"))
+                    .contains(row(trinoSchema));
+            assertThat(computeActual(format(
+                    "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT schema_name FROM `%s.region-us.INFORMATION_SCHEMA.SCHEMATA`'))",
+                    parentProjectId)))
+                    .contains(row(trinoSchema));
+            // table created in parentProjectId by default
+            assertThat(computeActual("SHOW TABLES FROM " + trinoSchema).getOnlyColumn()).contains(tableName);
+            assertThat(computeActual(format(
+                    "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT table_name FROM `%s.region-us.INFORMATION_SCHEMA.TABLES` WHERE table_schema = \"%s\"'))",
+                    projectId,
+                    trinoSchema)))
+                    .doesNotContain(row(tableName));
+            assertThat(query(format(
+                    "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT table_name FROM INFORMATION_SCHEMA.TABLES WHERE table_schema = \"%s\"'))",
+                    trinoSchema)))
+                    .failure()
+                    .hasMessageContaining("Table \"INFORMATION_SCHEMA.TABLES\" must be qualified with a dataset (e.g. dataset.table)");
+            assertThat(computeActual(format(
+                    "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT table_name FROM `%s.region-us.INFORMATION_SCHEMA.TABLES` WHERE table_schema = \"%s\"'))",
+                    parentProjectId,
+                    trinoSchema)))
+                    .contains(row(tableName));
+            assertThat(query("SELECT * FROM " + table.getName())).returnsEmptyResult();
+            assertThat(query("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM `%s.%s`'))".formatted(parentProjectId, table.getName()))).returnsEmptyResult();
+            assertThat(query("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM `%s.%s`'))".formatted(projectId, table.getName())))
+                    .failure()
+                    .hasMessageContaining("Failed to get destination table for query");
+        }
+    }
+
+    private AutoCloseable withSchema(String schemaName)
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        queryRunner.execute("DROP SCHEMA IF EXISTS " + schemaName);
+        queryRunner.execute("CREATE SCHEMA " + schemaName);
+        return () -> queryRunner.execute("DROP SCHEMA IF EXISTS " + schemaName);
+    }
+
+    private static MaterializedRow row(String value)
+    {
+        return new MaterializedRow(DEFAULT_PRECISION, value);
     }
 }

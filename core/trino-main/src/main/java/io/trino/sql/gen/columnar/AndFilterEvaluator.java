@@ -15,8 +15,8 @@ package io.trino.sql.gen.columnar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.project.SelectedPositions;
-import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 
@@ -57,7 +57,7 @@ public final class AndFilterEvaluator
     }
 
     @Override
-    public SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, Page page)
+    public SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, SourcePage page)
     {
         long filterTimeNanos = 0;
         for (FilterEvaluator evaluator : subFilterEvaluators) {

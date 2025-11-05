@@ -43,6 +43,10 @@ public class FlywayMigration
 
     public static void migrate(DbResourceGroupConfig config)
     {
+        if (!config.isRunMigrationsEnabled()) {
+            log.info("Skipping migrations");
+            return;
+        }
         log.info("Performing migrations...");
         Flyway flyway = Flyway.configure()
                 .dataSource(config.getConfigDbUrl(), config.getConfigDbUser(), config.getConfigDbPassword())

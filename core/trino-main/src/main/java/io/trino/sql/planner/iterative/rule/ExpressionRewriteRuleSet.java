@@ -258,8 +258,6 @@ public class ExpressionRewriteRuleSet
                         joinNode.getRightOutputSymbols(),
                         joinNode.isMaySkipOutputDuplicates(),
                         filter,
-                        joinNode.getLeftHashSymbol(),
-                        joinNode.getRightHashSymbol(),
                         joinNode.getDistributionType(),
                         joinNode.isSpillable(),
                         joinNode.getDynamicFilters(),
@@ -302,11 +300,13 @@ public class ExpressionRewriteRuleSet
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
             for (Expression row : valuesNode.getRows().get()) {
                 Expression rewritten;
-                if (row instanceof Row) {
+                if (row instanceof Row value) {
                     // preserve the structure of row
-                    rewritten = new Row(((Row) row).items().stream()
-                            .map(item -> rewriter.rewrite(item, context))
-                            .collect(toImmutableList()));
+                    ImmutableList.Builder<Expression> rowValues = ImmutableList.builderWithExpectedSize(value.items().size());
+                    for (Expression item : value.items()) {
+                        rowValues.add(rewriter.rewrite(item, context));
+                    }
+                    rewritten = new Row(rowValues.build());
                 }
                 else {
                     rewritten = rewriter.rewrite(row, context);
@@ -383,7 +383,6 @@ public class ExpressionRewriteRuleSet
                         node.getId(),
                         node.getSource(),
                         node.getSpecification(),
-                        node.getHashSymbol(),
                         node.getPrePartitionedInputs(),
                         node.getPreSortedOrderPrefix(),
                         node.getWindowFunctions(),

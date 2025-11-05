@@ -32,8 +32,12 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Verify.verify;
+import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.NONE;
 import static io.trino.filesystem.s3.S3SseCUtils.encoded;
 import static io.trino.filesystem.s3.S3SseCUtils.md5Checksum;
+import static io.trino.filesystem.s3.S3SseRequestConfigurator.setEncryptionSettings;
 import static java.util.Objects.requireNonNull;
 
 final class S3InputFile
@@ -57,6 +61,8 @@ final class S3InputFile
         this.lastModified = lastModified;
         this.key = requireNonNull(key, "key is null");
         location.location().verifyValidFileLocation();
+
+        verify(key.isEmpty() || context.s3SseContext().sseType() == NONE, "Encryption key cannot be used with SSE configuration");
     }
 
     @Override
@@ -104,6 +110,16 @@ final class S3InputFile
         return location.location();
     }
 
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("location", location)
+                .add("length", length)
+                .add("lastModified", lastModified)
+                .toString();
+    }
+
     private GetObjectRequest newGetObjectRequest()
     {
         return GetObjectRequest.builder()
@@ -111,11 +127,13 @@ final class S3InputFile
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())
-                .applyMutation(builder -> key.ifPresent(encryption -> {
-                    builder.sseCustomerKey(encoded(encryption));
-                    builder.sseCustomerAlgorithm(encryption.algorithm());
-                    builder.sseCustomerKeyMD5(md5Checksum(encryption));
-                }))
+                .applyMutation(builder ->
+                    key.ifPresentOrElse(
+                            encryption ->
+                                builder.sseCustomerKey(encoded(encryption))
+                                        .sseCustomerAlgorithm(encryption.algorithm())
+                                        .sseCustomerKeyMD5(md5Checksum(encryption)),
+                            () -> setEncryptionSettings(builder, context.s3SseContext())))
                 .build();
     }
 
@@ -127,11 +145,13 @@ final class S3InputFile
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())
-                .applyMutation(builder -> key.ifPresent(encryption -> {
-                    builder.sseCustomerKey(encoded(encryption));
-                    builder.sseCustomerAlgorithm(encryption.algorithm());
-                    builder.sseCustomerKeyMD5(md5Checksum(encryption));
-                }))
+                .applyMutation(builder ->
+                    key.ifPresentOrElse(
+                            encryption ->
+                                builder.sseCustomerKey(encoded(encryption))
+                                        .sseCustomerAlgorithm(encryption.algorithm())
+                                        .sseCustomerKeyMD5(md5Checksum(encryption)),
+                            () -> setEncryptionSettings(builder, context.s3SseContext())))
                 .build();
 
         try {

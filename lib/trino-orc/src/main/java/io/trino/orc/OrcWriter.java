@@ -72,6 +72,7 @@ import static io.trino.orc.OrcWriterStats.FlushReason.CLOSED;
 import static io.trino.orc.OrcWriterStats.FlushReason.DICTIONARY_FULL;
 import static io.trino.orc.OrcWriterStats.FlushReason.MAX_BYTES;
 import static io.trino.orc.OrcWriterStats.FlushReason.MAX_ROWS;
+import static io.trino.orc.metadata.CalendarKind.PROLEPTIC_GREGORIAN;
 import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static io.trino.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.trino.orc.metadata.PostScript.MAGIC;
@@ -187,13 +188,13 @@ public final class OrcWriter
                     options.isShouldCompactMinMax());
             columnWriters.add(columnWriter);
 
-            if (columnWriter instanceof SliceDictionaryColumnWriter) {
-                sliceColumnWriters.add((SliceDictionaryColumnWriter) columnWriter);
+            if (columnWriter instanceof SliceDictionaryColumnWriter sliceDictionaryColumnWriter) {
+                sliceColumnWriters.add(sliceDictionaryColumnWriter);
             }
             else {
                 for (ColumnWriter nestedColumnWriter : columnWriter.getNestedColumnWriters()) {
-                    if (nestedColumnWriter instanceof SliceDictionaryColumnWriter) {
-                        sliceColumnWriters.add((SliceDictionaryColumnWriter) nestedColumnWriter);
+                    if (nestedColumnWriter instanceof SliceDictionaryColumnWriter sliceDictionaryColumnWriter) {
+                        sliceColumnWriters.add(sliceDictionaryColumnWriter);
                     }
                 }
             }
@@ -254,8 +255,6 @@ public final class OrcWriter
         }
 
         checkArgument(page.getChannelCount() == columnWriters.size());
-        // page should already be loaded, but double check
-        page = page.getLoadedPage();
 
         if (validationBuilder != null) {
             validationBuilder.addPage(page);
@@ -531,7 +530,8 @@ public final class OrcWriter
                 orcTypes,
                 fileStats,
                 userMetadata,
-                Optional.empty()); // writer id will be set by MetadataWriter
+                Optional.empty(), // writer id will be set by MetadataWriter
+                PROLEPTIC_GREGORIAN);
 
         closedStripes.clear();
         closedStripesRetainedBytes = 0;

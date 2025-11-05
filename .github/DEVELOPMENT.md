@@ -1,27 +1,33 @@
 # Development
 
+In this document you can find information about developing Trino.
+
+* [Trino organization](#trino-organization)
+* [Trino developer guide](#trino-developer-guide)
+* [Code style](#code-style)
+* [Additional IDE configuration](#additional-ide-configuration)
+* [Building docs](#building-docs)
+* [Building the Web UI](#building-the-web-ui)
+* [Releases](#releases)
+
+## Trino organization
+
 Learn about development for all Trino organization projects:
 
 * [Vision](https://trino.io/development/vision)
 * [Contribution process](https://trino.io/development/process#contribution-process)
-* [Pull request and commit guidelines](https://trino.io/development/process#pull-request-and-commit-guidelines-)
-* [Release note guidelines](https://trino.io/development/process#release-note-guidelines-)
+* [Pull request and commit guidelines](https://trino.io/development/process#pull-request-and-commit-guidelines)
+* [Release note guidelines](https://trino.io/development/process#release-note-guidelines)
 
 Further information in the [development section of the
 website](https://trino.io/development) includes different roles, like
 contributors, reviewers, and maintainers, related processes, and other aspects.
 
+## Trino developer guide
+
 See [the Trino developer guide](https://trino.io/docs/current/develop.html) for
-information about the SPI, implementing connectors and other plugins plugins,
+information about the SPI, implementing connectors and other plugins,
 the client protocol, writing tests and other lower level details.
-
-More information about writing and building the documentation can be found in
-the [docs module](../docs).
-
-* [Code style](#code-style)
-* [Additional IDE configuration](#additional-ide-configuration)
-* [Building the Web UI](#building-the-web-ui)
-* [CI pipeline](#ci-pipeline)
 
 ## Code Style
 
@@ -79,6 +85,13 @@ only need to append something, consider using the `+` operator.  Please avoid
 ### Avoid ternary operator
 
 Avoid using the ternary operator except for trivial expressions.
+
+ ### Avoid `get` in method names, unless an object must be a Java bean
+
+In most cases, replace `get` with a more specific verb that describes what is 
+happening in the method, like `find` or `fetch`. If there isn't a more specific 
+verb or the method is a getter, omit `get` because it isn't helpful to readers 
+and makes method names longer.
 
 ### Define class API for private inner classes too
 
@@ -148,19 +161,19 @@ default inspections, with some modifications.
 
 Enable the following inspections:
 
-- ``Java | Internationalization | Implicit platform default charset``,
-- ``Java | Control flow issues | Redundant 'else'`` (including
-  ``Report when there are no more statements after the 'if' statement`` option),
 - ``Java | Class structure | Utility class is not 'final'``,
 - ``Java | Class structure | Utility class with 'public' constructor``,
-- ``Java | Class structure | Utility class without 'private' constructor``.
+- ``Java | Class structure | Utility class without 'private' constructor``,
+- ``Java | Control flow issues | Redundant 'else'`` (including
+  ``Report when there are no more statements after the 'if' statement`` option), 
+- ``Java | Internationalization | Implicit platform default charset``.
 
 Disable the following inspections:
 
-- ``Java | Performance | Call to 'Arrays.asList()' with too few arguments``,
 - ``Java | Abstraction issues | 'Optional' used as field or parameter type``,
 - ``Java | Code style issues | Local variable or parameter can be 'final'``,
-- ``Java | Data flow | Boolean method is always inverted``.
+- ``Java | Data flow | Boolean method is always inverted``,
+- ``Java | Performance | Call to 'Arrays.asList()' with too few arguments``.
 
 Update the following inspections:
 
@@ -206,6 +219,11 @@ with `@Language`:
   statement (or any other language, like regular expressions),
 - Local variables which otherwise would not be properly recognized by IDE for
   language injection.
+
+## Building docs
+
+Information about writing and building the documentation can be found in
+the [docs module](../docs).
 
 ## Building the Web UI
 

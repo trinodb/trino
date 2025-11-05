@@ -49,7 +49,7 @@ public class TestFeaturesConfig
                 .setSpillEnabled(false)
                 .setAggregationOperatorUnspillMemoryLimit(DataSize.valueOf("4MB"))
                 .setSpillerSpillPaths(ImmutableList.of())
-                .setSpillerThreads(4)
+                .setSpillerThreads("4")
                 .setSpillMaxUsedSpaceThreshold(0.9)
                 .setMemoryRevokingThreshold(0.9)
                 .setMemoryRevokingTarget(0.5)
@@ -66,6 +66,7 @@ public class TestFeaturesConfig
                 .setHideInaccessibleColumns(false)
                 .setForceSpillingJoin(false)
                 .setColumnarFilterEvaluationEnabled(true)
+                .setLegacyArithmeticDecimalOperators(false)
                 .setFaultTolerantExecutionExchangeEncryptionEnabled(true));
     }
 
@@ -100,6 +101,7 @@ public class TestFeaturesConfig
                 .put("hide-inaccessible-columns", "true")
                 .put("force-spilling-join-operator", "true")
                 .put("experimental.columnar-filter-evaluation.enabled", "false")
+                .put("deprecated.legacy-arithmetic-decimal-operators", "true")
                 .put("fault-tolerant-execution-exchange-encryption-enabled", "false")
                 .buildOrThrow();
 
@@ -114,7 +116,7 @@ public class TestFeaturesConfig
                 .setSpillEnabled(true)
                 .setAggregationOperatorUnspillMemoryLimit(DataSize.valueOf("100MB"))
                 .setSpillerSpillPaths(ImmutableList.of("/tmp/custom/spill/path1", "/tmp/custom/spill/path2"))
-                .setSpillerThreads(42)
+                .setSpillerThreads("42")
                 .setSpillMaxUsedSpaceThreshold(0.8)
                 .setMemoryRevokingThreshold(0.2)
                 .setMemoryRevokingTarget(0.8)
@@ -131,6 +133,7 @@ public class TestFeaturesConfig
                 .setHideInaccessibleColumns(true)
                 .setForceSpillingJoin(true)
                 .setColumnarFilterEvaluationEnabled(false)
+                .setLegacyArithmeticDecimalOperators(true)
                 .setFaultTolerantExecutionExchangeEncryptionEnabled(false);
         assertFullMapping(properties, expected);
     }

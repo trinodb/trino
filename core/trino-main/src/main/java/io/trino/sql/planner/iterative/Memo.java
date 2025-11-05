@@ -221,8 +221,8 @@ public class Memo
 
     private int insertRecursive(PlanNode node)
     {
-        if (node instanceof GroupReference) {
-            return ((GroupReference) node).getGroupId();
+        if (node instanceof GroupReference groupReference) {
+            return groupReference.getGroupId();
         }
 
         int group = nextGroupId();

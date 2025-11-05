@@ -15,8 +15,8 @@ package io.trino.server.protocol.spooling;
 
 import com.google.inject.Inject;
 import io.trino.server.security.ResourceSecurity;
-import io.trino.spi.protocol.SpooledSegmentHandle;
-import io.trino.spi.protocol.SpoolingManager;
+import io.trino.spi.spool.SpooledSegmentHandle;
+import io.trino.spi.spool.SpoolingManager;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -47,7 +47,6 @@ public class WorkerSegmentResource
 
     @GET
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
-    @ResourceSecurity(PUBLIC)
     public Response download(@PathParam("identifier") String identifier, @Context HttpHeaders headers)
             throws IOException
     {

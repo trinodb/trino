@@ -23,13 +23,12 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.Partitions;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.deltalake.DataFileInfo.DataFileType;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.util.DeltaLakeWriteUtils;
-import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
-import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
 import io.trino.spi.PageIndexerFactory;
@@ -56,13 +55,15 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.metastore.Partitions.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static io.trino.metastore.Partitions.escapePathName;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressionCodec;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageValueCount;
 import static io.trino.plugin.deltalake.DeltaLakeTypes.toParquetType;
-import static io.trino.plugin.hive.util.HiveUtil.escapePathName;
+import static io.trino.plugin.hive.HiveCompressionCodecs.toCompressionCodec;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -104,6 +105,7 @@ public abstract class AbstractDeltaLakePageSink
     private final long idleWriterMinFileSize;
     private long writtenBytes;
     private long memoryUsage;
+    private long validationCpuNanos;
 
     private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
     private final List<Boolean> activeWriters = new ArrayList<>();
@@ -116,10 +118,11 @@ public abstract class AbstractDeltaLakePageSink
             List<DeltaLakeColumnHandle> inputColumns,
             List<String> originalPartitionColumns,
             PageIndexerFactory pageIndexerFactory,
-            TrinoFileSystemFactory fileSystemFactory,
+            DeltaLakeFileSystemFactory fileSystemFactory,
             int maxOpenWriters,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
             Location tableLocation,
+            VendedCredentialsHandle credentialsHandle,
             Location outputPathDirectory,
             ConnectorSession session,
             DeltaLakeWriterStats stats,
@@ -131,7 +134,7 @@ public abstract class AbstractDeltaLakePageSink
 
         requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
 
-        this.fileSystem = requireNonNull(fileSystemFactory, "fileSystemFactory is null").create(session);
+        this.fileSystem = requireNonNull(fileSystemFactory, "fileSystemFactory is null").create(session, credentialsHandle);
         this.maxOpenWriters = maxOpenWriters;
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
         this.parquetSchemaMapping = requireNonNull(parquetSchemaMapping, "parquetSchemaMapping is null");
@@ -217,7 +220,7 @@ public abstract class AbstractDeltaLakePageSink
     @Override
     public long getValidationCpuNanos()
     {
-        return 0;
+        return validationCpuNanos;
     }
 
     @Override
@@ -427,6 +430,7 @@ public abstract class AbstractDeltaLakePageSink
 
         writtenBytes += writer.getWrittenBytes() - currentWritten;
         memoryUsage -= currentMemory;
+        validationCpuNanos += writer.getValidationCpuNanos();
 
         writers.set(writerIndex, null);
         currentOpenWriters--;
@@ -442,7 +446,7 @@ public abstract class AbstractDeltaLakePageSink
     }
 
     /**
-     * Copy of {@link HiveUtil#makePartName} modified to preserve case of partition columns.
+     * Copy of {@link Partitions#makePartName} modified to preserve case of partition columns.
      */
     private static String makePartName(List<String> partitionColumns, List<String> partitionValues)
     {
@@ -464,7 +468,7 @@ public abstract class AbstractDeltaLakePageSink
     public static List<String> createPartitionValues(List<Type> partitionColumnTypes, Page partitionColumns, int position)
     {
         return DeltaLakeWriteUtils.createPartitionValues(partitionColumnTypes, partitionColumns, position).stream()
-                .map(value -> value.equals(HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION) ? null : value)
+                .map(value -> value.equals(HIVE_DEFAULT_DYNAMIC_PARTITION) ? null : value)
                 .collect(toList());
     }
 
@@ -475,7 +479,7 @@ public abstract class AbstractDeltaLakePageSink
                 .setMaxPageSize(getParquetWriterPageSize(session))
                 .setMaxPageValueCount(getParquetWriterPageValueCount(session))
                 .build();
-        CompressionCodec compressionCodec = getCompressionCodec(session).getParquetCompressionCodec()
+        CompressionCodec compressionCodec = toCompressionCodec(getCompressionCodec(session)).getParquetCompressionCodec()
                 .orElseThrow(); // validated on the session property level
 
         try {

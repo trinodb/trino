@@ -22,7 +22,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -66,7 +65,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
-public class JsonEncodingUtils
+public final class JsonEncodingUtils
 {
     private JsonEncodingUtils() {}
 
@@ -80,16 +79,16 @@ public class JsonEncodingUtils
     private static final VarcharEncoder VARCHAR_ENCODER = new VarcharEncoder();
     private static final VarbinaryEncoder VARBINARY_ENCODER = new VarbinaryEncoder();
 
-    public static TypeEncoder[] createTypeEncoders(Session session, List<OutputColumn> columns)
+    public static TypeEncoder[] createTypeEncoders(Session session, List<Type> types)
     {
-        verify(!columns.isEmpty(), "Columns must not be empty");
+        verify(!types.isEmpty(), "Columns must not be empty");
 
         boolean supportsParametricDateTime = requireNonNull(session, "session is null")
                 .getClientCapabilities()
                 .contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
 
-        return columns.stream()
-                .map(column -> createTypeEncoder(column.type(), supportsParametricDateTime))
+        return types.stream()
+                .map(type -> createTypeEncoder(type, supportsParametricDateTime))
                 .toArray(TypeEncoder[]::new);
     }
 
@@ -117,17 +116,21 @@ public class JsonEncodingUtils
         };
     }
 
-    public static void writePagesToJsonGenerator(ConnectorSession connectorSession, Consumer<TrinoException> throwableConsumer, JsonGenerator generator, TypeEncoder[] typeEncoders, int[] sourcePageChannels, List<Page> pages)
+    public static void writePagesToJsonGenerator(Consumer<TrinoException> throwableConsumer, JsonGenerator generator, TypeEncoder[] typeEncoders, int[] sourcePageChannels, List<Page> pages)
     {
         verify(typeEncoders.length == sourcePageChannels.length, "Source page channels and type encoders must have the same length");
         try {
             generator.writeStartArray();
 
             for (Page page : pages) {
+                Block[] blocks = new Block[sourcePageChannels.length];
+                for (int i = 0; i < sourcePageChannels.length; i++) {
+                    blocks[i] = page.getBlock(sourcePageChannels[i]);
+                }
                 for (int position = 0; position < page.getPositionCount(); position++) {
                     generator.writeStartArray();
                     for (int column = 0; column < typeEncoders.length; column++) {
-                        typeEncoders[column].encode(generator, connectorSession, page.getBlock(sourcePageChannels[column]), position);
+                        typeEncoders[column].encode(generator, blocks[column], position);
                     }
                     generator.writeEndArray();
                 }
@@ -142,7 +145,7 @@ public class JsonEncodingUtils
 
     public interface TypeEncoder
     {
-        void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        void encode(JsonGenerator generator, Block block, int position)
                 throws IOException;
     }
 
@@ -150,7 +153,7 @@ public class JsonEncodingUtils
             implements TypeEncoder
     {
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -165,7 +168,7 @@ public class JsonEncodingUtils
             implements TypeEncoder
     {
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -180,7 +183,7 @@ public class JsonEncodingUtils
             implements TypeEncoder
     {
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -195,7 +198,7 @@ public class JsonEncodingUtils
             implements TypeEncoder
     {
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -210,7 +213,7 @@ public class JsonEncodingUtils
             implements TypeEncoder
     {
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -225,7 +228,7 @@ public class JsonEncodingUtils
             implements TypeEncoder
     {
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -240,7 +243,7 @@ public class JsonEncodingUtils
             implements TypeEncoder
     {
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -255,7 +258,7 @@ public class JsonEncodingUtils
             implements TypeEncoder
     {
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -263,7 +266,7 @@ public class JsonEncodingUtils
                 return;
             }
             Slice slice = VARCHAR.getSlice(block, position);
-            generator.writeString(slice.toStringUtf8());
+            generator.writeUTF8String(slice.byteArray(), slice.byteArrayOffset(), slice.length());
         }
     }
 
@@ -278,7 +281,7 @@ public class JsonEncodingUtils
         }
 
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -294,7 +297,7 @@ public class JsonEncodingUtils
             implements TypeEncoder
     {
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -321,7 +324,7 @@ public class JsonEncodingUtils
         }
 
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -332,7 +335,7 @@ public class JsonEncodingUtils
             Block arrayBlock = arrayType.getObject(block, position);
             generator.writeStartArray();
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-                typeEncoder.encode(generator, session, arrayBlock, i);
+                typeEncoder.encode(generator, arrayBlock, i);
             }
             generator.writeEndArray();
         }
@@ -351,7 +354,7 @@ public class JsonEncodingUtils
         }
 
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -367,10 +370,11 @@ public class JsonEncodingUtils
             verify(keyBlock.getPositionCount() == valueBlock.getPositionCount(), "Key and value blocks have different number of positions");
             generator.writeStartObject();
             for (int i = 0; i < map.getSize(); i++) {
-                // Field name is always written as String for backward compatibility,
-                // only value is properly encoded.
-                generator.writeFieldName(mapType.getKeyType().getObjectValue(session, keyBlock, offset + i).toString());
-                valueEncoder.encode(generator, session, valueBlock, offset + i);
+                // Map keys are always serialized as strings for backward compatibility with existing clients.
+                // Map values are always properly encoded using their types.
+                // TODO: improve in v2 JSON format
+                generator.writeFieldName(mapType.getKeyType().getObjectValue(keyBlock, offset + i).toString());
+                valueEncoder.encode(generator, valueBlock, offset + i);
             }
             generator.writeEndObject();
         }
@@ -389,7 +393,7 @@ public class JsonEncodingUtils
         }
 
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -399,7 +403,7 @@ public class JsonEncodingUtils
             SqlRow row = rowType.getObject(block, position);
             generator.writeStartArray();
             for (int i = 0; i < row.getFieldCount(); i++) {
-                fieldEncoders[i].encode(generator, session, row.getRawFieldBlock(i), row.getRawIndex());
+                fieldEncoders[i].encode(generator, row.getRawFieldBlock(i), row.getRawIndex());
             }
             generator.writeEndArray();
         }
@@ -418,7 +422,7 @@ public class JsonEncodingUtils
         }
 
         @Override
-        public void encode(JsonGenerator generator, ConnectorSession session, Block block, int position)
+        public void encode(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
             if (block.isNull(position)) {
@@ -426,7 +430,7 @@ public class JsonEncodingUtils
                 return;
             }
 
-            Object value = roundParametricTypes(type.getObjectValue(session, block, position));
+            Object value = roundParametricTypes(type.getObjectValue(block, position));
 
             switch (value) {
                 case BigDecimal bigDecimalValue -> generator.writeNumber(bigDecimalValue);

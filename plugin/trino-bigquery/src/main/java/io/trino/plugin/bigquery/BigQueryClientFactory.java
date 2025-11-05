@@ -19,6 +19,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.cache.NonEvictableCache;
+import io.trino.plugin.base.cache.identity.IdentityCacheMapping;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Optional;
@@ -41,6 +42,7 @@ public class BigQueryClientFactory
 
     private final NonEvictableCache<IdentityCacheMapping.IdentityCacheKey, BigQueryClient> clientCache;
     private final Duration metadataCacheTtl;
+    private final int metadataPageSize;
     private final Set<BigQueryOptionsConfigurer> optionsConfigurers;
 
     @Inject
@@ -61,6 +63,7 @@ public class BigQueryClientFactory
         this.materializationCache = requireNonNull(materializationCache, "materializationCache is null");
         this.labelFactory = requireNonNull(labelFactory, "labelFactory is null");
         this.metadataCacheTtl = bigQueryConfig.getMetadataCacheTtl();
+        this.metadataPageSize = bigQueryConfig.getMetadataPageSize();
         this.optionsConfigurers = requireNonNull(optionsConfigurers, "optionsConfigurers is null");
 
         CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
@@ -85,6 +88,7 @@ public class BigQueryClientFactory
                 caseInsensitiveNameMatchingCacheTtl,
                 materializationCache,
                 metadataCacheTtl,
+                metadataPageSize,
                 projectId);
     }
 

@@ -16,7 +16,6 @@ package io.trino.proxy;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
-import io.airlift.event.client.EventModule;
 import io.airlift.http.server.HttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.JmxModule;
@@ -46,7 +45,6 @@ public final class TrinoProxy
                 .add(new JmxModule())
                 .add(new LogJmxModule())
                 .add(new TracingModule("trino-proxy", VERSION))
-                .add(new EventModule())
                 .add(new ProxyModule())
                 .add(extraModules)
                 .build());

@@ -31,14 +31,6 @@ public class TestStatementBuilder
     private static final SqlParser SQL_PARSER = new SqlParser();
 
     @Test
-    public void testPreparedGrantWithQuotes()
-    {
-        printStatement("prepare p from grant select on table hive.test.\"case\" to role test");
-        printStatement("prepare p from grant select on hive.test.\"case\" to role test");
-        printStatement("prepare p from grant select on table hive.test.\"case\" to role \"case\"");
-    }
-
-    @Test
     public void testStatementBuilder()
     {
         printStatement("select * from foo");
@@ -207,6 +199,9 @@ public class TestStatementBuilder
         printStatement("alter table a.b.c set properties a=true, b=123, c='x'");
         printStatement("alter table a.b.c set properties a=DEFAULT, b=123");
 
+        printStatement("alter table a.b.c add column x bigint first");
+        printStatement("alter table a.b.c add column x bigint after y");
+        printStatement("alter table a.b.c add column x bigint last");
         printStatement("alter table a.b.c add column x bigint");
 
         printStatement("alter table a.b.c add column x bigint comment 'large x'");
@@ -320,6 +315,10 @@ public class TestStatementBuilder
         printStatement("show create function abc");
 
         printStatement("prepare p from select * from (select * from T) \"A B\"");
+
+        printStatement("prepare p from grant select on table hive.test.\"case\" to role test");
+        printStatement("prepare p from grant select on hive.test.\"case\" to role test");
+        printStatement("prepare p from grant select on table hive.test.\"case\" to role \"case\"");
 
         printStatement("SELECT * FROM table1 WHERE a >= ALL (VALUES 2, 3, 4)");
         printStatement("SELECT * FROM table1 WHERE a <> ANY (SELECT 2, 3, 4)");

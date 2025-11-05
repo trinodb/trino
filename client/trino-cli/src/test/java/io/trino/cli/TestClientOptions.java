@@ -383,6 +383,8 @@ public class TestClientOptions
             case "editingMode":
             case "disableAutoSuggestion":
             case "decimalDataSize":
+            case "maxBufferedRows":
+            case "maxQueuedRows":
                 return true;
         }
 

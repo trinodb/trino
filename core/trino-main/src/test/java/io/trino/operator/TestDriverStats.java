@@ -18,26 +18,28 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
+
+import java.time.Instant;
 
 import static io.trino.operator.TestOperatorStats.assertExpectedOperatorStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class TestDriverStats
 {
     public static final DriverStats EXPECTED = new DriverStats(
-            new DateTime(1),
-            new DateTime(2),
-            new DateTime(3),
+            Instant.ofEpochSecond(1),
+            Instant.ofEpochSecond(2),
+            Instant.ofEpochSecond(3),
 
             new Duration(4, NANOSECONDS),
             new Duration(5, NANOSECONDS),
 
             DataSize.ofBytes(6),
             DataSize.ofBytes(7),
+
+            DataSize.ofBytes(8),
 
             new Duration(9, NANOSECONDS),
             new Duration(10, NANOSECONDS),
@@ -52,8 +54,6 @@ public class TestDriverStats
             DataSize.ofBytes(132),
             142,
 
-            DataSize.ofBytes(13),
-            14,
             new Duration(15, NANOSECONDS),
 
             DataSize.ofBytes(16),
@@ -83,14 +83,16 @@ public class TestDriverStats
 
     public static void assertExpectedDriverStats(DriverStats actual)
     {
-        assertThat(actual.getCreateTime()).isEqualTo(new DateTime(1, UTC));
-        assertThat(actual.getStartTime()).isEqualTo(new DateTime(2, UTC));
-        assertThat(actual.getEndTime()).isEqualTo(new DateTime(3, UTC));
+        assertThat(actual.getCreateTime()).isEqualTo(Instant.ofEpochSecond(1));
+        assertThat(actual.getStartTime()).isEqualTo(Instant.ofEpochSecond(2));
+        assertThat(actual.getEndTime()).isEqualTo(Instant.ofEpochSecond(3));
         assertThat(actual.getQueuedTime()).isEqualTo(new Duration(4, NANOSECONDS));
         assertThat(actual.getElapsedTime()).isEqualTo(new Duration(5, NANOSECONDS));
 
         assertThat(actual.getUserMemoryReservation()).isEqualTo(DataSize.ofBytes(6));
         assertThat(actual.getRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(7));
+
+        assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(8));
 
         assertThat(actual.getTotalScheduledTime()).isEqualTo(new Duration(9, NANOSECONDS));
         assertThat(actual.getTotalCpuTime()).isEqualTo(new Duration(10, NANOSECONDS));
@@ -103,8 +105,6 @@ public class TestDriverStats
         assertThat(actual.getInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(132));
         assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(142);
 
-        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(13));
-        assertThat(actual.getRawInputPositions()).isEqualTo(14);
         assertThat(actual.getRawInputReadTime()).isEqualTo(new Duration(15, NANOSECONDS));
 
         assertThat(actual.getProcessedInputDataSize()).isEqualTo(DataSize.ofBytes(16));

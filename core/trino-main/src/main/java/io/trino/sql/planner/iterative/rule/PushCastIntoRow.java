@@ -82,7 +82,7 @@ public class PushCastIntoRow
                         }
                         items.add(item);
                     }
-                    return new Row(items.build());
+                    return new Row(items.build(), node.type());
                 }
             }
 

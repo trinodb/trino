@@ -179,7 +179,7 @@ public class PreAggregateCaseAggregations
                 context);
         AggregationNode preAggregation = createPreAggregation(
                 preProjection,
-                preGroupingExpressions.getOutputs(),
+                preGroupingExpressions.outputs(),
                 preAggregations,
                 context);
         Map<CaseAggregation, Symbol> newProjectionSymbols = getNewProjectionSymbols(aggregations, context);
@@ -213,7 +213,6 @@ public class PreAggregateCaseAggregations
                 aggregationNode.getGroupingSets(),
                 aggregationNode.getPreGroupedSymbols(),
                 aggregationNode.getStep(),
-                aggregationNode.getHashSymbol(),
                 aggregationNode.getGroupIdSymbol());
     }
 
@@ -248,7 +247,7 @@ public class PreAggregateCaseAggregations
 
     private AggregationNode createPreAggregation(
             PlanNode source,
-            List<Symbol> groupingKeys,
+            Set<Symbol> groupingKeys,
             Map<PreAggregationKey, PreAggregation> preAggregations,
             Context context)
     {
@@ -357,8 +356,8 @@ public class PreAggregateCaseAggregations
         Expression projection = projectNode.getAssignments().get(projectionSymbol);
         Expression unwrappedProjection;
         // unwrap top-level cast
-        if (projection instanceof Cast) {
-            unwrappedProjection = ((Cast) projection).expression();
+        if (projection instanceof Cast cast) {
+            unwrappedProjection = cast.expression();
         }
         else {
             unwrappedProjection = projection;

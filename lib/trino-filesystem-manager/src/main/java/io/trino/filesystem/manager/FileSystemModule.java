@@ -19,7 +19,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.opentelemetry.api.OpenTelemetry;
+import io.airlift.configuration.ConfigPropertyMetadata;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -36,13 +36,16 @@ import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemModule;
+import io.trino.filesystem.local.LocalFileSystemConfig;
+import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.filesystem.memory.MemoryFileSystemCache;
 import io.trino.filesystem.memory.MemoryFileSystemCacheModule;
 import io.trino.filesystem.s3.FileSystemS3;
 import io.trino.filesystem.s3.S3FileSystemModule;
 import io.trino.filesystem.switching.SwitchingFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
-import io.trino.spi.NodeManager;
+import io.trino.filesystem.tracking.TrackingFileSystemFactory;
+import io.trino.spi.connector.ConnectorContext;
 
 import java.util.Map;
 import java.util.Optional;
@@ -50,21 +53,22 @@ import java.util.function.Function;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
 public class FileSystemModule
         extends AbstractConfigurationAwareModule
 {
     private final String catalogName;
-    private final NodeManager nodeManager;
-    private final OpenTelemetry openTelemetry;
+    private final ConnectorContext context;
+    private final boolean isCoordinator;
     private final boolean coordinatorFileCaching;
 
-    public FileSystemModule(String catalogName, NodeManager nodeManager, OpenTelemetry openTelemetry, boolean coordinatorFileCaching)
+    public FileSystemModule(String catalogName, ConnectorContext context, boolean coordinatorFileCaching)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
+        this.context = requireNonNull(context, "context is null");
+        this.isCoordinator = context.getCurrentNode().isCoordinator();
         this.coordinatorFileCaching = coordinatorFileCaching;
     }
 
@@ -82,10 +86,11 @@ public class FileSystemModule
                     !config.isNativeGcsEnabled(),
                     !config.isNativeS3Enabled(),
                     catalogName,
-                    nodeManager,
-                    openTelemetry);
+                    context);
 
-            loader.configure().forEach(this::consumeProperty);
+            loader.configure().forEach((name, securitySensitive) ->
+                    consumeProperty(new ConfigPropertyMetadata(name, securitySensitive)));
+
             binder.bind(HdfsFileSystemLoader.class).toInstance(loader);
         }
 
@@ -116,13 +121,18 @@ public class FileSystemModule
             factories.addBinding("gs").to(GcsFileSystemFactory.class);
         }
 
+        if (config.isNativeLocalEnabled()) {
+            configBinder(binder).bindConfig(LocalFileSystemConfig.class);
+            factories.addBinding("local").to(LocalFileSystemFactory.class);
+            factories.addBinding("file").to(LocalFileSystemFactory.class);
+        }
+
         newOptionalBinder(binder, CachingHostAddressProvider.class).setDefault().to(DefaultCachingHostAddressProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, CacheKeyProvider.class).setDefault().to(DefaultCacheKeyProvider.class).in(Scopes.SINGLETON);
 
         newOptionalBinder(binder, TrinoFileSystemCache.class);
         newOptionalBinder(binder, MemoryFileSystemCache.class);
 
-        boolean isCoordinator = nodeManager.getCurrentNode().isCoordinator();
         if (config.isCacheEnabled()) {
             install(new AlluxioFileSystemCacheModule(isCoordinator));
         }
@@ -134,6 +144,7 @@ public class FileSystemModule
     @Provides
     @Singleton
     static TrinoFileSystemFactory createFileSystemFactory(
+            FileSystemConfig config,
             Optional<HdfsFileSystemLoader> hdfsFileSystemLoader,
             Map<String, TrinoFileSystemFactory> factories,
             Optional<TrinoFileSystemCache> fileSystemCache,
@@ -150,6 +161,11 @@ public class FileSystemModule
 
         TrinoFileSystemFactory delegate = new SwitchingFileSystemFactory(loader);
         delegate = new TracingFileSystemFactory(tracer, delegate);
+
+        if (config.isTrackingEnabled()) {
+            delegate = new TrackingFileSystemFactory(delegate);
+        }
+
         if (fileSystemCache.isPresent()) {
             return new CacheFileSystemFactory(tracer, delegate, fileSystemCache.orElseThrow(), keyProvider.orElseThrow());
         }

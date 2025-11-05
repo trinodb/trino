@@ -13,10 +13,11 @@
  */
 package io.trino.metadata;
 
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.ConnectorServices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
-import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorName;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -26,6 +27,8 @@ import io.trino.transaction.TransactionId;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
+import static io.trino.metadata.CatalogStatus.FAILING;
 import static io.trino.spi.StandardErrorCode.CATALOG_UNAVAILABLE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -38,6 +41,7 @@ public class Catalog
     private final ConnectorServices catalogConnector;
     private final ConnectorServices informationSchemaConnector;
     private final ConnectorServices systemConnector;
+    private final CatalogStatus catalogStatus;
 
     public Catalog(
             CatalogName catalogName,
@@ -45,7 +49,8 @@ public class Catalog
             ConnectorName connectorName,
             ConnectorServices catalogConnector,
             ConnectorServices informationSchemaConnector,
-            ConnectorServices systemConnector)
+            ConnectorServices systemConnector,
+            CatalogStatus catalogStatus)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
@@ -54,14 +59,15 @@ public class Catalog
         this.catalogConnector = requireNonNull(catalogConnector, "catalogConnector is null");
         this.informationSchemaConnector = requireNonNull(informationSchemaConnector, "informationSchemaConnector is null");
         this.systemConnector = requireNonNull(systemConnector, "systemConnector is null");
+        this.catalogStatus = requireNonNull(catalogStatus, "catalogStatus is null");
     }
 
-    public static Catalog failedCatalog(CatalogName catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
+    public static Catalog failedCatalog(CatalogName catalogName, CatalogVersion catalogVersion, ConnectorName connectorName)
     {
-        return new Catalog(catalogName, catalogHandle, connectorName);
+        return new Catalog(catalogName, createRootCatalogHandle(catalogName, catalogVersion), connectorName, FAILING);
     }
 
-    private Catalog(CatalogName catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
+    private Catalog(CatalogName catalogName, CatalogHandle catalogHandle, ConnectorName connectorName, CatalogStatus catalogStatus)
     {
         this.catalogName = catalogName;
         this.catalogHandle = catalogHandle;
@@ -69,6 +75,7 @@ public class Catalog
         this.catalogConnector = null;
         this.informationSchemaConnector = null;
         this.systemConnector = null;
+        this.catalogStatus = catalogStatus;
     }
 
     public CatalogName getCatalogName()
@@ -84,6 +91,11 @@ public class Catalog
     public ConnectorName getConnectorName()
     {
         return connectorName;
+    }
+
+    public CatalogStatus getCatalogStatus()
+    {
+        return catalogStatus;
     }
 
     public boolean isFailed()

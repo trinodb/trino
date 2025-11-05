@@ -13,7 +13,6 @@
  */
 package io.trino.spi.function;
 
-import io.trino.spi.Experimental;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
@@ -23,7 +22,6 @@ import java.util.StringJoiner;
 
 import static java.util.Objects.requireNonNull;
 
-@Experimental(eta = "2022-10-31")
 public class AggregationFunctionMetadata
 {
     private final boolean orderSensitive;

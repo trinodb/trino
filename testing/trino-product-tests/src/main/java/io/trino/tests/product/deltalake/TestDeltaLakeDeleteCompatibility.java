@@ -31,7 +31,6 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
@@ -208,7 +207,7 @@ public class TestDeltaLakeDeleteCompatibility
     }
 
     // Databricks 12.1 and OSS Delta 2.4.0 added support for deletion vectors
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDeletionVectors(String mode)
     {
@@ -307,9 +306,15 @@ public class TestDeltaLakeDeleteCompatibility
                 "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "' " +
                 "TBLPROPERTIES ('delta.enableDeletionVectors' = true, 'delta.randomizeFilePrefixes' = true)");
         try {
-            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 11), (2, 22)");
-            onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE a = 2");
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 11), (2, 22), (3, 33)");
 
+            onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE a = 2");
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(1, 11), row(3, 33));
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(1, 11), row(3, 33));
+
+            onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 3");
             assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
                     .containsOnly(row(1, 11));
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
@@ -489,7 +494,7 @@ public class TestDeltaLakeDeleteCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDeletionVectorsTruncateTable()
     {
@@ -589,8 +594,7 @@ public class TestDeltaLakeDeleteCompatibility
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-clone-" + baseTableName + "'");
 
             assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName)).contains(expected);
-            assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
-                    .hasMessageContaining("Unsupported storage type for deletion vector: p");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
         }
         finally {
             dropDeltaTableWithRetry("default." + baseTableName);

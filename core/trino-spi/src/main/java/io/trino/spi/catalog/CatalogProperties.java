@@ -13,18 +13,19 @@
  */
 package io.trino.spi.catalog;
 
-import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.connector.ConnectorName;
 
 import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public record CatalogProperties(CatalogHandle catalogHandle, ConnectorName connectorName, Map<String, String> properties)
+public record CatalogProperties(CatalogName name, CatalogVersion version, ConnectorName connectorName, Map<String, String> properties)
 {
     public CatalogProperties
     {
-        requireNonNull(catalogHandle, "catalogHandle is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(version, "version is null");
         requireNonNull(connectorName, "connectorName is null");
         properties = Map.copyOf(requireNonNull(properties, "properties is null"));
     }

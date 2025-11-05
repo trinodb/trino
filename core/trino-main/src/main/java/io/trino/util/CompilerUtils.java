@@ -17,6 +17,8 @@ import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.ParameterizedType;
 import io.airlift.log.Logger;
+import io.trino.spi.TrinoException;
+import org.objectweb.asm.MethodTooLargeException;
 
 import java.lang.invoke.MethodHandle;
 import java.time.Instant;
@@ -28,6 +30,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static io.airlift.bytecode.BytecodeUtils.toJavaIdentifierString;
 import static io.airlift.bytecode.ClassGenerator.classGenerator;
 import static io.airlift.bytecode.ParameterizedType.typeFromJavaClassName;
+import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
 import static java.time.ZoneOffset.UTC;
 
 public final class CompilerUtils
@@ -78,6 +81,11 @@ public final class CompilerUtils
     public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)
     {
         log.debug("Defining class: %s", classDefinition.getName());
-        return classGenerator(classLoader).defineClass(classDefinition, superType);
+        try {
+            return classGenerator(classLoader).defineClass(classDefinition, superType);
+        }
+        catch (MethodTooLargeException e) {
+            throw new TrinoException(QUERY_EXCEEDED_COMPILER_LIMIT, "Query exceeded maximum method size.", e);
+        }
     }
 }

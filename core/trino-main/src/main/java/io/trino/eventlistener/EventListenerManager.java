@@ -19,12 +19,14 @@ import com.google.inject.Inject;
 import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
+import io.trino.client.NodeVersion;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
-import io.trino.spi.eventlistener.SplitCompletedEvent;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -65,14 +67,15 @@ public class EventListenerManager
 
     private final TimeStat queryCreatedTime = new TimeStat(MILLISECONDS);
     private final TimeStat queryCompletedTime = new TimeStat(MILLISECONDS);
-    private final TimeStat splitCompletedTime = new TimeStat(MILLISECONDS);
     private final SecretsResolver secretsResolver;
+    private final EventListenerContextInstance context;
 
     @Inject
-    public EventListenerManager(EventListenerConfig config, SecretsResolver secretsResolver)
+    public EventListenerManager(EventListenerConfig config, SecretsResolver secretsResolver, OpenTelemetry openTelemetry, Tracer tracer, NodeVersion version)
     {
         this.configFiles = ImmutableList.copyOf(config.getEventListenerFiles());
         this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
+        this.context = new EventListenerContextInstance(version.toString(), openTelemetry, tracer);
     }
 
     public void addEventListenerFactory(EventListenerFactory eventListenerFactory)
@@ -129,7 +132,7 @@ public class EventListenerManager
 
         EventListener eventListener;
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            eventListener = factory.create(secretsResolver.getResolvedConfiguration(properties));
+            eventListener = factory.create(secretsResolver.getResolvedConfiguration(properties), context);
         }
 
         log.info("-- Loaded event listener %s --", configFile);
@@ -187,25 +190,6 @@ public class EventListenerManager
         }
     }
 
-    public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
-    {
-        try (TimeStat.BlockTimer _ = splitCompletedTime.time()) {
-            doSplitCompleted(splitCompletedEvent);
-        }
-    }
-
-    private void doSplitCompleted(SplitCompletedEvent splitCompletedEvent)
-    {
-        for (EventListener listener : configuredEventListeners.get()) {
-            try {
-                listener.splitCompleted(splitCompletedEvent);
-            }
-            catch (Throwable e) {
-                log.warn(e, "Failed to publish SplitCompletedEvent for query %s", splitCompletedEvent.getQueryId());
-            }
-        }
-    }
-
     @Managed
     @Nested
     public TimeStat getQueryCreatedTime()
@@ -218,13 +202,6 @@ public class EventListenerManager
     public TimeStat getQueryCompletedTime()
     {
         return queryCompletedTime;
-    }
-
-    @Managed
-    @Nested
-    public TimeStat getSplitCompletedTime()
-    {
-        return splitCompletedTime;
     }
 
     @Managed
@@ -241,7 +218,7 @@ public class EventListenerManager
                 listener.shutdown();
             }
             catch (Throwable e) {
-                log.warn(e, "Failed to shutdown event listener: " + listener.getClass().getCanonicalName());
+                log.warn(e, "Failed to shutdown event listener: %s", listener.getClass().getCanonicalName());
             }
         }
     }

@@ -10,9 +10,9 @@
   statement. ({issue}`21619`)
 * Fix `CREATE CATALOG` statements including quotes in catalog names. ({issue}`21399`)
 * Fix potential query failure when a column name ends with a `:`. ({issue}`21676`)
-* Fix potential query failure when a [SQL routine](/routines) contains a label
+* Fix potential query failure when a [](/udf/sql) contains a label
   reference in a `LEAVE`, `ITERATE`, `REPEAT`, or `WHILE` statement. ({issue}`21682`)
-* Fix query failure when [SQL routines](/routines) use the `NULLIF` or `BETWEEN`
+* Fix query failure when [](/udf/sql) use the `NULLIF` or `BETWEEN`
   functions. ({issue}`19820`)
 * Fix potential query failure due to worker nodes running out of memory in
   concurrent scenarios. ({issue}`21706`)

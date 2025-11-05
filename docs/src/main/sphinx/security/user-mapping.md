@@ -15,7 +15,7 @@ provider into the simple username format of Trino users:
 ## Pattern mapping rule
 
 If you can map all of your authentication method’s usernames with a single
-reqular expression, consider using a **Pattern mapping rule**.
+regular expression, consider using a **Pattern mapping rule**.
 
 For example, your authentication method uses all usernames in the form
 `alice@example.com`, with no exceptions. In this case, choose a regex that

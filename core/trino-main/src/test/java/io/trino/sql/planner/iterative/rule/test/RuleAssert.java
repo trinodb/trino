@@ -94,7 +94,7 @@ public class RuleAssert
                         """,
                         rule,
                         textLogicalPlan(plan, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), StatsAndCosts.empty(), session, 2, false),
-                        textLogicalPlan(ruleApplication.result.getTransformedPlan().get(), planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), StatsAndCosts.empty(), session, 2, false)));
+                        textLogicalPlan(ruleApplication.result.transformedPlan().get(), planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), StatsAndCosts.empty(), session, 2, false)));
             }
         }
         finally {
@@ -178,14 +178,14 @@ public class RuleAssert
 
     private String formatPlan(PlanNode plan)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session, () -> false));
         CostProvider costProvider = new CachingCostProvider(planTester.getCostCalculator(), statsProvider, session);
         return textLogicalPlan(plan, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false);
     }
 
     private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, SymbolAllocator symbolAllocator, Memo memo, Lookup lookup, Session session)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session), RuntimeInfoProvider.noImplementation());
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session, () -> false), RuntimeInfoProvider.noImplementation());
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session);
 
         return new Rule.Context()
@@ -253,7 +253,7 @@ public class RuleAssert
 
         public PlanNode getTransformedPlan()
         {
-            return result.getTransformedPlan().orElseThrow(() -> new IllegalStateException("Rule did not produce transformed plan"));
+            return result.transformedPlan().orElseThrow(() -> new IllegalStateException("Rule did not produce transformed plan"));
         }
     }
 }

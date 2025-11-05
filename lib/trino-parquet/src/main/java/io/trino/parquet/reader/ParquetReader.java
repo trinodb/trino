@@ -17,8 +17,10 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
+import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ChunkKey;
 import io.trino.parquet.Column;
@@ -30,17 +32,23 @@ import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.ParquetWriteValidation;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.VariantField;
+import io.trino.parquet.crypto.FileDecryptionContext;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.PrunedBlockMetadata;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.FilteredOffsetIndex.OffsetRange;
+import io.trino.parquet.spark.Variant;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.ArrayType;
@@ -59,16 +67,23 @@ import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.ObjLongConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
 import static io.trino.parquet.ParquetWriteValidation.StatisticsValidation;
 import static io.trino.parquet.ParquetWriteValidation.StatisticsValidation.createStatisticsValidationBuilder;
@@ -76,10 +91,13 @@ import static io.trino.parquet.ParquetWriteValidation.WriteChecksumBuilder;
 import static io.trino.parquet.ParquetWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
 import static io.trino.parquet.reader.ListColumnReader.calculateCollectionOffsets;
 import static io.trino.parquet.reader.PageReader.createPageReader;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetReader
@@ -95,8 +113,10 @@ public class ParquetReader
     private final Optional<String> fileCreatedBy;
     private final List<RowGroupInfo> rowGroups;
     private final List<Column> columnFields;
+    private final boolean appendRowNumberColumn;
     private final List<PrimitiveField> primitiveFields;
     private final ParquetDataSource dataSource;
+    private final ZoneId zoneId;
     private final ColumnReaderFactory columnReaderFactory;
     private final AggregatedMemoryContext memoryContext;
 
@@ -125,14 +145,18 @@ public class ParquetReader
     private final Optional<WriteChecksumBuilder> writeChecksumBuilder;
     private final Optional<StatisticsValidation> rowGroupStatisticsValidation;
     private final FilteredRowRanges[] blockRowRanges;
-    private final ParquetBlockFactory blockFactory;
+    private final Function<Exception, RuntimeException> exceptionTransform;
     private final Map<String, Metric<?>> codecMetrics;
 
+    private int currentPageId;
+
     private long columnIndexRowsFiltered = -1;
+    private final Optional<FileDecryptionContext> decryptionContext;
 
     public ParquetReader(
             Optional<String> fileCreatedBy,
             List<Column> columnFields,
+            boolean appendRowNumberColumn,
             List<RowGroupInfo> rowGroups,
             ParquetDataSource dataSource,
             DateTimeZone timeZone,
@@ -140,15 +164,18 @@ public class ParquetReader
             ParquetReaderOptions options,
             Function<Exception, RuntimeException> exceptionTransform,
             Optional<TupleDomainParquetPredicate> parquetPredicate,
-            Optional<ParquetWriteValidation> writeValidation)
+            Optional<ParquetWriteValidation> writeValidation,
+            Optional<FileDecryptionContext> decryptionContext)
             throws IOException
     {
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
         requireNonNull(columnFields, "columnFields is null");
         this.columnFields = ImmutableList.copyOf(columnFields);
+        this.appendRowNumberColumn = appendRowNumberColumn;
         this.primitiveFields = getPrimitiveFields(columnFields.stream().map(Column::field).collect(toImmutableList()));
         this.rowGroups = requireNonNull(rowGroups, "rowGroups is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
+        this.zoneId = requireNonNull(timeZone, "timeZone is null").toTimeZone().toZoneId();
         this.columnReaderFactory = new ColumnReaderFactory(timeZone, options);
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         this.currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
@@ -156,6 +183,7 @@ public class ParquetReader
         this.maxBatchSize = options.getMaxReadBlockRowCount();
         this.columnReaders = new HashMap<>();
         this.maxBytesPerCell = new HashMap<>();
+        this.decryptionContext = requireNonNull(decryptionContext, "decryptionContext is null");
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         validateWrite(
@@ -174,7 +202,7 @@ public class ParquetReader
         }
         this.blockRowRanges = calculateFilteredRowRanges(rowGroups, filter, primitiveFields);
 
-        this.blockFactory = new ParquetBlockFactory(exceptionTransform);
+        this.exceptionTransform = exceptionTransform;
         ListMultimap<ChunkKey, DiskRange> ranges = ArrayListMultimap.create();
         Map<String, LongCount> codecMetrics = new HashMap<>();
         for (int rowGroup = 0; rowGroup < rowGroups.size(); rowGroup++) {
@@ -237,7 +265,7 @@ public class ParquetReader
         }
     }
 
-    public Page nextPage()
+    public SourcePage nextPage()
             throws IOException
     {
         int batchSize = nextBatch();
@@ -245,15 +273,171 @@ public class ParquetReader
             return null;
         }
         // create a lazy page
-        blockFactory.nextPage();
-        Block[] blocks = new Block[columnFields.size()];
-        for (int channel = 0; channel < columnFields.size(); channel++) {
-            Field field = columnFields.get(channel).field();
-            blocks[channel] = blockFactory.createBlock(batchSize, () -> readBlock(field));
-        }
-        Page page = new Page(batchSize, blocks);
+        currentPageId++;
+        SourcePage page = new ParquetSourcePage(batchSize);
         validateWritePageChecksum(page);
         return page;
+    }
+
+    private class ParquetSourcePage
+            implements SourcePage
+    {
+        private static final long INSTANCE_SIZE = instanceSize(ParquetSourcePage.class);
+
+        private final int expectedPageId = currentPageId;
+        private final Block[] blocks = new Block[columnFields.size() + (appendRowNumberColumn ? 1 : 0)];
+        private final int rowNumberColumnIndex = appendRowNumberColumn ? columnFields.size() : -1;
+        private SelectedPositions selectedPositions;
+
+        private long sizeInBytes;
+        private long retainedSizeInBytes;
+
+        public ParquetSourcePage(int positionCount)
+        {
+            selectedPositions = new SelectedPositions(positionCount, null);
+            retainedSizeInBytes = shallowRetainedSizeInBytes();
+        }
+
+        @Override
+        public int getPositionCount()
+        {
+            return selectedPositions.positionCount();
+        }
+
+        @Override
+        public long getSizeInBytes()
+        {
+            return sizeInBytes;
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return retainedSizeInBytes;
+        }
+
+        private long shallowRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE +
+                    sizeOf(blocks) +
+                    selectedPositions.retainedSizeInBytes();
+        }
+
+        @Override
+        public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+        {
+            consumer.accept(this, INSTANCE_SIZE);
+            consumer.accept(blocks, sizeOf(blocks));
+            consumer.accept(selectedPositions, selectedPositions.retainedSizeInBytes());
+            for (Block block : blocks) {
+                if (block != null) {
+                    block.retainedBytesForEachPart(consumer);
+                }
+            }
+        }
+
+        @Override
+        public int getChannelCount()
+        {
+            return blocks.length;
+        }
+
+        @Override
+        public Block getBlock(int channel)
+        {
+            checkState(currentPageId == expectedPageId, "Parquet reader has been advanced beyond block");
+            Block block = blocks[channel];
+            if (block == null) {
+                if (channel == rowNumberColumnIndex) {
+                    block = selectedPositions.createRowNumberBlock(lastBatchStartRow());
+                }
+                else {
+                    try {
+                        // todo use selected positions to improve read performance
+                        block = readBlock(columnFields.get(channel).field());
+                    }
+                    catch (IOException e) {
+                        throw exceptionTransform.apply(e);
+                    }
+                    block = selectedPositions.apply(block);
+                }
+                blocks[channel] = block;
+                sizeInBytes += block.getSizeInBytes();
+                retainedSizeInBytes += block.getRetainedSizeInBytes();
+            }
+            return block;
+        }
+
+        @Override
+        public Page getPage()
+        {
+            // ensure all blocks are loaded
+            for (int i = 0; i < blocks.length; i++) {
+                getBlock(i);
+            }
+            return new Page(selectedPositions.positionCount(), blocks);
+        }
+
+        @Override
+        public void selectPositions(int[] positions, int offset, int size)
+        {
+            selectedPositions = selectedPositions.selectPositions(positions, offset, size);
+            retainedSizeInBytes = shallowRetainedSizeInBytes();
+            for (int i = 0; i < blocks.length; i++) {
+                Block block = blocks[i];
+                if (block != null) {
+                    block = selectedPositions.apply(block);
+                    retainedSizeInBytes += block.getRetainedSizeInBytes();
+                    blocks[i] = block;
+                }
+            }
+        }
+    }
+
+    private record SelectedPositions(int positionCount, @Nullable int[] positions)
+    {
+        private static final long INSTANCE_SIZE = instanceSize(SelectedPositions.class);
+
+        public long retainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + sizeOf(positions);
+        }
+
+        @CheckReturnValue
+        public Block apply(Block block)
+        {
+            if (positions == null) {
+                return block;
+            }
+            return block.getPositions(positions, 0, positionCount);
+        }
+
+        public Block createRowNumberBlock(long startRowNumber)
+        {
+            long[] rowNumbers = new long[positionCount];
+            for (int i = 0; i < positionCount; i++) {
+                int position = positions == null ? i : positions[i];
+                rowNumbers[i] = startRowNumber + position;
+            }
+            return new LongArrayBlock(positionCount, Optional.empty(), rowNumbers);
+        }
+
+        @CheckReturnValue
+        public SelectedPositions selectPositions(int[] positions, int offset, int size)
+        {
+            if (this.positions == null) {
+                for (int i = 0; i < size; i++) {
+                    checkIndex(offset + i, positionCount);
+                }
+                return new SelectedPositions(size, Arrays.copyOfRange(positions, offset, offset + size));
+            }
+
+            int[] newPositions = new int[size];
+            for (int i = 0; i < size; i++) {
+                newPositions[i] = this.positions[positions[offset + i]];
+            }
+            return new SelectedPositions(size, newPositions);
+        }
     }
 
     /**
@@ -332,12 +516,37 @@ public class ParquetReader
         }
     }
 
+    private ColumnChunk readVariant(VariantField field)
+            throws IOException
+    {
+        ColumnChunk metadataChunk = readColumnChunk(field.getMetadata());
+
+        int positionCount = metadataChunk.getBlock().getPositionCount();
+        BlockBuilder variantBlock = VARCHAR.createBlockBuilder(null, max(1, positionCount));
+        ColumnChunk valueChunk = readColumnChunk(field.getValue());
+        for (int position = 0; position < positionCount; position++) {
+            Slice metadata = VARBINARY.getSlice(metadataChunk.getBlock(), position);
+            if (metadata.length() == 0) {
+                variantBlock.appendNull();
+                continue;
+            }
+            Slice value = VARBINARY.getSlice(valueChunk.getBlock(), position);
+            Variant variant = new Variant(value.getBytes(), metadata.getBytes());
+            VARCHAR.writeSlice(variantBlock, utf8Slice(variant.toJson(zoneId)));
+        }
+        return new ColumnChunk(variantBlock.build(), metadataChunk.getDefinitionLevels(), metadataChunk.getRepetitionLevels());
+    }
+
     private ColumnChunk readArray(GroupField field)
             throws IOException
     {
         List<Type> parameters = field.getType().getTypeParameters();
         checkArgument(parameters.size() == 1, "Arrays must have a single type parameter, found %s", parameters.size());
-        Field elementField = field.getChildren().get(0).get();
+        Optional<Field> children = field.getChildren().get(0);
+        if (children.isEmpty()) {
+            return new ColumnChunk(field.getType().createNullBlock(), new int[] {}, new int[] {});
+        }
+        Field elementField = children.get();
         ColumnChunk columnChunk = readColumnChunk(elementField);
 
         ListColumnReader.BlockPositions collectionPositions = calculateCollectionOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
@@ -355,7 +564,8 @@ public class ParquetReader
 
         ColumnChunk columnChunk = readColumnChunk(field.getChildren().get(0).get());
         blocks[0] = columnChunk.getBlock();
-        blocks[1] = readColumnChunk(field.getChildren().get(1).get()).getBlock();
+        Optional<Field> valueField = field.getChildren().get(1);
+        blocks[1] = valueField.isPresent() ? readColumnChunk(valueField.get()).getBlock() : parameters.get(1).createNullBlock();
         ListColumnReader.BlockPositions collectionPositions = calculateCollectionOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
         Block mapBlock = ((MapType) field.getType()).createBlockFromKeyValue(collectionPositions.isNull(), collectionPositions.offsets(), blocks[0], blocks[1]);
         return new ColumnChunk(mapBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
@@ -407,7 +617,6 @@ public class ParquetReader
         }
         // if there are no null positions, append a null to the end of the block
         if (nullIndex == -1) {
-            fieldBlock = fieldBlock.getLoadedBlock();
             nullIndex = fieldBlock.getPositionCount();
             fieldBlock = fieldBlock.copyWithAppendedNull();
         }
@@ -458,7 +667,7 @@ public class ParquetReader
             }
             ChunkedInputStream columnChunkInputStream = chunkReaders.get(new ChunkKey(fieldId, currentRowGroup));
             columnReader.setPageReader(
-                    createPageReader(dataSource.getId(), columnChunkInputStream, metadata, columnDescriptor, offsetIndex, fileCreatedBy),
+                    createPageReader(dataSource.getId(), columnChunkInputStream, metadata, columnDescriptor, offsetIndex, fileCreatedBy, decryptionContext),
                     Optional.ofNullable(rowRanges));
         }
         ColumnChunk columnChunk = columnReader.readPrimitive();
@@ -487,6 +696,7 @@ public class ParquetReader
         if (columnIndexRowsFiltered >= 0) {
             metrics.put(COLUMN_INDEX_ROWS_FILTERED, new LongCount(columnIndexRowsFiltered));
         }
+        metrics.putAll(dataSource.getMetrics().getMetrics());
 
         return new Metrics(metrics.buildOrThrow());
     }
@@ -518,6 +728,10 @@ public class ParquetReader
                     .flatMap(Optional::stream)
                     .forEach(child -> parseField(child, primitiveFields));
         }
+        else if (field instanceof VariantField variantField) {
+            parseField(variantField.getValue(), primitiveFields);
+            parseField(variantField.getMetadata(), primitiveFields);
+        }
     }
 
     public Block readBlock(Field field)
@@ -530,7 +744,10 @@ public class ParquetReader
             throws IOException
     {
         ColumnChunk columnChunk;
-        if (field.getType() instanceof RowType) {
+        if (field instanceof VariantField variantField) {
+            columnChunk = readVariant(variantField);
+        }
+        else if (field.getType() instanceof RowType) {
             columnChunk = readStruct((GroupField) field);
         }
         else if (field.getType() instanceof MapType) {
@@ -586,10 +803,10 @@ public class ParquetReader
         return blockRowRanges;
     }
 
-    private void validateWritePageChecksum(Page page)
+    private void validateWritePageChecksum(SourcePage sourcePage)
     {
         if (writeChecksumBuilder.isPresent()) {
-            page = page.getLoadedPage();
+            Page page = sourcePage.getPage();
             writeChecksumBuilder.get().addPage(page);
             rowGroupStatisticsValidation.orElseThrow().addPage(page);
         }

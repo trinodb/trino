@@ -14,11 +14,12 @@
 package io.trino.cache;
 
 import com.google.common.cache.Cache;
+import org.jetbrains.annotations.NotNullByDefault;
 
 /**
  * A {@link com.google.common.cache.Cache} that does not support key-based eviction.
  */
-@ElementTypesAreNonnullByDefault
+@NotNullByDefault
 public interface NonKeyEvictableCache<K, V>
         extends Cache<K, V>
 {

@@ -25,6 +25,8 @@ import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
@@ -112,7 +114,7 @@ public class BenchmarkArrayFilter
                         SESSION,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        data.getPage()));
+                        SourcePage.create(data.getPage())));
     }
 
     @Benchmark
@@ -124,7 +126,7 @@ public class BenchmarkArrayFilter
                         SESSION,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        data.getPage()));
+                        SourcePage.create(data.getPage())));
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -159,7 +161,7 @@ public class BenchmarkArrayFilter
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 
-            ImmutableList<RowExpression> projections = projectionsBuilder.build();
+            List<RowExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             page = new Page(blocks);
         }
@@ -232,7 +234,7 @@ public class BenchmarkArrayFilter
                 blocks[i] = createChannel(POSITIONS, arrayType);
             }
 
-            ImmutableList<RowExpression> projections = projectionsBuilder.build();
+            List<RowExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             page = new Page(blocks);
         }
@@ -306,6 +308,7 @@ public class BenchmarkArrayFilter
         public static Block filter(Type type, Block block, MethodHandle function)
         {
             int positionCount = block.getPositionCount();
+            ValueBlock valueBlock = block.getUnderlyingValueBlock();
             BlockBuilder resultBuilder = type.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
                 Long input = (Long) readNativeValue(type, block, position);
@@ -318,7 +321,7 @@ public class BenchmarkArrayFilter
                     throw new RuntimeException(t);
                 }
                 if (TRUE.equals(keep)) {
-                    type.appendTo(block, position, resultBuilder);
+                    resultBuilder.append(valueBlock, block.getUnderlyingValuePosition(position));
                 }
             }
             return resultBuilder.build();
@@ -361,6 +364,7 @@ public class BenchmarkArrayFilter
         {
             int positionCount = block.getPositionCount();
             BlockBuilder resultBuilder = type.createBlockBuilder(null, positionCount);
+            ValueBlock valueBlock = block.getUnderlyingValueBlock();
             for (int position = 0; position < positionCount; position++) {
                 Object input = type.getObject(block, position);
                 Boolean keep;
@@ -372,7 +376,7 @@ public class BenchmarkArrayFilter
                     throw new RuntimeException(t);
                 }
                 if (TRUE.equals(keep)) {
-                    type.appendTo(block, position, resultBuilder);
+                    resultBuilder.append(valueBlock, block.getUnderlyingValuePosition(position));
                 }
             }
             return resultBuilder.build();

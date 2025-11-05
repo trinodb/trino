@@ -16,6 +16,7 @@ package io.trino.plugin.httpquery;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
+import io.trino.testing.TestingEventListenerContext;
 import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -27,10 +28,7 @@ final class TestHttpServerListenerPlugin
     {
         HttpServerEventListenerPlugin plugin = new HttpServerEventListenerPlugin();
         EventListenerFactory factory = getOnlyElement(plugin.getEventListenerFactories());
-        EventListener eventListener = factory.create(
-                ImmutableMap.of(
-                        "http-server.http.port", "0"));
-
+        EventListener eventListener = factory.create(ImmutableMap.of("http-server.http.port", "0"), new TestingEventListenerContext());
         eventListener.shutdown();
     }
 }

@@ -20,7 +20,6 @@ import io.trino.Session;
 import io.trino.connector.MockConnector;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
-import io.trino.metadata.InMemoryNodeManager;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
@@ -121,7 +120,7 @@ public class TestLimitMaxWriterNodesCount
                 })
                 .withGetLayoutForTableExecute((session, tableHandle) -> {
                     MockConnector.MockConnectorTableExecuteHandle tableExecuteHandle = (MockConnector.MockConnectorTableExecuteHandle) tableHandle;
-                    if (tableExecuteHandle.getSchemaTableName().getTableName().equals(partitionedTable)) {
+                    if (tableExecuteHandle.schemaTableName().getTableName().equals(partitionedTable)) {
                         return Optional.of(new ConnectorTableLayout(ImmutableList.of("column_a")));
                     }
                     return Optional.empty();
@@ -130,7 +129,7 @@ public class TestLimitMaxWriterNodesCount
                         "OPTIMIZE",
                         distributedWithFilteringAndRepartitioning(),
                         ImmutableList.of(PropertyMetadata.stringProperty("file_size_threshold", "file_size_threshold", "10GB", false)))))
-                .withPartitionProvider(new TestTableScanNodePartitioning.TestPartitioningProvider(new InMemoryNodeManager()))
+                .withPartitionProvider(new TestTableScanNodePartitioning.TestPartitioningProvider())
                 .withMaxWriterTasks(maxWriterTasks)
                 .withGetColumns(schemaTableName -> ImmutableList.of(
                         new ColumnMetadata("column_a", VARCHAR),

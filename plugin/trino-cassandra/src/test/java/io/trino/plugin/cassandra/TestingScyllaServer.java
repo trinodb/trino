@@ -52,7 +52,7 @@ public class TestingScyllaServer
 
     public TestingScyllaServer()
     {
-        this("5.4");
+        this("6.2");
     }
 
     public TestingScyllaServer(String version)

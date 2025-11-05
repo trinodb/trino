@@ -48,7 +48,6 @@ public class WindowNode
     private final DataOrganizationSpecification specification;
     private final int preSortedOrderPrefix;
     private final Map<Symbol, Function> windowFunctions;
-    private final Optional<Symbol> hashSymbol;
 
     @JsonCreator
     public WindowNode(
@@ -56,7 +55,6 @@ public class WindowNode
             @JsonProperty("source") PlanNode source,
             @JsonProperty("specification") DataOrganizationSpecification specification,
             @JsonProperty("windowFunctions") Map<Symbol, Function> windowFunctions,
-            @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
             @JsonProperty("prePartitionedInputs") Set<Symbol> prePartitionedInputs,
             @JsonProperty("preSortedOrderPrefix") int preSortedOrderPrefix)
     {
@@ -65,12 +63,11 @@ public class WindowNode
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
         requireNonNull(windowFunctions, "windowFunctions is null");
-        requireNonNull(hashSymbol, "hashSymbol is null");
         requireNonNull(prePartitionedInputs, "prePartitionedInputs is null");
         // Make the defensive copy eagerly, so it can be used for both the validation checks and assigned directly to the field afterwards
         prePartitionedInputs = ImmutableSet.copyOf(prePartitionedInputs);
 
-        ImmutableSet<Symbol> partitionBy = ImmutableSet.copyOf(specification.partitionBy());
+        Set<Symbol> partitionBy = ImmutableSet.copyOf(specification.partitionBy());
         Optional<OrderingScheme> orderingScheme = specification.orderingScheme();
         checkArgument(partitionBy.containsAll(prePartitionedInputs), "prePartitionedInputs must be contained in partitionBy");
         checkArgument(preSortedOrderPrefix == 0 || (orderingScheme.isPresent() && preSortedOrderPrefix <= orderingScheme.get().orderBy().size()), "Cannot have sorted more symbols than those requested");
@@ -80,7 +77,6 @@ public class WindowNode
         this.prePartitionedInputs = prePartitionedInputs;
         this.specification = specification;
         this.windowFunctions = ImmutableMap.copyOf(windowFunctions);
-        this.hashSymbol = hashSymbol;
         this.preSortedOrderPrefix = preSortedOrderPrefix;
     }
 
@@ -137,12 +133,6 @@ public class WindowNode
     }
 
     @JsonProperty
-    public Optional<Symbol> getHashSymbol()
-    {
-        return hashSymbol;
-    }
-
-    @JsonProperty
     public Set<Symbol> getPrePartitionedInputs()
     {
         return prePartitionedInputs;
@@ -163,7 +153,7 @@ public class WindowNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new WindowNode(getId(), Iterables.getOnlyElement(newChildren), specification, windowFunctions, hashSymbol, prePartitionedInputs, preSortedOrderPrefix);
+        return new WindowNode(getId(), Iterables.getOnlyElement(newChildren), specification, windowFunctions, prePartitionedInputs, preSortedOrderPrefix);
     }
 
     @Immutable
@@ -290,20 +280,26 @@ public class WindowNode
     {
         private final ResolvedFunction resolvedFunction;
         private final List<Expression> arguments;
+        private final Optional<OrderingScheme> orderingScheme;
         private final Frame frame;
         private final boolean ignoreNulls;
+        private final boolean distinct;
 
         @JsonCreator
         public Function(
                 @JsonProperty("resolvedFunction") ResolvedFunction resolvedFunction,
                 @JsonProperty("arguments") List<Expression> arguments,
+                @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme,
                 @JsonProperty("frame") Frame frame,
-                @JsonProperty("ignoreNulls") boolean ignoreNulls)
+                @JsonProperty("ignoreNulls") boolean ignoreNulls,
+                @JsonProperty("distinct") boolean distinct)
         {
             this.resolvedFunction = requireNonNull(resolvedFunction, "resolvedFunction is null");
             this.arguments = requireNonNull(arguments, "arguments is null");
+            this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
             this.frame = requireNonNull(frame, "frame is null");
             this.ignoreNulls = ignoreNulls;
+            this.distinct = distinct;
         }
 
         @JsonProperty
@@ -319,6 +315,12 @@ public class WindowNode
         }
 
         @JsonProperty
+        public Optional<OrderingScheme> getOrderingScheme()
+        {
+            return orderingScheme;
+        }
+
+        @JsonProperty
         public Frame getFrame()
         {
             return frame;
@@ -330,10 +332,16 @@ public class WindowNode
             return ignoreNulls;
         }
 
+        @JsonProperty
+        public boolean isDistinct()
+        {
+            return distinct;
+        }
+
         @Override
         public int hashCode()
         {
-            return Objects.hash(resolvedFunction, arguments, frame, ignoreNulls);
+            return Objects.hash(resolvedFunction, arguments, orderingScheme, frame, ignoreNulls, distinct);
         }
 
         @Override
@@ -348,8 +356,10 @@ public class WindowNode
             Function other = (Function) obj;
             return Objects.equals(this.resolvedFunction, other.resolvedFunction) &&
                     Objects.equals(this.arguments, other.arguments) &&
+                    Objects.equals(this.orderingScheme, other.orderingScheme) &&
                     Objects.equals(this.frame, other.frame) &&
-                    this.ignoreNulls == other.ignoreNulls;
+                    this.ignoreNulls == other.ignoreNulls &&
+                    this.distinct == other.distinct;
         }
     }
 }

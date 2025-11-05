@@ -33,6 +33,7 @@ public class QueryContext
 {
     private final String user;
     private final String originalUser;
+    private final Set<String> originalRoles;
     private final Optional<String> principal;
     private final Set<String> enabledRoles;
     private final Set<String> groups;
@@ -66,6 +67,7 @@ public class QueryContext
     public QueryContext(
             String user,
             String originalUser,
+            Set<String> originalRoles,
             Optional<String> principal,
             Set<String> enabledRoles,
             Set<String> groups,
@@ -90,6 +92,7 @@ public class QueryContext
     {
         this.user = requireNonNull(user, "user is null");
         this.originalUser = requireNonNull(originalUser, "originalUser is null");
+        this.originalRoles = requireNonNull(originalRoles, "originalRoles is null");
         this.principal = requireNonNull(principal, "principal is null");
         this.enabledRoles = requireNonNull(enabledRoles, "enabledRoles is null");
         this.groups = requireNonNull(groups, "groups is null");
@@ -123,6 +126,12 @@ public class QueryContext
     public String getOriginalUser()
     {
         return originalUser;
+    }
+
+    @JsonProperty
+    public Set<String> getOriginalRoles()
+    {
+        return originalRoles;
     }
 
     @JsonProperty

@@ -23,7 +23,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.decoder.protobuf.ProtobufRowDecoderFactory.DEFAULT_MESSAGE;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FixedSchemaDynamicMessageProvider
@@ -56,7 +55,7 @@ public class FixedSchemaDynamicMessageProvider
             checkState(protoFile.isPresent(), "proto file is missing");
             try {
                 Descriptor descriptor = ProtobufUtils.getFileDescriptor(protoFile.orElseThrow()).findMessageTypeByName(DEFAULT_MESSAGE);
-                checkState(descriptor != null, format("Message %s not found", DEFAULT_MESSAGE));
+                checkState(descriptor != null, "Message %s not found", DEFAULT_MESSAGE);
                 return new FixedSchemaDynamicMessageProvider(descriptor);
             }
             catch (DescriptorValidationException descriptorValidationException) {

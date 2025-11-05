@@ -31,6 +31,7 @@ public class BigQueryNamedRelationHandle
     private final String type;
     private final Optional<BigQueryPartitionType> partitionType;
     private final Optional<String> comment;
+    private final boolean useStorageApi;
 
     @JsonCreator
     public BigQueryNamedRelationHandle(
@@ -38,13 +39,15 @@ public class BigQueryNamedRelationHandle
             @JsonProperty("remoteTableName") RemoteTableName remoteTableName,
             @JsonProperty("type") String type,
             @JsonProperty("partitionType") Optional<BigQueryPartitionType> partitionType,
-            @JsonProperty("comment") Optional<String> comment)
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("useStorageApi") boolean useStorageApi)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.remoteTableName = requireNonNull(remoteTableName, "remoteTableName is null");
         this.type = requireNonNull(type, "type is null");
         this.partitionType = requireNonNull(partitionType, "partitionType is null");
         this.comment = requireNonNull(comment, "comment is null");
+        this.useStorageApi = useStorageApi;
     }
 
     @JsonProperty
@@ -75,6 +78,13 @@ public class BigQueryNamedRelationHandle
     public Optional<String> getComment()
     {
         return comment;
+    }
+
+    @JsonProperty
+    @Override
+    public boolean isUseStorageApi()
+    {
+        return useStorageApi;
     }
 
     @Override

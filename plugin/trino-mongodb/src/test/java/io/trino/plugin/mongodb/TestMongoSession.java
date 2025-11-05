@@ -55,7 +55,7 @@ public class TestMongoSession
     {
         List<MongoColumnHandle> columns = ImmutableList.of(COL1, COL2);
 
-        Document output = MongoSession.buildProjection(columns);
+        Document output = MongoSession.buildProjection(columns, "_pos");
         Document expected = new Document()
                 .append(COL1.baseName(), 1)
                 .append(COL2.baseName(), 1)
@@ -69,7 +69,7 @@ public class TestMongoSession
     {
         List<MongoColumnHandle> columns = ImmutableList.of(COL1, COL2, ID_COL);
 
-        Document output = MongoSession.buildProjection(columns);
+        Document output = MongoSession.buildProjection(columns, "_pos");
         Document expected = new Document()
                 .append(COL1.baseName(), 1)
                 .append(COL2.baseName(), 1)

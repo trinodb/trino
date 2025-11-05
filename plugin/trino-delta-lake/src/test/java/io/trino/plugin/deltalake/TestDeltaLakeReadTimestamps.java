@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -106,6 +107,7 @@ public class TestDeltaLakeReadTimestamps
     }
 
     @Test
+    @Disabled("This test assumes specific tzdb version and it will fail on mismatch between Spark and Trino tzdb versions")
     public void timestampReadMapping()
     {
         ZoneId jvmZone = getJvmTestTimeZone();

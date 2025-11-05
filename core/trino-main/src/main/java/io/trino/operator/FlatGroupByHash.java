@@ -21,6 +21,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 
 import java.util.Arrays;
@@ -34,6 +35,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.FlatHash.sumExact;
 import static java.lang.Math.min;
 import static java.lang.Math.multiplyExact;
+import static java.util.Objects.requireNonNull;
 
 // This implementation assumes arrays used in the hash are always a power of 2
 public class FlatGroupByHash
@@ -44,9 +46,9 @@ public class FlatGroupByHash
     // Max (page value count / cumulative dictionary size) to trigger the low cardinality case
     private static final double SMALL_DICTIONARIES_MAX_CARDINALITY_RATIO = 0.25;
 
+    private final GroupByHashMode hashMode;
     private final FlatHash flatHash;
     private final int groupByChannelCount;
-    private final boolean hasPrecomputedHash;
 
     private final boolean processDictionary;
 
@@ -62,28 +64,46 @@ public class FlatGroupByHash
 
     public FlatGroupByHash(
             List<Type> hashTypes,
-            boolean hasPrecomputedHash,
+            GroupByHashMode hashMode,
             int expectedSize,
             boolean processDictionary,
             FlatHashStrategyCompiler hashStrategyCompiler,
             UpdateMemory checkMemoryReservation)
     {
-        this.flatHash = new FlatHash(hashStrategyCompiler.getFlatHashStrategy(hashTypes), hasPrecomputedHash, expectedSize, checkMemoryReservation);
+        this.hashMode = requireNonNull(hashMode, "hashMode is null");
+        this.flatHash = new FlatHash(hashStrategyCompiler.getFlatHashStrategy(hashTypes), hashMode, expectedSize, checkMemoryReservation);
         this.groupByChannelCount = hashTypes.size();
-        this.hasPrecomputedHash = hasPrecomputedHash;
 
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
-        int totalChannels = hashTypes.size() + (hasPrecomputedHash ? 1 : 0);
+        int totalChannels = hashTypes.size();
         this.currentBlocks = new Block[totalChannels];
         this.currentBlockBuilders = new BlockBuilder[totalChannels];
 
         this.processDictionary = processDictionary && hashTypes.size() == 1;
     }
 
-    public int getPhysicalPosition(int groupId)
+    public FlatGroupByHash(FlatGroupByHash other)
     {
-        return flatHash.getPhysicalPosition(groupId);
+        this.flatHash = other.flatHash.copy();
+        groupByChannelCount = other.groupByChannelCount;
+        hashMode = other.hashMode;
+        processDictionary = other.processDictionary;
+        dictionaryLookBack = other.dictionaryLookBack == null ? null : other.dictionaryLookBack.copy();
+        currentPageSizeInBytes = other.currentPageSizeInBytes;
+        currentBlocks = Arrays.copyOf(other.currentBlocks, other.currentBlocks.length);
+        currentBlockBuilders = Arrays.stream(other.currentBlockBuilders)
+                .map(builder -> {
+                    if (builder == null) {
+                        return null;
+                    }
+                    ValueBlock valueBlock = builder.buildValueBlock();
+                    BlockBuilder newBuilder = builder.newBlockBuilderLike(null);
+                    newBuilder.appendRange(valueBlock, 0, valueBlock.getPositionCount());
+                    return newBuilder;
+                })
+                .toArray(BlockBuilder[]::new);
+        currentHashes = other.currentHashes == null ? null : Arrays.copyOf(other.currentHashes, other.currentHashes.length);
     }
 
     @Override
@@ -107,6 +127,16 @@ public class FlatGroupByHash
     public int getGroupCount()
     {
         return flatHash.size();
+    }
+
+    @Override
+    public void startReleasingOutput()
+    {
+        currentHashes = null;
+        dictionaryLookBack = null;
+        Arrays.fill(currentBlocks, null);
+        currentPageSizeInBytes = 0;
+        flatHash.startReleasingOutput();
     }
 
     @Override
@@ -172,6 +202,12 @@ public class FlatGroupByHash
         return flatHash.getCapacity();
     }
 
+    @Override
+    public GroupByHash copy()
+    {
+        return new FlatGroupByHash(this);
+    }
+
     private int putIfAbsent(Block[] blocks, int position)
     {
         return flatHash.putIfAbsent(blocks, position);
@@ -204,17 +240,7 @@ public class FlatGroupByHash
 
     private boolean canProcessDictionary(Block[] blocks)
     {
-        if (!processDictionary || !(blocks[0] instanceof DictionaryBlock inputDictionary)) {
-            return false;
-        }
-
-        if (!hasPrecomputedHash) {
-            return true;
-        }
-
-        // dictionarySourceIds of data block and hash block must match
-        return blocks[1] instanceof DictionaryBlock hashDictionary &&
-                hashDictionary.getDictionarySourceId().equals(inputDictionary.getDictionarySourceId());
+        return processDictionary && blocks[0] instanceof DictionaryBlock;
     }
 
     private boolean canProcessLowCardinalityDictionary(Block[] blocks)
@@ -269,6 +295,12 @@ public class FlatGroupByHash
             Arrays.fill(processed, -1);
         }
 
+        private DictionaryLookBack(DictionaryLookBack other)
+        {
+            dictionary = other.dictionary;
+            processed = Arrays.copyOf(other.processed, other.processed.length);
+        }
+
         public Block getDictionary()
         {
             return dictionary;
@@ -295,6 +327,11 @@ public class FlatGroupByHash
                     INSTANCE_SIZE,
                     sizeOf(processed),
                     dictionary.getRetainedSizeInBytes());
+        }
+
+        public DictionaryLookBack copy()
+        {
+            return new DictionaryLookBack(this);
         }
     }
 
@@ -356,11 +393,10 @@ public class FlatGroupByHash
         {
             verify(canProcessDictionary(blocks), "invalid call to addDictionaryPage");
             this.dictionaryBlock = (DictionaryBlock) blocks[0];
-
-            this.dictionaries = Arrays.stream(blocks)
-                    .map(block -> (DictionaryBlock) block)
-                    .map(DictionaryBlock::getDictionary)
-                    .toArray(Block[]::new);
+            this.dictionaries = blocks;
+            for (int i = 0; i < dictionaries.length; i++) {
+                dictionaries[i] = ((DictionaryBlock) dictionaries[i]).getDictionary();
+            }
             updateDictionaryLookBack(dictionaries[0]);
         }
 
@@ -473,7 +509,7 @@ public class FlatGroupByHash
         public GetNonDictionaryGroupIdsWork(Block[] blocks)
         {
             this.blocks = blocks;
-            this.groupIds = new int[currentBlocks[0].getPositionCount()];
+            this.groupIds = new int[blocks[0].getPositionCount()];
         }
 
         @Override
@@ -583,13 +619,12 @@ public class FlatGroupByHash
             verify(canProcessDictionary(blocks), "invalid call to processDictionary");
 
             this.dictionaryBlock = (DictionaryBlock) blocks[0];
-            this.groupIds = new int[dictionaryBlock.getPositionCount()];
-
-            this.dictionaries = Arrays.stream(blocks)
-                    .map(block -> (DictionaryBlock) block)
-                    .map(DictionaryBlock::getDictionary)
-                    .toArray(Block[]::new);
+            this.dictionaries = blocks;
+            for (int i = 0; i < dictionaries.length; i++) {
+                dictionaries[i] = ((DictionaryBlock) dictionaries[i]).getDictionary();
+            }
             updateDictionaryLookBack(dictionaries[0]);
+            this.groupIds = new int[dictionaryBlock.getPositionCount()];
         }
 
         @Override

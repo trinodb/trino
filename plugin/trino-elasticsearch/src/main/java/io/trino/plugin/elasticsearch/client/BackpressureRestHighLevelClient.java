@@ -106,8 +106,8 @@ public class BackpressureRestHighLevelClient
 
     private static boolean isBackpressure(Throwable throwable)
     {
-        return (throwable instanceof ElasticsearchStatusException) &&
-                (((ElasticsearchStatusException) throwable).status() == RestStatus.TOO_MANY_REQUESTS);
+        return throwable instanceof ElasticsearchStatusException elasticsearchStatusException &&
+                elasticsearchStatusException.status() == RestStatus.TOO_MANY_REQUESTS;
     }
 
     private void onComplete(ExecutionCompletedEvent<ActionResponse> executionCompletedEvent)

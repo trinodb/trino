@@ -297,7 +297,9 @@ public class TestPushPredicateThroughProjectIntoWindow
         return new Function(
                 tester().getMetadata().resolveBuiltinFunction("row_number", fromTypes()),
                 ImmutableList.of(),
+                Optional.empty(),
                 DEFAULT_FRAME,
+                false,
                 false);
     }
 
@@ -306,7 +308,9 @@ public class TestPushPredicateThroughProjectIntoWindow
         return new Function(
                 tester().getMetadata().resolveBuiltinFunction("rank", fromTypes()),
                 ImmutableList.of(),
+                Optional.empty(),
                 DEFAULT_FRAME,
+                false,
                 false);
     }
 }

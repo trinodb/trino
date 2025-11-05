@@ -46,7 +46,6 @@ public class PruneTableWriterSourceColumns
         if (tableWriterNode.getPartitioningScheme().isPresent()) {
             PartitioningScheme partitioningScheme = tableWriterNode.getPartitioningScheme().get();
             partitioningScheme.getPartitioning().getColumns().forEach(requiredInputs::add);
-            partitioningScheme.getHashColumn().ifPresent(requiredInputs::add);
         }
 
         if (tableWriterNode.getStatisticsAggregation().isPresent()) {

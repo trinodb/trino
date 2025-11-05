@@ -237,8 +237,6 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
                                 Optional.empty(),
-                                Optional.empty(),
-                                Optional.empty(),
                                 Optional.of(DistributionType.REPLICATED),
                                 ImmutableMap.of()))
                 .doesNotFire();

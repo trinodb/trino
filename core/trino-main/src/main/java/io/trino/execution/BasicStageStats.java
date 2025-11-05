@@ -47,9 +47,9 @@ public class BasicStageStats
 
             DataSize.ofBytes(0),
             0,
-            DataSize.ofBytes(0),
 
             0,
+
             DataSize.ofBytes(0),
 
             0,
@@ -81,8 +81,7 @@ public class BasicStageStats
     private final DataSize physicalWrittenDataSize;
     private final DataSize internalNetworkInputDataSize;
     private final long internalNetworkInputPositions;
-    private final DataSize rawInputDataSize;
-    private final long rawInputPositions;
+    private final long processedInputPositions;
     private final DataSize spilledDataSize;
     private final double cumulativeUserMemory;
     private final double failedCumulativeUserMemory;
@@ -116,8 +115,8 @@ public class BasicStageStats
             DataSize internalNetworkInputDataSize,
             long internalNetworkInputPositions,
 
-            DataSize rawInputDataSize,
-            long rawInputPositions,
+            long processedInputPositions,
+
             DataSize spilledDataSize,
 
             double cumulativeUserMemory,
@@ -149,8 +148,7 @@ public class BasicStageStats
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
         this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
         this.internalNetworkInputPositions = internalNetworkInputPositions;
-        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
-        this.rawInputPositions = rawInputPositions;
+        this.processedInputPositions = processedInputPositions;
         this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
         this.cumulativeUserMemory = cumulativeUserMemory;
         this.failedCumulativeUserMemory = failedCumulativeUserMemory;
@@ -231,14 +229,9 @@ public class BasicStageStats
         return internalNetworkInputPositions;
     }
 
-    public DataSize getRawInputDataSize()
+    public long getProcessedInputPositions()
     {
-        return rawInputDataSize;
-    }
-
-    public long getRawInputPositions()
-    {
-        return rawInputPositions;
+        return processedInputPositions;
     }
 
     public DataSize getSpilledDataSize()
@@ -334,8 +327,7 @@ public class BasicStageStats
         long internalNetworkInputDataSize = 0;
         long internalNetworkInputPositions = 0;
 
-        long rawInputDataSize = 0;
-        long rawInputPositions = 0;
+        long processedInputPositions = 0;
         long spilledDataSize = 0;
 
         boolean isScheduled = true;
@@ -375,8 +367,7 @@ public class BasicStageStats
             internalNetworkInputDataSize += stageStats.getInternalNetworkInputDataSize().toBytes();
             internalNetworkInputPositions += stageStats.getInternalNetworkInputPositions();
 
-            rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
-            rawInputPositions += stageStats.getRawInputPositions();
+            processedInputPositions += stageStats.getProcessedInputPositions();
             spilledDataSize += stageStats.getSpilledDataSize().toBytes();
         }
 
@@ -408,8 +399,8 @@ public class BasicStageStats
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
 
-                succinctBytes(rawInputDataSize),
-                rawInputPositions,
+                processedInputPositions,
+
                 succinctBytes(spilledDataSize),
 
                 cumulativeUserMemory,

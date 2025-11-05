@@ -58,6 +58,27 @@ public final class Assert
         }
     }
 
+    public static <E extends Exception> void assertConsistently(Duration timeout, Duration retryFrequency, Assert.CheckedRunnable<E> assertion)
+            throws E
+    {
+        long start = System.nanoTime();
+        while (!Thread.currentThread().isInterrupted()) {
+            assertion.run();
+
+            if (Duration.nanosSince(start).compareTo(timeout) > 0) {
+                return;
+            }
+
+            try {
+                Thread.sleep(retryFrequency.toMillis());
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
     public interface CheckedRunnable<E extends Exception>
     {
         void run()

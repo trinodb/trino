@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
@@ -38,11 +39,11 @@ import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
@@ -65,12 +66,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInstance;
 
 import java.net.URI;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -84,9 +88,11 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.connector.SaveMode.IGNORE;
 import static io.trino.spi.connector.SaveMode.REPLACE;
+import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -142,6 +148,7 @@ public abstract class BaseDataDefinitionTaskTest
                 MATERIALIZED_VIEW_PROPERTY_2_NAME, stringProperty(MATERIALIZED_VIEW_PROPERTY_2_NAME, "property 2", MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE, false));
         materializedViewPropertyManager = new MaterializedViewPropertyManager(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, properties));
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl(), testSession);
+        metadata.createSchema(testSession, new CatalogSchemaName(TEST_CATALOG_NAME, SCHEMA), ImmutableMap.of(), new TrinoPrincipal(ROLE, "role"));
     }
 
     @AfterEach
@@ -213,7 +220,7 @@ public abstract class BaseDataDefinitionTaskTest
         return viewDefinition("SELECT 1", ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId(), Optional.empty())));
     }
 
-    protected static ViewDefinition viewDefinition(String sql, ImmutableList<ViewColumn> columns)
+    protected static ViewDefinition viewDefinition(String sql, List<ViewColumn> columns)
     {
         return new ViewDefinition(
                 sql,
@@ -243,6 +250,7 @@ public abstract class BaseDataDefinitionTaskTest
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
+                Optional.empty(),
                 new NodeVersion("test"));
     }
 
@@ -253,7 +261,7 @@ public abstract class BaseDataDefinitionTaskTest
         private final String catalogName;
         private final List<CatalogSchemaName> schemas = new CopyOnWriteArrayList<>();
         private final AtomicBoolean failCreateSchema = new AtomicBoolean();
-        private final Map<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
+        private final Map<SchemaTableName, MockConnectorTableMetadata> tables = new ConcurrentHashMap<>();
         private final Map<SchemaTableName, ViewDefinition> views = new ConcurrentHashMap<>();
         private final Map<SchemaTableName, MaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
         private final Map<SchemaTableName, Map<String, Object>> materializedViewProperties = new ConcurrentHashMap<>();
@@ -350,7 +358,7 @@ public abstract class BaseDataDefinitionTaskTest
         public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
         {
             checkArgument(saveMode == REPLACE || saveMode == IGNORE || !tables.containsKey(tableMetadata.getTable()));
-            tables.put(tableMetadata.getTable(), tableMetadata);
+            tables.put(tableMetadata.getTable(), new MockConnectorTableMetadata(tableMetadata));
         }
 
         @Override
@@ -374,48 +382,64 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column)
+        public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column, ColumnPosition position)
         {
             SchemaTableName tableName = table.getSchemaTableName();
-            ConnectorTableMetadata metadata = tables.get(tableName);
+            ConnectorTableMetadata metadata = tables.get(tableName).metadata;
 
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builderWithExpectedSize(metadata.getColumns().size() + 1);
-            columns.addAll(metadata.getColumns());
-            columns.add(column);
-            tables.put(tableName, new ConnectorTableMetadata(tableName, columns.build()));
+            switch (position) {
+                case ColumnPosition.First _ -> {
+                    columns.add(column);
+                    columns.addAll(metadata.getColumns());
+                }
+                case ColumnPosition.After after -> {
+                    for (ColumnMetadata existingColumn : metadata.getColumns()) {
+                        columns.add(existingColumn);
+                        if (existingColumn.getName().equals(after.columnName())) {
+                            columns.add(column);
+                        }
+                    }
+                }
+                case ColumnPosition.Last _ -> {
+                    columns.addAll(metadata.getColumns());
+                    columns.add(column);
+                }
+            }
+            tables.put(tableName, new MockConnectorTableMetadata(new ConnectorTableMetadata(tableName, columns.build())));
         }
 
         @Override
         public void dropColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle columnHandle)
         {
             SchemaTableName tableName = table.getSchemaTableName();
-            ConnectorTableMetadata metadata = tables.get(tableName);
+            ConnectorTableMetadata metadata = tables.get(tableName).metadata;
             String columnName = ((TestingColumnHandle) columnHandle).getName();
 
             List<ColumnMetadata> columns = metadata.getColumns().stream()
                     .filter(column -> !column.getName().equals(columnName))
                     .collect(toImmutableList());
-            tables.put(tableName, new ConnectorTableMetadata(tableName, columns));
+            tables.put(tableName, new MockConnectorTableMetadata(new ConnectorTableMetadata(tableName, columns)));
         }
 
         @Override
         public void renameColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle source, String target)
         {
             SchemaTableName tableName = table.getSchemaTableName();
-            ConnectorTableMetadata metadata = tables.get(tableName);
+            ConnectorTableMetadata metadata = tables.get(tableName).metadata;
             String columnName = ((TestingColumnHandle) source).getName();
 
             List<ColumnMetadata> columns = metadata.getColumns().stream()
                     .map(column -> column.getName().equals(columnName) ? ColumnMetadata.builderFrom(column).setName(target).build() : column)
                     .collect(toImmutableList());
-            tables.put(tableName, new ConnectorTableMetadata(tableName, columns));
+            tables.put(tableName, new MockConnectorTableMetadata(new ConnectorTableMetadata(tableName, columns)));
         }
 
         @Override
         public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle columnHandle, Type type)
         {
             SchemaTableName tableName = getTableName(tableHandle);
-            ConnectorTableMetadata metadata = tables.get(tableName);
+            ConnectorTableMetadata metadata = tables.get(tableName).metadata;
 
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builderWithExpectedSize(metadata.getColumns().size());
             for (ColumnMetadata column : metadata.getColumns()) {
@@ -427,25 +451,25 @@ public abstract class BaseDataDefinitionTaskTest
                 }
             }
 
-            tables.put(tableName, new ConnectorTableMetadata(tableName, columns.build()));
+            tables.put(tableName, new MockConnectorTableMetadata(new ConnectorTableMetadata(tableName, columns.build())));
         }
 
         @Override
         public void dropNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle columnHandle)
         {
             SchemaTableName tableName = getTableName(tableHandle);
-            ConnectorTableMetadata metadata = tables.get(tableName);
+            ConnectorTableMetadata metadata = tables.get(tableName).metadata;
             String columnName = ((TestingColumnHandle) columnHandle).getName();
 
             List<ColumnMetadata> columns = metadata.getColumns().stream()
                     .map(column -> column.getName().equals(columnName) ? ColumnMetadata.builderFrom(column).setNullable(true).build() : column)
                     .collect(toImmutableList());
-            tables.put(tableName, new ConnectorTableMetadata(tableName, columns));
+            tables.put(tableName, new MockConnectorTableMetadata(new ConnectorTableMetadata(tableName, columns)));
         }
 
         private ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
         {
-            return tables.get(getTableName(tableHandle));
+            return tables.get(getTableName(tableHandle)).metadata;
         }
 
         private SchemaTableName getTableName(TableHandle tableHandle)
@@ -575,6 +599,12 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
+        public void refreshView(Session session, QualifiedObjectName viewName, ViewDefinition viewDefinition)
+        {
+            views.replace(viewName.asSchemaTableName(), viewDefinition);
+        }
+
+        @Override
         public void setTableComment(Session session, TableHandle tableHandle, Optional<String> comment)
         {
             ConnectorTableMetadata tableMetadata = getTableMetadata(tableHandle);
@@ -583,7 +613,7 @@ public abstract class BaseDataDefinitionTaskTest
                     tableMetadata.getColumns(),
                     tableMetadata.getProperties(),
                     comment);
-            tables.put(tableMetadata.getTable(), newTableMetadata);
+            tables.put(tableMetadata.getTable(), new MockConnectorTableMetadata(newTableMetadata));
         }
 
         @Override
@@ -614,7 +644,7 @@ public abstract class BaseDataDefinitionTaskTest
                             .collect(toImmutableList()),
                     tableMetadata.getProperties(),
                     tableMetadata.getComment());
-            tables.put(tableMetadata.getTable(), newTableMetadata);
+            tables.put(tableMetadata.getTable(), new MockConnectorTableMetadata(newTableMetadata));
         }
 
         @Override
@@ -649,11 +679,80 @@ public abstract class BaseDataDefinitionTaskTest
             return delegate.getCoercion(operatorType, fromType, toType);
         }
 
+        @Override
+        public void createBranch(Session session, TableHandle tableHandle, String branch, Optional<String> fromBranch, SaveMode saveMode, Map<String, Object> properties)
+        {
+            SchemaTableName tableName = getTableName(tableHandle);
+            MockConnectorTableMetadata table = tables.get(tableName);
+            requireNonNull(table, "table is null");
+            fromBranch.ifPresent(name -> {
+                if (!table.branches.contains(name)) {
+                    throw new TrinoException(BRANCH_NOT_FOUND, "Branch '%s' does not exist".formatted(name));
+                }
+            });
+            tables.put(tableName, table.addBranch(branch));
+        }
+
+        @Override
+        public void dropBranch(Session session, TableHandle tableHandle, String branch)
+        {
+            SchemaTableName tableName = getTableName(tableHandle);
+            MockConnectorTableMetadata table = tables.get(tableName);
+            requireNonNull(table, "table is null");
+            tables.put(tableName, table.removeBranch(branch));
+        }
+
+        @Override
+        public Collection<String> listBranches(Session session, QualifiedObjectName tableName)
+        {
+            MockConnectorTableMetadata table = tables.get(tableName.asSchemaTableName());
+            requireNonNull(table, "table is null");
+            return table.branches();
+        }
+
+        @Override
+        public boolean branchExists(Session session, QualifiedObjectName tableName, String branch)
+        {
+            MockConnectorTableMetadata table = tables.get(tableName.asSchemaTableName());
+            requireNonNull(table, "table is null");
+            return table.branches().contains(branch);
+        }
+
         private static ColumnMetadata withComment(ColumnMetadata tableColumn, Optional<String> comment)
         {
             return ColumnMetadata.builderFrom(tableColumn)
                     .setComment(comment)
                     .build();
+        }
+
+        private static class MockConnectorTableMetadata
+        {
+            private final ConnectorTableMetadata metadata;
+            private final Set<String> branches;
+
+            public MockConnectorTableMetadata(ConnectorTableMetadata metadata)
+            {
+                this.metadata = requireNonNull(metadata, "metadata is null");
+                branches = new HashSet<>();
+                branches.add("main");
+            }
+
+            public Set<String> branches()
+            {
+                return branches;
+            }
+
+            public MockConnectorTableMetadata addBranch(String branch)
+            {
+                branches.add(branch);
+                return this;
+            }
+
+            public MockConnectorTableMetadata removeBranch(String branch)
+            {
+                branches.remove(branch);
+                return this;
+            }
         }
     }
 }

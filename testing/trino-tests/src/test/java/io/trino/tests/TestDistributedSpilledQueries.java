@@ -22,6 +22,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 
 import java.nio.file.Paths;
+import java.util.Map;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -48,7 +49,7 @@ public class TestDistributedSpilledQueries
                 .setSystemProperty(SystemSessionProperties.AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, "128kB")
                 .build();
 
-        ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()
+        Map<String, String> extraProperties = ImmutableMap.<String, String>builder()
                 .put("spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "trino", "spills", randomUUID().toString()).toString())
                 .put("spiller-max-used-space-threshold", "1.0")
                 .put("memory-revoking-threshold", "0.0") // revoke always

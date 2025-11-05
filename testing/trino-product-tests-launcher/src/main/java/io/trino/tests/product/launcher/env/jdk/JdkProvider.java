@@ -22,9 +22,4 @@ public interface JdkProvider
     String getJavaHome();
 
     String getDescription();
-
-    default String getJavaCommand()
-    {
-        return getJavaHome() + "/bin/java";
-    }
 }

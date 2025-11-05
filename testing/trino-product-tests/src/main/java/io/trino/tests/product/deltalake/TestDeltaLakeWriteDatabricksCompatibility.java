@@ -13,10 +13,9 @@
  */
 package io.trino.tests.product.deltalake;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
+import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryExecutionException;
@@ -26,6 +25,9 @@ import org.assertj.core.api.SoftAssertions;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.util.Collection;
 import java.util.List;
@@ -35,9 +37,10 @@ import java.util.stream.Stream;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_104;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_133;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.S3ClientFactory.createS3Client;
 import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_122_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
@@ -46,7 +49,6 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabr
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -59,12 +61,19 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     @Named("s3.server_type")
     private String s3ServerType;
 
-    private AmazonS3 s3;
+    private S3Client s3;
 
     @BeforeMethodWithContext
     public void setup()
     {
-        s3 = new S3ClientFactory().createS3Client(s3ServerType);
+        s3 = createS3Client(s3ServerType);
+    }
+
+    @AfterMethodWithContext
+    public void cleanUp()
+    {
+        s3.close();
+        s3 = null;
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
@@ -207,15 +216,8 @@ public class TestDeltaLakeWriteDatabricksCompatibility
     public void testCaseUpdatePartitionColumnFails(String partitionColumn)
     {
         try (CaseTestTable table = new CaseTestTable("update_case_compat", partitionColumn, List.of(row(1, 1, 1)))) {
-            // TODO: The test fails for uppercase columns because the statement analyzer compares the column name case-sensitively.
-            if (!partitionColumn.equals(partitionColumn.toLowerCase(ENGLISH))) {
-                assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE delta.default.%s SET %s = 0 WHERE lower = 1", table.name(), partitionColumn)))
-                        .hasMessageMatching(".*The UPDATE SET target column .* doesn't exist");
-            }
-            else {
-                onTrino().executeQuery(format("UPDATE delta.default.%s SET %s = 0 WHERE lower = 1", table.name(), partitionColumn));
-                assertTable(table, table.rows().map(row -> row.withPartition(0)));
-            }
+            onTrino().executeQuery(format("UPDATE delta.default.%s SET %s = 0 WHERE lower = 1", table.name(), partitionColumn));
+            assertTable(table, table.rows().map(row -> row.withPartition(0)));
         }
     }
 
@@ -331,7 +333,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS_104, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS_133, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoVacuumRemoveChangeDataFeedFiles()
     {
@@ -367,21 +369,22 @@ public class TestDeltaLakeWriteDatabricksCompatibility
             onDelta().executeQuery("INSERT INTO " + tableName + " VALUES (1)");
             onDelta().executeQuery("UPDATE " + tableName + " SET a = 2");
 
-            assertThat(s3.listObjectsV2(bucketName, changeDataPrefix).getObjectSummaries()).hasSize(1);
+            ListObjectsV2Request request = ListObjectsV2Request.builder().bucket(bucketName).prefix(changeDataPrefix).build();
+            assertThat(s3.listObjectsV2(request).contents()).hasSize(1);
 
             // Vacuum procedure should remove files in _change_data directory
             // https://docs.delta.io/2.1.0/delta-change-data-feed.html#change-data-storage
             vacuumExecutor.accept(tableName);
 
-            List<S3ObjectSummary> summaries = s3.listObjectsV2(bucketName, changeDataPrefix).getObjectSummaries();
+            List<S3Object> summaries = s3.listObjectsV2(request).contents();
             assertThat(summaries).hasSizeBetween(0, 1);
             if (!summaries.isEmpty()) {
                 // Databricks version >= 12.2 keep an empty _change_data directory
                 DatabricksVersion databricksRuntimeVersion = getDatabricksRuntimeVersion().orElseThrow();
                 assertThat(databricksRuntimeVersion.isAtLeast(DATABRICKS_122_RUNTIME_VERSION)).isTrue();
-                S3ObjectSummary summary = summaries.get(0);
-                assertThat(summary.getKey()).endsWith(changeDataPrefix + "/");
-                assertThat(summary.getSize()).isEqualTo(0);
+                S3Object object = summaries.getFirst();
+                assertThat(object.key()).endsWith(changeDataPrefix + "/");
+                assertThat(object.size()).isEqualTo(0L);
             }
         }
         finally {

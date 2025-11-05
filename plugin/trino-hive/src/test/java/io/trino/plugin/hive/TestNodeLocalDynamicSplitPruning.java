@@ -88,7 +88,7 @@ class TestNodeLocalDynamicSplitPruning
         }
 
         try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, getDynamicFilter(getNonSelectiveBucketTupleDomain()))) {
-            assertThat(nonEmptyPageSource.getClass()).isEqualTo(HivePageSource.class);
+            assertThat(nonEmptyPageSource.getClass()).isNotEqualTo(EmptyPageSource.class);
         }
     }
 
@@ -104,7 +104,7 @@ class TestNodeLocalDynamicSplitPruning
         }
 
         try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, getDynamicFilter(getNonSelectivePartitionTupleDomain()))) {
-            assertThat(nonEmptyPageSource.getClass()).isEqualTo(HivePageSource.class);
+            assertThat(nonEmptyPageSource.getClass()).isNotEqualTo(EmptyPageSource.class);
         }
     }
 
@@ -142,12 +142,14 @@ class TestNodeLocalDynamicSplitPruning
                         ImmutableMap.of(),
                         ImmutableList.of(),
                         ImmutableList.of(BUCKET_HIVE_COLUMN_HANDLE),
-                        Optional.of(new HiveBucketHandle(
-                                ImmutableList.of(BUCKET_HIVE_COLUMN_HANDLE),
+                        Optional.of(new HiveTablePartitioning(
+                                true,
                                 BUCKETING_V1,
                                 20,
-                                20,
-                                ImmutableList.of()))),
+                                ImmutableList.of(BUCKET_HIVE_COLUMN_HANDLE),
+                                false,
+                                ImmutableList.of(),
+                                true))),
                 transaction);
 
         HivePageSourceProvider provider = new HivePageSourceProvider(

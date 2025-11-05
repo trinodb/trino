@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.airlift.event.client.EventClient;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -39,7 +38,6 @@ import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadataProvider;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.util.HiveWriteUtils;
-import io.trino.spi.NodeManager;
 import io.trino.spi.Page;
 import io.trino.spi.PageSorter;
 import io.trino.spi.TrinoException;
@@ -50,28 +48,24 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 
 import java.io.IOException;
-import java.security.Principal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.hive.formats.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
 import static io.trino.metastore.AcidOperation.CREATE_TABLE;
+import static io.trino.metastore.Partitions.makePartName;
 import static io.trino.plugin.hive.HiveCompressionCodecs.selectCompressionCodec;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -91,7 +85,6 @@ import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
-import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createPartitionValues;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
@@ -147,11 +140,6 @@ public class HiveWriterFactory
     private final ConnectorSession session;
     private final OptionalInt bucketCount;
     private final List<SortingColumn> sortedBy;
-
-    private final NodeManager nodeManager;
-    private final EventClient eventClient;
-    private final Map<String, String> sessionProperties;
-
     private final HiveWriterStats hiveWriterStats;
     private final Optional<Type> rowType;
     private final Optional<HiveType> hiveRowtype;
@@ -178,9 +166,6 @@ public class HiveWriterFactory
             DataSize sortBufferSize,
             int maxOpenSortFiles,
             ConnectorSession session,
-            NodeManager nodeManager,
-            EventClient eventClient,
-            HiveSessionProperties hiveSessionProperties,
             HiveWriterStats hiveWriterStats,
             boolean sortedWritingTempStagingPathEnabled,
             String sortedWritingTempStagingPath)
@@ -256,20 +241,7 @@ public class HiveWriterFactory
         }
 
         this.sortedBy = ImmutableList.copyOf(requireNonNull(sortedBy, "sortedBy is null"));
-
         this.session = requireNonNull(session, "session is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.eventClient = requireNonNull(eventClient, "eventClient is null");
-
-        requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
-        this.sessionProperties = hiveSessionProperties.getSessionProperties().stream()
-                .map(propertyMetadata -> immutableEntry(
-                        propertyMetadata.getName(),
-                        session.getProperty(propertyMetadata.getName(), propertyMetadata.getJavaType())))
-                // The session properties collected here are used for events only. Filter out nulls to avoid problems with downstream consumers
-                .filter(entry -> entry.getValue() != null)
-                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().toString()));
-
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
     }
 
@@ -310,10 +282,10 @@ public class HiveWriterFactory
                 //           or a new unpartitioned table.
                 updateMode = UpdateMode.NEW;
                 schema.put(LIST_COLUMNS, dataColumns.stream()
-                        .map(DataColumn::getName)
+                        .map(DataColumn::name)
                         .collect(joining(",")));
                 schema.put(LIST_COLUMN_TYPES, dataColumns.stream()
-                        .map(DataColumn::getHiveType)
+                        .map(DataColumn::hiveType)
                         .map(HiveType::getHiveTypeName)
                         .map(HiveTypeName::toString)
                         .collect(joining(":")));
@@ -483,7 +455,7 @@ public class HiveWriterFactory
                 Optional<FileWriter> fileWriter = fileWriterFactory.createFileWriter(
                         path,
                         dataColumns.stream()
-                                .map(DataColumn::getName)
+                                .map(DataColumn::name)
                                 .collect(toList()),
                         outputStorageFormat,
                         compressionCodec,
@@ -505,36 +477,6 @@ public class HiveWriterFactory
             throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Writing not supported for " + outputStorageFormat);
         }
 
-        String writePath = path.toString();
-        String writerImplementation = hiveFileWriter.getClass().getName();
-
-        Consumer<HiveWriter> onCommit = hiveWriter -> {
-            Optional<Long> size;
-            try {
-                size = Optional.of(hiveWriter.getWrittenBytes());
-            }
-            catch (RuntimeException e) {
-                // Do not fail the query if file system is not available
-                size = Optional.empty();
-            }
-
-            eventClient.post(new WriteCompletedEvent(
-                    session.getQueryId(),
-                    writePath,
-                    schemaName,
-                    tableName,
-                    partitionName.orElse(null),
-                    outputStorageFormat.getOutputFormat(),
-                    writerImplementation,
-                    nodeManager.getCurrentNode().getVersion(),
-                    nodeManager.getCurrentNode().getHost(),
-                    session.getIdentity().getPrincipal().map(Principal::getName).orElse(null),
-                    nodeManager.getEnvironment(),
-                    sessionProperties,
-                    size.orElse(null),
-                    hiveWriter.getRowCount()));
-        };
-
         if (!sortedBy.isEmpty()) {
             Location tempFilePath;
             if (sortedWritingTempStagingPathEnabled) {
@@ -547,12 +489,12 @@ public class HiveWriterFactory
             }
 
             List<Type> types = dataColumns.stream()
-                    .map(column -> getType(column.getHiveType(), typeManager, getTimestampPrecision(session)))
+                    .map(column -> getType(column.hiveType(), typeManager, getTimestampPrecision(session)))
                     .collect(toImmutableList());
 
             Map<String, Integer> columnIndexes = new HashMap<>();
             for (int i = 0; i < dataColumns.size(); i++) {
-                columnIndexes.put(dataColumns.get(i).getName(), i);
+                columnIndexes.put(dataColumns.get(i).name(), i);
             }
 
             List<Integer> sortFields = new ArrayList<>();
@@ -587,7 +529,6 @@ public class HiveWriterFactory
                 path.fileName(),
                 writeInfo.writePath().toString(),
                 writeInfo.targetPath().toString(),
-                onCommit,
                 hiveWriterStats);
     }
 
@@ -629,7 +570,7 @@ public class HiveWriterFactory
 
         // verify we can write all input columns to the file
         Map<String, DataColumn> inputColumnMap = dataColumns.stream()
-                .collect(toMap(DataColumn::getName, identity()));
+                .collect(toMap(DataColumn::name, identity()));
         Set<String> missingColumns = Sets.difference(inputColumnMap.keySet(), new HashSet<>(fileColumnNames));
         if (!missingColumns.isEmpty()) {
             throw new TrinoException(HIVE_INVALID_METADATA, format("Table '%s.%s' does not have columns %s", schemaName, tableName, missingColumns));
@@ -647,7 +588,7 @@ public class HiveWriterFactory
         for (int fileIndex = 0; fileIndex < fileColumnNames.size(); fileIndex++) {
             String columnName = fileColumnNames.get(fileIndex);
             HiveType fileColumnHiveType = fileColumnHiveTypes.get(fileIndex);
-            HiveType inputHiveType = inputColumnMap.get(columnName).getHiveType();
+            HiveType inputHiveType = inputColumnMap.get(columnName).hiveType();
 
             if (!fileColumnHiveType.equals(inputHiveType)) {
                 // todo this should be moved to a helper
@@ -749,25 +690,12 @@ public class HiveWriterFactory
         return Location.of("file:///" + location.path());
     }
 
-    private static class DataColumn
+    private record DataColumn(String name, HiveType hiveType)
     {
-        private final String name;
-        private final HiveType hiveType;
-
-        public DataColumn(String name, HiveType hiveType)
+        private DataColumn
         {
-            this.name = requireNonNull(name, "name is null");
-            this.hiveType = requireNonNull(hiveType, "hiveType is null");
-        }
-
-        public String getName()
-        {
-            return name;
-        }
-
-        public HiveType getHiveType()
-        {
-            return hiveType;
+            requireNonNull(name, "name is null");
+            requireNonNull(hiveType, "hiveType is null");
         }
     }
 }

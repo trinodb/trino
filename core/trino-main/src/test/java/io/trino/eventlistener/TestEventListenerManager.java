@@ -15,12 +15,15 @@ package io.trino.eventlistener;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.secrets.SecretsResolver;
+import io.trino.client.NodeVersion;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static io.airlift.tracing.Tracing.noopTracer;
+import static io.opentelemetry.api.OpenTelemetry.noop;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class TestEventListenerManager
@@ -28,7 +31,7 @@ class TestEventListenerManager
     @Test
     public void testShutdownIsForwardedToListeners()
     {
-        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig(), new SecretsResolver(ImmutableMap.of()));
+        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig(), new SecretsResolver(ImmutableMap.of()), noop(), noopTracer(), new NodeVersion("test-version"));
         AtomicBoolean wasCalled = new AtomicBoolean(false);
         EventListener listener = new EventListener()
         {

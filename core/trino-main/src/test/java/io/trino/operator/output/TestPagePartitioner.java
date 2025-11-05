@@ -40,7 +40,6 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Decimals;
@@ -74,7 +73,7 @@ import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
-import static io.trino.execution.buffer.CompressionCodec.NONE;
+import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -110,7 +109,7 @@ public class TestPagePartitioner
     private static final int POSITIONS_PER_PAGE = 8;
     private static final int PARTITION_COUNT = 2;
 
-    private static final PagesSerdeFactory PAGES_SERDE_FACTORY = new PagesSerdeFactory(new TestingBlockEncodingSerde(), NONE);
+    private static final PagesSerdeFactory PAGES_SERDE_FACTORY = createTestingPagesSerdeFactory();
     private static final PageDeserializer PAGE_DESERIALIZER = PAGES_SERDE_FACTORY.createDeserializer(Optional.empty());
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-executor-%s"));
@@ -127,14 +126,23 @@ public class TestPagePartitioner
     public void testOutputForEmptyPage()
     {
         TestOutputBuffer outputBuffer = new TestOutputBuffer();
-        PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT).build();
+        PagePartitioner multiPartitionPartitioner = pagePartitioner(outputBuffer, BIGINT).build();
         Page page = new Page(createLongsBlock(ImmutableList.of()));
 
-        pagePartitioner.partitionPage(page, operatorContext());
-        pagePartitioner.close();
+        multiPartitionPartitioner.partitionPage(page, operatorContext());
+        multiPartitionPartitioner.close();
 
         List<Object> partitioned = readLongs(outputBuffer.getEnqueuedDeserialized(), 0);
         assertThat(partitioned).isEmpty();
+        outputBuffer.clear();
+
+        PagePartitioner singlePartitionPartitioner = pagePartitioner(outputBuffer, BIGINT)
+                .withPartitionFunction(new SinglePartitionFailIfCalled())
+                .build();
+        singlePartitionPartitioner.partitionPage(page, operatorContext());
+        singlePartitionPartitioner.close();
+        List<Object> singlePartitionResult = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
+        assertThat(singlePartitionResult).isEmpty();
     }
 
     private OperatorContext operatorContext()
@@ -154,14 +162,23 @@ public class TestPagePartitioner
     {
         TestOutputBuffer outputBuffer = new TestOutputBuffer();
 
-        PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT).build();
+        PagePartitioner multiPartitionPartitioner = pagePartitioner(outputBuffer, BIGINT).build();
         Page page = new Page(createLongSequenceBlock(0, POSITIONS_PER_PAGE));
         List<Object> expected = readLongs(Stream.of(page), 0);
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(multiPartitionPartitioner, partitioningMode, page);
 
         List<Object> partitioned = readLongs(outputBuffer.getEnqueuedDeserialized(), 0);
         assertThat(partitioned).containsExactlyInAnyOrderElementsOf(expected); // order is different due to 2 partitions joined
+        outputBuffer.clear();
+
+        PagePartitioner singlePartitionPartitioner = pagePartitioner(outputBuffer, BIGINT)
+                .withPartitionFunction(new SinglePartitionFailIfCalled())
+                .build();
+        singlePartitionPartitioner.partitionPage(page, operatorContext());
+        singlePartitionPartitioner.close();
+        List<Object> singlePartitionResult = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
+        assertThat(singlePartitionResult).containsExactlyElementsOf(expected);
     }
 
     @Test
@@ -177,7 +194,7 @@ public class TestPagePartitioner
 
         PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT)
                 .withPartitionFunction(new BucketPartitionFunction(
-                        ROUND_ROBIN.createBucketFunction(null, false, PARTITION_COUNT, null),
+                        ROUND_ROBIN.createBucketFunction(null, PARTITION_COUNT, null),
                         IntStream.range(0, PARTITION_COUNT).toArray()))
                 .withPartitionChannels(ImmutableList.of())
                 .build();
@@ -202,16 +219,28 @@ public class TestPagePartitioner
     {
         TestOutputBuffer outputBuffer = new TestOutputBuffer();
 
-        PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT).build();
+        PagePartitioner multiPartitionPartitioner = pagePartitioner(outputBuffer, BIGINT).build();
         Page page1 = new Page(createLongSequenceBlock(0, POSITIONS_PER_PAGE));
         Page page2 = new Page(createLongSequenceBlock(1, POSITIONS_PER_PAGE));
         Page page3 = new Page(createLongSequenceBlock(2, POSITIONS_PER_PAGE));
         List<Object> expected = readLongs(Stream.of(page1, page2, page3), 0);
 
-        processPages(pagePartitioner, partitioningMode, page1, page2, page3);
+        processPages(multiPartitionPartitioner, partitioningMode, page1, page2, page3);
 
         List<Object> partitioned = readLongs(outputBuffer.getEnqueuedDeserialized(), 0);
         assertThat(partitioned).containsExactlyInAnyOrderElementsOf(expected); // order is different due to 2 partitions joined
+        outputBuffer.clear();
+
+        PagePartitioner singlePartitionPartitioner = pagePartitioner(outputBuffer, BIGINT)
+                .withPartitionFunction(new SinglePartitionFailIfCalled())
+                .build();
+        OperatorContext operatorContext = operatorContext();
+        singlePartitionPartitioner.partitionPage(page1, operatorContext);
+        singlePartitionPartitioner.partitionPage(page2, operatorContext);
+        singlePartitionPartitioner.partitionPage(page3, operatorContext);
+        singlePartitionPartitioner.close();
+        List<Object> singlePartitionResult = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
+        assertThat(singlePartitionResult).containsExactlyElementsOf(expected);
     }
 
     @Test
@@ -224,15 +253,25 @@ public class TestPagePartitioner
     private void testOutputForSimplePageWithReplication(PartitioningMode partitioningMode)
     {
         TestOutputBuffer outputBuffer = new TestOutputBuffer();
-        PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT).replicate().build();
+        PagePartitioner multiPartitionPartitioner = pagePartitioner(outputBuffer, BIGINT).replicate().build();
         Page page = new Page(createLongsBlock(0L, 1L, 2L, 3L, null));
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(multiPartitionPartitioner, partitioningMode, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
         assertThat(partition0).containsExactly(0L, 2L, null);
         List<Object> partition1 = readLongs(outputBuffer.getEnqueuedDeserialized(1), 0);
         assertThat(partition1).containsExactly(0L, 1L, 3L); // position 0 copied to all partitions
+        outputBuffer.clear();
+
+        PagePartitioner singlePartitionPartitioner = pagePartitioner(outputBuffer, BIGINT)
+                .replicate()
+                .withPartitionFunction(new SinglePartitionFailIfCalled())
+                .build();
+        singlePartitionPartitioner.partitionPage(page, operatorContext());
+        singlePartitionPartitioner.close();
+        List<Object> singlePartitionResult = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
+        assertThat(singlePartitionResult).containsExactly(0L, 1L, 2L, 3L, null);
     }
 
     @Test
@@ -245,15 +284,25 @@ public class TestPagePartitioner
     private void testOutputForSimplePageWithNullChannel(PartitioningMode partitioningMode)
     {
         TestOutputBuffer outputBuffer = new TestOutputBuffer();
-        PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT).withNullChannel(0).build();
+        PagePartitioner multiPartitionPartitioner = pagePartitioner(outputBuffer, BIGINT).withNullChannel(0).build();
         Page page = new Page(createLongsBlock(0L, 1L, 2L, 3L, null));
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(multiPartitionPartitioner, partitioningMode, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
         assertThat(partition0).containsExactlyInAnyOrder(0L, 2L, null);
         List<Object> partition1 = readLongs(outputBuffer.getEnqueuedDeserialized(1), 0);
         assertThat(partition1).containsExactlyInAnyOrder(1L, 3L, null); // null copied to all partitions
+        outputBuffer.clear();
+
+        PagePartitioner singlePartitionPartitioner = pagePartitioner(outputBuffer, BIGINT)
+                .withNullChannel(0)
+                .withPartitionFunction(new SinglePartitionFailIfCalled())
+                .build();
+        singlePartitionPartitioner.partitionPage(page, operatorContext());
+        singlePartitionPartitioner.close();
+        List<Object> singlePartitionResult = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
+        assertThat(singlePartitionResult).containsExactly(0L, 1L, 2L, 3L, null);
     }
 
     @Test
@@ -266,19 +315,30 @@ public class TestPagePartitioner
     private void testOutputForSimplePageWithPartitionConstant(PartitioningMode partitioningMode)
     {
         TestOutputBuffer outputBuffer = new TestOutputBuffer();
-        PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT)
+        PagePartitioner multiPartitionPartitioner = pagePartitioner(outputBuffer, BIGINT)
                 .withPartitionConstants(ImmutableList.of(Optional.of(new NullableValue(BIGINT, 1L))))
                 .withPartitionChannels(-1)
                 .build();
         Page page = new Page(createLongsBlock(0L, 1L, 2L, 3L, null));
         List<Object> allValues = readLongs(Stream.of(page), 0);
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(multiPartitionPartitioner, partitioningMode, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
         assertThat(partition0).isEmpty();
         List<Object> partition1 = readLongs(outputBuffer.getEnqueuedDeserialized(1), 0);
         assertThat(partition1).containsExactlyElementsOf(allValues);
+        outputBuffer.clear();
+
+        PagePartitioner singlePartitionPartitioner = pagePartitioner(outputBuffer, BIGINT)
+                .withPartitionConstants(ImmutableList.of(Optional.of(new NullableValue(BIGINT, 1L))))
+                .withPartitionChannels(-1)
+                .withPartitionFunction(new SinglePartitionFailIfCalled())
+                .build();
+        singlePartitionPartitioner.partitionPage(page, operatorContext());
+        singlePartitionPartitioner.close();
+        List<Object> singlePartitionResult = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
+        assertThat(singlePartitionResult).containsExactlyElementsOf(allValues);
     }
 
     @Test
@@ -291,19 +351,31 @@ public class TestPagePartitioner
     private void testOutputForSimplePageWithPartitionConstantAndHashBlock(PartitioningMode partitioningMode)
     {
         TestOutputBuffer outputBuffer = new TestOutputBuffer();
-        PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT)
+        PagePartitioner multiPartitionPartitioner = pagePartitioner(outputBuffer, BIGINT)
                 .withPartitionConstants(ImmutableList.of(Optional.empty(), Optional.of(new NullableValue(BIGINT, 1L))))
                 .withPartitionChannels(0, -1) // use first block and constant block at index 1 as input to partitionFunction
                 .withHashChannels(0, 1) // use both channels to calculate partition (a+b) mod 2
                 .build();
         Page page = new Page(createLongsBlock(0L, 1L, 2L, 3L));
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(multiPartitionPartitioner, partitioningMode, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
         assertThat(partition0).containsExactly(1L, 3L);
         List<Object> partition1 = readLongs(outputBuffer.getEnqueuedDeserialized(1), 0);
         assertThat(partition1).containsExactly(0L, 2L);
+        outputBuffer.clear();
+
+        PagePartitioner singlePartitionPartitioner = pagePartitioner(outputBuffer, BIGINT)
+                .withPartitionConstants(ImmutableList.of(Optional.empty(), Optional.of(new NullableValue(BIGINT, 1L))))
+                .withPartitionChannels(0, -1) // use first block and constant block at index 1 as input to partitionFunction
+                .withHashChannels(0, 1) // use both channels to calculate partition (a+b) mod 2
+                .withPartitionFunction(new SinglePartitionFailIfCalled())
+                .build();
+        singlePartitionPartitioner.partitionPage(page, operatorContext());
+        singlePartitionPartitioner.close();
+        List<Object> singlePartitionChannelZero = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
+        assertThat(singlePartitionChannelZero).containsExactly(0L, 1L, 2L, 3L);
     }
 
     @Test
@@ -316,16 +388,27 @@ public class TestPagePartitioner
     private void testPartitionPositionsWithRleNotNull(PartitioningMode partitioningMode)
     {
         TestOutputBuffer outputBuffer = new TestOutputBuffer();
-        PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT, BIGINT).build();
+        PagePartitioner multiPartitionPartitioner = pagePartitioner(outputBuffer, BIGINT, BIGINT).build();
         Page page = new Page(createRepeatedValuesBlock(0, POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(multiPartitionPartitioner, partitioningMode, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 1);
         assertThat(partition0).containsExactlyElementsOf(readLongs(Stream.of(page), 1));
         List<Object> partition0HashBlock = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
         assertThat(partition0HashBlock).containsOnly(0L).hasSize(POSITIONS_PER_PAGE);
         assertThat(outputBuffer.getEnqueuedDeserialized(1)).isEmpty();
+        outputBuffer.clear();
+
+        PagePartitioner singlePartitionPartitioner = pagePartitioner(outputBuffer, BIGINT, BIGINT)
+                .withPartitionFunction(new SinglePartitionFailIfCalled())
+                .build();
+        singlePartitionPartitioner.partitionPage(page, operatorContext());
+        singlePartitionPartitioner.close();
+        List<Object> singlePartitionChannelZero = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
+        assertThat(singlePartitionChannelZero).containsExactlyElementsOf(readLongs(Stream.of(page), 0));
+        List<Object> singlePartitionChannelOne = readLongs(outputBuffer.getEnqueuedDeserialized(0), 1);
+        assertThat(singlePartitionChannelOne).containsExactlyElementsOf(readLongs(Stream.of(page), 1));
     }
 
     @Test
@@ -338,15 +421,27 @@ public class TestPagePartitioner
     private void testPartitionPositionsWithRleNotNullWithReplication(PartitioningMode partitioningMode)
     {
         TestOutputBuffer outputBuffer = new TestOutputBuffer();
-        PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT, BIGINT).replicate().build();
+        PagePartitioner multiPartitionPartitioner = pagePartitioner(outputBuffer, BIGINT, BIGINT).replicate().build();
         Page page = new Page(createRepeatedValuesBlock(0, POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(multiPartitionPartitioner, partitioningMode, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 1);
         assertThat(partition0).containsExactlyElementsOf(readLongs(Stream.of(page), 1));
         List<Object> partition1 = readLongs(outputBuffer.getEnqueuedDeserialized(1), 1);
         assertThat(partition1).containsExactly(0L); // position 0 copied to all partitions
+        outputBuffer.clear();
+
+        PagePartitioner singlePartitionPartitioner = pagePartitioner(outputBuffer, BIGINT, BIGINT)
+                .replicate()
+                .withPartitionFunction(new SinglePartitionFailIfCalled())
+                .build();
+        singlePartitionPartitioner.partitionPage(page, operatorContext());
+        singlePartitionPartitioner.close();
+        List<Object> singePartitionChannelZero = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
+        assertThat(singePartitionChannelZero).containsExactlyElementsOf(readLongs(Stream.of(page), 0));
+        List<Object> singlePartitionChannelOne = readLongs(outputBuffer.getEnqueuedDeserialized(0), 1);
+        assertThat(singlePartitionChannelOne).containsExactlyElementsOf(readLongs(Stream.of(page), 1));
     }
 
     @Test
@@ -359,15 +454,27 @@ public class TestPagePartitioner
     private void testPartitionPositionsWithRleNullWithNullChannel(PartitioningMode partitioningMode)
     {
         TestOutputBuffer outputBuffer = new TestOutputBuffer();
-        PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT, BIGINT).withNullChannel(0).build();
+        PagePartitioner multiPartitionPartitioner = pagePartitioner(outputBuffer, BIGINT, BIGINT).withNullChannel(0).build();
         Page page = new Page(RunLengthEncodedBlock.create(createLongsBlock((Long) null), POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(multiPartitionPartitioner, partitioningMode, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 1);
         assertThat(partition0).containsExactlyElementsOf(readLongs(Stream.of(page), 1));
         List<Object> partition1 = readLongs(outputBuffer.getEnqueuedDeserialized(1), 1);
         assertThat(partition1).containsExactlyElementsOf(readLongs(Stream.of(page), 1));
+        outputBuffer.clear();
+
+        PagePartitioner singlePartitionPartitioner = pagePartitioner(outputBuffer, BIGINT, BIGINT)
+                .withNullChannel(0)
+                .withPartitionFunction(new SinglePartitionFailIfCalled())
+                .build();
+        singlePartitionPartitioner.partitionPage(page, operatorContext());
+        singlePartitionPartitioner.close();
+        List<Object> singlePartitionChannelZero = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
+        assertThat(singlePartitionChannelZero).containsExactlyElementsOf(readLongs(Stream.of(page), 0));
+        List<Object> singlePartitionChannelOne = readLongs(outputBuffer.getEnqueuedDeserialized(0), 1);
+        assertThat(singlePartitionChannelOne).containsExactlyElementsOf(readLongs(Stream.of(page), 1));
     }
 
     @Test
@@ -380,15 +487,24 @@ public class TestPagePartitioner
     private void testOutputForDictionaryBlock(PartitioningMode partitioningMode)
     {
         TestOutputBuffer outputBuffer = new TestOutputBuffer();
-        PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT).build();
+        PagePartitioner multiPartitionPartitioner = pagePartitioner(outputBuffer, BIGINT).build();
         Page page = new Page(createLongDictionaryBlock(0, 10)); // must have at least 10 position to have non-trivial dict
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(multiPartitionPartitioner, partitioningMode, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
         assertThat(partition0).containsExactlyElementsOf(nCopies(5, 0L));
         List<Object> partition1 = readLongs(outputBuffer.getEnqueuedDeserialized(1), 0);
         assertThat(partition1).containsExactlyElementsOf(nCopies(5, 1L));
+        outputBuffer.clear();
+
+        PagePartitioner singlePartitionPartitioner = pagePartitioner(outputBuffer, BIGINT)
+                .withPartitionFunction(new SinglePartitionFailIfCalled())
+                .build();
+        singlePartitionPartitioner.partitionPage(page, operatorContext());
+        singlePartitionPartitioner.close();
+        List<Object> singlePartitionedOutput = readChannel(outputBuffer.getEnqueuedDeserialized(0), 0, BIGINT);
+        assertThat(singlePartitionedOutput).containsExactlyElementsOf(readChannel(Stream.of(page), 0, BIGINT));
     }
 
     @Test
@@ -401,15 +517,24 @@ public class TestPagePartitioner
     private void testOutputForOneValueDictionaryBlock(PartitioningMode partitioningMode)
     {
         TestOutputBuffer outputBuffer = new TestOutputBuffer();
-        PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT).build();
+        PagePartitioner multiPartitionPartitioner = pagePartitioner(outputBuffer, BIGINT).build();
         Page page = new Page(DictionaryBlock.create(4, createLongsBlock(0), new int[] {0, 0, 0, 0}));
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(multiPartitionPartitioner, partitioningMode, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
         assertThat(partition0).containsExactlyElementsOf(nCopies(4, 0L));
         List<Object> partition1 = readLongs(outputBuffer.getEnqueuedDeserialized(1), 0);
         assertThat(partition1).isEmpty();
+        outputBuffer.clear();
+
+        PagePartitioner singlePartitionPartitioner = pagePartitioner(outputBuffer, BIGINT)
+                .withPartitionFunction(new SinglePartitionFailIfCalled())
+                .build();
+        singlePartitionPartitioner.partitionPage(page, operatorContext());
+        singlePartitionPartitioner.close();
+        List<Object> singlePartitionOutput = readChannel(outputBuffer.getEnqueuedDeserialized(0), 0, BIGINT);
+        assertThat(singlePartitionOutput).containsExactlyElementsOf(readChannel(Stream.of(page), 0, BIGINT));
     }
 
     @Test
@@ -422,15 +547,24 @@ public class TestPagePartitioner
     private void testOutputForViewDictionaryBlock(PartitioningMode partitioningMode)
     {
         TestOutputBuffer outputBuffer = new TestOutputBuffer();
-        PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT).build();
+        PagePartitioner multiPartitionPartitioner = pagePartitioner(outputBuffer, BIGINT).build();
         Page page = new Page(DictionaryBlock.create(4, createLongSequenceBlock(4, 8), new int[] {1, 0, 3, 2}));
 
-        processPages(pagePartitioner, partitioningMode, page);
+        processPages(multiPartitionPartitioner, partitioningMode, page);
 
         List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
         assertThat(partition0).containsExactlyInAnyOrder(4L, 6L);
         List<Object> partition1 = readLongs(outputBuffer.getEnqueuedDeserialized(1), 0);
         assertThat(partition1).containsExactlyInAnyOrder(5L, 7L);
+        outputBuffer.clear();
+
+        PagePartitioner singlePartitionPartitioner = pagePartitioner(outputBuffer, BIGINT)
+                .withPartitionFunction(new SinglePartitionFailIfCalled())
+                .build();
+        singlePartitionPartitioner.partitionPage(page, operatorContext());
+        singlePartitionPartitioner.close();
+        List<Object> singlePartitionOutput = readChannel(outputBuffer.getEnqueuedDeserialized(0), 0, BIGINT);
+        assertThat(singlePartitionOutput).containsExactlyElementsOf(readChannel(Stream.of(page), 0, BIGINT));
     }
 
     @Test
@@ -596,7 +730,7 @@ public class TestPagePartitioner
     {
         TestOutputBuffer outputBuffer = new TestOutputBuffer();
         PagePartitionerBuilder pagePartitionerBuilder = pagePartitioner(outputBuffer, BIGINT, type, type);
-        PagePartitioner pagePartitioner = pagePartitionerBuilder.build();
+        PagePartitioner multiPartitionPartitioner = pagePartitionerBuilder.build();
         Page input = new Page(
                 createLongSequenceBlock(0, POSITIONS_PER_PAGE), // partition block
                 createBlockForType(type, POSITIONS_PER_PAGE),
@@ -604,14 +738,25 @@ public class TestPagePartitioner
 
         List<Object> expected = readChannel(Stream.of(input, input), 1, type);
 
-        mode1.partitionPage(pagePartitioner, input);
-        mode2.partitionPage(pagePartitioner, input);
+        mode1.partitionPage(multiPartitionPartitioner, input);
+        mode2.partitionPage(multiPartitionPartitioner, input);
 
-        pagePartitioner.close();
+        multiPartitionPartitioner.close();
 
-        List<Object> partitioned = readChannel(outputBuffer.getEnqueuedDeserialized(), 1, type);
-        assertThat(partitioned).containsExactlyInAnyOrderElementsOf(expected); // output of the PagePartitioner can be reordered
+        List<Object> multiPartitionedOutput = readChannel(outputBuffer.getEnqueuedDeserialized(), 1, type);
+        assertThat(multiPartitionedOutput).containsExactlyInAnyOrderElementsOf(expected); // output of the PagePartitioner can be reordered
         outputBuffer.clear();
+
+        // Test single partition output matches input
+        PagePartitioner singlePartitionPartitioner = pagePartitionerBuilder
+                .withPartitionFunction(new SinglePartitionFailIfCalled())
+                .build();
+        OperatorContext operatorContext = operatorContext();
+        singlePartitionPartitioner.partitionPage(input, operatorContext);
+        singlePartitionPartitioner.partitionPage(input, operatorContext);
+        singlePartitionPartitioner.close();
+        List<Object> singlePartitionedOutput = readChannel(outputBuffer.getEnqueuedDeserialized(), 1, type);
+        assertThat(singlePartitionedOutput).isEqualTo(expected);
     }
 
     private static Block createBlockForType(Type type, int positionsPerPage)
@@ -643,7 +788,7 @@ public class TestPagePartitioner
                     result.add(null);
                 }
                 else {
-                    result.add(type.getObjectValue(null, block, i));
+                    result.add(type.getObjectValue(block, i));
                 }
             }
         });
@@ -691,7 +836,7 @@ public class TestPagePartitioner
         private final OutputBuffer outputBuffer;
         private final DriverContextBuilder driverContextBuilder;
 
-        private ImmutableList<Integer> partitionChannels = ImmutableList.of(0);
+        private List<Integer> partitionChannels = ImmutableList.of(0);
         private List<Optional<NullableValue>> partitionConstants = ImmutableList.of();
         private PartitionFunction partitionFunction = new SumModuloPartitionFunction(PARTITION_COUNT, 0);
         private boolean shouldReplicate;
@@ -710,7 +855,7 @@ public class TestPagePartitioner
             return withPartitionChannels(ImmutableList.copyOf(partitionChannels));
         }
 
-        public PagePartitionerBuilder withPartitionChannels(ImmutableList<Integer> partitionChannels)
+        public PagePartitionerBuilder withPartitionChannels(List<Integer> partitionChannels)
         {
             this.partitionChannels = partitionChannels;
             return this;
@@ -972,6 +1117,22 @@ public class TestPagePartitioner
             }
 
             return toIntExact(Math.abs(value) % partitionCount);
+        }
+    }
+
+    private static final class SinglePartitionFailIfCalled
+            implements PartitionFunction
+    {
+        @Override
+        public int partitionCount()
+        {
+            return 1;
+        }
+
+        @Override
+        public int getPartition(Page page, int position)
+        {
+            throw new UnsupportedOperationException("getPartition should not be called on single partitioned outputs");
         }
     }
 }

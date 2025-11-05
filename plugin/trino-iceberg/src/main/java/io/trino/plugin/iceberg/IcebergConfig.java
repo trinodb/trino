@@ -21,8 +21,11 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.HiveCompressionCodec;
+import io.airlift.units.ThreadCount;
+import io.trino.filesystem.Location;
+import io.trino.plugin.hive.HiveCompressionOption;
 import jakarta.validation.constraints.AssertFalse;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
@@ -37,7 +40,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static java.util.Locale.ENGLISH;
@@ -59,12 +61,13 @@ public class IcebergConfig
     public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "iceberg.remove-orphan-files.min-retention";
 
     private IcebergFileFormat fileFormat = PARQUET;
-    private HiveCompressionCodec compressionCodec = ZSTD;
+    private HiveCompressionOption compressionCodec = HiveCompressionOption.ZSTD;
+    private Optional<Integer> maxCommitRetry = Optional.empty();
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
     private boolean uniqueTableLocation = true;
     private CatalogType catalogType = HIVE_METASTORE;
-    private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
+    private Duration dynamicFilteringWaitTimeout = new Duration(1, SECONDS);
     private boolean tableStatisticsEnabled = true;
     private boolean extendedStatisticsEnabled = true;
     private boolean collectExtendedStatisticsOnWrite = true;
@@ -85,12 +88,19 @@ public class IcebergConfig
     private boolean hideMaterializedViewStorageTable = true;
     private Optional<String> materializedViewsStorageSchema = Optional.empty();
     private boolean sortedWritingEnabled = true;
+    private Optional<String> sortedWritingLocalStagingPath = Optional.empty();
     private boolean queryPartitionFilterRequired;
     private Set<String> queryPartitionFilterRequiredSchemas = ImmutableSet.of();
-    private int splitManagerThreads = Runtime.getRuntime().availableProcessors() * 2;
+    private int splitManagerThreads = Math.min(Runtime.getRuntime().availableProcessors() * 2, 32);
+    private int planningThreads = Math.min(Runtime.getRuntime().availableProcessors(), 16);
+    private int fileDeleteThreads = Runtime.getRuntime().availableProcessors() * 2;
     private List<String> allowedExtraProperties = ImmutableList.of();
     private boolean incrementalRefreshEnabled = true;
     private boolean metadataCacheEnabled = true;
+    private boolean objectStoreLayoutEnabled;
+    private int metadataParallelism = 8;
+    private boolean bucketExecutionEnabled = true;
+    private boolean fileBasedConflictDetectionEnabled = true;
 
     public CatalogType getCatalogType()
     {
@@ -118,15 +128,28 @@ public class IcebergConfig
     }
 
     @NotNull
-    public HiveCompressionCodec getCompressionCodec()
+    public HiveCompressionOption getCompressionCodec()
     {
         return compressionCodec;
     }
 
     @Config("iceberg.compression-codec")
-    public IcebergConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
+    public IcebergConfig setCompressionCodec(HiveCompressionOption compressionCodec)
     {
         this.compressionCodec = compressionCodec;
+        return this;
+    }
+
+    public Optional<@Min(0) Integer> getMaxCommitRetry()
+    {
+        return maxCommitRetry;
+    }
+
+    @Config("iceberg.max-commit-retry")
+    @ConfigDescription("Number of times to retry a commit before failing")
+    public IcebergConfig setMaxCommitRetry(Integer maxCommitRetry)
+    {
+        this.maxCommitRetry = Optional.ofNullable(maxCommitRetry);
         return this;
     }
 
@@ -404,12 +427,14 @@ public class IcebergConfig
         return this;
     }
 
+    @Deprecated
     @NotNull
     public Optional<String> getMaterializedViewsStorageSchema()
     {
         return materializedViewsStorageSchema;
     }
 
+    @Deprecated
     @Config("iceberg.materialized-views.storage-schema")
     @ConfigDescription("Schema for creating materialized views storage tables")
     public IcebergConfig setMaterializedViewsStorageSchema(String materializedViewsStorageSchema)
@@ -429,6 +454,32 @@ public class IcebergConfig
     {
         this.sortedWritingEnabled = sortedWritingEnabled;
         return this;
+    }
+
+    @NotNull
+    public Optional<String> getSortedWritingLocalStagingPath()
+    {
+        return sortedWritingLocalStagingPath;
+    }
+
+    @Config("iceberg.sorted-writing.local-staging-path")
+    @ConfigDescription("Use provided local directory for staging writes to sorted tables. Use ${USER} placeholder to use different location for each user")
+    public IcebergConfig setSortedWritingLocalStagingPath(String sortedWritingLocalStagingPath)
+    {
+        this.sortedWritingLocalStagingPath = Optional.ofNullable(sortedWritingLocalStagingPath);
+        return this;
+    }
+
+    @AssertTrue(message = "iceberg.sorted-writing.local-staging-path must not use any prefix other than file:// or local://")
+    public boolean isSortedWritingLocalStagingPathValid()
+    {
+        if (sortedWritingLocalStagingPath.isEmpty()) {
+            return true;
+        }
+        Optional<String> scheme = Location.of(sortedWritingLocalStagingPath.get()).scheme();
+        return scheme.isEmpty()
+                || scheme.equals(Optional.of("file"))
+                || scheme.equals(Optional.of("local"));
     }
 
     @Config("iceberg.query-partition-filter-required")
@@ -467,9 +518,37 @@ public class IcebergConfig
 
     @Config("iceberg.split-manager-threads")
     @ConfigDescription("Number of threads to use for generating splits")
-    public IcebergConfig setSplitManagerThreads(int splitManagerThreads)
+    public IcebergConfig setSplitManagerThreads(String splitManagerThreads)
     {
-        this.splitManagerThreads = splitManagerThreads;
+        this.splitManagerThreads = ThreadCount.valueOf(splitManagerThreads).getThreadCount();
+        return this;
+    }
+
+    @Min(0)
+    public int getPlanningThreads()
+    {
+        return planningThreads;
+    }
+
+    @Config("iceberg.planning-threads")
+    @ConfigDescription("Number of threads to use for metadata scans in planning")
+    public IcebergConfig setPlanningThreads(String planningThreads)
+    {
+        this.planningThreads = ThreadCount.valueOf(planningThreads).getThreadCount();
+        return this;
+    }
+
+    @Min(0)
+    public int getFileDeleteThreads()
+    {
+        return fileDeleteThreads;
+    }
+
+    @Config("iceberg.file-delete-threads")
+    @ConfigDescription("Number of threads to use for deleting files when running expire_snapshots procedure")
+    public IcebergConfig setFileDeleteThreads(String fileDeleteThreads)
+    {
+        this.fileDeleteThreads = ThreadCount.valueOf(fileDeleteThreads).getThreadCount();
         return this;
     }
 
@@ -517,6 +596,59 @@ public class IcebergConfig
     public IcebergConfig setMetadataCacheEnabled(boolean metadataCacheEnabled)
     {
         this.metadataCacheEnabled = metadataCacheEnabled;
+        return this;
+    }
+
+    public boolean isObjectStoreLayoutEnabled()
+    {
+        return objectStoreLayoutEnabled;
+    }
+
+    @Config("iceberg.object-store-layout.enabled")
+    @ConfigDescription("Enable the Iceberg object store file layout")
+    public IcebergConfig setObjectStoreLayoutEnabled(boolean objectStoreLayoutEnabled)
+    {
+        this.objectStoreLayoutEnabled = objectStoreLayoutEnabled;
+        return this;
+    }
+
+    @Min(1)
+    public int getMetadataParallelism()
+    {
+        return metadataParallelism;
+    }
+
+    @ConfigDescription("Limits metadata enumeration calls parallelism")
+    @Config("iceberg.metadata.parallelism")
+    public IcebergConfig setMetadataParallelism(int metadataParallelism)
+    {
+        this.metadataParallelism = metadataParallelism;
+        return this;
+    }
+
+    public boolean isBucketExecutionEnabled()
+    {
+        return bucketExecutionEnabled;
+    }
+
+    @Config("iceberg.bucket-execution")
+    @ConfigDescription("Enable bucket-aware execution: use physical bucketing information to optimize queries")
+    public IcebergConfig setBucketExecutionEnabled(boolean bucketExecutionEnabled)
+    {
+        this.bucketExecutionEnabled = bucketExecutionEnabled;
+        return this;
+    }
+
+    public boolean isFileBasedConflictDetectionEnabled()
+    {
+        return fileBasedConflictDetectionEnabled;
+    }
+
+    @Config("iceberg.file-based-conflict-detection")
+    @ConfigDescription("Enable file-based conflict detection: take partition information from the actual written files as a source for the conflict detection system")
+    public IcebergConfig setFileBasedConflictDetectionEnabled(boolean fileBasedConflictDetectionEnabled)
+    {
+        this.fileBasedConflictDetectionEnabled = fileBasedConflictDetectionEnabled;
         return this;
     }
 }

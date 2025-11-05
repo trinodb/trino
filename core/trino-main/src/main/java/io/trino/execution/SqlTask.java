@@ -28,6 +28,7 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -41,16 +42,15 @@ import io.trino.operator.PipelineContext;
 import io.trino.operator.PipelineStatus;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTime;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -97,7 +97,7 @@ public class SqlTask
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
     private final Executor taskNotificationExecutor;
 
-    private final AtomicReference<DateTime> lastHeartbeat = new AtomicReference<>(DateTime.now());
+    private final AtomicReference<Instant> lastHeartbeat = new AtomicReference<>(Instant.now());
     private final AtomicLong taskStatusVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
     private final FutureStateChange<?> taskStatusVersionChange = new FutureStateChange<>();
     // Must be synchronized when updating the current task holder reference, but not when only reading the current reference value
@@ -247,9 +247,15 @@ public class SqlTask
         return taskStateMachine.getState();
     }
 
-    public DateTime getTaskCreatedTime()
+    public Instant getTaskCreatedTime()
     {
         return taskStateMachine.getCreatedTime();
+    }
+
+    @Nullable
+    public Instant getTaskEndTime()
+    {
+        return taskStateMachine.getEndTime();
     }
 
     public TaskId getTaskId()
@@ -264,7 +270,12 @@ public class SqlTask
 
     public void recordHeartbeat()
     {
-        lastHeartbeat.set(DateTime.now());
+        lastHeartbeat.set(Instant.now());
+    }
+
+    public Instant lastHeartbeat()
+    {
+        return lastHeartbeat.get();
     }
 
     public TaskInfo getTaskInfo()
@@ -363,10 +374,10 @@ public class SqlTask
             TaskContext taskContext = taskHolder.getTaskExecution().getTaskContext();
             for (PipelineContext pipelineContext : taskContext.getPipelineContexts()) {
                 PipelineStatus pipelineStatus = pipelineContext.getPipelineStatus();
-                queuedPartitionedDrivers += pipelineStatus.getQueuedPartitionedDrivers();
-                queuedPartitionedSplitsWeight += pipelineStatus.getQueuedPartitionedSplitsWeight();
-                runningPartitionedDrivers += pipelineStatus.getRunningPartitionedDrivers();
-                runningPartitionedSplitsWeight += pipelineStatus.getRunningPartitionedSplitsWeight();
+                queuedPartitionedDrivers += pipelineStatus.queuedPartitionedDrivers();
+                queuedPartitionedSplitsWeight += pipelineStatus.queuedPartitionedSplitsWeight();
+                runningPartitionedDrivers += pipelineStatus.runningPartitionedDrivers();
+                runningPartitionedSplitsWeight += pipelineStatus.runningPartitionedSplitsWeight();
                 physicalWrittenBytes += pipelineContext.getPhysicalWrittenDataSize();
             }
             writerInputDataSize = succinctBytes(taskContext.getWriterInputDataSize());
@@ -426,7 +437,7 @@ public class SqlTask
             return taskExecution.getTaskContext().getTaskStats();
         }
         // if the task completed without creation, set end time
-        DateTime endTime = taskStateMachine.getState().isDone() ? DateTime.now() : null;
+        Instant endTime = taskStateMachine.getState().isDone() ? Instant.now() : null;
         return new TaskStats(taskStateMachine.getCreatedTime(), endTime);
     }
 
@@ -555,8 +566,8 @@ public class SqlTask
 
             taskSpan.set(tracer.spanBuilder("task")
                     .setParent(Context.current().with(stageSpan))
-                    .setAttribute(TrinoAttributes.QUERY_ID, taskId.getQueryId().toString())
-                    .setAttribute(TrinoAttributes.STAGE_ID, taskId.getStageId().toString())
+                    .setAttribute(TrinoAttributes.QUERY_ID, taskId.queryId().toString())
+                    .setAttribute(TrinoAttributes.STAGE_ID, taskId.stageId().toString())
                     .setAttribute(TrinoAttributes.TASK_ID, taskId.toString())
                     .startSpan());
 

@@ -5,6 +5,7 @@
 ```text
 ALTER MATERIALIZED VIEW [ IF EXISTS ] name RENAME TO new_name
 ALTER MATERIALIZED VIEW name SET PROPERTIES property_name = expression [, ...]
+ALTER MATERIALIZED VIEW name SET AUTHORIZATION ( user | USER user | ROLE role )
 ```
 
 ## Description
@@ -21,7 +22,7 @@ exists.
 
 The `ALTER MATERIALIZED VIEW SET PROPERTIES`  statement followed by some number
 of `property_name` and `expression` pairs applies the specified properties
-and values to a materialized view. Ommitting an already-set property from this
+and values to a materialized view. Omitting an already-set property from this
 statement leaves that property unchanged in the materialized view.
 
 A property in a `SET PROPERTIES` statement can be set to `DEFAULT`, which
@@ -62,6 +63,12 @@ Set view property `x` to its default value in materialized view `people`:
 
 ```
 ALTER MATERIALIZED VIEW people SET PROPERTIES x = DEFAULT;
+```
+
+Change owner of materialized view `people` to user `alice`:
+
+```
+ALTER MATERIALIZED VIEW people SET AUTHORIZATION alice
 ```
 
 ## See also

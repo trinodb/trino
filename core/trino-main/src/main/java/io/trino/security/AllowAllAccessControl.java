@@ -83,9 +83,6 @@ public class AllowAllAccessControl
     public void checkCanRenameSchema(SecurityContext context, CatalogSchemaName schemaName, String newSchemaName) {}
 
     @Override
-    public void checkCanSetSchemaAuthorization(SecurityContext context, CatalogSchemaName schemaName, TrinoPrincipal principal) {}
-
-    @Override
     public void checkCanShowSchemas(SecurityContext context, String catalogName) {}
 
     @Override
@@ -149,9 +146,6 @@ public class AllowAllAccessControl
     public void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
-    public void checkCanSetTableAuthorization(SecurityContext context, QualifiedObjectName tableName, TrinoPrincipal principal) {}
-
-    @Override
     public void checkCanRenameColumn(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
@@ -173,7 +167,7 @@ public class AllowAllAccessControl
     public void checkCanRenameView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName) {}
 
     @Override
-    public void checkCanSetViewAuthorization(SecurityContext context, QualifiedObjectName view, TrinoPrincipal principal) {}
+    public void checkCanRefreshView(SecurityContext context, QualifiedObjectName viewName) {}
 
     @Override
     public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName) {}
@@ -225,6 +219,15 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanRevokeTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, TrinoPrincipal revokee, boolean grantOption) {}
+
+    @Override
+    public void checkCanGrantTableBranchPrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal grantee, boolean grantOption) {}
+
+    @Override
+    public void checkCanDenyTableBranchPrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal grantee) {}
+
+    @Override
+    public void checkCanRevokeTableBranchPrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal revokee, boolean grantOption) {}
 
     @Override
     public void checkCanGrantEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee, boolean grantOption) {}
@@ -291,4 +294,19 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanShowCreateFunction(SecurityContext context, QualifiedObjectName functionName) {}
+
+    @Override
+    public void checkCanShowBranches(SecurityContext context, QualifiedObjectName tableName) {}
+
+    @Override
+    public void checkCanCreateBranch(SecurityContext context, QualifiedObjectName tableName, String branchName) {}
+
+    @Override
+    public void checkCanDropBranch(SecurityContext context, QualifiedObjectName tableName, String branchName) {}
+
+    @Override
+    public void checkCanFastForwardBranch(SecurityContext context, QualifiedObjectName tableName, String sourceBranchName, String targetBranchName) {}
+
+    @Override
+    public void checkCanSetEntityAuthorization(SecurityContext context, EntityKindAndName entityKindAndName, TrinoPrincipal principal) {}
 }

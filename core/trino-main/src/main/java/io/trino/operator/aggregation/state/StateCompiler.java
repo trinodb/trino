@@ -1076,20 +1076,20 @@ public final class StateCompiler
         Object value = null;
 
         for (Annotation annotation : method.getAnnotations()) {
-            if (annotation instanceof InitialLongValue) {
+            if (annotation instanceof InitialLongValue initialValue) {
                 checkArgument(value == null, "%s has multiple initialValue annotations", method.getName());
                 checkArgument(method.getReturnType() == long.class, "%s does not return a long, but is annotated with @InitialLongValue", method.getName());
-                value = ((InitialLongValue) annotation).value();
+                value = initialValue.value();
             }
-            else if (annotation instanceof InitialDoubleValue) {
+            else if (annotation instanceof InitialDoubleValue initialValue) {
                 checkArgument(value == null, "%s has multiple initialValue annotations", method.getName());
                 checkArgument(method.getReturnType() == double.class, "%s does not return a double, but is annotated with @InitialDoubleValue", method.getName());
-                value = ((InitialDoubleValue) annotation).value();
+                value = initialValue.value();
             }
-            else if (annotation instanceof InitialBooleanValue) {
+            else if (annotation instanceof InitialBooleanValue initialValue) {
                 checkArgument(value == null, "%s has multiple initialValue annotations", method.getName());
                 checkArgument(method.getReturnType() == boolean.class, "%s does not return a boolean, but is annotated with @InitialBooleanValue", method.getName());
-                value = ((InitialBooleanValue) annotation).value();
+                value = initialValue.value();
             }
         }
 
@@ -1241,16 +1241,12 @@ public final class StateCompiler
 
         public BytecodeExpression initialValueExpression()
         {
-            if (initialValue == null) {
-                return defaultValue(type);
-            }
-            if (initialValue instanceof Number) {
-                return constantNumber((Number) initialValue);
-            }
-            if (initialValue instanceof Boolean) {
-                return constantBoolean((boolean) initialValue);
-            }
-            throw new IllegalArgumentException("Unsupported initial value type: " + initialValue.getClass());
+            return switch (initialValue) {
+                case null -> defaultValue(type);
+                case Number number -> constantNumber(number);
+                case Boolean _ -> constantBoolean((boolean) initialValue);
+                default -> throw new IllegalArgumentException("Unsupported initial value type: " + initialValue.getClass());
+            };
         }
     }
 }

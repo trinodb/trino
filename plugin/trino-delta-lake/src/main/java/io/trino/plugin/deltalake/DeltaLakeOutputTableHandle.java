@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -67,5 +68,10 @@ public record DeltaLakeOutputTableHandle(
                 .filter(column -> column.columnType() == PARTITION_KEY)
                 .map(DeltaLakeColumnHandle::columnName)
                 .collect(toImmutableList());
+    }
+
+    public VendedCredentialsHandle toCredentialsHandle()
+    {
+        return VendedCredentialsHandle.empty(location);
     }
 }

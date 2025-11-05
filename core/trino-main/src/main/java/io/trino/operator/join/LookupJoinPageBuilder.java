@@ -111,7 +111,7 @@ public class LookupJoinPageBuilder
         if (!isSequentialProbeIndices || outputPositions == 0) {
             int[] probeIndices = probeIndexBuilder.toIntArray();
             for (int i = 0; i < probeOutputChannels.length; i++) {
-                blocks[i] = unwrapLoadedBlock(probePage.getBlock(probeOutputChannels[i]).getPositions(probeIndices, 0, outputPositions));
+                blocks[i] = probePage.getBlock(probeOutputChannels[i]).getPositions(probeIndices, 0, outputPositions);
             }
         }
         else {
@@ -127,7 +127,7 @@ public class LookupJoinPageBuilder
                     // only a subregion of the block should be output
                     block = block.getRegion(startRegion, outputPositions);
                 }
-                blocks[i] = unwrapLoadedBlock(block);
+                blocks[i] = block;
             }
         }
 
@@ -146,13 +146,6 @@ public class LookupJoinPageBuilder
                 .add("estimatedSize", estimatedProbeBlockBytes + buildPageBuilder.getSizeInBytes())
                 .add("positionCount", buildPageBuilder.getPositionCount())
                 .toString();
-    }
-
-    private static Block unwrapLoadedBlock(Block filteredProbeBlock)
-    {
-        // Lazy blocks (e.g. used in filter condition) could be loaded during filter evaluation.
-        // Unwrap them to reduce overhead of further processing.
-        return filteredProbeBlock.isLoaded() ? filteredProbeBlock.getLoadedBlock() : filteredProbeBlock;
     }
 
     private void appendProbeIndex(JoinProbe probe)
@@ -206,7 +199,6 @@ public class LookupJoinPageBuilder
         for (int index : probe.getOutputChannels()) {
             Block block = probe.getPage().getBlock(index);
             // Estimate the size of the probe row
-            // TODO: improve estimation for unloaded blocks by making it similar as in PageProcessor
             estimatedProbeRowSize += block.getSizeInBytes() / block.getPositionCount();
         }
 

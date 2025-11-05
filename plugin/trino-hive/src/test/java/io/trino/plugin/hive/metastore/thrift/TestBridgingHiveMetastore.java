@@ -15,10 +15,10 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.SchemaAlreadyExistsException;
 import io.trino.metastore.Table;
+import io.trino.metastore.TableAlreadyExistsException;
 import io.trino.plugin.base.util.AutoCloseableCloser;
-import io.trino.plugin.hive.SchemaAlreadyExistsException;
-import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.metastore.AbstractTestHiveMetastore;
 import org.junit.jupiter.api.AfterAll;

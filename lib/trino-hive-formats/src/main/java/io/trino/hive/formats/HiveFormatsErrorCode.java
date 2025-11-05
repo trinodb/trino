@@ -18,12 +18,14 @@ import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.ErrorType;
 
 import static io.trino.spi.ErrorType.EXTERNAL;
+import static io.trino.spi.ErrorType.USER_ERROR;
 
 // these error codes must match the error codes in HiveErrorCode
 public enum HiveFormatsErrorCode
         implements ErrorCodeSupplier
 {
     HIVE_INVALID_METADATA(12, EXTERNAL),
+    HIVE_UNSERIALIZABLE_JSON_VALUE(44, USER_ERROR),
     /**/;
 
     private final ErrorCode errorCode;

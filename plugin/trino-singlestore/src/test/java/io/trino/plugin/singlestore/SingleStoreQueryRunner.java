@@ -85,7 +85,7 @@ public final class SingleStoreQueryRunner
                 queryRunner.installPlugin(new SingleStorePlugin());
                 queryRunner.createCatalog("singlestore", "singlestore", connectorProperties);
 
-                queryRunner.execute("CREATE SCHEMA tpch");
+                queryRunner.execute("CREATE SCHEMA IF NOT EXISTS tpch");
                 copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);
 
                 return queryRunner;
@@ -100,7 +100,6 @@ public final class SingleStoreQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        // You need to set 'memsql.license' to VM options
         QueryRunner queryRunner = builder(new TestingSingleStoreServer())
                 .addCoordinatorProperty("http-server.http.port", "8080")
                 .setInitialTables(TpchTable.getTables())

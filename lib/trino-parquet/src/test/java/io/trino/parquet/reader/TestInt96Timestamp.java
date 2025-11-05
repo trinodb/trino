@@ -25,9 +25,9 @@ import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.plugin.base.type.DecodedTimestamp;
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.Fixed12Block;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Timestamps;
@@ -111,14 +111,14 @@ public class TestInt96Timestamp
         // ALl other known parquet writers don't violate the [0, NANOSECONDS_PER_DAY] range for timeOfDayNanos
         ParquetDataSource dataSource = new FileParquetDataSource(
                 new File(Resources.getResource("int96_timestamps_nanos_outside_day_range.parquet").toURI()),
-                new ParquetReaderOptions());
+                ParquetReaderOptions.defaultOptions());
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), types, columnNames);
 
-        Page page = reader.nextPage();
+        SourcePage page = reader.nextPage();
         ImmutableList.Builder<LocalDateTime> builder = ImmutableList.builder();
         while (page != null) {
-            Fixed12Block block = (Fixed12Block) page.getBlock(0).getLoadedBlock();
+            Fixed12Block block = (Fixed12Block) page.getBlock(0);
             for (int i = 0; i < block.getPositionCount(); i++) {
                 builder.add(toLocalDateTime(block, i));
             }
@@ -166,11 +166,12 @@ public class TestInt96Timestamp
                 slice.length(),
                 OptionalLong.empty(),
                 null,
-                false);
+                false,
+                0);
         // Read and assert
-        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(DateTimeZone.UTC, new ParquetReaderOptions());
+        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(DateTimeZone.UTC, ParquetReaderOptions.defaultOptions());
         ColumnReader reader = columnReaderFactory.create(field, newSimpleAggregatedMemoryContext());
-        PageReader pageReader = new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, List.of(dataPage).iterator(), false, false);
+        PageReader pageReader = new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, List.of(dataPage).iterator(), false, false, Optional.empty(), -1, -1);
         reader.setPageReader(pageReader, Optional.empty());
         reader.prepareNextRead(valueCount);
         Block block = reader.readPrimitive().getBlock();

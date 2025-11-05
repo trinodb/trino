@@ -58,7 +58,7 @@ catalogs](/admin/properties-catalog):
 (sql-read-operations)=
 ## Read operations
 
-The following statements provide read access to data and meta data exposed by a
+The following statements provide read access to data and metadata exposed by a
 connector accessing a data source. They are supported by all connectors:
 
 - {doc}`/sql/select` including {doc}`/sql/match-recognize`
@@ -78,7 +78,7 @@ connector accessing a data source. They are supported by all connectors:
 (sql-write-operations)=
 ## Write operations
 
-The following statements provide write access to data and meta data exposed
+The following statements provide write access to data and metadata exposed
 by a connector accessing a data source. Availability varies widely from
 connector to connector:
 
@@ -118,10 +118,10 @@ connector to connector:
 - {doc}`/sql/drop-materialized-view`
 - {doc}`/sql/refresh-materialized-view`
 
-(sql-routine-management)=
-### Routine management
+(udf-management)=
+### User-defined function management
 
-The following statements are used to manage [catalog routines](routine-catalog):
+The following statements are used to manage [](udf-catalog):
 
 - [](/sql/create-function)
 - [](/sql/drop-function)
@@ -131,7 +131,7 @@ The following statements are used to manage [catalog routines](routine-catalog):
 ## Security operations
 
 The following statements provide security-related operations to security
-configuration, data, and meta data exposed by a connector accessing a data
+configuration, data, and metadata exposed by a connector accessing a data
 source. Most connectors do not support these operations:
 
 Connector roles:

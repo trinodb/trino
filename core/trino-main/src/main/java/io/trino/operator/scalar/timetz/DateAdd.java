@@ -44,7 +44,7 @@ import static org.joda.time.DateTimeConstants.MINUTES_PER_DAY;
 
 @Description("Add the specified amount of time to the given time")
 @ScalarFunction("date_add")
-public class DateAdd
+public final class DateAdd
 {
     private DateAdd() {}
 

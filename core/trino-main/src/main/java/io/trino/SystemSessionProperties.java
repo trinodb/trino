@@ -25,6 +25,7 @@ import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.operator.RetryPolicy;
+import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.planner.OptimizerConfig;
@@ -60,7 +61,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public final class SystemSessionProperties
         implements SystemSessionPropertiesProvider
 {
-    public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
     public static final String JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR = "join_multi_clause_independence_factor";
@@ -81,6 +81,7 @@ public final class SystemSessionProperties
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
     public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
     public static final String QUERY_MAX_SCAN_PHYSICAL_BYTES = "query_max_scan_physical_bytes";
+    public static final String QUERY_MAX_WRITE_PHYSICAL_SIZE = "query_max_write_physical_size";
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
@@ -219,6 +220,9 @@ public final class SystemSessionProperties
     public static final String IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD = "idle_writer_min_data_size_threshold";
     public static final String CLOSE_IDLE_WRITERS_TRIGGER_DURATION = "close_idle_writers_trigger_duration";
     public static final String COLUMNAR_FILTER_EVALUATION_ENABLED = "columnar_filter_evaluation_enabled";
+    public static final String SPOOLING_ENABLED = "spooling_enabled";
+    public static final String DEBUG_ADAPTIVE_PLANNER = "debug_adaptive_planner";
+    public static final String SPOOLING_UNSUPPORTED_WARNING = "spooling_unsupported_warning";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -226,6 +230,7 @@ public final class SystemSessionProperties
     {
         this(
                 new QueryManagerConfig(),
+                new SpoolingEnabledConfig(),
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
                 new FeaturesConfig(),
@@ -238,6 +243,7 @@ public final class SystemSessionProperties
     @Inject
     public SystemSessionProperties(
             QueryManagerConfig queryManagerConfig,
+            SpoolingEnabledConfig spoolingEnabledConfig,
             TaskManagerConfig taskManagerConfig,
             MemoryManagerConfig memoryManagerConfig,
             FeaturesConfig featuresConfig,
@@ -251,11 +257,6 @@ public final class SystemSessionProperties
                         EXECUTION_POLICY,
                         "Policy used for scheduling query tasks",
                         queryManagerConfig.getQueryExecutionPolicy(),
-                        false),
-                booleanProperty(
-                        OPTIMIZE_HASH_GENERATION,
-                        "Compute hash codes for distribution, joins, and aggregations early in query plan",
-                        optimizerConfig.isOptimizeHashGeneration(),
                         false),
                 enumProperty(
                         JOIN_DISTRIBUTION_TYPE,
@@ -407,6 +408,11 @@ public final class SystemSessionProperties
                         QUERY_MAX_SCAN_PHYSICAL_BYTES,
                         "Maximum scan physical bytes of a query",
                         queryManagerConfig.getQueryMaxScanPhysicalBytes().orElse(null),
+                        false),
+                dataSizeProperty(
+                        QUERY_MAX_WRITE_PHYSICAL_SIZE,
+                        "Maximum write physical size of a query",
+                        queryManagerConfig.getQueryMaxWritePhysicalSize().orElse(null),
                         false),
                 booleanProperty(
                         RESOURCE_OVERCOMMIT,
@@ -792,6 +798,11 @@ public final class SystemSessionProperties
                         "Retry policy",
                         RetryPolicy.class,
                         queryManagerConfig.getRetryPolicy(),
+                        value -> {
+                            if (!queryManagerConfig.getAllowedRetryPolicies().contains(value)) {
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("Retry policy %s not allowed. Must be one of %s", value, queryManagerConfig.getAllowedRetryPolicies()));
+                            }
+                        },
                         true),
                 integerProperty(
                         QUERY_RETRY_ATTEMPTS,
@@ -1128,7 +1139,27 @@ public final class SystemSessionProperties
                         ALLOW_UNSAFE_PUSHDOWN,
                         "Allow pushing down expressions that may fail for some inputs",
                         optimizerConfig.isUnsafePushdownAllowed(),
-                        true));
+                        true),
+                booleanProperty(
+                        SPOOLING_ENABLED,
+                        "Enable client spooling protocol",
+                        true,
+                        true),
+                booleanProperty(
+                        DEBUG_ADAPTIVE_PLANNER,
+                        "Enable debug information for the adaptive planner",
+                        false,
+                        true),
+                booleanProperty(
+                        SPOOLING_UNSUPPORTED_WARNING,
+                        "Generate warning when client lacks support for spooling protocol",
+                        spoolingEnabledConfig.isEnabled() && spoolingEnabledConfig.isUnsupportedWarningEnabled(),
+                        _ -> {
+                            if (!spoolingEnabledConfig.isEnabled()) {
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s cannot be set when spooling is disabled", SPOOLING_UNSUPPORTED_WARNING));
+                            }
+                        },
+                        false));
     }
 
     @Override
@@ -1140,11 +1171,6 @@ public final class SystemSessionProperties
     public static String getExecutionPolicy(Session session)
     {
         return session.getSystemProperty(EXECUTION_POLICY, String.class);
-    }
-
-    public static boolean isOptimizeHashGenerationEnabled(Session session)
-    {
-        return session.getSystemProperty(OPTIMIZE_HASH_GENERATION, Boolean.class);
     }
 
     public static JoinDistributionType getJoinDistributionType(Session session)
@@ -1357,6 +1383,11 @@ public final class SystemSessionProperties
     public static Optional<DataSize> getQueryMaxScanPhysicalBytes(Session session)
     {
         return Optional.ofNullable(session.getSystemProperty(QUERY_MAX_SCAN_PHYSICAL_BYTES, DataSize.class));
+    }
+
+    public static Optional<DataSize> getQueryMaxWritePhysicalSize(Session session)
+    {
+        return Optional.ofNullable(session.getSystemProperty(QUERY_MAX_WRITE_PHYSICAL_SIZE, DataSize.class));
     }
 
     public static boolean isSpillEnabled(Session session)
@@ -2018,8 +2049,23 @@ public final class SystemSessionProperties
         return session.getSystemProperty(COLUMNAR_FILTER_EVALUATION_ENABLED, Boolean.class);
     }
 
+    public static boolean isSpoolingEnabled(Session session)
+    {
+        return session.getSystemProperty(SPOOLING_ENABLED, Boolean.class);
+    }
+
     public static boolean isUnsafePushdownAllowed(Session session)
     {
         return session.getSystemProperty(ALLOW_UNSAFE_PUSHDOWN, Boolean.class);
+    }
+
+    public static boolean isDebugAdaptivePlannerEnabled(Session session)
+    {
+        return session.getSystemProperty(DEBUG_ADAPTIVE_PLANNER, Boolean.class);
+    }
+
+    public static boolean isSpoolingUnsupportedWarningEnabled(Session session)
+    {
+        return session.getSystemProperty(SPOOLING_UNSUPPORTED_WARNING, Boolean.class);
     }
 }

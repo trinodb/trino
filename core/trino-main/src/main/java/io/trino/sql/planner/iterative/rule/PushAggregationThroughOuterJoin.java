@@ -46,7 +46,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.isPushAggregationThroughOuterJoin;
@@ -121,9 +120,6 @@ public class PushAggregationThroughOuterJoin
     @Override
     public Result apply(AggregationNode aggregation, Captures captures, Context context)
     {
-        // This rule doesn't deal with AggregationNode's hash symbol. Hash symbols are not yet present at this stage of optimization.
-        checkArgument(aggregation.getHashSymbol().isEmpty(), "unexpected hash symbol");
-
         JoinNode join = captures.get(JOIN);
 
         if (join.getFilter().isPresent()
@@ -156,8 +152,6 @@ public class PushAggregationThroughOuterJoin
                     // there are no duplicate rows possible since outer rows were guaranteed to be distinct
                     false,
                     join.getFilter(),
-                    join.getLeftHashSymbol(),
-                    join.getRightHashSymbol(),
                     join.getDistributionType(),
                     join.isSpillable(),
                     join.getDynamicFilters(),
@@ -175,8 +169,6 @@ public class PushAggregationThroughOuterJoin
                     // there are no duplicate rows possible since outer rows were guaranteed to be distinct
                     false,
                     join.getFilter(),
-                    join.getLeftHashSymbol(),
-                    join.getRightHashSymbol(),
                     join.getDistributionType(),
                     join.isSpillable(),
                     join.getDynamicFilters(),
@@ -248,8 +240,6 @@ public class PushAggregationThroughOuterJoin
                 outerJoin.getOutputSymbols(),
                 aggregationOverNull.getOutputSymbols(),
                 false,
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

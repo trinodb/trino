@@ -25,6 +25,7 @@ import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.LanguageFunctionManager;
+import io.trino.metadata.LanguageFunctionProvider.LanguageFunctionData;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProperties.TablePartitioning;
@@ -57,7 +58,6 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableUpdateNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.routine.ir.IrRoutine;
 import io.trino.transaction.TransactionManager;
 
 import java.util.ArrayList;
@@ -65,6 +65,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -74,6 +75,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getQueryMaxStageCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isForceSingleNodeOutput;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static io.trino.spi.connector.StandardWarningCode.TOO_MANY_STAGES;
 import static io.trino.sql.planner.AdaptivePlanner.ExchangeSourceId;
@@ -146,14 +148,13 @@ public class PlanFragmenter
                 .map(CatalogInfo::catalogHandle)
                 .flatMap(catalogHandle -> catalogManager.getCatalogProperties(catalogHandle).stream())
                 .collect(toImmutableList());
-        Map<FunctionId, IrRoutine> languageScalarFunctions = languageFunctionManager.serializeFunctionsForWorkers(session);
         Fragmenter fragmenter = new Fragmenter(
                 session,
                 metadata,
                 functionManager,
                 plan.getStatsAndCosts(),
                 activeCatalogs,
-                languageScalarFunctions,
+                languageFunctionManager.serializeFunctionsForWorkers(session),
                 idAllocator,
                 unchangedSubPlans);
         FragmentProperties properties = new FragmentProperties(outputPartitioningScheme);
@@ -224,10 +225,11 @@ public class PlanFragmenter
                 new PartitioningScheme(
                         newOutputPartitioning,
                         outputPartitioningScheme.getOutputLayout(),
-                        outputPartitioningScheme.getHashColumn(),
                         outputPartitioningScheme.isReplicateNullsAndAny(),
                         outputPartitioningScheme.getBucketToPartition(),
+                        outputPartitioningScheme.getBucketCount(),
                         outputPartitioningScheme.getPartitionCount()),
+                OptionalInt.empty(),
                 fragment.getStatsAndCosts(),
                 fragment.getActiveCatalogs(),
                 fragment.getLanguageFunctions(),
@@ -248,7 +250,7 @@ public class PlanFragmenter
         private final FunctionManager functionManager;
         private final StatsAndCosts statsAndCosts;
         private final List<CatalogProperties> activeCatalogs;
-        private final Map<FunctionId, IrRoutine> languageFunctions;
+        private final Map<FunctionId, LanguageFunctionData> languageFunctions;
         private final PlanFragmentIdAllocator idAllocator;
         private final Map<ExchangeSourceId, SubPlan> unchangedSubPlans;
         private final PlanFragmentId rootFragmentID;
@@ -259,7 +261,7 @@ public class PlanFragmenter
                 FunctionManager functionManager,
                 StatsAndCosts statsAndCosts,
                 List<CatalogProperties> activeCatalogs,
-                Map<FunctionId, IrRoutine> languageFunctions,
+                Map<FunctionId, LanguageFunctionData> languageFunctions,
                 PlanFragmentIdAllocator idAllocator,
                 Map<ExchangeSourceId, SubPlan> unchangedSubPlans)
         {
@@ -295,6 +297,7 @@ public class PlanFragmenter
                     properties.getPartitionCount(),
                     schedulingOrder,
                     properties.getPartitioningScheme(),
+                    OptionalInt.empty(),
                     statsAndCosts.getForSubplan(root),
                     activeCatalogs,
                     languageFunctions,
@@ -411,10 +414,16 @@ public class PlanFragmenter
         @Override
         public PlanNode visitValues(ValuesNode node, RewriteContext<FragmentProperties> context)
         {
-            // An empty values node is compatible with any distribution, so
-            // don't attempt to overwrite one's already been chosen
-            if (node.getRowCount() != 0 || !context.get().hasDistribution()) {
+            if (node.getRowCount() != 0) {
+                // A non-empty values node requires single distribution
                 context.get().setSingleNodeDistribution();
+            }
+            else {
+                // An empty values node is compatible with any distribution, so
+                // do not overwrite a distribution if there is one already chosen,
+                // and delay setting the distribution in case the fragment contains
+                // another node with specific distribution requirements
+                context.get().setContainsEmptyValues();
             }
             return context.defaultRewrite(node, context.get());
         }
@@ -591,6 +600,7 @@ public class PlanFragmenter
         private final PartitioningScheme partitioningScheme;
 
         private Optional<PartitioningHandle> partitioningHandle = Optional.empty();
+        private boolean containsEmptyValues;
         private Optional<Integer> partitionCount = Optional.empty();
         private final Set<PlanNodeId> partitionedSources = new HashSet<>();
 
@@ -632,9 +642,12 @@ public class PlanFragmenter
                 Metadata metadata,
                 Session session)
         {
+            if (partitionCount.isPresent()) {
+                this.partitionCount = partitionCount;
+            }
+
             if (partitioningHandle.isEmpty()) {
                 partitioningHandle = Optional.of(distribution);
-                this.partitionCount = partitionCount;
                 return this;
             }
 
@@ -655,7 +668,6 @@ public class PlanFragmenter
 
             if (isCompatibleScaledWriterPartitioning(currentPartitioning, distribution)) {
                 this.partitioningHandle = Optional.of(distribution);
-                this.partitionCount = partitionCount;
                 return this;
             }
 
@@ -680,10 +692,9 @@ public class PlanFragmenter
         {
             ConnectorPartitioningHandle currentHandle = partitioningHandle.get().getConnectorHandle();
             ConnectorPartitioningHandle distributionHandle = distribution.getConnectorHandle();
-            if ((currentHandle instanceof SystemPartitioningHandle) &&
-                    (distributionHandle instanceof SystemPartitioningHandle)) {
-                return ((SystemPartitioningHandle) currentHandle).getPartitioning() ==
-                        ((SystemPartitioningHandle) distributionHandle).getPartitioning();
+            if ((currentHandle instanceof SystemPartitioningHandle currentPartitioningHandle) &&
+                    (distributionHandle instanceof SystemPartitioningHandle distributionPartitioningHandle)) {
+                return currentPartitioningHandle.getPartitioning() == distributionPartitioningHandle.getPartitioning();
             }
             return false;
         }
@@ -758,6 +769,11 @@ public class PlanFragmenter
             return this;
         }
 
+        public void setContainsEmptyValues()
+        {
+            this.containsEmptyValues = true;
+        }
+
         public PartitioningScheme getPartitioningScheme()
         {
             return partitioningScheme;
@@ -765,7 +781,9 @@ public class PlanFragmenter
 
         public PartitioningHandle getPartitioningHandle()
         {
-            return partitioningHandle.get();
+            checkState(partitioningHandle.isPresent() || containsEmptyValues, "PartitioningHandle is not set for a fragment that does not contain empty values");
+
+            return partitioningHandle.orElse(SINGLE_DISTRIBUTION);
         }
 
         public Optional<Integer> getPartitionCount()
@@ -796,17 +814,23 @@ public class PlanFragmenter
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
         {
-            PartitioningHandle partitioning = metadata.getTableProperties(session, node.getTable())
-                    .getTablePartitioning()
-                    .filter(value -> node.isUseConnectorNodePartitioning())
-                    .map(TablePartitioning::partitioningHandle)
-                    .orElse(SOURCE_DISTRIBUTION);
-            if (partitioning.equals(fragmentPartitioningHandle)) {
+            Optional<TablePartitioning> tablePartitioning = metadata.getTableProperties(session, node.getTable()).getTablePartitioning();
+            if (tablePartitioning.isEmpty() || !node.isUseConnectorNodePartitioning()) {
+                if (!fragmentPartitioningHandle.equals(SOURCE_DISTRIBUTION)) {
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid query plan: Expected SOURCE_DISTRIBUTION for unpartitioned table scan node, but got " + fragmentPartitioningHandle);
+                }
+                return node;
+            }
+
+            if (tablePartitioning.get().partitioningHandle().equals(fragmentPartitioningHandle)) {
                 // do nothing if the current scan node's partitioning matches the fragment's
                 return node;
             }
 
-            TableHandle newTable = metadata.makeCompatiblePartitioning(session, node.getTable(), fragmentPartitioningHandle);
+            // The table partitioning is incompatible with the fragment's partitioning, so push partitioning into the table scan.
+            // The applyPartitioning is expected to succeed, because the only way to get here is if getCommonPartitioning returned a non-empty value.
+            TableHandle newTable = metadata.applyPartitioning(session, node.getTable(), Optional.of(fragmentPartitioningHandle), tablePartitioning.get().partitioningColumns())
+                    .orElseThrow(() -> new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid query plan: Table partitioning not compatible with fragment partitioning"));
             return new TableScanNode(
                     node.getId(),
                     newTable,
@@ -817,7 +841,7 @@ public class PlanFragmenter
                     node.isUpdateTarget(),
                     // plan was already fragmented with scan node's partitioning
                     // and new partitioning is compatible with previous one
-                    node.getUseConnectorNodePartitioning());
+                    Optional.of(true));
         }
     }
 

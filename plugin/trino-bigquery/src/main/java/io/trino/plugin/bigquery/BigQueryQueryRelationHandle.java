@@ -49,6 +49,7 @@ public class BigQueryQueryRelationHandle
     }
 
     @JsonProperty
+    @Override
     public boolean isUseStorageApi()
     {
         return useStorageApi;

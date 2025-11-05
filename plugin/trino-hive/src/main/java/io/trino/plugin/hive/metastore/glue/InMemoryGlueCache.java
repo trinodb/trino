@@ -26,7 +26,7 @@ import io.trino.metastore.HiveColumnStatistics;
 import io.trino.metastore.Partition;
 import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
-import io.trino.plugin.hive.metastore.cache.ReentrantBoundedExecutor;
+import io.trino.metastore.cache.ReentrantBoundedExecutor;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;

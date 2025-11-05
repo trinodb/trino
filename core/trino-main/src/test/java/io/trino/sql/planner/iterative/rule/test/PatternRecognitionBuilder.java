@@ -160,7 +160,6 @@ public class PatternRecognitionBuilder
                 idAllocator.getNextId(),
                 source,
                 new DataOrganizationSpecification(partitionBy, orderBy),
-                Optional.empty(),
                 ImmutableSet.of(),
                 0,
                 windowFunctions,

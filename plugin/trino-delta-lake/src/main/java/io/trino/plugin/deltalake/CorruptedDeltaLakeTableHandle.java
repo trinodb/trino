@@ -13,13 +13,17 @@
  */
 package io.trino.plugin.deltalake;
 
+import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
+
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public record CorruptedDeltaLakeTableHandle(
         SchemaTableName schemaTableName,
+        boolean catalogOwned,
         boolean managed,
         String location,
         TrinoException originalException)
@@ -36,5 +40,11 @@ public record CorruptedDeltaLakeTableHandle(
     {
         // Original exception originates from a different place. Create a new exception not to confuse reader with a stacktrace not matching call site.
         return new TrinoException(originalException::getErrorCode, originalException.getMessage(), originalException);
+    }
+
+    @Override
+    public VendedCredentialsHandle toCredentialsHandle()
+    {
+        return new VendedCredentialsHandle(catalogOwned, managed, location, Optional.empty());
     }
 }

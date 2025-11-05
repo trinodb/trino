@@ -236,8 +236,6 @@ public class TestPushDownDereferencesRules
                                         p.symbol("msg2", ROW_TYPE),
                                         p.symbol("filtering_msg", ROW_TYPE),
                                         p.symbol("match"),
-                                        Optional.empty(),
-                                        Optional.empty(),
                                         p.values(p.symbol("msg1", ROW_TYPE), p.symbol("msg2", ROW_TYPE)),
                                         p.values(p.symbol("filtering_msg", ROW_TYPE)))))
                 .matches(
@@ -552,7 +550,6 @@ public class TestPushDownDereferencesRules
                                         ROW_NUMBER,
                                         5,
                                         p.symbol("ranking"),
-                                        Optional.empty(),
                                         p.values(p.symbol("msg1", ROW_TYPE), p.symbol("msg2", ROW_TYPE), p.symbol("msg3", ROW_TYPE)))))
                 .matches(
                         strictProject(
@@ -626,6 +623,7 @@ public class TestPushDownDereferencesRules
                                                 new WindowNode.Function(
                                                         createTestMetadataManager().resolveBuiltinFunction("min", fromTypes(ROW_TYPE)),
                                                         ImmutableList.of(p.symbol("msg3", ROW_TYPE).toSymbolReference()),
+                                                        Optional.empty(),
                                                         new WindowNode.Frame(
                                                                 RANGE,
                                                                 UNBOUNDED_PRECEDING,
@@ -634,7 +632,8 @@ public class TestPushDownDereferencesRules
                                                                 CURRENT_ROW,
                                                                 Optional.empty(),
                                                                 Optional.empty()),
-                                                        true)),
+                                                        true,
+                                                        false)),
                                         p.values(
                                                 p.symbol("msg1", ROW_TYPE),
                                                 p.symbol("msg2", ROW_TYPE),

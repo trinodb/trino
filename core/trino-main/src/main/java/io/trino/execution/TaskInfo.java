@@ -19,9 +19,9 @@ import io.trino.execution.buffer.OutputBufferInfo;
 import io.trino.execution.buffer.PipelinedBufferInfo;
 import io.trino.operator.TaskStats;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.joda.time.DateTime;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -33,7 +33,7 @@ import static java.util.Objects.requireNonNull;
 
 public record TaskInfo(
         TaskStatus taskStatus,
-        DateTime lastHeartbeat,
+        Instant lastHeartbeat,
         OutputBufferInfo outputBuffers,
         Set<PlanNodeId> noMoreSplits,
         TaskStats stats,
@@ -77,7 +77,7 @@ public record TaskInfo(
     {
         return new TaskInfo(
                 initialTaskStatus(taskId, location, nodeId, speculative),
-                DateTime.now(),
+                Instant.now(),
                 new OutputBufferInfo(
                         "UNINITIALIZED",
                         OPEN,
@@ -88,6 +88,7 @@ public record TaskInfo(
                         0,
                         0,
                         pipelinedBufferStates,
+                        Optional.empty(),
                         Optional.empty(),
                         Optional.empty()),
                 ImmutableSet.of(),

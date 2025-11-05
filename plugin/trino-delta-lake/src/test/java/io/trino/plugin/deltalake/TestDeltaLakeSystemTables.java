@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -25,6 +26,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -70,7 +73,8 @@ public class TestDeltaLakeSystemTables
                     ('cluster_id', 'varchar', '', ''),
                     ('read_version', 'bigint', '', ''),
                     ('isolation_level', 'varchar', '', ''),
-                    ('is_blind_append', 'boolean', '', '')
+                    ('is_blind_append', 'boolean', '', ''),
+                    ('operation_metrics', 'map(varchar, varchar)', '', '')
                     """);
 
             // Test the contents of history system table
@@ -97,6 +101,30 @@ public class TestDeltaLakeSystemTables
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_simple_table");
             assertUpdate("DROP TABLE IF EXISTS test_checkpoint_table");
+        }
+    }
+
+    @Test
+    void testTransactionsTable()
+    {
+        try (TestTable table = newTrinoTable("test_transactions", "(col int)")) {
+            assertThat((String) computeScalar("SELECT transaction FROM \"" + table.getName() + "$transactions\""))
+                    .contains("commitInfo", "protocol", "metaData");
+        }
+    }
+
+    @Test
+    void testTransactionsTableAccessControl()
+    {
+        try (TestTable table = newTrinoTable("test_transactions", "(col int)")) {
+            // TODO Disallow access to transactions table when the user can't access the base table
+            assertAccessAllowed(
+                    "SELECT * FROM \"" + table.getName() + "$transactions\"",
+                    privilege(table.getName(), SELECT_COLUMN));
+            assertAccessDenied(
+                    "SELECT * FROM \"" + table.getName() + "$transactions\"",
+                    "Cannot select from columns .*",
+                    privilege(table.getName() + "$transactions", SELECT_COLUMN));
         }
     }
 

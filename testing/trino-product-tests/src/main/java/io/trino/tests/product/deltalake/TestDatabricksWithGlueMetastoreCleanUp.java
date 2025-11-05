@@ -13,19 +13,16 @@
  */
 package io.trino.tests.product.deltalake;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
-import com.amazonaws.services.glue.model.Database;
-import com.amazonaws.services.glue.model.EntityNotFoundException;
-import com.amazonaws.services.glue.model.GetDatabaseRequest;
-import com.amazonaws.services.glue.model.GetTableRequest;
-import com.amazonaws.services.glue.model.Table;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.glue.model.Database;
+import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
+import software.amazon.awssdk.services.glue.model.Table;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -34,7 +31,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableType;
+import static io.trino.plugin.hive.metastore.glue.GlueConverter.getTableType;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
@@ -57,7 +54,7 @@ public class TestDatabricksWithGlueMetastoreCleanUp
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCleanUpOldTablesUsingDelta()
     {
-        AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.standard().build();
+        GlueClient glueClient = GlueClient.create();
         long startTime = currentTimeMillis();
         List<String> schemas = onTrino().executeQuery("SELECT DISTINCT(table_schema) FROM information_schema.tables")
                 .rows().stream()
@@ -70,18 +67,18 @@ public class TestDatabricksWithGlueMetastoreCleanUp
         schemas.forEach(schema -> cleanSchema(schema, startTime, glueClient));
     }
 
-    private void cleanSchema(String schema, long startTime, AWSGlueAsync glueClient)
+    private void cleanSchema(String schema, long startTime, GlueClient glueClient)
     {
         Database database;
         try {
-            database = glueClient.getDatabase(new GetDatabaseRequest().withName(schema)).getDatabase();
+            database = glueClient.getDatabase(builder -> builder.name(schema)).database();
         }
         catch (EntityNotFoundException _) {
             // this may happen when database is being deleted concurrently
             return;
         }
 
-        if (database.getCreateTime().toInstant().isAfter(SCHEMA_CLEANUP_THRESHOLD)) {
+        if (database.createTime().isAfter(SCHEMA_CLEANUP_THRESHOLD)) {
             log.info("Skip dropping recently created schema %s", schema);
             return;
         }
@@ -93,8 +90,8 @@ public class TestDatabricksWithGlueMetastoreCleanUp
         int droppedTablesCount = 0;
         for (String tableName : allTestTableNames) {
             try {
-                Table table = glueClient.getTable(new GetTableRequest().withDatabaseName(schema).withName(tableName)).getTable();
-                Instant createTime = table.getCreateTime().toInstant();
+                Table table = glueClient.getTable(builder -> builder.databaseName(schema).name(tableName)).table();
+                Instant createTime = table.createTime();
                 if (createTime.isBefore(SCHEMA_CLEANUP_THRESHOLD)) {
                     if (getTableType(table).contains("VIEW")) {
                         onTrino().executeQuery(format("DROP VIEW IF EXISTS %s.%s", schema, tableName));

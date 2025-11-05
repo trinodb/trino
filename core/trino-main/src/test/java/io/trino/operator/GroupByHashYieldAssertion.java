@@ -24,7 +24,6 @@ import io.trino.memory.QueryContext;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.Type;
 import io.trino.spiller.SpillSpaceTracker;
 
@@ -44,7 +43,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.lang.Math.max;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -56,9 +54,9 @@ public final class GroupByHashYieldAssertion
 
     private GroupByHashYieldAssertion() {}
 
-    public static List<Page> createPagesWithDistinctHashKeys(Type type, int pageCount, int positionCountPerPage)
+    public static List<Page> createPages(Type type, int pageCount, int positionCountPerPage)
     {
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(true, ImmutableList.of(0), type);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(ImmutableList.of(0), type);
         for (int i = 0; i < pageCount; i++) {
             rowPagesBuilder.addSequencePage(positionCountPerPage, positionCountPerPage * i);
         }
@@ -95,8 +93,8 @@ public final class GroupByHashYieldAssertion
                 .addDriverContext();
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        byte[] pointer = new byte[VariableWidthData.POINTER_SIZE];
-        VariableWidthData variableWidthData = new VariableWidthData();
+        byte[] pointer = new byte[AppendOnlyVariableWidthData.POINTER_SIZE];
+        AppendOnlyVariableWidthData variableWidthData = new AppendOnlyVariableWidthData();
 
         // run operator
         int yieldCount = 0;
@@ -106,9 +104,9 @@ public final class GroupByHashYieldAssertion
             long pageVariableWidthSize = 0;
             if (hashKeyType == VARCHAR) {
                 long oldVariableWidthSize = variableWidthData.getRetainedSizeBytes();
+                Block block = page.getBlock(0);
                 for (int position = 0; position < page.getPositionCount(); position++) {
-                    Block block = page.getBlock(0);
-                    variableWidthData.allocate(pointer, 0, ((VariableWidthBlock) block.getUnderlyingValueBlock()).getSliceLength(block.getUnderlyingValuePosition(position)));
+                    variableWidthData.allocate(pointer, 0, hashKeyType.getFlatVariableWidthSize(block, position));
                 }
                 pageVariableWidthSize = variableWidthData.getRetainedSizeBytes() - oldVariableWidthSize;
             }
@@ -175,15 +173,8 @@ public final class GroupByHashYieldAssertion
                 // Hash table capacity should not have changed, because memory must be allocated first
                 assertThat(oldCapacity).isEqualTo((long) getHashCapacity.apply(operator));
 
-                long expectedHashBytes;
-                if (hashKeyType == BIGINT) {
-                    // The increase in hash memory should be twice the current capacity.
-                    expectedHashBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity * 2);
-                }
-                else {
-                    // Flat hash uses an incremental rehash, so as new memory is allocated old memory is freed
-                    expectedHashBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity) + oldCapacity;
-                }
+                // The increase in hash memory should be twice the current capacity.
+                long expectedHashBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity * 2);
                 assertThat(actualHashIncreased).isBetween(expectedHashBytes, expectedHashBytes + additionalMemoryInBytes);
 
                 // Output should be blocked as well
@@ -240,43 +231,15 @@ public final class GroupByHashYieldAssertion
 
         @SuppressWarnings("OverlyComplexArithmeticExpression")
         int sizePerEntry = Byte.BYTES + // control byte
-                Integer.BYTES + // groupId to hashPosition
-                VariableWidthData.POINTER_SIZE + // variable width pointer
-                Integer.BYTES + // groupId
-                Long.BYTES + // rawHash (optional, but present in this test)
-                Byte.BYTES + // field null
-                Integer.BYTES + // field variable length
-                Long.BYTES + // field first 8 bytes
-                Integer.BYTES; // field variable offset (or 4 more field bytes)
+                Integer.BYTES; // hashPosition to groupId
         return (long) capacity * sizePerEntry;
     }
 
-    public static final class GroupByHashYieldResult
+    public record GroupByHashYieldResult(int yieldCount, long maxReservedBytes, List<Page> output)
     {
-        private final int yieldCount;
-        private final long maxReservedBytes;
-        private final List<Page> output;
-
-        public GroupByHashYieldResult(int yieldCount, long maxReservedBytes, List<Page> output)
+        public GroupByHashYieldResult
         {
-            this.yieldCount = yieldCount;
-            this.maxReservedBytes = maxReservedBytes;
-            this.output = requireNonNull(output, "output is null");
-        }
-
-        public int getYieldCount()
-        {
-            return yieldCount;
-        }
-
-        public long getMaxReservedBytes()
-        {
-            return maxReservedBytes;
-        }
-
-        public List<Page> getOutput()
-        {
-            return output;
+            output = ImmutableList.copyOf(output);
         }
     }
 }

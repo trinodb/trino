@@ -384,7 +384,6 @@ public class TestPageReader
     }
 
     private static PageReader createPageReader(int valueCount, CompressionCodec compressionCodec, boolean hasDictionary, List<Slice> slices)
-            throws IOException
     {
         EncodingStats.Builder encodingStats = new EncodingStats.Builder();
         if (hasDictionary) {
@@ -409,6 +408,7 @@ public class TestPageReader
                 columnChunkMetaData,
                 new ColumnDescriptor(new String[] {}, new PrimitiveType(REQUIRED, INT32, ""), 0, 0),
                 null,
+                Optional.empty(),
                 Optional.empty());
     }
 

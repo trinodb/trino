@@ -27,25 +27,44 @@ public final class ColumnDefinition
 {
     private final QualifiedName name;
     private final DataType type;
+    private final Optional<Expression> defaultValue;
     private final boolean nullable;
     private final List<Property> properties;
     private final Optional<String> comment;
 
     public ColumnDefinition(QualifiedName name, DataType type, boolean nullable, List<Property> properties, Optional<String> comment)
     {
-        this(Optional.empty(), name, type, nullable, properties, comment);
+        this(Optional.empty(), name, type, Optional.empty(), nullable, properties, comment);
     }
 
     public ColumnDefinition(NodeLocation location, QualifiedName name, DataType type, boolean nullable, List<Property> properties, Optional<String> comment)
     {
-        this(Optional.of(location), name, type, nullable, properties, comment);
+        this(Optional.of(location), name, type, Optional.empty(), nullable, properties, comment);
     }
 
-    private ColumnDefinition(Optional<NodeLocation> location, QualifiedName name, DataType type, boolean nullable, List<Property> properties, Optional<String> comment)
+    public ColumnDefinition(QualifiedName name, DataType type, Optional<Expression> defaultValue, boolean nullable, List<Property> properties, Optional<String> comment)
+    {
+        this(Optional.empty(), name, type, defaultValue, nullable, properties, comment);
+    }
+
+    public ColumnDefinition(NodeLocation location, QualifiedName name, DataType type, Optional<Expression> defaultValue, boolean nullable, List<Property> properties, Optional<String> comment)
+    {
+        this(Optional.of(location), name, type, defaultValue, nullable, properties, comment);
+    }
+
+    private ColumnDefinition(
+            Optional<NodeLocation> location,
+            QualifiedName name,
+            DataType type,
+            Optional<Expression> defaultValue,
+            boolean nullable,
+            List<Property> properties,
+            Optional<String> comment)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
+        this.defaultValue = requireNonNull(defaultValue, "defaultValue is null");
         this.nullable = nullable;
         this.properties = requireNonNull(properties, "properties is null");
         this.comment = requireNonNull(comment, "comment is null");
@@ -59,6 +78,11 @@ public final class ColumnDefinition
     public DataType getType()
     {
         return type;
+    }
+
+    public Optional<Expression> getDefaultValue()
+    {
+        return defaultValue;
     }
 
     public boolean isNullable()
@@ -100,6 +124,7 @@ public final class ColumnDefinition
         ColumnDefinition o = (ColumnDefinition) obj;
         return Objects.equals(this.name, o.name) &&
                 Objects.equals(this.type, o.type) &&
+                Objects.equals(this.defaultValue, o.defaultValue) &&
                 this.nullable == o.nullable &&
                 Objects.equals(properties, o.properties) &&
                 Objects.equals(this.comment, o.comment);
@@ -108,7 +133,7 @@ public final class ColumnDefinition
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, properties, comment, nullable);
+        return Objects.hash(name, type, defaultValue, properties, comment, nullable);
     }
 
     @Override
@@ -117,6 +142,7 @@ public final class ColumnDefinition
         return toStringHelper(this)
                 .add("name", name)
                 .add("type", type)
+                .add("defaultValue", defaultValue)
                 .add("nullable", nullable)
                 .add("properties", properties)
                 .add("comment", comment)

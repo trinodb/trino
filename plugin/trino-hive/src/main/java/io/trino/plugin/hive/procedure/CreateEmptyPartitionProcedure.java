@@ -23,7 +23,6 @@ import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveInsertTableHandle;
-import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.plugin.hive.LocationService;
 import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.PartitionUpdate;
@@ -34,6 +33,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
@@ -45,8 +45,8 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.metastore.Partitions.makePartName;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
-import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
@@ -112,14 +112,16 @@ public class CreateEmptyPartitionProcedure
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.create(session.getIdentity(), true);
         hiveMetadata.beginQuery(session);
         try (UncheckedCloseable ignore = () -> hiveMetadata.cleanupQuery(session)) {
-            HiveTableHandle tableHandle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schemaName, tableName), Optional.empty(), Optional.empty());
+            ConnectorTableHandle tableHandle = hiveMetadata.getTableHandle(session, new SchemaTableName(schemaName, tableName), Optional.empty(), Optional.empty());
             if (tableHandle == null) {
                 throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", new SchemaTableName(schemaName, tableName)));
             }
 
             accessControl.checkCanInsertIntoTable(null, new SchemaTableName(schemaName, tableName));
 
-            List<String> actualPartitionColumnNames = tableHandle.getPartitionColumns().stream()
+            List<String> actualPartitionColumnNames = hiveMetadata.getColumnHandles(session, tableHandle).values().stream()
+                    .map(HiveColumnHandle.class::cast)
+                    .filter(HiveColumnHandle::isPartitionKey)
                     .map(HiveColumnHandle::getName)
                     .collect(toImmutableList());
 

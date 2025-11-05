@@ -23,17 +23,17 @@ not limited to) Spark, Airflow, Flink.
     - Trino
     - OpenLineage
 *
-    - `{UUID(Query Id)}`
+    - `{UUIDv7(Query.createTime, hash(Query.Id))}`
     - Run ID
 *
     - `{queryCreatedEvent.getCreateTime()} or {queryCompletedEvent.getEndTime()} `
     - Run Event Time
 *
     - Query Id
-    - Job Facet Name
+    - Job Facet Name (default, can be overriden)
 *
     - `trino:// + {openlineage-event-listener.trino.uri.getHost()} + ":" + {openlineage-event-listener.trino.uri.getPort()}`
-    - Job Facet Namespace (default, can be overriden)
+    - Job Facet Namespace (default, can be overridden)
 *
     - `{schema}.{table}`
     - Dataset Name
@@ -130,18 +130,14 @@ event-listener.config-files=etc/openlineage-event-listener.properties,...
     - Description
     - Default
 *
-    - openlineage-event-listener.transport
+    - openlineage-event-listener.transport.type
     - Type of transport to use when emitting lineage information. 
       See [](supported-transport-types) for list of available options with
       descriptions.
     - `CONSOLE`
 *
-    - openlineage-event-listener.trino.host
-    - Trino hostname. Used to render Job Namespace in OpenLineage. Required.
-    - None.
-*
-    - openlineage-event-listener.trino.port
-    - Trino port. Used to render Job Namespace in OpenLineage. Required.
+    - openlineage-event-listener.trino.uri
+    - Required Trino URL with host and port. Used to render Job Namespace in OpenLineage.
     - None.
 *
     - openlineage-event-listener.trino.include-query-types
@@ -161,6 +157,13 @@ event-listener.config-files=etc/openlineage-event-listener.properties,...
     - Custom namespace to be used for Job `namespace` attribute. If blank will
       default to Dataset Namespace.
     - None.
+*
+    - openlineage-event-listener.job.name-format
+    - Custom namespace to use for the job `name` attribute.
+      Use any string with, with optional substitution
+      variables: `$QUERY_ID`, `$USER`, `$SOURCE`, `$CLIENT_IP`.
+      For example: `As $USER from $CLIENT_IP via $SOURCE`.
+    - `$QUERY_ID`.
 
 :::
 
@@ -207,6 +210,11 @@ event-listener.config-files=etc/openlineage-event-listener.properties,...
     - List of custom url params to be added to final HTTP Request. See
     [](openlineage-event-listener-custom-url-params) for more details.
     - Empty
+*
+    - openlineage-event-listener.transport.compression
+    - Compression codec used for reducing size of HTTP body.
+      Allowed values: `none`, `gzip`.
+    - `none`
 
 :::
 

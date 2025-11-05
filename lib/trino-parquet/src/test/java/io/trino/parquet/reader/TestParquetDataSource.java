@@ -44,7 +44,7 @@ public class TestParquetDataSource
         Slice testingInput = createTestingInput();
         TestingParquetDataSource dataSource = new TestingParquetDataSource(
                 testingInput,
-                new ParquetReaderOptions().withMaxBufferSize(maxBufferSize));
+                ParquetReaderOptions.builder().withMaxBufferSize(maxBufferSize).build());
 
         ListMultimap<String, ChunkReader> chunkReaders = dataSource.planChunksRead(
                 ImmutableListMultimap.<String, DiskRange>builder()
@@ -75,7 +75,7 @@ public class TestParquetDataSource
         Slice testingInput = createTestingInput();
         TestingParquetDataSource dataSource = new TestingParquetDataSource(
                 testingInput,
-                new ParquetReaderOptions().withMaxBufferSize(DataSize.ofBytes(500)));
+                ParquetReaderOptions.builder().withMaxBufferSize(DataSize.ofBytes(500)).build());
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
         ListMultimap<String, ChunkReader> chunkReaders = dataSource.planChunksRead(ImmutableListMultimap.<String, DiskRange>builder()
                         .put("1", new DiskRange(0, 200))
@@ -115,9 +115,10 @@ public class TestParquetDataSource
         Slice testingInput = createTestingInput();
         TestingParquetDataSource dataSource = new TestingParquetDataSource(
                 testingInput,
-                new ParquetReaderOptions()
+                ParquetReaderOptions.builder()
                         .withMaxBufferSize(DataSize.ofBytes(500))
-                        .withMaxMergeDistance(DataSize.ofBytes(0)));
+                        .withMaxMergeDistance(DataSize.ofBytes(0))
+                        .build());
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
         Map<String, ChunkedInputStream> inputStreams = dataSource.planRead(
                 ImmutableListMultimap.<String, DiskRange>builder()
@@ -146,9 +147,10 @@ public class TestParquetDataSource
         Slice testingInput = createTestingInput();
         TestingParquetDataSource dataSource = new TestingParquetDataSource(
                 testingInput,
-                new ParquetReaderOptions()
+                ParquetReaderOptions.builder()
                         .withMaxBufferSize(DataSize.ofBytes(500))
-                        .withMaxMergeDistance(DataSize.ofBytes(300)));
+                        .withMaxMergeDistance(DataSize.ofBytes(300))
+                        .build());
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
         Map<String, ChunkedInputStream> inputStreams = dataSource.planRead(
                 ImmutableListMultimap.<String, DiskRange>builder()

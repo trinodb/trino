@@ -190,14 +190,6 @@ public class TestListagg
                 .hasErrorCode(SYNTAX_ERROR)
                 .hasMessage("line 1:22: mismatched input ','. Expecting: ')', 'ON'");
 
-        // window frames are not supported
-        assertThat(assertions.query(
-                "SELECT listagg(v, ',') WITHIN GROUP (ORDER BY v) OVER (PARTITION BY id)" +
-                        "FROM (VALUES (1, 'a')) t(id, v)"))
-                .failure()
-                .hasErrorCode(SYNTAX_ERROR)
-                .hasMessage("line 1:55: mismatched input '('. Expecting: ',', 'EXCEPT', 'FETCH', 'FROM', 'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'ORDER', 'UNION', 'WHERE', 'WINDOW', <EOF>");
-
         // invalid argument for ON OVERFLOW clause
         assertThat(assertions.query(
                 "SELECT listagg(v, ',' ON OVERFLOW COLLAPSE) WITHIN GROUP (ORDER BY v)" +
@@ -401,7 +393,34 @@ public class TestListagg
                 FROM (
                      VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')
                 ) t(id, value)
-                 """))
+                """))
                 .matches("VALUES VARCHAR 'b,d'");
+    }
+
+    @Test
+    void testListaggWindow()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT a, listagg(DISTINCT c) WITHIN GROUP (ORDER BY c DESC) OVER w
+                FROM (
+                    VALUES (1, 1, '1'), (1, 2, '2'), (1, 3, '1'), (1, 4, '4'), (1, 4, '2'), (1, 5, '5'),
+                           (2, 1, '1'), (2, 2, '3'), (2, 3, '2'), (2, 4, '3')) AS t(a, b, c)
+                WINDOW w AS (PARTITION BY a ORDER BY b)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            (1, CAST('1' AS VARCHAR)),
+                            (1, '21'),
+                            (1, '21'),
+                            (1, '421'),
+                            (1, '421'),
+                            (1, '5421'),
+                            (2, '1'),
+                            (2, '31'),
+                            (2, '321'),
+                            (2, '321')
+                        """);
     }
 }

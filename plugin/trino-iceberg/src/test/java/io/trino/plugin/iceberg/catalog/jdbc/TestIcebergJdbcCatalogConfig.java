@@ -35,6 +35,7 @@ public class TestIcebergJdbcCatalogConfig
                 .setConnectionPassword(null)
                 .setCatalogName(null)
                 .setDefaultWarehouseDir(null)
+                .setRetryableStatusCodes(null)
                 .setSchemaVersion(SchemaVersion.V1));
     }
 
@@ -48,6 +49,7 @@ public class TestIcebergJdbcCatalogConfig
                 .put("iceberg.jdbc-catalog.connection-password", "bar")
                 .put("iceberg.jdbc-catalog.catalog-name", "test")
                 .put("iceberg.jdbc-catalog.default-warehouse-dir", "s3://bucket")
+                .put("iceberg.jdbc-catalog.retryable-status-codes", "57P01,57P05")
                 .put("iceberg.jdbc-catalog.schema-version", "V0")
                 .buildOrThrow();
 
@@ -58,6 +60,7 @@ public class TestIcebergJdbcCatalogConfig
                 .setConnectionPassword("bar")
                 .setCatalogName("test")
                 .setDefaultWarehouseDir("s3://bucket")
+                .setRetryableStatusCodes("57P01,57P05")
                 .setSchemaVersion(SchemaVersion.V0);
 
         assertFullMapping(properties, expected);

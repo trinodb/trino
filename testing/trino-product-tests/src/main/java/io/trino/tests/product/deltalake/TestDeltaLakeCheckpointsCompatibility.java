@@ -13,24 +13,21 @@
  */
 package io.trino.tests.product.deltalake;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.ObjectListing;
-import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
+import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
-import io.trino.tests.product.deltalake.util.DatabricksVersion;
-import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -38,26 +35,21 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_104;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_113;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_122;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_133;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_143;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_154;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.S3ClientFactory.createS3Client;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertLastEntryIsCheckpointed;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertTransactionLogVersion;
-import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_104_RUNTIME_VERSION;
-import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_91_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDeltaLakeCheckpointsCompatibility
         extends BaseTestDeltaLakeS3Storage
@@ -66,14 +58,19 @@ public class TestDeltaLakeCheckpointsCompatibility
     @Named("s3.server_type")
     private String s3ServerType;
 
-    private AmazonS3 s3;
-    private Optional<DatabricksVersion> databricksRuntimeVersion;
+    private S3Client s3;
 
     @BeforeMethodWithContext
     public void setup()
     {
-        s3 = new S3ClientFactory().createS3Client(s3ServerType);
-        databricksRuntimeVersion = getDatabricksRuntimeVersion();
+        s3 = createS3Client(s3ServerType);
+    }
+
+    @AfterMethodWithContext
+    public void cleanUp()
+    {
+        s3.close();
+        s3 = null;
     }
 
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
@@ -279,7 +276,7 @@ public class TestDeltaLakeCheckpointsCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_104, DELTA_LAKE_DATABRICKS_113, DELTA_LAKE_DATABRICKS_122, DELTA_LAKE_DATABRICKS_133, DELTA_LAKE_DATABRICKS_143, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_133, DELTA_LAKE_DATABRICKS_143, DELTA_LAKE_DATABRICKS_154, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksUsesCheckpointInterval()
     {
@@ -371,7 +368,7 @@ public class TestDeltaLakeCheckpointsCompatibility
 
             // Assert min/max queries can be computed from just metadata
             String explainSelectMax = getOnlyElement(onDelta().executeQuery("EXPLAIN SELECT max(root.entry_one) FROM default." + tableName).column(1));
-            String column = databricksRuntimeVersion.orElseThrow().isAtLeast(DATABRICKS_104_RUNTIME_VERSION) ? "root.entry_one" : "root.entry_one AS `entry_one`";
+            String column = "root.entry_one";
             assertThat(explainSelectMax).matches("== Physical Plan ==\\s*LocalTableScan \\[max\\(" + column + "\\).*]\\s*");
 
             // check both engines can read both tables
@@ -437,7 +434,7 @@ public class TestDeltaLakeCheckpointsCompatibility
 
             // Assert counting non null entries can be computed from just metadata
             String explainCountNotNull = getOnlyElement(onDelta().executeQuery("EXPLAIN SELECT count(root.entry_two) FROM default." + tableName).column(1));
-            String column = databricksRuntimeVersion.orElseThrow().isAtLeast(DATABRICKS_104_RUNTIME_VERSION) ? "root.entry_two" : "root.entry_two AS `entry_two`";
+            String column = "root.entry_two";
             assertThat(explainCountNotNull).matches("== Physical Plan ==\\s*LocalTableScan \\[count\\(" + column + "\\).*]\\s*");
 
             // check both engines can read both tables
@@ -562,11 +559,6 @@ public class TestDeltaLakeCheckpointsCompatibility
                         " delta.checkpoint.writeStatsAsJson = false, " +
                         " delta.checkpoint.writeStatsAsStruct = true)",
                 tableName, type, bucketName);
-
-        if (databricksRuntimeVersion.isPresent() && databricksRuntimeVersion.get().equals(DATABRICKS_91_RUNTIME_VERSION) && type.equals("struct<x bigint>")) {
-            assertThatThrownBy(() -> onDelta().executeQuery(createTableSql)).hasStackTraceContaining("ParseException");
-            throw new SkipException("New runtime version covers the type");
-        }
 
         onDelta().executeQuery(createTableSql);
 
@@ -740,13 +732,9 @@ public class TestDeltaLakeCheckpointsCompatibility
 
     private List<String> listS3Directory(String bucketName, String directory)
     {
-        ImmutableList.Builder<String> result = ImmutableList.builder();
-        ObjectListing listing = s3.listObjects(bucketName, directory);
-        do {
-            listing.getObjectSummaries().stream().map(S3ObjectSummary::getKey).forEach(result::add);
-            listing = s3.listNextBatchOfObjects(listing);
-        }
-        while (listing.isTruncated());
-        return result.build();
+        return s3.listObjectsV2Paginator(request -> request.bucket(bucketName).prefix(directory))
+                .contents().stream()
+                .map(S3Object::key)
+                .toList();
     }
 }

@@ -61,7 +61,6 @@ import static io.trino.spi.type.Int128Math.negate;
 import static io.trino.spi.type.Int128Math.rescale;
 import static io.trino.spi.type.Int128Math.rescaleTruncate;
 import static io.trino.spi.type.Int128Math.subtract;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.DecimalOperators.modulusScalarFunction;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Character.MAX_RADIX;
@@ -955,6 +954,8 @@ public final class MathFunctions
     @Description("Round to given number of decimal places")
     public static final class RoundN
     {
+        private RoundN() {}
+
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp, s)")
         @Constraint(variable = "rp", expression = "min(38, p + 1)")
@@ -1024,6 +1025,8 @@ public final class MathFunctions
     @Description("Round to integer by dropping digits after decimal point")
     public static final class Truncate
     {
+        private Truncate() {}
+
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "max(1, p - s)")
@@ -1404,6 +1407,30 @@ public final class MathFunctions
         return dotProduct / (normLeftMap * normRightMap);
     }
 
+    @Description("Calculates the cosine distance between the give sparse vectors")
+    @ScalarFunction
+    @SqlNullable
+    @SqlType(StandardTypes.DOUBLE)
+    public static Double cosineDistance(
+            @OperatorDependency(
+                    operator = IDENTICAL,
+                    argumentTypes = {"varchar", "varchar"},
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN)) BlockPositionIsIdentical varcharIdentical,
+            @OperatorDependency(
+                    operator = HASH_CODE,
+                    argumentTypes = "varchar",
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode varcharHashCode,
+            @SqlType("map(varchar,double)") SqlMap leftMap,
+            @SqlType("map(varchar,double)") SqlMap rightMap)
+    {
+        Double cosineSimilarity = cosineSimilarity(varcharIdentical, varcharHashCode, leftMap, rightMap);
+        if (cosineSimilarity == null) {
+            return null;
+        }
+
+        return 1.0 - cosineSimilarity;
+    }
+
     private static double mapDotProduct(BlockPositionIsIdentical varcharIdentical, BlockPositionHashCode varcharHashCode, SqlMap leftMap, SqlMap rightMap)
     {
         int leftRawOffset = leftMap.getRawOffset();
@@ -1413,7 +1440,7 @@ public final class MathFunctions
         Block rightRawKeyBlock = rightMap.getRawKeyBlock();
         Block rightRawValueBlock = rightMap.getRawValueBlock();
 
-        BlockSet rightMapKeys = new BlockSet(VARCHAR, varcharIdentical, varcharHashCode, rightMap.getSize());
+        BlockSet rightMapKeys = new BlockSet(varcharIdentical, varcharHashCode, rightMap.getSize());
 
         for (int i = 0; i < rightMap.getSize(); i++) {
             rightMapKeys.add(rightRawKeyBlock, rightRawOffset + i);

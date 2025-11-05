@@ -15,6 +15,7 @@ package io.trino.client;
 
 import java.net.URI;
 import java.util.List;
+import java.util.OptionalLong;
 
 public interface QueryStatusInfo
 {
@@ -36,5 +37,5 @@ public interface QueryStatusInfo
 
     String getUpdateType();
 
-    Long getUpdateCount();
+    OptionalLong getUpdateCount();
 }

@@ -44,6 +44,7 @@ import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
+import io.trino.spi.security.Identity;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Flatten;
@@ -119,7 +120,7 @@ public class DispatchManager
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
-        this.sessionPropertyManager = sessionPropertyManager;
+        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
 
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
@@ -229,6 +230,8 @@ public class DispatchManager
                     sessionContext.getIdentity().getPrincipal().isPresent(),
                     sessionContext.getIdentity().getUser(),
                     sessionContext.getIdentity().getGroups(),
+                    sessionContext.getOriginalIdentity().getUser(),
+                    sessionContext.getAuthenticatedIdentity().map(Identity::getUser),
                     sessionContext.getSource(),
                     sessionContext.getClientTags(),
                     sessionContext.getResourceEstimates(),
@@ -344,6 +347,14 @@ public class DispatchManager
     {
         return queryTracker.getAllQueries().stream()
                 .filter(query -> query.getState() == RUNNING && !query.getBasicQueryInfo().getQueryStats().isFullyBlocked())
+                .count();
+    }
+
+    @Managed
+    public long getFullyBlockedQueries()
+    {
+        return queryTracker.getAllQueries().stream()
+                .filter(query -> query.getState() == RUNNING && query.getBasicQueryInfo().getQueryStats().isFullyBlocked())
                 .count();
     }
 

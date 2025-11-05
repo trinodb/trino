@@ -37,9 +37,9 @@ import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_RE
 import static java.util.Comparator.comparing;
 
 @Path("/v1/thread")
+@ResourceSecurity(MANAGEMENT_READ)
 public class ThreadResource
 {
-    @ResourceSecurity(MANAGEMENT_READ)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public List<Info> getThreadInfo()

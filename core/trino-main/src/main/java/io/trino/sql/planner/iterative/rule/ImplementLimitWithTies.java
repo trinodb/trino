@@ -123,7 +123,9 @@ public class ImplementLimitWithTies
         WindowNode.Function rankFunction = new WindowNode.Function(
                 metadata.resolveBuiltinFunction("rank", ImmutableList.of()),
                 ImmutableList.of(),
+                Optional.empty(),
                 DEFAULT_FRAME,
+                false,
                 false);
 
         WindowNode windowNode = new WindowNode(
@@ -131,7 +133,6 @@ public class ImplementLimitWithTies
                 source,
                 new DataOrganizationSpecification(partitionBy, limitNode.getTiesResolvingScheme()),
                 ImmutableMap.of(rankSymbol, rankFunction),
-                Optional.empty(),
                 ImmutableSet.of(),
                 0);
 

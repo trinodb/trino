@@ -15,6 +15,16 @@
 /** Element preset overrides **/
 /** ======================== **/
 
+@font-face {
+    font-family: 'Roboto';
+    src: url('fonts/Roboto-VariableFont_wdth,wght.woff2') format('woff2'),
+         url('fonts/Roboto-VariableFont_wdth,wght.woff')  format('woff'),
+         url('fonts/Roboto-VariableFont_wdth,wght.ttf')   format('truetype');
+    font-weight: 100 900;
+    font-stretch: 75% 100%;
+    font-style: normal;
+}
+
 body {
     padding-top: 20px;
     padding-bottom: 20px;

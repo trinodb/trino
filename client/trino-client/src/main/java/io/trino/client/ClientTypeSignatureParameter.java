@@ -145,7 +145,7 @@ public class ClientTypeSignatureParameter
     public static class ClientTypeSignatureParameterDeserializer
             extends JsonDeserializer<ClientTypeSignatureParameter>
     {
-        private static final ObjectMapper MAPPER = JsonCodec.OBJECT_MAPPER_SUPPLIER.get();
+        private static final ObjectMapper MAPPER = TrinoJsonCodec.OBJECT_MAPPER_SUPPLIER.get();
 
         @Override
         public ClientTypeSignatureParameter deserialize(JsonParser jp, DeserializationContext ctxt)

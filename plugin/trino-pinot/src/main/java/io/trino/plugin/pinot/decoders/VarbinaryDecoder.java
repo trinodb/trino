@@ -36,8 +36,8 @@ public class VarbinaryDecoder
         if (value == null) {
             output.appendNull();
         }
-        else if (value instanceof String) {
-            Slice slice = Slices.wrappedBuffer(toBytes((String) value));
+        else if (value instanceof String string) {
+            Slice slice = Slices.wrappedBuffer(toBytes(string));
             ((VariableWidthBlockBuilder) output).writeEntry(slice);
         }
         else {

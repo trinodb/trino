@@ -20,14 +20,16 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.trino.execution.StateMachine.StateChangeListener;
-import org.joda.time.DateTime;
+import jakarta.annotation.Nullable;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -50,7 +52,7 @@ public class TaskStateMachine
 {
     private static final Logger log = Logger.get(TaskStateMachine.class);
 
-    private final DateTime createdTime = DateTime.now();
+    private final Instant createdTime = Instant.now();
 
     private final TaskId taskId;
     private final Executor executor;
@@ -61,18 +63,34 @@ public class TaskStateMachine
     private final Map<TaskId, Throwable> sourceTaskFailures = new HashMap<>();
     @GuardedBy("this")
     private final List<TaskFailureListener> sourceTaskFailureListeners = new ArrayList<>();
+    private final AtomicReference<Instant> executionEndTime = new AtomicReference<>();
 
     public TaskStateMachine(TaskId taskId, Executor executor)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.executor = requireNonNull(executor, "executor is null");
         taskState = new StateMachine<>("task " + taskId, executor, RUNNING, TERMINAL_TASK_STATES);
-        taskState.addStateChangeListener(newState -> log.debug("Task %s is %s", taskId, newState));
+        taskState.addStateChangeListener(newState -> {
+            if (newState.isDone()) {
+                executionEndTime.compareAndSet(null, Instant.now());
+            }
+            log.debug("Task %s is %s", taskId, newState);
+        });
     }
 
-    public DateTime getCreatedTime()
+    public Instant getCreatedTime()
     {
         return createdTime;
+    }
+
+    @Nullable
+    public Instant getEndTime()
+    {
+        if (getState().isDone()) {
+            executionEndTime.compareAndSet(null, Instant.now());
+            return executionEndTime.get();
+        }
+        return null;
     }
 
     public TaskId getTaskId()

@@ -30,6 +30,7 @@ import io.trino.parquet.reader.TestingParquetDataSource;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.spi.Page;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
@@ -224,7 +225,7 @@ public class BenchmarkColumnarFilterParquetData
                         testData.getColumnTypes(),
                         testData.getColumnNames(),
                         testData.getPages()),
-                new ParquetReaderOptions());
+                ParquetReaderOptions.defaultOptions());
         parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         columnNames = columns.stream()
                 .map(TpchColumn::getColumnName)
@@ -240,7 +241,7 @@ public class BenchmarkColumnarFilterParquetData
     {
         ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), columnTypes, columnNames);
         LocalMemoryContext context = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
-        Page inputPage = reader.nextPage();
+        SourcePage inputPage = reader.nextPage();
         long outputRows = 0;
         while (inputPage != null) {
             WorkProcessor<Page> workProcessor = compiledProcessor.createWorkProcessor(

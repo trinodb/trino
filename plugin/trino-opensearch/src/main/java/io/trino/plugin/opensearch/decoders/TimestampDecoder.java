@@ -76,8 +76,8 @@ public class TimestampDecoder
                     timestamp = ISO_DATE_TIME.parse(valueString, LocalDateTime::from);
                 }
             }
-            else if (value instanceof Number) {
-                timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Number) value).longValue()), UTC);
+            else if (value instanceof Number number) {
+                timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(number.longValue()), UTC);
             }
             else {
                 throw new TrinoException(NOT_SUPPORTED, format(

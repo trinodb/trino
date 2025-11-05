@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.repeat;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.client.ClientStandardTypes.BIGINT;
 import static io.trino.client.ClientStandardTypes.DECIMAL;
@@ -94,7 +93,7 @@ public class MarkdownTablePrinter
 
             for (int i = 0; i < columns; i++) {
                 writer.append("| ");
-                writer.append(repeat("-", columnWidth[i]));
+                writer.append("-".repeat(columnWidth[i]));
                 writer.write(alignments.get(i) == Align.RIGHT ? ':' : ' ');
             }
             writer.append("|\n");
@@ -128,7 +127,7 @@ public class MarkdownTablePrinter
     {
         int width = consoleWidth(value);
         checkState(width <= maxWidth, "Variable width %s is greater than column width %s", width, maxWidth);
-        String padding = repeat(" ", (maxWidth - width) + 1);
+        String padding = " ".repeat(maxWidth - width + 1);
         return align == Align.RIGHT ? (padding + value + " ") : (" " + value + padding);
     }
 

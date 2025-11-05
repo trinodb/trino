@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.stats.Distribution;
@@ -21,11 +22,14 @@ import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.eventlistener.StageGcStatistics;
-import org.joda.time.DateTime;
+import io.trino.spi.metrics.Metrics;
+import io.trino.sql.planner.plan.PlanNodeId;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -34,9 +38,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestStageStats
 {
     private static final StageStats EXPECTED = new StageStats(
-            new DateTime(0),
+            Instant.EPOCH,
 
-            getTestDistribution(1),
+            ImmutableMap.of(new PlanNodeId("1"), getTestDistribution(1)),
+            ImmutableMap.of(new PlanNodeId("2"), new Metrics(ImmutableMap.of("metric", new LongCount(2)))),
 
             4,
             5,
@@ -56,6 +61,7 @@ public class TestStageStats
             DataSize.ofBytes(16),
             DataSize.ofBytes(17),
             DataSize.ofBytes(18),
+            DataSize.ofBytes(19),
 
             new Duration(19, NANOSECONDS),
             new Duration(20, NANOSECONDS),
@@ -77,11 +83,6 @@ public class TestStageStats
             203,
             204,
 
-            DataSize.ofBytes(26),
-            DataSize.ofBytes(27),
-            28,
-            29,
-
             DataSize.ofBytes(30),
             DataSize.ofBytes(31),
             32,
@@ -91,11 +92,12 @@ public class TestStageStats
             new Duration(202, NANOSECONDS),
 
             DataSize.ofBytes(34),
-            Optional.of(getTDigestHistogram(10)),
+            Optional.of(io.trino.plugin.base.metrics.DistributionSnapshot.fromDistribution(getTDigestHistogram(10))),
             DataSize.ofBytes(35),
             DataSize.ofBytes(36),
             37,
             38,
+            Metrics.EMPTY,
 
             new Duration(203, NANOSECONDS),
             new Duration(204, NANOSECONDS),
@@ -127,9 +129,9 @@ public class TestStageStats
 
     private static void assertExpectedStageStats(StageStats actual)
     {
-        assertThat(actual.getSchedulingComplete().getMillis()).isEqualTo(0);
+        assertThat(actual.getSchedulingComplete().toEpochMilli()).isEqualTo(0);
 
-        assertThat(actual.getGetSplitDistribution().getCount()).isEqualTo(1.0);
+        assertThat(actual.getGetSplitDistribution().get(new PlanNodeId("1")).count()).isEqualTo(1.0);
 
         assertThat(actual.getTotalTasks()).isEqualTo(4);
         assertThat(actual.getRunningTasks()).isEqualTo(5);
@@ -150,6 +152,8 @@ public class TestStageStats
         assertThat(actual.getPeakUserMemoryReservation()).isEqualTo(DataSize.ofBytes(17));
         assertThat(actual.getPeakRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(18));
 
+        assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(19));
+
         assertThat(actual.getTotalScheduledTime()).isEqualTo(new Duration(19, NANOSECONDS));
         assertThat(actual.getFailedScheduledTime()).isEqualTo(new Duration(20, NANOSECONDS));
         assertThat(actual.getTotalCpuTime()).isEqualTo(new Duration(21, NANOSECONDS));
@@ -168,11 +172,6 @@ public class TestStageStats
         assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(203);
         assertThat(actual.getFailedInternalNetworkInputPositions()).isEqualTo(204);
 
-        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(26));
-        assertThat(actual.getFailedRawInputDataSize()).isEqualTo(DataSize.ofBytes(27));
-        assertThat(actual.getRawInputPositions()).isEqualTo(28);
-        assertThat(actual.getFailedRawInputPositions()).isEqualTo(29);
-
         assertThat(actual.getProcessedInputDataSize()).isEqualTo(DataSize.ofBytes(30));
         assertThat(actual.getFailedProcessedInputDataSize()).isEqualTo(DataSize.ofBytes(31));
         assertThat(actual.getProcessedInputPositions()).isEqualTo(32);
@@ -182,7 +181,7 @@ public class TestStageStats
         assertThat(actual.getFailedInputBlockedTime()).isEqualTo(new Duration(202, NANOSECONDS));
 
         assertThat(actual.getBufferedDataSize()).isEqualTo(DataSize.ofBytes(34));
-        assertThat(actual.getOutputBufferUtilization().get().getMax()).isEqualTo(9.0);
+        assertThat(actual.getOutputBufferUtilization().get().max()).isEqualTo(9.0);
         assertThat(actual.getOutputDataSize()).isEqualTo(DataSize.ofBytes(35));
         assertThat(actual.getFailedOutputDataSize()).isEqualTo(DataSize.ofBytes(36));
         assertThat(actual.getOutputPositions()).isEqualTo(37);

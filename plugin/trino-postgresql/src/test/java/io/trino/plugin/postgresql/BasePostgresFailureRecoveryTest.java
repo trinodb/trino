@@ -15,6 +15,7 @@ package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
+import io.trino.Session;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.jdbc.BaseJdbcFailureRecoveryTest;
@@ -26,12 +27,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assumptions.abort;
-
 public abstract class BasePostgresFailureRecoveryTest
         extends BaseJdbcFailureRecoveryTest
 {
+    private TestingPostgreSqlServer postgreSqlServer;
+
     public BasePostgresFailureRecoveryTest(RetryPolicy retryPolicy)
     {
         super(retryPolicy);
@@ -45,7 +45,8 @@ public abstract class BasePostgresFailureRecoveryTest
             Module failureInjectionModule)
             throws Exception
     {
-        return PostgreSqlQueryRunner.builder(closeAfterClass(new TestingPostgreSqlServer()))
+        this.postgreSqlServer = new TestingPostgreSqlServer();
+        return PostgreSqlQueryRunner.builder(closeAfterClass(this.postgreSqlServer))
                 .setExtraProperties(configProperties)
                 .setCoordinatorProperties(configProperties)
                 .setAdditionalSetup(runner -> {
@@ -56,14 +57,6 @@ public abstract class BasePostgresFailureRecoveryTest
                 .setAdditionalModule(failureInjectionModule)
                 .setInitialTables(requiredTpchTables)
                 .build();
-    }
-
-    @Test
-    @Override
-    protected void testUpdateWithSubquery()
-    {
-        assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("Unexpected Join over for-update table scan");
-        abort("skipped");
     }
 
     @Test
@@ -80,5 +73,17 @@ public abstract class BasePostgresFailureRecoveryTest
                 .withSetupQuery(setupQuery)
                 .withCleanupQuery(cleanupQuery)
                 .isCoordinatorOnly();
+    }
+
+    @Override
+    protected void addPrimaryKeyForMergeTarget(Session session, String tableName, String primaryKey)
+    {
+        postgreSqlServer.execute("ALTER TABLE %s ADD CONSTRAINT pk_%s PRIMARY KEY (%s)".formatted(tableName, tableName, primaryKey));
+    }
+
+    @Override
+    protected boolean supportsMerge()
+    {
+        return true;
     }
 }

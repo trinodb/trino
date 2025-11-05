@@ -39,7 +39,7 @@ import static java.util.Objects.requireNonNull;
  * - the memory pool is exhausted
  */
 @ThreadSafe
-class OutputBufferMemoryManager
+final class OutputBufferMemoryManager
 {
     private static final ListenableFuture<Void> NOT_BLOCKED = immediateVoidFuture();
 
@@ -90,7 +90,7 @@ class OutputBufferMemoryManager
 
         ListenableFuture<Void> waitForMemory = null;
         SettableFuture<Void> notifyUnblocked = null;
-        long currentBufferedBytes;
+        final long currentBufferedBytes;
         synchronized (this) {
             // If closed is true, that means the task is completed. In that state,
             // the output buffers already ignore the newly added pages, and therefore
@@ -99,9 +99,9 @@ class OutputBufferMemoryManager
                 return;
             }
 
-            currentBufferedBytes = bufferedBytes.updateAndGet(bytes -> {
-                long result = bytes + bytesAdded;
-                checkArgument(result >= 0, "bufferedBytes (%s) plus delta (%s) would be negative", bytes, bytesAdded);
+            currentBufferedBytes = bufferedBytes.accumulateAndGet(bytesAdded, (bufferedBytes, delta) -> {
+                long result = bufferedBytes + delta;
+                checkArgument(result >= 0, "bufferedBytes (%s) plus delta (%s) would be negative", bufferedBytes, delta);
                 return result;
             });
             ListenableFuture<Void> blockedOnMemory = memoryContext.setBytes(currentBufferedBytes);
@@ -121,9 +121,12 @@ class OutputBufferMemoryManager
                     this.bufferBlockedFuture = null;
                 }
             }
-            recordBufferUtilization();
+            recordBufferUtilization(currentBufferedBytes);
         }
-        peakMemoryUsage.accumulateAndGet(currentBufferedBytes, Math::max);
+        // Reduce contention by reading first and only updating if the new value might become the maximum (uncommon)
+        if (currentBufferedBytes > peakMemoryUsage.get()) {
+            peakMemoryUsage.accumulateAndGet(currentBufferedBytes, Math::max);
+        }
         // Notify listeners outside of the critical section
         notifyListener(notifyUnblocked);
         if (waitForMemory != null) {
@@ -131,13 +134,13 @@ class OutputBufferMemoryManager
         }
     }
 
-    private synchronized void recordBufferUtilization()
+    private synchronized void recordBufferUtilization(long currentBufferedBytes)
     {
         long recordTime = ticker.read();
         if (lastBufferUtilizationRecordTime != -1) {
             bufferUtilization.add(lastBufferUtilization, (double) recordTime - this.lastBufferUtilizationRecordTime);
         }
-        double utilization = getUtilization();
+        double utilization = getUtilization(currentBufferedBytes);
         // skip recording of buffer utilization until data is put into buffer
         if (lastBufferUtilizationRecordTime != -1 || utilization != 0.0) {
             lastBufferUtilizationRecordTime = recordTime;
@@ -187,13 +190,18 @@ class OutputBufferMemoryManager
 
     public double getUtilization()
     {
-        return bufferedBytes.get() / (double) maxBufferedBytes;
+        return getUtilization(bufferedBytes.get());
+    }
+
+    private double getUtilization(long currentBufferedBytes)
+    {
+        return currentBufferedBytes / (double) maxBufferedBytes;
     }
 
     public synchronized TDigest getUtilizationHistogram()
     {
         // always get most up to date histogram
-        recordBufferUtilization();
+        recordBufferUtilization(bufferedBytes.get());
         return TDigest.copyOf(bufferUtilization);
     }
 

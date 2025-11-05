@@ -34,7 +34,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.max;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -110,8 +109,8 @@ public final class TestingUnnesterUtil
             Type type = unnestTypes.get(i);
             Block inputBlock = page.getBlock(replicatedTypes.size() + i);
 
-            if (type instanceof ArrayType) {
-                Type elementType = ((ArrayType) type).getElementType();
+            if (type instanceof ArrayType arrayType) {
+                Type elementType = arrayType.getElementType();
                 if (elementType instanceof RowType) {
                     List<Type> rowTypes = elementType.getTypeParameters();
                     Block[] blocks = buildExpectedUnnestedArrayOfRowBlock(inputBlock, rowTypes, maxCardinalities, totalEntries);
@@ -123,8 +122,7 @@ public final class TestingUnnesterUtil
                     outputBlocks[outputChannel++] = buildExpectedUnnestedArrayBlock(inputBlock, ((ArrayType) unnestTypes.get(i)).getElementType(), maxCardinalities, totalEntries);
                 }
             }
-            else if (type instanceof MapType) {
-                MapType mapType = (MapType) unnestTypes.get(i);
+            else if (type instanceof MapType mapType) {
                 Block[] blocks = buildExpectedUnnestedMapBlocks(inputBlock, mapType.getKeyType(), mapType.getValueType(), maxCardinalities, totalEntries);
                 for (Block block : blocks) {
                     outputBlocks[outputChannel++] = block;
@@ -146,8 +144,8 @@ public final class TestingUnnesterUtil
     {
         List<Type> outputTypes = new ArrayList<>(replicatedTypes);
         for (Type unnestType : unnestTypes) {
-            if (unnestType instanceof ArrayType) {
-                Type elementType = ((ArrayType) unnestType).getElementType();
+            if (unnestType instanceof ArrayType arrayType) {
+                Type elementType = arrayType.getElementType();
                 if (elementType instanceof RowType) {
                     List<Type> rowTypes = elementType.getTypeParameters();
                     outputTypes.addAll(rowTypes);
@@ -156,9 +154,9 @@ public final class TestingUnnesterUtil
                     outputTypes.add(elementType);
                 }
             }
-            else if (unnestType instanceof MapType) {
-                outputTypes.add(((MapType) unnestType).getKeyType());
-                outputTypes.add(((MapType) unnestType).getValueType());
+            else if (unnestType instanceof MapType mapType) {
+                outputTypes.add(mapType.getKeyType());
+                outputTypes.add(mapType.getValueType());
             }
         }
 
@@ -174,7 +172,7 @@ public final class TestingUnnesterUtil
         PageBuilder pageBuilder = new PageBuilder(types);
         int totalPositionCount = 0;
         for (Page page : pages) {
-            verify(page.getChannelCount() == types.size(), format("Number of channels in page %d is not equal to number of types %d", page.getChannelCount(), types.size()));
+            verify(page.getChannelCount() == types.size(), "Number of channels in page %s is not equal to number of types %s", page.getChannelCount(), types.size());
 
             for (int i = 0; i < types.size(); i++) {
                 BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
@@ -184,7 +182,7 @@ public final class TestingUnnesterUtil
                         blockBuilder.appendNull();
                     }
                     else {
-                        types.get(i).appendTo(block, position, blockBuilder);
+                        blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
                     }
                 }
             }
@@ -201,7 +199,7 @@ public final class TestingUnnesterUtil
         for (int i = 0; i < positionCount; i++) {
             int cardinality = maxCardinalities[i];
             for (int j = 0; j < cardinality; j++) {
-                type.appendTo(block, i, blockBuilder);
+                blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(i));
             }
         }
         return blockBuilder.build();
@@ -218,7 +216,7 @@ public final class TestingUnnesterUtil
         for (int i = 0; i < positionCount; i++) {
             int cardinality = columnarArray.getLength(i);
             for (int j = 0; j < cardinality; j++) {
-                type.appendTo(elementBlock, elementBlockPosition++, blockBuilder);
+                blockBuilder.append(elementBlock.getUnderlyingValueBlock(), elementBlock.getUnderlyingValuePosition(elementBlockPosition++));
             }
 
             int maxCardinality = maxCardinalities[i];
@@ -243,8 +241,8 @@ public final class TestingUnnesterUtil
         for (int i = 0; i < positionCount; i++) {
             int cardinality = columnarMap.getEntryCount(i);
             for (int j = 0; j < cardinality; j++) {
-                keyType.appendTo(keyBlock, blockPosition, keyBlockBuilder);
-                valueType.appendTo(valuesBlock, blockPosition, valueBlockBuilder);
+                keyBlockBuilder.append(keyBlock.getUnderlyingValueBlock(), keyBlock.getUnderlyingValuePosition(blockPosition));
+                valueBlockBuilder.append(valuesBlock.getUnderlyingValueBlock(), valuesBlock.getUnderlyingValuePosition(blockPosition));
                 blockPosition++;
             }
 
@@ -276,7 +274,8 @@ public final class TestingUnnesterUtil
                 int rowBlockIndex = columnarArray.getOffset(j);
                 int cardinality = columnarArray.getLength(j);
                 for (int k = 0; k < cardinality; k++) {
-                    rowTypes.get(i).appendTo(fields.get(i), rowBlockIndex + k, blockBuilder);
+                    Block rawBlock = fields.get(i);
+                    blockBuilder.append(rawBlock.getUnderlyingValueBlock(), rawBlock.getUnderlyingValuePosition(rowBlockIndex + k));
                 }
 
                 int maxCardinality = maxCardinalities[j];

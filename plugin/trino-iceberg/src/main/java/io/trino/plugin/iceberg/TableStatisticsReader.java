@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.spi.TrinoException;
@@ -51,6 +52,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -63,8 +65,9 @@ import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
-import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimePathDomain;
+import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimeDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getModificationTime;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -79,19 +82,30 @@ import static org.apache.iceberg.util.SnapshotUtil.schemaFor;
 
 public final class TableStatisticsReader
 {
-    private TableStatisticsReader() {}
-
     private static final Logger log = Logger.get(TableStatisticsReader.class);
 
     public static final String APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY = "ndv";
 
-    public static TableStatistics getTableStatistics(
+    private final TypeManager typeManager;
+    private final ExecutorService icebergPlanningExecutor;
+    private final IcebergFileSystemFactory fileSystemFactory;
+
+    @Inject
+    public TableStatisticsReader(
             TypeManager typeManager,
+            @ForIcebergPlanning ExecutorService icebergPlanningExecutor,
+            IcebergFileSystemFactory fileSystemFactory)
+    {
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.icebergPlanningExecutor = requireNonNull(icebergPlanningExecutor, "icebergPlanningExecutor is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+    }
+
+    public TableStatistics getTableStatistics(
             ConnectorSession session,
             IcebergTableHandle tableHandle,
             Set<IcebergColumnHandle> projectedColumns,
-            Table icebergTable,
-            TrinoFileSystem fileSystem)
+            Table icebergTable)
     {
         return makeTableStatistics(
                 typeManager,
@@ -101,7 +115,8 @@ public final class TableStatisticsReader
                 tableHandle.getUnenforcedPredicate(),
                 projectedColumns,
                 isExtendedStatisticsEnabled(session),
-                fileSystem);
+                icebergPlanningExecutor,
+                fileSystemFactory.create(session.getIdentity(), icebergTable.io().properties()));
     }
 
     @VisibleForTesting
@@ -113,6 +128,7 @@ public final class TableStatisticsReader
             TupleDomain<IcebergColumnHandle> unenforcedConstraint,
             Set<IcebergColumnHandle> projectedColumns,
             boolean extendedStatisticsEnabled,
+            ExecutorService icebergPlanningExecutor,
             TrinoFileSystem fileSystem)
     {
         if (snapshot.isEmpty()) {
@@ -142,8 +158,9 @@ public final class TableStatisticsReader
                 .map(IcebergColumnHandle::getId)
                 .collect(toImmutableSet());
 
+        Domain partitionDomain = getPartitionDomain(effectivePredicate);
         Domain pathDomain = getPathDomain(effectivePredicate);
-        Domain fileModifiedTimeDomain = getFileModifiedTimePathDomain(effectivePredicate);
+        Domain fileModifiedTimeDomain = getFileModifiedTimeDomain(effectivePredicate);
         Schema snapshotSchema = schemaFor(icebergTable, snapshotId);
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(effectivePredicate.filter((column, domain) -> !isMetadataColumnId(column.getId()))))
@@ -152,16 +169,20 @@ public final class TableStatisticsReader
                         columnIds.stream()
                                 .map(snapshotSchema::findColumnName)
                                 .filter(Objects::nonNull)
-                                .collect(toImmutableList()));
+                                .collect(toImmutableList()))
+                .planWith(icebergPlanningExecutor);
 
         IcebergStatistics.Builder icebergStatisticsBuilder = new IcebergStatistics.Builder(columns, typeManager);
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
             fileScanTasks.forEach(fileScanTask -> {
-                if (!pathDomain.isAll() && !pathDomain.includesNullableValue(utf8Slice(fileScanTask.file().path().toString()))) {
+                if (!partitionDomain.isAll() && !partitionDomain.includesNullableValue(utf8Slice(fileScanTask.spec().partitionToPath(fileScanTask.partition())))) {
+                    return;
+                }
+                if (!pathDomain.isAll() && !pathDomain.includesNullableValue(utf8Slice(fileScanTask.file().location()))) {
                     return;
                 }
                 if (!fileModifiedTimeDomain.isAll()) {
-                    long fileModifiedTime = getModificationTime(fileScanTask.file().path().toString(), fileSystem);
+                    long fileModifiedTime = getModificationTime(fileScanTask.file().location(), fileSystem);
                     if (!fileModifiedTimeDomain.includesNullableValue(packDateTimeWithZone(fileModifiedTime, UTC_KEY))) {
                         return;
                     }

@@ -30,6 +30,7 @@ import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -65,6 +66,7 @@ import static io.trino.plugin.mongodb.MongoSession.COLLECTION_NAME;
 import static io.trino.plugin.mongodb.MongoSession.DATABASE_NAME;
 import static io.trino.plugin.mongodb.MongoSession.ID;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
+import static io.trino.plugin.mongodb.TypeUtils.getImplicitRowFieldIndex;
 import static io.trino.plugin.mongodb.TypeUtils.isJsonType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -102,11 +104,13 @@ public class MongoPageSource
     private boolean finished;
 
     private final PageBuilder pageBuilder;
+    private final String implicitPrefix;
 
     public MongoPageSource(
             MongoSession mongoSession,
             MongoTableHandle tableHandle,
-            List<MongoColumnHandle> columns)
+            List<MongoColumnHandle> columns,
+            String implicitPrefix)
     {
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.columnTypes = columns.stream().map(MongoColumnHandle::type).collect(toList());
@@ -114,6 +118,7 @@ public class MongoPageSource
         currentDoc = null;
 
         pageBuilder = new PageBuilder(columnTypes);
+        this.implicitPrefix = requireNonNull(implicitPrefix, "implicitPrefix is null");
     }
 
     @Override
@@ -141,7 +146,7 @@ public class MongoPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         verify(pageBuilder.isEmpty());
         for (int i = 0; i < ROWS_PER_REQUEST; i++) {
@@ -161,7 +166,7 @@ public class MongoPageSource
 
         Page page = pageBuilder.build();
         pageBuilder.reset();
-        return page;
+        return SourcePage.create(page);
     }
 
     private void appendTo(Type type, Object value, BlockBuilder output)
@@ -193,13 +198,13 @@ public class MongoPageSource
                     //noinspection NumericCastThatLosesPrecision
                     type.writeLong(output, floatToIntBits(((float) ((Number) value).doubleValue())));
                 }
-                else if (type instanceof DecimalType) {
+                else if (type instanceof DecimalType decimalType) {
                     Decimal128 decimal = (Decimal128) value;
                     if (decimal.compareTo(Decimal128.NEGATIVE_ZERO) == 0) {
-                        type.writeLong(output, encodeShortScaledValue(BigDecimal.ZERO, ((DecimalType) type).getScale()));
+                        type.writeLong(output, encodeShortScaledValue(BigDecimal.ZERO, decimalType.getScale()));
                     }
                     else {
-                        type.writeLong(output, encodeShortScaledValue(decimal.bigDecimalValue(), ((DecimalType) type).getScale()));
+                        type.writeLong(output, encodeShortScaledValue(decimal.bigDecimalValue(), decimalType.getScale()));
                     }
                 }
                 else if (type.equals(DATE)) {
@@ -258,8 +263,8 @@ public class MongoPageSource
         if (value instanceof Collection<?>) {
             return "[" + join(", ", ((Collection<?>) value).stream().map(this::toVarcharValue).collect(toList())) + "]";
         }
-        if (value instanceof Document) {
-            return ((Document) value).toJson();
+        if (value instanceof Document document) {
+            return document.toJson();
         }
         return String.valueOf(value);
     }
@@ -269,22 +274,22 @@ public class MongoPageSource
         if (type instanceof VarcharType) {
             type.writeSlice(output, utf8Slice(toVarcharValue(value)));
         }
-        else if (type instanceof CharType) {
-            type.writeSlice(output, truncateToLengthAndTrimSpaces(utf8Slice((String) value), ((CharType) type)));
+        else if (type instanceof CharType charType) {
+            type.writeSlice(output, truncateToLengthAndTrimSpaces(utf8Slice((String) value), charType));
         }
         else if (type.equals(OBJECT_ID)) {
             type.writeSlice(output, wrappedBuffer(((ObjectId) value).toByteArray()));
         }
         else if (type instanceof VarbinaryType) {
-            if (value instanceof Binary) {
-                type.writeSlice(output, wrappedBuffer(((Binary) value).getData()));
+            if (value instanceof Binary binary) {
+                type.writeSlice(output, wrappedBuffer(binary.getData()));
             }
             else {
                 output.appendNull();
             }
         }
-        else if (type instanceof DecimalType) {
-            type.writeObject(output, encodeScaledValue(((Decimal128) value).bigDecimalValue(), ((DecimalType) type).getScale()));
+        else if (type instanceof DecimalType decimalType) {
+            type.writeObject(output, encodeScaledValue(((Decimal128) value).bigDecimalValue(), decimalType.getScale()));
         }
         else if (isJsonType(type)) {
             type.writeSlice(output, jsonParse(utf8Slice(toVarcharValue(value))));
@@ -382,7 +387,7 @@ public class MongoPageSource
         output.appendNull();
     }
 
-    private static Object getColumnValue(Document document, MongoColumnHandle mongoColumnHandle)
+    private Object getColumnValue(Document document, MongoColumnHandle mongoColumnHandle)
     {
         Object value = document.get(mongoColumnHandle.baseName());
         if (mongoColumnHandle.isBaseColumn()) {
@@ -391,17 +396,27 @@ public class MongoPageSource
         if (value instanceof DBRef dbRefValue) {
             return getDbRefValue(dbRefValue, mongoColumnHandle);
         }
-        Document documentValue = (Document) value;
+
         for (String dereferenceName : mongoColumnHandle.dereferenceNames()) {
             // When parent field itself is null
-            if (documentValue == null) {
+            if (value == null) {
                 return null;
             }
-            value = documentValue.get(dereferenceName);
-            if (value instanceof Document nestedDocument) {
-                documentValue = nestedDocument;
+            if (value instanceof Document documentValue) {
+                value = documentValue.get(dereferenceName);
             }
-            else if (value instanceof DBRef dbRefValue) {
+            else {
+                checkArgument(value instanceof List<?>, "Unsupported dereference of %s in %s", value.getClass(), mongoColumnHandle);
+                List<?> arrayValue = (List<?>) value;
+                int arrayPosition = getImplicitRowFieldIndex(dereferenceName, implicitPrefix) - 1;
+                checkArgument(arrayPosition >= 0, "Invalid array position %s in %s", dereferenceName, mongoColumnHandle);
+                if (arrayPosition >= arrayValue.size()) {
+                    return null;
+                }
+                value = arrayValue.get(arrayPosition);
+            }
+
+            if (value instanceof DBRef dbRefValue) {
                 // Assuming DBRefField is the leaf field
                 return getDbRefValue(dbRefValue, mongoColumnHandle);
             }

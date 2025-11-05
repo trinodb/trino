@@ -15,7 +15,6 @@ package io.trino.orc.reader;
 
 import com.google.common.io.Closer;
 import io.trino.memory.context.AggregatedMemoryContext;
-import io.trino.orc.OrcBlockFactory;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcReader.FieldMapperFactory;
@@ -56,7 +55,6 @@ public class ListColumnReader
 
     private final Type elementType;
     private final OrcColumn column;
-    private final OrcBlockFactory blockFactory;
 
     private final ColumnReader elementColumnReader;
 
@@ -73,7 +71,7 @@ public class ListColumnReader
 
     private boolean rowGroupOpen;
 
-    public ListColumnReader(Type type, OrcColumn column, AggregatedMemoryContext memoryContext, OrcBlockFactory blockFactory, FieldMapperFactory fieldMapperFactory)
+    public ListColumnReader(Type type, OrcColumn column, AggregatedMemoryContext memoryContext, FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -81,13 +79,11 @@ public class ListColumnReader
         elementType = ((ArrayType) type).getElementType();
 
         this.column = requireNonNull(column, "column is null");
-        this.blockFactory = requireNonNull(blockFactory, "blockFactory is null");
         this.elementColumnReader = createColumnReader(
                 elementType,
                 column.getNestedColumns().get(0),
                 fullyProjectedLayout(),
                 memoryContext,
-                blockFactory,
                 fieldMapperFactory);
     }
 
@@ -149,7 +145,7 @@ public class ListColumnReader
         Block elements;
         if (elementCount > 0) {
             elementColumnReader.prepareNextRead(elementCount);
-            elements = blockFactory.createBlock(elementCount, elementColumnReader::readBlock, true);
+            elements = elementColumnReader.readBlock();
         }
         else {
             elements = elementType.createBlockBuilder(null, 0).build();

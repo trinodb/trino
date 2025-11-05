@@ -13,8 +13,8 @@
  */
 package io.trino.connector;
 
-import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
 
 import java.io.IOException;
@@ -60,9 +60,9 @@ public class MockConnectorPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
-        return delegate.getNextPage();
+        return delegate.getNextSourcePage();
     }
 
     @Override

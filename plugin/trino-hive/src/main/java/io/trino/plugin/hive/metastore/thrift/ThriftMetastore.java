@@ -57,13 +57,15 @@ public sealed interface ThriftMetastore
 
     void dropTable(String databaseName, String tableName, boolean deleteData);
 
-    void alterTable(String databaseName, String tableName, Table table);
+    void alterTable(String databaseName, String tableName, Table table, Map<String, String> environmentContext);
 
     void alterTransactionalTable(Table table, long transactionId, long writeId);
 
     List<String> getAllDatabases();
 
     List<TableMeta> getTables(String databaseName);
+
+    List<String> getTableNamesWithParameters(String databaseName, String parameterKey, Set<String> parameterValues);
 
     Optional<Database> getDatabase(String databaseName);
 

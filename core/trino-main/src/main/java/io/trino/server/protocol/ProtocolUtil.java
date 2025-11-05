@@ -28,8 +28,10 @@ import io.trino.client.StatementStats;
 import io.trino.client.Warning;
 import io.trino.execution.BasicStageInfo;
 import io.trino.execution.BasicStageStats;
+import io.trino.execution.BasicStagesInfo;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryState;
+import io.trino.execution.StageId;
 import io.trino.execution.TaskInfo;
 import io.trino.server.BasicQueryStats;
 import io.trino.server.ResultQueryInfo;
@@ -110,11 +112,11 @@ public final class ProtocolUtil
 
                 yield dataType.getArguments().stream()
                         .map(parameter -> {
-                            if (parameter instanceof NumericParameter) {
-                                return ((NumericParameter) parameter).getValue();
+                            if (parameter instanceof NumericParameter numericParameter) {
+                                return numericParameter.getValue();
                             }
-                            if (parameter instanceof TypeParameter) {
-                                return formatType(((TypeParameter) parameter).getValue(), supportsParametricDateTime);
+                            if (parameter instanceof TypeParameter typeParameter) {
+                                return formatType(typeParameter.getValue(), supportsParametricDateTime);
                             }
                             throw new IllegalArgumentException("Unsupported parameter type: " + parameter.getClass().getName());
                         })
@@ -167,10 +169,10 @@ public final class ProtocolUtil
     public static StatementStats toStatementStats(ResultQueryInfo queryInfo)
     {
         BasicQueryStats queryStats = queryInfo.queryStats();
-        BasicStageInfo outputStage = queryInfo.outputStage().orElse(null);
+        BasicStagesInfo stages = queryInfo.stages().orElse(null);
 
         Set<String> globalUniqueNodes = new HashSet<>();
-        StageStats rootStageStats = toStageStats(outputStage, globalUniqueNodes);
+        StageStats rootStageStats = toStageStats(stages, globalUniqueNodes);
         return StatementStats.builder()
                 .setState(queryInfo.state().toString())
                 .setQueued(queryInfo.state() == QueryState.QUEUED)
@@ -182,31 +184,42 @@ public final class ProtocolUtil
                 .setQueuedSplits(queryStats.getQueuedDrivers())
                 .setRunningSplits(queryStats.getRunningDrivers() + queryStats.getBlockedDrivers())
                 .setCompletedSplits(queryStats.getCompletedDrivers())
+                .setPlanningTimeMillis(queryStats.getPlanningTime().toMillis())
+                .setAnalysisTimeMillis(queryStats.getAnalysisTime().toMillis())
                 .setCpuTimeMillis(queryStats.getTotalCpuTime().toMillis())
                 .setWallTimeMillis(queryStats.getTotalScheduledTime().toMillis())
                 .setQueuedTimeMillis(queryStats.getQueuedTime().toMillis())
                 .setElapsedTimeMillis(queryStats.getElapsedTime().toMillis())
-                .setProcessedRows(queryStats.getRawInputPositions())
-                .setProcessedBytes(queryStats.getRawInputDataSize().toBytes())
+                .setFinishingTimeMillis(queryStats.getFinishingTime().toMillis())
+                .setPhysicalInputTimeMillis(queryStats.getPhysicalInputReadTime().toMillis())
+                .setProcessedRows(queryStats.getProcessedInputPositions())
+                .setProcessedBytes(queryStats.getPhysicalInputDataSize().toBytes() + queryStats.getInternalNetworkInputDataSize().toBytes())
                 .setPhysicalInputBytes(queryStats.getPhysicalInputDataSize().toBytes())
                 .setPhysicalWrittenBytes(queryStats.getPhysicalWrittenDataSize().toBytes())
+                .setInternalNetworkInputBytes(queryStats.getInternalNetworkInputDataSize().toBytes())
                 .setPeakMemoryBytes(queryStats.getPeakUserMemoryReservation().toBytes())
                 .setSpilledBytes(queryStats.getSpilledDataSize().toBytes())
                 .setRootStage(rootStageStats)
                 .build();
     }
 
-    private static StageStats toStageStats(BasicStageInfo stageInfo, Set<String> globalUniqueNodes)
+    private static StageStats toStageStats(BasicStagesInfo stages, Set<String> globalUniqueNodes)
     {
-        if (stageInfo == null) {
+        if (stages == null) {
             return null;
         }
 
+        return toStageStats(stages.getOutputStageId(), stages, globalUniqueNodes);
+    }
+
+    private static StageStats toStageStats(StageId stageId, BasicStagesInfo stages, Set<String> globalUniqueNodes)
+    {
+        BasicStageInfo stageInfo = stages.getStagesById().get(stageId);
         BasicStageStats stageStats = stageInfo.getStageStats();
 
         // Store current stage details into a builder
         StageStats.Builder builder = StageStats.builder()
-                .setStageId(String.valueOf(stageInfo.getStageId().getId()))
+                .setStageId(String.valueOf(stageInfo.getStageId().id()))
                 .setState(stageInfo.getState().toString())
                 .setDone(stageInfo.getState().isDone())
                 .setTotalSplits(stageStats.getTotalDrivers())
@@ -215,22 +228,22 @@ public final class ProtocolUtil
                 .setCompletedSplits(stageStats.getCompletedDrivers())
                 .setCpuTimeMillis(stageStats.getTotalCpuTime().toMillis())
                 .setWallTimeMillis(stageStats.getTotalScheduledTime().toMillis())
-                .setProcessedRows(stageStats.getRawInputPositions())
-                .setProcessedBytes(stageStats.getRawInputDataSize().toBytes())
+                .setProcessedRows(stageStats.getProcessedInputPositions())
+                .setProcessedBytes(stageStats.getPhysicalInputDataSize().toBytes() + stageStats.getInternalNetworkInputDataSize().toBytes())
                 .setPhysicalInputBytes(stageStats.getPhysicalInputDataSize().toBytes())
                 .setFailedTasks(stageStats.getFailedTasks())
                 .setCoordinatorOnly(stageInfo.isCoordinatorOnly())
                 .setNodes(countStageAndAddGlobalUniqueNodes(stageInfo, globalUniqueNodes));
 
         // Recurse into child stages to create their StageStats
-        List<BasicStageInfo> subStages = stageInfo.getSubStages();
+        List<StageId> subStages = stageInfo.getSubStages();
         if (subStages.isEmpty()) {
             builder.setSubStages(ImmutableList.of());
         }
         else {
             ImmutableList.Builder<StageStats> subStagesBuilder = ImmutableList.builderWithExpectedSize(subStages.size());
-            for (BasicStageInfo subStage : subStages) {
-                subStagesBuilder.add(toStageStats(subStage, globalUniqueNodes));
+            for (StageId subStage : subStages) {
+                subStagesBuilder.add(toStageStats(subStage, stages, globalUniqueNodes));
             }
             builder.setSubStages(subStagesBuilder.build());
         }

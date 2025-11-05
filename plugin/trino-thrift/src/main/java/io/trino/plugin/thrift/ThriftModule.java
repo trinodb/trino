@@ -43,9 +43,8 @@ public class ThriftModule
         driftClientBinder(binder)
                 .bindDriftClient(TrinoThriftService.class)
                 .withExceptionClassifier(t -> {
-                    if (t instanceof TrinoThriftServiceException) {
-                        boolean retryable = ((TrinoThriftServiceException) t).isRetryable();
-                        return new ExceptionClassification(Optional.of(retryable), HostStatus.NORMAL);
+                    if (t instanceof TrinoThriftServiceException ttse) {
+                        return new ExceptionClassification(Optional.of(ttse.isRetryable()), HostStatus.NORMAL);
                     }
                     return NORMAL_EXCEPTION;
                 });

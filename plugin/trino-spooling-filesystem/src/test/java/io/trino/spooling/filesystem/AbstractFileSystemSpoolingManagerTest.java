@@ -16,10 +16,10 @@ package io.trino.spooling.filesystem;
 import io.azam.ulidj.ULID;
 import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.spi.QueryId;
-import io.trino.spi.protocol.SpooledLocation;
-import io.trino.spi.protocol.SpooledSegmentHandle;
-import io.trino.spi.protocol.SpoolingContext;
-import io.trino.spi.protocol.SpoolingManager;
+import io.trino.spi.spool.SpooledLocation;
+import io.trino.spi.spool.SpooledSegmentHandle;
+import io.trino.spi.spool.SpoolingContext;
+import io.trino.spi.spool.SpoolingManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -83,7 +83,7 @@ public abstract class AbstractFileSystemSpoolingManagerTest
             throws IOException
     {
         EncryptionKey key = randomAes256();
-        FileSystemSpooledSegmentHandle handle = new FileSystemSpooledSegmentHandle("json", ULID.randomBinary(), Optional.of(key));
+        FileSystemSpooledSegmentHandle handle = new FileSystemSpooledSegmentHandle("json", ULID.randomBinary(), "nodeId", Optional.of(key));
         SpooledLocation location = getSpoolingManager().location(handle);
         FileSystemSpooledSegmentHandle handle2 = (FileSystemSpooledSegmentHandle) getSpoolingManager().handle(location.identifier(), location.headers());
 

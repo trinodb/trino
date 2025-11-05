@@ -29,7 +29,6 @@ import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
-import io.trino.execution.buffer.TestingPagesSerdeFactory;
 import io.trino.operator.HttpPageBufferClient.ClientCallback;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
@@ -62,6 +61,8 @@ import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
+import static io.trino.execution.buffer.CompressionCodec.LZ4;
+import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.PAGE_TOO_LARGE;
 import static io.trino.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
@@ -559,7 +560,7 @@ public class TestHttpPageBufferClient
     private static class TestingClientCallback
             implements ClientCallback
     {
-        private final PagesSerdeFactory serdeFactory = new TestingPagesSerdeFactory();
+        private final PagesSerdeFactory serdeFactory = createTestingPagesSerdeFactory(LZ4);
 
         private final CyclicBarrier done;
         private final List<Slice> pages = Collections.synchronizedList(new ArrayList<>());

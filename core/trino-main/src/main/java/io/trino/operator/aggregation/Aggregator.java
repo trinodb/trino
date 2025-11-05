@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.primitives.Ints;
+import io.trino.operator.AggregationMetrics;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -36,6 +37,7 @@ public class Aggregator
     private final int[] inputChannels;
     private final OptionalInt maskChannel;
     private final AggregationMaskBuilder maskBuilder;
+    private final AggregationMetrics metrics;
 
     public Aggregator(
             Accumulator accumulator,
@@ -44,7 +46,8 @@ public class Aggregator
             Type finalType,
             List<Integer> inputChannels,
             OptionalInt maskChannel,
-            AggregationMaskBuilder maskBuilder)
+            AggregationMaskBuilder maskBuilder,
+            AggregationMetrics metrics)
     {
         this.accumulator = requireNonNull(accumulator, "accumulator is null");
         this.step = requireNonNull(step, "step is null");
@@ -53,6 +56,7 @@ public class Aggregator
         this.inputChannels = Ints.toArray(requireNonNull(inputChannels, "inputChannels is null"));
         this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
         this.maskBuilder = requireNonNull(maskBuilder, "maskBuilder is null");
+        this.metrics = requireNonNull(metrics, "metrics is null");
         checkArgument(step.isInputRaw() || inputChannels.size() == 1, "expected 1 input channel for intermediate aggregation");
     }
 
@@ -77,10 +81,14 @@ public class Aggregator
             if (mask.isSelectNone()) {
                 return;
             }
+            long start = System.nanoTime();
             accumulator.addInput(arguments, mask);
+            metrics.recordAccumulatorUpdateTimeSince(start);
         }
         else {
+            long start = System.nanoTime();
             accumulator.addIntermediate(page.getBlock(inputChannels[0]));
+            metrics.recordAccumulatorUpdateTimeSince(start);
         }
     }
 

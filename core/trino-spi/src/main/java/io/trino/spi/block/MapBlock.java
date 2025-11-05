@@ -19,21 +19,18 @@ import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
-import static io.trino.spi.block.BlockUtil.checkValidPositions;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
-import static io.trino.spi.block.BlockUtil.countAndMarkSelectedPositionsFromOffsets;
-import static io.trino.spi.block.BlockUtil.countSelectedPositionsFromOffsets;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static io.trino.spi.block.MapHashTables.HashBuildMode.DUPLICATE_NOT_CHECKED;
 import static java.lang.String.format;
@@ -210,6 +207,12 @@ public final class MapBlock
         return valueBlock;
     }
 
+    @Nullable
+    boolean[] getRawMapIsNull()
+    {
+        return mapIsNull;
+    }
+
     MapHashTables getHashTables()
     {
         return hashTables;
@@ -232,6 +235,20 @@ public final class MapBlock
     }
 
     @Override
+    public boolean hasNull()
+    {
+        if (mapIsNull == null) {
+            return false;
+        }
+        for (int i = 0; i < positionCount; i++) {
+            if (mapIsNull[i + startOffset]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public int getPositionCount()
     {
         return positionCount;
@@ -241,9 +258,6 @@ public final class MapBlock
     public long getSizeInBytes()
     {
         if (valueSizeInBytes < 0) {
-            if (!valueBlock.isLoaded()) {
-                return baseSizeInBytes + valueBlock.getSizeInBytes();
-            }
             valueSizeInBytes = calculateSize(valueBlock);
         }
 
@@ -283,35 +297,6 @@ public final class MapBlock
         return "MapBlock{positionCount=" + getPositionCount() + '}';
     }
 
-    @Override
-    public boolean isLoaded()
-    {
-        return keyBlock.isLoaded() && valueBlock.isLoaded();
-    }
-
-    @Override
-    public Block getLoadedBlock()
-    {
-        if (keyBlock != keyBlock.getLoadedBlock()) {
-            // keyBlock has to be loaded since MapBlock constructs hash table eagerly.
-            throw new IllegalStateException();
-        }
-
-        Block loadedValueBlock = valueBlock.getLoadedBlock();
-        if (loadedValueBlock == valueBlock) {
-            return this;
-        }
-        return createMapBlockInternal(
-                getMapType(),
-                startOffset,
-                positionCount,
-                Optional.ofNullable(mapIsNull),
-                offsets,
-                keyBlock,
-                loadedValueBlock,
-                hashTables);
-    }
-
     void ensureHashTableLoaded()
     {
         hashTables.buildAllHashTablesIfNecessary(keyBlock, offsets, mapIsNull);
@@ -345,24 +330,23 @@ public final class MapBlock
     }
 
     @Override
-    public String getEncodingName()
-    {
-        return MapBlockEncoding.NAME;
-    }
-
-    @Override
     public MapBlock copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
 
         int[] newOffsets = new int[length + 1];
-        boolean[] newMapIsNull = new boolean[length];
+        boolean hasNull = false;
+        boolean[] newMapIsNull = null;
+        if (mapIsNull != null) {
+            newMapIsNull = new boolean[length];
+        }
 
         IntArrayList entriesPositions = new IntArrayList();
         int newPosition = 0;
         for (int i = offset; i < offset + length; ++i) {
             int position = positions[i];
-            if (isNull(position)) {
+            if (mapIsNull != null && mapIsNull[position + startOffset]) {
+                hasNull = true;
                 newMapIsNull[newPosition] = true;
                 newOffsets[newPosition + 1] = newOffsets[newPosition];
             }
@@ -378,6 +362,9 @@ public final class MapBlock
                 }
             }
             newPosition++;
+        }
+        if (!hasNull) {
+            newMapIsNull = null;
         }
 
         int[] rawHashTables = hashTables.tryGet().orElse(null);
@@ -403,7 +390,7 @@ public final class MapBlock
                 mapType,
                 0,
                 length,
-                Optional.of(newMapIsNull),
+                Optional.ofNullable(newMapIsNull),
                 newOffsets,
                 newKeys,
                 newValues,
@@ -444,66 +431,6 @@ public final class MapBlock
     }
 
     @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.empty(); // size per row is variable on the number of entries in each row
-    }
-
-    private OptionalInt keyAndValueFixedSizeInBytesPerRow()
-    {
-        OptionalInt keyFixedSizePerRow = keyBlock.fixedSizeInBytesPerPosition();
-        if (keyFixedSizePerRow.isEmpty()) {
-            return OptionalInt.empty();
-        }
-        OptionalInt valueFixedSizePerRow = valueBlock.fixedSizeInBytesPerPosition();
-        if (valueFixedSizePerRow.isEmpty()) {
-            return OptionalInt.empty();
-        }
-
-        return OptionalInt.of(keyFixedSizePerRow.getAsInt() + valueFixedSizePerRow.getAsInt());
-    }
-
-    @Override
-    public long getPositionsSizeInBytes(boolean[] positions, int selectedMapPositions)
-    {
-        int positionCount = getPositionCount();
-        checkValidPositions(positions, positionCount);
-        if (selectedMapPositions == 0) {
-            return 0;
-        }
-        if (selectedMapPositions == positionCount) {
-            return getSizeInBytes();
-        }
-
-        int[] offsets = this.offsets;
-        int offsetBase = startOffset;
-        OptionalInt fixedKeyAndValueSizePerRow = keyAndValueFixedSizeInBytesPerRow();
-
-        int selectedEntryCount;
-        long keyAndValuesSizeInBytes;
-        if (fixedKeyAndValueSizePerRow.isPresent()) {
-            // no new positions array need be created, we can just count the number of elements
-            selectedEntryCount = countSelectedPositionsFromOffsets(positions, offsets, offsetBase);
-            keyAndValuesSizeInBytes = fixedKeyAndValueSizePerRow.getAsInt() * (long) selectedEntryCount;
-        }
-        else {
-            // We can use either the getRegionSizeInBytes or getPositionsSizeInBytes
-            // from the underlying raw blocks to implement this function. We chose
-            // getPositionsSizeInBytes with the assumption that constructing a
-            // positions array is cheaper than calling getRegionSizeInBytes for each
-            // used position.
-            boolean[] entryPositions = new boolean[keyBlock.getPositionCount()];
-            selectedEntryCount = countAndMarkSelectedPositionsFromOffsets(positions, offsets, offsetBase, entryPositions);
-            keyAndValuesSizeInBytes = keyBlock.getPositionsSizeInBytes(entryPositions, selectedEntryCount) +
-                    valueBlock.getPositionsSizeInBytes(entryPositions, selectedEntryCount);
-        }
-
-        return keyAndValuesSizeInBytes +
-                (Integer.BYTES + Byte.BYTES) * (long) selectedMapPositions +
-                Integer.BYTES * HASH_MULTIPLIER * (long) selectedEntryCount;
-    }
-
-    @Override
     public MapBlock copyRegion(int position, int length)
     {
         int positionCount = getPositionCount();
@@ -515,9 +442,7 @@ public final class MapBlock
         Block newValues = valueBlock.copyRegion(startValueOffset, endValueOffset - startValueOffset);
 
         int[] newOffsets = compactOffsets(offsets, position + startOffset, length);
-        boolean[] mapIsNull = this.mapIsNull;
-        boolean[] newMapIsNull;
-        newMapIsNull = mapIsNull == null ? null : compactArray(mapIsNull, position + startOffset, length);
+        boolean[] newMapIsNull = compactIsNull(mapIsNull, position + startOffset, length);
         int[] rawHashTables = hashTables.tryGet().orElse(null);
         int[] newRawHashTables = null;
         int expectedNewHashTableEntries = (endValueOffset - startValueOffset) * HASH_MULTIPLIER;

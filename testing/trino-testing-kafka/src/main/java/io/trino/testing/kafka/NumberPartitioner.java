@@ -29,8 +29,8 @@ public class NumberPartitioner
     @Override
     public int partition(String topic, Object key, byte[] keyBytes, Object value, byte[] valueBytes, Cluster cluster)
     {
-        if (key instanceof Number) {
-            return toIntExact(((Number) key).longValue() % cluster.partitionCountForTopic(topic));
+        if (key instanceof Number number) {
+            return toIntExact(number.longValue() % cluster.partitionCountForTopic(topic));
         }
         return 0;
     }

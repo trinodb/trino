@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableList;
 import io.trino.execution.QueryState;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.ResourceGroupId;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,7 +34,7 @@ public class QueryStateInfo
     private final QueryId queryId;
     private final Optional<ResourceGroupId> resourceGroupId;
     private final String query;
-    private final DateTime createTime;
+    private final Instant createTime;
     private final String user;
     private final Optional<String> source;
     private final Optional<String> clientInfo;
@@ -49,7 +49,7 @@ public class QueryStateInfo
             @JsonProperty("queryState") QueryState queryState,
             @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
             @JsonProperty("query") String query,
-            @JsonProperty("createTime") DateTime createTime,
+            @JsonProperty("createTime") Instant createTime,
             @JsonProperty("user") String user,
             @JsonProperty("source") Optional<String> source,
             @JsonProperty("clientInfo") Optional<String> clientInfo,
@@ -169,7 +169,7 @@ public class QueryStateInfo
     }
 
     @JsonProperty
-    public DateTime getCreateTime()
+    public Instant getCreateTime()
     {
         return createTime;
     }

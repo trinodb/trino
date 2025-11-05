@@ -71,7 +71,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.ColorType.COLOR;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.Float.floatToRawIntBits;
@@ -95,7 +94,7 @@ public final class BlockAssertions
         assertThat(block.getPositionCount())
                 .describedAs("Block positions")
                 .isEqualTo(1);
-        return type.getObjectValue(SESSION, block, 0);
+        return type.getObjectValue(block, 0);
     }
 
     public static List<Object> toValues(Type type, Iterable<Block> blocks)
@@ -103,7 +102,7 @@ public final class BlockAssertions
         List<Object> values = new ArrayList<>();
         for (Block block : blocks) {
             for (int position = 0; position < block.getPositionCount(); position++) {
-                values.add(type.getObjectValue(SESSION, block, position));
+                values.add(type.getObjectValue(block, position));
             }
         }
         return unmodifiableList(values);
@@ -113,7 +112,7 @@ public final class BlockAssertions
     {
         List<Object> values = new ArrayList<>();
         for (int position = 0; position < block.getPositionCount(); position++) {
-            values.add(type.getObjectValue(SESSION, block, position));
+            values.add(type.getObjectValue(block, position));
         }
         return unmodifiableList(values);
     }
@@ -122,9 +121,9 @@ public final class BlockAssertions
     {
         assertThat(actual.getPositionCount()).isEqualTo(expected.getPositionCount());
         for (int position = 0; position < actual.getPositionCount(); position++) {
-            assertThat(type.getObjectValue(SESSION, actual, position))
+            assertThat(type.getObjectValue(actual, position))
                     .describedAs("position " + position)
-                    .isEqualTo(type.getObjectValue(SESSION, expected, position));
+                    .isEqualTo(type.getObjectValue(expected, position));
         }
     }
 
@@ -170,8 +169,8 @@ public final class BlockAssertions
         if (type == VARCHAR) {
             return createRandomStringBlock(positionCount, nullRate, MAX_STRING_SIZE);
         }
-        if (type instanceof CharType) {
-            return createRandomCharsBlock((CharType) type, positionCount, nullRate);
+        if (type instanceof CharType charType) {
+            return createRandomCharsBlock(charType, positionCount, nullRate);
         }
         if (type == DOUBLE) {
             return createRandomDoublesBlock(positionCount, nullRate);
@@ -228,8 +227,8 @@ public final class BlockAssertions
         }
 
         // Builds the nested block of size offsets[positionCount].
-        if (type instanceof ArrayType) {
-            ValueBlock valuesBlock = createRandomBlockForType(((ArrayType) type).getElementType(), offsets[positionCount], nullRate);
+        if (type instanceof ArrayType arrayType) {
+            ValueBlock valuesBlock = createRandomBlockForType(arrayType.getElementType(), offsets[positionCount], nullRate);
             return fromElementBlock(positionCount, Optional.ofNullable(isNull), offsets, valuesBlock);
         }
         if (type instanceof MapType mapType) {
@@ -621,34 +620,16 @@ public final class BlockAssertions
                 for (int fieldIndex = 0; fieldIndex < fieldTypes.size(); fieldIndex++) {
                     Type fieldType = fieldTypes.get(fieldIndex);
                     Object fieldValue = row[fieldIndex];
-                    if (fieldValue == null) {
-                        fieldBuilders.get(fieldIndex).appendNull();
-                        continue;
-                    }
-
-                    if (fieldValue instanceof String) {
-                        fieldType.writeSlice(fieldBuilders.get(fieldIndex), utf8Slice((String) fieldValue));
-                    }
-                    else if (fieldValue instanceof Slice) {
-                        fieldType.writeSlice(fieldBuilders.get(fieldIndex), (Slice) fieldValue);
-                    }
-                    else if (fieldValue instanceof Double) {
-                        fieldType.writeDouble(fieldBuilders.get(fieldIndex), (Double) fieldValue);
-                    }
-                    else if (fieldValue instanceof Long) {
-                        fieldType.writeLong(fieldBuilders.get(fieldIndex), (Long) fieldValue);
-                    }
-                    else if (fieldValue instanceof Boolean) {
-                        fieldType.writeBoolean(fieldBuilders.get(fieldIndex), (Boolean) fieldValue);
-                    }
-                    else if (fieldValue instanceof Block) {
-                        fieldType.writeObject(fieldBuilders.get(fieldIndex), fieldValue);
-                    }
-                    else if (fieldValue instanceof Integer) {
-                        fieldType.writeLong(fieldBuilders.get(fieldIndex), (Integer) fieldValue);
-                    }
-                    else {
-                        throw new IllegalArgumentException();
+                    switch (fieldValue) {
+                        case null -> fieldBuilders.get(fieldIndex).appendNull();
+                        case String s -> fieldType.writeSlice(fieldBuilders.get(fieldIndex), utf8Slice(s));
+                        case Slice slice -> fieldType.writeSlice(fieldBuilders.get(fieldIndex), slice);
+                        case Double v -> fieldType.writeDouble(fieldBuilders.get(fieldIndex), v);
+                        case Long l -> fieldType.writeLong(fieldBuilders.get(fieldIndex), l);
+                        case Boolean b -> fieldType.writeBoolean(fieldBuilders.get(fieldIndex), b);
+                        case Block _ -> fieldType.writeObject(fieldBuilders.get(fieldIndex), fieldValue);
+                        case Integer i -> fieldType.writeLong(fieldBuilders.get(fieldIndex), i);
+                        default -> throw new IllegalArgumentException();
                     }
                 }
             });

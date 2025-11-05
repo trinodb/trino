@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.ImmutableLongArray;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
@@ -27,6 +28,7 @@ import io.trino.sql.planner.plan.TableScanNode;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 import static io.trino.operator.RetryPolicy.TASK;
@@ -116,7 +118,7 @@ public class TestRemoteSourceStatsRule
     {
         return new PlanFragment(
                 new PlanFragmentId("fragment"),
-                TableScanNode.newInstance(
+                new TableScanNode(
                         new PlanNodeId("plan_id"),
                         TEST_TABLE_HANDLE,
                         ImmutableList.of(new Symbol(VARCHAR, "col_a"), new Symbol(VARCHAR, "col_b"), new Symbol(BIGINT, "col_c"), new Symbol(DOUBLE, "col_d")),
@@ -125,6 +127,8 @@ public class TestRemoteSourceStatsRule
                                 new Symbol(VARCHAR, "col_b"), new TestingColumnHandle("col_b", 1, VARCHAR),
                                 new Symbol(BIGINT, "col_c"), new TestingColumnHandle("col_c", 2, BIGINT),
                                 new Symbol(DOUBLE, "col_d"), new TestingColumnHandle("col_d", 3, DOUBLE)),
+                        TupleDomain.all(),
+                        Optional.empty(),
                         false,
                         Optional.empty()),
                 ImmutableSet.of(
@@ -136,6 +140,7 @@ public class TestRemoteSourceStatsRule
                 Optional.empty(),
                 ImmutableList.of(new PlanNodeId("plan_id")),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(new Symbol(BIGINT, "col_c"))),
+                OptionalInt.empty(),
                 statsAndCosts,
                 ImmutableList.of(),
                 ImmutableMap.of(),

@@ -20,23 +20,23 @@ import io.airlift.stats.Distribution;
 import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
+
+import java.time.Instant;
 
 import static io.trino.operator.TestDriverStats.assertExpectedDriverStats;
 import static io.trino.operator.TestOperatorStats.assertExpectedOperatorStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class TestPipelineStats
 {
     public static final PipelineStats EXPECTED = new PipelineStats(
             0,
 
-            new DateTime(100),
-            new DateTime(101),
-            new DateTime(102),
+            Instant.ofEpochMilli(100),
+            Instant.ofEpochMilli(101),
+            Instant.ofEpochMilli(102),
 
             true,
             false,
@@ -54,6 +54,8 @@ public class TestPipelineStats
             DataSize.ofBytes(5),
             DataSize.ofBytes(6),
 
+            DataSize.ofBytes(7),
+
             getTestDistribution(8),
             getTestDistribution(9),
 
@@ -69,9 +71,6 @@ public class TestPipelineStats
 
             DataSize.ofBytes(142),
             152,
-
-            DataSize.ofBytes(14),
-            15,
 
             DataSize.ofBytes(16),
             17,
@@ -101,9 +100,9 @@ public class TestPipelineStats
 
     public static void assertExpectedPipelineStats(PipelineStats actual)
     {
-        assertThat(actual.getFirstStartTime()).isEqualTo(new DateTime(100, UTC));
-        assertThat(actual.getLastStartTime()).isEqualTo(new DateTime(101, UTC));
-        assertThat(actual.getLastEndTime()).isEqualTo(new DateTime(102, UTC));
+        assertThat(actual.getFirstStartTime()).isEqualTo(Instant.ofEpochMilli(100));
+        assertThat(actual.getLastStartTime()).isEqualTo(Instant.ofEpochMilli(101));
+        assertThat(actual.getLastEndTime()).isEqualTo(Instant.ofEpochMilli(102));
         assertThat(actual.isInputPipeline()).isEqualTo(true);
         assertThat(actual.isOutputPipeline()).isEqualTo(false);
 
@@ -120,8 +119,10 @@ public class TestPipelineStats
         assertThat(actual.getUserMemoryReservation()).isEqualTo(DataSize.ofBytes(5));
         assertThat(actual.getRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(6));
 
-        assertThat(actual.getQueuedTime().getCount()).isEqualTo(8.0);
-        assertThat(actual.getElapsedTime().getCount()).isEqualTo(9.0);
+        assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(7));
+
+        assertThat(actual.getQueuedTime().count()).isEqualTo(8.0);
+        assertThat(actual.getElapsedTime().count()).isEqualTo(9.0);
 
         assertThat(actual.getTotalScheduledTime()).isEqualTo(new Duration(10, NANOSECONDS));
         assertThat(actual.getTotalCpuTime()).isEqualTo(new Duration(11, NANOSECONDS));
@@ -133,9 +134,6 @@ public class TestPipelineStats
 
         assertThat(actual.getInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(142));
         assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(152);
-
-        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(14));
-        assertThat(actual.getRawInputPositions()).isEqualTo(15);
 
         assertThat(actual.getProcessedInputDataSize()).isEqualTo(DataSize.ofBytes(16));
         assertThat(actual.getProcessedInputPositions()).isEqualTo(17);

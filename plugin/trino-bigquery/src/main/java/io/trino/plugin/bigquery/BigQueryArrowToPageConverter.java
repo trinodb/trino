@@ -84,32 +84,33 @@ public class BigQueryArrowToPageConverter
         implements AutoCloseable
 {
     private final BigQueryTypeManager typeManager;
-    private final VectorSchemaRoot root;
-    private final VectorLoader loader;
+    private final Schema schema;
     private final List<BigQueryColumnHandle> columns;
-    private final BufferAllocator allocator;
 
-    public BigQueryArrowToPageConverter(BigQueryTypeManager typeManager, BufferAllocator allocator, Schema schema, List<BigQueryColumnHandle> columns)
+    public BigQueryArrowToPageConverter(BigQueryTypeManager typeManager, Schema schema, List<BigQueryColumnHandle> columns)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.allocator = requireNonNull(allocator, "allocator is null");
+        this.schema = requireNonNull(schema, "schema is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+    }
+
+    public void convert(PageBuilder pageBuilder, ArrowRecordBatch batch, BufferAllocator allocator)
+    {
         List<FieldVector> vectors = schema.getFields().stream()
                 .map(field -> field.createVector(allocator))
                 .collect(toImmutableList());
-        root = new VectorSchemaRoot(vectors);
-        loader = new VectorLoader(root, INSTANCE);
-    }
+        VectorSchemaRoot root = new VectorSchemaRoot(vectors);
+        VectorLoader loader = new VectorLoader(root, INSTANCE);
 
-    public void convert(PageBuilder pageBuilder, ArrowRecordBatch batch)
-    {
         loader.load(batch);
         pageBuilder.declarePositions(root.getRowCount());
 
         for (int column = 0; column < columns.size(); column++) {
             BigQueryColumnHandle columnHandle = columns.get(column);
             FieldVector fieldVector = getFieldVector(root, columnHandle);
-            convertType(pageBuilder.getBlockBuilder(column),
+            convertType(
+                    allocator,
+                    pageBuilder.getBlockBuilder(column),
                     columnHandle.trinoType(),
                     fieldVector,
                     0,
@@ -117,6 +118,7 @@ public class BigQueryArrowToPageConverter
         }
 
         root.clear();
+        root.close();
     }
 
     private static FieldVector getFieldVector(VectorSchemaRoot root, BigQueryColumnHandle columnHandle)
@@ -134,7 +136,7 @@ public class BigQueryArrowToPageConverter
         return fieldVector;
     }
 
-    private void convertType(BlockBuilder output, Type type, FieldVector vector, int offset, int length)
+    private void convertType(BufferAllocator allocator, BlockBuilder output, Type type, FieldVector vector, int offset, int length)
     {
         Class<?> javaType = type.getJavaType();
         try {
@@ -177,10 +179,10 @@ public class BigQueryArrowToPageConverter
                 writeVectorValues(output, vector, index -> writeObjectTimestampWithTimezone(output, type, vector, index), offset, length);
             }
             else if (type instanceof ArrayType arrayType) {
-                writeVectorValues(output, vector, index -> writeArrayBlock(output, arrayType, vector, index), offset, length);
+                writeVectorValues(output, vector, index -> writeArrayBlock(allocator, output, arrayType, vector, index), offset, length);
             }
             else if (type instanceof RowType rowType) {
-                writeVectorValues(output, vector, index -> writeRowBlock(output, rowType, vector, index), offset, length);
+                writeVectorValues(output, vector, index -> writeRowBlock(allocator, output, rowType, vector, index), offset, length);
             }
             else {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
@@ -246,7 +248,7 @@ public class BigQueryArrowToPageConverter
         type.writeObject(output, fromEpochMillisAndFraction(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND), picosOfMillis, UTC_KEY));
     }
 
-    private void writeArrayBlock(BlockBuilder output, ArrayType arrayType, FieldVector vector, int index)
+    private void writeArrayBlock(BufferAllocator allocator, BlockBuilder output, ArrayType arrayType, FieldVector vector, int index)
     {
         Type elementType = arrayType.getElementType();
         ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> {
@@ -260,19 +262,19 @@ public class BigQueryArrowToPageConverter
             TransferPair transferPair = innerVector.getTransferPair(allocator);
             transferPair.splitAndTransfer(start, end - start);
             try (FieldVector sliced = (FieldVector) transferPair.getTo()) {
-                convertType(elementBuilder, elementType, sliced, 0, sliced.getValueCount());
+                convertType(allocator, elementBuilder, elementType, sliced, 0, sliced.getValueCount());
             }
         });
     }
 
-    private void writeRowBlock(BlockBuilder output, RowType rowType, FieldVector vector, int index)
+    private void writeRowBlock(BufferAllocator allocator, BlockBuilder output, RowType rowType, FieldVector vector, int index)
     {
         List<RowType.Field> fields = rowType.getFields();
         ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
             for (int i = 0; i < fields.size(); i++) {
                 RowType.Field field = fields.get(i);
                 FieldVector innerVector = ((StructVector) vector).getChild(field.getName().orElse("field" + i));
-                convertType(fieldBuilders.get(i), field.getType(), innerVector, index, 1);
+                convertType(allocator, fieldBuilders.get(i), field.getType(), innerVector, index, 1);
             }
         });
     }
@@ -280,6 +282,5 @@ public class BigQueryArrowToPageConverter
     @Override
     public void close()
     {
-        root.close();
     }
 }

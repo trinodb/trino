@@ -15,7 +15,7 @@ package io.trino.plugin.hive.orc;
 
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.orc.OrcReaderOptions;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.spi.connector.ConnectorPageSource;
 
 import java.util.Optional;

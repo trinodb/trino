@@ -19,7 +19,6 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -66,12 +65,6 @@ class TestingConnectorSplit
     public List<HostAddress> getAddresses()
     {
         return addresses.orElse(ImmutableList.of());
-    }
-
-    @Override
-    public Map<String, String> getSplitInfo()
-    {
-        return Map.of();
     }
 
     @Override

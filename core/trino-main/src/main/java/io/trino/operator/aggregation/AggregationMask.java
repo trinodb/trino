@@ -187,9 +187,6 @@ public final class AggregationMask
         if (block.isNull(position)) {
             return false;
         }
-        if (testValue && !BOOLEAN.getBoolean(block, position)) {
-            return false;
-        }
-        return true;
+        return !testValue || BOOLEAN.getBoolean(block, position);
     }
 }

@@ -68,8 +68,8 @@ public class QueryProgressStats
                 queryStats.getTotalScheduledTime().toMillis(),
                 queryStats.getUserMemoryReservation().toBytes(),
                 queryStats.getPeakUserMemoryReservation().toBytes(),
-                queryStats.getRawInputPositions(),
-                queryStats.getRawInputDataSize().toBytes(),
+                queryStats.getProcessedInputPositions(),
+                queryStats.getPhysicalInputDataSize().toBytes() + queryStats.getInternalNetworkInputDataSize().toBytes(),
                 queryStats.isFullyBlocked(),
                 queryStats.getProgressPercentage());
     }

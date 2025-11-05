@@ -16,7 +16,6 @@ package io.trino.spi.block;
 import jakarta.annotation.Nullable;
 
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -25,6 +24,7 @@ import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.compactIsNull;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
 
@@ -73,12 +73,6 @@ public final class Fixed12Block
     }
 
     @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.of(SIZE_IN_BYTES_PER_POSITION);
-    }
-
-    @Override
     public long getSizeInBytes()
     {
         return SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
@@ -88,12 +82,6 @@ public final class Fixed12Block
     public long getRegionSizeInBytes(int position, int length)
     {
         return SIZE_IN_BYTES_PER_POSITION * (long) length;
-    }
-
-    @Override
-    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
-    {
-        return (long) SIZE_IN_BYTES_PER_POSITION * selectedPositionsCount;
     }
 
     @Override
@@ -157,6 +145,20 @@ public final class Fixed12Block
     }
 
     @Override
+    public boolean hasNull()
+    {
+        if (valueIsNull == null) {
+            return false;
+        }
+        for (int i = 0; i < positionCount; i++) {
+            if (valueIsNull[i + positionOffset]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(this, position);
@@ -181,6 +183,7 @@ public final class Fixed12Block
         checkArrayRange(positions, offset, length);
 
         boolean[] newValueIsNull = null;
+        boolean hasNull = false;
         if (valueIsNull != null) {
             newValueIsNull = new boolean[length];
         }
@@ -189,7 +192,9 @@ public final class Fixed12Block
             int position = positions[offset + i];
             checkReadablePosition(this, position);
             if (valueIsNull != null) {
-                newValueIsNull[i] = valueIsNull[position + positionOffset];
+                boolean isNull = valueIsNull[position + positionOffset];
+                newValueIsNull[i] = isNull;
+                hasNull |= isNull;
             }
             int valuesIndex = (position + positionOffset) * 3;
             int newValuesIndex = i * 3;
@@ -197,7 +202,7 @@ public final class Fixed12Block
             newValues[newValuesIndex + 1] = values[valuesIndex + 1];
             newValues[newValuesIndex + 2] = values[valuesIndex + 2];
         }
-        return new Fixed12Block(0, length, newValueIsNull, newValues);
+        return new Fixed12Block(0, length, hasNull ? newValueIsNull : null, newValues);
     }
 
     @Override
@@ -214,19 +219,13 @@ public final class Fixed12Block
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         positionOffset += this.positionOffset;
-        boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
+        boolean[] newValueIsNull = compactIsNull(valueIsNull, positionOffset, length);
         int[] newValues = compactArray(values, positionOffset * 3, length * 3);
 
         if (newValueIsNull == valueIsNull && newValues == values) {
             return this;
         }
         return new Fixed12Block(0, length, newValueIsNull, newValues);
-    }
-
-    @Override
-    public String getEncodingName()
-    {
-        return Fixed12BlockEncoding.NAME;
     }
 
     @Override

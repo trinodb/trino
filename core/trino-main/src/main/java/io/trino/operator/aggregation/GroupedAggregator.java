@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.primitives.Ints;
+import io.trino.operator.AggregationMetrics;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -37,6 +38,7 @@ public class GroupedAggregator
     private final int[] inputChannels;
     private final OptionalInt maskChannel;
     private final AggregationMaskBuilder maskBuilder;
+    private final AggregationMetrics metrics;
 
     public GroupedAggregator(
             GroupedAccumulator accumulator,
@@ -45,7 +47,8 @@ public class GroupedAggregator
             Type finalType,
             List<Integer> inputChannels,
             OptionalInt maskChannel,
-            AggregationMaskBuilder maskBuilder)
+            AggregationMaskBuilder maskBuilder,
+            AggregationMetrics metrics)
     {
         this.accumulator = requireNonNull(accumulator, "accumulator is null");
         this.step = requireNonNull(step, "step is null");
@@ -54,6 +57,7 @@ public class GroupedAggregator
         this.inputChannels = Ints.toArray(requireNonNull(inputChannels, "inputChannels is null"));
         this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
         this.maskBuilder = requireNonNull(maskBuilder, "maskBuilder is null");
+        this.metrics = requireNonNull(metrics, "metrics is null");
         checkArgument(step.isInputRaw() || inputChannels.size() == 1, "expected 1 input channel for intermediate aggregation");
     }
 
@@ -78,19 +82,21 @@ public class GroupedAggregator
             Page arguments = page.getColumns(inputChannels);
             Optional<Block> maskBlock = Optional.empty();
             if (maskChannel.isPresent()) {
-                maskBlock = Optional.of(page.getBlock(maskChannel.getAsInt()).getLoadedBlock());
+                maskBlock = Optional.of(page.getBlock(maskChannel.getAsInt()));
             }
             AggregationMask mask = maskBuilder.buildAggregationMask(arguments, maskBlock);
 
             if (mask.isSelectNone()) {
                 return;
             }
-            // Unwrap any LazyBlock values before evaluating the accumulator
-            arguments = arguments.getLoadedPage();
+            long start = System.nanoTime();
             accumulator.addInput(groupIds, arguments, mask);
+            metrics.recordAccumulatorUpdateTimeSince(start);
         }
         else {
+            long start = System.nanoTime();
             accumulator.addIntermediate(groupIds, page.getBlock(inputChannels[0]));
+            metrics.recordAccumulatorUpdateTimeSince(start);
         }
     }
 

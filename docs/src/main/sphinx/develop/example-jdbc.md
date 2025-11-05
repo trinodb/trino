@@ -31,7 +31,7 @@ The module:
 ## JdbcClient implementation
 
 The base JDBC plugin maps the Trino SPI calls to the JDBC API. Operations like
-reading table and columns names are well defined in JDBC so the base JDBC plugin
+reading table and columns names are well-defined in JDBC so the base JDBC plugin
 can implement it in a way that works for most JDBC drivers.
 
 One behavior that is not implemented by default is mapping of the data types

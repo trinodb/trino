@@ -30,6 +30,10 @@ public class JdbcWriteConfig
     // This means that the write operation can fail and leave the table in an inconsistent state.
     private boolean nonTransactionalInsert;
 
+    // Do not create temporary table during merge.
+    // This means that the write operation can fail and leave the table in an inconsistent state.
+    private boolean nonTransactionalMerge;
+
     @Min(1)
     @Max(MAX_ALLOWED_WRITE_BATCH_SIZE)
     public int getWriteBatchSize()
@@ -51,11 +55,25 @@ public class JdbcWriteConfig
     }
 
     @Config("insert.non-transactional-insert.enabled")
-    @ConfigDescription("Do not create temporary table during insert. " +
+    @ConfigDescription("Enables support for non-transactional INSERT. " +
             "This means that the write operation can fail and leave the table in an inconsistent state.")
     public JdbcWriteConfig setNonTransactionalInsert(boolean nonTransactionalInsert)
     {
         this.nonTransactionalInsert = nonTransactionalInsert;
+        return this;
+    }
+
+    public boolean isNonTransactionalMerge()
+    {
+        return nonTransactionalMerge;
+    }
+
+    @Config("merge.non-transactional-merge.enabled")
+    @ConfigDescription("Enables support for non-transactional MERGE. " +
+            "This means that the write operation can fail and leave the table in an inconsistent state.")
+    public JdbcWriteConfig setNonTransactionalMerge(boolean nonTransactionalMerge)
+    {
+        this.nonTransactionalMerge = nonTransactionalMerge;
         return this;
     }
 

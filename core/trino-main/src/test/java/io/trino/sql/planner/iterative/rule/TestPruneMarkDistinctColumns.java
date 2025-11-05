@@ -57,25 +57,22 @@ public class TestPruneMarkDistinctColumns
                 .on(p -> {
                     Symbol key = p.symbol("key");
                     Symbol mark = p.symbol("mark");
-                    Symbol hash = p.symbol("hash");
                     Symbol unused = p.symbol("unused");
                     return p.project(
                             Assignments.identity(mark),
                             p.markDistinct(
                                     mark,
                                     ImmutableList.of(key),
-                                    hash,
-                                    p.values(key, hash, unused)));
+                                    p.values(key, unused)));
                 })
                 .matches(
                         strictProject(
                                 ImmutableMap.of("mark", expression(new Reference(BOOLEAN, "mark"))),
-                                markDistinct("mark", ImmutableList.of("key"), "hash",
+                                markDistinct("mark", ImmutableList.of("key"),
                                         strictProject(
                                                 ImmutableMap.of(
-                                                        "key", expression(new Reference(BIGINT, "key")),
-                                                        "hash", expression(new Reference(BIGINT, "hash"))),
-                                                values(ImmutableList.of("key", "hash", "unused"))))));
+                                                        "key", expression(new Reference(BIGINT, "key"))),
+                                                values(ImmutableList.of("key", "unused"))))));
     }
 
     @Test

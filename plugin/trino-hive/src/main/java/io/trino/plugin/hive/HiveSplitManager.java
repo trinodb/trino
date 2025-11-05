@@ -131,7 +131,7 @@ public class HiveSplitManager
             HiveTransactionManager transactionManager,
             HivePartitionManager partitionManager,
             TrinoFileSystemFactory fileSystemFactory,
-            ExecutorService executorService,
+            @ForHiveSplitManager ExecutorService executorService,
             VersionEmbedder versionEmbedder,
             TypeManager typeManager,
             CachingHostAddressProvider cachingHostAddressProvider)
@@ -225,12 +225,12 @@ public class HiveSplitManager
         Optional<HiveBucketFilter> bucketFilter = hiveTable.getBucketFilter();
 
         // validate bucket bucketed execution
-        Optional<HiveBucketHandle> bucketHandle = hiveTable.getBucketHandle();
+        Optional<HiveTablePartitioning> tablePartitioning = hiveTable.getTablePartitioning();
 
-        bucketHandle.ifPresent(bucketing ->
-                verify(bucketing.readBucketCount() <= bucketing.tableBucketCount(),
+        tablePartitioning.ifPresent(bucketing ->
+                verify(bucketing.partitioningHandle().getBucketCount() <= bucketing.tableBucketCount(),
                         "readBucketCount (%s) is greater than the tableBucketCount (%s) which generally points to an issue in plan generation",
-                        bucketing.readBucketCount(),
+                        bucketing.partitioningHandle().getBucketCount(),
                         bucketing.tableBucketCount()));
 
         // get partitions
@@ -254,7 +254,7 @@ public class HiveSplitManager
                 metastore,
                 table,
                 peekingIterator(partitions),
-                bucketHandle.map(HiveBucketHandle::toTableBucketProperty),
+                tablePartitioning.map(HiveTablePartitioning::toTableBucketProperty),
                 neededColumnNames,
                 dynamicFilter,
                 hiveTable);
@@ -263,10 +263,11 @@ public class HiveSplitManager
                 table,
                 hivePartitions,
                 hiveTable.getCompactEffectivePredicate(),
+                constraint,
                 dynamicFilter,
                 getDynamicFilteringWaitTimeout(session),
                 typeManager,
-                createBucketSplitInfo(bucketHandle, bucketFilter),
+                createBucketSplitInfo(tablePartitioning, bucketFilter),
                 session,
                 fileSystemFactory,
                 transactionalMetadata.getDirectoryLister(),
@@ -347,17 +348,17 @@ public class HiveSplitManager
                     Lists.transform(partitionBatch, HivePartition::getPartitionId));
 
             if (partitionBatch.size() != partitions.size()) {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s", partitionBatch.size(), partitions.size()));
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s for %s", partitionBatch.size(), partitions.size(), tableName));
             }
 
             ImmutableList.Builder<HivePartitionMetadata> results = ImmutableList.builderWithExpectedSize(partitionBatch.size());
             for (HivePartition hivePartition : partitionBatch) {
                 Optional<Partition> partition = partitions.get(hivePartition.getPartitionId());
                 if (partition == null) {
-                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Partition not loaded: " + hivePartition);
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Partition not loaded: %s for %s", hivePartition, tableName));
                 }
                 if (partition.isEmpty()) {
-                    throw new TrinoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Partition no longer exists: " + hivePartition.getPartitionId());
+                    throw new TrinoException(HIVE_PARTITION_DROPPED_DURING_QUERY, format("Partition %s no longer exists for %s", hivePartition.getPartitionId(), tableName));
                 }
                 results.add(toPartitionMetadata(
                         typeManager,
@@ -486,7 +487,7 @@ public class HiveSplitManager
             return false;
         }
         return switch (storageFormat.get()) {
-            case AVRO, JSON -> true;
+            case AVRO, JSON, OPENX_JSON -> true;
             case ORC -> isUseOrcColumnNames(session);
             case PARQUET -> isUseParquetColumnNames(session);
             default -> false;

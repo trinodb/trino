@@ -51,6 +51,7 @@ import static io.trino.client.uri.ConnectionProperties.CATALOG;
 import static io.trino.client.uri.ConnectionProperties.CLIENT_INFO;
 import static io.trino.client.uri.ConnectionProperties.CLIENT_TAGS;
 import static io.trino.client.uri.ConnectionProperties.DISABLE_COMPRESSION;
+import static io.trino.client.uri.ConnectionProperties.DISALLOW_LOCAL_REDIRECT;
 import static io.trino.client.uri.ConnectionProperties.DNS_RESOLVER;
 import static io.trino.client.uri.ConnectionProperties.DNS_RESOLVER_CONTEXT;
 import static io.trino.client.uri.ConnectionProperties.ENCODING;
@@ -98,6 +99,7 @@ import static io.trino.client.uri.ConnectionProperties.TIMEOUT;
 import static io.trino.client.uri.ConnectionProperties.TIMEZONE;
 import static io.trino.client.uri.ConnectionProperties.TRACE_TOKEN;
 import static io.trino.client.uri.ConnectionProperties.USER;
+import static io.trino.client.uri.ConnectionProperties.VALIDATE_CONNECTION;
 import static io.trino.client.uri.LoggingLevel.NONE;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.lang.String.format;
@@ -422,6 +424,11 @@ public class TrinoUri
         return resolveWithDefault(DISABLE_COMPRESSION, false);
     }
 
+    public boolean isLocalRedirectDisallowed()
+    {
+        return resolveWithDefault(DISALLOW_LOCAL_REDIRECT, false);
+    }
+
     public Optional<String> getEncoding()
     {
         Optional<String> encodings = resolveOptional(ENCODING);
@@ -459,6 +466,11 @@ public class TrinoUri
     public LoggingLevel getHttpLoggingLevel()
     {
         return resolveWithDefault(HTTP_LOGGING_LEVEL, NONE);
+    }
+
+    public boolean isValidateConnection()
+    {
+        return resolveWithDefault(VALIDATE_CONNECTION, false);
     }
 
     private Map<String, String> getResourceEstimates()
@@ -741,7 +753,7 @@ public class TrinoUri
     {
         private URI uri;
         private List<PropertyName> restrictedProperties = ImmutableList.of();
-        private ImmutableMap.Builder<Object, Object> properties = ImmutableMap.builder();
+        private final ImmutableMap.Builder<Object, Object> properties = ImmutableMap.builder();
 
         private Builder() {}
 
@@ -1045,6 +1057,16 @@ public class TrinoUri
         public Builder setPath(List<String> path)
         {
             return setProperty(SQL_PATH, requireNonNull(path, "path is null"));
+        }
+
+        public Builder setValidateConnection(boolean value)
+        {
+            return setProperty(VALIDATE_CONNECTION, value);
+        }
+
+        public Builder setDisallowLocalRedirect(boolean value)
+        {
+            return setProperty(DISALLOW_LOCAL_REDIRECT, value);
         }
 
         <V, T> Builder setProperty(ConnectionProperty<V, T> connectionProperty, T value)

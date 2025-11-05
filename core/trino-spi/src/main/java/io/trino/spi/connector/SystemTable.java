@@ -15,10 +15,13 @@ package io.trino.spi.connector;
 
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.Optional;
 import java.util.Set;
 
 /**
  * Exactly one of {@link #cursor} or {@link #pageSource} must be implemented.
+ * <p>
+ * If {@link #splitSource} is implemented, the {@link Connector}'s {@link ConnectorPageSourceProvider} must handle the {@link ConnectorSplit}s it generates.
  */
 public interface SystemTable
 {
@@ -42,9 +45,25 @@ public interface SystemTable
         throw new UnsupportedOperationException();
     }
 
-    default RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint, Set<Integer> requiredColumns)
+    default RecordCursor cursor(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            TupleDomain<Integer> constraint,
+            Set<Integer> requiredColumns,
+            ConnectorSplit split)
     {
         return cursor(transactionHandle, session, constraint);
+    }
+
+    default RecordCursor cursor(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            TupleDomain<Integer> constraint,
+            Set<Integer> requiredColumns,
+            ConnectorSplit split,
+            ConnectorAccessControl accessControl)
+    {
+        return cursor(transactionHandle, session, constraint, requiredColumns, split);
     }
 
     /**
@@ -56,5 +75,29 @@ public interface SystemTable
     default ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         throw new UnsupportedOperationException();
+    }
+
+    default ConnectorPageSource pageSource(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            TupleDomain<Integer> constraint,
+            ConnectorAccessControl accessControl)
+    {
+        return pageSource(transactionHandle, session, constraint);
+    }
+
+    /**
+     * Try and create a {@link ConnectorSplitSource} for the {@link SystemTable}.
+     * <p>
+     * Implementing this method in a plugin context causes {@link SystemTable#getDistribution()} to have no impact on the actual distribution of splits.
+     * The accompanying {@link Connector}'s {@link ConnectorPageSourceProvider} must handle the {@link ConnectorSplit}s.
+     *
+     * @param connectorSession the session to use for creating the data
+     * @param constraint the constraints for the table columns (indexed from 0)
+     * @return an optional {@link ConnectorSplitSource}
+     */
+    default Optional<ConnectorSplitSource> splitSource(ConnectorSession connectorSession, TupleDomain<ColumnHandle> constraint)
+    {
+        return Optional.empty();
     }
 }

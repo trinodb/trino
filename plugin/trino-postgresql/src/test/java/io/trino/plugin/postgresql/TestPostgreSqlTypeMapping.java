@@ -46,7 +46,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -114,8 +113,6 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestPostgreSqlTypeMapping
         extends AbstractTestQueryFramework
 {
-    private static final LocalDate EPOCH_DAY = LocalDate.ofEpochDay(0);
-
     protected TestingPostgreSqlServer postgreSqlServer;
 
     private final LocalDateTime beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
@@ -123,7 +120,7 @@ public class TestPostgreSqlTypeMapping
     private final LocalDateTime afterEpoch = LocalDateTime.of(2019, 3, 18, 10, 1, 17, 987_000_000);
 
     private final ZoneId jvmZone = ZoneId.systemDefault();
-    private final LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
+    private final LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1932, 4, 1, 0, 13, 42);
     private final LocalDateTime timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
     private final LocalDateTime timeDoubledInJvmZone = LocalDateTime.of(2018, 10, 28, 1, 33, 17, 456_000_000);
 
@@ -913,7 +910,7 @@ public class TestPostgreSqlTypeMapping
 
     private SqlDataTypeTest arrayDateTest(Function<String, String> arrayTypeFactory)
     {
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1932, 4, 1);
         checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
 
         LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
@@ -1173,9 +1170,6 @@ public class TestPostgreSqlTypeMapping
 
     private void testTime(ZoneId sessionZone)
     {
-        LocalTime timeGapInJvmZone = LocalTime.of(0, 12, 34, 567_000_000);
-        checkIsGap(jvmZone, timeGapInJvmZone.atDate(EPOCH_DAY));
-
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
@@ -1649,9 +1643,7 @@ public class TestPostgreSqlTypeMapping
             // test all standard cases with precision 3 and 6 to make sure the long and short TIMESTAMP WITH TIME ZONE
             // is gap friendly.
             DataType<List<ZonedDateTime>> dataType = arrayOfTimestampWithTimeZoneDataType(precision, insertWithTrino);
-
-            tests.addRoundTrip(dataType, asList(epoch.atZone(UTC), epoch.atZone(kathmandu)));
-            tests.addRoundTrip(dataType, asList(beforeEpoch.atZone(kathmandu), beforeEpoch.atZone(UTC)));
+            tests.addRoundTrip(dataType, asList(beforeEpoch.atZone(jvmZone), beforeEpoch.atZone(UTC)));
             tests.addRoundTrip(dataType, asList(afterEpoch.atZone(UTC), afterEpoch.atZone(kathmandu)));
             tests.addRoundTrip(dataType, asList(timeDoubledInJvmZone.atZone(UTC)));
             tests.addRoundTrip(dataType, asList(timeDoubledInJvmZone.atZone(kathmandu)));
@@ -1754,6 +1746,58 @@ public class TestPostgreSqlTypeMapping
                 .execute(getQueryRunner(), postgresCreateAndInsert("postgresql_test_uuid"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_uuid"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_uuid"));
+    }
+
+    @Test
+    public void testArrayUuid()
+    {
+        Session session = sessionWithArrayAsArray();
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("uuid[]", "NULL", new ArrayType(UUID), "CAST(NULL AS ARRAY(UUID))")
+                .addRoundTrip("uuid[]", "ARRAY[]::uuid[]", new ArrayType(UUID), "CAST(ARRAY[] AS ARRAY(UUID))")
+
+                .addRoundTrip("uuid[]", "ARRAY[UUID 'a0ee-bc99-9c0b-4ef8-bb6d-6bb9-bd38-0a11', UUID '00000000-0000-0000-0000-000000000000']", new ArrayType(UUID), "ARRAY[UUID 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', UUID '00000000-0000-0000-0000-000000000000']")
+                .addRoundTrip("uuid[]", "ARRAY[UUID 'a0eebc999c0b4ef8bb6d6bb9bd380a11', UUID '00000000-0000-0000-0000-000000000000']", new ArrayType(UUID), "ARRAY[UUID 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', UUID '00000000-0000-0000-0000-000000000000']")
+                .addRoundTrip("uuid[]", "ARRAY[UUID '{a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11}', UUID '00000000-0000-0000-0000-000000000000']", new ArrayType(UUID), "ARRAY[UUID 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', UUID '00000000-0000-0000-0000-000000000000']")
+                .addRoundTrip("uuid[]", "ARRAY[UUID '{a0eebc99-9c0b4ef8-bb6d6bb9-bd380a11}', UUID '00000000-0000-0000-0000-000000000000']", new ArrayType(UUID), "ARRAY[UUID 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', UUID '00000000-0000-0000-0000-000000000000']")
+
+                .addRoundTrip("uuid[]", "ARRAY[UUID '00000000-0000-0000-0000-000000000000', UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59']", new ArrayType(UUID), "ARRAY[UUID '00000000-0000-0000-0000-000000000000', UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59']")
+                .addRoundTrip("uuid[]", "ARRAY[UUID '123e4567-e89b-12d3-a456-426655440000', UUID 'c9c0b3f4-3e7e-4e1a-83eb-bb3e1a2c3c7e']", new ArrayType(UUID), "ARRAY[UUID '123e4567-e89b-12d3-a456-426655440000', UUID 'c9c0b3f4-3e7e-4e1a-83eb-bb3e1a2c3c7e']")
+                .addRoundTrip("uuid[]", "ARRAY[UUID 'f47ac10b-58cc-4372-a567-0e02b2c3d479', UUID '3c6f4b8e-7a3e-4d7c-bc8e-3a0fbc1c6ad1']", new ArrayType(UUID), "ARRAY[UUID 'f47ac10b-58cc-4372-a567-0e02b2c3d479', UUID '3c6f4b8e-7a3e-4d7c-bc8e-3a0fbc1c6ad1']")
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("postgresql_test_array_uuid_or_empty_or_nulls"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("ARRAY(uuid)", "NULL", new ArrayType(UUID), "CAST(NULL AS ARRAY(UUID))")
+                .addRoundTrip("ARRAY(uuid)", "ARRAY[]", new ArrayType(UUID), "CAST(ARRAY[] AS ARRAY(UUID))")
+
+                .addRoundTrip("ARRAY(uuid)", "ARRAY[UUID '00000000-0000-0000-0000-000000000000', UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59']", new ArrayType(UUID), "ARRAY[UUID '00000000-0000-0000-0000-000000000000', UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59']")
+                .addRoundTrip("ARRAY(uuid)", "ARRAY[UUID '123e4567-e89b-12d3-a456-426655440000', UUID 'c9c0b3f4-3e7e-4e1a-83eb-bb3e1a2c3c7e']", new ArrayType(UUID), "ARRAY[UUID '123e4567-e89b-12d3-a456-426655440000', UUID 'c9c0b3f4-3e7e-4e1a-83eb-bb3e1a2c3c7e']")
+                .addRoundTrip("ARRAY(uuid)", "ARRAY[UUID 'f47ac10b-58cc-4372-a567-0e02b2c3d479', UUID '3c6f4b8e-7a3e-4d7c-bc8e-3a0fbc1c6ad1']", new ArrayType(UUID), "ARRAY[UUID 'f47ac10b-58cc-4372-a567-0e02b2c3d479', UUID '3c6f4b8e-7a3e-4d7c-bc8e-3a0fbc1c6ad1']")
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "trino_test_array_uuid_or_empty_or_nulls"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "trino_test_array_uuid_or_empty_or_nulls"));
+    }
+
+    @Test
+    public void testArrayNulls()
+    {
+        Session session = sessionWithArrayAsArray();
+
+        // Verify only SELECT instead of using SqlDataTypeTest because array comparison not supported for arrays with null elements
+        try (TestTable table = new TestTable(
+                postgreSqlServer::execute,
+                "test_array_nulls",
+                "(col_boolean boolean[], col_smallint smallint[], col_integer integer[], col_bigint bigint[], col_real real[], col_double double precision[], col_uuid uuid[])")) {
+            assertUpdate(session, format("INSERT INTO %s VALUES(%s, %s, %s, %s, %s, %s, %s)", table.getName(), "ARRAY[NULL, true]", "ARRAY[NULL, 123]", "ARRAY[NULL, 123]", "ARRAY[NULL, 123]", "ARRAY[NULL, 123.45]", "ARRAY[NULL, 123.45]", "ARRAY[NULL, UUID 'f47ac10b-58cc-4372-a567-0e02b2c3d479']"), 1);
+
+            assertThat(query(session, "SELECT col_boolean FROM " + table.getName())).matches("VALUES CAST(ARRAY[NULL, true] AS ARRAY(boolean))");
+            assertThat(query(session, "SELECT col_smallint FROM " + table.getName())).matches("VALUES CAST(ARRAY[NULL, 123] AS ARRAY(smallint))");
+            assertThat(query(session, "SELECT col_integer FROM " + table.getName())).matches("VALUES CAST(ARRAY[NULL, 123] AS ARRAY(integer))");
+            assertThat(query(session, "SELECT col_bigint FROM " + table.getName())).matches("VALUES CAST(ARRAY[NULL, 123] AS ARRAY(bigint))");
+            assertThat(query(session, "SELECT col_real FROM " + table.getName())).matches("VALUES CAST(ARRAY[NULL, 123.45] AS ARRAY(real))");
+            assertThat(query(session, "SELECT col_double FROM " + table.getName())).matches("VALUES CAST(ARRAY[NULL, 123.45] AS ARRAY(double))");
+            assertThat(query(session, "SELECT col_uuid FROM " + table.getName())).matches("VALUES CAST(ARRAY[NULL, UUID 'f47ac10b-58cc-4372-a567-0e02b2c3d479'] AS ARRAY(uuid))");
+        }
     }
 
     @Test

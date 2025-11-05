@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.Traverser;
 import com.google.inject.Inject;
 import io.trino.plugin.base.io.ByteBuffers;
-import io.trino.plugin.hive.NodeVersion;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.datasketches.memory.Memory;
 import org.apache.datasketches.theta.CompactSketch;

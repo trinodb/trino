@@ -22,8 +22,8 @@ import io.airlift.log.Logger;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.TableExecuteContext;
 import io.trino.execution.TableExecuteContextManager;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.node.InternalNode;
 import io.trino.server.DynamicFilterService;
 import io.trino.split.EmptySplit;
 import io.trino.split.SplitSource;
@@ -218,7 +218,7 @@ public class SourcePartitionedScheduler
         // Avoid deadlocks by immediately scheduling a task for collecting dynamic filters because:
         // * there can be task in other stage blocked waiting for the dynamic filters, or
         // * connector split source for this stage might be blocked waiting the dynamic filters.
-        if (dynamicFilterService.isCollectingTaskNeeded(stageExecution.getStageId().getQueryId(), stageExecution.getFragment())) {
+        if (dynamicFilterService.isCollectingTaskNeeded(stageExecution.getStageId().queryId(), stageExecution.getFragment())) {
             stageExecution.beginScheduling();
             createTaskOnRandomNode();
         }
@@ -247,7 +247,7 @@ public class SourcePartitionedScheduler
                 nextSplitBatchFuture = splitSource.getNextBatch(splitBatchSize);
 
                 long start = System.nanoTime();
-                addSuccessCallback(nextSplitBatchFuture, () -> stageExecution.recordGetSplitTime(start));
+                addSuccessCallback(nextSplitBatchFuture, () -> stageExecution.recordSplitSourceMetrics(partitionedNode, splitSource.getMetrics(), start));
             }
 
             if (nextSplitBatchFuture.isDone()) {
@@ -316,7 +316,7 @@ public class SourcePartitionedScheduler
             Optional<List<Object>> tableExecuteSplitsInfo = splitSource.getTableExecuteSplitsInfo();
             // Here we assume that we can get non-empty tableExecuteSplitsInfo only for queries which facilitate single split source.
             tableExecuteSplitsInfo.ifPresent(info -> {
-                TableExecuteContext tableExecuteContext = tableExecuteContextManager.getTableExecuteContextForQuery(stageExecution.getStageId().getQueryId());
+                TableExecuteContext tableExecuteContext = tableExecuteContextManager.getTableExecuteContextForQuery(stageExecution.getStageId().queryId());
                 tableExecuteContext.setSplitsInfo(info);
             });
 
@@ -336,7 +336,7 @@ public class SourcePartitionedScheduler
             // Dynamic filters might not be collected due to build side source tasks being blocked on full buffer.
             // In such case probe split generation that is waiting for dynamic filters should be unblocked to prevent deadlock.
             log.debug("stage id: %s, node: %s; unblocking dynamic filters", stageExecution.getStageId(), partitionedNode);
-            dynamicFilterService.unblockStageDynamicFilters(stageExecution.getStageId().getQueryId(), stageExecution.getAttemptId(), stageExecution.getFragment());
+            dynamicFilterService.unblockStageDynamicFilters(stageExecution.getStageId().queryId(), stageExecution.getAttemptId(), stageExecution.getFragment());
 
             if (blockedOnPlacements) {
                 // In a broadcast join, output buffers of the tasks in build source stage have to
@@ -379,7 +379,7 @@ public class SourcePartitionedScheduler
     {
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
 
-        ImmutableSet<InternalNode> nodes = ImmutableSet.copyOf(splitAssignment.keySet());
+        Set<InternalNode> nodes = ImmutableSet.copyOf(splitAssignment.keySet());
         for (InternalNode node : nodes) {
             // source partitioned tasks can only receive broadcast data; otherwise it would have a different distribution
             ImmutableMultimap<PlanNodeId, Split> splits = ImmutableMultimap.<PlanNodeId, Split>builder()

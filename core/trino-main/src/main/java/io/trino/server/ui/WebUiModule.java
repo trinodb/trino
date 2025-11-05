@@ -37,7 +37,7 @@ public class WebUiModule
             jaxrsBinder(binder).bind(UiQueryResource.class);
 
             if (buildConfigObject(WebUiConfig.class).isPreviewEnabled()) {
-                jaxrsBinder(binder).bind(WebUiPreviewStaticResource.class);
+                install(new WebUiPreviewModule());
             }
         }
         else {

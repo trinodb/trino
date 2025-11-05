@@ -72,8 +72,7 @@ public class MultipleDistinctAggregationToMarkDistinct
 
     public static boolean canUseMarkDistinct(AggregationNode aggregationNode)
     {
-        return hasNoDistinctWithFilterOrMask(aggregationNode) &&
-               (hasMultipleDistincts(aggregationNode) || hasMixedDistinctAndNonDistincts(aggregationNode));
+        return hasNoDistinctWithFilterOrMask(aggregationNode) && (hasMultipleDistincts(aggregationNode) || hasMixedDistinctAndNonDistincts(aggregationNode));
     }
 
     private static boolean hasNoDistinctWithFilterOrMask(AggregationNode aggregationNode)
@@ -154,8 +153,7 @@ public class MultipleDistinctAggregationToMarkDistinct
                             context.getIdAllocator().getNextId(),
                             subPlan,
                             marker,
-                            ImmutableList.copyOf(distinctSymbols.build()),
-                            Optional.empty());
+                            ImmutableList.copyOf(distinctSymbols.build()));
                 }
 
                 // remove the distinct flag and set the distinct marker

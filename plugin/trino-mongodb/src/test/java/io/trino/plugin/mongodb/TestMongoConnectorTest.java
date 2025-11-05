@@ -57,6 +57,7 @@ import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -99,15 +100,19 @@ public class TestMongoConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_ADD_FIELD,
+            case SUPPORTS_ADD_COLUMN_WITH_POSITION,
+                 SUPPORTS_ADD_FIELD,
+                 SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
                  SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_DEFAULT_COLUMN_VALUE,
                  SUPPORTS_DROP_FIELD,
                  SUPPORTS_MERGE,
                  SUPPORTS_NOT_NULL_CONSTRAINT,
                  SUPPORTS_RENAME_FIELD,
                  SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_SET_FIELD_TYPE,
+                 SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_TRUNCATE,
                  SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
@@ -118,6 +123,30 @@ public class TestMongoConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         return abort("MongoDB connector does not support column default values");
+    }
+
+    @Test
+    void testMongoMixedTypeArrayType()
+    {
+        String schema = getSession().getSchema().orElseThrow();
+        String table = "test_mixed_array_" + randomNameSuffix();
+        MongoDatabase db = client.getDatabase(schema);
+
+        db.createCollection(table);
+        db.getCollection(table)
+                .insertOne(new Document("mixed_array_col", ImmutableList.of(1, "two", 3.0, new Document("nested_arr", ImmutableList.of(4, 5)))));
+
+        assertThat(query("SHOW COLUMNS FROM " + table))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                         "('mixed_array_col', 'row(_pos1 bigint, _pos2 varchar, _pos3 double, _pos4 row(nested_arr array(bigint)))', '', '')");
+
+        assertThat(query("SELECT mixed_array_col._pos1, mixed_array_col._pos2, mixed_array_col._pos3 FROM " + table))
+                .matches("VALUES (BIGINT '1', VARCHAR 'two', DOUBLE '3.0')");
+        assertThat(query("SELECT mixed_array_col._pos4.nested_arr[1], mixed_array_col._pos4.nested_arr[2] FROM " + table))
+                .matches("VALUES (BIGINT '4', BIGINT '5')");
+
+        assertUpdate("DROP TABLE " + table);
     }
 
     @Test
@@ -146,6 +175,40 @@ public class TestMongoConnectorTest
         assertExplain(
                 "EXPLAIN SELECT name FROM nation ORDER BY nationkey DESC NULLS LAST LIMIT 5",
                 "TopNPartial\\[count = 5, orderBy = \\[nationkey DESC");
+    }
+
+    @Test
+    void testNonLowercaseCollection()
+    {
+        String suffix = randomNameSuffix();
+        String schema = "test_db_" + suffix;
+        String table = "test_collection_" + suffix;
+        String mixedTable = "Test_Collection_" + suffix;
+        try {
+            MongoDatabase db = client.getDatabase(schema);
+
+            db.createCollection(table);
+            db.getCollection(table).insertOne(new Document("lowercase", 1));
+
+            db.createCollection(mixedTable);
+            db.getCollection(mixedTable).insertOne(new Document("mixed", 2));
+
+            assertThatThrownBy(() -> client.getDatabase(schema.toUpperCase(ENGLISH)).createCollection(table))
+                    .hasMessageContaining("db already exists with different case");
+
+            db.createCollection(table.toUpperCase(ENGLISH));
+            db.getCollection(table.toUpperCase(ENGLISH)).insertOne(new Document("uppercase", 3));
+
+            assertThat(query("SELECT * FROM information_schema.tables WHERE table_catalog = 'mongodb' AND table_schema = '" + schema + "'"))
+                    .matches("VALUES (VARCHAR 'mongodb', VARCHAR '" + schema + "', VARCHAR '" + table + "', VARCHAR 'BASE TABLE')");
+            assertThat(query("SELECT table_name, column_name FROM information_schema.columns WHERE table_catalog = 'mongodb' AND table_schema = '" + schema + "'"))
+                    .matches("VALUES (VARCHAR '" + table + "', VARCHAR 'lowercase')");
+            assertThat(query("SELECT * FROM " + schema + "." + table))
+                    .matches("VALUES BIGINT '1'");
+        }
+        finally {
+            client.getDatabase(schema).drop();
+        }
     }
 
     @Override
@@ -356,7 +419,7 @@ public class TestMongoConnectorTest
 
     private void testPredicatePushdown(String value)
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_predicate_pushdown", "AS SELECT %s col".formatted(value))) {
+        try (TestTable table = newTrinoTable("test_predicate_pushdown", "AS SELECT %s col".formatted(value))) {
             testPredicatePushdown(table.getName(), "col = " + value);
             testPredicatePushdown(table.getName(), "col != " + value);
             testPredicatePushdown(table.getName(), "col < " + value);
@@ -380,7 +443,7 @@ public class TestMongoConnectorTest
 
     private void testPredicatePushdownFloatingPoint(String value)
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_floating_point_pushdown", "AS SELECT %s col".formatted(value))) {
+        try (TestTable table = newTrinoTable("test_floating_point_pushdown", "AS SELECT %s col".formatted(value))) {
             assertThat(query("SELECT * FROM " + table.getName() + " WHERE col = " + value))
                     .isFullyPushedDown();
             assertThat(query("SELECT * FROM " + table.getName() + " WHERE col <= " + value))
@@ -402,8 +465,7 @@ public class TestMongoConnectorTest
     @Test
     public void testPredicatePushdownCharWithPaddedSpace()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_predicate_pushdown_char_with_padded_space",
                 "(k, v) AS VALUES" +
                         "   (-1, CAST(NULL AS char(3))), " +
@@ -436,8 +498,7 @@ public class TestMongoConnectorTest
     public void testPredicatePushdownMultipleNotEquals()
     {
         // Regression test for https://github.com/trinodb/trino/issues/19404
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_predicate_pushdown_with_multiple_not_equals",
                 "(id, value) AS VALUES (1, 10), (2, 20), (3, 30)")) {
             assertThat(query("SELECT * FROM " + table.getName() + " WHERE id != 1 AND value != 20"))
@@ -449,8 +510,7 @@ public class TestMongoConnectorTest
     @Test
     public void testHighPrecisionDecimalPredicate()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_high_precision_decimal_predicate",
                 "(col DECIMAL(34, 0))",
                 Arrays.asList("decimal '3141592653589793238462643383279502'", null))) {
@@ -922,10 +982,8 @@ public class TestMongoConnectorTest
     }
 
     @Test
-    public void testLimitPushdown()
+    void testLimitWithLowerAndUpperBound()
     {
-        assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
-
         // Make sure LIMIT 0 returns empty result because cursor.limit(0) means no limit in MongoDB
         assertThat(query("SELECT name FROM nation LIMIT 0")).returnsEmptyResult();
 
@@ -1354,8 +1412,7 @@ public class TestMongoConnectorTest
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "projection_pushdown_enabled", "false")
                 .build();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "filter_on_projection_columns",
                 format("(col_0 ROW(col_1 %1$s, col_2 ROW(col_3 %1$s, col_4 ROW(col_5 %1$s))))", expectedType))) {
             assertUpdate(format("INSERT INTO %s VALUES NULL", table.getName()), 1);

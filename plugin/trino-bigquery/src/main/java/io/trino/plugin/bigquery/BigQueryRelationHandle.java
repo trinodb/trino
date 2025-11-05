@@ -25,6 +25,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 })
 public abstract class BigQueryRelationHandle
 {
+    public abstract boolean isUseStorageApi();
+
     @Override
     public abstract String toString();
 }

@@ -51,6 +51,8 @@ public abstract class AbstractResourceConfigurationManager
 
     protected abstract Optional<Duration> getCpuQuotaPeriod();
 
+    protected abstract Optional<Duration> getPhysicalDataScanQuotaPeriod();
+
     protected abstract List<ResourceGroupSpec> getRootGroups();
 
     protected void validateRootGroups(ManagerSpec managerSpec)
@@ -67,13 +69,17 @@ public abstract class AbstractResourceConfigurationManager
                 checkArgument(group.getHardCpuLimit().isPresent(), "Must specify hard CPU limit in addition to soft limit");
                 checkArgument(group.getSoftCpuLimit().get().compareTo(group.getHardCpuLimit().get()) <= 0, "Soft CPU limit cannot be greater than hard CPU limit");
             }
+            if (group.getHardPhysicalDataScanLimit().isPresent()) {
+                checkArgument(managerSpec.getPhysicalDataScanQuotaPeriod().isPresent(), "physicalDataScanQuotaPeriod must be specified to use data scan limits on group: %s", group.getName());
+            }
             if (group.getSchedulingPolicy().isPresent()) {
                 switch (group.getSchedulingPolicy().get()) {
                     case WEIGHTED:
                     case WEIGHTED_FAIR:
                         checkArgument(
                                 subGroups.stream().allMatch(t -> t.getSchedulingWeight().isPresent()) || subGroups.stream().noneMatch(t -> t.getSchedulingWeight().isPresent()),
-                                format("Must specify scheduling weight for all sub-groups of '%s' or none of them", group.getName()));
+                                "Must specify scheduling weight for all sub-groups of '%s' or none of them",
+                                group.getName());
                         break;
                     case QUERY_PRIORITY:
                     case FAIR:
@@ -96,6 +102,8 @@ public abstract class AbstractResourceConfigurationManager
             selectors.add(new StaticSelector(
                     spec.getUserRegex(),
                     spec.getUserGroupRegex(),
+                    spec.getOriginalUserRegex(),
+                    spec.getAuthenticatedUserRegex(),
                     spec.getSourceRegex(),
                     spec.getClientTags(),
                     spec.getResourceEstimate(),
@@ -224,6 +232,14 @@ public abstract class AbstractResourceConfigurationManager
             long rate = (long) Math.min(1000.0 * limit.toMillis() / (double) getCpuQuotaPeriod().get().toMillis(), Long.MAX_VALUE);
             rate = Math.max(1, rate);
             group.setCpuQuotaGenerationMillisPerSecond(rate);
+        }
+        match.getHardPhysicalDataScanLimit().map(DataSize::toBytes).ifPresent(group::setHardPhysicalDataScanLimitBytes);
+        if (match.getHardPhysicalDataScanLimit().isPresent()) {
+            checkState(getPhysicalDataScanQuotaPeriod().isPresent(), "physicalDataScanQuotaPeriod must be specified to use data scan limits on group: %s", group.getId());
+            DataSize limit = match.getHardPhysicalDataScanLimit().get();
+            long rate = (long) Math.min(1000.0 * limit.toBytes() / (double) getPhysicalDataScanQuotaPeriod().get().toMillis(), Long.MAX_VALUE);
+            rate = Math.max(1, rate);
+            group.setPhysicalDataScanQuotaGenerationBytesPerSecond(rate);
         }
     }
 }

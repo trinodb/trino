@@ -26,7 +26,6 @@ import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -41,7 +40,7 @@ public class StageInfo
     private final List<Type> types;
     private final StageStats stageStats;
     private final List<TaskInfo> tasks;
-    private final List<StageInfo> subStages;
+    private final List<StageId> subStages;
     private final ExecutionFailureInfo failureCause;
     private final Map<PlanNodeId, TableInfo> tables;
 
@@ -54,7 +53,7 @@ public class StageInfo
             @JsonProperty("types") List<Type> types,
             @JsonProperty("stageStats") StageStats stageStats,
             @JsonProperty("tasks") List<TaskInfo> tasks,
-            @JsonProperty("subStages") List<StageInfo> subStages,
+            @JsonProperty("subStages") List<StageId> subStages,
             @JsonProperty("tables") Map<PlanNodeId, TableInfo> tables,
             @JsonProperty("failureCause") ExecutionFailureInfo failureCause)
     {
@@ -121,7 +120,7 @@ public class StageInfo
     }
 
     @JsonProperty
-    public List<StageInfo> getSubStages()
+    public List<StageId> getSubStages()
     {
         return subStages;
     }
@@ -152,7 +151,7 @@ public class StageInfo
                 .toString();
     }
 
-    public StageInfo withSubStages(List<StageInfo> subStages)
+    public StageInfo withSubStages(List<StageId> subStages)
     {
         return new StageInfo(
                 stageId,
@@ -180,25 +179,5 @@ public class StageInfo
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 null);
-    }
-
-    public static List<StageInfo> getAllStages(Optional<StageInfo> stageInfo)
-    {
-        if (stageInfo.isEmpty()) {
-            return ImmutableList.of();
-        }
-        ImmutableList.Builder<StageInfo> collector = ImmutableList.builder();
-        addAllStages(stageInfo.get(), collector);
-        return collector.build();
-    }
-
-    private static void addAllStages(@Nullable StageInfo stage, ImmutableList.Builder<StageInfo> collector)
-    {
-        if (stage != null) {
-            collector.add(stage);
-            for (StageInfo subStage : stage.getSubStages()) {
-                addAllStages(subStage, collector);
-            }
-        }
     }
 }

@@ -70,7 +70,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ir.IrExpressions.not;
-import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -113,7 +112,7 @@ public class TestPostgreSqlClient
             new JdbcStatisticsConfig(),
             session -> { throw new UnsupportedOperationException(); },
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),
-            TESTING_TYPE_MANAGER,
+            new TestingPostgreSqlConnectorContext().getTypeManager(),
             new DefaultIdentifierMapping(),
             RemoteQueryModifier.NONE);
 

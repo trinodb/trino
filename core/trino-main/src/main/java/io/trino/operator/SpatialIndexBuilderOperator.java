@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.Slice;
 import io.trino.geospatial.KdbTreeUtils;
 import io.trino.geospatial.Rectangle;
 import io.trino.memory.context.LocalMemoryContext;
@@ -73,7 +74,7 @@ public class SpatialIndexBuilderOperator
                 OptionalDouble constantRadius,
                 Optional<Integer> partitionChannel,
                 SpatialPredicate spatialRelationshipTest,
-                Optional<String> kdbTreeJson,
+                Optional<Slice> kdbTreeJson,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
                 int expectedPositions,
                 PagesIndex.Factory pagesIndexFactory)

@@ -37,7 +37,14 @@ public class IcebergRestCatalogModule
         install(conditionalModule(
                 IcebergRestCatalogConfig.class,
                 config -> config.getSecurity() == Security.OAUTH2,
-                new OAuth2SecurityModule(),
+                new OAuth2SecurityModule()));
+        install(conditionalModule(
+                IcebergRestCatalogConfig.class,
+                config -> config.getSecurity() == Security.SIGV4,
+                new SigV4SecurityModule()));
+        install(conditionalModule(
+                IcebergRestCatalogConfig.class,
+                config -> config.getSecurity() == Security.NONE,
                 new NoneSecurityModule()));
 
         binder.bind(TrinoCatalogFactory.class).to(TrinoIcebergRestCatalogFactory.class).in(Scopes.SINGLETON);

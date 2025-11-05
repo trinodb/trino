@@ -21,8 +21,8 @@ import com.google.errorprone.annotations.Immutable;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTime;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
@@ -33,15 +33,17 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @Immutable
 public class DriverStats
 {
-    private final DateTime createTime;
-    private final DateTime startTime;
-    private final DateTime endTime;
+    private final Instant createTime;
+    private final Instant startTime;
+    private final Instant endTime;
 
     private final Duration queuedTime;
     private final Duration elapsedTime;
 
     private final DataSize userMemoryReservation;
     private final DataSize revocableMemoryReservation;
+
+    private final DataSize spilledDataSize;
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
@@ -56,8 +58,6 @@ public class DriverStats
     private final DataSize internalNetworkInputDataSize;
     private final long internalNetworkInputPositions;
 
-    private final DataSize rawInputDataSize;
-    private final long rawInputPositions;
     private final Duration rawInputReadTime;
 
     private final DataSize processedInputDataSize;
@@ -76,7 +76,7 @@ public class DriverStats
 
     public DriverStats()
     {
-        this.createTime = DateTime.now();
+        this.createTime = Instant.now();
         this.startTime = null;
         this.endTime = null;
         this.queuedTime = new Duration(0, MILLISECONDS);
@@ -84,6 +84,8 @@ public class DriverStats
 
         this.userMemoryReservation = DataSize.ofBytes(0);
         this.revocableMemoryReservation = DataSize.ofBytes(0);
+
+        this.spilledDataSize = DataSize.ofBytes(0);
 
         this.totalScheduledTime = new Duration(0, MILLISECONDS);
         this.totalCpuTime = new Duration(0, MILLISECONDS);
@@ -98,8 +100,6 @@ public class DriverStats
         this.internalNetworkInputDataSize = DataSize.ofBytes(0);
         this.internalNetworkInputPositions = 0;
 
-        this.rawInputDataSize = DataSize.ofBytes(0);
-        this.rawInputPositions = 0;
         this.rawInputReadTime = new Duration(0, MILLISECONDS);
 
         this.processedInputDataSize = DataSize.ofBytes(0);
@@ -119,14 +119,16 @@ public class DriverStats
 
     @JsonCreator
     public DriverStats(
-            @JsonProperty("createTime") DateTime createTime,
-            @JsonProperty("startTime") DateTime startTime,
-            @JsonProperty("endTime") DateTime endTime,
+            @JsonProperty("createTime") Instant createTime,
+            @JsonProperty("startTime") Instant startTime,
+            @JsonProperty("endTime") Instant endTime,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
 
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
+
+            @JsonProperty("spilledDataSize") DataSize spilledDataSize,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
@@ -141,8 +143,6 @@ public class DriverStats
             @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
             @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
 
-            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
-            @JsonProperty("rawInputPositions") long rawInputPositions,
             @JsonProperty("rawInputReadTime") Duration rawInputReadTime,
 
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
@@ -168,6 +168,8 @@ public class DriverStats
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
 
+        this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
+
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
         this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
@@ -183,9 +185,6 @@ public class DriverStats
         checkArgument(internalNetworkInputPositions >= 0, "internalNetworkInputPositions is negative");
         this.internalNetworkInputPositions = internalNetworkInputPositions;
 
-        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
-        checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
-        this.rawInputPositions = rawInputPositions;
         this.rawInputReadTime = requireNonNull(rawInputReadTime, "rawInputReadTime is null");
 
         this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
@@ -206,21 +205,21 @@ public class DriverStats
     }
 
     @JsonProperty
-    public DateTime getCreateTime()
+    public Instant getCreateTime()
     {
         return createTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getStartTime()
+    public Instant getStartTime()
     {
         return startTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getEndTime()
+    public Instant getEndTime()
     {
         return endTime;
     }
@@ -247,6 +246,12 @@ public class DriverStats
     public DataSize getRevocableMemoryReservation()
     {
         return revocableMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getSpilledDataSize()
+    {
+        return spilledDataSize;
     }
 
     @JsonProperty
@@ -307,18 +312,6 @@ public class DriverStats
     public long getInternalNetworkInputPositions()
     {
         return internalNetworkInputPositions;
-    }
-
-    @JsonProperty
-    public DataSize getRawInputDataSize()
-    {
-        return rawInputDataSize;
-    }
-
-    @JsonProperty
-    public long getRawInputPositions()
-    {
-        return rawInputPositions;
     }
 
     @JsonProperty

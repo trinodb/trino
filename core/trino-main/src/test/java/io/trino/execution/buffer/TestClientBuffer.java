@@ -52,7 +52,7 @@ import static org.assertj.core.api.Fail.fail;
 public class TestClientBuffer
 {
     private static final String TASK_INSTANCE_ID = "task-instance-id";
-    private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);
+    private static final List<BigintType> TYPES = ImmutableList.of(BIGINT);
     private static final OutputBufferId BUFFER_ID = new OutputBufferId(33);
     private static final String INVALID_SEQUENCE_ID = "Invalid sequence id";
     private static final PagesReleasedListener NOOP_RELEASE_LISTENER = (releasedPagesCount, releasedMemorySizeInBytes) -> {};

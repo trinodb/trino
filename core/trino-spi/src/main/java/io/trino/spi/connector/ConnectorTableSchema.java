@@ -13,8 +13,6 @@
  */
 package io.trino.spi.connector;
 
-import io.trino.spi.Experimental;
-
 import java.util.List;
 import java.util.StringJoiner;
 
@@ -31,7 +29,6 @@ public class ConnectorTableSchema
         this(table, columns, List.of());
     }
 
-    @Experimental(eta = "2023-03-31")
     public ConnectorTableSchema(SchemaTableName table, List<ColumnSchema> columns, List<String> checkConstraints)
     {
         requireNonNull(table, "table is null");
@@ -60,7 +57,6 @@ public class ConnectorTableSchema
      *
      * @return List of string representation of a Trino SQL scalar expression that can refer to table columns by name and produces a result coercible to boolean
      */
-    @Experimental(eta = "2023-03-31")
     public List<String> getCheckConstraints()
     {
         return checkConstraints;

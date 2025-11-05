@@ -79,7 +79,7 @@ public class MitmProxy
     {
         String line = outputFrame.getUtf8String().trim();
         if (!line.startsWith("<<")) {
-            log.info("Proxied " + line);
+            log.info("Proxied %s,", line);
         }
     }
 
@@ -87,7 +87,7 @@ public class MitmProxy
     public void start()
     {
         super.start();
-        log.info("Mitm proxy container started with address: " + getProxyEndpoint());
+        log.info("Mitm proxy container started with address: %s", getProxyEndpoint());
     }
 
     public HostAndPort getProxyHostAndPort()

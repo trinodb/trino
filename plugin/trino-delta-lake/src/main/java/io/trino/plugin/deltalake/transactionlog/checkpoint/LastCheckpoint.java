@@ -13,17 +13,32 @@
  */
 package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
+import io.airlift.slice.SizeOf;
 import io.trino.plugin.deltalake.transactionlog.V2Checkpoint;
 
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public record LastCheckpoint(long version, long size, Optional<Integer> parts, Optional<V2Checkpoint> v2Checkpoint)
 {
+    private static final int INSTANCE_SIZE = instanceSize(LastCheckpoint.class);
+
     public LastCheckpoint
     {
         requireNonNull(parts, "parts is null");
         requireNonNull(v2Checkpoint, "v2Checkpoint is null");
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + SIZE_OF_LONG
+                + SIZE_OF_LONG
+                + sizeOf(parts, SizeOf::sizeOf)
+                + sizeOf(v2Checkpoint, V2Checkpoint::getRetainedSizeInBytes);
     }
 }

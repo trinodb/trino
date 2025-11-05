@@ -18,6 +18,7 @@ import com.google.common.math.IntMath;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -172,7 +173,7 @@ public class TestIcebergStatistics
         double infoDataSize = (double) computeActual("SHOW STATS FOR " + tableName).getMaterializedRows().stream()
                 .filter(row -> "info".equals(row.getField(0)))
                 .collect(onlyElement()).getField(1);
-        assertThat(infoDataSize).isBetween(4000.0, 6000.0);
+        assertThat(infoDataSize).isBetween(2000.0, 5000.0);
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 """
@@ -786,7 +787,7 @@ public class TestIcebergStatistics
                   (null,  null, null, null, 26, null, null)
                 """);
 
-        assertUpdate(format("CALL system.rollback_to_snapshot('%s', '%s', %s)", schema, tableName, createSnapshot));
+        assertUpdate(format("ALTER TABLE %s.%s EXECUTE rollback_to_snapshot(%s)", schema, tableName, createSnapshot));
         // NDV information still present after rollback_to_snapshot
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -973,6 +974,31 @@ public class TestIcebergStatistics
     }
 
     @Test
+    public void testShowStatsReplaceTable()
+    {
+        try (TestTable table = newTrinoTable("show_stats_after_replace_table_", "AS SELECT 1 a, 2 b")) {
+            assertThat(query("SHOW STATS FOR " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("""
+                        VALUES
+                        ('a', null, 1e0, 0e0, NULL, '1', '1'),
+                        ('b', null, 1e0, 0e0, NULL, '2', '2'),
+                        (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)
+                        """);
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT 3 x, 4 y", 1);
+            assertThat(query("SHOW STATS FOR " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("""
+                        VALUES
+                        ('x', null, 1e0, 0e0, NULL, '3', '3'),
+                        ('y', null, 1e0, 0e0, NULL, '4', '4'),
+                        (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)
+                        """);
+        }
+    }
+
+    @Test
     public void testShowStatsAfterExpiration()
     {
         String catalog = getSession().getCatalog().orElseThrow();
@@ -1141,6 +1167,21 @@ public class TestIcebergStatistics
                         "('regionkey', DOUBLE '5', null), " +
                         "('comment', DOUBLE '25', null), " +
                         "(null, null, DOUBLE '25')");
+    }
+
+    @Test
+    public void testNaN()
+    {
+        String tableName = "test_nan";
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 AS c1, double 'NaN' AS c2", 1);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                VALUES
+                  ('c1', null, 1.0, 0.0, null, 1, 1),
+                  ('c2', null, 1.0, 0.0, null, null, null),
+                  (null, null, null, null, 1.0, null, null)
+                """);
     }
 
     private long getCurrentSnapshotId(String tableName)

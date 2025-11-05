@@ -39,7 +39,7 @@ import static io.trino.type.DateTimes.round;
 import static java.util.Locale.ENGLISH;
 import static org.joda.time.DateTimeConstants.MINUTES_PER_DAY;
 
-public class TimeFunctions
+public final class TimeFunctions
 {
     private TimeFunctions() {}
 

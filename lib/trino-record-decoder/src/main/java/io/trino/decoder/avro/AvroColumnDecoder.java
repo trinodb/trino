@@ -184,8 +184,8 @@ public class AvroColumnDecoder
         @Override
         public double getDouble()
         {
-            if (value instanceof Double) {
-                return ((Number) value).doubleValue();
+            if (value instanceof Double doubleValue) {
+                return doubleValue;
             }
             throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), columnType, columnName));
         }
@@ -193,8 +193,8 @@ public class AvroColumnDecoder
         @Override
         public boolean getBoolean()
         {
-            if (value instanceof Boolean) {
-                return (Boolean) value;
+            if (value instanceof Boolean booleanValue) {
+                return booleanValue;
             }
             throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), columnType, columnName));
         }
@@ -202,8 +202,11 @@ public class AvroColumnDecoder
         @Override
         public long getLong()
         {
-            if (value instanceof Long || value instanceof Integer) {
-                return ((Number) value).longValue();
+            if (value instanceof Long longValue) {
+                return longValue;
+            }
+            if (value instanceof Integer integerValue) {
+                return integerValue.longValue();
             }
             if (value instanceof Float && columnType == RealType.REAL) {
                 return floatToIntBits((float) value);
@@ -231,11 +234,11 @@ public class AvroColumnDecoder
         }
 
         if (type instanceof VarbinaryType) {
-            if (value instanceof ByteBuffer) {
-                return Slices.wrappedHeapBuffer((ByteBuffer) value);
+            if (value instanceof ByteBuffer byteBuffer) {
+                return Slices.wrappedHeapBuffer(byteBuffer);
             }
-            if (value instanceof GenericFixed) {
-                return Slices.wrappedBuffer(((GenericFixed) value).bytes());
+            if (value instanceof GenericFixed genericFixed) {
+                return Slices.wrappedBuffer(genericFixed.bytes());
             }
         }
 

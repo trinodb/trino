@@ -65,7 +65,6 @@ public class PrunePatternRecognitionSourceColumns
 
         referencedInputs.addAll(node.getPartitionBy());
         node.getOrderingScheme().ifPresent(orderingScheme -> referencedInputs.addAll(orderingScheme.orderBy()));
-        node.getHashSymbol().ifPresent(referencedInputs::add);
         node.getMeasures().values().stream()
                 .map(PatternRecognitionNode.Measure::getExpressionAndValuePointers)
                 .map(ExpressionAndValuePointers::getInputSymbols)

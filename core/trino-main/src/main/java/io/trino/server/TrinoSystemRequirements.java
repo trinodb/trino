@@ -19,7 +19,6 @@ import com.google.errorprone.annotations.FormatMethod;
 import com.sun.management.UnixOperatingSystemMXBean;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.joda.time.DateTime;
 
 import java.lang.Runtime.Version;
 import java.lang.management.GarbageCollectorMXBean;
@@ -27,10 +26,9 @@ import java.lang.management.ManagementFactory;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.time.Year;
 import java.util.List;
 import java.util.Locale;
-import java.util.OptionalLong;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -55,9 +53,17 @@ final class TrinoSystemRequirements
         verifyOsArchitecture();
         verifyByteOrder();
         verifyUsingG1Gc();
+        verifyUnixOperatingMBeans();
         verifyFileDescriptor();
         verifySlice();
         verifyUtf8();
+    }
+
+    private static void verifyUnixOperatingMBeans()
+    {
+        if (!(ManagementFactory.getOperatingSystemMXBean() instanceof UnixOperatingSystemMXBean)) {
+            failRequirement("Trino requires access to UnixOperatingSystemMXBean");
+        }
     }
 
     private static void verify64BitJvm()
@@ -100,8 +106,7 @@ final class TrinoSystemRequirements
 
     private static void verifyJavaVersion()
     {
-        Version required = Version.parse("23+37");
-
+        Version required = Version.parse("24.0.1");
         if (Runtime.version().compareTo(required) < 0) {
             failRequirement("Trino requires Java %s at minimum (found %s)", required, Runtime.version());
         }
@@ -126,26 +131,19 @@ final class TrinoSystemRequirements
 
     private static void verifyFileDescriptor()
     {
-        OptionalLong maxFileDescriptorCount = getMaxFileDescriptorCount();
-        if (maxFileDescriptorCount.isEmpty()) {
-            // This should never happen since we have verified the OS and JVM above
-            failRequirement("Cannot read OS file descriptor limit");
+        long maxFileDescriptorCount = getMaxFileDescriptorCount();
+        if (maxFileDescriptorCount < MIN_FILE_DESCRIPTORS) {
+            failRequirement("Trino requires at least %s file descriptors (found %s)", MIN_FILE_DESCRIPTORS, maxFileDescriptorCount);
         }
-        if (maxFileDescriptorCount.getAsLong() < MIN_FILE_DESCRIPTORS) {
-            failRequirement("Trino requires at least %s file descriptors (found %s)", MIN_FILE_DESCRIPTORS, maxFileDescriptorCount.getAsLong());
-        }
-        if (maxFileDescriptorCount.getAsLong() < RECOMMENDED_FILE_DESCRIPTORS) {
-            warnRequirement("Current OS file descriptor limit is %s. Trino recommends at least %s", maxFileDescriptorCount.getAsLong(), RECOMMENDED_FILE_DESCRIPTORS);
+        if (maxFileDescriptorCount < RECOMMENDED_FILE_DESCRIPTORS) {
+            warnRequirement("Current OS file descriptor limit is %s. Trino recommends at least %s", maxFileDescriptorCount, RECOMMENDED_FILE_DESCRIPTORS);
         }
     }
 
-    private static OptionalLong getMaxFileDescriptorCount()
+    private static long getMaxFileDescriptorCount()
     {
-        return Stream.of(ManagementFactory.getOperatingSystemMXBean())
-                .filter(UnixOperatingSystemMXBean.class::isInstance)
-                .map(UnixOperatingSystemMXBean.class::cast)
-                .mapToLong(UnixOperatingSystemMXBean::getMaxFileDescriptorCount)
-                .findFirst();
+        // This is safe because we have already verified the OS and JVM above
+        return ((UnixOperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean()).getMaxFileDescriptorCount();
     }
 
     private static void verifySlice()
@@ -174,8 +172,8 @@ final class TrinoSystemRequirements
      */
     private static void verifySystemTimeIsReasonable()
     {
-        int currentYear = DateTime.now().year().get();
-        if (currentYear < 2024) {
+        Year currentYear = Year.now();
+        if (currentYear.isBefore(Year.of(2025))) {
             failRequirement("Trino requires the system time to be current (found year %s)", currentYear);
         }
     }

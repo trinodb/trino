@@ -330,7 +330,11 @@ public class DirectExchangeClient
 
     private boolean addPages(HttpPageBufferClient client, List<Slice> pages)
     {
-        checkState(!completedClients.contains(client), "client is already marked as completed");
+        // If client is already completed, addPages is a no-op
+        if (completedClients.contains(client)) {
+            return false;
+        }
+
         // Compute stats before acquiring the lock
         long responseSize = 0;
         if (!pages.isEmpty()) {

@@ -15,10 +15,12 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.client.direct.DirectTrinoClient;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.dispatcher.DispatchQuery;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
+import io.trino.execution.QueryManagerConfig;
 import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.server.ResultQueryInfo;
 import io.trino.server.SessionContext;
@@ -27,7 +29,6 @@ import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import org.intellij.lang.annotations.Language;
 
@@ -36,6 +37,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.execution.QueryState.FINISHED;
@@ -48,9 +50,9 @@ public class TestingDirectTrinoClient
 {
     private final DirectTrinoClient directTrinoClient;
 
-    public TestingDirectTrinoClient(DispatchManager dispatchManager, QueryManager queryManager, DirectExchangeClientSupplier directExchangeClientSupplier, BlockEncodingSerde blockEncodingSerde)
+    public TestingDirectTrinoClient(DispatchManager dispatchManager, QueryManager queryManager, QueryManagerConfig queryManagerConfig, DirectExchangeClientSupplier directExchangeClientSupplier, BlockEncodingSerde blockEncodingSerde)
     {
-        directTrinoClient = new DirectTrinoClient(dispatchManager, queryManager, directExchangeClientSupplier, blockEncodingSerde);
+        directTrinoClient = new DirectTrinoClient(dispatchManager, queryManager, queryManagerConfig, directExchangeClientSupplier, blockEncodingSerde);
     }
 
     public Result execute(Session session, @Language("SQL") String sql)
@@ -62,13 +64,12 @@ public class TestingDirectTrinoClient
     {
         MaterializedQueryResultsListener queryResultsListener = new MaterializedQueryResultsListener();
         DispatchQuery dispatchQuery = directTrinoClient.execute(sessionContext, sql, queryResultsListener);
-        return new Result(dispatchQuery.getQueryId(), toMaterializedRows(dispatchQuery, queryResultsListener.columnTypes(), queryResultsListener.columnNames(), queryResultsListener.pages()));
+        return new Result(dispatchQuery.getQueryId(), () -> toMaterializedRows(dispatchQuery, queryResultsListener.columnTypes(), queryResultsListener.columnNames(), queryResultsListener.pages()));
     }
 
     private static MaterializedResult toMaterializedRows(DispatchQuery dispatchQuery, List<Type> columnTypes, List<String> columnNames, List<Page> pages)
     {
         QueryInfo queryInfo = dispatchQuery.getFullQueryInfo();
-        ConnectorSession session = dispatchQuery.getSession().toConnectorSession();
 
         if (queryInfo.getState() != FINISHED) {
             if (queryInfo.getFailureInfo() == null) {
@@ -81,6 +82,7 @@ public class TestingDirectTrinoClient
         if (pages.isEmpty() && columnTypes == null) {
             // the query did not produce any output
             return new MaterializedResult(
+                    Optional.of(dispatchQuery.getSession()),
                     ImmutableList.of(),
                     ImmutableList.of(),
                     ImmutableList.of(),
@@ -93,7 +95,7 @@ public class TestingDirectTrinoClient
                     Optional.of(ProtocolUtil.toStatementStats(new ResultQueryInfo(queryInfo))));
         }
 
-        List<MaterializedRow> materializedRows = toMaterializedRows(session, columnTypes, pages);
+        List<MaterializedRow> materializedRows = toMaterializedRows(columnTypes, pages);
 
         OptionalLong updateCount = OptionalLong.empty();
         if (queryInfo.getUpdateType() != null && materializedRows.size() == 1 && columnTypes.size() == 1 && columnTypes.get(0).equals(BIGINT)) {
@@ -104,6 +106,7 @@ public class TestingDirectTrinoClient
         }
 
         return new MaterializedResult(
+                Optional.of(dispatchQuery.getSession()),
                 materializedRows,
                 columnTypes,
                 columnNames,
@@ -116,7 +119,7 @@ public class TestingDirectTrinoClient
                 Optional.of(ProtocolUtil.toStatementStats(new ResultQueryInfo(queryInfo))));
     }
 
-    private static List<MaterializedRow> toMaterializedRows(ConnectorSession session, List<Type> types, List<Page> pages)
+    public static List<MaterializedRow> toMaterializedRows(List<Type> types, List<Page> pages)
     {
         ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
         for (Page page : pages) {
@@ -126,7 +129,7 @@ public class TestingDirectTrinoClient
                 for (int channel = 0; channel < page.getChannelCount(); channel++) {
                     Type type = types.get(channel);
                     Block block = page.getBlock(channel);
-                    values.add(type.getObjectValue(session, block, position));
+                    values.add(type.getObjectValue(block, position));
                 }
                 values = Collections.unmodifiableList(values);
 
@@ -136,9 +139,9 @@ public class TestingDirectTrinoClient
         return rows.build();
     }
 
-    record Result(QueryId queryId, MaterializedResult result)
+    public record Result(QueryId queryId, Supplier<MaterializedResult> result)
     {
-        Result
+        public Result
         {
             requireNonNull(queryId, "queryId is null");
             requireNonNull(result, "result is null");

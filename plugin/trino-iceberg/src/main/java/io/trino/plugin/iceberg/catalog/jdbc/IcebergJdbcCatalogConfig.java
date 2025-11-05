@@ -35,6 +35,7 @@ public class IcebergJdbcCatalogConfig
     private String catalogName;
     private String defaultWarehouseDir;
     private SchemaVersion schemaVersion = SchemaVersion.V1;
+    private String retryableStatusCodes;
 
     @NotNull
     public String getDriverClass()
@@ -132,6 +133,20 @@ public class IcebergJdbcCatalogConfig
     public IcebergJdbcCatalogConfig setSchemaVersion(SchemaVersion schemaVersion)
     {
         this.schemaVersion = schemaVersion;
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getRetryableStatusCodes()
+    {
+        return Optional.ofNullable(retryableStatusCodes);
+    }
+
+    @Config("iceberg.jdbc-catalog.retryable-status-codes")
+    @ConfigDescription("On connection error to JDBC metastore, retry if it is one of these JDBC status codes")
+    public IcebergJdbcCatalogConfig setRetryableStatusCodes(String retryableStatusCodes)
+    {
+        this.retryableStatusCodes = retryableStatusCodes;
         return this;
     }
 }

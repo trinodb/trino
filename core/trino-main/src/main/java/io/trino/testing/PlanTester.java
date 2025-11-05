@@ -27,6 +27,7 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogFactory;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProviderModule;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.connector.CoordinatorDynamicCatalogManager;
@@ -59,6 +60,7 @@ import io.trino.cost.StatsNormalizer;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
+import io.trino.exchange.ExchangeManagerConfig;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.NodeTaskMap;
@@ -66,6 +68,7 @@ import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryPreparer;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.ScheduledSplit;
+import io.trino.execution.SessionPropertyEvaluator;
 import io.trino.execution.SplitAssignment;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskManagerConfig;
@@ -75,7 +78,6 @@ import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.AnalyzePropertyManager;
@@ -87,10 +89,9 @@ import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.HandleResolver;
-import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalFunctionBundle;
-import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.LanguageFunctionEngineManager;
 import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
@@ -107,11 +108,15 @@ import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.TypeRegistry;
 import io.trino.metadata.ViewPropertyManager;
+import io.trino.node.InternalNode;
+import io.trino.node.InternalNodeManager;
+import io.trino.node.TestingInternalNodeManager;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.GroupByHashPageIndexerFactory;
+import io.trino.operator.OutputFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
 import io.trino.operator.TaskContext;
@@ -139,10 +144,10 @@ import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.Plugin;
 import io.trino.spi.catalog.CatalogName;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorName;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.GenericSpillerFactory;
@@ -151,6 +156,7 @@ import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.split.SplitSource;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.SessionPropertyResolver;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
@@ -172,6 +178,7 @@ import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.OptimizerConfig;
+import io.trino.sql.planner.PartitionFunctionProvider;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -181,10 +188,10 @@ import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.optimizations.AdaptivePlanOptimizer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
+import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.planner.planprinter.PlanPrinter;
 import io.trino.sql.planner.sanity.PlanSanityChecker;
 import io.trino.sql.rewrite.DescribeInputRewrite;
 import io.trino.sql.rewrite.DescribeOutputRewrite;
@@ -193,6 +200,7 @@ import io.trino.sql.rewrite.ShowQueriesRewrite;
 import io.trino.sql.rewrite.ShowStatsRewrite;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.testing.NullOutputOperator.NullOutputFactory;
+import io.trino.testing.PageConsumerOperator.PageConsumerOutputFactory;
 import io.trino.transaction.InMemoryTransactionManager;
 import io.trino.transaction.TransactionManager;
 import io.trino.transaction.TransactionManagerConfig;
@@ -206,6 +214,7 @@ import org.intellij.lang.annotations.Language;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -215,6 +224,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -243,13 +253,16 @@ import static io.trino.connector.CatalogServiceProviderModule.createViewProperty
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.execution.warnings.WarningCollector.NOOP;
+import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static io.trino.spiller.SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.sql.testing.TreeAssertions.assertFormattedSql;
+import static io.trino.testing.TestingDirectTrinoClient.toMaterializedRows;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.util.EmbedVersion.testingVersionEmbedder;
@@ -282,6 +295,7 @@ public class PlanTester
     private final PageSourceManager pageSourceManager;
     private final IndexManager indexManager;
     private final NodePartitioningManager nodePartitioningManager;
+    private final PartitionFunctionProvider partitionFunctionProvider;
     private final PageSinkManager pageSinkManager;
     private final TransactionManager transactionManager;
     private final SessionPropertyManager sessionPropertyManager;
@@ -332,7 +346,7 @@ public class PlanTester
         this.typeOperators = new TypeOperators();
         this.blockTypeOperators = new BlockTypeOperators(typeOperators);
         this.sqlParser = new SqlParser();
-        this.nodeManager = new InMemoryNodeManager();
+        this.nodeManager = TestingInternalNodeManager.createDefault();
         PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig().setIncludeCoordinator(true);
         this.optimizerConfig = new OptimizerConfig();
@@ -355,9 +369,14 @@ public class PlanTester
                 () -> getPlannerContext().getMetadata(),
                 () -> getPlannerContext().getTypeManager(),
                 () -> getPlannerContext().getFunctionManager());
-        globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion()));
+        globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, blockTypeOperators, CURRENT_NODE.getNodeVersion()));
         TestingGroupProviderManager groupProvider = new TestingGroupProviderManager();
-        LanguageFunctionManager languageFunctionManager = new LanguageFunctionManager(sqlParser, typeManager, groupProvider, blockEncodingSerde);
+        LanguageFunctionManager languageFunctionManager = new LanguageFunctionManager(
+                sqlParser,
+                typeManager,
+                groupProvider,
+                blockEncodingSerde,
+                new LanguageFunctionEngineManager());
         TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(createTableFunctionProvider(catalogManager));
         Metadata metadata = new MetadataManager(
                 new AllowAllAccessControl(),
@@ -367,12 +386,12 @@ public class PlanTester
                 languageFunctionManager,
                 tableFunctionRegistry,
                 typeManager,
-                new NotImplementedQueryManager());
+                catalogManager);
         typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
         this.joinCompiler = new JoinCompiler(typeOperators);
         this.hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators);
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(hashStrategyCompiler);
-        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig(), secretsResolver);
+        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig(), secretsResolver, noop(), tracer, CURRENT_NODE.getNodeVersion());
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager, secretsResolver);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
 
@@ -380,25 +399,25 @@ public class PlanTester
         catalogFactory.setCatalogFactory(new DefaultCatalogFactory(
                 metadata,
                 accessControl,
+                CURRENT_NODE,
                 nodeManager,
                 pageSorter,
                 pageIndexerFactory,
-                nodeInfo,
                 testingVersionEmbedder(),
                 noop(),
                 transactionManager,
                 typeManager,
                 nodeSchedulerConfig,
                 optimizerConfig,
-                new LocalMemoryManager(new NodeMemoryConfig()),
                 secretsResolver));
         this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), tracer, new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProviderFactory(catalogManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
         this.indexManager = new IndexManager(createIndexProvider(catalogManager));
-        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
+        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(CURRENT_NODE, nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
         this.sessionPropertyManager = createSessionPropertyManager(catalogManager, taskManagerConfig, optimizerConfig);
-        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, typeOperators, createNodePartitioningProvider(catalogManager));
+        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, createNodePartitioningProvider(catalogManager));
+        this.partitionFunctionProvider = new PartitionFunctionProvider(typeOperators, createNodePartitioningProvider(catalogManager));
         TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry(createTableProceduresProvider(catalogManager));
         FunctionManager functionManager = new FunctionManager(createFunctionProvider(catalogManager), globalFunctionCatalog, languageFunctionManager);
         this.schemaPropertyManager = createSchemaPropertyManager(catalogManager);
@@ -419,7 +438,7 @@ public class PlanTester
         this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager, languageFunctionManager, tracer);
         this.pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
         this.filterCompiler = new ColumnarFilterCompiler(functionManager, 0);
-        this.expressionCompiler = new ExpressionCompiler(functionManager, pageFunctionCompiler, filterCompiler);
+        this.expressionCompiler = new ExpressionCompiler(pageFunctionCompiler, filterCompiler);
         this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(functionManager);
 
         this.statementAnalyzerFactory = new StatementAnalyzerFactory(
@@ -456,13 +475,19 @@ public class PlanTester
                 ImmutableSet.of(),
                 ImmutableSet.of(new ExcludeColumnsFunction()));
 
-        exchangeManagerRegistry = new ExchangeManagerRegistry(noop(), noopTracer(), secretsResolver);
-        spoolingManagerRegistry = new SpoolingManagerRegistry(new ServerConfig(), new SpoolingEnabledConfig(), noop(), noopTracer());
+        exchangeManagerRegistry = new ExchangeManagerRegistry(noop(), noopTracer(), secretsResolver, new ExchangeManagerConfig());
+        spoolingManagerRegistry = new SpoolingManagerRegistry(
+                new InternalNode("nodeId", URI.create("http://localhost:8080"), NodeVersion.UNKNOWN, false),
+                new ServerConfig(),
+                new SpoolingEnabledConfig(),
+                noop(),
+                noopTracer());
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
                 Optional.empty(),
                 catalogFactory,
                 globalFunctionCatalog,
+                new LanguageFunctionEngineManager(),
                 new NoOpResourceGroupManager(),
                 accessControl,
                 Optional.of(new PasswordAuthenticatorManager(new PasswordAuthenticatorConfig(), secretsResolver)),
@@ -518,6 +543,7 @@ public class PlanTester
     {
         SystemSessionProperties sessionProperties = new SystemSessionProperties(
                 new QueryManagerConfig(),
+                new SpoolingEnabledConfig(),
                 taskManagerConfig,
                 new MemoryManagerConfig(),
                 new FeaturesConfig(),
@@ -677,11 +703,17 @@ public class PlanTester
 
     public void executeStatement(@Language("SQL") String sql)
     {
+        executePlan(session -> createPlan(session, sql), new NullOutput());
+    }
+
+    public <T> T executePlan(Function<Session, Plan> planFactory, Output<T> output)
+    {
         accessControl.checkCanExecuteQuery(defaultSession.getIdentity(), defaultSession.getQueryId());
 
-        inTransaction(defaultSession, transactionSession -> {
+        return inTransaction(defaultSession, session -> {
             try (Closer closer = Closer.create()) {
-                List<Driver> drivers = createDrivers(transactionSession, sql);
+                Plan plan = planFactory.apply(session);
+                List<Driver> drivers = createDrivers(session, plan, output.outputFactory());
                 drivers.forEach(closer::register);
 
                 boolean done = false;
@@ -695,7 +727,8 @@ public class PlanTester
                     }
                     done = !processed;
                 }
-                return null;
+
+                return output.result(((OutputNode) plan.getRoot()).getColumnNames());
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
@@ -709,18 +742,18 @@ public class PlanTester
         return planFragmenter.createSubPlans(session, plan, forceSingleNode, NOOP);
     }
 
-    private List<Driver> createDrivers(Session session, @Language("SQL") String sql)
+    private List<Driver> createDrivers(Session session, Plan plan, OutputFactory outputFactory)
     {
-        Plan plan = createPlan(session, sql);
         if (printPlan) {
-            System.out.println(PlanPrinter.textLogicalPlan(
+            String planText = textLogicalPlan(
                     plan.getRoot(),
                     plannerContext.getMetadata(),
                     plannerContext.getFunctionManager(),
                     plan.getStatsAndCosts(),
                     session,
                     0,
-                    false));
+                    false);
+            System.out.println("Query Plan:\n\n" + planText + "\u00A0\n");
         }
 
         SubPlan subplan = createSubPlans(session, plan, true);
@@ -736,9 +769,11 @@ public class PlanTester
                 Optional.empty(),
                 pageSourceManager,
                 indexManager,
-                nodePartitioningManager,
+                partitionFunctionProvider,
                 pageSinkManager,
-                null,
+                (_, _, _, _, _, _) -> {
+                    throw new UnsupportedOperationException();
+                },
                 expressionCompiler,
                 pageFunctionCompiler,
                 joinFilterFunctionCompiler,
@@ -746,7 +781,6 @@ public class PlanTester
                 this.taskManagerConfig,
                 new GenericSpillerFactory(unsupportedSingleStreamSpillerFactory()),
                 new QueryDataEncoders(new SpoolingEnabledConfig(), Set.of()),
-                Optional.empty(),
                 Optional.empty(),
                 unsupportedSingleStreamSpillerFactory(),
                 unsupportedPartitioningSpillerFactory(),
@@ -759,7 +793,7 @@ public class PlanTester
                 typeOperators,
                 tableExecuteContextManager,
                 exchangeManagerRegistry,
-                nodeManager.getCurrentNode().getNodeVersion(),
+                CURRENT_NODE.getNodeVersion(),
                 new CompilerConfig());
 
         // plan query
@@ -768,7 +802,7 @@ public class PlanTester
                 subplan.getFragment().getRoot(),
                 subplan.getFragment().getOutputPartitioningScheme().getOutputLayout(),
                 subplan.getFragment().getPartitionedSources(),
-                new NullOutputFactory());
+                outputFactory);
 
         // generate splitAssignments
         List<SplitAssignment> splitAssignments = new ArrayList<>();
@@ -810,7 +844,7 @@ public class PlanTester
         }
 
         // add split assignments to the drivers
-        ImmutableSet<PlanNodeId> partitionedSources = ImmutableSet.copyOf(subplan.getFragment().getPartitionedSources());
+        Set<PlanNodeId> partitionedSources = ImmutableSet.copyOf(subplan.getFragment().getPartitionedSources());
         for (SplitAssignment splitAssignment : splitAssignments) {
             DriverFactory driverFactory = driverFactoriesBySource.get(splitAssignment.getPlanNodeId());
             checkState(driverFactory != null);
@@ -888,12 +922,11 @@ public class PlanTester
                 new PlanSanityChecker(true),
                 idAllocator,
                 getPlannerContext(),
-                new SpoolingManagerRegistry(new ServerConfig(), new SpoolingEnabledConfig(), noop(), noopTracer()),
                 statsCalculator,
                 costCalculator,
                 warningCollector,
                 planOptimizersStatsCollector,
-                new CachingTableStatsProvider(getPlannerContext().getMetadata(), session));
+                new CachingTableStatsProvider(getPlannerContext().getMetadata(), session, () -> false));
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
         // make PlanTester always compute plan statistics for test purposes
@@ -910,7 +943,7 @@ public class PlanTester
                 new PlanSanityChecker(false),
                 warningCollector,
                 planOptimizersStatsCollector,
-                new CachingTableStatsProvider(getPlannerContext().getMetadata(), session));
+                new CachingTableStatsProvider(getPlannerContext().getMetadata(), session, () -> false));
         return adaptivePlanner.optimize(subPlan, runtimeInfoProvider);
     }
 
@@ -945,6 +978,10 @@ public class PlanTester
 
     private AnalyzerFactory createAnalyzerFactory(QueryExplainerFactory queryExplainerFactory)
     {
+        SessionPropertyResolver sessionPropertyResolver = new SessionPropertyResolver(
+                new SessionPropertyEvaluator(plannerContext, accessControl, sessionPropertyManager, new SqlEnvironmentConfig()),
+                accessControl);
+
         return new AnalyzerFactory(
                 statementAnalyzerFactory,
                 new StatementRewrite(ImmutableSet.of(
@@ -962,7 +999,7 @@ public class PlanTester
                                 viewPropertyManager,
                                 materializedViewPropertyManager),
                         new ShowStatsRewrite(plannerContext.getMetadata(), queryExplainerFactory, statsCalculator),
-                        new ExplainRewrite(queryExplainerFactory, new QueryPreparer(sqlParser)))),
+                        new ExplainRewrite(queryExplainerFactory, sessionPropertyResolver, new QueryPreparer(sqlParser)))),
                 plannerContext.getTracer());
     }
 
@@ -978,5 +1015,51 @@ public class PlanTester
                 .findAll().stream()
                 .map(TableScanNode.class::cast)
                 .collect(toImmutableList());
+    }
+
+    public interface Output<T>
+    {
+        OutputFactory outputFactory();
+
+        T result(List<String> columnNames);
+    }
+
+    public static final class NullOutput
+            implements Output<Void>
+    {
+        @Override
+        public OutputFactory outputFactory()
+        {
+            return new NullOutputFactory();
+        }
+
+        @Override
+        public Void result(List<String> columnNames)
+        {
+            return null;
+        }
+    }
+
+    public static final class MaterializedResultOutput
+            implements Output<MaterializedResult>
+    {
+        private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
+        private final AtomicReference<List<Type>> types = new AtomicReference<>();
+
+        @Override
+        public OutputFactory outputFactory()
+        {
+            return new PageConsumerOutputFactory(types -> {
+                this.types.set(types);
+                return page -> rows.addAll(toMaterializedRows(types, List.of(page)));
+            });
+        }
+
+        @Override
+        public MaterializedResult result(List<String> columnNames)
+        {
+            checkState(types.get() != null, "types were not set");
+            return new MaterializedResult(Optional.empty(), rows.build(), types.get(), columnNames);
+        }
     }
 }

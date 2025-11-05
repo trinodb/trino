@@ -49,7 +49,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.block.TestingSession.SESSION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
@@ -356,7 +355,7 @@ public class TestScalarFunctionAdapter
                 actualConvention.supportsSession(),
                 actualConvention.supportsInstanceFactory());
 
-        // crete an exact invoker to the handle, so we can use object invoke interface without type coercion concerns
+        // create an exact invoker to the handle, so we can use object invoke interface without type coercion concerns
         MethodHandle exactInvoker = MethodHandles.exactInvoker(adaptedMethodHandle.type())
                 .bindTo(adaptedMethodHandle);
         if (expectedConvention.getReturnConvention() != BLOCK_BUILDER) {
@@ -554,6 +553,7 @@ public class TestScalarFunctionAdapter
                     callArguments.add(fixedSlice);
                     callArguments.add(0);
                     callArguments.add(variableSlice);
+                    callArguments.add(0);
                 }
                 case IN_OUT -> callArguments.add(new TestingInOut(argumentType, testValue));
                 default -> throw new IllegalArgumentException("Unsupported argument convention: " + argumentConvention);
@@ -996,8 +996,8 @@ public class TestScalarFunctionAdapter
 
         private static void assertArgumentValue(Object actual, Object expected)
         {
-            if (actual instanceof Block && expected instanceof Block) {
-                assertBlockEquals(BIGINT, (Block) actual, (Block) expected);
+            if (actual instanceof Block actualBlock && expected instanceof Block expectedBlock) {
+                assertBlockEquals(BIGINT, actualBlock, expectedBlock);
             }
             else {
                 assertThat(actual).isEqualTo(expected);
@@ -1007,7 +1007,7 @@ public class TestScalarFunctionAdapter
         private static void assertBlockEquals(Type type, Block actual, Block expected)
         {
             for (int position = 0; position < actual.getPositionCount(); position++) {
-                assertThat(type.getObjectValue(SESSION, actual, position)).isEqualTo(type.getObjectValue(SESSION, expected, position));
+                assertThat(type.getObjectValue(actual, position)).isEqualTo(type.getObjectValue(expected, position));
             }
         }
     }

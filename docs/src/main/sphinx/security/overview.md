@@ -94,14 +94,14 @@ provider.
 #### User name management
 
 Trino provides ways to map the user and group names from authentication
-providers to Trino user names.
+providers to Trino usernames.
 
 - {doc}`User mapping <user-mapping>` applies to all authentication systems,
-  and allows for regular expression rules to be specified that map complex user
-  names from other systems (`alice@example.com`) to simple user names
+  and allows for regular expression rules to be specified that map complex 
+  usernames from other systems (`alice@example.com`) to simple usernames
   (`alice`).
-- {doc}`File group provider <group-file>` provides a way to assign a set
-  of user names to a group name to ease access control.
+- {doc}`Group mapping <group-mapping>` provides ways to assign a set
+  of usernames to a group name to ease access control.
 
 (cl-access-control)=
 ### Authorization and access control
@@ -116,6 +116,9 @@ To implement access control, use:
   the catalog, schema, or table level.
 - [](opa-access-control), where you use Open Policy Agent to make access control
   decisions on a fined-grained level.
+- [](ranger-access-control), where you use Apache Ranger to make fine-grained
+  access control decisions, apply dynamic row-filters and column-masking at
+  query execution time, and generate audit logs.
 
 In addition, Trino {doc}`provides an API </develop/system-access-control>` that
 allows you to create a custom access control method, or to extend an existing

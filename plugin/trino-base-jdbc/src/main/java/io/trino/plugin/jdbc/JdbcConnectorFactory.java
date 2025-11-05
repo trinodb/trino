@@ -16,16 +16,13 @@ package io.trino.plugin.jdbc;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
-import io.opentelemetry.api.OpenTelemetry;
-import io.trino.spi.NodeManager;
-import io.trino.spi.VersionEmbedder;
-import io.trino.spi.catalog.CatalogName;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -36,13 +33,13 @@ public class JdbcConnectorFactory
         implements ConnectorFactory
 {
     private final String name;
-    private final Module module;
+    private final Supplier<Module> module;
 
-    public JdbcConnectorFactory(String name, Module module)
+    public JdbcConnectorFactory(String name, Supplier<Module> module)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
-        this.module = module;
+        this.module = requireNonNull(module, "module is null");
     }
 
     @Override
@@ -55,20 +52,17 @@ public class JdbcConnectorFactory
     public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context)
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
-        requireNonNull(module, "module is null");
         checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
-                binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),
-                binder -> binder.bind(NodeManager.class).toInstance(context.getNodeManager()),
-                binder -> binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder()),
-                binder -> binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry()),
-                binder -> binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName)),
+                "io.trino.bootstrap.catalog." + catalogName,
+                new ConnectorContextModule(catalogName, context),
                 new JdbcModule(),
-                module);
+                module.get());
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(requiredConfig)
                 .initialize();
 

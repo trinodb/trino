@@ -23,6 +23,7 @@ import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -256,7 +257,7 @@ public class TestDefaultJdbcMetadata
         assertThat(layout.getColumns())
                 .containsExactly(new ColumnMetadata("text", VARCHAR));
 
-        metadata.addColumn(SESSION, handle, new ColumnMetadata("x", VARCHAR));
+        metadata.addColumn(SESSION, handle, new ColumnMetadata("x", VARCHAR), new ColumnPosition.Last());
         layout = metadata.getTableMetadata(SESSION, handle);
         assertThat(layout.getColumns())
                 .containsExactly(

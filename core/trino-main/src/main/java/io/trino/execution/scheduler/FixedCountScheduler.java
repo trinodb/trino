@@ -16,7 +16,7 @@ package io.trino.execution.scheduler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMultimap;
 import io.trino.execution.RemoteTask;
-import io.trino.metadata.InternalNode;
+import io.trino.node.InternalNode;
 
 import java.util.List;
 import java.util.Optional;

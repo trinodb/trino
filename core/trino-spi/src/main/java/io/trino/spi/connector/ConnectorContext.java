@@ -15,6 +15,7 @@ package io.trino.spi.connector;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
@@ -23,11 +24,6 @@ import io.trino.spi.type.TypeManager;
 
 public interface ConnectorContext
 {
-    default CatalogHandle getCatalogHandle()
-    {
-        throw new UnsupportedOperationException();
-    }
-
     default OpenTelemetry getOpenTelemetry()
     {
         throw new UnsupportedOperationException();
@@ -36,6 +32,12 @@ public interface ConnectorContext
     default Tracer getTracer()
     {
         throw new UnsupportedOperationException();
+    }
+
+    default Node getCurrentNode()
+    {
+        //noinspection deprecation
+        return getNodeManager().getCurrentNode();
     }
 
     default NodeManager getNodeManager()

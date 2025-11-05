@@ -20,7 +20,6 @@ import io.trino.Session;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
@@ -37,23 +36,33 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
+import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -113,7 +122,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     @Test
     public void testHiddenPathColumn()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "hidden_file_path", "(a int, b VARCHAR)", ImmutableList.of("(1, 'a')"))) {
+        try (TestTable table = newTrinoTable("hidden_file_path", "(a int, b VARCHAR)", ImmutableList.of("(1, 'a')"))) {
             String filePath = (String) computeScalar(format("SELECT file_path FROM \"%s$files\"", table.getName()));
 
             assertQuery("SELECT DISTINCT \"$path\" FROM " + table.getName(), "VALUES " + "'" + filePath + "'");
@@ -138,8 +147,7 @@ public abstract class BaseIcebergConnectorSmokeTest
         String[] expectedErrors = new String[] {"Failed to commit the transaction during write:",
                 "Failed to replace table due to concurrent updates:",
                 "Failed to commit during write:"};
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_concurrent_delete",
                 "(col0 INTEGER, col1 INTEGER, col2 INTEGER, col3 INTEGER)")) {
             String tableName = table.getName();
@@ -179,8 +187,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     @Test
     public void testCreateOrReplaceTable()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_create_or_replace",
                 " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
             assertThat(query("SELECT a, b FROM " + table.getName()))
@@ -524,8 +531,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     public void testSortedNationTable()
     {
         Session withSmallRowGroups = withSmallRowGroups(getSession());
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_sorted_nation_table",
                 "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS SELECT * FROM nation WITH NO DATA")) {
             assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
@@ -545,8 +551,7 @@ public abstract class BaseIcebergConnectorSmokeTest
                 .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "20kB")
                 .setCatalogSessionProperty("iceberg", "parquet_writer_batch_size", "200")
                 .build();
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_sorted_lineitem_table",
                 "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS TABLE tpch.tiny.lineitem WITH NO DATA")) {
             assertUpdate(
@@ -592,7 +597,7 @@ public abstract class BaseIcebergConnectorSmokeTest
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
 
         String metadataLocation = getMetadataLocation(tableName);
-        TableMetadata tableMetadata = TableMetadataParser.read(new ForwardingFileIo(fileSystem), metadataLocation);
+        TableMetadata tableMetadata = TableMetadataParser.read(FILE_IO_FACTORY.create(fileSystem), metadataLocation);
         Location tableLocation = Location.of(tableMetadata.location());
         Location currentSnapshotFile = Location.of(tableMetadata.currentSnapshot().manifestListLocation());
 
@@ -618,7 +623,7 @@ public abstract class BaseIcebergConnectorSmokeTest
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
 
         String metadataLocation = getMetadataLocation(tableName);
-        FileIO fileIo = new ForwardingFileIo(fileSystem);
+        FileIO fileIo = FILE_IO_FACTORY.create(fileSystem);
         TableMetadata tableMetadata = TableMetadataParser.read(fileIo, metadataLocation);
         Location tableLocation = Location.of(tableMetadata.location());
         Location manifestListFile = Location.of(tableMetadata.currentSnapshot().allManifests(fileIo).get(0).path());
@@ -690,8 +695,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     @Test
     public void testMetadataTables()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_metadata_tables",
                 "(id int, part varchar) WITH (partitioning = ARRAY['part'])")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'p1')", 1);
@@ -741,8 +745,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     {
         DateTimeFormatter instantMillisFormatter = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSSVV").withZone(UTC);
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_table_changes_function_",
                 "AS SELECT nationkey, name FROM tpch.tiny.nation WITH NO DATA")) {
             long initialSnapshot = getMostRecentSnapshotId(table.getName());
@@ -759,23 +762,6 @@ public abstract class BaseIcebergConnectorSmokeTest
             assertQuery(
                     "SELECT nationkey, name, _change_type, _change_version_id, to_iso8601(_change_timestamp), _change_ordinal " +
                             "FROM TABLE(system.table_changes(schema_name => CURRENT_SCHEMA, table_name => '%s', start_snapshot_id => %s, end_snapshot_id => %s))"
-                                    .formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
-                    "SELECT nationkey, name, 'insert', %s, '%s', 0 FROM nation".formatted(snapshotAfterInsert, snapshotAfterInsertTime));
-
-            // Run with deprecated named arguments
-            assertQuery(
-                    "SELECT nationkey, name, _change_type, _change_version_id, to_iso8601(_change_timestamp), _change_ordinal " +
-                            "FROM TABLE(system.table_changes(\"SCHEMA\" => CURRENT_SCHEMA, \"TABLE\" => '%s', start_snapshot_id => %s, end_snapshot_id => %s))"
-                                    .formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
-                    "SELECT nationkey, name, 'insert', %s, '%s', 0 FROM nation".formatted(snapshotAfterInsert, snapshotAfterInsertTime));
-            assertQuery(
-                    "SELECT nationkey, name, _change_type, _change_version_id, to_iso8601(_change_timestamp), _change_ordinal " +
-                            "FROM TABLE(system.table_changes(schema_name => CURRENT_SCHEMA, \"TABLE\" => '%s', start_snapshot_id => %s, end_snapshot_id => %s))"
-                                    .formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
-                    "SELECT nationkey, name, 'insert', %s, '%s', 0 FROM nation".formatted(snapshotAfterInsert, snapshotAfterInsertTime));
-            assertQuery(
-                    "SELECT nationkey, name, _change_type, _change_version_id, to_iso8601(_change_timestamp), _change_ordinal " +
-                            "FROM TABLE(system.table_changes(\"SCHEMA\" => CURRENT_SCHEMA, table_name => '%s', start_snapshot_id => %s, end_snapshot_id => %s))"
                                     .formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
                     "SELECT nationkey, name, 'insert', %s, '%s', 0 FROM nation".formatted(snapshotAfterInsert, snapshotAfterInsertTime));
 
@@ -799,8 +785,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     @Test
     public void testRowLevelDeletesWithTableChangesFunction()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_row_level_deletes_with_table_changes_function_",
                 "AS SELECT nationkey, regionkey, name FROM tpch.tiny.nation WITH NO DATA")) {
             assertUpdate("INSERT INTO " + table.getName() + " SELECT nationkey, regionkey, name FROM nation", 25);
@@ -820,8 +805,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     {
         DateTimeFormatter instantMillisFormatter = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSSVV").withZone(UTC);
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_table_changes_function_",
                 "AS SELECT nationkey, name FROM tpch.tiny.nation WITH NO DATA")) {
             long initialSnapshot = getMostRecentSnapshotId(table.getName());
@@ -852,6 +836,92 @@ public abstract class BaseIcebergConnectorSmokeTest
         }
     }
 
+    @Test
+    public void testMetadataDeleteAfterCommitEnabled()
+            throws IOException
+    {
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            return;
+        }
+
+        int metadataPreviousVersionCount = 5;
+        String tableName = "test_metadata_delete_after_commit_enabled" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(_bigint BIGINT, _varchar VARCHAR)");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES extra_properties = MAP(ARRAY['write.metadata.delete-after-commit.enabled'], ARRAY['true'])");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES extra_properties = MAP(ARRAY['write.metadata.previous-versions-max'], ARRAY['" + metadataPreviousVersionCount + "'])");
+        String tableLocation = getTableLocation(tableName);
+
+        Map<String, Long> historyMetadataFiles = getMetadataFileAndUpdatedMillis(fileSystem, tableLocation);
+        for (int i = 0; i < 10; i++) {
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+            Map<String, Long> metadataFiles = getMetadataFileAndUpdatedMillis(fileSystem, tableLocation);
+            historyMetadataFiles.putAll(metadataFiles);
+            assertThat(metadataFiles.size()).isLessThanOrEqualTo(1 + metadataPreviousVersionCount);
+            Set<String> expectMetadataFiles = historyMetadataFiles
+                    .entrySet()
+                    .stream()
+                    .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                    .limit(metadataPreviousVersionCount + 1)
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toSet());
+            assertThat(metadataFiles.keySet()).containsAll(expectMetadataFiles);
+        }
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testIcebergTablesSystemTable()
+            throws Exception
+    {
+        String firstSchema = "first_schema_" + randomNameSuffix();
+        String secondSchema = "second_schema_" + randomNameSuffix();
+        createSchema(firstSchema);
+        createSchema(secondSchema);
+
+        try (AutoCloseable _ = createTable(firstSchema, "first_schema_table1", "(id int)");
+                AutoCloseable _ = createTable(firstSchema, "first_schema_table2", "(id int)");
+                AutoCloseable _ = createTable(secondSchema, "second_schema_table", "(id int)");
+                AutoCloseable _ = createSparkIcebergTable(firstSchema)) {
+            assertThat(query("SELECT * FROM iceberg.system.iceberg_tables WHERE table_schema = '%s'".formatted(firstSchema)))
+                    .matches("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema='%s'".formatted(firstSchema));
+            assertThat(query("SELECT * FROM iceberg.system.iceberg_tables WHERE table_schema in ('%s', '%s')".formatted(firstSchema, secondSchema)))
+                    .matches("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema IN ('%s', '%s')".formatted(firstSchema, secondSchema));
+        }
+        finally {
+            dropSchema(firstSchema);
+            dropSchema(secondSchema);
+        }
+    }
+
+    protected void dropSchema(String schema)
+            throws Exception
+    {
+        assertQuerySucceeds("DROP SCHEMA " + schema);
+    }
+
+    protected AutoCloseable createTable(String schema, String tableName, String tableDefinition)
+            throws Exception
+    {
+        Session schemaSession = Session.builder(getQueryRunner().getDefaultSession()).setSchema(schema).build();
+        return new TestTable(
+                sql -> getQueryRunner().execute(schemaSession, sql),
+                tableName,
+                tableDefinition);
+    }
+
+    protected void createSchema(String schemaName)
+            throws Exception
+    {
+        String defaultSchemaName = getSession().getSchema().orElseThrow();
+        String schemaLocation = schemaPath().replaceAll(defaultSchemaName, schemaName);
+        assertQuerySucceeds("CREATE SCHEMA " + schemaName + " WITH (location = '%s')".formatted(schemaLocation));
+    }
+
+    protected AutoCloseable createSparkIcebergTable(String schema)
+    {
+        return () -> {};
+    }
+
     private long getMostRecentSnapshotId(String tableName)
     {
         return (long) Iterables.getOnlyElement(getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", tableName))
@@ -866,7 +936,14 @@ public abstract class BaseIcebergConnectorSmokeTest
 
     protected String getTableLocation(String tableName)
     {
-        return (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*/[^/]*$', '') FROM " + tableName);
+        Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
+        Matcher m = locationPattern.matcher((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue());
+        if (m.find()) {
+            String location = m.group(1);
+            verify(!m.find(), "Unexpected second match");
+            return location;
+        }
+        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
     }
 
     protected abstract void dropTableFromMetastore(String tableName);

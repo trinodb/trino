@@ -324,8 +324,8 @@ public class RedisMetadata
                 return true;
             }
             ValueSet valueSet = domain.getValues();
-            if (valueSet instanceof SortedRangeSet) {
-                Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
+            if (valueSet instanceof SortedRangeSet sortedRangeSet) {
+                Ranges ranges = sortedRangeSet.getRanges();
                 List<Range> rangeList = ranges.getOrderedRanges();
                 return rangeList.stream().allMatch(Range::isSingleValue);
             }

@@ -37,5 +37,6 @@ public class TestDictionaryBuilder
             positions.add(dictionaryBuilder.putIfAbsent(new VariableWidthBlock(1, wrappedBuffer(new byte[] {2}), new int[] {0, 1}, Optional.of(new boolean[] {false})), 0));
         }
         assertThat(positions).isEqualTo(ImmutableSet.of(1, 2));
+        assertThat(dictionaryBuilder.getSizeInBytes()).isEqualTo(14);
     }
 }

@@ -75,7 +75,7 @@ public class TestQueryAssertions
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
 
-        queryRunner.installPlugin(new JdbcPlugin("base_jdbc", new TestingH2JdbcModule()));
+        queryRunner.installPlugin(new JdbcPlugin("base_jdbc", TestingH2JdbcModule::new));
         Map<String, String> jdbcConfigurationProperties = TestingH2JdbcModule.createProperties();
         queryRunner.createCatalog("jdbc", "base_jdbc", jdbcConfigurationProperties);
 

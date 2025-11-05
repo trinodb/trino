@@ -294,8 +294,7 @@ public class CassandraMetadata
             CassandraClusteringPredicatesExtractor clusteringPredicatesExtractor = new CassandraClusteringPredicatesExtractor(
                     cassandraTypeManager,
                     cassandraSession.getTable(handle.getSchemaTableName()).clusteringKeyColumns(),
-                    partitionResult.unenforcedConstraint(),
-                    cassandraSession.getCassandraVersion());
+                    partitionResult.unenforcedConstraint());
             clusteringKeyPredicates = clusteringPredicatesExtractor.getClusteringKeyPredicates();
             unenforcedConstraint = clusteringPredicatesExtractor.getUnenforcedConstraints();
         }
@@ -471,7 +470,7 @@ public class CassandraMetadata
     }
 
     @Override
-    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateCaseColumns, RetryMode retryMode)
     {
         throw new TrinoException(NOT_SUPPORTED, "Delete without primary key or partition key is not supported");
     }
@@ -511,7 +510,7 @@ public class CassandraMetadata
             return Optional.empty();
         }
 
-        CassandraTableHandle tableHandle = queryHandle.getTableHandle();
+        CassandraTableHandle tableHandle = queryHandle.tableHandle();
         List<ColumnHandle> columnHandles = getColumnHandles(((CassandraQueryRelationHandle) tableHandle.relationHandle()).getQuery());
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }

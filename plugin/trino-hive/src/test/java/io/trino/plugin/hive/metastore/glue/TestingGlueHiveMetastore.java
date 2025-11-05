@@ -13,8 +13,9 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import io.opentelemetry.api.OpenTelemetry;
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.TableKind;
+import io.trino.spi.catalog.CatalogName;
 import software.amazon.awssdk.services.glue.GlueClient;
 
 import java.io.IOException;
@@ -52,14 +53,15 @@ public final class TestingGlueHiveMetastore
     {
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
                 .setDefaultWarehouseDir(warehouseUri.toString());
-        GlueClient glueClient = createGlueClient(glueConfig, OpenTelemetry.noop());
+        GlueClient glueClient = createGlueClient(glueConfig, ImmutableSet.of());
         registerResource.accept(glueClient);
         return new GlueHiveMetastore(
                 glueClient,
-                new GlueContext(glueConfig),
                 GlueCache.NOOP,
+                new GlueMetastoreStats(),
                 HDFS_FILE_SYSTEM_FACTORY,
                 glueConfig,
+                new CatalogName("test"),
                 EnumSet.allOf(TableKind.class));
     }
 }

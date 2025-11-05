@@ -20,7 +20,7 @@ as a plugin and installed on the Trino cluster.
 
 After a plugin that implements `PasswordAuthenticatorFactory` has been
 installed on the coordinator, it is configured using an
-`etc/password-authenticator.properties` file. All of the
+`etc/password-authenticator.properties` file. All the
 properties other than `password-authenticator.name` are specific to the
 `PasswordAuthenticatorFactory` implementation.
 

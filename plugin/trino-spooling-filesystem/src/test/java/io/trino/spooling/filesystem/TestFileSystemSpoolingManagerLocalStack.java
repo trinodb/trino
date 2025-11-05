@@ -17,7 +17,7 @@ import io.airlift.units.DataSize;
 import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.filesystem.s3.S3FileSystemFactory;
 import io.trino.filesystem.s3.S3FileSystemStats;
-import io.trino.spi.protocol.SpoolingManager;
+import io.trino.spi.spool.SpoolingManager;
 import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -62,7 +62,7 @@ public class TestFileSystemSpoolingManagerLocalStack
                 .setAwsAccessKey(LOCALSTACK.getAccessKey())
                 .setAwsSecretKey(LOCALSTACK.getSecretKey())
                 .setStreamingPartSize(DataSize.valueOf("5.5MB"));
-        return new FileSystemSpoolingManager(spoolingConfig, new S3FileSystemFactory(noop(), filesystemConfig, new S3FileSystemStats()), new SimpleFileSystemLayout());
+        return new FileSystemSpoolingManager(spoolingConfig, new S3FileSystemFactory(noop(), filesystemConfig, new S3FileSystemStats()), new SimpleFileSystemLayout(), new TestingNode("nodeId"));
     }
 
     protected S3Client createS3Client()

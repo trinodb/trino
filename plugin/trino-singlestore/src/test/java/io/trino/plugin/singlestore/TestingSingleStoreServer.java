@@ -17,42 +17,40 @@ import com.google.common.collect.ImmutableSet;
 import org.testcontainers.containers.JdbcDatabaseContainer;
 import org.testcontainers.utility.DockerImageName;
 
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Set;
 
-import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
+import static io.trino.testing.containers.TestContainers.startOrReuse;
 
 public class TestingSingleStoreServer
         extends JdbcDatabaseContainer<TestingSingleStoreServer>
 {
-    private static final String MEM_SQL_LICENSE = requiredNonEmptySystemProperty("memsql.license");
+    public static final String DEFAULT_VERSION = "7.8";
+    public static final String LATEST_TESTED_VERSION = "8.9";
 
-    public static final String DEFAULT_TAG = "memsql/cluster-in-a-box:centos-7.1.13-11ddea2a3a-3.0.0-1.9.0";
-    public static final String LATEST_TESTED_TAG = "memsql/cluster-in-a-box:alma-8.0.4-c190bb9c08-4.0.10-1.14.4";
+    public static final String DEFAULT_TAG = "ghcr.io/singlestore-labs/singlestoredb-dev:0.2.51";
 
     public static final Integer SINGLESTORE_PORT = 3306;
 
+    private final Closeable cleanup;
+
     public TestingSingleStoreServer()
     {
-        this(DEFAULT_TAG);
+        this(DEFAULT_VERSION);
     }
 
-    public TestingSingleStoreServer(String dockerImageName)
+    public TestingSingleStoreServer(String version)
     {
-        super(DockerImageName.parse(dockerImageName));
+        super(DockerImageName.parse(DEFAULT_TAG));
         addEnv("ROOT_PASSWORD", "memsql_root_password");
-        String option = dockerImageName.equals(LATEST_TESTED_TAG) ? "bash" : "";
-        withCommand("sh", "-xeuc",
-                option + " /startup && " +
-                        // Lower the size of pre-allocated log files to 1MB (minimum allowed) to reduce disk footprint
-                        "memsql-admin update-config --yes --all --set-global --key \"log_file_size_partitions\" --value \"1048576\" && " +
-                        "memsql-admin update-config --yes --all --set-global --key \"log_file_size_ref_dbs\" --value \"1048576\" && " +
-                        // re-execute startup to actually start the nodes (first run performs setup but doesn't start the nodes)
-                        "exec " + option + " /startup");
-        start();
+        addEnv("SINGLESTORE_VERSION", version);
+        cleanup = startOrReuse(this);
     }
 
     @Override
@@ -65,7 +63,6 @@ public class TestingSingleStoreServer
     protected void configure()
     {
         addExposedPort(SINGLESTORE_PORT);
-        addEnv("LICENSE_KEY", MEM_SQL_LICENSE);
         setStartupAttempts(3);
     }
 
@@ -97,6 +94,17 @@ public class TestingSingleStoreServer
     public String getTestQueryString()
     {
         return "SELECT 1";
+    }
+
+    @Override
+    public void close()
+    {
+        try {
+            cleanup.close();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     public void execute(String sql)

@@ -18,17 +18,20 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.awssdk.v2_2.AwsSdkTelemetry;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.s3.S3Context.S3SseContext;
 import jakarta.annotation.PreDestroy;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider;
+import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.apache.ProxyConfiguration;
 import software.amazon.awssdk.metrics.MetricPublisher;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.LegacyMd5Plugin;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
@@ -45,11 +48,14 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.getRetryStrategy;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static software.amazon.awssdk.core.checksums.ResponseChecksumValidation.WHEN_REQUIRED;
+import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.SIGNER;
 
 final class S3FileSystemLoader
         implements Function<Location, TrinoFileSystemFactory>
@@ -88,9 +94,12 @@ final class S3FileSystemLoader
         this.context = new S3Context(
                 toIntExact(config.getStreamingPartSize().toBytes()),
                 config.isRequesterPays(),
-                config.getSseType(),
-                config.getSseKmsKeyId(),
+                S3SseContext.of(
+                        config.getSseType(),
+                        config.getSseKmsKeyId(),
+                        config.getSseCustomerKey()),
                 Optional.empty(),
+                config.getStorageClass(),
                 config.getCannedAcl(),
                 config.isSupportsExclusiveCreate());
     }
@@ -105,7 +114,12 @@ final class S3FileSystemLoader
             S3Context context = this.context.withCredentials(identity);
 
             if (mapping.isPresent() && mapping.get().kmsKeyId().isPresent()) {
+                checkState(mapping.get().sseCustomerKey().isEmpty(), "Both SSE-C and KMS-managed keys cannot be used at the same time");
                 context = context.withKmsKeyId(mapping.get().kmsKeyId().get());
+            }
+
+            if (mapping.isPresent() && mapping.get().sseCustomerKey().isPresent()) {
+                context = context.withSseCustomerKey(mapping.get().sseCustomerKey().get());
             }
 
             return new S3FileSystem(uploadExecutor, client, preSigner, context);
@@ -166,7 +180,11 @@ final class S3FileSystemLoader
 
             S3ClientBuilder s3 = S3Client.builder();
             s3.overrideConfiguration(overrideConfiguration);
+            s3.crossRegionAccessEnabled(config.isCrossRegionAccessEnabled());
             s3.httpClient(httpClient);
+            s3.responseChecksumValidation(WHEN_REQUIRED);
+            s3.requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED);
+            s3.addPlugin(LegacyMd5Plugin.create());
 
             region.map(Region::of).ifPresent(s3::region);
             endpoint.map(URI::create).ifPresent(s3::endpointOverride);
@@ -260,7 +278,7 @@ final class S3FileSystemLoader
 
     private static ClientOverrideConfiguration createOverrideConfiguration(OpenTelemetry openTelemetry, S3FileSystemConfig config, MetricPublisher metricPublisher)
     {
-        return ClientOverrideConfiguration.builder()
+        ClientOverrideConfiguration.Builder builder = ClientOverrideConfiguration.builder()
                 .addExecutionInterceptor(AwsSdkTelemetry.builder(openTelemetry)
                         .setCaptureExperimentalSpanAttributes(true)
                         .setRecordIndividualHttpError(true)
@@ -268,8 +286,10 @@ final class S3FileSystemLoader
                 .retryStrategy(getRetryStrategy(config.getRetryMode()).toBuilder()
                         .maxAttempts(config.getMaxErrorRetries())
                         .build())
-                .addMetricPublisher(metricPublisher)
-                .build();
+                .appId(config.getApplicationId())
+                .addMetricPublisher(metricPublisher);
+        config.getSignerType().ifPresent(signer -> builder.putAdvancedOption(SIGNER, signer.create()));
+        return builder.build();
     }
 
     private static SdkHttpClient createHttpClient(S3FileSystemConfig config)
@@ -281,7 +301,7 @@ final class S3FileSystemLoader
         config.getConnectionTtl().ifPresent(ttl -> client.connectionTimeToLive(ttl.toJavaTime()));
         config.getConnectionMaxIdleTime().ifPresent(time -> client.connectionMaxIdleTime(time.toJavaTime()));
         config.getSocketConnectTimeout().ifPresent(timeout -> client.connectionTimeout(timeout.toJavaTime()));
-        config.getSocketReadTimeout().ifPresent(timeout -> client.socketTimeout(timeout.toJavaTime()));
+        config.getSocketTimeout().ifPresent(timeout -> client.socketTimeout(timeout.toJavaTime()));
 
         if (config.getHttpProxy() != null) {
             client.proxyConfiguration(ProxyConfiguration.builder()

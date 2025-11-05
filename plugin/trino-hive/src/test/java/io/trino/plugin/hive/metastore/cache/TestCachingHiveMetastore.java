@@ -21,7 +21,9 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
 import io.trino.hive.thrift.metastore.ColumnStatisticsData;
 import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
+import io.trino.hive.thrift.metastore.LockState;
 import io.trino.hive.thrift.metastore.LongColumnStatsData;
+import io.trino.metastore.AcidTransactionOwner;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveBasicStatistics;
 import io.trino.metastore.HiveColumnStatistics;
@@ -31,6 +33,7 @@ import io.trino.metastore.Partition;
 import io.trino.metastore.PartitionStatistics;
 import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
+import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
@@ -39,6 +42,7 @@ import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreStats;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -53,10 +57,12 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executor;
@@ -72,17 +78,18 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.metastore.HiveType.HIVE_STRING;
 import static io.trino.metastore.StatisticsUpdateMode.MERGE_INCREMENTAL;
+import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
-import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_DATABASE;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_PARTITION;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.PARTITION_COLUMN_NAMES;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_COLUMN;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_DATABASE;
+import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_EXCEPTION_LOCK_MESSAGE;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION1;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION1_VALUE;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION2;
@@ -108,7 +115,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 public class TestCachingHiveMetastore
 {
     private static final HiveBasicStatistics TEST_BASIC_STATS = new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(2398040535435L), OptionalLong.empty(), OptionalLong.empty());
-    private static final ImmutableMap<String, HiveColumnStatistics> TEST_COLUMN_STATS = ImmutableMap.of(TEST_COLUMN, createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()));
+    private static final Map<String, HiveColumnStatistics> TEST_COLUMN_STATS = ImmutableMap.of(TEST_COLUMN, createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()));
     private static final PartitionStatistics TEST_STATS = PartitionStatistics.builder()
             .setBasicStatistics(TEST_BASIC_STATS)
             .setColumnStatistics(TEST_COLUMN_STATS)
@@ -287,7 +294,7 @@ public class TestCachingHiveMetastore
     @Test
     public void testGetPartitionNames()
     {
-        ImmutableList<String> expectedPartitions = ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2, TEST_PARTITION3);
+        List<String> expectedPartitions = ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2, TEST_PARTITION3);
         assertThat(mockClient.getAccessCount()).isEqualTo(0);
         assertThat(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).orElseThrow()).isEqualTo(expectedPartitions);
         assertThat(mockClient.getAccessCount()).isEqualTo(1);
@@ -375,7 +382,7 @@ public class TestCachingHiveMetastore
     @Test
     public void testGetPartitionNamesByParts()
     {
-        ImmutableList<String> expectedPartitions = ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2, TEST_PARTITION3);
+        List<String> expectedPartitions = ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2, TEST_PARTITION3);
 
         assertThat(mockClient.getAccessCount()).isEqualTo(0);
         assertThat(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).orElseThrow()).isEqualTo(expectedPartitions);
@@ -415,13 +422,13 @@ public class TestCachingHiveMetastore
                         .put(keyColumn, Domain.create(ValueSet.ofRanges(Range.range(VARCHAR, utf8Slice("val1"), true, utf8Slice("val2"), true)), false))
                         .buildOrThrow()));
 
-        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount()).isEqualTo(0.0);
+        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().snapshot().count()).isEqualTo(0.0);
         metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, partitionColumnNames, withNoFilter);
-        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount()).isEqualTo(0.0);
+        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().snapshot().count()).isEqualTo(0.0);
         metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, partitionColumnNames, withSingleValueFilter);
-        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount()).isEqualTo(1.0);
+        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().snapshot().count()).isEqualTo(1.0);
         metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, partitionColumnNames, withNoSingleValueFilter);
-        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount()).isEqualTo(2.0);
+        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().snapshot().count()).isEqualTo(2.0);
     }
 
     @Test
@@ -1040,6 +1047,32 @@ public class TestCachingHiveMetastore
         assertThat(mockClient.getAccessCount()).isEqualTo(3);
         assertThat(metastore.getAllDatabases()).containsExactly(TEST_DATABASE);
         assertThat(mockClient.getAccessCount()).isEqualTo(3); // should read it from cache
+    }
+
+    @Test
+    public void testAcquireSharedReadLockIfMetastoreDownDuringCheckLock()
+    {
+        long lockId = new Random().nextLong();
+
+        mockClient.setTestLockState(LockState.WAITING);
+        mockClient.setTestLockId(lockId);
+        mockClient.setThrowException(true);
+
+        assertThatThrownBy(this::acquireSharedReadLock)
+                .isInstanceOf(TrinoException.class)
+                .hasMessage(TEST_EXCEPTION_LOCK_MESSAGE.formatted(lockId));
+
+        // 11 is the number of retries(by default 10) + 1 unlock call
+        assertThat(mockClient.getAccessCount()).isEqualTo(11);
+    }
+
+    private void acquireSharedReadLock()
+    {
+        metastore.acquireSharedReadLock(new AcidTransactionOwner("test"),
+                "queryId",
+                5,
+                Collections.singletonList(new SchemaTableName("test", "test")),
+                Collections.emptyList());
     }
 
     private static HiveColumnStatistics intColumnStats(int nullsCount)

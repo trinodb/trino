@@ -17,7 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 
-public class PositionSearcher
+public final class PositionSearcher
 {
     private PositionSearcher() {}
 

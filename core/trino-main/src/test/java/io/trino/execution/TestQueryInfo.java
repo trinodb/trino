@@ -28,14 +28,17 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.client.NodeVersion;
 import io.trino.operator.RetryPolicy;
+import io.trino.plugin.base.metrics.DistributionSnapshot;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.server.BasicQueryStats;
 import io.trino.server.ResultQueryInfo;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
-import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.eventlistener.StageGcStatistics;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.SelectedRole;
@@ -49,10 +52,10 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.transaction.TransactionId;
 import io.trino.type.TypeSignatureDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 
@@ -113,7 +116,7 @@ public class TestQueryInfo
         assertThat(actual.isClearTransactionId()).isEqualTo(expected.isClearTransactionId());
 
         assertThat(actual.getUpdateType()).isEqualTo(expected.getUpdateType());
-        assertThat(actual.getOutputStage()).isEqualTo(expected.getOutputStage());
+        assertThat(actual.getStages()).isEqualTo(expected.getStages());
 
         assertThat(actual.getFailureInfo()).isEqualTo(expected.getFailureInfo());
         assertThat(actual.getErrorCode()).isEqualTo(expected.getErrorCode());
@@ -135,10 +138,10 @@ public class TestQueryInfo
     @Test
     public void testQueryInfoToResultQueryInfoConversion()
     {
-        QueryInfo queryInfo = createQueryInfo(Optional.of(createStageInfo(1, StageState.FINISHED, 1)));
+        QueryInfo queryInfo = createQueryInfo(Optional.of(createStagesInfo(1, StageState.FINISHED, 1)));
         QueryStats queryStats = queryInfo.getQueryStats();
         BasicQueryStats basicQueryStats = new BasicQueryStats(queryStats);
-        StageInfo stageInfo = queryInfo.getOutputStage().get();
+        StageInfo stageInfo = queryInfo.getStages().get().getOutputStage();
         BasicStageInfo basicStageInfo = new BasicStageInfo(stageInfo);
 
         ResultQueryInfo resultQueryInfo = new ResultQueryInfo(queryInfo);
@@ -175,8 +178,6 @@ public class TestQueryInfo
         assertThat(queryStats.getCompletedDrivers()).isEqualTo(basicQueryStats.getCompletedDrivers());
         assertThat(queryStats.getRunningDrivers()).isEqualTo(basicQueryStats.getRunningDrivers());
         assertThat(queryStats.getBlockedDrivers()).isEqualTo(basicQueryStats.getBlockedDrivers());
-        assertThat(queryStats.getRawInputPositions()).isEqualTo(basicQueryStats.getRawInputPositions());
-        assertThat(queryStats.getRawInputDataSize()).isEqualTo(basicQueryStats.getRawInputDataSize());
         assertThat(queryStats.getPhysicalInputDataSize()).isEqualTo(basicQueryStats.getPhysicalInputDataSize());
         assertThat(queryStats.getPhysicalWrittenDataSize()).isEqualTo(basicQueryStats.getPhysicalWrittenDataSize());
         assertThat(queryStats.getSpilledDataSize()).isEqualTo(basicQueryStats.getSpilledDataSize());
@@ -186,6 +187,7 @@ public class TestQueryInfo
         assertThat(queryStats.getTotalMemoryReservation()).isEqualTo(basicQueryStats.getTotalMemoryReservation());
         assertThat(queryStats.getPeakUserMemoryReservation()).isEqualTo(basicQueryStats.getPeakUserMemoryReservation());
         assertThat(queryStats.getPeakTotalMemoryReservation()).isEqualTo(basicQueryStats.getPeakTotalMemoryReservation());
+        assertThat(queryStats.getSpilledDataSize()).isEqualTo(basicQueryStats.getSpilledDataSize());
         assertThat(queryStats.getTotalCpuTime()).isEqualTo(basicQueryStats.getTotalCpuTime());
         assertThat(queryStats.isFullyBlocked()).isEqualTo(basicQueryStats.isFullyBlocked());
         assertThat(queryStats.getTotalCpuTime()).isEqualTo(basicQueryStats.getTotalCpuTime());
@@ -208,7 +210,7 @@ public class TestQueryInfo
         assertThat(stageInfo.getStageStats().getPhysicalWrittenDataSize()).isEqualTo(basicStageInfo.getStageStats().getPhysicalWrittenDataSize());
     }
 
-    private static QueryInfo createQueryInfo(Optional<StageInfo> stageInfo)
+    private static QueryInfo createQueryInfo(Optional<StagesInfo> stagesInfo)
     {
         return new QueryInfo(
                 new QueryId("0"),
@@ -224,6 +226,7 @@ public class TestQueryInfo
                 Optional.of("set_path"),
                 Optional.of("set_authorization_user"),
                 false,
+                ImmutableSet.of(new SelectedRole(SelectedRole.Type.ROLE, Optional.of("original_role"))),
                 ImmutableMap.of("set_property", "set_value"),
                 ImmutableSet.of("reset_property"),
                 ImmutableMap.of("set_roles", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("role"))),
@@ -232,11 +235,11 @@ public class TestQueryInfo
                 Optional.of(TransactionId.create()),
                 true,
                 "42",
-                stageInfo,
+                stagesInfo,
                 null,
                 null,
                 ImmutableList.of(new TrinoWarning(new WarningCode(1, "name"), "message")),
-                ImmutableSet.of(new Input("catalog", new CatalogVersion("default"), "schema", "talble", Optional.empty(), ImmutableList.of(new Column("name", "type")), new PlanFragmentId("id"), new PlanNodeId("1"))),
+                ImmutableSet.of(new Input(Optional.of("connectorName"), "catalog", new CatalogVersion("default"), "schema", "talble", Optional.empty(), ImmutableList.of(new Column("name", "type")), new PlanFragmentId("id"), new PlanNodeId("1"))),
                 Optional.empty(),
                 ImmutableList.of(),
                 ImmutableList.of(),
@@ -248,26 +251,33 @@ public class TestQueryInfo
                 new NodeVersion("test"));
     }
 
-    private static StageInfo createStageInfo(int count, StageState state, int baseValue)
+    private StagesInfo createStagesInfo(int count, StageState state, int baseValue)
     {
-        return new StageInfo(
+        ImmutableList.Builder<StageInfo> stages = ImmutableList.builder();
+        for (int stageId = count; stageId >= 1; --stageId) {
+            stages.add(new StageInfo(
+                    StageId.valueOf(ImmutableList.of("s", String.valueOf(count))),
+                    state,
+                    null,
+                    false,
+                    ImmutableList.of(BIGINT),
+                    createStageStats(baseValue),
+                    ImmutableList.of(),
+                    stageId == 1 ? ImmutableList.of() : ImmutableList.of(StageId.valueOf(ImmutableList.of("s", String.valueOf(stageId - 1)))),
+                    ImmutableMap.of(),
+                    new ExecutionFailureInfo("", "", null, ImmutableList.of(), ImmutableList.of(), null, null, null)));
+        }
+        return new StagesInfo(
                 StageId.valueOf(ImmutableList.of("s", String.valueOf(count))),
-                state,
-                null,
-                false,
-                ImmutableList.of(BIGINT),
-                createStageStats(baseValue),
-                ImmutableList.of(),
-                count == 1 ? ImmutableList.of() : ImmutableList.of(createStageInfo(count - 1, state, baseValue)),
-                ImmutableMap.of(),
-                new ExecutionFailureInfo("", "", null, ImmutableList.of(), ImmutableList.of(), null, null, null));
+                stages.build());
     }
 
     private static StageStats createStageStats(int value)
     {
         return new StageStats(
-                new DateTime(value),
-                new Distribution.DistributionSnapshot(value, value, value, value, value, value, value, value, value, value, value, value, value, value),
+                Instant.ofEpochMilli(value),
+                ImmutableMap.of(new PlanNodeId(Integer.toString(value)), new Distribution.DistributionSnapshot(value, value, value, value, value, value, value, value, value, value, value, value, value, value)),
+                ImmutableMap.of(new PlanNodeId(Integer.toString(value)), new Metrics(ImmutableMap.of("abc", new LongCount(value)))),
                 value,
                 value,
                 value,
@@ -279,6 +289,7 @@ public class TestQueryInfo
                 value,
                 value,
                 value,
+                succinctBytes(value),
                 succinctBytes(value),
                 succinctBytes(value),
                 succinctBytes(value),
@@ -305,18 +316,15 @@ public class TestQueryInfo
                 succinctBytes(value),
                 value,
                 value,
-                succinctBytes(value),
-                succinctBytes(value),
-                value,
-                value,
                 Duration.succinctDuration(value, SECONDS),
                 Duration.succinctDuration(value, SECONDS),
                 succinctBytes(value),
-                Optional.of(new TDigestHistogram(new TDigest())),
+                Optional.of(DistributionSnapshot.fromDistribution(new TDigestHistogram(new TDigest()))),
                 succinctBytes(value),
                 succinctBytes(value),
                 value,
                 value,
+                Metrics.EMPTY,
                 Duration.succinctDuration(value, NANOSECONDS),
                 Duration.succinctDuration(value, NANOSECONDS),
                 succinctBytes(value),

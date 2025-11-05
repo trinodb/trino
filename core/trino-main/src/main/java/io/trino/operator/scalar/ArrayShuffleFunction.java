@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedArrayValueBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -40,9 +41,7 @@ public final class ArrayShuffleFunction
 
     @TypeParameter("E")
     @SqlType("array(E)")
-    public Block shuffle(
-            @TypeParameter("E") Type type,
-            @SqlType("array(E)") Block block)
+    public Block shuffle(@SqlType("array(E)") Block block)
     {
         int length = block.getPositionCount();
         if (positions.length < length) {
@@ -62,8 +61,9 @@ public final class ArrayShuffleFunction
         }
 
         return arrayValueBuilder.build(length, elementBuilder -> {
+            ValueBlock valueBlock = block.getUnderlyingValueBlock();
             for (int i = 0; i < length; i++) {
-                type.appendTo(block, positions[i], elementBuilder);
+                elementBuilder.append(valueBlock, block.getUnderlyingValuePosition(positions[i]));
             }
         });
     }

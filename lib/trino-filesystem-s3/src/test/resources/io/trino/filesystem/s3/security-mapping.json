@@ -41,6 +41,26 @@
       "allowedKmsKeyIds": ["kmsKey_11", "kmsKey_12"]
     },
     {
+      "prefix": "s3://baz/",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret",
+      "sseCustomerKey": "customerKey_10",
+      "allowedSseCustomerKeys": ["customerKey_11"]
+    },
+    {
+      "prefix": "s3://baz_all_customer_keys_allowed/",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret",
+      "sseCustomerKey": "customerKey_10",
+      "allowedSseCustomerKeys": ["*"]
+    },
+    {
+      "prefix": "s3://baz_no_customer_default_key/",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret",
+      "allowedSseCustomerKeys": ["customerKey_11", "customerKey_12"]
+    },
+    {
       "user": "alice",
       "iamRole": "alice_role"
     },

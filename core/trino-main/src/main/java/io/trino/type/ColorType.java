@@ -15,8 +15,8 @@ package io.trino.type;
 
 import io.trino.operator.scalar.ColorFunctions;
 import io.trino.spi.block.Block;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractIntType;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeSignature;
 
 import java.util.HexFormat;
@@ -26,7 +26,7 @@ public class ColorType
 {
     private static final HexFormat HEX_FORMAT = HexFormat.of();
     public static final ColorType COLOR = new ColorType();
-    public static final String NAME = "color";
+    public static final String NAME = StandardTypes.COLOR;
 
     private ColorType()
     {
@@ -40,7 +40,7 @@ public class ColorType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;

@@ -5,11 +5,12 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>465-SNAPSHOT</version>
+        <version>479-SNAPSHOT</version>
     </parent>
 
     <artifactId>trino-docs</artifactId>
     <packaging>pom</packaging>
+    <name>${project.artifactId}</name>
     <description>Trino - Documentation</description>
 
     <build>
@@ -50,7 +51,7 @@
                         <goals>
                             <goal>generate-thrift-idl</goal>
                         </goals>
-                        <phase>validate</phase>
+                        <phase>generate-sources</phase>
                         <configuration>
                             <outputFile>${project.build.directory}/TrinoThriftService.thrift</outputFile>
                             <classes>
@@ -82,7 +83,7 @@
                         <goals>
                             <goal>java</goal>
                         </goals>
-                        <phase>validate</phase>
+                        <phase>test</phase>
                         <configuration>
                             <mainClass>io.trino.sql.ReservedIdentifiers</mainClass>
                             <arguments>
@@ -96,7 +97,7 @@
                         <goals>
                             <goal>exec</goal>
                         </goals>
-                        <phase>validate</phase>
+                        <phase>test</phase>
                         <configuration>
                             <executable>diff</executable>
                             <arguments>

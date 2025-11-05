@@ -37,18 +37,6 @@ public class CreateView
     private final Optional<Security> security;
     private final List<Property> properties;
 
-    @Deprecated
-    public CreateView(QualifiedName name, Query query, boolean replace, Optional<String> comment, Optional<Security> security, List<Property> properties)
-    {
-        super(Optional.empty());
-        this.name = requireNonNull(name, "name is null");
-        this.query = requireNonNull(query, "query is null");
-        this.replace = replace;
-        this.comment = requireNonNull(comment, "comment is null");
-        this.security = requireNonNull(security, "security is null");
-        this.properties = ImmutableList.copyOf(requireNonNull(properties, "properties is null"));
-    }
-
     public CreateView(NodeLocation location, QualifiedName name, Query query, boolean replace, Optional<String> comment, Optional<Security> security, List<Property> properties)
     {
         super(location);

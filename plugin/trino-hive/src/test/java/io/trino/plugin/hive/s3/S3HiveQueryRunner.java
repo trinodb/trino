@@ -19,6 +19,8 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveQueryRunner;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hive.containers.Hive4MinioDataLake;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.TestingTokenAwareMetastoreClientFactory;
@@ -47,7 +49,7 @@ public final class S3HiveQueryRunner
     private S3HiveQueryRunner() {}
 
     public static QueryRunner create(
-            HiveMinioDataLake hiveMinioDataLake,
+            Hive3MinioDataLake hiveMinioDataLake,
             Map<String, String> additionalHiveProperties)
             throws Exception
     {
@@ -59,7 +61,7 @@ public final class S3HiveQueryRunner
     public static Builder builder(HiveMinioDataLake hiveMinioDataLake)
     {
         return builder()
-                .setHiveMetastoreEndpoint(hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                .setHiveMetastoreEndpoint(hiveMinioDataLake.getHiveMetastoreEndpoint())
                 .setS3Endpoint("http://" + hiveMinioDataLake.getMinio().getMinioApiEndpoint())
                 .setS3Region(MINIO_REGION)
                 .setS3AccessKey(MINIO_ACCESS_KEY)
@@ -153,7 +155,6 @@ public final class S3HiveQueryRunner
             String lowerCaseS3Endpoint = s3Endpoint.toLowerCase(Locale.ENGLISH);
             checkArgument(lowerCaseS3Endpoint.startsWith("http://") || lowerCaseS3Endpoint.startsWith("https://"), "Expected http URI for S3 endpoint; got %s", s3Endpoint);
 
-            addHiveProperty("fs.hadoop.enabled", "false");
             addHiveProperty("fs.native-s3.enabled", "true");
             addHiveProperty("s3.region", s3Region);
             addHiveProperty("s3.endpoint", s3Endpoint);
@@ -173,7 +174,7 @@ public final class S3HiveQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake("tpch");
+        Hive3MinioDataLake hiveMinioDataLake = new Hive3MinioDataLake("tpch");
         hiveMinioDataLake.start();
 
         QueryRunner queryRunner = S3HiveQueryRunner.builder(hiveMinioDataLake)
@@ -185,5 +186,25 @@ public final class S3HiveQueryRunner
         Logger log = Logger.get(S3HiveQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+    }
+
+    public static class S3Hive4QueryRunner
+    {
+        public static void main(String[] args)
+                throws Exception
+        {
+            Hive4MinioDataLake hiveMinioDataLake = new Hive4MinioDataLake("tpch");
+            hiveMinioDataLake.start();
+
+            QueryRunner queryRunner = S3HiveQueryRunner.builder(hiveMinioDataLake)
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .setHiveProperties(ImmutableMap.of("hive.security", "allow-all"))
+                    .setSkipTimezoneSetup(true)
+                    .setInitialTables(TpchTable.getTables())
+                    .build();
+            Logger log = Logger.get(S3Hive4QueryRunner.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
     }
 }

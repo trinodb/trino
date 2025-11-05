@@ -266,11 +266,11 @@ public class VerticaClient
             return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
 
-        if (type instanceof CharType) {
+        if (type instanceof CharType charType) {
             // TODO Handle cases where the value has multi-byte characters
             //  e.g. a CHAR(1) with value U+1F600 (3 bytes) will not fit in a CHAR(1) in Vertica.
             //  Trino counts codepoints/characters while Vertica counts bytes/octets.
-            int length = ((CharType) type).getLength();
+            int length = charType.getLength();
             checkArgument(length <= 65000, "Char length is greater than 65,000");
             return WriteMapping.sliceMapping("char(" + length + ")", charWriteFunction());
         }

@@ -478,6 +478,7 @@ For more details, see {doc}`string`
 - {func}`luhn_check`
 - {func}`normalize`
 - {func}`position`
+- {func}`randmom_string`, catalog function of the [](/connector/faker)
 - {func}`replace`
 - {func}`reverse`
 - {func}`rpad`

@@ -16,9 +16,11 @@ package io.trino.spi.eventlistener;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.Unstable;
+import io.trino.spi.metrics.Metrics;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -46,6 +48,7 @@ public class QueryStatistics
     private final Optional<Duration> outputBlockedTime;
     private final Optional<Duration> failedOutputBlockedTime;
     private final Optional<Duration> physicalInputReadTime;
+    private final Optional<Duration> finishingTime;
 
     private final long peakUserMemoryBytes;
     private final long peakTaskUserMemory;
@@ -56,8 +59,6 @@ public class QueryStatistics
     private final long processedInputRows;
     private final long internalNetworkBytes;
     private final long internalNetworkRows;
-    private final long totalBytes;
-    private final long totalRows;
     private final long outputBytes;
     private final long outputRows;
     private final long writtenBytes;
@@ -75,6 +76,8 @@ public class QueryStatistics
     private final List<StageCpuDistribution> cpuTimeDistribution;
     private final List<StageOutputBufferUtilization> outputBufferUtilization;
     private final List<StageTaskStatistics> taskStatistics;
+    private final List<StageOutputBufferMetrics> outputBufferMetrics;
+    private final List<DynamicFilterDomainStatistics> dynamicFilterDomainStatistics;
 
     /**
      * Operator summaries serialized to JSON. Serialization format and structure
@@ -82,6 +85,7 @@ public class QueryStatistics
      */
     private final Supplier<List<String>> operatorSummariesProvider;
     private final List<QueryPlanOptimizerStatistics> optimizerRulesSummaries;
+    private final Map<String, Metrics> catalogMetadataMetrics;
     /**
      * Plan node stats and costs serialized to JSON. Serialization format and structure
      * can change without preserving backward compatibility.
@@ -108,6 +112,7 @@ public class QueryStatistics
             Optional<Duration> outputBlockedTime,
             Optional<Duration> failedOutputBlockedTime,
             Optional<Duration> physicalInputReadTime,
+            Optional<Duration> finishingTime,
             long peakUserMemoryBytes,
             long peakTaskUserMemory,
             long peakTaskTotalMemory,
@@ -117,8 +122,6 @@ public class QueryStatistics
             long processedInputRows,
             long internalNetworkBytes,
             long internalNetworkRows,
-            long totalBytes,
-            long totalRows,
             long outputBytes,
             long outputRows,
             long writtenBytes,
@@ -131,9 +134,12 @@ public class QueryStatistics
             boolean complete,
             List<StageCpuDistribution> cpuTimeDistribution,
             List<StageOutputBufferUtilization> outputBufferUtilization,
+            List<StageOutputBufferMetrics> outputBufferMetrics,
             List<StageTaskStatistics> taskStatistics,
+            List<DynamicFilterDomainStatistics> dynamicFilterDomainStatistics,
             List<String> operatorSummaries,
             List<QueryPlanOptimizerStatistics> optimizerRulesSummaries,
+            Map<String, Metrics> catalogMetadataMetrics,
             Optional<String> planNodeStatsAndCosts)
     {
         this(
@@ -154,6 +160,7 @@ public class QueryStatistics
                 outputBlockedTime,
                 failedOutputBlockedTime,
                 physicalInputReadTime,
+                finishingTime,
                 peakUserMemoryBytes,
                 peakTaskUserMemory,
                 peakTaskTotalMemory,
@@ -163,8 +170,6 @@ public class QueryStatistics
                 processedInputRows,
                 internalNetworkBytes,
                 internalNetworkRows,
-                totalBytes,
-                totalRows,
                 outputBytes,
                 outputRows,
                 writtenBytes,
@@ -177,9 +182,12 @@ public class QueryStatistics
                 complete,
                 cpuTimeDistribution,
                 outputBufferUtilization,
+                outputBufferMetrics,
                 taskStatistics,
+                dynamicFilterDomainStatistics,
                 () -> operatorSummaries,
                 optimizerRulesSummaries,
+                catalogMetadataMetrics,
                 planNodeStatsAndCosts);
     }
 
@@ -201,6 +209,7 @@ public class QueryStatistics
             Optional<Duration> outputBlockedTime,
             Optional<Duration> failedOutputBlockedTime,
             Optional<Duration> physicalInputReadTime,
+            Optional<Duration> finishingTime,
             long peakUserMemoryBytes,
             long peakTaskUserMemory,
             long peakTaskTotalMemory,
@@ -210,8 +219,6 @@ public class QueryStatistics
             long processedInputRows,
             long internalNetworkBytes,
             long internalNetworkRows,
-            long totalBytes,
-            long totalRows,
             long outputBytes,
             long outputRows,
             long writtenBytes,
@@ -224,9 +231,12 @@ public class QueryStatistics
             boolean complete,
             List<StageCpuDistribution> cpuTimeDistribution,
             List<StageOutputBufferUtilization> outputBufferUtilization,
+            List<StageOutputBufferMetrics> outputBufferMetrics,
             List<StageTaskStatistics> taskStatistics,
+            List<DynamicFilterDomainStatistics> dynamicFilterDomainStatistics,
             Supplier<List<String>> operatorSummariesProvider,
             List<QueryPlanOptimizerStatistics> optimizerRulesSummaries,
+            Map<String, Metrics> catalogMetadataMetrics,
             Optional<String> planNodeStatsAndCosts)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
@@ -246,6 +256,7 @@ public class QueryStatistics
         this.outputBlockedTime = requireNonNull(outputBlockedTime, "outputBlockedTime is null");
         this.failedOutputBlockedTime = requireNonNull(failedOutputBlockedTime, "failedOutputBlockedTime is null");
         this.physicalInputReadTime = requireNonNull(physicalInputReadTime, "physicalInputReadTime is null");
+        this.finishingTime = requireNonNull(finishingTime, "finishingTime is null");
         this.peakUserMemoryBytes = peakUserMemoryBytes;
         this.peakTaskUserMemory = peakTaskUserMemory;
         this.peakTaskTotalMemory = peakTaskTotalMemory;
@@ -255,8 +266,6 @@ public class QueryStatistics
         this.processedInputRows = processedInputRows;
         this.internalNetworkBytes = internalNetworkBytes;
         this.internalNetworkRows = internalNetworkRows;
-        this.totalBytes = totalBytes;
-        this.totalRows = totalRows;
         this.outputBytes = outputBytes;
         this.outputRows = outputRows;
         this.writtenBytes = writtenBytes;
@@ -269,9 +278,12 @@ public class QueryStatistics
         this.complete = complete;
         this.cpuTimeDistribution = requireNonNull(cpuTimeDistribution, "cpuTimeDistribution is null");
         this.outputBufferUtilization = requireNonNull(outputBufferUtilization, "outputBufferUtilization is null");
+        this.outputBufferMetrics = requireNonNull(outputBufferMetrics, "outputBufferMetrics is null");
         this.taskStatistics = requireNonNull(taskStatistics, "taskStatistics is null");
+        this.dynamicFilterDomainStatistics = requireNonNull(dynamicFilterDomainStatistics, "dynamicFilterDomainStatistics is null");
         this.operatorSummariesProvider = requireNonNull(operatorSummariesProvider, "operatorSummariesProvider is null");
         this.optimizerRulesSummaries = requireNonNull(optimizerRulesSummaries, "optimizerRulesSummaries is null");
+        this.catalogMetadataMetrics = requireNonNull(catalogMetadataMetrics, "catalogMetadataMetrics is null");
         this.planNodeStatsAndCosts = requireNonNull(planNodeStatsAndCosts, "planNodeStatsAndCosts is null");
     }
 
@@ -378,6 +390,12 @@ public class QueryStatistics
     }
 
     @JsonProperty
+    public Optional<Duration> getFinishingTime()
+    {
+        return finishingTime;
+    }
+
+    @JsonProperty
     public long getPeakUserMemoryBytes()
     {
         return peakUserMemoryBytes;
@@ -429,18 +447,6 @@ public class QueryStatistics
     public long getInternalNetworkRows()
     {
         return internalNetworkRows;
-    }
-
-    @JsonProperty
-    public long getTotalBytes()
-    {
-        return totalBytes;
-    }
-
-    @JsonProperty
-    public long getTotalRows()
-    {
-        return totalRows;
     }
 
     @JsonProperty
@@ -516,9 +522,21 @@ public class QueryStatistics
     }
 
     @JsonProperty
+    public List<StageOutputBufferMetrics> getOutputBufferMetrics()
+    {
+        return outputBufferMetrics;
+    }
+
+    @JsonProperty
     public List<StageTaskStatistics> getTaskStatistics()
     {
         return taskStatistics;
+    }
+
+    @JsonProperty
+    public List<DynamicFilterDomainStatistics> getDynamicFilterDomainStatistics()
+    {
+        return dynamicFilterDomainStatistics;
     }
 
     @JsonProperty
@@ -531,6 +549,12 @@ public class QueryStatistics
     public List<QueryPlanOptimizerStatistics> getOptimizerRulesSummaries()
     {
         return optimizerRulesSummaries;
+    }
+
+    @JsonProperty
+    public Map<String, Metrics> getCatalogMetadataMetrics()
+    {
+        return catalogMetadataMetrics;
     }
 
     @JsonProperty

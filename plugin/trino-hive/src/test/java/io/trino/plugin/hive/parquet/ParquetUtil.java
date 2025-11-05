@@ -16,7 +16,7 @@ package io.trino.plugin.hive.parquet;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
@@ -61,12 +61,6 @@ final class ParquetUtil
         return createPageSource(session, parquetFile, getBaseColumns(columnNames, columnTypes), TupleDomain.all(), new HiveConfig().setParquetTimeZone(timeZone.toString()));
     }
 
-    public static ConnectorPageSource createPageSource(ConnectorSession session, File parquetFile, List<HiveColumnHandle> columns, TupleDomain<HiveColumnHandle> domain, DateTimeZone timeZone)
-            throws IOException
-    {
-        return createPageSource(session, parquetFile, columns, domain, new HiveConfig().setParquetTimeZone(timeZone.toString()));
-    }
-
     public static ConnectorPageSource createPageSource(ConnectorSession session, File parquetFile, List<HiveColumnHandle> columns, TupleDomain<HiveColumnHandle> domain)
             throws IOException
     {
@@ -86,6 +80,7 @@ final class ParquetUtil
         HivePageSourceFactory hivePageSourceFactory = new ParquetPageSourceFactory(
                 fileSystemFactory,
                 new FileFormatDataSourceStats(),
+                Optional.empty(),
                 new ParquetReaderConfig(),
                 hiveConfig);
 
@@ -103,8 +98,7 @@ final class ParquetUtil
                         OptionalInt.empty(),
                         false,
                         NO_ACID_TRANSACTION)
-                .orElseThrow()
-                .get();
+                .orElseThrow();
     }
 
     private static List<HiveColumnHandle> getBaseColumns(List<String> columnNames, List<Type> columnTypes)

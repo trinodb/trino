@@ -27,21 +27,20 @@ import io.trino.plugin.hive.util.AcidBucketCodec;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Iterator;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.ObjLongConsumer;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -100,52 +99,22 @@ public class OrcDeletedRows
         this.memoryUsage = memoryContext.newLocalMemoryContext(OrcDeletedRows.class.getSimpleName());
     }
 
-    public MaskDeletedRowsFunction getMaskDeletedRowsFunction(Page sourcePage, OptionalLong startRowId)
+    public SourcePage maskPage(SourcePage sourcePage, OptionalLong startRowId)
     {
-        return new MaskDeletedRows(sourcePage, startRowId);
-    }
-
-    public interface MaskDeletedRowsFunction
-    {
-        /**
-         * Retained position count
-         */
-        int getPositionCount();
-
-        Block apply(Block block);
-
-        static MaskDeletedRowsFunction noMaskForPage(Page page)
-        {
-            int positionCount = page.getPositionCount();
-            return new MaskDeletedRowsFunction()
-            {
-                @Override
-                public int getPositionCount()
-                {
-                    return positionCount;
-                }
-
-                @Override
-                public Block apply(Block block)
-                {
-                    return block;
-                }
-            };
-        }
+        return new OrcAcidMaskedSourcePage(sourcePage, startRowId);
     }
 
     @NotThreadSafe
-    private class MaskDeletedRows
-            implements MaskDeletedRowsFunction
+    private class OrcAcidMaskedSourcePage
+            implements SourcePage
     {
-        @Nullable
-        private Page sourcePage;
-        private int positionCount;
-        @Nullable
-        private int[] validPositions;
-        private final OptionalLong startRowId;
+        private static final long INSTANCE_SIZE = instanceSize(OrcAcidMaskedSourcePage.class);
 
-        public MaskDeletedRows(Page sourcePage, OptionalLong startRowId)
+        private final OptionalLong startRowId;
+        private final SourcePage sourcePage;
+        private boolean deleteMaskApplied;
+
+        public OrcAcidMaskedSourcePage(SourcePage sourcePage, OptionalLong startRowId)
         {
             this.sourcePage = requireNonNull(sourcePage, "sourcePage is null");
             this.startRowId = requireNonNull(startRowId, "startRowId is null");
@@ -154,35 +123,73 @@ public class OrcDeletedRows
         @Override
         public int getPositionCount()
         {
-            if (sourcePage != null) {
-                loadValidPositions();
-                verify(sourcePage == null);
-            }
-
-            return positionCount;
+            applyDeleteMaskIfNecessary();
+            return sourcePage.getPositionCount();
         }
 
         @Override
-        public Block apply(Block block)
+        public long getSizeInBytes()
         {
-            if (sourcePage != null) {
-                loadValidPositions();
-                verify(sourcePage == null);
+            if (!deleteMaskApplied) {
+                return 0;
             }
-
-            if (positionCount == block.getPositionCount()) {
-                return block;
-            }
-            return DictionaryBlock.create(positionCount, block, validPositions);
+            return sourcePage.getSizeInBytes();
         }
 
-        private void loadValidPositions()
+        @Override
+        public long getRetainedSizeInBytes()
         {
-            verify(sourcePage != null, "sourcePage is null");
+            return INSTANCE_SIZE + sourcePage.getRetainedSizeInBytes();
+        }
+
+        @Override
+        public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+        {
+            consumer.accept(this, INSTANCE_SIZE);
+            sourcePage.retainedBytesForEachPart(consumer);
+        }
+
+        @Override
+        public int getChannelCount()
+        {
+            return sourcePage.getChannelCount();
+        }
+
+        @Override
+        public Block getBlock(int channel)
+        {
+            applyDeleteMaskIfNecessary();
+            return sourcePage.getBlock(channel);
+        }
+
+        @Override
+        public Page getPage()
+        {
+            applyDeleteMaskIfNecessary();
+            return sourcePage.getPage();
+        }
+
+        @Override
+        public void selectPositions(int[] positions, int offset, int size)
+        {
+            applyDeleteMaskIfNecessary();
+            sourcePage.selectPositions(positions, offset, size);
+        }
+
+        private void applyDeleteMaskIfNecessary()
+        {
+            if (deleteMaskApplied) {
+                return;
+            }
+            applyDeleteMask();
+        }
+
+        private void applyDeleteMask()
+        {
+            verify(!deleteMaskApplied, "mask already applied");
             Set<RowId> deletedRows = getDeletedRows();
             if (deletedRows.isEmpty()) {
-                this.positionCount = sourcePage.getPositionCount();
-                this.sourcePage = null;
+                deleteMaskApplied = true;
                 return;
             }
 
@@ -195,9 +202,8 @@ public class OrcDeletedRows
                     validPositionsIndex++;
                 }
             }
-            this.positionCount = validPositionsIndex;
-            this.validPositions = validPositions;
-            this.sourcePage = null;
+            sourcePage.selectPositions(validPositions, 0, validPositionsIndex);
+            deleteMaskApplied = true;
         }
 
         private RowId getRowId(int position)
@@ -240,7 +246,7 @@ public class OrcDeletedRows
     /**
      * Triggers loading of deleted rows ids. Single call to the method may load just part of ids.
      * If more ids to be loaded remain,  method returns false and should be called once again.
-     * Final call will return true and the loaded ids can be consumed via {@link #getMaskDeletedRowsFunction(Page, OptionalLong)}
+     * Final call will return true and the loaded ids can be consumed via {@link #maskPage(SourcePage, OptionalLong)}
      *
      * @return true when fully loaded, and false if this method should be called again
      */
@@ -296,7 +302,7 @@ public class OrcDeletedRows
         @Nullable
         private Location currentPath;
         @Nullable
-        private Page currentPage;
+        private SourcePage currentPage;
         private int currentPagePosition;
 
         public Optional<Set<RowId>> loadOrYield()
@@ -304,7 +310,7 @@ public class OrcDeletedRows
             long initialMemorySize = retainedMemorySize(deletedRowsBuilderSize, currentPage);
 
             if (deleteDeltaDirectories == null) {
-                deleteDeltaDirectories = acidInfo.getDeleteDeltaDirectories().iterator();
+                deleteDeltaDirectories = acidInfo.deleteDeltaDirectories().iterator();
             }
 
             while (deleteDeltaDirectories.hasNext() || currentPageSource != null) {
@@ -321,7 +327,7 @@ public class OrcDeletedRows
                     if (currentPageSource != null) {
                         while (!currentPageSource.isFinished() || currentPage != null) {
                             if (currentPage == null) {
-                                currentPage = currentPageSource.getNextPage();
+                                currentPage = currentPageSource.getNextSourcePage();
                                 currentPagePosition = 0;
                             }
 
@@ -381,7 +387,7 @@ public class OrcDeletedRows
         }
     }
 
-    private static long retainedMemorySize(int rowCount, @Nullable Page currentPage)
+    private static long retainedMemorySize(int rowCount, @Nullable SourcePage currentPage)
     {
         long pageSize = (currentPage != null) ? currentPage.getRetainedSizeInBytes() : 0;
         return sizeOfObjectArray(rowCount) + ((long) rowCount * RowId.INSTANCE_SIZE) + pageSize;
@@ -389,7 +395,7 @@ public class OrcDeletedRows
 
     private static Location createPath(AcidInfo acidInfo, String deleteDeltaDirectory, String fileName)
     {
-        Location directory = Location.of(acidInfo.getPartitionLocation()).appendPath(deleteDeltaDirectory);
+        Location directory = Location.of(acidInfo.partitionLocation()).appendPath(deleteDeltaDirectory);
 
         // When direct insert is enabled base and delta directories contain bucket_[id]_[attemptId] files
         // but delete delta directories contain bucket files without attemptId so we have to remove it from filename.
@@ -397,63 +403,15 @@ public class OrcDeletedRows
             return directory.appendPath(fileName.substring(0, fileName.lastIndexOf('_')));
         }
 
-        if (!acidInfo.getOriginalFiles().isEmpty()) {
+        if (!acidInfo.originalFiles().isEmpty()) {
             // Original file format is different from delete delta, construct delete delta file path from bucket ID of original file.
-            return bucketFileName(directory, acidInfo.getBucketId());
+            return bucketFileName(directory, acidInfo.bucketId());
         }
         return directory.appendPath(fileName);
     }
 
-    private static class RowId
+    private record RowId(long originalTransaction, int bucket, int statementId, long rowId)
     {
         public static final int INSTANCE_SIZE = instanceSize(RowId.class);
-
-        private final long originalTransaction;
-        private final int bucket;
-        private final int statementId;
-        private final long rowId;
-
-        public RowId(long originalTransaction, int bucket, int statementId, long rowId)
-        {
-            this.originalTransaction = originalTransaction;
-            this.bucket = bucket;
-            this.statementId = statementId;
-            this.rowId = rowId;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            RowId other = (RowId) o;
-            return originalTransaction == other.originalTransaction &&
-                    bucket == other.bucket &&
-                    statementId == other.statementId &&
-                    rowId == other.rowId;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(originalTransaction, bucket, statementId, rowId);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("originalTransaction", originalTransaction)
-                    .add("bucket", bucket)
-                    .add("statementId", statementId)
-                    .add("rowId", rowId)
-                    .toString();
-        }
     }
 }

@@ -26,10 +26,10 @@ import io.trino.execution.resourcegroups.InternalResourceGroup;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.QueryType;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -108,10 +108,10 @@ public class TestQueryStateInfo
                 query,
                 Optional.empty(),
                 new QueryStats(
-                        DateTime.parse("1991-09-06T05:00-05:30"),
-                        DateTime.parse("1991-09-06T05:01-05:30"),
-                        DateTime.parse("1991-09-06T05:02-05:30"),
-                        DateTime.parse("1991-09-06T06:00-05:30"),
+                        Instant.parse("2025-05-11T13:32:17.751968Z"),
+                        Instant.parse("2025-05-11T13:32:17.751968Z"),
+                        Instant.parse("2025-05-11T13:32:17.751968Z"),
+                        Instant.parse("2025-05-11T13:32:17.751968Z"),
                         new Duration(10, SECONDS),
                         new Duration(8, MINUTES),
                         new Duration(7, MINUTES),
@@ -142,6 +142,7 @@ public class TestQueryStateInfo
                         DataSize.valueOf("27GB"),
                         DataSize.valueOf("28GB"),
                         DataSize.valueOf("29GB"),
+                        DataSize.valueOf("30GB"),
                         true,
                         OptionalDouble.of(8.88),
                         OptionalDouble.of(0),
@@ -162,10 +163,6 @@ public class TestQueryStateInfo
                         DataSize.valueOf("274GB"),
                         283,
                         284,
-                        DataSize.valueOf("28GB"),
-                        DataSize.valueOf("29GB"),
-                        30,
-                        31,
                         DataSize.valueOf("32GB"),
                         DataSize.valueOf("33GB"),
                         34,
@@ -182,6 +179,7 @@ public class TestQueryStateInfo
                         DataSize.valueOf("41GB"),
                         ImmutableList.of(),
                         DynamicFiltersStats.EMPTY,
+                        ImmutableMap.of(),
                         ImmutableList.of(),
                         ImmutableList.of()),
                 Optional.empty(),
@@ -189,6 +187,7 @@ public class TestQueryStateInfo
                 Optional.empty(),
                 Optional.empty(),
                 false,
+                ImmutableSet.of(),
                 ImmutableMap.of(),
                 ImmutableSet.of(),
                 ImmutableMap.of(),

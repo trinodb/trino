@@ -20,7 +20,7 @@ stages of a query. You can use the following execution policies:
 - `phased` schedules stages in a sequence to avoid blockages because of
   inter-stage dependencies. This policy maximizes cluster resource utilization
   and provides the lowest query wall time.
-- `all-at-once` schedules all of the stages of a query at one time. As a
+- `all-at-once` schedules all the stages of a query at one time. As a
   result, cluster resource utilization is initially high, but inter-stage
   dependencies typically prevent full processing and cause longer queue times
   which increases the query wall time overall.
@@ -159,6 +159,15 @@ The maximum number of bytes that can be scanned by a query during its execution.
 When this limit is reached, query processing is terminated to prevent excessive
 resource usage.
 
+## `query.max-write-physical-size`
+
+- **Type:** {ref}`prop-type-data-size`
+- **Session property:** `query_max_write_physical_size`
+
+The maximum physical size of data that can be written by a query during its execution.
+When this limit is reached, query processing is terminated to prevent excessive
+resource usage.
+
 ## `query.max-stage-count`
 
 - **Type:** {ref}`prop-type-integer`
@@ -181,18 +190,25 @@ to get killed with `REMOTE_TASK_ERROR` and the message
 - **Type:** {ref}`prop-type-integer`
 - **Default value:** `100`
 
-The maximum number of queries to keep in the query history to provide
-statistics and other information. If this amount is reached, queries are
-removed based on age.
+The maximum number of queries to keep in the query history to provide statistics
+and other information, and make the data available in the
+[](/admin/web-interface). If this amount is reached, queries are removed based
+on age.
+
+To store query events and therefore information about more queries in an
+external system you must use [an event listener](admin-event-listeners).
 
 ## `query.min-expire-age`
 
 - **Type:** {ref}`prop-type-duration`
 - **Default value:** `15m`
 
-The minimal age of a query in the history before it is expired. An expired
-query is removed from the query history buffer and no longer available in
-the {doc}`/admin/web-interface`.
+The minimal age of a query in the history before it is expired. An expired query
+is removed from the query history buffer and no longer available in the
+[](/admin/web-interface).
+
+To store query events and therefore information about more queries in an
+external system you must use [an event listener](admin-event-listeners).
 
 ## `query.remote-task.enable-adaptive-request-size`
 

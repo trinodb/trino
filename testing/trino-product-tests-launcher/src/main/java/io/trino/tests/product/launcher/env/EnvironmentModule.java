@@ -22,6 +22,7 @@ import io.trino.tests.product.launcher.env.common.Hadoop;
 import io.trino.tests.product.launcher.env.common.HadoopKerberos;
 import io.trino.tests.product.launcher.env.common.HadoopKerberosKms;
 import io.trino.tests.product.launcher.env.common.HadoopKerberosKmsWithImpersonation;
+import io.trino.tests.product.launcher.env.common.Hive4WithMinio;
 import io.trino.tests.product.launcher.env.common.HttpProxy;
 import io.trino.tests.product.launcher.env.common.HttpsProxy;
 import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
@@ -35,21 +36,24 @@ import io.trino.tests.product.launcher.env.common.OpenLdapReferral;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TaskRetriesMultinode;
-import io.trino.tests.product.launcher.env.jdk.BuiltInJdkProvider;
-import io.trino.tests.product.launcher.env.jdk.DistributionDownloadingJdkProvider;
+import io.trino.tests.product.launcher.env.environment.SpoolingMinio;
 import io.trino.tests.product.launcher.env.jdk.JdkProvider;
+import io.trino.tests.product.launcher.env.jdk.TemurinJdkProvider;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import java.io.File;
+import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static io.trino.tests.product.launcher.Configurations.canonicalJdkProviderName;
 import static io.trino.tests.product.launcher.Configurations.findConfigsByBasePackage;
 import static io.trino.tests.product.launcher.Configurations.findEnvironmentsByBasePackage;
+import static io.trino.tests.product.launcher.Configurations.findJdkProvidersByPackageName;
 import static io.trino.tests.product.launcher.Configurations.nameForConfigClass;
 import static io.trino.tests.product.launcher.Configurations.nameForEnvironmentClass;
-import static io.trino.tests.product.launcher.env.jdk.BuiltInJdkProvider.BUILT_IN_NAME;
+import static io.trino.tests.product.launcher.Configurations.nameForJdkProviderName;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
@@ -60,6 +64,7 @@ public final class EnvironmentModule
     private static final String LAUNCHER_PACKAGE = "io.trino.tests.product.launcher";
     private static final String ENVIRONMENT_PACKAGE = LAUNCHER_PACKAGE + ".env.environment";
     private static final String CONFIG_PACKAGE = LAUNCHER_PACKAGE + ".env.configs";
+    private static final String JDK_PROVIDER_PACKAGE = LAUNCHER_PACKAGE + ".env.jdk";
 
     private final EnvironmentOptions environmentOptions;
     private final Module additionalEnvironments;
@@ -90,16 +95,21 @@ public final class EnvironmentModule
         binder.bind(TaskRetriesMultinode.class).in(SINGLETON);
         binder.bind(Kerberos.class).in(SINGLETON);
         binder.bind(Minio.class).in(SINGLETON);
+        binder.bind(SpoolingMinio.class).in(SINGLETON);
         binder.bind(OpenLdap.class).in(SINGLETON);
         binder.bind(OpenLdapReferral.class).in(SINGLETON);
         binder.bind(HttpProxy.class).in(SINGLETON);
         binder.bind(HttpsProxy.class).in(SINGLETON);
+        binder.bind(Hive4WithMinio.class).in(SINGLETON);
 
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);
         findEnvironmentsByBasePackage(ENVIRONMENT_PACKAGE).forEach(clazz -> environments.addBinding(nameForEnvironmentClass(clazz)).to(clazz).in(SINGLETON));
 
         MapBinder<String, EnvironmentConfig> environmentConfigs = newMapBinder(binder, String.class, EnvironmentConfig.class);
         findConfigsByBasePackage(CONFIG_PACKAGE).forEach(clazz -> environmentConfigs.addBinding(nameForConfigClass(clazz)).to(clazz).in(SINGLETON));
+
+        MapBinder<String, JdkProvider> jdkProviders = newMapBinder(binder, String.class, JdkProvider.class);
+        findJdkProvidersByPackageName(JDK_PROVIDER_PACKAGE).forEach(clazz -> jdkProviders.addBinding(nameForJdkProviderName(clazz)).to(clazz).in(SINGLETON));
 
         binder.install(additionalEnvironments);
     }
@@ -113,18 +123,19 @@ public final class EnvironmentModule
 
     @Provides
     @Singleton
-    public JdkProvider provideJdk(EnvironmentOptions options)
+    public JdkProvider provideJdk(Map<String, JdkProvider> jdkProviders, EnvironmentOptions options)
     {
-        String version = firstNonNull(options.jdkVersion, "").trim().toLowerCase(ENGLISH);
+        String version = firstNonNull(options.trinoJdkRelease, "").trim().toLowerCase(ENGLISH);
         if (version.isBlank()) {
-            throw new IllegalArgumentException("Expected non-empty --trino-jdk-version");
+            throw new IllegalArgumentException("Expected non-empty --trino-jdk-release");
         }
 
-        if (version.equals(BUILT_IN_NAME)) {
-            return new BuiltInJdkProvider();
+        JdkProvider jdkProvider = jdkProviders.get(canonicalJdkProviderName(version));
+        if (jdkProvider != null) {
+            return jdkProvider;
         }
 
-        return new DistributionDownloadingJdkProvider(requireNonNull(options.jdkDistributions, "--trino-jdk-paths is empty"), version, options.jdkDownloadPath);
+        return new TemurinJdkProvider(version, options.jdkDownloadPath);
     }
 
     @Provides
@@ -165,5 +176,13 @@ public final class EnvironmentModule
     public boolean provideTracing(EnvironmentOptions options)
     {
         return options.tracing;
+    }
+
+    @Provides
+    @Singleton
+    @Ipv6
+    public boolean provideIpv6(EnvironmentOptions options)
+    {
+        return options.ipv6;
     }
 }

@@ -14,7 +14,6 @@
 package io.trino.spi.type;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Optional;
 import java.util.stream.LongStream;
@@ -31,7 +30,7 @@ public final class IntegerType
     }
 
     @Override
-    public Object getObjectValue(ConnectorSession session, Block block, int position)
+    public Object getObjectValue(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;

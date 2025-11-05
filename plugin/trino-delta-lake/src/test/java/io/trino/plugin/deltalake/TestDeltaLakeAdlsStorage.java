@@ -84,7 +84,6 @@ public class TestDeltaLakeAdlsStorage
         return DeltaLakeQueryRunner.builder()
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
                         .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
-                        .put("fs.hadoop.enabled", "false")
                         .put("fs.native-azure.enabled", "true")
                         .put("azure.auth-type", "ACCESS_KEY")
                         .put("azure.access-key", accessKey)

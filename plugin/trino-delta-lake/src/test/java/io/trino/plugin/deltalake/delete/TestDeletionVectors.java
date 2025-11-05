@@ -48,15 +48,6 @@ public class TestDeletionVectors
     }
 
     @Test
-    public void testUnsupportedPathStorageType()
-    {
-        TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
-        DeletionVectorEntry deletionVector = new DeletionVectorEntry("p", "s3://bucket/table/deletion_vector.bin", OptionalInt.empty(), 40, 1);
-        assertThatThrownBy(() -> readDeletionVectors(fileSystem, Location.of("s3://bucket/table"), deletionVector))
-                .hasMessageContaining("Unsupported storage type for deletion vector: p");
-    }
-
-    @Test
     public void testUnsupportedInlineStorageType()
     {
         TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);

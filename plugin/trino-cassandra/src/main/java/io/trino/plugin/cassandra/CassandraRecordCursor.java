@@ -88,43 +88,29 @@ public class CassandraRecordCursor
     public double getDouble(int i)
     {
         String columnName = validColumnName(columnNames.get(i));
-        switch (getCassandraType(i).kind()) {
-            case DOUBLE:
-                return currentRow.getDouble(columnName);
-            case FLOAT:
-                return currentRow.getFloat(columnName);
-            case DECIMAL:
-                return currentRow.getBigDecimal(columnName).doubleValue();
-            default:
-                throw new IllegalStateException("Cannot retrieve double for " + getCassandraType(i));
-        }
+        return switch (getCassandraType(i).kind()) {
+            case DOUBLE -> currentRow.getDouble(columnName);
+            case FLOAT -> currentRow.getFloat(columnName);
+            case DECIMAL -> currentRow.getBigDecimal(columnName).doubleValue();
+            default -> throw new IllegalStateException("Cannot retrieve double for " + getCassandraType(i));
+        };
     }
 
     @Override
     public long getLong(int i)
     {
         String columnName = validColumnName(columnNames.get(i));
-        switch (getCassandraType(i).kind()) {
-            case INT:
-                return currentRow.getInt(columnName);
-            case SMALLINT:
-                return currentRow.getShort(columnName);
-            case TINYINT:
-                return currentRow.getByte(columnName);
-            case BIGINT:
-            case COUNTER:
-                return currentRow.getLong(columnName);
-            case TIME:
-                return currentRow.getLocalTime(columnName).toNanoOfDay() * PICOSECONDS_PER_NANOSECOND;
-            case TIMESTAMP:
-                return packDateTimeWithZone(currentRow.getInstant(columnName).toEpochMilli(), TimeZoneKey.UTC_KEY);
-            case DATE:
-                return currentRow.getLocalDate(columnName).toEpochDay();
-            case FLOAT:
-                return floatToRawIntBits(currentRow.getFloat(columnName));
-            default:
-                throw new IllegalStateException("Cannot retrieve long for " + getCassandraType(i));
-        }
+        return switch (getCassandraType(i).kind()) {
+            case INT -> currentRow.getInt(columnName);
+            case SMALLINT -> currentRow.getShort(columnName);
+            case TINYINT -> currentRow.getByte(columnName);
+            case BIGINT, COUNTER -> currentRow.getLong(columnName);
+            case TIME -> currentRow.getLocalTime(columnName).toNanoOfDay() * PICOSECONDS_PER_NANOSECOND;
+            case TIMESTAMP -> packDateTimeWithZone(currentRow.getInstant(columnName).toEpochMilli(), TimeZoneKey.UTC_KEY);
+            case DATE -> currentRow.getLocalDate(columnName).toEpochDay();
+            case FLOAT -> floatToRawIntBits(currentRow.getFloat(columnName));
+            default -> throw new IllegalStateException("Cannot retrieve long for " + getCassandraType(i));
+        };
     }
 
     private CassandraType getCassandraType(int i)
@@ -149,13 +135,10 @@ public class CassandraRecordCursor
     public Object getObject(int i)
     {
         CassandraType cassandraType = cassandraTypes.get(i);
-        switch (cassandraType.kind()) {
-            case TUPLE:
-            case UDT:
-                return cassandraTypeManager.getColumnValue(cassandraType, currentRow, currentRow.firstIndexOf(validColumnName(columnNames.get(i)))).getValue();
-            default:
-                throw new IllegalArgumentException("getObject cannot be called for " + cassandraType);
-        }
+        return switch (cassandraType.kind()) {
+            case TUPLE, UDT -> cassandraTypeManager.getColumnValue(cassandraType, currentRow, currentRow.firstIndexOf(validColumnName(columnNames.get(i)))).getValue();
+            default -> throw new IllegalArgumentException("getObject cannot be called for " + cassandraType);
+        };
     }
 
     @Override

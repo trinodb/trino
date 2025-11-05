@@ -30,7 +30,7 @@
 - Reduce system memory usage when reading table columns containing string values
   from ORC or DWRF files. This can prevent high GC overhead or out-of-memory crashes.
 
-## TPCDS
+## TPC-DS
 
 - Fix display of table statistics when running `SHOW STATS FOR ...`.
 

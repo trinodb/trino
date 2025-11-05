@@ -64,6 +64,7 @@ public class OperatorContext
 {
     private final int operatorId;
     private final PlanNodeId planNodeId;
+    private final Optional<PlanNodeId> sourceId;
     private final String operatorType;
     private final DriverContext driverContext;
     private final Executor executor;
@@ -117,6 +118,7 @@ public class OperatorContext
     public OperatorContext(
             int operatorId,
             PlanNodeId planNodeId,
+            Optional<PlanNodeId> sourceId,
             String operatorType,
             DriverContext driverContext,
             Executor executor,
@@ -125,6 +127,7 @@ public class OperatorContext
         checkArgument(operatorId >= 0, "operatorId is negative");
         this.operatorId = operatorId;
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+        this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
         this.driverContext = requireNonNull(driverContext, "driverContext is null");
         this.spillContext = new OperatorSpillContext(this.driverContext);
@@ -347,9 +350,15 @@ public class OperatorContext
         //   Here, the total memory used to be user+system, and sans revocable. This apparent inconsistency should be removed.
         //   Perhaps, we don't need to track "total memory" here.
         long totalMemory = userMemory;
-        peakUserMemoryReservation.accumulateAndGet(userMemory, Math::max);
-        peakRevocableMemoryReservation.accumulateAndGet(revocableMemory, Math::max);
-        peakTotalMemoryReservation.accumulateAndGet(totalMemory, Math::max);
+        if (userMemory > peakUserMemoryReservation.get()) {
+            peakUserMemoryReservation.accumulateAndGet(userMemory, Math::max);
+        }
+        if (revocableMemory > peakRevocableMemoryReservation.get()) {
+            peakRevocableMemoryReservation.accumulateAndGet(revocableMemory, Math::max);
+        }
+        if (totalMemory > peakTotalMemoryReservation.get()) {
+            peakTotalMemoryReservation.accumulateAndGet(totalMemory, Math::max);
+        }
     }
 
     public long getReservedRevocableBytes()
@@ -506,15 +515,6 @@ public class OperatorContext
         return format("%s-%s", operatorType, planNodeId);
     }
 
-    public static Metrics getOperatorMetrics(Metrics operatorMetrics, long inputPositions, double cpuTimeSeconds, double wallTimeSeconds, double blockedWallSeconds)
-    {
-        return operatorMetrics.mergeWith(new Metrics(ImmutableMap.of(
-                "Input rows distribution", TDigestHistogram.fromValue(inputPositions),
-                "CPU time distribution (s)", TDigestHistogram.fromValue(cpuTimeSeconds),
-                "Scheduled time distribution (s)", TDigestHistogram.fromValue(wallTimeSeconds),
-                "Blocked time distribution (s)", TDigestHistogram.fromValue(blockedWallSeconds))));
-    }
-
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
     {
         return visitor.visitOperatorContext(this, context);
@@ -528,10 +528,11 @@ public class OperatorContext
         long inputPositionsCount = inputPositions.getTotalCount();
 
         return new OperatorStats(
-                driverContext.getTaskId().getStageId().getId(),
+                driverContext.getTaskId().stageId().id(),
                 driverContext.getPipelineContext().getPipelineId(),
                 operatorId,
                 planNodeId,
+                sourceId,
                 operatorType,
 
                 1,
@@ -544,7 +545,6 @@ public class OperatorContext
                 new Duration(physicalInputReadTimeNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 DataSize.ofBytes(internalNetworkInputDataSize.getTotalCount()),
                 internalNetworkPositions.getTotalCount(),
-                DataSize.ofBytes(physicalInputDataSize.getTotalCount() + internalNetworkInputDataSize.getTotalCount()),
                 DataSize.ofBytes(inputDataSize.getTotalCount()),
                 inputPositionsCount,
                 (double) inputPositionsCount * inputPositionsCount,
@@ -557,7 +557,6 @@ public class OperatorContext
 
                 dynamicFilterSplitsProcessed.get(),
                 getOperatorMetrics(
-                        metrics.get(),
                         inputPositionsCount,
                         new Duration(addInputTiming.getCpuNanos() + getOutputTiming.getCpuNanos() + finishTiming.getCpuNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
                         new Duration(addInputTiming.getWallNanos() + getOutputTiming.getWallNanos() + finishTiming.getWallNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
@@ -584,6 +583,15 @@ public class OperatorContext
 
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info);
+    }
+
+    private Metrics getOperatorMetrics(long inputPositions, double cpuTimeSeconds, double wallTimeSeconds, double blockedWallSeconds)
+    {
+        return metrics.get().mergeWith(new Metrics(ImmutableMap.of(
+                "Input rows distribution", TDigestHistogram.fromValue(inputPositions),
+                "CPU time distribution (s)", TDigestHistogram.fromValue(cpuTimeSeconds),
+                "Scheduled time distribution (s)", TDigestHistogram.fromValue(wallTimeSeconds),
+                "Blocked time distribution (s)", TDigestHistogram.fromValue(blockedWallSeconds))));
     }
 
     private static long nanosBetween(long start, long end)
@@ -619,7 +627,6 @@ public class OperatorContext
             implements SpillContext
     {
         private final DriverContext driverContext;
-        private final AtomicLong reservedBytes = new AtomicLong();
         private final AtomicLong spilledBytes = new AtomicLong();
 
         public OperatorSpillContext(DriverContext driverContext)
@@ -631,12 +638,10 @@ public class OperatorContext
         public void updateBytes(long bytes)
         {
             if (bytes >= 0) {
-                reservedBytes.addAndGet(bytes);
                 driverContext.reserveSpill(bytes);
                 spilledBytes.addAndGet(bytes);
             }
             else {
-                reservedBytes.accumulateAndGet(-bytes, this::decrementSpilledReservation);
                 driverContext.freeSpill(-bytes);
             }
         }
@@ -644,13 +649,6 @@ public class OperatorContext
         public long getSpilledBytes()
         {
             return spilledBytes.longValue();
-        }
-
-        private long decrementSpilledReservation(long reservedBytes, long bytesBeingFreed)
-        {
-            checkArgument(bytesBeingFreed >= 0);
-            checkArgument(bytesBeingFreed <= reservedBytes, "tried to free %s spilled bytes from %s bytes reserved", bytesBeingFreed, reservedBytes);
-            return reservedBytes - bytesBeingFreed;
         }
 
         @Override
@@ -664,7 +662,7 @@ public class OperatorContext
         public String toString()
         {
             return toStringHelper(this)
-                    .add("usedBytes", reservedBytes.get())
+                    .add("spilledBytes", spilledBytes.get())
                     .toString();
         }
     }
@@ -699,6 +697,18 @@ public class OperatorContext
             }
 
             ListenableFuture<Void> blocked = delegate.setBytes(bytes);
+            updateMemoryFuture(blocked, memoryFuture);
+            allocationListener.run();
+            return blocked;
+        }
+
+        @Override
+        public ListenableFuture<Void> addBytes(long delta)
+        {
+            if (delta == 0) {
+                return NOT_BLOCKED;
+            }
+            ListenableFuture<Void> blocked = delegate.addBytes(delta);
             updateMemoryFuture(blocked, memoryFuture);
             allocationListener.run();
             return blocked;

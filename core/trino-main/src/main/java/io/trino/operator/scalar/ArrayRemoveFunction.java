@@ -16,6 +16,7 @@ package io.trino.operator.scalar;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedArrayValueBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.OperatorDependency;
@@ -88,8 +89,9 @@ public final class ArrayRemoveFunction
         }
 
         return arrayValueBuilder.build(positions.size(), elementBuilder -> {
+            ValueBlock valueBlock = array.getUnderlyingValueBlock();
             for (int position : positions) {
-                type.appendTo(array, position, elementBuilder);
+                elementBuilder.append(valueBlock, array.getUnderlyingValuePosition(position));
             }
         });
     }

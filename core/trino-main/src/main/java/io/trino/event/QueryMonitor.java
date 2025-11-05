@@ -29,13 +29,13 @@ import io.trino.SessionRepresentation;
 import io.trino.client.NodeVersion;
 import io.trino.cost.StatsAndCosts;
 import io.trino.eventlistener.EventListenerManager;
-import io.trino.execution.Column;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.Input;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
 import io.trino.execution.QueryStats;
 import io.trino.execution.StageInfo;
+import io.trino.execution.StagesInfo;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskState;
 import io.trino.metadata.FunctionManager;
@@ -49,6 +49,7 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.DoubleSymmetricDistribution;
+import io.trino.spi.eventlistener.DynamicFilterDomainStatistics;
 import io.trino.spi.eventlistener.LongDistribution;
 import io.trino.spi.eventlistener.LongSymmetricDistribution;
 import io.trino.spi.eventlistener.OutputColumnMetadata;
@@ -62,6 +63,7 @@ import io.trino.spi.eventlistener.QueryMetadata;
 import io.trino.spi.eventlistener.QueryOutputMetadata;
 import io.trino.spi.eventlistener.QueryStatistics;
 import io.trino.spi.eventlistener.StageCpuDistribution;
+import io.trino.spi.eventlistener.StageOutputBufferMetrics;
 import io.trino.spi.eventlistener.StageOutputBufferUtilization;
 import io.trino.spi.eventlistener.StageTaskStatistics;
 import io.trino.spi.metrics.Metrics;
@@ -78,9 +80,10 @@ import io.trino.sql.planner.planprinter.CounterBasedAnonymizer;
 import io.trino.sql.planner.planprinter.NoOpAnonymizer;
 import io.trino.sql.planner.planprinter.ValuePrinter;
 import io.trino.transaction.TransactionId;
-import org.joda.time.DateTime;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -90,27 +93,27 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.execution.QueryState.QUEUED;
-import static io.trino.execution.StageInfo.getAllStages;
+import static io.trino.execution.StagesInfo.getAllStages;
 import static io.trino.sql.planner.planprinter.PlanPrinter.jsonDistributedPlan;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textDistributedPlan;
 import static io.trino.util.MoreMath.firstNonNaN;
-import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
-import static java.time.Duration.ofMillis;
-import static java.time.Instant.ofEpochMilli;
+import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Objects.requireNonNull;
 
 public class QueryMonitor
 {
     private static final Logger log = Logger.get(QueryMonitor.class);
+    private static final ZoneId ZONE_ID = ZoneId.systemDefault();
 
-    private final JsonCodec<StageInfo> stageInfoCodec;
+    private final JsonCodec<StagesInfo> stagesInfoCodec;
     private final JsonCodec<OperatorStats> operatorStatsCodec;
     private final JsonCodec<ExecutionFailureInfo> executionFailureInfoCodec;
     private final JsonCodec<StatsAndCosts> statsAndCostsCodec;
@@ -125,7 +128,7 @@ public class QueryMonitor
 
     @Inject
     public QueryMonitor(
-            JsonCodec<StageInfo> stageInfoCodec,
+            JsonCodec<StagesInfo> stagesInfoCodec,
             JsonCodec<OperatorStats> operatorStatsCodec,
             JsonCodec<ExecutionFailureInfo> executionFailureInfoCodec,
             JsonCodec<StatsAndCosts> statsAndCostsCodec,
@@ -138,7 +141,7 @@ public class QueryMonitor
             QueryMonitorConfig config)
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
-        this.stageInfoCodec = requireNonNull(stageInfoCodec, "stageInfoCodec is null");
+        this.stagesInfoCodec = requireNonNull(stagesInfoCodec, "stagesInfoCodec is null");
         this.operatorStatsCodec = requireNonNull(operatorStatsCodec, "operatorStatsCodec is null");
         this.statsAndCostsCodec = requireNonNull(statsAndCostsCodec, "statsAndCostsCodec is null");
         this.executionFailureInfoCodec = requireNonNull(executionFailureInfoCodec, "executionFailureInfoCodec is null");
@@ -155,7 +158,7 @@ public class QueryMonitor
     {
         eventListenerManager.queryCreated(
                 new QueryCreatedEvent(
-                        queryInfo.getQueryStats().getCreateTime().toDate().toInstant(),
+                        queryInfo.getQueryStats().getCreateTime(),
                         createQueryContext(
                                 queryInfo.getSession(),
                                 queryInfo.getResourceGroupId(),
@@ -195,10 +198,10 @@ public class QueryMonitor
                         Optional.empty(),
                         Optional::empty),
                 new QueryStatistics(
-                        ofMillis(0),
-                        ofMillis(0),
-                        ofMillis(0),
-                        ofMillis(queryInfo.getQueryStats().getQueuedTime().toMillis()),
+                        Duration.ZERO,
+                        Duration.ZERO,
+                        Duration.ZERO,
+                        queryInfo.getQueryStats().getQueuedTime().toJavaTime(),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
@@ -212,8 +215,7 @@ public class QueryMonitor
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        0,
-                        0,
+                        Optional.empty(),
                         0,
                         0,
                         0,
@@ -238,6 +240,9 @@ public class QueryMonitor
                         ImmutableList.of(),
                         ImmutableList.of(),
                         ImmutableList.of(),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        ImmutableMap.of(),
                         Optional.empty()),
                 createQueryContext(
                         queryInfo.getSession(),
@@ -247,9 +252,9 @@ public class QueryMonitor
                 new QueryIOMetadata(ImmutableList.of(), Optional.empty()),
                 createQueryFailureInfo(failure, Optional.empty()),
                 ImmutableList.of(),
-                ofEpochMilli(queryInfo.getQueryStats().getCreateTime().getMillis()),
-                ofEpochMilli(queryInfo.getQueryStats().getEndTime().getMillis()),
-                ofEpochMilli(queryInfo.getQueryStats().getEndTime().getMillis())));
+                queryInfo.getQueryStats().getCreateTime(),
+                queryInfo.getQueryStats().getEndTime(),
+                queryInfo.getQueryStats().getEndTime()));
 
         logQueryTimeline(queryInfo);
     }
@@ -271,11 +276,11 @@ public class QueryMonitor
                                 queryInfo.getQueryType(),
                                 queryInfo.getRetryPolicy()),
                         getQueryIOMetadata(queryInfo),
-                        createQueryFailureInfo(queryInfo.getFailureInfo(), queryInfo.getOutputStage()),
+                        createQueryFailureInfo(queryInfo.getFailureInfo(), queryInfo.getStages()),
                         queryInfo.getWarnings(),
-                        ofEpochMilli(queryStats.getCreateTime().getMillis()),
-                        ofEpochMilli(queryStats.getExecutionStartTime().getMillis()),
-                        ofEpochMilli(queryStats.getEndTime() != null ? queryStats.getEndTime().getMillis() : 0));
+                        queryStats.getCreateTime(),
+                        queryStats.getExecutionStartTime(),
+                        queryStats.getEndTime() != null ? queryStats.getEndTime() : Instant.ofEpochMilli(0));
                 memo.put(requiresAnonymizedPlan, queryCompletedEvent);
             }
             return queryCompletedEvent;
@@ -299,35 +304,36 @@ public class QueryMonitor
                 queryInfo.getSelf(),
                 createTextQueryPlan(queryInfo, anonymizer),
                 createJsonQueryPlan(queryInfo, anonymizer),
-                memoize(() -> queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit))));
+                memoize(() -> queryInfo.getStages().flatMap(stages -> stagesInfoCodec.toJsonWithLengthLimit(stages, maxJsonLimit))));
     }
 
     private QueryStatistics createQueryStatistics(QueryInfo queryInfo)
     {
         List<OperatorStats> operatorStats = queryInfo.getQueryStats().getOperatorSummaries();
 
-        Optional<StatsAndCosts> planNodeStatsAndCosts = queryInfo.getOutputStage().map(StatsAndCosts::create);
+        Optional<StatsAndCosts> planNodeStatsAndCosts = queryInfo.getStages().map(StatsAndCosts::create);
         Optional<String> serializedPlanNodeStatsAndCosts = planNodeStatsAndCosts.map(statsAndCostsCodec::toJson);
 
         QueryStats queryStats = queryInfo.getQueryStats();
         return new QueryStatistics(
-                ofMillis(queryStats.getTotalCpuTime().toMillis()),
-                ofMillis(queryStats.getFailedCpuTime().toMillis()),
-                ofMillis(queryStats.getElapsedTime().toMillis()),
-                ofMillis(queryStats.getQueuedTime().toMillis()),
-                Optional.of(ofMillis(queryStats.getTotalScheduledTime().toMillis())),
-                Optional.of(ofMillis(queryStats.getFailedScheduledTime().toMillis())),
-                Optional.of(ofMillis(queryStats.getResourceWaitingTime().toMillis())),
-                Optional.of(ofMillis(queryStats.getAnalysisTime().toMillis())),
-                Optional.of(ofMillis(queryStats.getPlanningTime().toMillis())),
-                Optional.of(ofMillis(queryStats.getPlanningCpuTime().toMillis())),
-                Optional.of(ofMillis(queryStats.getStartingTime().toMillis())),
-                Optional.of(ofMillis(queryStats.getExecutionTime().toMillis())),
-                Optional.of(ofMillis(queryStats.getInputBlockedTime().toMillis())),
-                Optional.of(ofMillis(queryStats.getFailedInputBlockedTime().toMillis())),
-                Optional.of(ofMillis(queryStats.getOutputBlockedTime().toMillis())),
-                Optional.of(ofMillis(queryStats.getFailedOutputBlockedTime().toMillis())),
-                Optional.of(ofMillis(queryStats.getPhysicalInputReadTime().toMillis())),
+                queryStats.getTotalCpuTime().toJavaTime(),
+                queryStats.getFailedCpuTime().toJavaTime(),
+                queryStats.getElapsedTime().toJavaTime(),
+                queryStats.getQueuedTime().toJavaTime(),
+                Optional.of(queryStats.getTotalScheduledTime().toJavaTime()),
+                Optional.of(queryStats.getFailedScheduledTime().toJavaTime()),
+                Optional.of(queryStats.getResourceWaitingTime().toJavaTime()),
+                Optional.of(queryStats.getAnalysisTime().toJavaTime()),
+                Optional.of(queryStats.getPlanningTime().toJavaTime()),
+                Optional.of(queryStats.getPlanningCpuTime().toJavaTime()),
+                Optional.of(queryStats.getStartingTime().toJavaTime()),
+                Optional.of(queryStats.getExecutionTime().toJavaTime()),
+                Optional.of(queryStats.getInputBlockedTime().toJavaTime()),
+                Optional.of(queryStats.getFailedInputBlockedTime().toJavaTime()),
+                Optional.of(queryStats.getOutputBlockedTime().toJavaTime()),
+                Optional.of(queryStats.getFailedOutputBlockedTime().toJavaTime()),
+                Optional.of(queryStats.getPhysicalInputReadTime().toJavaTime()),
+                Optional.of(queryStats.getFinishingTime().toJavaTime()),
                 queryStats.getPeakUserMemoryReservation().toBytes(),
                 queryStats.getPeakTaskUserMemory().toBytes(),
                 queryStats.getPeakTaskTotalMemory().toBytes(),
@@ -337,8 +343,6 @@ public class QueryMonitor
                 queryStats.getProcessedInputPositions(),
                 queryStats.getInternalNetworkInputDataSize().toBytes(),
                 queryStats.getInternalNetworkInputPositions(),
-                queryStats.getRawInputDataSize().toBytes(),
-                queryStats.getRawInputPositions(),
                 queryStats.getOutputDataSize().toBytes(),
                 queryStats.getOutputPositions(),
                 queryStats.getLogicalWrittenDataSize().toBytes(),
@@ -351,10 +355,24 @@ public class QueryMonitor
                 queryInfo.isFinalQueryInfo(),
                 getCpuDistributions(queryInfo),
                 getStageOutputBufferUtilizations(queryInfo),
+                getStageOutputBufferMetrics(queryInfo),
                 getStageTaskStatistics(queryInfo),
+                getDynamicFilterDomainStats(queryInfo),
                 memoize(() -> operatorStats.stream().map(operatorStatsCodec::toJson).toList()),
                 ImmutableList.copyOf(queryInfo.getQueryStats().getOptimizerRulesSummaries()),
+                ImmutableMap.copyOf(queryInfo.getQueryStats().getCatalogMetadataMetrics()),
                 serializedPlanNodeStatsAndCosts);
+    }
+
+    private static List<DynamicFilterDomainStatistics> getDynamicFilterDomainStats(QueryInfo queryInfo)
+    {
+        return queryInfo.getQueryStats().getDynamicFiltersStats().getDynamicFilterDomainStats()
+                .stream()
+                .map(stats -> new DynamicFilterDomainStatistics(
+                        stats.getDynamicFilterId().toString(),
+                        stats.getSimplifiedDomain(),
+                        stats.getCollectionDuration().map(io.airlift.units.Duration::toJavaTime)))
+                .collect(toImmutableList());
     }
 
     private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup, Optional<QueryType> queryType, RetryPolicy retryPolicy)
@@ -362,6 +380,7 @@ public class QueryMonitor
         return new QueryContext(
                 session.getUser(),
                 session.getOriginalUser(),
+                session.getOriginalRoles(),
                 session.getPrincipal(),
                 session.getEnabledRoles(),
                 session.getGroups(),
@@ -388,9 +407,9 @@ public class QueryMonitor
     private Optional<String> createTextQueryPlan(QueryInfo queryInfo, Anonymizer anonymizer)
     {
         try {
-            if (queryInfo.getOutputStage().isPresent()) {
+            if (queryInfo.getStages().isPresent()) {
                 return Optional.of(textDistributedPlan(
-                        queryInfo.getOutputStage().get(),
+                        queryInfo.getStages().get(),
                         queryInfo.getQueryStats(),
                         new ValuePrinter(metadata, functionManager, queryInfo.getSession().toSession(sessionPropertyManager)),
                         false,
@@ -409,9 +428,9 @@ public class QueryMonitor
     private Optional<String> createJsonQueryPlan(QueryInfo queryInfo, Anonymizer anonymizer)
     {
         try {
-            if (queryInfo.getOutputStage().isPresent()) {
+            if (queryInfo.getStages().isPresent()) {
                 return Optional.of(jsonDistributedPlan(
-                        queryInfo.getOutputStage().get(),
+                        queryInfo.getStages().orElseThrow(),
                         queryInfo.getSession().toSession(sessionPropertyManager),
                         metadata,
                         functionManager,
@@ -451,12 +470,14 @@ public class QueryMonitor
                     .reduce(Metrics.EMPTY, Metrics::mergeWith);
 
             inputs.add(new QueryInputMetadata(
+                    input.getConnectorName(),
                     input.getCatalogName(),
                     input.getCatalogVersion(),
                     input.getSchema(),
                     input.getTable(),
                     input.getColumns().stream()
-                            .map(Column::getName).collect(Collectors.toList()),
+                            .map(column -> new QueryInputMetadata.Column(column.getName(), column.getType()))
+                            .collect(toImmutableList()),
                     input.getConnectorInfo(),
                     connectorMetrics,
                     physicalInputBytes,
@@ -498,7 +519,7 @@ public class QueryMonitor
     {
         // Note: A plan may map a table scan to multiple operators.
         ImmutableMultimap.Builder<FragmentNode, OperatorStats> planNodeStats = ImmutableMultimap.builder();
-        getAllStages(queryInfo.getOutputStage())
+        getAllStages(queryInfo.getStages())
                 .forEach(stageInfo -> extractPlanNodeStats(stageInfo, planNodeStats));
         return planNodeStats.build();
     }
@@ -533,13 +554,13 @@ public class QueryMonitor
                 ImmutableList.of());
     }
 
-    private Optional<QueryFailureInfo> createQueryFailureInfo(ExecutionFailureInfo failureInfo, Optional<StageInfo> outputStage)
+    private Optional<QueryFailureInfo> createQueryFailureInfo(ExecutionFailureInfo failureInfo, Optional<StagesInfo> stages)
     {
         if (failureInfo == null) {
             return Optional.empty();
         }
 
-        Optional<TaskInfo> failedTask = outputStage.flatMap(QueryMonitor::findFailedTask);
+        Optional<TaskInfo> failedTask = stages.flatMap(QueryMonitor::findFailedTask);
 
         return Optional.of(new QueryFailureInfo(
                 failureInfo.getErrorCode(),
@@ -550,17 +571,17 @@ public class QueryMonitor
                 executionFailureInfoCodec.toJson(failureInfo)));
     }
 
-    private static Optional<TaskInfo> findFailedTask(StageInfo stageInfo)
+    private static Optional<TaskInfo> findFailedTask(StagesInfo stages)
     {
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            Optional<TaskInfo> task = findFailedTask(subStage);
-            if (task.isPresent()) {
-                return task;
+        for (StageInfo stageInfo : stages.getSubStagesDeep(stages.getOutputStageId(), true)) {
+            Optional<TaskInfo> failedTaskInfo = stageInfo.getTasks().stream()
+                    .filter(taskInfo -> taskInfo.taskStatus().getState() == TaskState.FAILED)
+                    .findFirst();
+            if (failedTaskInfo.isPresent()) {
+                return failedTaskInfo;
             }
         }
-        return stageInfo.getTasks().stream()
-                .filter(taskInfo -> taskInfo.taskStatus().getState() == TaskState.FAILED)
-                .findFirst();
+        return Optional.empty();
     }
 
     private static Map<String, String> mergeSessionAndCatalogProperties(SessionRepresentation session)
@@ -579,8 +600,8 @@ public class QueryMonitor
     {
         try {
             QueryStats queryStats = queryInfo.getQueryStats();
-            DateTime queryStartTime = queryStats.getCreateTime();
-            DateTime queryEndTime = queryStats.getEndTime();
+            Instant queryStartTime = queryStats.getCreateTime().truncatedTo(MILLIS);
+            Instant queryEndTime = queryStats.getEndTime().truncatedTo(MILLIS);
 
             // query didn't finish cleanly
             if (queryStartTime == null || queryEndTime == null) {
@@ -593,9 +614,9 @@ public class QueryMonitor
             // Time spent waiting for required no. of worker nodes to be present
             long waiting = queryStats.getResourceWaitingTime().toMillis();
 
-            List<StageInfo> stages = getAllStages(queryInfo.getOutputStage());
-            long firstTaskStartTime = queryEndTime.getMillis();
-            long lastTaskEndTime = queryStartTime.getMillis() + planning;
+            List<StageInfo> stages = getAllStages(queryInfo.getStages());
+            Instant firstTaskStartTime = queryEndTime;
+            Instant lastTaskEndTime = queryStartTime.plusMillis(planning);
             for (StageInfo stage : stages) {
                 // only consider leaf stages
                 if (!stage.getSubStages().isEmpty()) {
@@ -605,22 +626,22 @@ public class QueryMonitor
                 for (TaskInfo taskInfo : stage.getTasks()) {
                     TaskStats taskStats = taskInfo.stats();
 
-                    DateTime firstStartTime = taskStats.getFirstStartTime();
+                    Instant firstStartTime = taskStats.getFirstStartTime();
                     if (firstStartTime != null) {
-                        firstTaskStartTime = Math.min(firstStartTime.getMillis(), firstTaskStartTime);
+                        firstTaskStartTime = min(firstStartTime, firstTaskStartTime);
                     }
 
-                    DateTime endTime = taskStats.getEndTime();
+                    Instant endTime = taskStats.getEndTime();
                     if (endTime != null) {
-                        lastTaskEndTime = max(endTime.getMillis(), lastTaskEndTime);
+                        lastTaskEndTime = max(endTime, lastTaskEndTime);
                     }
                 }
             }
 
-            long elapsed = max(queryEndTime.getMillis() - queryStartTime.getMillis(), 0);
-            long scheduling = max(firstTaskStartTime - queryStartTime.getMillis() - planning, 0);
-            long running = max(lastTaskEndTime - firstTaskStartTime, 0);
-            long finishing = max(queryEndTime.getMillis() - lastTaskEndTime, 0);
+            long elapsed = Math.max(queryEndTime.toEpochMilli() - queryStartTime.toEpochMilli(), 0);
+            long scheduling = Math.max(firstTaskStartTime.toEpochMilli() - queryStartTime.toEpochMilli() - planning, 0);
+            long running = Math.max(lastTaskEndTime.toEpochMilli() - firstTaskStartTime.toEpochMilli(), 0);
+            long finishing = Math.max(queryEndTime.toEpochMilli() - lastTaskEndTime.toEpochMilli(), 0);
 
             logQueryTimeline(
                     queryInfo.getQueryId(),
@@ -643,15 +664,15 @@ public class QueryMonitor
 
     private static void logQueryTimeline(BasicQueryInfo queryInfo)
     {
-        DateTime queryStartTime = queryInfo.getQueryStats().getCreateTime();
-        DateTime queryEndTime = queryInfo.getQueryStats().getEndTime();
+        Instant queryStartTime = queryInfo.getQueryStats().getCreateTime().truncatedTo(MILLIS);
+        Instant queryEndTime = queryInfo.getQueryStats().getEndTime().truncatedTo(MILLIS);
 
         // query didn't finish cleanly
         if (queryStartTime == null || queryEndTime == null) {
             return;
         }
 
-        long elapsed = max(queryEndTime.getMillis() - queryStartTime.getMillis(), 0);
+        long elapsed = Math.max(queryEndTime.toEpochMilli() - queryStartTime.toEpochMilli(), 0);
 
         logQueryTimeline(
                 queryInfo.getQueryId(),
@@ -679,8 +700,8 @@ public class QueryMonitor
             long schedulingMillis,
             long runningMillis,
             long finishingMillis,
-            DateTime queryStartTime,
-            DateTime queryEndTime)
+            Instant queryStartTime,
+            Instant queryEndTime)
     {
         log.info("TIMELINE: Query %s :: %s%s :: elapsed %sms :: planning %sms :: waiting %sms :: scheduling %sms :: running %sms :: finishing %sms :: begin %s :: end %s%s",
                 queryId,
@@ -692,29 +713,16 @@ public class QueryMonitor
                 schedulingMillis,
                 runningMillis,
                 finishingMillis,
-                queryStartTime,
-                queryEndTime,
+                queryStartTime.atZone(ZONE_ID).format(ISO_OFFSET_DATE_TIME),
+                queryEndTime.atZone(ZONE_ID).format(ISO_OFFSET_DATE_TIME),
                 encoding.map(id -> " :: " + id).orElse(""));
     }
 
     private static List<StageCpuDistribution> getCpuDistributions(QueryInfo queryInfo)
     {
-        if (queryInfo.getOutputStage().isEmpty()) {
-            return ImmutableList.of();
-        }
-
-        ImmutableList.Builder<StageCpuDistribution> builder = ImmutableList.builder();
-        populateDistribution(queryInfo.getOutputStage().get(), builder);
-
-        return builder.build();
-    }
-
-    private static void populateDistribution(StageInfo stageInfo, ImmutableList.Builder<StageCpuDistribution> distributions)
-    {
-        distributions.add(computeCpuDistribution(stageInfo));
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            populateDistribution(subStage, distributions);
-        }
+        return getAllStages(queryInfo.getStages()).stream()
+                .map(QueryMonitor::computeCpuDistribution)
+                .collect(toImmutableList());
     }
 
     private static StageCpuDistribution computeCpuDistribution(StageInfo stageInfo)
@@ -728,89 +736,86 @@ public class QueryMonitor
         DistributionSnapshot snapshot = cpuDistribution.snapshot();
 
         return new StageCpuDistribution(
-                stageInfo.getStageId().getId(),
+                stageInfo.getStageId().id(),
                 stageInfo.getTasks().size(),
-                (long) snapshot.getP25(),
-                (long) snapshot.getP50(),
-                (long) snapshot.getP75(),
-                (long) snapshot.getP90(),
-                (long) snapshot.getP95(),
-                (long) snapshot.getP99(),
-                (long) snapshot.getMin(),
-                (long) snapshot.getMax(),
-                (long) snapshot.getTotal(),
-                firstNonNaN(snapshot.getTotal() / snapshot.getCount(), 0.0));
+                (long) snapshot.p25(),
+                (long) snapshot.p50(),
+                (long) snapshot.p75(),
+                (long) snapshot.p90(),
+                (long) snapshot.p95(),
+                (long) snapshot.p99(),
+                (long) snapshot.min(),
+                (long) snapshot.max(),
+                (long) snapshot.total(),
+                firstNonNaN(snapshot.total() / snapshot.count(), 0.0));
     }
 
     private static List<StageOutputBufferUtilization> getStageOutputBufferUtilizations(QueryInfo queryInfo)
     {
-        if (queryInfo.getOutputStage().isEmpty()) {
-            return ImmutableList.of();
-        }
-
-        ImmutableList.Builder<StageOutputBufferUtilization> builder = ImmutableList.builder();
-        populateStageOutputBufferUtilization(queryInfo.getOutputStage().get(), builder);
-
-        return builder.build();
+        return getAllStages(queryInfo.getStages()).stream()
+                .map(QueryMonitor::computeStageOutputBufferUtilization)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toImmutableList());
     }
 
-    private static void populateStageOutputBufferUtilization(StageInfo stageInfo, ImmutableList.Builder<StageOutputBufferUtilization> utilizations)
+    private static Optional<StageOutputBufferUtilization> computeStageOutputBufferUtilization(StageInfo stageInfo)
     {
-        stageInfo.getStageStats().getOutputBufferUtilization()
-                .ifPresent(utilization -> {
-                    utilizations.add(new StageOutputBufferUtilization(
-                            stageInfo.getStageId().getId(),
+        return stageInfo.getStageStats().getOutputBufferUtilization()
+                .map(utilization -> new StageOutputBufferUtilization(
+                            stageInfo.getStageId().id(),
                             stageInfo.getTasks().size(),
                             // scale ratio to percentages
-                            utilization.getP01() * 100,
-                            utilization.getP05() * 100,
-                            utilization.getP10() * 100,
-                            utilization.getP25() * 100,
-                            utilization.getP50() * 100,
-                            utilization.getP75() * 100,
-                            utilization.getP90() * 100,
-                            utilization.getP95() * 100,
-                            utilization.getP99() * 100,
-                            utilization.getMin() * 100,
-                            utilization.getMax() * 100,
-                            Duration.ofNanos(utilization.getTotal())));
-                });
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            populateStageOutputBufferUtilization(subStage, utilizations);
+                            utilization.p01() * 100,
+                            utilization.p05() * 100,
+                            utilization.p10() * 100,
+                            utilization.p25() * 100,
+                            utilization.p50() * 100,
+                            utilization.p75() * 100,
+                            utilization.p90() * 100,
+                            utilization.p95() * 100,
+                            utilization.p99() * 100,
+                            utilization.min() * 100,
+                            utilization.max() * 100,
+                        Duration.ofNanos(utilization.total())));
+    }
+
+    private static List<StageOutputBufferMetrics> getStageOutputBufferMetrics(QueryInfo queryInfo)
+    {
+        return getAllStages(queryInfo.getStages()).stream()
+                .map(QueryMonitor::computeStageOutputBufferMetrics)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toImmutableList());
+    }
+
+    private static Optional<StageOutputBufferMetrics> computeStageOutputBufferMetrics(StageInfo stageInfo)
+    {
+        Metrics metrics = stageInfo.getStageStats().getOutputBufferMetrics();
+        if (metrics.getMetrics().isEmpty()) {
+            return Optional.empty();
         }
+        return Optional.of(new StageOutputBufferMetrics(stageInfo.getStageId().id(), metrics));
     }
 
     private List<StageTaskStatistics> getStageTaskStatistics(QueryInfo queryInfo)
     {
-        if (queryInfo.getOutputStage().isEmpty()) {
-            return ImmutableList.of();
-        }
-
-        ImmutableList.Builder<StageTaskStatistics> builder = ImmutableList.builder();
-        populateStageTaskStatistics(queryInfo, queryInfo.getOutputStage().get(), builder);
-
-        return builder.build();
-    }
-
-    private void populateStageTaskStatistics(QueryInfo queryInfo, StageInfo stageInfo, ImmutableList.Builder<StageTaskStatistics> builder)
-    {
-        builder.add(computeStageTaskStatistics(queryInfo, stageInfo));
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            populateStageTaskStatistics(queryInfo, subStage, builder);
-        }
+        return getAllStages(queryInfo.getStages()).stream()
+                .map(stageInfo -> computeStageTaskStatistics(queryInfo, stageInfo))
+                .collect(toImmutableList());
     }
 
     private StageTaskStatistics computeStageTaskStatistics(QueryInfo queryInfo, StageInfo stageInfo)
     {
-        long queryCreateTimeMillis = queryInfo.getQueryStats().getCreateTime().getMillis();
-        LongSymmetricDistribution createTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getCreateTime().getMillis() - queryCreateTimeMillis));
-        LongSymmetricDistribution firstStartTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().getFirstStartTime()).map(value -> value.getMillis() - queryCreateTimeMillis));
-        LongSymmetricDistribution lastStartTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().getLastStartTime()).map(value -> value.getMillis() - queryCreateTimeMillis));
-        LongSymmetricDistribution terminatingStartTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().getTerminatingStartTime()).map(value -> value.getMillis() - queryCreateTimeMillis));
-        LongSymmetricDistribution lastEndTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().getLastEndTime()).map(value -> value.getMillis() - queryCreateTimeMillis));
-        LongSymmetricDistribution endTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().getEndTime()).map(value -> value.getMillis() - queryCreateTimeMillis));
+        long queryCreateTimeMillis = queryInfo.getQueryStats().getCreateTime().toEpochMilli();
+        LongSymmetricDistribution createTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getCreateTime().toEpochMilli() - queryCreateTimeMillis));
+        LongSymmetricDistribution firstStartTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().getFirstStartTime()).map(value -> value.toEpochMilli() - queryCreateTimeMillis));
+        LongSymmetricDistribution lastStartTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().getLastStartTime()).map(value -> value.toEpochMilli() - queryCreateTimeMillis));
+        LongSymmetricDistribution terminatingStartTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().getTerminatingStartTime()).map(value -> value.toEpochMilli() - queryCreateTimeMillis));
+        LongSymmetricDistribution lastEndTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().getLastEndTime()).map(value -> value.toEpochMilli() - queryCreateTimeMillis));
+        LongSymmetricDistribution endTimeMillisDistribution = getTasksSymmetricDistribution(stageInfo, taskInfo -> Optional.ofNullable(taskInfo.stats().getEndTime()).map(value -> value.toEpochMilli() - queryCreateTimeMillis));
 
-        Optional<Long> queryExecutionTime = Optional.ofNullable(queryInfo.getQueryStats().getEndTime()).map(value -> value.getMillis() - queryCreateTimeMillis);
+        Optional<Long> queryExecutionTime = Optional.ofNullable(queryInfo.getQueryStats().getEndTime()).map(value -> value.toEpochMilli() - queryCreateTimeMillis);
         DoubleSymmetricDistribution createTimeScaledDistribution;
         DoubleSymmetricDistribution firstStartTimeScaledDistribution;
         DoubleSymmetricDistribution lastStartTimeScaledDistribution;
@@ -833,16 +838,35 @@ public class QueryMonitor
             lastEndTimeScaledDistribution = DoubleSymmetricDistribution.ZERO;
             endTimeScaledDistribution = DoubleSymmetricDistribution.ZERO;
         }
-        DistributionSnapshot getSplitDistribution = stageInfo.getStageStats().getGetSplitDistribution();
+
+        Map<String, DoubleSymmetricDistribution> getSplitDistribution = stageInfo.getStageStats().getGetSplitDistribution()
+                .entrySet().stream()
+                .collect(toImmutableMap(entry -> entry.getKey().toString(), entry -> {
+                    DistributionSnapshot distributionSnapshot = entry.getValue();
+                    return new DoubleSymmetricDistribution(
+                            distributionSnapshot.p01(),
+                            distributionSnapshot.p05(),
+                            distributionSnapshot.p10(),
+                            distributionSnapshot.p25(),
+                            distributionSnapshot.p50(),
+                            distributionSnapshot.p75(),
+                            distributionSnapshot.p90(),
+                            distributionSnapshot.p95(),
+                            distributionSnapshot.p99(),
+                            distributionSnapshot.min(),
+                            distributionSnapshot.max(),
+                            distributionSnapshot.total(),
+                            distributionSnapshot.count());
+                }));
         return new StageTaskStatistics(
-                stageInfo.getStageId().getId(),
+                stageInfo.getStageId().id(),
                 stageInfo.getTasks().size(),
                 getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getTotalCpuTime().toMillis())),
                 getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getTotalScheduledTime().toMillis())),
                 getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getPeakUserMemoryReservation().toBytes())),
                 getTasksDistribution(stageInfo, taskInfo -> taskInfo.estimatedMemory().map(DataSize::toBytes)),
-                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getRawInputDataSize().toBytes())),
-                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getRawInputPositions())),
+                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getInternalNetworkInputDataSize().toBytes() + taskInfo.stats().getPhysicalInputDataSize().toBytes())),
+                getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getProcessedInputPositions())),
                 getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getProcessedInputDataSize().toBytes())),
                 getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getProcessedInputPositions())),
                 getTasksDistribution(stageInfo, taskInfo -> Optional.of(taskInfo.stats().getOutputDataSize().toBytes())),
@@ -860,20 +884,7 @@ public class QueryMonitor
                 terminatingStartTimeScaledDistribution,
                 lastEndTimeScaledDistribution,
                 endTimeScaledDistribution,
-                new DoubleSymmetricDistribution(
-                        getSplitDistribution.getP01(),
-                        getSplitDistribution.getP05(),
-                        getSplitDistribution.getP10(),
-                        getSplitDistribution.getP25(),
-                        getSplitDistribution.getP50(),
-                        getSplitDistribution.getP75(),
-                        getSplitDistribution.getP90(),
-                        getSplitDistribution.getP95(),
-                        getSplitDistribution.getP99(),
-                        getSplitDistribution.getMin(),
-                        getSplitDistribution.getMax(),
-                        getSplitDistribution.getTotal(),
-                        getSplitDistribution.getCount()));
+                getSplitDistribution);
     }
 
     private static LongDistribution getTasksDistribution(StageInfo stageInfo, Function<TaskInfo, Optional<Long>> metricFunction)
@@ -884,16 +895,16 @@ public class QueryMonitor
         }
         DistributionSnapshot snapshot = distribution.snapshot();
         return new LongDistribution(
-                (long) snapshot.getP25(),
-                (long) snapshot.getP50(),
-                (long) snapshot.getP75(),
-                (long) snapshot.getP90(),
-                (long) snapshot.getP95(),
-                (long) snapshot.getP99(),
-                (long) snapshot.getMin(),
-                (long) snapshot.getMax(),
-                (long) snapshot.getTotal(),
-                firstNonNaN(snapshot.getTotal() / snapshot.getCount(), 0.0));
+                (long) snapshot.p25(),
+                (long) snapshot.p50(),
+                (long) snapshot.p75(),
+                (long) snapshot.p90(),
+                (long) snapshot.p95(),
+                (long) snapshot.p99(),
+                (long) snapshot.min(),
+                (long) snapshot.max(),
+                (long) snapshot.total(),
+                firstNonNaN(snapshot.total() / snapshot.count(), 0.0));
     }
 
     private static LongSymmetricDistribution getTasksSymmetricDistribution(StageInfo stageInfo, Function<TaskInfo, Optional<Long>> metricFunction)
@@ -904,19 +915,19 @@ public class QueryMonitor
         }
         DistributionSnapshot snapshot = distribution.snapshot();
         return new LongSymmetricDistribution(
-                (long) snapshot.getP01(),
-                (long) snapshot.getP05(),
-                (long) snapshot.getP10(),
-                (long) snapshot.getP25(),
-                (long) snapshot.getP50(),
-                (long) snapshot.getP75(),
-                (long) snapshot.getP90(),
-                (long) snapshot.getP95(),
-                (long) snapshot.getP99(),
-                (long) snapshot.getMin(),
-                (long) snapshot.getMax(),
-                (long) snapshot.getTotal(),
-                firstNonNaN(snapshot.getTotal() / snapshot.getCount(), 0.0));
+                (long) snapshot.p01(),
+                (long) snapshot.p05(),
+                (long) snapshot.p10(),
+                (long) snapshot.p25(),
+                (long) snapshot.p50(),
+                (long) snapshot.p75(),
+                (long) snapshot.p90(),
+                (long) snapshot.p95(),
+                (long) snapshot.p99(),
+                (long) snapshot.min(),
+                (long) snapshot.max(),
+                (long) snapshot.total(),
+                firstNonNaN(snapshot.total() / snapshot.count(), 0.0));
     }
 
     private static DoubleSymmetricDistribution scaleDistribution(LongSymmetricDistribution distribution, long scaleFactor)
@@ -934,7 +945,7 @@ public class QueryMonitor
                 (double) distribution.getMin() / scaleFactor,
                 (double) distribution.getMax() / scaleFactor,
                 (double) distribution.getTotal(),
-                (double) distribution.getAverage() / scaleFactor);
+                distribution.getAverage() / scaleFactor);
     }
 
     private static class FragmentNode
@@ -973,5 +984,15 @@ public class QueryMonitor
         {
             return fragmentId + ":" + nodeId;
         }
+    }
+
+    private static Instant min(Instant a, Instant b)
+    {
+        return a.isBefore(b) ? a : b;
+    }
+
+    private static Instant max(Instant a, Instant b)
+    {
+        return a.isAfter(b) ? a : b;
     }
 }

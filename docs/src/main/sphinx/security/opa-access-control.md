@@ -23,17 +23,8 @@ access-control.name=opa
 opa.policy.uri=https://opa.example.com/v1/data/trino/allow
 ```
 
-To combine OPA access control with file-based or other access control systems,
-configure multiple access control configuration file paths in
-`etc/config.properties`:
-
-```properties
-access-control.config-files=etc/trino/file-based.properties,etc/trino/opa.properties
-```
-
-Order the configuration files list in the desired order of the different systems
-for overall access control. Configure each access-control system in the
-specified files.
+To combine OPA access control with file-based or other access control
+systems, follow the instructions about [](multiple-access-control).
 
 The following table lists the configuration properties for the OPA access control:
 
@@ -67,7 +58,7 @@ The following table lists the configuration properties for the OPA access contro
 * - `opa.log-responses`
   - Configure if OPA response details, including URI, status code, headers and
     the entire body, are logged. Defaults to `false`.
-* - `opa.allow-permission-management`
+* - `opa.allow-permission-management-operations`
   - Configure if permission management operations are allowed. Find more details in
     [](opa-permission-management). Defaults to `false`.
 * - `opa.http-client.*`
@@ -89,7 +80,7 @@ Note that enabling these options produces very large amounts of log data.
 ### Permission management
 
 The following operations are allowed or denied based on the setting of
-`opa.allow-permission-management` If set to `true`, these operations are
+`opa.allow-permission-management-operations` If set to `true`, these operations are
 allowed. If set to `false`, they are denied. In both cases, no request is sent
 to OPA.
 
@@ -139,6 +130,7 @@ The `context` object contains all other contextual information about the query:
   following two fields:
   - `user`: username
   - `groups`: list of groups this user belongs to
+- `queryId`: Query id
 - `softwareStack`: Information about the software stack issuing the request to
   OPA. The following information is included:
   - `trinoVersion`: Version of Trino used
@@ -167,6 +159,7 @@ Accessing a table results in a query similar to the following example:
       "user": "foo",
       "groups": ["some-group"]
     },
+    "queryId": "20250718_081710_03427_trino",
     "softwareStack": {
       "trinoVersion": "434"
     }
@@ -199,6 +192,7 @@ The `targetResource` is used in cases where a new resource, distinct from the on
       "user": "foo",
       "groups": ["some-group"]
     },
+    "queryId": "20250718_081710_03427_trino",
     "softwareStack": {
       "trinoVersion": "434"
     }
@@ -382,6 +376,7 @@ A batch column masking request is similar to the following example:
             "user": "foo",
             "groups": ["some-group"]
         },
+        "queryId": "20250718_081710_03427_trino",
         "softwareStack": {
             "trinoVersion": "434"
         }

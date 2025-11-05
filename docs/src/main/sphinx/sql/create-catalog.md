@@ -14,7 +14,7 @@ USING connector_name
 Create a new catalog using the specified connector.
 
 The optional `WITH` clause is used to set properties on the newly created
-catalog. Property names can be double quoted, which is required if they contain
+catalog. Property names can be double-quoted, which is required if they contain
 special characters, like `-`. Refer to the [connectors
 documentation](/connector) to learn about all available properties. All
 property values must be varchars (single quoted), including numbers and boolean

@@ -18,8 +18,8 @@ import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
-import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -56,12 +56,12 @@ public class RedisConnectorFactory
         checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.catalog." + catalogName,
                 new JsonModule(),
-                new TypeDeserializerModule(context.getTypeManager()),
+                new TypeDeserializerModule(),
+                new ConnectorContextModule(catalogName, context),
                 new RedisConnectorModule(),
                 binder -> {
-                    binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-
                     if (tableDescriptionSupplier.isPresent()) {
                         binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, RedisTableDescription>>>() {}).toInstance(tableDescriptionSupplier.get());
                     }
@@ -74,6 +74,7 @@ public class RedisConnectorFactory
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

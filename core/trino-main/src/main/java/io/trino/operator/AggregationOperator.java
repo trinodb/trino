@@ -81,6 +81,7 @@ public class AggregationOperator
     private final OperatorContext operatorContext;
     private final LocalMemoryContext userMemoryContext;
     private final List<Aggregator> aggregates;
+    private final AggregationMetrics aggregationMetrics = new AggregationMetrics();
 
     private State state = State.NEEDS_INPUT;
 
@@ -90,7 +91,7 @@ public class AggregationOperator
         this.userMemoryContext = operatorContext.localUserMemoryContext();
 
         aggregates = aggregatorFactories.stream()
-                .map(AggregatorFactory::createAggregator)
+                .map(factory -> factory.createAggregator(aggregationMetrics))
                 .collect(toImmutableList());
     }
 
@@ -111,6 +112,7 @@ public class AggregationOperator
     @Override
     public void close()
     {
+        updateOperatorMetrics();
         userMemoryContext.setBytes(0);
     }
 
@@ -144,6 +146,7 @@ public class AggregationOperator
     public Page getOutput()
     {
         if (state != State.HAS_OUTPUT) {
+            updateOperatorMetrics();
             return null;
         }
 
@@ -162,6 +165,12 @@ public class AggregationOperator
         }
 
         state = State.FINISHED;
+        updateOperatorMetrics();
         return pageBuilder.build();
+    }
+
+    private void updateOperatorMetrics()
+    {
+        operatorContext.setLatestMetrics(aggregationMetrics.getMetrics());
     }
 }

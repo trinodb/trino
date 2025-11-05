@@ -21,6 +21,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 
 import java.io.IOException;
 import java.util.OptionalLong;
@@ -40,22 +41,24 @@ public class LinePageSource
     private final LineDeserializer deserializer;
     private final LineBuffer lineBuffer;
     private final Location filePath;
+    private final long smallFileReadTimeNanos;
 
     private final PageBuilder pageBuilder;
     private long completedPositions;
 
-    public LinePageSource(LineReader lineReader, LineDeserializer deserializer, LineBuffer lineBuffer, Location filePath)
+    public LinePageSource(LineReader lineReader, LineDeserializer deserializer, LineBuffer lineBuffer, Location filePath, long smallFileReadTimeNanos)
     {
         this.lineReader = requireNonNull(lineReader, "lineReader is null");
         this.deserializer = requireNonNull(deserializer, "deserializer is null");
         this.lineBuffer = requireNonNull(lineBuffer, "lineBuffer is null");
         this.filePath = requireNonNull(filePath, "filePath is null");
+        this.smallFileReadTimeNanos = smallFileReadTimeNanos;
 
         this.pageBuilder = new PageBuilder(deserializer.getTypes());
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         try {
             while (!pageBuilder.isFull() && lineReader.readLine(lineBuffer)) {
@@ -64,7 +67,7 @@ public class LinePageSource
             Page page = pageBuilder.build();
             completedPositions += page.getPositionCount();
             pageBuilder.reset();
-            return page;
+            return SourcePage.create(page);
         }
         catch (TrinoException e) {
             closeAllSuppress(e, this);
@@ -104,7 +107,7 @@ public class LinePageSource
     @Override
     public long getReadTimeNanos()
     {
-        return lineReader.getReadTimeNanos();
+        return smallFileReadTimeNanos + lineReader.getReadTimeNanos();
     }
 
     @Override

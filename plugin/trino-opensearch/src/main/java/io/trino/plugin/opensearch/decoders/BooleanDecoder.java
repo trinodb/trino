@@ -45,8 +45,8 @@ public class BooleanDecoder
         if (value == null) {
             output.appendNull();
         }
-        else if (value instanceof Boolean) {
-            BOOLEAN.writeBoolean(output, (Boolean) value);
+        else if (value instanceof Boolean booleanValue) {
+            BOOLEAN.writeBoolean(output, booleanValue);
         }
         else if (value instanceof String) {
             if (value.equals("true")) {

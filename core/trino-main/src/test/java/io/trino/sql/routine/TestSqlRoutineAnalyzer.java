@@ -15,6 +15,7 @@ package io.trino.sql.routine;
 
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.function.FunctionId;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.FunctionSpecification;
@@ -26,16 +27,21 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_PROPERTY;
 import static io.trino.spi.StandardErrorCode.MISSING_RETURN;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
+import static io.trino.sql.routine.SqlRoutineAnalyzer.extractFunctionMetadata;
+import static io.trino.sql.routine.SqlRoutineAnalyzer.getLanguageName;
+import static io.trino.sql.routine.SqlRoutineAnalyzer.isRunAsInvoker;
 import static io.trino.testing.TestingSession.testSession;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.from;
 
 class TestSqlRoutineAnalyzer
@@ -76,6 +82,10 @@ class TestSqlRoutineAnalyzer
         assertFails("FUNCTION test() RETURNS int NOT DETERMINISTIC DETERMINISTIC RETURN 123")
                 .hasErrorCode(SYNTAX_ERROR)
                 .hasMessage("line 1:47: Multiple deterministic clauses specified");
+
+        assertExtractMetadataFails("FUNCTION test() RETURNS int WITH (x = 1) WITH (y = 2) RETURN 123")
+                .hasErrorCode(SYNTAX_ERROR)
+                .hasMessage("line 1:42: Multiple properties clauses specified");
     }
 
     @Test
@@ -119,9 +129,79 @@ class TestSqlRoutineAnalyzer
         assertThat(analyze("FUNCTION test() RETURNS bigint LANGUAGE SQL RETURN abs(-42)"))
                 .returns(true, from(SqlRoutineAnalysis::deterministic));
 
-        assertFails("FUNCTION test() RETURNS bigint LANGUAGE JAVASCRIPT RETURN abs(-42)")
+        assertExtractMetadataFails("FUNCTION test() RETURNS bigint LANGUAGE JAVASCRIPT RETURN abs(-42)")
+                .hasErrorCode(SYNTAX_ERROR)
+                .hasMessage("line 1:52: Only functions using language 'SQL' may be defined using SQL");
+
+        assertThatThrownBy(() -> analyze(
+                """
+                FUNCTION test() RETURNS bigint
+                LANGUAGE JAVASCRIPT AS $$
+                xxx
+                $$
+                """))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("function language must be SQL");
+
+        assertExtractMetadataFails(
+                """
+                FUNCTION test() RETURNS bigint AS $$
+                xxx
+                $$
+                """)
+                .hasErrorCode(SYNTAX_ERROR)
+                .hasMessage("line 1:35: Functions using language 'SQL' must be defined using SQL");
+
+        assertExtractMetadataFails("FUNCTION test() RETURNS bigint WITH (abc = 'test') RETURN abs(-42)")
+                .hasErrorCode(INVALID_FUNCTION_PROPERTY)
+                .hasMessage("line 1:38: Function language 'SQL' does not support properties");
+
+        assertThat(getLanguageName(function("FUNCTION test() RETURNS bigint RETURN 123")))
+                .isEqualTo("SQL");
+
+        assertThat(getLanguageName(function("FUNCTION test() RETURNS bigint LANGUAGE ABC RETURN 123")))
+                .isEqualTo("ABC");
+    }
+
+    @Test
+    void testSecurity()
+    {
+        extractMetadata("FUNCTION test() RETURNS bigint SECURITY INVOKER RETURN 123");
+
+        extractMetadata("FUNCTION test() RETURNS bigint SECURITY DEFINER RETURN 123");
+
+        assertExtractMetadataFails("FUNCTION test() RETURNS bigint SECURITY INVOKER SECURITY DEFINER RETURN 123")
+                .hasErrorCode(SYNTAX_ERROR)
+                .hasMessage("line 1:49: Multiple security clauses specified");
+
+        assertThat(isRunAsInvoker(function("FUNCTION test() RETURNS bigint RETURN 123")))
+                .isFalse();
+
+        assertThat(isRunAsInvoker(function("FUNCTION test() RETURNS bigint SECURITY DEFINER RETURN 123")))
+                .isFalse();
+
+        assertThat(isRunAsInvoker(function("FUNCTION test() RETURNS bigint SECURITY INVOKER RETURN 123")))
+                .isTrue();
+
+        assertExtractMetadataFails(
+                """
+                FUNCTION test() RETURNS bigint SECURITY DEFINER
+                LANGUAGE JAVASCRIPT AS $$
+                xxx
+                $$
+                """)
                 .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:41: Unsupported function language: JAVASCRIPT");
+                .hasMessage("line 1:32: Only functions using language 'SQL' may declare security");
+
+        assertExtractMetadataFails(
+                """
+                FUNCTION test() RETURNS bigint SECURITY INVOKER
+                LANGUAGE JAVASCRIPT AS $$
+                xxx
+                $$
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:32: Only functions using language 'SQL' may declare security");
     }
 
     @Test
@@ -539,6 +619,16 @@ class TestSqlRoutineAnalyzer
                 .hasMessage("line 3:10: Queries are not allowed in functions");
     }
 
+    private static TrinoExceptionAssert assertExtractMetadataFails(@Language("SQL") String function)
+    {
+        return assertTrinoExceptionThrownBy(() -> extractMetadata(function));
+    }
+
+    private static void extractMetadata(@Language("SQL") String function)
+    {
+        extractFunctionMetadata(new FunctionId("test"), function(function));
+    }
+
     private static TrinoExceptionAssert assertFails(@Language("SQL") String function)
     {
         return assertTrinoExceptionThrownBy(() -> analyze(function));
@@ -546,8 +636,6 @@ class TestSqlRoutineAnalyzer
 
     private static SqlRoutineAnalysis analyze(@Language("SQL") String function)
     {
-        FunctionSpecification specification = SQL_PARSER.createFunctionSpecification(function);
-
         TransactionManager transactionManager = new TestingTransactionManager();
         PlannerContext plannerContext = plannerContextBuilder()
                 .withTransactionManager(transactionManager)
@@ -556,7 +644,12 @@ class TestSqlRoutineAnalyzer
                 .singleStatement()
                 .execute(testSession(), transactionSession -> {
                     SqlRoutineAnalyzer analyzer = new SqlRoutineAnalyzer(plannerContext, WarningCollector.NOOP);
-                    return analyzer.analyze(transactionSession, new AllowAllAccessControl(), specification);
+                    return analyzer.analyze(transactionSession, new AllowAllAccessControl(), function(function));
                 });
+    }
+
+    private static FunctionSpecification function(@Language("SQL") String function)
+    {
+        return SQL_PARSER.createFunctionSpecification(function);
     }
 }

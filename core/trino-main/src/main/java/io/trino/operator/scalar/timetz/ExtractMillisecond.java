@@ -27,7 +27,7 @@ import static io.trino.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
 
 @Description("Millisecond of the second of the given time")
 @ScalarFunction("millisecond")
-public class ExtractMillisecond
+public final class ExtractMillisecond
 {
     private ExtractMillisecond() {}
 

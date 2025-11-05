@@ -22,6 +22,7 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -35,11 +36,11 @@ import static io.trino.metastore.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HivePageSourceProvider.createBucketValidator;
+import static io.trino.plugin.hive.HivePageSourceProvider.createHivePageSource;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
-import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -47,12 +48,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHivePageSource
 {
-    @Test
-    public void testEverythingImplemented()
-    {
-        assertAllMethodsOverridden(ConnectorPageSource.class, HivePageSource.class);
-    }
-
     @Test
     public void testGetNextPageSucceedsWhenHiveBucketingEnabled()
             throws IOException
@@ -96,7 +91,7 @@ public class TestHivePageSource
 
         List<HiveColumnHandle> bucketColumns = columns.stream().filter(c -> c.getName().equals(bucketColumnName)).toList();
         Optional<HiveSplit.BucketValidation> bucketValidation = Optional.of(new HiveSplit.BucketValidation(BUCKETING_V1, 8, bucketColumns));
-        Optional<HivePageSource.BucketValidator> bucketValidator = createBucketValidator(
+        Optional<BucketValidator> bucketValidator = createBucketValidator(
                 Location.of("memory:///test"),
                 bucketValidation,
                 tableBucketNumber,
@@ -106,19 +101,18 @@ public class TestHivePageSource
                 nativeValueToBlock(VARCHAR, utf8Slice("a")),
                 nativeValueToBlock(BIGINT, 1L)
         };
-        Page page = new Page(1, blocks);
+        SourcePage page = SourcePage.create(new Page(1, blocks));
 
         try (
                 ConnectorPageSource pageSource = new TestScanFilterAndProjectOperator.SinglePagePageSource(page);
-                HivePageSource hivePageSource = new HivePageSource(
+                ConnectorPageSource hivePageSource = createHivePageSource(
                         columnMappings,
                         Optional.empty(),
                         bucketValidator,
-                        Optional.empty(),
                         TESTING_TYPE_MANAGER,
                         new CoercionUtils.CoercionContext(DEFAULT_PRECISION, PARQUET),
                         pageSource)) {
-            hivePageSource.getNextPage();
+            hivePageSource.getNextSourcePage();
         }
     }
 }

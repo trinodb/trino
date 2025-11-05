@@ -32,8 +32,24 @@ import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 
-public class IrExpressions
+public final class IrExpressions
 {
+    // TODO: these should be attributes of the function
+    private static final List<CatalogSchemaFunctionName> NEVER_FAIL = ImmutableList.of(
+            builtinFunctionName("length"),
+            builtinFunctionName("try_cast"),
+            builtinFunctionName("$not"),
+            builtinFunctionName("substring"),
+            builtinFunctionName("trim"),
+            builtinFunctionName("ltrim"),
+            builtinFunctionName("rtrim"),
+            builtinFunctionName("replace"),
+            builtinFunctionName("reverse"),
+            builtinFunctionName("lower"),
+            builtinFunctionName("upper"),
+            builtinFunctionName("to_utf8"),
+            builtinFunctionName(LIKE_FUNCTION_NAME));
+
     private IrExpressions() {}
 
     public static Expression ifExpression(Expression condition, Expression trueCase)
@@ -104,23 +120,12 @@ public class IrExpressions
             return false;
         }
 
-        if (cast.type().equals(VARCHAR)) {
-            return false;
-        }
-
-        return true;
+        return !cast.type().equals(VARCHAR);
     }
 
     private static boolean mayFail(ResolvedFunction function)
     {
-        // TODO: these should be attributes of the function
-        CatalogSchemaFunctionName name = function.name();
-        return !name.equals(builtinFunctionName("length")) &&
-                !name.equals(builtinFunctionName("try_cast")) &&
-                !name.equals(builtinFunctionName("$not")) &&
-                !name.equals(builtinFunctionName("substring")) &&
-                !name.equals(builtinFunctionName(LIKE_FUNCTION_NAME)) &&
-                !isDynamicFilterFunction(function.name());
+        return !NEVER_FAIL.contains(function.name()) && !isDynamicFilterFunction(function.name());
     }
 
     public static Expression not(Metadata metadata, Expression expression)

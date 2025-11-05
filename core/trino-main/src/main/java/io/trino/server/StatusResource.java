@@ -34,6 +34,7 @@ import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.util.Objects.requireNonNull;
 
 @Path("/v1/status")
+@ResourceSecurity(PUBLIC)
 public class StatusResource
 {
     private final NodeInfo nodeInfo;
@@ -64,7 +65,6 @@ public class StatusResource
         }
     }
 
-    @ResourceSecurity(PUBLIC)
     @HEAD
     @Produces(APPLICATION_JSON) // to match the GET route
     public Response statusPing()
@@ -72,7 +72,6 @@ public class StatusResource
         return Response.ok().build();
     }
 
-    @ResourceSecurity(PUBLIC)
     @GET
     @Produces(APPLICATION_JSON)
     public NodeStatus getStatus()

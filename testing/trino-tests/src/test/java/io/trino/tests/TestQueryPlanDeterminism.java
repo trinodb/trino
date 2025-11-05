@@ -32,7 +32,6 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.CustomFunctionBundle.CUSTOM_FUNCTIONS;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -70,7 +69,7 @@ public class TestQueryPlanDeterminism
         queryRunner.createCatalog(
                 defaultSession.getCatalog().get(),
                 "tpch",
-                ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
+                ImmutableMap.of("tpch.splits-per-node", "1"));
 
         queryRunner.addFunctions(CUSTOM_FUNCTIONS);
 

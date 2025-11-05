@@ -22,21 +22,8 @@ import static java.lang.String.format;
 public class ViewAlreadyExistsException
         extends TrinoException
 {
-    private final SchemaTableName viewName;
-
     public ViewAlreadyExistsException(SchemaTableName viewName)
     {
-        this(viewName, format("View already exists: '%s'", viewName));
-    }
-
-    public ViewAlreadyExistsException(SchemaTableName viewName, String message)
-    {
-        super(ALREADY_EXISTS, message);
-        this.viewName = viewName;
-    }
-
-    public SchemaTableName getViewName()
-    {
-        return viewName;
+        super(ALREADY_EXISTS, format("View already exists: '%s'", viewName));
     }
 }

@@ -74,7 +74,7 @@ public final class ArrayHistogramFunction
         ValueBlock valueBlock = arrayBlock.getUnderlyingValueBlock();
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
             int position = arrayBlock.getUnderlyingValuePosition(i);
-            if (!arrayBlock.isNull(position)) {
+            if (!valueBlock.isNull(position)) {
                 histogram.add(0, valueBlock, position, 1L);
             }
         }

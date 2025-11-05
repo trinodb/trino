@@ -102,7 +102,7 @@ are reflected automatically for incoming queries.
 
 - `hardConcurrencyLimit` (required): maximum number of running queries.
 
-- `softMemoryLimit` (required): maximum amount of distributed memory this
+- `softMemoryLimit` (optional): maximum amount of distributed memory this
   group may use, before new queries become queued. May be specified as
   an absolute value (i.e. `1GB`) or as a percentage (i.e. `10%`) of the cluster's memory.
 
@@ -112,6 +112,9 @@ are reflected automatically for incoming queries.
 
 - `hardCpuLimit` (optional): maximum amount of CPU time this
   group may use in a period.
+
+- `hardPhysicalDataScanLimit` (optional): maximum amount of data this
+  group can scan in a period before new queries become queued. Must be specified as an absolute value (i.e. `1GB`).
 
 - `schedulingPolicy` (optional): specifies how queued queries are selected to run,
   and how sub-groups become eligible to start their queries. May be one of three values:
@@ -162,9 +165,17 @@ evenly and each receive 50% of the queries in a given timeframe.
 The selector rules for pattern matching use Java's regular expression
 capabilities. Java implements regular expressions through the `java.util.regex`
 package. For more information, see the [Java
-documentation](https://docs.oracle.com/en/java/javase/23/docs/api/java.base/java/util/regex/Pattern.html).
+documentation](https://docs.oracle.com/en/java/javase/24/docs/api/java.base/java/util/regex/Pattern.html).
 
-- `user` (optional): Java regex to match against user name.
+- `user` (optional): Java regex to match against username.
+
+- `originalUser` (optional): Java regex to match against the _original_ username,
+  i.e. before any changes to the session user. For example, if user "foo" runs
+  `SET SESSION AUTHORIZATION 'bar'`, `originalUser` is "foo", while `user` is "bar".
+
+- `authenticatedUser` (optional): Java regex to match against the _authenticated_ username,
+  which will always refer to the user that authenticated with the system, regardless of any
+  changes made to the session user.
 
 - `userGroup` (optional): Java regex to match against every user group the user belongs to.
 
@@ -188,7 +199,11 @@ documentation](https://docs.oracle.com/en/java/javase/23/docs/api/java.base/java
   - `DATA_DEFINITION`: Queries that affect the data definition. These include
     `CREATE`, `ALTER`, and `DROP` statements for schemas, tables, views, and
     materialized views, as well as statements that manage prepared statements,
-    privileges, sessions, and transactions.
+    privileges, sessions, and transactions. When external clients need 
+    access to the `system.runtime.kill_query()` procedure to stop running or 
+    queued queries, this `queryType` must be used to make sure the
+    `kill_query()` is executed directly and isn't queued to wait for the 
+    initial query to finish.
   - `ALTER_TABLE_EXECUTE`: Queries that execute table procedures with [ALTER
     TABLE EXECUTE](alter-table-execute).
 
@@ -205,6 +220,7 @@ Selectors are processed sequentially and the first one that matches will be used
 ## Global properties
 
 - `cpuQuotaPeriod` (optional): the period in which cpu quotas are enforced.
+- `physicalDataScanQuotaPeriod` (optional): the period in which physical data scan quotas are enforced.
 
 ## Providing selector properties
 
@@ -234,18 +250,23 @@ In the example configuration below, there are several resource groups, some of w
 Templates allow administrators to construct resource group trees dynamically. For example, in
 the `pipeline_${USER}` group, `${USER}` is expanded to the name of the user that submitted
 the query. `${SOURCE}` is also supported, which is expanded to the source that submitted the
-query. You may also use custom named variables in the `source` and `user` regular expressions.
+query. You may also use custom named variables in the regular expressions for `user`, `source`,
+`originalUser`, and `authenticatedUser`.
 
-There are four selectors, that define which queries run in which resource group:
+There are six selectors, that define which queries run in which resource group:
 
 - The first selector matches queries from `bob` and places them in the admin group.
-- The second selector matches queries from `admin` user group and places them in the admin group.
-- The third selector matches all data definition (DDL) queries from a source name that includes `pipeline`
+- The next selector matches queries with an _original_ user of `bob`
+  and places them in the admin group.
+- The next selector matches queries with an _authenticated_ user of `bob`
+  and places them in the admin group.
+- The next selector matches queries from `admin` user group and places them in the admin group.
+- The next selector matches all data definition (DDL) queries from a source name that includes `pipeline`
   and places them in the `global.data_definition` group. This could help reduce queue times for this
   class of queries, since they are expected to be fast.
-- The fourth selector matches queries from a source name that includes `pipeline`, and places them in a
+- The next selector matches queries from a source name that includes `pipeline`, and places them in a
   dynamically-created per-user pipeline group under the `global.pipeline` group.
-- The fifth selector matches queries that come from BI tools which have a source matching the regular
+- The next selector matches queries that come from BI tools which have a source matching the regular
   expression `jdbc#(?<toolname>.*)` and have client provided tags that are a superset of `hipri`.
   These are placed in a dynamically-created sub-group under the `global.adhoc` group.
   The dynamic sub-groups are created based on the values of named variables `toolname` and `user`.
@@ -257,9 +278,10 @@ There are four selectors, that define which queries run in which resource group:
 
 Together, these selectors implement the following policy:
 
-- The user `bob` and any user belonging to user group `admin`
-  is an admin and can run up to 50 concurrent queries.
-  Queries will be run based on user-provided priority.
+- The user `bob` and any user belonging to user group `admin` is an admin and can run up to
+  50 concurrent queries. `bob` will be treated as an admin even if they have changed their session
+  user to a different user (i.e. via a `SET SESSION AUTHORIZATION` statement or the
+  `X-Trino-User` request header). Queries will be run based on user-provided priority.
 
 For the remaining users:
 
@@ -291,7 +313,7 @@ INSERT INTO resource_groups_global_properties (name, value) VALUES ('cpu_quota_p
 -- The parent-child relationship is indicated by the ID in 'parent' column.
 
 -- create a root group 'global' with NULL parent
-INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_policy, jmx_export, environment) VALUES ('global', '80%', 100, 1000, 'weighted', true, 'test_environment');
+INSERT INTO resource_groups (name, soft_memory_limit, hard_physical_data_scan_limit, hard_concurrency_limit, max_queued, scheduling_policy, jmx_export, environment) VALUES ('global', '80%', '50TB', 100, 1000, 'weighted', true, 'test_environment');
 
 -- get ID of 'global' group
 SELECT resource_group_id FROM resource_groups WHERE name = 'global';  -- 1
@@ -307,7 +329,7 @@ INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, ma
 -- get ID of 'other' group
 SELECT resource_group_id FROM resource_groups WHERE name = 'other';  -- 4
 -- create '${USER}' group with 'other' as parent.
-INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, environment, parent) VALUES ('${USER}', '10%', 1, 100, 'test_environment', 4);
+INSERT INTO resource_groups (name, soft_memory_limit, hard_physical_data_scan_limit, hard_concurrency_limit, max_queued, environment, parent) VALUES ('${USER}', '10%', '10GB', 1, 100, 'test_environment', 4);
 
 -- create 'bi-${toolname}' group with 'adhoc' as parent
 INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_weight, scheduling_policy, environment, parent) VALUES ('bi-${toolname}', '10%', 10, 100, 10, 'weighted_fair', 'test_environment', 3);

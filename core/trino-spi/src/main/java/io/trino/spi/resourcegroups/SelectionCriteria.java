@@ -26,6 +26,8 @@ public final class SelectionCriteria
     private final boolean authenticated;
     private final String user;
     private final Set<String> userGroups;
+    private final String originalUser;
+    private final Optional<String> authenticatedUser;
     private final Optional<String> source;
     private final Set<String> clientTags;
     private final ResourceEstimates resourceEstimates;
@@ -35,6 +37,8 @@ public final class SelectionCriteria
             boolean authenticated,
             String user,
             Set<String> userGroups,
+            String originalUser,
+            Optional<String> authenticatedUser,
             Optional<String> source,
             Set<String> clientTags,
             ResourceEstimates resourceEstimates,
@@ -43,6 +47,8 @@ public final class SelectionCriteria
         this.authenticated = authenticated;
         this.user = requireNonNull(user, "user is null");
         this.userGroups = requireNonNull(userGroups, "userGroups is null");
+        this.originalUser = requireNonNull(originalUser, "originalUser is null");
+        this.authenticatedUser = requireNonNull(authenticatedUser, "authenticatedUser is null");
         this.source = requireNonNull(source, "source is null");
         this.clientTags = Set.copyOf(requireNonNull(clientTags, "clientTags is null"));
         this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
@@ -62,6 +68,16 @@ public final class SelectionCriteria
     public Set<String> getUserGroups()
     {
         return userGroups;
+    }
+
+    public String getOriginalUser()
+    {
+        return originalUser;
+    }
+
+    public Optional<String> getAuthenticatedUser()
+    {
+        return authenticatedUser;
     }
 
     public Optional<String> getSource()
@@ -91,6 +107,8 @@ public final class SelectionCriteria
                 .add("authenticated=" + authenticated)
                 .add("user='" + user + "'")
                 .add("userGroups=" + userGroups)
+                .add("originalUser=" + originalUser)
+                .add("authenticatedUser=" + authenticatedUser)
                 .add("source=" + source)
                 .add("clientTags=" + clientTags)
                 .add("resourceEstimates=" + resourceEstimates)

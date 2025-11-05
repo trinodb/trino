@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.cost.PlanNodeStatsEstimate;
@@ -58,24 +59,6 @@ public class TableScanNode
     private final boolean updateTarget;
     private final Optional<Boolean> useConnectorNodePartitioning;
 
-    /**
-     * @deprecated Use explicit constructor instead. Calling this method when transforming the plan may lead to information loss.
-     */
-    // We need this factory method to disambiguate with the constructor used for deserializing
-    // from a json object. The deserializer sets some fields which are never transported
-    // to null
-    @Deprecated
-    public static TableScanNode newInstance(
-            PlanNodeId id,
-            TableHandle table,
-            List<Symbol> outputs,
-            Map<Symbol, ColumnHandle> assignments,
-            boolean updateTarget,
-            Optional<Boolean> useConnectorNodePartitioning)
-    {
-        return new TableScanNode(id, table, outputs, assignments, TupleDomain.all(), Optional.empty(), updateTarget, useConnectorNodePartitioning);
-    }
-
     @DoNotCall // For JSON serialization only
     @JsonCreator
     public static TableScanNode fromJson(
@@ -107,7 +90,7 @@ public class TableScanNode
         this.table = requireNonNull(table, "table is null");
         this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
-        checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
+        checkArgument(ImmutableSet.copyOf(outputs).equals(assignments.keySet()), "assignments and outputs do not match");
         this.enforcedConstraint = null;
         this.statistics = null;
         this.updateTarget = updateTarget;
@@ -128,7 +111,7 @@ public class TableScanNode
         this.table = requireNonNull(table, "table is null");
         this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
-        checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
+        checkArgument(ImmutableSet.copyOf(outputs).equals(assignments.keySet()), "assignments and outputs do not match");
         requireNonNull(enforcedConstraint, "enforcedConstraint is null");
         validateEnforcedConstraint(enforcedConstraint, outputs, assignments);
         this.enforcedConstraint = enforcedConstraint;

@@ -13,7 +13,6 @@
  */
 package io.trino.operator;
 
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -26,6 +25,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
 import io.trino.split.PageSourceProviderFactory;
@@ -35,7 +35,7 @@ import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -86,7 +86,7 @@ public class TableScanOperator
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, TableScanOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, Optional.of(sourceId), TableScanOperator.class.getSimpleName());
             return new TableScanOperator(
                     operatorContext,
                     sourceId,
@@ -163,12 +163,6 @@ public class TableScanOperator
         }
 
         this.split = split;
-
-        Map<String, String> splitInfo = split.getInfo();
-        if (!splitInfo.isEmpty()) {
-            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogHandle(), splitInfo)));
-        }
-
         blocked.set(null);
 
         if (split.getConnectorSplit() instanceof EmptySplit) {
@@ -265,25 +259,26 @@ public class TableScanOperator
             source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, dynamicFilter);
         }
 
-        Page page = source.getNextPage();
-        if (page != null) {
-            // assure the page is in memory before handing to another operator
-            page = page.getLoadedPage();
-
-            // update operator stats
-            long endCompletedBytes = source.getCompletedBytes();
-            long endReadTimeNanos = source.getReadTimeNanos();
-            long positionCount = page.getPositionCount();
-            long endCompletedPositions = source.getCompletedPositions().orElse(completedPositions + positionCount);
-            operatorContext.recordPhysicalInputWithTiming(
-                    endCompletedBytes - completedBytes,
-                    endCompletedPositions - completedPositions,
-                    endReadTimeNanos - readTimeNanos);
-            operatorContext.recordProcessedInput(page.getSizeInBytes(), positionCount);
-            completedBytes = endCompletedBytes;
-            completedPositions = endCompletedPositions;
-            readTimeNanos = endReadTimeNanos;
+        SourcePage sourcePage = source.getNextSourcePage();
+        Page page = null;
+        if (sourcePage != null) {
+            page = sourcePage.getPage();
         }
+
+        // update operator stats
+        long endCompletedBytes = source.getCompletedBytes();
+        long endReadTimeNanos = source.getReadTimeNanos();
+        long positionCount = page == null ? 0 : page.getPositionCount();
+        long sizeInBytes = page == null ? 0 : page.getSizeInBytes();
+        long endCompletedPositions = source.getCompletedPositions().orElse(completedPositions + positionCount);
+        operatorContext.recordPhysicalInputWithTiming(
+                endCompletedBytes - completedBytes,
+                endCompletedPositions - completedPositions,
+                endReadTimeNanos - readTimeNanos);
+        operatorContext.recordProcessedInput(sizeInBytes, positionCount);
+        completedBytes = endCompletedBytes;
+        completedPositions = endCompletedPositions;
+        readTimeNanos = endReadTimeNanos;
 
         // updating memory usage should happen after page is loaded.
         memoryContext.setBytes(source.getMemoryUsage());

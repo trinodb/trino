@@ -19,7 +19,7 @@ import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.BucketFunction;
 
-import static io.trino.plugin.hive.HivePageSource.BUCKET_CHANNEL;
+import static io.trino.plugin.hive.HivePageSourceProvider.BUCKET_CHANNEL;
 import static io.trino.spi.type.IntegerType.INTEGER;
 
 public class HiveUpdateBucketFunction

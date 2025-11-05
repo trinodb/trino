@@ -65,12 +65,6 @@ public class BenchmarkDictionaryBlock
     }
 
     @Benchmark
-    public long getPositionsSizeInBytes(BenchmarkData data)
-    {
-        return data.getAllPositionsDictionaryBlock().getPositionsSizeInBytes(data.getSelectedPositionsMask(), data.getSelectedPositionCount());
-    }
-
-    @Benchmark
     public long getPositionsThenGetSizeInBytes(BenchmarkData data)
     {
         int[] positionIds = data.getPositionsIds();
@@ -252,14 +246,6 @@ public class BenchmarkDictionaryBlock
         BenchmarkData data = new BenchmarkData();
         data.setup();
         getSizeInBytes(data);
-    }
-
-    @Test
-    public void testGetPositionsSizeInBytes()
-    {
-        BenchmarkData data = new BenchmarkData();
-        data.setup();
-        getPositionsSizeInBytes(data);
     }
 
     @Test

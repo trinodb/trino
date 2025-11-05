@@ -88,11 +88,11 @@ public class OptimizeMixedDistinctAggregations
     {
         // single distinct can be supported in this rule, but it is already supported by SingleDistinctAggregationToGroupBy, which produces simpler plans (without group-id)
         return (hasMultipleDistincts(aggregationNode) || hasMixedDistinctAndNonDistincts(aggregationNode)) &&
-               allDistinctAggregationsHaveSingleArgument(aggregationNode) &&
-               noFilters(aggregationNode) &&
-               noMasks(aggregationNode) &&
-               !aggregationNode.hasOrderings() &&
-               aggregationNode.getStep().equals(SINGLE);
+                allDistinctAggregationsHaveSingleArgument(aggregationNode) &&
+                noFilters(aggregationNode) &&
+                noMasks(aggregationNode) &&
+                !aggregationNode.hasOrderings() &&
+                aggregationNode.getStep().equals(SINGLE);
     }
 
     public static boolean hasMultipleDistincts(AggregationNode aggregationNode)
@@ -336,7 +336,6 @@ public class OptimizeMixedDistinctAggregations
                 singleGroupingSet(ImmutableList.copyOf(innerAggregationGropingKeys)),
                 ImmutableList.of(),
                 SINGLE,
-                node.getHashSymbol(),
                 Optional.empty());
 
         // 3. Add a new project node with FILTER expressions
@@ -352,7 +351,6 @@ public class OptimizeMixedDistinctAggregations
                 node.getGroupingSets(),
                 ImmutableList.of(),
                 node.getStep(),
-                Optional.empty(),
                 node.getGroupIdSymbol());
 
         Map<Symbol, Symbol> coalesceSymbols = coalesceSymbolsBuilder.buildOrThrow();

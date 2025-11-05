@@ -19,13 +19,11 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.testing.TestingSession;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -87,12 +85,12 @@ class TestFlatHashStrategy
                 assertThat(fixedChunk).startsWith(new byte[FIXED_CHUNK_OFFSET]);
                 assertThat(variableChunk).startsWith(new byte[VARIABLE_CHUNK_OFFSET]);
 
-                assertThat(flatHashStrategy.hash(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk)).isEqualTo(manualHash(types, blocks, position));
-                assertThat(flatHashStrategy.valueIdentical(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, blocks, position)).isTrue();
-                assertThat(flatHashStrategy.valueIdentical(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, blocks, 3)).isFalse();
+                assertThat(flatHashStrategy.hash(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET)).isEqualTo(manualHash(types, blocks, position));
+                assertThat(flatHashStrategy.valueIdentical(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET, blocks, position)).isTrue();
+                assertThat(flatHashStrategy.valueIdentical(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET, blocks, 3)).isFalse();
 
                 BlockBuilder[] blockBuilders = types.stream().map(type -> type.createBlockBuilder(null, 1)).toArray(BlockBuilder[]::new);
-                flatHashStrategy.readFlat(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, blockBuilders);
+                flatHashStrategy.readFlat(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET, blockBuilders);
                 List<Block> output = Arrays.stream(blockBuilders).map(BlockBuilder::build).toList();
                 Page actualPage = new Page(output.toArray(Block[]::new));
                 Page expectedPage = new Page(blocks).getSingleValuePage(position);
@@ -224,14 +222,13 @@ class TestFlatHashStrategy
 
     private static String singleRowTypesAndValues(List<Type> types, Block[] blocks, int position)
     {
-        ConnectorSession connectorSession = TestingSession.testSessionBuilder().build().toConnectorSession();
         StringBuilder builder = new StringBuilder();
         int column = 0;
         for (Type type : types) {
             builder.append("\n\t");
             builder.append(type);
             builder.append(": ");
-            builder.append(type.getObjectValue(connectorSession, blocks[column], position));
+            builder.append(type.getObjectValue(blocks[column], position));
             column++;
         }
         return builder.toString();

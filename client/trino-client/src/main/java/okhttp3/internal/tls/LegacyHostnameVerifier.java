@@ -85,11 +85,11 @@ public class LegacyHostnameVerifier
     {
         // Basic sanity checks
         // Check length == 0 instead of .isEmpty() to support Java 5.
-        if ((hostName == null) || (hostName.length() == 0) || hostName.startsWith(".") || hostName.endsWith("..")) {
+        if ((hostName == null) || hostName.isEmpty() || hostName.startsWith(".") || hostName.endsWith("..")) {
             // Invalid domain name
             return false;
         }
-        if ((pattern == null) || (pattern.length() == 0) || pattern.startsWith(".") || pattern.endsWith("..")) {
+        if ((pattern == null) || pattern.isEmpty() || pattern.startsWith(".") || pattern.endsWith("..")) {
             // Invalid pattern/domain name
             return false;
         }

@@ -24,6 +24,8 @@ import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
@@ -87,7 +89,7 @@ public class BenchmarkArraySort
                         SESSION,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        data.getPage()));
+                        SourcePage.create(data.getPage())));
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -116,7 +118,7 @@ public class BenchmarkArraySort
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 
-            ImmutableList<RowExpression> projections = projectionsBuilder.build();
+            List<RowExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             page = new Page(blocks);
         }
@@ -181,9 +183,9 @@ public class BenchmarkArraySort
         });
 
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, block.getPositionCount());
-
+        ValueBlock valueBlock = block.getUnderlyingValueBlock();
         for (int position : positions) {
-            VARCHAR.appendTo(block, position, blockBuilder);
+            blockBuilder.append(valueBlock, block.getUnderlyingValuePosition(position));
         }
 
         return blockBuilder.build();

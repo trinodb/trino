@@ -106,7 +106,7 @@ public class TestingFunctionResolution
 
     public ExpressionCompiler getExpressionCompiler()
     {
-        return new ExpressionCompiler(plannerContext.getFunctionManager(), getPageFunctionCompiler(), getColumnarFilterCompiler());
+        return new ExpressionCompiler(getPageFunctionCompiler(), getColumnarFilterCompiler());
     }
 
     public PageFunctionCompiler getPageFunctionCompiler()

@@ -31,8 +31,8 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.cache.NonEvictableLoadingCache;
+import io.trino.connector.CatalogHandle;
 import io.trino.connector.ConnectorServicesProvider;
-import io.trino.event.SplitMonitor;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -52,8 +52,6 @@ import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
-import io.trino.spi.catalog.CatalogProperties;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
@@ -62,16 +60,15 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import org.joda.time.DateTime;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.io.Closeable;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -90,6 +87,7 @@ import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.resourceOvercommit;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.execution.SqlTask.createSqlTask;
 import static io.trino.execution.executor.timesharing.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static io.trino.operator.RetryPolicy.TASK;
@@ -136,6 +134,7 @@ public class SqlTaskManager
 
     private final long queryMaxMemoryPerNode;
 
+    private final CounterStat createdTasks = new CounterStat();
     private final CounterStat failedTasks = new CounterStat();
     private final Optional<StuckSplitTasksInterrupter> stuckSplitTasksInterrupter;
     private final LanguageFunctionProvider languageFunctionProvider;
@@ -148,7 +147,6 @@ public class SqlTaskManager
             LanguageFunctionProvider languageFunctionProvider,
             LocationFactory locationFactory,
             TaskExecutor taskExecutor,
-            SplitMonitor splitMonitor,
             NodeInfo nodeInfo,
             LocalMemoryManager localMemoryManager,
             TaskManagementExecutor taskManagementExecutor,
@@ -166,7 +164,6 @@ public class SqlTaskManager
                 languageFunctionProvider,
                 locationFactory,
                 taskExecutor,
-                splitMonitor,
                 nodeInfo,
                 localMemoryManager,
                 taskManagementExecutor,
@@ -188,7 +185,6 @@ public class SqlTaskManager
             LanguageFunctionProvider languageFunctionProvider,
             LocationFactory locationFactory,
             TaskExecutor taskExecutor,
-            SplitMonitor splitMonitor,
             NodeInfo nodeInfo,
             LocalMemoryManager localMemoryManager,
             TaskManagementExecutor taskManagementExecutor,
@@ -219,7 +215,7 @@ public class SqlTaskManager
         this.driverYieldExecutor = newScheduledThreadPool(config.getTaskYieldThreads(), threadsNamed("task-yield-%s"));
         this.driverTimeoutExecutor = newScheduledThreadPool(config.getDriverTimeoutThreads(), threadsNamed("task-driver-timeout-%s"));
 
-        SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, splitMonitor, tracer, config);
+        SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, tracer, config);
 
         DataSize maxQueryMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
@@ -230,22 +226,25 @@ public class SqlTaskManager
                 queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryMemoryPerNode, maxQuerySpillPerNode)));
 
         tasks = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(
-                taskId -> createSqlTask(
-                        taskId,
-                        locationFactory.createLocalTaskLocation(taskId),
-                        nodeInfo.getNodeId(),
-                        queryContexts.getUnchecked(taskId.getQueryId()),
-                        tracer,
-                        sqlTaskExecutionFactory,
-                        taskNotificationExecutor,
-                        sqlTask -> {
-                            languageFunctionProvider.unregisterTask(taskId);
-                            finishedTaskStats.merge(sqlTask.getIoStats());
-                        },
-                        maxBufferSize,
-                        maxBroadcastBufferSize,
-                        requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null"),
-                        failedTasks)));
+                taskId -> {
+                    createdTasks.update(1);
+                    return createSqlTask(
+                            taskId,
+                            locationFactory.createLocalTaskLocation(taskId),
+                            nodeInfo.getNodeId(),
+                            queryContexts.getUnchecked(taskId.queryId()),
+                            tracer,
+                            sqlTaskExecutionFactory,
+                            taskNotificationExecutor,
+                            sqlTask -> {
+                                languageFunctionProvider.unregisterTask(taskId);
+                                finishedTaskStats.merge(sqlTask.getIoStats());
+                            },
+                            maxBufferSize,
+                            maxBroadcastBufferSize,
+                            requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null"),
+                            failedTasks);
+                }));
 
         stuckSplitTasksInterrupter = createStuckSplitTasksInterrupter(
                 config.isInterruptStuckSplitTasksEnabled(),
@@ -353,6 +352,19 @@ public class SqlTaskManager
     public ThreadPoolExecutorMBean getTaskNotificationExecutor()
     {
         return taskNotificationExecutorMBean;
+    }
+
+    @Managed(description = "Tracked tasks count")
+    public long getTrackedTasksCount()
+    {
+        return tasks.size();
+    }
+
+    @Managed(description = "Created tasks counter")
+    @Nested
+    public CounterStat getCreatedTasks()
+    {
+        return createdTasks;
     }
 
     @Managed(description = "Failed tasks counter")
@@ -535,7 +547,7 @@ public class SqlTaskManager
         fragment.map(PlanFragment::getActiveCatalogs)
                 .ifPresent(activeCatalogs -> {
                     Set<CatalogHandle> catalogHandles = activeCatalogs.stream()
-                            .map(CatalogProperties::catalogHandle)
+                            .map(catalogProperties -> createRootCatalogHandle(catalogProperties.name(), catalogProperties.version()))
                             .collect(toImmutableSet());
                     sqlTask.setCatalogs(catalogHandles);
                     if (!sqlTask.catalogsLoaded()) {
@@ -642,14 +654,12 @@ public class SqlTaskManager
     @VisibleForTesting
     void removeOldTasks()
     {
-        DateTime oldestAllowedTask = DateTime.now().minus(infoCacheTime.toMillis());
-        tasks.asMap().values().stream()
-                .map(SqlTask::getTaskInfo)
-                .filter(Objects::nonNull)
-                .forEach(taskInfo -> {
-                    TaskId taskId = taskInfo.taskStatus().getTaskId();
+        Instant oldestAllowedTask = Instant.now().minusMillis(infoCacheTime.toMillis());
+        tasks.asMap().values()
+                .forEach(sqlTask -> {
+                    TaskId taskId = sqlTask.getTaskId();
                     try {
-                        DateTime endTime = taskInfo.stats().getEndTime();
+                        Instant endTime = sqlTask.getTaskEndTime();
                         if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
                             // The removal here is concurrency safe with respect to any concurrent loads: the cache has no expiration,
                             // the taskId is in the cache, so there mustn't be an ongoing load.
@@ -664,23 +674,23 @@ public class SqlTaskManager
 
     private void failAbandonedTasks()
     {
-        DateTime now = DateTime.now();
-        DateTime oldestAllowedHeartbeat = now.minus(clientTimeout.toMillis());
+        Instant now = Instant.now();
+        Instant oldestAllowedHeartbeat = now.minusMillis(clientTimeout.toMillis());
         for (SqlTask sqlTask : tasks.asMap().values()) {
+            TaskId taskId = sqlTask.getTaskId();
             try {
-                TaskInfo taskInfo = sqlTask.getTaskInfo();
-                TaskStatus taskStatus = taskInfo.taskStatus();
-                if (taskStatus.getState().isDone()) {
+                TaskState taskState = sqlTask.getTaskState();
+                if (taskState.isDone()) {
                     continue;
                 }
-                DateTime lastHeartbeat = taskInfo.lastHeartbeat();
+                Instant lastHeartbeat = sqlTask.lastHeartbeat();
                 if (lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat)) {
-                    log.info("Failing abandoned task %s", taskStatus.getTaskId());
-                    sqlTask.failed(new TrinoException(ABANDONED_TASK, format("Task %s has not been accessed since %s: currentTime %s", taskStatus.getTaskId(), lastHeartbeat, now)));
+                    log.info("Failing abandoned task %s", taskId);
+                    sqlTask.failed(new TrinoException(ABANDONED_TASK, format("Task %s has not been accessed since %s: currentTime %s", taskId, lastHeartbeat, now)));
                 }
             }
             catch (RuntimeException e) {
-                log.warn(e, "Error while inspecting age of task %s", sqlTask.getTaskId());
+                log.warn(e, "Error while inspecting age of task %s", taskId);
             }
         }
     }
@@ -780,7 +790,7 @@ public class SqlTaskManager
      * <li>We find long-running splits; we get A, B, C.</li>
      * <li>None of those is actually running JONI code.</li>
      * <li>just before when we investigate stack trace for A, the underlying thread already switched to some other unrelated split D; and D is actually running JONI</li>
-     * we get the stacktrace for what we believe is A, but it is for D, and we decide we should kill the task that A belongs to</li>
+     * <li>we get the stacktrace for what we believe is A, but it is for D, and we decide we should kill the task that A belongs to</li>
      * <li>(clash!!!) wrong decision is made</li>
      * </ol>
      * A proposed fix and more details of this issue are at: <a href="https://github.com/trinodb/trino/pull/13272">pull/13272</a>.

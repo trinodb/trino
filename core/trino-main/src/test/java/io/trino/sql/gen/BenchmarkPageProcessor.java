@@ -23,6 +23,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.connector.SourcePage;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
@@ -106,7 +107,7 @@ public class BenchmarkPageProcessor
                         null,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        inputPage));
+                        SourcePage.create(inputPage)));
     }
 
     public static void main(String[] args)

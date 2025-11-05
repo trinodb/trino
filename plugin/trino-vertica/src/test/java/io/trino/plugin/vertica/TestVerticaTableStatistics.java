@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static io.trino.plugin.vertica.TestingVerticaServer.LATEST_IMAGE;
+import static io.trino.plugin.vertica.TestingVerticaServer.LATEST_VERSION;
 import static io.trino.plugin.vertica.VerticaQueryRunner.TPCH_SCHEMA;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static java.lang.String.format;
@@ -54,7 +54,7 @@ public class TestVerticaTableStatistics
             throws Exception
     {
         // Use the latest image to avoid "Must be superuser to run export_statistics"
-        verticaServer = closeAfterClass(new TestingVerticaServer(LATEST_IMAGE));
+        verticaServer = closeAfterClass(new TestingVerticaServer(LATEST_VERSION));
         return VerticaQueryRunner.builder(verticaServer)
                 .addConnectorProperty("statistics.enabled", "true")
                 .setTables(ImmutableList.of(TpchTable.ORDERS, TpchTable.REGION, TpchTable.NATION))

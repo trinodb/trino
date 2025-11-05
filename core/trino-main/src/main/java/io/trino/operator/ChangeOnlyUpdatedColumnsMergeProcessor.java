@@ -65,14 +65,16 @@ public class ChangeOnlyUpdatedColumnsMergeProcessor
         int positionCount = inputPage.getPositionCount();
         checkArgument(positionCount > 0, "positionCount should be > 0, but is %s", positionCount);
 
-        Block mergeRow = inputPage.getBlock(mergeRowChannel).getLoadedBlock();
+        Block mergeRow = inputPage.getBlock(mergeRowChannel);
         List<Block> fields = getRowFieldsFromBlock(mergeRow);
-        List<Block> builder = new ArrayList<>(dataColumnChannels.size() + 3);
+        List<Block> builder = new ArrayList<>(dataColumnChannels.size() + 4);
         for (int channel : dataColumnChannels) {
             builder.add(fields.get(channel));
         }
         Block operationChannelBlock = fields.get(fields.size() - 2);
         builder.add(operationChannelBlock);
+        Block caseNumberChannelBlock = fields.get(fields.size() - 1);
+        builder.add(caseNumberChannelBlock);
         builder.add(inputPage.getBlock(rowIdChannel));
         builder.add(RunLengthEncodedBlock.create(INSERT_FROM_UPDATE_BLOCK, positionCount));
 

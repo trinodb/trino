@@ -13,18 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.model.AWSGlueException;
-import com.amazonaws.services.glue.model.AlreadyExistsException;
-import com.amazonaws.services.glue.model.ConcurrentModificationException;
-import com.amazonaws.services.glue.model.CreateTableRequest;
-import com.amazonaws.services.glue.model.EntityNotFoundException;
-import com.amazonaws.services.glue.model.InvalidInputException;
-import com.amazonaws.services.glue.model.ResourceNumberLimitExceededException;
-import com.amazonaws.services.glue.model.StorageDescriptor;
-import com.amazonaws.services.glue.model.Table;
-import com.amazonaws.services.glue.model.TableInput;
-import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
@@ -39,6 +27,16 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
+import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.glue.model.AlreadyExistsException;
+import software.amazon.awssdk.services.glue.model.ConcurrentModificationException;
+import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
+import software.amazon.awssdk.services.glue.model.GlueException;
+import software.amazon.awssdk.services.glue.model.InvalidInputException;
+import software.amazon.awssdk.services.glue.model.ResourceNumberLimitExceededException;
+import software.amazon.awssdk.services.glue.model.StorageDescriptor;
+import software.amazon.awssdk.services.glue.model.Table;
+import software.amazon.awssdk.services.glue.model.TableInput;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -48,9 +46,7 @@ import java.util.function.BiFunction;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getStorageDescriptor;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableType;
+import static io.trino.plugin.hive.metastore.glue.GlueConverter.getTableType;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
@@ -68,7 +64,7 @@ public class GlueIcebergTableOperations
 {
     private final TypeManager typeManager;
     private final boolean cacheTableMetadata;
-    private final AWSGlueAsync glueClient;
+    private final GlueClient glueClient;
     private final GlueMetastoreStats stats;
     private final GetGlueTable getGlueTable;
 
@@ -78,7 +74,7 @@ public class GlueIcebergTableOperations
     protected GlueIcebergTableOperations(
             TypeManager typeManager,
             boolean cacheTableMetadata,
-            AWSGlueAsync glueClient,
+            GlueClient glueClient,
             GlueMetastoreStats stats,
             GetGlueTable getGlueTable,
             FileIO fileIo,
@@ -108,10 +104,10 @@ public class GlueIcebergTableOperations
         else {
             table = getTable(database, tableName, invalidateCaches);
         }
-        glueVersionId = table.getVersionId();
+        glueVersionId = table.versionId();
 
         String tableType = getTableType(table);
-        Map<String, String> parameters = getTableParameters(table);
+        Map<String, String> parameters = table.parameters();
         if (!isMaterializedViewStorageTable && (isTrinoView(tableType, parameters) || isTrinoMaterializedView(tableType, parameters))) {
             // this is a Hive view or Trino/Presto view, or Trino materialized view, hence not a table
             // TODO table operations should not be constructed for views (remove exception-driven code path)
@@ -135,13 +131,12 @@ public class GlueIcebergTableOperations
         String newMetadataLocation = writeNewMetadata(metadata, 0);
         TableInput tableInput = getTableInput(typeManager, tableName, owner, metadata, metadata.location(), newMetadataLocation, ImmutableMap.of(), cacheTableMetadata);
 
-        CreateTableRequest createTableRequest = new CreateTableRequest()
-                .withDatabaseName(database)
-                .withTableInput(tableInput);
         try {
-            stats.getCreateTable().call(() -> glueClient.createTable(createTableRequest));
+            stats.getCreateTable().call(() -> glueClient.createTable(x -> x
+                    .databaseName(database)
+                    .tableInput(tableInput)));
         }
-        catch (AWSGlueException e) {
+        catch (GlueException e) {
             switch (e) {
                 case AlreadyExistsException _,
                      EntityNotFoundException _,
@@ -168,7 +163,7 @@ public class GlueIcebergTableOperations
                                 tableName,
                                 owner,
                                 metadata,
-                                getStorageDescriptor(table).map(StorageDescriptor::getLocation).orElse(null),
+                                Optional.ofNullable(table.storageDescriptor()).map(StorageDescriptor::location).orElse(null),
                                 newMetadataLocation,
                                 ImmutableMap.of(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation),
                                 cacheTableMetadata));
@@ -181,14 +176,14 @@ public class GlueIcebergTableOperations
                 getTable(database, tableNameFrom(tableName), false),
                 metadata,
                 (table, newMetadataLocation) -> {
-                    Map<String, String> parameters = new HashMap<>(getTableParameters(table));
+                    Map<String, String> parameters = new HashMap<>(table.parameters());
                     parameters.put(METADATA_LOCATION_PROP, newMetadataLocation);
                     parameters.put(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation);
 
                     return getMaterializedViewTableInput(
-                            table.getName(),
-                            table.getViewOriginalText(),
-                            table.getOwner(),
+                            table.name(),
+                            table.viewOriginalText(),
+                            table.owner(),
                             parameters);
                 });
     }
@@ -198,12 +193,11 @@ public class GlueIcebergTableOperations
         String newMetadataLocation = writeNewMetadata(metadata, version.orElseThrow() + 1);
         TableInput tableInput = tableUpdateFunction.apply(table, newMetadataLocation);
 
-        UpdateTableRequest updateTableRequest = new UpdateTableRequest()
-                .withDatabaseName(database)
-                .withTableInput(tableInput)
-                .withVersionId(glueVersionId);
         try {
-            stats.getUpdateTable().call(() -> glueClient.updateTable(updateTableRequest));
+            stats.getUpdateTable().call(() -> glueClient.updateTable(x -> x
+                    .databaseName(database)
+                    .tableInput(tableInput)
+                    .versionId(glueVersionId)));
         }
         catch (ConcurrentModificationException e) {
             // CommitFailedException is handled as a special case in the Iceberg library. This commit will automatically retry

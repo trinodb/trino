@@ -25,6 +25,7 @@ import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -114,8 +115,8 @@ public class BigQueryStorageAvroPageSource
         this.executor = requireNonNull(executor, "executor is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         requireNonNull(split, "split is null");
-        this.streamName = split.getStreamName();
-        this.avroSchema = parseSchema(split.getSchemaString());
+        this.streamName = split.streamName();
+        this.avroSchema = parseSchema(split.schemaString());
         this.columns = requireNonNull(columns, "columns is null");
         this.pageBuilder = new PageBuilder(columns.stream()
                 .map(BigQueryColumnHandle::trinoType)
@@ -155,9 +156,12 @@ public class BigQueryStorageAvroPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         checkState(pageBuilder.isEmpty(), "PageBuilder is not empty at the beginning of a new page");
+        if (!nextResponse.isDone()) {
+            return null;
+        }
         ReadRowsResponse response;
         try {
             response = getFutureValue(nextResponse);
@@ -181,7 +185,7 @@ public class BigQueryStorageAvroPageSource
         Page page = pageBuilder.build();
         pageBuilder.reset();
         readTimeNanos.addAndGet(System.nanoTime() - start);
-        return page;
+        return SourcePage.create(page);
     }
 
     private static Object getValueRecord(GenericRecord record, BigQueryColumnHandle columnHandle)
@@ -275,8 +279,8 @@ public class BigQueryStorageAvroPageSource
             type.writeSlice(output, utf8Slice(((Utf8) value).toString()));
         }
         else if (type instanceof VarbinaryType) {
-            if (value instanceof ByteBuffer) {
-                type.writeSlice(output, Slices.wrappedHeapBuffer((ByteBuffer) value));
+            if (value instanceof ByteBuffer bytes) {
+                type.writeSlice(output, Slices.wrappedHeapBuffer(bytes));
             }
             else {
                 output.appendNull();

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.cost.StatsAndCosts;
 import io.trino.operator.RetryPolicy;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
@@ -33,6 +34,7 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.TestingMetadata;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -69,11 +71,13 @@ final class PlanUtils
     static PlanFragment createBroadcastJoinPlanFragment(String name, PlanFragment buildFragment)
     {
         Symbol symbol = new Symbol(UNKNOWN, "column");
-        PlanNode tableScan = TableScanNode.newInstance(
+        PlanNode tableScan = new TableScanNode(
                 new PlanNodeId(name),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingMetadata.TestingColumnHandle("column")),
+                TupleDomain.all(),
+                Optional.empty(),
                 false,
                 Optional.empty());
 
@@ -87,8 +91,6 @@ final class PlanUtils
                 tableScan.getOutputSymbols(),
                 remote.getOutputSymbols(),
                 false,
-                Optional.empty(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.of(REPLICATED),
                 Optional.empty(),
@@ -117,8 +119,6 @@ final class PlanUtils
                 build.getOutputSymbols(),
                 false,
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.of(distributionType),
                 Optional.empty(),
                 ImmutableMap.of(),
@@ -145,8 +145,6 @@ final class PlanUtils
                 broadcastBuild.getOutputSymbols(),
                 false,
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.of(REPLICATED),
                 Optional.empty(),
                 ImmutableMap.of(),
@@ -161,8 +159,6 @@ final class PlanUtils
                 partitionedBuild.getOutputSymbols(),
                 false,
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
                 Optional.of(PARTITIONED),
                 Optional.empty(),
                 ImmutableMap.of(),
@@ -174,11 +170,13 @@ final class PlanUtils
     static PlanFragment createTableScanPlanFragment(String name)
     {
         Symbol symbol = new Symbol(UNKNOWN, "column");
-        PlanNode planNode = TableScanNode.newInstance(
+        PlanNode planNode = new TableScanNode(
                 new PlanNodeId(name),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingMetadata.TestingColumnHandle("column")),
+                TupleDomain.all(),
+                Optional.empty(),
                 false,
                 Optional.empty());
 
@@ -195,6 +193,7 @@ final class PlanUtils
                 Optional.empty(),
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
+                OptionalInt.empty(),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
                 ImmutableMap.of(),

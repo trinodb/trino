@@ -78,16 +78,12 @@ class SetOperationMerge
             addOriginalMappings(source, i, newMappingsBuilder);
         }
 
-        if (node instanceof UnionNode) {
-            return Optional.of(new UnionNode(node.getId(), newSources, newMappingsBuilder.build(), node.getOutputSymbols()));
-        }
-        if (node instanceof IntersectNode) {
-            return Optional.of(new IntersectNode(node.getId(), newSources, newMappingsBuilder.build(), node.getOutputSymbols(), mergedQuantifier.get()));
-        }
-        if (node instanceof ExceptNode) {
-            return Optional.of(new ExceptNode(node.getId(), newSources, newMappingsBuilder.build(), node.getOutputSymbols(), mergedQuantifier.get()));
-        }
-        throw new IllegalArgumentException("unexpected node type: " + node.getClass().getSimpleName());
+        return switch (node) {
+            case UnionNode _ -> Optional.of(new UnionNode(node.getId(), newSources, newMappingsBuilder.build(), node.getOutputSymbols()));
+            case IntersectNode _ -> Optional.of(new IntersectNode(node.getId(), newSources, newMappingsBuilder.build(), node.getOutputSymbols(), mergedQuantifier.get()));
+            case ExceptNode _ -> Optional.of(new ExceptNode(node.getId(), newSources, newMappingsBuilder.build(), node.getOutputSymbols(), mergedQuantifier.get()));
+            default -> throw new IllegalArgumentException("unexpected node type: " + node.getClass().getSimpleName());
+        };
     }
 
     /**
@@ -163,15 +159,18 @@ class SetOperationMerge
             return Optional.of(false);
         }
 
-        if (node instanceof IntersectNode) {
-            if (!((IntersectNode) node).isDistinct() && !((IntersectNode) child).isDistinct()) {
+        if (node instanceof IntersectNode intersectNode) {
+            if (!intersectNode.isDistinct() && !((IntersectNode) child).isDistinct()) {
                 return Optional.of(false);
             }
             return Optional.of(true);
         }
 
-        checkState(node instanceof ExceptNode, "unexpected node type: %s", node.getClass().getSimpleName());
-        if (((ExceptNode) node).isDistinct() && !((ExceptNode) child).isDistinct()) {
+        if (!(node instanceof ExceptNode exceptNode)) {
+            throw new IllegalArgumentException("unexpected node type: %s".formatted(node.getClass().getSimpleName()));
+        }
+
+        if (exceptNode.isDistinct() && !((ExceptNode) child).isDistinct()) {
             return Optional.empty();
         }
         return Optional.of(((ExceptNode) child).isDistinct());

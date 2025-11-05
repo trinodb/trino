@@ -97,6 +97,7 @@ import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyKillQuery;
 import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
+import static io.trino.spi.security.AccessDeniedException.denyRefreshView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
@@ -107,13 +108,11 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivil
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectTable;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
-import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
-import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetUser;
-import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
@@ -232,11 +231,12 @@ public class FileBasedSystemAccessControl
         }
 
         @Override
-        public SystemAccessControl create(Map<String, String> config)
+        public SystemAccessControl create(Map<String, String> config, SystemAccessControlContext context)
         {
             requireNonNull(config, "config is null");
 
             Bootstrap bootstrap = new Bootstrap(
+                    "io.trino.bootstrap.access." + getName(),
                     binder -> configBinder(binder).bindConfig(FileBasedAccessControlConfig.class),
                     new FileBasedSystemAccessControlModule());
 
@@ -304,17 +304,11 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanExecuteQuery(Identity identity)
+    public void checkCanExecuteQuery(Identity identity, QueryId queryId)
     {
         if (!canAccessQuery(identity, Optional.empty(), QueryAccessRule.AccessMode.EXECUTE)) {
             denyExecuteQuery();
         }
-    }
-
-    @Override
-    public void checkCanExecuteQuery(Identity identity, QueryId queryId)
-    {
-        checkCanExecuteQuery(identity);
     }
 
     @Override
@@ -386,7 +380,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
+    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
     {
         boolean allowed = sessionPropertyRules.stream()
                 .map(rule -> rule.match(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), propertyName))
@@ -396,12 +390,6 @@ public class FileBasedSystemAccessControl
         if (!allowed) {
             denySetSystemSessionProperty(propertyName);
         }
-    }
-
-    @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
-    {
-        checkCanSetSystemSessionProperty(identity, propertyName);
     }
 
     @Override
@@ -465,12 +453,8 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanSetSchemaAuthorization(SystemSecurityContext context, CatalogSchemaName schema, TrinoPrincipal principal)
     {
-        if (!isSchemaOwner(context, schema)) {
-            denySetSchemaAuthorization(schema.toString(), principal);
-        }
-        if (!checkCanSetAuthorization(context, principal)) {
-            denySetSchemaAuthorization(schema.toString(), principal);
-        }
+        List<String> names = List.of(schema.getCatalogName(), schema.getSchemaName());
+        checkCanSetEntityAuthorization(context, new EntityKindAndName("SCHEMA", names), principal);
     }
 
     @Override
@@ -651,6 +635,13 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanSetTableAuthorization(SystemSecurityContext context, CatalogSchemaTableName table, TrinoPrincipal principal)
+    {
+        List<String> names = List.of(table.getCatalogName(), table.getSchemaTableName().getSchemaName(), table.getSchemaTableName().getTableName());
+        checkCanSetEntityAuthorization(context, new EntityKindAndName("TABLE", names), principal);
+    }
+
+    @Override
     public void checkCanRenameColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {
@@ -663,17 +654,6 @@ public class FileBasedSystemAccessControl
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {
             denyAlterColumn(table.toString());
-        }
-    }
-
-    @Override
-    public void checkCanSetTableAuthorization(SystemSecurityContext context, CatalogSchemaTableName table, TrinoPrincipal principal)
-    {
-        if (!checkTablePermission(context, table, OWNERSHIP)) {
-            denySetTableAuthorization(table.toString(), principal);
-        }
-        if (!checkCanSetAuthorization(context, principal)) {
-            denySetTableAuthorization(table.toString(), principal);
         }
     }
 
@@ -744,11 +724,15 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanSetViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, TrinoPrincipal principal)
     {
+        List<String> names = List.of(view.getCatalogName(), view.getSchemaTableName().getSchemaName(), view.getSchemaTableName().getTableName());
+        checkCanSetEntityAuthorization(context, new EntityKindAndName("VIEW", names), principal);
+    }
+
+    @Override
+    public void checkCanRefreshView(SystemSecurityContext context, CatalogSchemaTableName view)
+    {
         if (!checkTablePermission(context, view, OWNERSHIP)) {
-            denySetViewAuthorization(view.toString(), principal);
-        }
-        if (!checkCanSetAuthorization(context, principal)) {
-            denySetViewAuthorization(view.toString(), principal);
+            denyRefreshView(view.toString());
         }
     }
 
@@ -819,6 +803,13 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanSetMaterializedViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, TrinoPrincipal principal)
+    {
+        List<String> names = List.of(view.getCatalogName(), view.getSchemaTableName().getSchemaName(), view.getSchemaTableName().getTableName());
+        checkCanSetEntityAuthorization(context, new EntityKindAndName("MATERIALIZED VIEW", names), principal);
+    }
+
+    @Override
     public void checkCanSetMaterializedViewProperties(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Optional<Object>> properties)
     {
         if (!checkTablePermission(context, materializedView, OWNERSHIP)) {
@@ -844,10 +835,10 @@ public class FileBasedSystemAccessControl
     public void checkCanGrantSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, TrinoPrincipal grantee, boolean grantOption)
     {
         if (!canAccessCatalog(context, schema.getCatalogName(), ALL)) {
-            denyGrantSchemaPrivilege(privilege.name(), schema.toString());
+            denyGrantSchemaPrivilege(privilege.toString(), schema.toString());
         }
         if (!isSchemaOwner(context, schema)) {
-            denyGrantSchemaPrivilege(privilege.name(), schema.toString());
+            denyGrantSchemaPrivilege(privilege.toString(), schema.toString());
         }
     }
 
@@ -855,10 +846,10 @@ public class FileBasedSystemAccessControl
     public void checkCanDenySchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, TrinoPrincipal grantee)
     {
         if (!canAccessCatalog(context, schema.getCatalogName(), ALL)) {
-            denyDenySchemaPrivilege(privilege.name(), schema.toString());
+            denyDenySchemaPrivilege(privilege.toString(), schema.toString());
         }
         if (!isSchemaOwner(context, schema)) {
-            denyDenySchemaPrivilege(privilege.name(), schema.toString());
+            denyDenySchemaPrivilege(privilege.toString(), schema.toString());
         }
     }
 
@@ -866,10 +857,10 @@ public class FileBasedSystemAccessControl
     public void checkCanRevokeSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, TrinoPrincipal revokee, boolean grantOption)
     {
         if (!canAccessCatalog(context, schema.getCatalogName(), ALL)) {
-            denyRevokeSchemaPrivilege(privilege.name(), schema.toString());
+            denyRevokeSchemaPrivilege(privilege.toString(), schema.toString());
         }
         if (!isSchemaOwner(context, schema)) {
-            denyRevokeSchemaPrivilege(privilege.name(), schema.toString());
+            denyRevokeSchemaPrivilege(privilege.toString(), schema.toString());
         }
     }
 
@@ -1041,6 +1032,48 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanShowBranches(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void checkCanCreateBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String branchName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void checkCanDropBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String branchName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void checkCanFastForwardBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String sourceBranchName, String targetBranchName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void checkCanGrantTableBranchPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, String branchName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void checkCanDenyTableBranchPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, String branchName, TrinoPrincipal grantee)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void checkCanRevokeTableBranchPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, String branchName, TrinoPrincipal revokee, boolean grantOption)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Iterable<EventListener> getEventListeners()
     {
         return ImmutableSet.of();
@@ -1112,6 +1145,30 @@ public class FileBasedSystemAccessControl
         }
         catch (IllegalArgumentException exception) {
             throw new TrinoException(INVALID_COLUMN_MASK, "Multiple column masks defined for the same column", exception);
+        }
+    }
+
+    @Override
+    public void checkCanSetEntityAuthorization(SystemSecurityContext context, EntityKindAndName entityKindAndName, TrinoPrincipal principal)
+    {
+        boolean denied;
+        String ownedKind = entityKindAndName.entityKind();
+        List<String> name = entityKindAndName.name();
+        switch (ownedKind) {
+            case "SCHEMA":
+                CatalogSchemaName schema = new CatalogSchemaName(name.get(0), name.get(1));
+                denied = !isSchemaOwner(context, schema) || !checkCanSetAuthorization(context, principal);
+                break;
+            case "TABLE", "VIEW", "MATERIALIZED VIEW":
+                CatalogSchemaTableName table = new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2));
+                denied = !checkTablePermission(context, table, OWNERSHIP) || !checkCanSetAuthorization(context, principal);
+                break;
+            default:
+                denied = true;
+                break;
+        }
+        if (denied) {
+            denySetEntityAuthorization(new EntityKindAndName(ownedKind, name), principal);
         }
     }
 

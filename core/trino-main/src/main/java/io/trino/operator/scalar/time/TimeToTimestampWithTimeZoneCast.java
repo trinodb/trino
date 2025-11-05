@@ -72,7 +72,7 @@ public final class TimeToTimestampWithTimeZoneCast
         return LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picosOfMilli, session.getTimeZoneKey().getKey());
     }
 
-    private static long getEpochSeconds(ConnectorSession session, @SqlType("time(sourcePrecision)") long time, ZoneId zoneId)
+    private static long getEpochSeconds(ConnectorSession session, long time, ZoneId zoneId)
     {
         long epochDay = LocalDate.ofInstant(session.getStart(), zoneId)
                 .toEpochDay();
@@ -80,7 +80,7 @@ public final class TimeToTimestampWithTimeZoneCast
         return multiplyExact(epochDay, SECONDS_PER_DAY) + time / PICOSECONDS_PER_SECOND;
     }
 
-    private static long getPicoFraction(@LiteralParameter("sourcePrecision") long sourcePrecision, @LiteralParameter("targetPrecision") long targetPrecision, @SqlType("time(sourcePrecision)") long time)
+    private static long getPicoFraction(long sourcePrecision, long targetPrecision, long time)
     {
         long picoFraction = time % PICOSECONDS_PER_SECOND;
         if (sourcePrecision > targetPrecision) {

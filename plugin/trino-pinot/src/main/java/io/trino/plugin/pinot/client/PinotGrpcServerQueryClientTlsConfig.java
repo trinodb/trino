@@ -13,13 +13,10 @@
  */
 package io.trino.plugin.pinot.client;
 
-import com.google.common.collect.ImmutableList;
-import com.google.inject.ConfigurationException;
-import com.google.inject.spi.Message;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.validation.FileExists;
-import jakarta.annotation.PostConstruct;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
@@ -126,14 +123,15 @@ public class PinotGrpcServerQueryClientTlsConfig
         return this;
     }
 
-    @PostConstruct
-    public void validate()
+    @AssertTrue(message = "pinot.grpc.tls.keystore-password must be set when pinot.grpc.tls.keystore-path is given")
+    public boolean isKeystorePasswordValid()
     {
-        if (getKeystorePath().isPresent() && getKeystorePassword().isEmpty()) {
-            throw new ConfigurationException(ImmutableList.of(new Message("pinot.grpc.tls.keystore-password must set when pinot.grpc.tls.keystore-path is given")));
-        }
-        if (getTruststorePath().isPresent() && getTruststorePassword().isEmpty()) {
-            throw new ConfigurationException(ImmutableList.of(new Message("pinot.grpc.tls.truststore-password must set when pinot.grpc.tls.truststore-path is given")));
-        }
+        return getKeystorePath().isEmpty() || getKeystorePassword().isPresent();
+    }
+
+    @AssertTrue(message = "pinot.grpc.tls.truststore-password must be set when pinot.grpc.tls.truststore-path is given")
+    public boolean isTruststorePasswordValid()
+    {
+        return getTruststorePath().isEmpty() || getTruststorePassword().isPresent();
     }
 }

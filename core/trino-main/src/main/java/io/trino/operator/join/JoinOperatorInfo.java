@@ -19,7 +19,7 @@ import io.trino.operator.OperatorInfo;
 import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
 import io.trino.spi.Mergeable;
 
-import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -32,11 +32,11 @@ public class JoinOperatorInfo
     private final JoinType joinType;
     private final long[] logHistogramProbes;
     private final long[] logHistogramOutput;
-    private final Optional<Long> lookupSourcePositions;
+    private final OptionalLong lookupSourcePositions;
     private final long rleProbes;
     private final long totalProbes;
 
-    public static JoinOperatorInfo createJoinOperatorInfo(JoinType joinType, long[] logHistogramCounters, Optional<Long> lookupSourcePositions, long rleProbes, long totalProbes)
+    public static JoinOperatorInfo createJoinOperatorInfo(JoinType joinType, long[] logHistogramCounters, OptionalLong lookupSourcePositions, long rleProbes, long totalProbes)
     {
         long[] logHistogramProbes = new long[HISTOGRAM_BUCKETS];
         long[] logHistogramOutput = new long[HISTOGRAM_BUCKETS];
@@ -52,7 +52,7 @@ public class JoinOperatorInfo
             @JsonProperty("joinType") JoinType joinType,
             @JsonProperty("logHistogramProbes") long[] logHistogramProbes,
             @JsonProperty("logHistogramOutput") long[] logHistogramOutput,
-            @JsonProperty("lookupSourcePositions") Optional<Long> lookupSourcePositions,
+            @JsonProperty("lookupSourcePositions") OptionalLong lookupSourcePositions,
             @JsonProperty("rleProbes") long rleProbes,
             @JsonProperty("totalProbes") long totalProbes)
     {
@@ -88,7 +88,7 @@ public class JoinOperatorInfo
      * Estimated number of positions in on the build side
      */
     @JsonProperty
-    public Optional<Long> getLookupSourcePositions()
+    public OptionalLong getLookupSourcePositions()
     {
         return lookupSourcePositions;
     }
@@ -129,9 +129,9 @@ public class JoinOperatorInfo
             logHistogramOutput[i] = this.logHistogramOutput[i] + other.logHistogramOutput[i];
         }
 
-        Optional<Long> mergedSourcePositions = Optional.empty();
+        OptionalLong mergedSourcePositions = OptionalLong.empty();
         if (this.lookupSourcePositions.isPresent() || other.lookupSourcePositions.isPresent()) {
-            mergedSourcePositions = Optional.of(this.lookupSourcePositions.orElse(0L) + other.lookupSourcePositions.orElse(0L));
+            mergedSourcePositions = OptionalLong.of(this.lookupSourcePositions.orElse(0L) + other.lookupSourcePositions.orElse(0L));
         }
 
         return new JoinOperatorInfo(this.joinType, logHistogramProbes, logHistogramOutput, mergedSourcePositions, this.rleProbes + other.rleProbes, this.totalProbes + other.totalProbes);

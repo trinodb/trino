@@ -21,9 +21,12 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.lang.System.getenv;
 
 public class TestFileSystemConfig
 {
+    private static final boolean RUNNING_IN_CI = getenv("CONTINUOUS_INTEGRATION") != null;
+
     @Test
     public void testDefaults()
     {
@@ -33,7 +36,9 @@ public class TestFileSystemConfig
                 .setNativeAzureEnabled(false)
                 .setNativeS3Enabled(false)
                 .setNativeGcsEnabled(false)
-                .setCacheEnabled(false));
+                .setNativeLocalEnabled(false)
+                .setCacheEnabled(false)
+                .setTrackingEnabled(RUNNING_IN_CI));
     }
 
     @Test
@@ -45,7 +50,9 @@ public class TestFileSystemConfig
                 .put("fs.native-azure.enabled", "true")
                 .put("fs.native-s3.enabled", "true")
                 .put("fs.native-gcs.enabled", "true")
+                .put("fs.native-local.enabled", "true")
                 .put("fs.cache.enabled", "true")
+                .put("fs.tracking.enabled", Boolean.toString(!RUNNING_IN_CI))
                 .buildOrThrow();
 
         FileSystemConfig expected = new FileSystemConfig()
@@ -54,7 +61,9 @@ public class TestFileSystemConfig
                 .setNativeAzureEnabled(true)
                 .setNativeS3Enabled(true)
                 .setNativeGcsEnabled(true)
-                .setCacheEnabled(true);
+                .setNativeLocalEnabled(true)
+                .setCacheEnabled(true)
+                .setTrackingEnabled(!RUNNING_IN_CI);
 
         assertFullMapping(properties, expected);
     }

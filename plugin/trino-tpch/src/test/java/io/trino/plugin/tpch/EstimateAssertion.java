@@ -81,8 +81,8 @@ class EstimateAssertion
 
     private double toDouble(Object object)
     {
-        if (object instanceof Number) {
-            return ((Number) object).doubleValue();
+        if (object instanceof Number number) {
+            return number.doubleValue();
         }
         throw new UnsupportedOperationException(format("Can't compare with tolerance objects of class %s. Use assertEquals.", object.getClass()));
     }

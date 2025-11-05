@@ -6,6 +6,9 @@ the community. The preferred method to interact with Trino is using these
 existing clients. This document provides details about the API for reference.
 It can also be used to implement your own client, if necessary.
 
+Find more information about client drivers, client applications, and the client
+protocol configuration in the [client documentation](/client).
+
 ## HTTP methods
 
 - A `POST` to `/v1/statement` runs the query string in the `POST` body,
@@ -225,6 +228,9 @@ subsequent requests to be consistent with the response headers received.
   - Instructs the client to reset `X-Trino-User` request header to its original
     value in subsequent client requests and remove `X-Trino-Original-User`
     to reset the authorization user back to the original user.
+* - `X-Trino-Set-Original-Roles`
+  - Instructs the client to set the roles of the original user in the
+    `X-Trino-Original-Roles` request header in subsequent client requests.
 * - `X-Trino-Set-Session`
   - The value of the `X-Trino-Set-Session` response header is a string of the
     form *property* = *value*. It instructs the client include session property

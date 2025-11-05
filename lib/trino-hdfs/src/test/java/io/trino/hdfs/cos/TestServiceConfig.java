@@ -105,7 +105,7 @@ public class TestServiceConfig
                         .buildOrThrow());
     }
 
-    private static void assertInvalidLoad(String message, ImmutableMap<String, String> properties)
+    private static void assertInvalidLoad(String message, Map<String, String> properties)
             throws IOException
     {
         try (TempFile tempFile = new TempFile()) {

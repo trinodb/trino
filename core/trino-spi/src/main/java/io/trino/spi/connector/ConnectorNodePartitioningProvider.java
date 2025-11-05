@@ -21,18 +21,42 @@ import java.util.function.ToIntFunction;
 
 public interface ConnectorNodePartitioningProvider
 {
-    default Optional<ConnectorBucketNodeMap> getBucketNodeMapping(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    /**
+     * Get the mapping from bucket to nodes for the specified partitioning handle. The returned mapping may
+     * be fixed or dynamic. If the mapping is fixed, the bucket will be assigned to an exact node; otherwise,
+     * the bucket will be assigned to a node chosen by the system.  The ConnectorPartitionHandle is declared
+     * in ConnectorTablePartitioning property of ConnectorTableProperties.
+     * <p>
+     * If the partitioning handle is not supported, this method must return an empty optional.
+     */
+    default Optional<ConnectorBucketNodeMap> getBucketNodeMapping(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorPartitioningHandle partitioningHandle)
     {
         return Optional.empty();
     }
 
-    default ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    /**
+     * Gets a function that maps a split to a bucket number. The returned function must be deterministic, and must
+     * be consistent with getBucketNodeMapping. That means all rows in a split must be assigned to the same bucket.
+     * The bucket number must be in the range [0, bucketCount).
+     */
+    default ToIntFunction<ConnectorSplit> getSplitBucketFunction(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorPartitioningHandle partitioningHandle,
+            int bucketCount)
     {
-        return split -> {
+        return _ -> {
             throw new UnsupportedOperationException();
         };
     }
 
+    /**
+     * Get the function that maps a partition to a bucket number. The returned function must be deterministic, and
+     * must be consistent with getBucketNodeMapping. The result must be in the range [0, bucketCount).
+     */
     BucketFunction getBucketFunction(
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,

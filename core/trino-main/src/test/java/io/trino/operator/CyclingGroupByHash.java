@@ -35,6 +35,13 @@ public class CyclingGroupByHash
         this.totalGroupCount = totalGroupCount;
     }
 
+    private CyclingGroupByHash(CyclingGroupByHash other)
+    {
+        this.totalGroupCount = other.totalGroupCount;
+        this.maxGroupId = other.maxGroupId;
+        this.currentGroupId = other.currentGroupId;
+    }
+
     @Override
     public long getEstimatedSize()
     {
@@ -45,6 +52,12 @@ public class CyclingGroupByHash
     public int getGroupCount()
     {
         return maxGroupId + 1;
+    }
+
+    @Override
+    public void startReleasingOutput()
+    {
+        throw new UnsupportedOperationException("Not yet supported");
     }
 
     @Override
@@ -81,5 +94,11 @@ public class CyclingGroupByHash
     public int getCapacity()
     {
         return totalGroupCount;
+    }
+
+    @Override
+    public GroupByHash copy()
+    {
+        return new CyclingGroupByHash(this);
     }
 }

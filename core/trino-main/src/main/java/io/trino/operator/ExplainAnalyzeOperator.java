@@ -13,12 +13,11 @@
  */
 package io.trino.operator;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.client.NodeVersion;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryPerformanceFetcher;
-import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
+import io.trino.execution.StagesInfo;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.spi.Page;
@@ -151,16 +150,19 @@ public class ExplainAnalyzeOperator
             return null;
         }
 
-        QueryInfo queryInfo = queryPerformanceFetcher.getQueryInfo(operatorContext.getDriverContext().getTaskId().getQueryId());
-        checkState(queryInfo.getOutputStage().isPresent(), "Output stage is missing");
-        checkState(queryInfo.getOutputStage().get().getSubStages().size() == 1, "Expected one sub stage of explain node");
+        QueryInfo queryInfo = queryPerformanceFetcher.getQueryInfo(operatorContext.getDriverContext().getTaskId().queryId());
+        checkState(queryInfo.getStages().isPresent(), "Stages informations is missing");
+        StagesInfo stagesInfo = queryInfo.getStages().get();
+        checkState(stagesInfo.getOutputStage().getSubStages().size() == 1, "Expected one sub stage of explain node");
 
-        if (!hasFinalStageInfo(queryInfo.getOutputStage().get())) {
+        if (!hasFinalStageInfo(stagesInfo)) {
             return null;
         }
 
+        List<StageInfo> stagesWithoutOutputStage = stagesInfo.getSubStagesDeepTopological(stagesInfo.getOutputStageId(), false);
+
         String plan = textDistributedPlan(
-                queryInfo.getOutputStage().get().getSubStages().get(0),
+                stagesWithoutOutputStage,
                 queryInfo.getQueryStats(),
                 metadata,
                 functionManager,
@@ -174,9 +176,9 @@ public class ExplainAnalyzeOperator
         return new Page(builder.build());
     }
 
-    private boolean hasFinalStageInfo(StageInfo stageInfo)
+    private boolean hasFinalStageInfo(StagesInfo stages)
     {
-        boolean isFinalStageInfo = isFinalStageInfo(stageInfo);
+        boolean isFinalStageInfo = isFinalStageInfo(stages);
         if (!isFinalStageInfo) {
             try {
                 TimeUnit.MILLISECONDS.sleep(100);
@@ -185,34 +187,12 @@ public class ExplainAnalyzeOperator
                 throw new RuntimeException(e);
             }
         }
-        return isFinalStageInfo(stageInfo);
+        return isFinalStageInfo(stages);
     }
 
-    private boolean isFinalStageInfo(StageInfo stageInfo)
+    private boolean isFinalStageInfo(StagesInfo stages)
     {
-        List<StageInfo> subStages = getSubStagesOf(operatorContext.getDriverContext().getTaskId().getStageId(), stageInfo);
+        List<StageInfo> subStages = stages.getSubStagesDeep(operatorContext.getDriverContext().getTaskId().stageId());
         return subStages.stream().allMatch(StageInfo::isFinalStageInfo);
-    }
-
-    private static List<StageInfo> getSubStagesOf(StageId stageId, StageInfo rootStage)
-    {
-        ImmutableList.Builder<StageInfo> collector = ImmutableList.builder();
-        getSubStages(stageId, rootStage, collector, false);
-        return collector.build();
-    }
-
-    private static void getSubStages(StageId stageId, StageInfo rootStage, ImmutableList.Builder<StageInfo> collector, boolean add)
-    {
-        if (rootStage.getStageId().equals(stageId)) {
-            add = true;
-        }
-        List<StageInfo> subStages = rootStage.getSubStages();
-        for (StageInfo subStage : subStages) {
-            getSubStages(stageId, subStage, collector, add);
-        }
-
-        if (add && !rootStage.getStageId().equals(stageId)) {
-            collector.add(rootStage);
-        }
     }
 }

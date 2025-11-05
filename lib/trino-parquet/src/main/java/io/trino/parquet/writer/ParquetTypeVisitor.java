@@ -33,8 +33,8 @@ public class ParquetTypeVisitor<T>
 
     public static <T> T visit(Type type, ParquetTypeVisitor<T> visitor)
     {
-        if (type instanceof MessageType) {
-            return visitor.message((MessageType) type, visitFields(type.asGroupType(), visitor));
+        if (type instanceof MessageType messageType) {
+            return visitor.message(messageType, visitFields(type.asGroupType(), visitor));
         }
         if (type.isPrimitive()) {
             return visitor.primitive(type.asPrimitiveType());

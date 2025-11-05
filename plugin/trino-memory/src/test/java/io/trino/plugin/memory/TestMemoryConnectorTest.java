@@ -33,6 +33,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.util.Comparator;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -41,7 +42,6 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestMemoryConnectorTest
         extends BaseConnectorTest
@@ -58,6 +58,7 @@ public class TestMemoryConnectorTest
         return MemoryQueryRunner.builder()
                 .addExtraProperties(ImmutableMap.<String, String>builder()
                         // Adjust DF limits to test edge cases
+                        .put("enable-large-dynamic-filters", "false")
                         .put("dynamic-filtering.small.max-distinct-values-per-driver", "100")
                         .put("dynamic-filtering.small.range-row-limit-per-driver", "100")
                         .put("dynamic-filtering.large.max-distinct-values-per-driver", "100")
@@ -86,21 +87,21 @@ public class TestMemoryConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_TRUNCATE -> true;
-            case SUPPORTS_ADD_FIELD,
+            case SUPPORTS_CREATE_FUNCTION,
+                 SUPPORTS_TRUNCATE -> true;
+            case SUPPORTS_ADD_COLUMN_WITH_POSITION,
+                 SUPPORTS_ADD_FIELD,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
                  SUPPORTS_DELETE,
                  SUPPORTS_DEREFERENCE_PUSHDOWN,
                  SUPPORTS_DROP_COLUMN,
-                 SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_MERGE,
                  SUPPORTS_PREDICATE_PUSHDOWN,
                  SUPPORTS_RENAME_FIELD,
                  SUPPORTS_SET_COLUMN_TYPE,
                  SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_UPDATE -> false;
-            case SUPPORTS_CREATE_FUNCTION -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -108,7 +109,15 @@ public class TestMemoryConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        return abort("Memory connector does not support column default values");
+        return newTrinoTable(
+                "test_default_columns",
+                """
+                (col_required BIGINT NOT NULL,
+                col_nullable BIGINT,
+                col_default BIGINT DEFAULT 43,
+                col_nonnull_default BIGINT DEFAULT 42 NOT NULL,
+                col_required2 BIGINT NOT NULL)
+                """);
     }
 
     @Test
@@ -494,8 +503,14 @@ public class TestMemoryConnectorTest
         QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
         return stats.getOperatorSummaries()
                 .stream()
+                .sorted(getOperatorStatsComparator())
                 .filter(summary -> summary.getOperatorType().contains("Scan"))
                 .collect(toImmutableList());
+    }
+
+    private static Comparator<OperatorStats> getOperatorStatsComparator()
+    {
+        return Comparator.comparing(s -> s.getStageId() + "/" + s.getPipelineId() + "/" + s.getOperatorId());
     }
 
     @Test
@@ -606,7 +621,7 @@ public class TestMemoryConnectorTest
     @Test
     void testInsertAfterTruncate()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_truncate", "AS SELECT 1 x")) {
+        try (TestTable table = newTrinoTable("test_truncate", "AS SELECT 1 x")) {
             assertUpdate("TRUNCATE TABLE " + table.getName());
             assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
 

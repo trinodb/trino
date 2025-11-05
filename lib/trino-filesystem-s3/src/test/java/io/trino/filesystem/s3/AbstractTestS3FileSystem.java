@@ -14,7 +14,6 @@
 package io.trino.filesystem.s3;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import io.airlift.log.Logging;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
@@ -172,7 +171,7 @@ public abstract class AbstractTestS3FileSystem
                 TrinoInputFile inputFile = getFileSystem().newInputFile(fileEntry.location());
                 assertThat(inputFile.exists()).as("exists").isTrue();
                 try (TrinoInputStream inputStream = inputFile.newStream()) {
-                    byte[] bytes = ByteStreams.toByteArray(inputStream);
+                    byte[] bytes = inputStream.readAllBytes();
                     assertThat(bytes).isEqualTo(contents);
                 }
 

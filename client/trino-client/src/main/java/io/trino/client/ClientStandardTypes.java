@@ -13,6 +13,7 @@
  */
 package io.trino.client;
 
+// Should have the same types as in the StandardTypes
 public final class ClientStandardTypes
 {
     public static final String BIGINT = "bigint";
@@ -26,6 +27,8 @@ public final class ClientStandardTypes
     public static final String DOUBLE = "double";
     public static final String HYPER_LOG_LOG = "HyperLogLog";
     public static final String QDIGEST = "qdigest";
+    public static final String TDIGEST = "tdigest";
+    public static final String SET_DIGEST = "SetDigest";
     public static final String P4_HYPER_LOG_LOG = "P4HyperLogLog";
     public static final String INTERVAL_DAY_TO_SECOND = "interval day to second";
     public static final String INTERVAL_YEAR_TO_MONTH = "interval year to month";
@@ -40,11 +43,14 @@ public final class ClientStandardTypes
     public static final String ARRAY = "array";
     public static final String MAP = "map";
     public static final String JSON = "json";
+    public static final String JSON_2016 = "json2016";
     public static final String IPADDRESS = "ipaddress";
     public static final String UUID = "uuid";
     public static final String GEOMETRY = "Geometry";
     public static final String SPHERICAL_GEOGRAPHY = "SphericalGeography";
     public static final String BING_TILE = "BingTile";
+    public static final String KDB_TREE = "KdbTree";
+    public static final String COLOR = "color";
 
     private ClientStandardTypes() {}
 }

@@ -1403,9 +1403,9 @@ public class TestHiveTableStatistics
 
     @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
-    public void testMixedHiveAndPrestoStatistics()
+    public void testMixedHiveAndTrinoStatistics()
     {
-        String tableName = "test_mixed_hive_and_presto_statistics";
+        String tableName = "test_mixed_hive_and_trino_statistics";
         onHive().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         onHive().executeQuery(format("CREATE TABLE %s (a INT) PARTITIONED BY (p INT) STORED AS ORC TBLPROPERTIES ('transactional' = 'false')", tableName));
 

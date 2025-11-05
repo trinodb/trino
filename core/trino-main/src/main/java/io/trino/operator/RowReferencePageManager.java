@@ -65,7 +65,6 @@ public final class RowReferencePageManager
             // Initiate additional actions on close
             checkState(currentCursor != null);
             pageAccounting.unlockPage();
-            pageAccounting.loadPageLoadIfNeeded();
             // Account for page size after lazy loading (which can change the page size)
             pageBytes += pageAccounting.sizeOf();
             currentCursor = null;
@@ -237,7 +236,6 @@ public final class RowReferencePageManager
 
         private final int pageId;
         private Page page;
-        private boolean isPageLoaded;
         private long[] rowIds;
         // Start off locked to give the caller time to declare which rows to reference
         private boolean lockedPage = true;
@@ -315,14 +313,6 @@ public final class RowReferencePageManager
             return !lockedPage && activePositions * COMPACTION_MIN_FILL_MULTIPLIER < page.getPositionCount();
         }
 
-        public void loadPageLoadIfNeeded()
-        {
-            if (!isPageLoaded && activePositions > 0) {
-                page = page.getLoadedPage();
-                isPageLoaded = true;
-            }
-        }
-
         public void compact()
         {
             checkState(!lockedPage, "Should not attempt compaction when page is locked");
@@ -330,8 +320,6 @@ public final class RowReferencePageManager
             if (activePositions == page.getPositionCount()) {
                 return;
             }
-
-            loadPageLoadIfNeeded();
 
             int newIndex = 0;
             int[] positionsToKeep = new int[activePositions];
@@ -354,9 +342,7 @@ public final class RowReferencePageManager
 
         public long sizeOf()
         {
-            // Getting the size of a page forces a lazy page to be loaded, so only provide the size after an explicit decision to load
-            long loadedPageSize = isPageLoaded ? page.getSizeInBytes() : 0;
-            return PAGE_ACCOUNTING_INSTANCE_SIZE + loadedPageSize + SizeOf.sizeOf(rowIds);
+            return PAGE_ACCOUNTING_INSTANCE_SIZE + page.getSizeInBytes() + SizeOf.sizeOf(rowIds);
         }
     }
 

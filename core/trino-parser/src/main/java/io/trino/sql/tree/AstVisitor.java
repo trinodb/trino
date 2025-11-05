@@ -627,7 +627,7 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
-    protected R visitSetSchemaAuthorization(SetSchemaAuthorization node, C context)
+    protected R visitSetAuthorization(SetAuthorizationStatement node, C context)
     {
         return visitStatement(node, context);
     }
@@ -667,11 +667,6 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
-    protected R visitSetViewAuthorization(SetViewAuthorization node, C context)
-    {
-        return visitStatement(node, context);
-    }
-
     protected R visitSetProperties(SetProperties node, C context)
     {
         return visitStatement(node, context);
@@ -707,11 +702,6 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
-    protected R visitSetTableAuthorization(SetTableAuthorization node, C context)
-    {
-        return visitStatement(node, context);
-    }
-
     protected R visitTableExecute(TableExecute node, C context)
     {
         return visitStatement(node, context);
@@ -738,6 +728,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitRefreshMaterializedView(RefreshMaterializedView node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitRefreshView(RefreshView node, C context)
     {
         return visitStatement(node, context);
     }
@@ -893,6 +888,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitSimpleGroupBy(SimpleGroupBy node, C context)
+    {
+        return visitGroupingElement(node, context);
+    }
+
+    protected R visitAutoGroupBy(AutoGroupBy node, C context)
     {
         return visitGroupingElement(node, context);
     }
@@ -1237,6 +1237,31 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
+    protected R visitCreateBranch(CreateBranch node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitDropBranch(DropBranch node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitFastForwardBranch(FastForwardBranch node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitShowBranches(ShowBranches node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitSessionProperty(SessionProperty node, C context)
+    {
+        return visitNode(node, context);
+    }
+
     protected R visitParameterDeclaration(ParameterDeclaration node, C context)
     {
         return visitNode(node, context);
@@ -1268,6 +1293,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitCommentCharacteristic(CommentCharacteristic node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitPropertiesCharacteristic(PropertiesCharacteristic node, C context)
     {
         return visitNode(node, context);
     }

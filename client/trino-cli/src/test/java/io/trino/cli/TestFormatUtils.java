@@ -472,7 +472,7 @@ public class TestFormatUtils
     {
         assertThatThrownBy(() -> formatProgressBar(10, -1))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("invalid count: -1");
+                .hasMessageContaining("count is negative: -1");
     }
 
     @Test
@@ -496,6 +496,6 @@ public class TestFormatUtils
     {
         assertThatThrownBy(() -> formatProgressBar(10, -100, 0))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("invalid count: -9");
+                .hasMessage("count is negative: -9");
     }
 }

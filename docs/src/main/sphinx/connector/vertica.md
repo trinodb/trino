@@ -10,14 +10,15 @@ myst:
 <img src="../_static/img/vertica.png" class="connector-logo">
 ```
 
-The Vertica connector allows querying a [Vertica](https://www.vertica.com/)
-database as an external data source.
+The Vertica connector allows querying a [Vertica database, also known as OpenText
+Analytics Database](https://www.opentext.com/products/analytics-database), as an
+external data source.
 
 ## Requirements
 
 To connect to Vertica, you need:
 
-- Vertica 9.1.x or higher.
+- Vertica 11.x or higher.
 - Network access from the coordinator and workers to the Vertica server.
   Port 5433 is the default port.
 
@@ -164,13 +165,16 @@ features:
 - [](/sql/create-table)
 - [](/sql/create-table-as)
 - [](/sql/drop-table)
-- [](/sql/alter-table) excluding `DROP COLUMN`
+- [](/sql/alter-table) excluding `DROP COLUMN`, see also [](vertica-alter-table)
 - [](/sql/create-schema)
 - [](/sql/drop-schema)
+- [](vertica-table-functions)
 
+(vertica-alter-table)=
 ```{include} alter-table-limitation.fragment
 ```
 
+(vertica-table-functions)=
 ## Table functions
 
 The connector provides specific [table functions](/functions/table) to

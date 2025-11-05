@@ -26,9 +26,10 @@ import io.trino.metadata.TableHandle;
 import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.deltalake.metastore.NoOpVendedCredentialsProvider;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
@@ -38,6 +39,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -156,7 +158,7 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                             keyColumnHandle,
                             Domain.singleValue(INTEGER, 1L)));
             try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, deltaLakeConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(splitPruningPredicate))) {
-                assertThat(emptyPageSource.getNextPage()).isNull();
+                assertThat(emptyPageSource.getNextSourcePage()).isNull();
             }
 
             TupleDomain<ColumnHandle> nonSelectivePredicate = TupleDomain.withColumnDomains(
@@ -164,7 +166,7 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                             keyColumnHandle,
                             Domain.singleValue(INTEGER, (long) keyColumnValue)));
             try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, deltaLakeConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(nonSelectivePredicate))) {
-                Page page = nonEmptyPageSource.getNextPage();
+                SourcePage page = nonEmptyPageSource.getNextSourcePage();
                 assertThat(page).isNotNull();
                 assertThat(page.getPositionCount()).isEqualTo(1);
                 assertThat(INTEGER.getInt(page.getBlock(0), 0)).isEqualTo(keyColumnValue);
@@ -270,7 +272,7 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                         tableHandle,
                         ImmutableList.of(dateColumnHandle, receiptColumnHandle, amountColumnHandle),
                         getDynamicFilter(partitionPredicate))) {
-                    assertThat(emptyPageSource.getNextPage()).isNull();
+                    assertThat(emptyPageSource.getNextSourcePage()).isNull();
                 }
             }
 
@@ -290,12 +292,12 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                         tableHandle,
                         ImmutableList.of(dateColumnHandle, receiptColumnHandle, amountColumnHandle),
                         getDynamicFilter(partitionPredicate))) {
-                    Page page = nonEmptyPageSource.getNextPage();
+                    SourcePage page = nonEmptyPageSource.getNextSourcePage();
                     assertThat(page).isNotNull();
                     assertThat(page.getPositionCount()).isEqualTo(1);
                     assertThat(INTEGER.getInt(page.getBlock(0), 0)).isEqualTo(dateColumnValue);
                     assertThat(VARCHAR.getSlice(page.getBlock(1), 0).toStringUtf8()).isEqualTo(receiptColumnValue);
-                    assertThat(((SqlDecimal) amountColumnType.getObjectValue(null, page.getBlock(2), 0)).toBigDecimal()).isEqualTo(amountColumnValue);
+                    assertThat(((SqlDecimal) amountColumnType.getObjectValue(page.getBlock(2), 0)).toBigDecimal()).isEqualTo(amountColumnValue);
                 }
             }
         }
@@ -325,7 +327,7 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         DeltaLakePageSourceProvider provider = new DeltaLakePageSourceProvider(
-                new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS),
+                new DefaultDeltaLakeFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS), new NoOpVendedCredentialsProvider()),
                 stats,
                 PARQUET_READER_CONFIG,
                 deltaLakeConfig,

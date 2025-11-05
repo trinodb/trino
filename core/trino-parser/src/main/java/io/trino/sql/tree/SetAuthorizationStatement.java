@@ -21,17 +21,30 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public abstract class SetAuthorizationStatement
+public class SetAuthorizationStatement
         extends Statement
 {
+    private final String ownedEntityKind;
     private final QualifiedName source;
     private final PrincipalSpecification principal;
 
-    public SetAuthorizationStatement(NodeLocation location, QualifiedName source, PrincipalSpecification principal)
+    public SetAuthorizationStatement(NodeLocation location, String ownedEntityKind, QualifiedName source, PrincipalSpecification principal)
     {
         super(location);
+        this.ownedEntityKind = requireNonNull(ownedEntityKind, "ownedEntityKind is null");
         this.source = requireNonNull(source, "source is null");
         this.principal = requireNonNull(principal, "principal is null");
+    }
+
+    @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitSetAuthorization(this, context);
+    }
+
+    public String getOwnedEntityKind()
+    {
+        return ownedEntityKind;
     }
 
     public QualifiedName getSource()

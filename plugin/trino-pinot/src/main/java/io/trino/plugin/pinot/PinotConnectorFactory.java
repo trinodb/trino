@@ -18,6 +18,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.pinot.auth.PinotAuthenticationModule;
@@ -59,16 +60,18 @@ public class PinotConnectorFactory
                 .add(new JsonModule())
                 .add(new MBeanModule())
                 .add(new MBeanServerModule())
-                .add(new TypeDeserializerModule(context.getTypeManager()))
-                .add(new PinotModule(catalogName, context.getNodeManager()))
+                .add(new TypeDeserializerModule())
+                .add(new ConnectorContextModule(catalogName, context))
+                .add(new PinotModule(catalogName))
                 .add(new PinotAuthenticationModule());
 
         extension.ifPresent(modulesBuilder::add);
 
-        Bootstrap app = new Bootstrap(modulesBuilder.build());
+        Bootstrap app = new Bootstrap("io.trino.bootstrap.catalog." + catalogName, modulesBuilder.build());
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

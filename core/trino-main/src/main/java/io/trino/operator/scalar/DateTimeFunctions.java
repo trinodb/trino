@@ -15,7 +15,6 @@ package io.trino.operator.scalar;
 
 import io.airlift.concurrent.ThreadLocalCache;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import io.trino.operator.scalar.timestamptz.CurrentTimestamp;
 import io.trino.spi.TrinoException;
@@ -90,7 +89,7 @@ public final class DateTimeFunctions
     private static final int MILLISECONDS_IN_HOUR = 60 * MILLISECONDS_IN_MINUTE;
     private static final int MILLISECONDS_IN_DAY = 24 * MILLISECONDS_IN_HOUR;
     private static final int PIVOT_YEAR = 2020; // yy = 70 will correspond to 1970 but 69 to 2069
-    private static final Slice ISO_8601_DATE_FORMAT = Slices.utf8Slice("%Y-%m-%d");
+    private static final Slice ISO_8601_DATE_FORMAT = utf8Slice("%Y-%m-%d");
     private static final DateTimeFieldProvider[] DATE_FIELDS = new DateTimeFieldProvider[] {
             new DateTimeFieldProvider("day", ISOChronology::dayOfMonth),
             new DateTimeFieldProvider("week", ISOChronology::weekOfWeekyear),
@@ -274,13 +273,11 @@ public final class DateTimeFunctions
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
 
-        ZonedDateTime zonedDatetime;
-        if (parsedDatetime instanceof ZonedDateTime) {
-            zonedDatetime = (ZonedDateTime) parsedDatetime;
-        }
-        else {
-            zonedDatetime = ((LocalDateTime) parsedDatetime).atZone(session.getTimeZoneKey().getZoneId());
-        }
+        ZonedDateTime zonedDatetime = switch (parsedDatetime) {
+            case ZonedDateTime value -> value;
+            case LocalDateTime value -> value.atZone(session.getTimeZoneKey().getZoneId());
+            default -> throw new IllegalStateException("Unexpected value: " + parsedDatetime);
+        };
 
         long picosOfSecond = zonedDatetime.getNano() * ((long) PICOSECONDS_PER_NANOSECOND);
         TimeZoneKey zone = TimeZoneKey.getTimeZoneKey(zonedDatetime.getZone().getId());

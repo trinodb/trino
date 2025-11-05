@@ -35,6 +35,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 @Path("/v1/resourceGroupState")
+@ResourceSecurity(MANAGEMENT_READ)
 public class ResourceGroupStateInfoResource
 {
     private final ResourceGroupInfoProvider resourceGroupInfoProvider;
@@ -45,7 +46,6 @@ public class ResourceGroupStateInfoResource
         this.resourceGroupInfoProvider = requireNonNull(resourceGroupInfoProvider, "resourceGroupInfoProvider is null");
     }
 
-    @ResourceSecurity(MANAGEMENT_READ)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Encoded

@@ -29,10 +29,10 @@ import io.trino.execution.buffer.OutputBufferInfo;
 import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.operator.TaskStats;
 import io.trino.plugin.base.metrics.TDigestHistogram;
-import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 
@@ -271,7 +271,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         0,
                         1,
                         1),
-                DateTime.now(),
+                Instant.now(),
                 new OutputBufferInfo(
                         "TESTING",
                         BufferState.FINISHED,
@@ -283,9 +283,10 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         0,
                         Optional.empty(),
                         Optional.of(new TDigestHistogram(new TDigest())),
+                        Optional.empty(),
                         Optional.empty()),
                 ImmutableSet.of(),
-                new TaskStats(DateTime.now(),
+                new TaskStats(Instant.now(),
                         null,
                         null,
                         null,
@@ -306,6 +307,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         DataSize.ofBytes(0),
                         DataSize.ofBytes(0),
                         DataSize.ofBytes(0),
+                        DataSize.ofBytes(0),
                         scheduledTime,
                         new Duration(0, MILLISECONDS),
                         blockedTime,
@@ -314,8 +316,6 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         DataSize.ofBytes(0),
                         0,
                         new Duration(0, MILLISECONDS),
-                        DataSize.ofBytes(0),
-                        0,
                         DataSize.ofBytes(0),
                         0,
                         DataSize.ofBytes(0),

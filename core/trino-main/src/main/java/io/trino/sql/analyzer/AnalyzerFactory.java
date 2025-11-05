@@ -18,6 +18,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.security.AccessControl;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
@@ -53,6 +54,26 @@ public class AnalyzerFactory
                 session,
                 this,
                 statementAnalyzerFactory,
+                parameters,
+                parameterLookup,
+                warningCollector,
+                planOptimizersStatsCollector,
+                tracer,
+                statementRewrite);
+    }
+
+    public Analyzer createAnalyzer(
+            Session session,
+            List<Expression> parameters,
+            AccessControl accessControl,
+            Map<NodeRef<Parameter>, Expression> parameterLookup,
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector)
+    {
+        return new Analyzer(
+                session,
+                this,
+                statementAnalyzerFactory.withSpecializedAccessControl(accessControl),
                 parameters,
                 parameterLookup,
                 warningCollector,
