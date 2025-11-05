@@ -241,6 +241,7 @@ public class TestQueryInfo
                 ImmutableList.of(new TrinoWarning(new WarningCode(1, "name"), "message")),
                 ImmutableSet.of(new Input(Optional.of("connectorName"), "catalog", new CatalogVersion("default"), "schema", "talble", Optional.empty(), ImmutableList.of(new Column("name", "type")), new PlanFragmentId("id"), new PlanNodeId("1"))),
                 Optional.empty(),
+                Optional.empty(),
                 ImmutableList.of(),
                 ImmutableList.of(),
                 true,
