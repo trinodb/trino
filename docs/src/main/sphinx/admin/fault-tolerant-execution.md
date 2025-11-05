@@ -630,7 +630,7 @@ The following `exchange-manager.properties` configuration example specifies Allu
 as the spooling storage destination.
 
 ```properties
-exchange-manager.name=alluxio
+exchange-manager.name=filesystem
 exchange.base-directories=alluxio://alluxio-master:19998/exchange-spooling-directory
 exchange.alluxio.site-file-path=/path/to/alluxio-site.properties
 ```
