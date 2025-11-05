@@ -94,6 +94,56 @@ public class TestArrayBlockBuilder
         assertIsAllNulls(blockBuilder().appendNull().appendNull().build(), 2);
     }
 
+    @Test
+    void buildEntry()
+    {
+        List<List<String>> values = getTestValues();
+        assertThat(values)
+                .hasSize(5)
+                .doesNotHaveDuplicates()
+                .doesNotContainNull();
+
+        ArrayBlockBuilder blockBuilder = (ArrayBlockBuilder) createBlockBuilder();
+        for (List<String> array : values) {
+            blockBuilder.buildEntry(elementBuilder -> {
+                for (String element : array) {
+                    if (element == null) {
+                        elementBuilder.appendNull();
+                    }
+                    else {
+                        VARCHAR.writeString(elementBuilder, element);
+                    }
+                }
+            });
+        }
+        assertThat(blockToValues(blockBuilder.buildValueBlock())).isEqualTo(values);
+
+        blockBuilder = (ArrayBlockBuilder) createBlockBuilder();
+        for (List<String> array : values) {
+            ArrayEntryBuilder arrayEntryBuilder = blockBuilder.buildEntry();
+            for (String element : array) {
+                if (element == null) {
+                    arrayEntryBuilder.getElementBuilder().appendNull();
+                }
+                else {
+                    VARCHAR.writeString(arrayEntryBuilder.getElementBuilder(), element);
+                }
+            }
+            arrayEntryBuilder.build();
+        }
+        assertThat(blockToValues(blockBuilder.buildValueBlock())).isEqualTo(values);
+
+        blockBuilder = (ArrayBlockBuilder) createBlockBuilder();
+        blockBuilder.buildEntry();
+        assertThatThrownBy(blockBuilder::buildEntry).isInstanceOf(IllegalStateException.class);
+
+        blockBuilder = (ArrayBlockBuilder) createBlockBuilder();
+        ArrayEntryBuilder multipleEntryBuilder = blockBuilder.buildEntry();
+        multipleEntryBuilder.build();
+        assertThatThrownBy(multipleEntryBuilder::getElementBuilder).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(multipleEntryBuilder::build).isInstanceOf(IllegalStateException.class);
+    }
+
     private static BlockBuilder blockBuilder()
     {
         return new ArrayBlockBuilder(BIGINT, null, 10);
