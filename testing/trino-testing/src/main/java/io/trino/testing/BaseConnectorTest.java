@@ -42,10 +42,12 @@ import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.assertions.TrinoExceptionAssert;
@@ -100,6 +102,7 @@ import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.UNKNOWN
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
@@ -113,6 +116,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_WITH
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_WITH_POSITION;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_FIELD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_FIELD_IN_ARRAY;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_MATERIALIZED_VIEW_COLUMN;
@@ -139,12 +143,15 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_FIELD_IN_A
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_SCHEMA_CASCADE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_LIMIT_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MAP_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MATERIALIZED_VIEW_FRESHNESS_FROM_BASE_TABLES;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MULTI_STATEMENT_WRITES;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NEGATIVE_DATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_REFRESH_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_FIELD;
@@ -162,6 +169,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_FIELD_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_FIELD_TYPE_IN_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_FIELD_TYPE_IN_MAP;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TRUNCATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -417,6 +425,144 @@ public abstract class BaseConnectorTest
                     "SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS char(2))",
                     // The 3-spaces value is included because both sides of the comparison are coerced to char(3)
                     "VALUES (4, 'x'), (5, 'x '), (6, 'x  ')");
+        }
+    }
+
+    @Test
+    public void testLimitPushdown()
+    {
+        if (!hasBehavior(SUPPORTS_LIMIT_PUSHDOWN)) {
+            assertThat(query("SELECT name FROM nation LIMIT 30")).isNotFullyPushedDown(LimitNode.class); // Use high limit for result determinism
+            return;
+        }
+
+        assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
+        assertThat(query("SELECT name FROM nation LIMIT 3")).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
+
+        PlanMatchPattern filterOverTableScan = node(FilterNode.class, node(TableScanNode.class));
+        // with filter over numeric column
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT name FROM nation WHERE regionkey = 3 LIMIT 5",
+                hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN),
+                filterOverTableScan);
+
+        // with filter over varchar column
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT name FROM nation WHERE name < 'EEE' LIMIT 5",
+                hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY),
+                filterOverTableScan);
+
+        // with aggregation
+        PlanMatchPattern aggregationOverTableScan = node(AggregationNode.class, anyTree(node(TableScanNode.class)));
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT max(regionkey) FROM nation LIMIT 5", // global aggregation, LIMIT removed
+                hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN),
+                aggregationOverTableScan);
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey LIMIT 5",
+                hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN),
+                aggregationOverTableScan);
+
+        // with aggregation and filter over numeric column
+        if (hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN)) {
+            assertConditionallyPushedDown(
+                    getSession(),
+                    "SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3",
+                    hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN),
+                    aggregationOverTableScan);
+        }
+
+        // with aggregation and filter over varchar column
+        if (hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)) {
+            assertConditionallyPushedDown(
+                    getSession(),
+                    "SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3",
+                    hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN),
+                    aggregationOverTableScan);
+        }
+
+        // with TopN over numeric column
+        PlanMatchPattern topnOverTableScan = project(node(TopNNode.class, anyTree(node(TableScanNode.class))));
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT * FROM (SELECT regionkey FROM nation ORDER BY nationkey ASC LIMIT 10) LIMIT 5",
+                hasBehavior(SUPPORTS_TOPN_PUSHDOWN),
+                topnOverTableScan);
+        // with TopN over varchar column
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT * FROM (SELECT regionkey FROM nation ORDER BY name ASC LIMIT 10) LIMIT 5",
+                hasBehavior(SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR),
+                topnOverTableScan);
+    }
+
+    @Test
+    public void testTopNPushdown()
+    {
+        if (!hasBehavior(SUPPORTS_TOPN_PUSHDOWN)) {
+            assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10"))
+                    .ordered()
+                    .isNotFullyPushedDown(TopNNode.class);
+            return;
+        }
+
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10"))
+                .ordered()
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey DESC LIMIT 10"))
+                .ordered()
+                .isFullyPushedDown();
+
+        // multiple sort columns with different orders
+        assertThat(query("SELECT * FROM orders ORDER BY shippriority DESC, totalprice ASC LIMIT 10"))
+                .ordered()
+                .isFullyPushedDown();
+
+        // TopN over aggregation column
+        if (hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
+            assertThat(query("SELECT sum(totalprice) AS total FROM orders GROUP BY custkey ORDER BY total DESC LIMIT 10"))
+                    .ordered()
+                    .isFullyPushedDown();
+        }
+
+        // TopN over TopN
+        assertThat(query("SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders ORDER BY 1, 2 LIMIT 10) ORDER BY 2, 1 LIMIT 5"))
+                .ordered()
+                .isFullyPushedDown();
+
+        assertThat(query("" +
+                         "SELECT orderkey, totalprice " +
+                         "FROM (SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders ORDER BY 1, 2 LIMIT 10) " +
+                         "ORDER BY 2, 1 LIMIT 5) ORDER BY 1, 2 LIMIT 3"))
+                .ordered()
+                .isFullyPushedDown();
+
+        // TopN over limit - use high limit for deterministic result
+        assertThat(query("SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders LIMIT 15000) ORDER BY totalprice ASC LIMIT 5"))
+                .ordered()
+                .isFullyPushedDown();
+
+        // TopN over limit with filter
+        assertThat(query("" +
+                         "SELECT orderkey, totalprice " +
+                         "FROM (SELECT orderkey, totalprice FROM orders WHERE orderdate = DATE '1995-09-16' LIMIT 20) " +
+                         "ORDER BY totalprice ASC LIMIT 5"))
+                .ordered()
+                .isFullyPushedDown();
+
+        // TopN over aggregation with filter
+        if (hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
+            assertThat(query("" +
+                             "SELECT * " +
+                             "FROM (SELECT SUM(totalprice) as sum, custkey AS total FROM orders GROUP BY custkey HAVING COUNT(*) > 3) " +
+                             "ORDER BY sum DESC LIMIT 10"))
+                    .ordered()
+                    .isFullyPushedDown();
         }
     }
 
@@ -7602,5 +7748,18 @@ public abstract class BaseConnectorTest
             return trinoTypeName + (unsupportedType ? "!" : "") +
                     ":" + sampleValueLiteral.replaceAll("[^a-zA-Z0-9_-]", "");
         }
+    }
+
+    protected QueryAssert assertConditionallyPushedDown(
+            Session session,
+            @Language("SQL") String query,
+            boolean condition,
+            PlanMatchPattern otherwiseExpected)
+    {
+        QueryAssert queryAssert = assertThat(query(session, query));
+        if (condition) {
+            return queryAssert.isFullyPushedDown();
+        }
+        return queryAssert.isNotFullyPushedDown(otherwiseExpected);
     }
 }

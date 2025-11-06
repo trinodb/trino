@@ -397,6 +397,11 @@ all worker nodes. In this file, set the `exchange-manager.name` configuration
 property to `filesystem` or `hdfs`, and set additional configuration properties as needed
 for your storage solution.
 
+You can also specify the location of the exchange manager configuration file
+in `config.properties` with the `exchange-manager.config-file` property.
+When this property is set, Trino loads the exchange manager configuration
+from the specified path instead of the default `etc/exchange-manager.properties`.
+
 The following table lists the available configuration properties for
 `exchange-manager.properties`, their default values, and which file systems
 the property may be configured for:
@@ -414,6 +419,11 @@ the property may be configured for:
     store spooling data.
   -
   - Any
+* - `exchange.max-page-storage-size`
+  - Max storage size of a page written to a sink, including the page itself
+    and its size.
+  - `16MB`
+  - Any
 * - `exchange.sink-buffer-pool-min-size`
   - The minimum buffer pool size for an exchange sink. The larger the buffer
     pool size, the larger the write parallelism and memory usage.
@@ -426,7 +436,7 @@ the property may be configured for:
   - Any
 * - `exchange.sink-max-file-size`
   - Max [data size](prop-type-data-size) of files written by exchange sinks.
-  - ``1GB``
+  - `1GB`
   - Any
 * - `exchange.source-concurrent-readers`
   - Number of concurrent readers to read from spooling storage. The larger the

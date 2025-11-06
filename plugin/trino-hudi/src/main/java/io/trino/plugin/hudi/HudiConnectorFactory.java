@@ -73,7 +73,7 @@ public class HudiConnectorFactory
                     new MBeanModule(),
                     new JsonModule(),
                     new HudiModule(),
-                    new HiveMetastoreModule(Optional.empty()),
+                    new HiveMetastoreModule(Optional.empty(), false),
                     new FileSystemModule(catalogName, context, false),
                     new MBeanServerModule(),
                     module.orElse(EMPTY_MODULE),
@@ -81,6 +81,7 @@ public class HudiConnectorFactory
 
             Injector injector = app
                     .doNotInitializeLogging()
+                    .disableSystemProperties()
                     .setRequiredConfigurationProperties(config)
                     .initialize();
 

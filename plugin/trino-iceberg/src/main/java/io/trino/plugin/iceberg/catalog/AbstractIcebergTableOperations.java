@@ -240,7 +240,7 @@ public abstract class AbstractIcebergTableOperations
     {
         refreshFromMetadataLocation(
                 newLocation,
-                metadataLocation -> TableMetadataParser.read(fileIo, fileIo.newInputFile(metadataLocation)));
+                metadataLocation -> TableMetadataParser.read(fileIo.newInputFile(metadataLocation)));
     }
 
     protected void refreshFromMetadataLocation(String newLocation, Function<String, TableMetadata> metadataLoader)

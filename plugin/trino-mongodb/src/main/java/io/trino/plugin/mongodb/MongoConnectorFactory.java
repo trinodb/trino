@@ -57,7 +57,9 @@ public class MongoConnectorFactory
                 new MongoClientModule(),
                 new ConnectorContextModule(catalogName, context));
 
-        Injector injector = app.doNotInitializeLogging()
+        Injector injector = app
+                .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

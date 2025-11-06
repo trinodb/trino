@@ -44,6 +44,7 @@ public class ExampleConnectorFactory
 
         // A plugin is not required to use Guice; it is just very convenient
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.catalog." + catalogName,
                 new JsonModule(),
                 new TypeDeserializerModule(),
                 new ConnectorContextModule(catalogName, context),

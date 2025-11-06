@@ -278,6 +278,7 @@ public abstract class BaseIcebergConnectorTest
                  SUPPORTS_REPORTING_WRITTEN_BYTES -> true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
                  SUPPORTS_DEFAULT_COLUMN_VALUE,
+                 SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_REFRESH_VIEW,
                  SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS,
                  SUPPORTS_TOPN_PUSHDOWN -> false;
@@ -8553,6 +8554,11 @@ public abstract class BaseIcebergConnectorTest
             expectedQuery = "SELECT a.custkey, b.orderkey FROM orders a JOIN orders b on a.orderkey = b.custkey";
             assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(1));
             assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(2));
+
+            // optimize should not require a remote exchange between the scan and the execute nodes
+            query = "ALTER TABLE test_bucketed_select EXECUTE OPTIMIZE";
+            assertUpdate(planWithTableNodePartitioning, query, assertRemoteExchangesCount(1));
+            assertUpdate(planWithoutTableNodePartitioning, query, assertRemoteExchangesCount(2));
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_bucketed_select");

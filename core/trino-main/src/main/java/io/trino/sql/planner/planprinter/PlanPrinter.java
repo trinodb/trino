@@ -465,11 +465,12 @@ public class PlanPrinter
                 .collect(toImmutableMap(DynamicFilterDomainStats::getDynamicFilterId, identity()));
 
         builder.append(format("Trino version: %s\n", version));
-        builder.append(format("Queued: %s, Analysis: %s, Planning: %s, Execution: %s\n",
+        builder.append(format("Queued: %s, Analysis: %s, Planning: %s, Execution: %s, Finishing: %s\n",
                 queryStats.getQueuedTime().convertToMostSuccinctTimeUnit(),
                 queryStats.getAnalysisTime().convertToMostSuccinctTimeUnit(),
                 queryStats.getPlanningTime().convertToMostSuccinctTimeUnit(),
-                queryStats.getExecutionTime().convertToMostSuccinctTimeUnit()));
+                queryStats.getExecutionTime().convertToMostSuccinctTimeUnit(),
+                queryStats.getFinishingTime().convertToMostSuccinctTimeUnit()));
 
         for (StageInfo stageInfo : stages) {
             if (stageInfo.getPlan() == null) {

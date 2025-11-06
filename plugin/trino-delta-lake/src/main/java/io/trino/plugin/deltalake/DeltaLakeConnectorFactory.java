@@ -98,6 +98,7 @@ public class DeltaLakeConnectorFactory
 
             Injector injector = app
                     .doNotInitializeLogging()
+                    .disableSystemProperties()
                     .setRequiredConfigurationProperties(config)
                     .initialize();
 
