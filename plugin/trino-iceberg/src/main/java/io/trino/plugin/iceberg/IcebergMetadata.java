@@ -2038,14 +2038,20 @@ public class IcebergMetadata
     {
         checkArgument(executeHandle.procedureHandle() instanceof IcebergDropExtendedStatsHandle, "Unexpected procedure handle %s", executeHandle.procedureHandle());
 
-        Table icebergTable = catalog.loadTable(session, executeHandle.schemaTableName());
-        beginTransaction(icebergTable);
-        UpdateStatistics updateStatistics = transaction.updateStatistics();
-        for (StatisticsFile statisticsFile : icebergTable.statisticsFiles()) {
-            updateStatistics.removeStatistics(statisticsFile.snapshotId());
+        try {
+            Table icebergTable = catalog.loadTable(session, executeHandle.schemaTableName());
+            beginTransaction(icebergTable);
+            UpdateStatistics updateStatistics = transaction.updateStatistics();
+            for (StatisticsFile statisticsFile : icebergTable.statisticsFiles()) {
+                updateStatistics.removeStatistics(statisticsFile.snapshotId());
+            }
+            updateStatistics.commit();
+            commitTransaction(transaction, "drop extended stats");
         }
-        updateStatistics.commit();
-        commitTransaction(transaction, "drop extended stats");
+        catch (NotFoundException e) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, e);
+        }
+
         transaction = null;
     }
 
@@ -2054,8 +2060,13 @@ public class IcebergMetadata
         checkArgument(executeHandle.procedureHandle() instanceof IcebergRollbackToSnapshotHandle, "Unexpected procedure handle %s", executeHandle.procedureHandle());
         long snapshotId = ((IcebergRollbackToSnapshotHandle) executeHandle.procedureHandle()).snapshotId();
 
-        Table icebergTable = catalog.loadTable(session, executeHandle.schemaTableName());
-        icebergTable.manageSnapshots().setCurrentSnapshot(snapshotId).commit();
+        try {
+            Table icebergTable = catalog.loadTable(session, executeHandle.schemaTableName());
+            icebergTable.manageSnapshots().setCurrentSnapshot(snapshotId).commit();
+        }
+        catch (NotFoundException e) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, e);
+        }
     }
 
     private void executeExpireSnapshots(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
@@ -2074,10 +2085,15 @@ public class IcebergMetadata
                 IcebergSessionProperties.EXPIRE_SNAPSHOTS_MIN_RETENTION);
 
         // ForwardingFileIo handles bulk operations so no separate function implementation is needed
-        table.expireSnapshots()
-                .expireOlderThan(session.getStart().toEpochMilli() - retention.toMillis())
-                .planWith(icebergScanExecutor)
-                .commit();
+        try {
+            table.expireSnapshots()
+                    .expireOlderThan(session.getStart().toEpochMilli() - retention.toMillis())
+                    .planWith(icebergScanExecutor)
+                    .commit();
+        }
+        catch (NotFoundException e) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, e);
+        }
     }
 
     private static void validateTableExecuteParameters(
