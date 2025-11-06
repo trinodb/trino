@@ -45,6 +45,8 @@
 
 ## Iceberg connector
 
+* Fix failures when querying `$files` table after changes to table partitioning. ({issue}`26746`)
+
 ## Ignite connector
 
 ## JMX connector
@@ -52,6 +54,8 @@
 ## Kafka connector
 
 ## Loki connector
+
+* Fix failure when initializing the connector. ({issue}`27180`)
 
 ## MariaDB connector
 
@@ -88,3 +92,5 @@
 ## Vertica connector
 
 ## SPI
+
+* Add query finishing time to io.trino.spi.eventlistener.QueryStatistics. ({issue}`27202`)
