@@ -5,6 +5,7 @@
 * Support automatic TLS certificate generation in the `ANNOUNCE` node discovery mode. ({issue}`27030`)
 * Fix planning failure of certain queries involving empty VALUES. ({issue}`21506`)
 * Add support for specifying the location of the Exchange Manager configuration file. ({issue}`26611`)
+* Publish query finishing time event listener. ({issue}`27202`)
 
 ## Security
 
@@ -95,5 +96,3 @@
 ## Vertica connector
 
 ## SPI
-
-* Add query finishing time to io.trino.spi.eventlistener.QueryStatistics. ({issue}`27202`)
