@@ -134,7 +134,7 @@ public abstract class BaseJdbcConnectorTest
 {
     private static final Logger log = Logger.get(BaseJdbcConnectorTest.class);
 
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getName()));
+    protected final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getName()));
 
     protected abstract SqlExecutor onRemoteDatabase();
 
@@ -1716,7 +1716,7 @@ public abstract class BaseJdbcConnectorTest
         throw new UnsupportedOperationException();
     }
 
-    private QueryId getQueryId(String query)
+    protected QueryId getQueryId(String query)
             throws Exception
     {
         for (int i = 0; i < 100; i++) {

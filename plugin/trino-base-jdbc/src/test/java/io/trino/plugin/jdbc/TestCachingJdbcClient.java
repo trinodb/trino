@@ -29,6 +29,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
@@ -183,11 +184,11 @@ public class TestCachingJdbcClient
         SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
 
         createTable(phantomTable);
-        Optional<JdbcTableHandle> cachedTable = cachingJdbcClient.getTableHandle(SESSION, phantomTable);
+        Optional<JdbcTableHandle> cachedTable = cachingJdbcClient.getTableHandle(SESSION, phantomTable, Optional.empty());
         dropTable(phantomTable);
 
-        assertThat(jdbcClient.getTableHandle(SESSION, phantomTable)).isEmpty();
-        assertThat(cachingJdbcClient.getTableHandle(SESSION, phantomTable)).isEqualTo(cachedTable);
+        assertThat(jdbcClient.getTableHandle(SESSION, phantomTable, Optional.empty())).isEmpty();
+        assertThat(cachingJdbcClient.getTableHandle(SESSION, phantomTable, Optional.empty())).isEqualTo(cachedTable);
     }
 
     @Test
@@ -348,10 +349,10 @@ public class TestCachingJdbcClient
         SchemaTableName tableName = table.asPlainTable().getSchemaTableName();
 
         assertTableHandleByNameCache(cachingJdbcClient).misses(1).loads(1).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getTableHandle(SESSION, tableName).orElseThrow()).isEqualTo(table);
+            assertThat(cachingJdbcClient.getTableHandle(SESSION, tableName, Optional.empty()).orElseThrow()).isEqualTo(table);
         });
         assertTableHandleByNameCache(cachingJdbcClient).hits(1).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getTableHandle(SESSION, tableName).orElseThrow()).isEqualTo(table);
+            assertThat(cachingJdbcClient.getTableHandle(SESSION, tableName, Optional.empty()).orElseThrow()).isEqualTo(table);
         });
     }
 
@@ -363,10 +364,10 @@ public class TestCachingJdbcClient
                 .build();
         SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
 
-        assertThat(cachingJdbcClient.getTableHandle(SESSION, phantomTable)).isEmpty();
+        assertThat(cachingJdbcClient.getTableHandle(SESSION, phantomTable, Optional.empty())).isEmpty();
 
         createTable(phantomTable);
-        assertThat(cachingJdbcClient.getTableHandle(SESSION, phantomTable)).isEmpty();
+        assertThat(cachingJdbcClient.getTableHandle(SESSION, phantomTable, Optional.empty())).isEmpty();
         dropTable(phantomTable);
     }
 
@@ -378,17 +379,17 @@ public class TestCachingJdbcClient
                 .build();
         SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
 
-        assertThat(cachingJdbcClient.getTableHandle(SESSION, phantomTable)).isEmpty();
+        assertThat(cachingJdbcClient.getTableHandle(SESSION, phantomTable, Optional.empty())).isEmpty();
 
         createTable(phantomTable);
-        assertThat(cachingJdbcClient.getTableHandle(SESSION, phantomTable)).isPresent();
+        assertThat(cachingJdbcClient.getTableHandle(SESSION, phantomTable, Optional.empty())).isPresent();
         dropTable(phantomTable);
     }
 
     private JdbcTableHandle createTable(SchemaTableName phantomTable)
     {
         jdbcClient.createTable(SESSION, new ConnectorTableMetadata(phantomTable, emptyList()));
-        return jdbcClient.getTableHandle(SESSION, phantomTable).orElseThrow();
+        return jdbcClient.getTableHandle(SESSION, phantomTable, Optional.empty()).orElseThrow();
     }
 
     private void createProcedure(String procedureName)
@@ -421,7 +422,7 @@ public class TestCachingJdbcClient
 
     private void dropTable(SchemaTableName phantomTable)
     {
-        JdbcTableHandle tableHandle = jdbcClient.getTableHandle(SESSION, phantomTable).orElseThrow();
+        JdbcTableHandle tableHandle = jdbcClient.getTableHandle(SESSION, phantomTable, Optional.empty()).orElseThrow();
         jdbcClient.dropTable(SESSION, tableHandle);
     }
 
@@ -885,7 +886,7 @@ public class TestCachingJdbcClient
                     }
 
                     @Override
-                    public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+                    public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName, Optional<ConnectorTableVersion> endVersion)
                     {
                         if (first.compareAndSet(true, false)) {
                             // first
@@ -898,7 +899,7 @@ public class TestCachingJdbcClient
                             }
                             throw new RuntimeException("first attempt is poised to fail");
                         }
-                        return super.getTableHandle(session, schemaTableName);
+                        return super.getTableHandle(session, schemaTableName, endVersion);
                     }
                 })
                 // ttl is 0, cache is disabled
@@ -913,7 +914,7 @@ public class TestCachingJdbcClient
         for (int i = 0; i < 2; i++) {
             futures.add(executor.submit(() -> {
                 barrier.await(10, SECONDS);
-                return cachingJdbcClient.getTableHandle(session, tableName).orElseThrow();
+                return cachingJdbcClient.getTableHandle(session, tableName, Optional.empty()).orElseThrow();
             }));
         }
 
@@ -965,10 +966,10 @@ public class TestCachingJdbcClient
                     .doesNotContain(secondName);
         });
         assertTableHandleByNameCache(cachingJdbcClient).misses(1).loads(1).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getTableHandle(session, firstName)).isNotEmpty();
+            assertThat(cachingJdbcClient.getTableHandle(session, firstName, Optional.empty())).isNotEmpty();
         });
         assertTableHandleByNameCache(cachingJdbcClient).misses(1).loads(1).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getTableHandle(session, secondName)).isEmpty();
+            assertThat(cachingJdbcClient.getTableHandle(session, secondName, Optional.empty())).isEmpty();
         });
 
         jdbcClient.createSchema(SESSION, secondSchema);
@@ -986,10 +987,10 @@ public class TestCachingJdbcClient
                     .doesNotContain(secondName);
         });
         assertTableHandleByNameCache(cachingJdbcClient).hits(1).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getTableHandle(session, firstName)).isNotEmpty();
+            assertThat(cachingJdbcClient.getTableHandle(session, firstName, Optional.empty())).isNotEmpty();
         });
         assertTableHandleByNameCache(cachingJdbcClient).hits(1).misses(1).loads(1).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getTableHandle(session, secondName)).isNotEmpty();
+            assertThat(cachingJdbcClient.getTableHandle(session, secondName, Optional.empty())).isNotEmpty();
         });
 
         // reloads table names, retains schema names and table handles
@@ -1004,10 +1005,10 @@ public class TestCachingJdbcClient
                     .contains(firstName, secondName);
         });
         assertTableHandleByNameCache(cachingJdbcClient).hits(1).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getTableHandle(session, firstName)).isNotEmpty();
+            assertThat(cachingJdbcClient.getTableHandle(session, firstName, Optional.empty())).isNotEmpty();
         });
         assertTableHandleByNameCache(cachingJdbcClient).hits(1).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getTableHandle(session, secondName)).isNotEmpty();
+            assertThat(cachingJdbcClient.getTableHandle(session, secondName, Optional.empty())).isNotEmpty();
         });
 
         // reloads tables names and schema names, but retains table handles
@@ -1021,10 +1022,10 @@ public class TestCachingJdbcClient
                     .contains(firstName, secondName);
         });
         assertTableHandleByNameCache(cachingJdbcClient).hits(1).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getTableHandle(session, firstName)).isNotEmpty();
+            assertThat(cachingJdbcClient.getTableHandle(session, firstName, Optional.empty())).isNotEmpty();
         });
         assertTableHandleByNameCache(cachingJdbcClient).hits(1).afterRunning(() -> {
-            assertThat(cachingJdbcClient.getTableHandle(session, secondName)).isNotEmpty();
+            assertThat(cachingJdbcClient.getTableHandle(session, secondName, Optional.empty())).isNotEmpty();
         });
 
         jdbcClient.dropTable(SESSION, first);
@@ -1049,7 +1050,7 @@ public class TestCachingJdbcClient
         JdbcTableHandle firstHandle = assertTableHandleByNameCache(cachingJdbcClient)
                 .misses(2)
                 .loads(1)
-                .calling(() -> cachingJdbcClient.getTableHandle(SESSION, phantomTable)).orElseThrow();
+                .calling(() -> cachingJdbcClient.getTableHandle(SESSION, phantomTable, Optional.empty())).orElseThrow();
 
         assertStatisticsCacheStats(cachingJdbcClient)
                 .misses(1)
@@ -1060,7 +1061,7 @@ public class TestCachingJdbcClient
         JdbcTableHandle secondHandle = assertTableHandleByNameCache(cachingJdbcClient)
                 .misses(2)
                 .loads(1)
-                .calling(() -> cachingJdbcClient.getTableHandle(SESSION, phantomTable)).orElseThrow();
+                .calling(() -> cachingJdbcClient.getTableHandle(SESSION, phantomTable, Optional.empty())).orElseThrow();
 
         // Stats come from the cache
         assertStatisticsCacheStats(cachingJdbcClient)
@@ -1077,7 +1078,7 @@ public class TestCachingJdbcClient
                 .filter(schemaTableName -> !"public".equals(schemaTableName.getTableName()))
                 .findAny()
                 .orElseThrow();
-        return jdbcClient.getTableHandle(SESSION, tableName).orElseThrow();
+        return jdbcClient.getTableHandle(SESSION, tableName, Optional.empty()).orElseThrow();
     }
 
     private JdbcColumnHandle addColumn(JdbcTableHandle tableHandle)

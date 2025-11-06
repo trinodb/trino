@@ -84,7 +84,7 @@ public class TestJdbcClient
                 new SchemaTableName("tpch", "orders"));
 
         SchemaTableName schemaTableName = new SchemaTableName("example", "numbers");
-        Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
+        Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName, Optional.empty());
         assertThat(table.isPresent()).withFailMessage("table is missing").isTrue();
         assertThat(table.get().getRequiredNamedRelation().getRemoteTableName().getCatalogName().orElse(null)).isEqualTo(catalogName.toUpperCase(ENGLISH));
         assertThat(table.get().getRequiredNamedRelation().getRemoteTableName().getSchemaName().orElse(null)).isEqualTo("EXAMPLE");
@@ -100,7 +100,7 @@ public class TestJdbcClient
     public void testMetadataWithSchemaPattern()
     {
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "num_ers");
-        Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
+        Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName, Optional.empty());
         assertThat(table.isPresent()).withFailMessage("table is missing").isTrue();
         assertThat(jdbcClient.getColumns(session, schemaTableName, table.get().getRequiredNamedRelation().getRemoteTableName())).containsExactly(
                 new JdbcColumnHandle("TE_T", JDBC_VARCHAR, VARCHAR),
@@ -111,7 +111,7 @@ public class TestJdbcClient
     public void testMetadataWithFloatAndDoubleCol()
     {
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "table_with_float_col");
-        Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
+        Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName, Optional.empty());
         assertThat(table.isPresent()).withFailMessage("table is missing").isTrue();
         assertThat(jdbcClient.getColumns(session, schemaTableName, table.get().getRequiredNamedRelation().getRemoteTableName())).containsExactly(
                 new JdbcColumnHandle("COL1", JDBC_BIGINT, BIGINT),
@@ -124,7 +124,7 @@ public class TestJdbcClient
     public void testMetadataWithTimestampCol()
     {
         SchemaTableName schemaTableName = new SchemaTableName("example", "timestamps");
-        Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
+        Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName, Optional.empty());
         assertThat(table.isPresent()).withFailMessage("table is missing").isTrue();
         assertThat(jdbcClient.getColumns(session, schemaTableName, table.get().getRequiredNamedRelation().getRemoteTableName())).containsExactly(
                 new JdbcColumnHandle("TS_3", JDBC_TIMESTAMP, TIMESTAMP_MILLIS),
@@ -154,8 +154,8 @@ public class TestJdbcClient
 
         jdbcClient.createSchema(session, schemaName);
         jdbcClient.createTable(session, tableMetadata);
-        jdbcClient.renameTable(session, jdbcClient.getTableHandle(session, oldTable).get(), newTable);
-        jdbcClient.dropTable(session, jdbcClient.getTableHandle(session, newTable).get());
+        jdbcClient.renameTable(session, jdbcClient.getTableHandle(session, oldTable, Optional.empty()).get(), newTable);
+        jdbcClient.dropTable(session, jdbcClient.getTableHandle(session, newTable, Optional.empty()).get());
         jdbcClient.dropSchema(session, schemaName, false);
         assertThat(jdbcClient.getTableNames(session, Optional.empty()))
                 .doesNotContain(oldTable)

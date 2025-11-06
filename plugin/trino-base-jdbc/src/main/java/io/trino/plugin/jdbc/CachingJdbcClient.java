@@ -36,6 +36,7 @@ import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.RelationColumnsMetadata;
@@ -371,8 +372,11 @@ public class CachingJdbcClient
     }
 
     @Override
-    public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+    public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName, Optional<ConnectorTableVersion> endVersion)
     {
+        if (endVersion.isPresent()) {
+            return delegate.getTableHandle(session, schemaTableName, endVersion);
+        }
         TableHandlesByNameCacheKey key = new TableHandlesByNameCacheKey(getIdentityKey(session), schemaTableName);
         Optional<JdbcTableHandle> cachedTableHandle = tableHandlesByNameCache.getIfPresent(key);
         //noinspection OptionalAssignedToNull
@@ -382,7 +386,7 @@ public class CachingJdbcClient
             }
             tableHandlesByNameCache.invalidate(key);
         }
-        return get(tableHandlesByNameCache, key, () -> delegate.getTableHandle(session, schemaTableName));
+        return get(tableHandlesByNameCache, key, () -> delegate.getTableHandle(session, schemaTableName, endVersion));
     }
 
     @Override

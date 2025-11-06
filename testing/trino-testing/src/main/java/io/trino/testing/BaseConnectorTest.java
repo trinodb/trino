@@ -194,6 +194,7 @@ public abstract class BaseConnectorTest
             .build().asList();
 
     private final ConcurrentMap<String, Function<ConnectorSession, List<String>>> mockTableListings = new ConcurrentHashMap<>();
+    private QueryAssert matches;
 
     @BeforeAll
     public void initMockCatalog()
@@ -698,9 +699,14 @@ public abstract class BaseConnectorTest
         String catalog = getSession().getCatalog().orElseThrow();
         String schema = getSession().getSchema().orElseThrow();
         assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2021-03-01 00:00:01'"))
-                .failure().hasMessageMatching("line 1:15: Table '%s.%s.%s' does not exist|This connector does not support versioned tables".formatted(catalog, schema, tableName));
+                .failure().hasMessageMatching("line 1:15: Table '%s.%s.%s' does not exist|%s".formatted(catalog, schema, tableName, invalidTimestampError()));
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'version1'"))
-                .failure().hasMessageMatching("line 1:15: Table '%s.%s.%s' does not exist|This connector does not support versioned tables".formatted(catalog, schema, tableName));
+                .failure().hasMessageMatching("line 1:15: Table '%s.%s.%s' does not exist|%s".formatted(catalog, schema, tableName, invalidTimestampError()));
+    }
+
+    protected String invalidTimestampError()
+    {
+        return "This connector does not support versioned tables";
     }
 
     /**

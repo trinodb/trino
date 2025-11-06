@@ -16,6 +16,7 @@ package io.trino.plugin.druid;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -189,7 +190,7 @@ public class TestDruidConnectorTest
      * This test verifies that the filtering we have in place to overcome Druid's limitation of
      * not handling the escaping of search characters like % and _, works correctly.
      * <p>
-     * See {@link DruidJdbcClient#getTableHandle(ConnectorSession, SchemaTableName)} and
+     * See {@link JdbcClient#getTableHandle(ConnectorSession, SchemaTableName, java.util.Optional)} and
      * {@link DruidJdbcClient#getColumns(ConnectorSession, SchemaTableName, io.trino.plugin.jdbc.RemoteTableName)}
      */
     @Test
