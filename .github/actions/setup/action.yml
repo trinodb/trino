@@ -14,6 +14,17 @@ inputs:
 runs:
   using: composite
   steps:
+      - name: Maximize build space
+        if: ${{ format('{0}', inputs.cleanup-node) == 'true' }}
+        uses: easimon/maximize-build-space@c28619d8999a147d5e09c1199f84ff6af6ad5794
+        with:
+          root-reserve-mb: 512
+          swap-size-mb: 1024
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          remove-docker-images: 'true'
       - name: Verify args
         shell: bash
         if: github.event_name == 'repository_dispatch' && github.event.client_payload.slash_command.args.named.sha == ''
@@ -33,10 +44,6 @@ runs:
       - name: Fetch base ref to find merge-base for GIB
         shell: bash
         run: .github/bin/git-fetch-base-ref.sh
-      - name: Free additional disk space
-        if: ${{ format('{0}', inputs.cleanup-node) == 'true' }}
-        shell: bash
-        run: ./.github/bin/free-disk-space.sh
       - uses: actions/setup-java@v4
         if: ${{ inputs.java-version != '' }}
         with:
