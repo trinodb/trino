@@ -43,13 +43,17 @@ public class TestingDatabendServer
         implements Closeable
 {
     private static final DockerImageName DATABEND_IMAGE = DockerImageName.parse("datafuselabs/databend:nightly");
-    private static final DockerImageName MINIO_IMAGE = DockerImageName.parse("minio/minio:latest");
+    private static final String DEFAULT_MINIO_IMAGE = "quay.io/minio/minio:RELEASE.2024-10-13T13-34-11Z";
+    private static final DockerImageName MINIO_IMAGE = DockerImageName.parse(
+            System.getProperty("databend.minio.image", DEFAULT_MINIO_IMAGE))
+            .asCompatibleSubstituteFor("minio/minio");
     private static final int MINIO_PORT = 9000;
     private static final String MINIO_ALIAS = "minio";
     private static final String DATABEND_ALIAS = "databend";
     private static final String MINIO_ACCESS_KEY = "minioadmin";
     private static final String MINIO_SECRET_KEY = "minioadmin";
     private static final String S3_REGION = "us-east-1";
+    private static final int BUCKET_CREATION_ATTEMPTS = 60;
     private static final String S3_BUCKET = "databend";
 
     private final Network network;
@@ -66,6 +70,7 @@ public class TestingDatabendServer
                 .withNetworkAliases(MINIO_ALIAS)
                 .withEnv("MINIO_ROOT_USER", MINIO_ACCESS_KEY)
                 .withEnv("MINIO_ROOT_PASSWORD", MINIO_SECRET_KEY)
+                .withEnv("MINIO_REGION_NAME", S3_REGION)
                 .withCommand("server", "/data")
                 .withExposedPorts(MINIO_PORT)
                 .waitingFor(Wait.forHttp("/minio/health/ready")
@@ -172,7 +177,7 @@ public class TestingDatabendServer
                 .build();
 
         RuntimeException lastFailure = null;
-        for (int attempt = 0; attempt < 30; attempt++) {
+        for (int attempt = 0; attempt < BUCKET_CREATION_ATTEMPTS; attempt++) {
             try (S3Client s3Client = S3Client.builder()
                     .endpointOverride(endpoint)
                     .credentialsProvider(credentialsProvider)
@@ -182,6 +187,7 @@ public class TestingDatabendServer
                 if (!bucketExists(s3Client)) {
                     s3Client.createBucket(CreateBucketRequest.builder()
                             .bucket(S3_BUCKET)
+                            .createBucketConfiguration(builder -> builder.locationConstraint(S3_REGION))
                             .build());
                 }
                 return;
@@ -213,7 +219,7 @@ public class TestingDatabendServer
             return false;
         }
         catch (S3Exception e) {
-            if (e.statusCode() == 404) {
+            if (e.statusCode() == 404 || e.statusCode() == 503) {
                 return false;
             }
             throw e;
