@@ -4,6 +4,7 @@
 
 * Support automatic TLS certificate generation in the `ANNOUNCE` node discovery mode. ({issue}`27030`)
 * Fix planning failure of certain queries involving empty VALUES. ({issue}`21506`)
+* Add support for specifying the location of the Exchange Manager configuration file. ({issue}`26611`)
 
 ## Security
 
@@ -60,6 +61,8 @@
 ## MariaDB connector
 
 ## Memory connector
+
+* Fix concurrent modification exception in `RENAME SCHEMA` of the `memory` connector. ({issue}`27205`)
 
 ## MongoDB connector
 
