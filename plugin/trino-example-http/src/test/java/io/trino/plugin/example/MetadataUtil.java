@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.example;
 
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.deser.std.FromStringDeserializer;
 
 import java.util.List;
 import java.util.Map;
@@ -70,7 +70,7 @@ public final class MetadataUtil
         {
             Type type = types.get(value.toLowerCase(ENGLISH));
             if (type == null) {
-                throw new IllegalArgumentException(String.valueOf("Unknown type " + value));
+                throw new IllegalArgumentException("Unknown type " + value);
             }
             return type;
         }

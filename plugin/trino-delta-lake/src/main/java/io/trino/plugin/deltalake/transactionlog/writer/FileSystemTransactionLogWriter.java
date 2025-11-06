@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake.transactionlog.writer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.filesystem.Location;
 import io.trino.plugin.deltalake.metastore.VendedCredentialsHandle;
@@ -25,6 +24,7 @@ import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.spi.connector.ConnectorSession;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

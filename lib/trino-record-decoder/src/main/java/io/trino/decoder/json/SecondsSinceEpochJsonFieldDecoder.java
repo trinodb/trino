@@ -13,13 +13,13 @@
  */
 package io.trino.decoder.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableSet;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
+import tools.jackson.databind.JsonNode;
 
 import java.util.Set;
 
@@ -78,7 +78,7 @@ public class SecondsSinceEpochJsonFieldDecoder
                     return multiplyExact(value.longValue(), 1000);
                 }
                 if (value.isValueNode()) {
-                    return multiplyExact(parseLong(value.asText()), 1000);
+                    return multiplyExact(parseLong(value.asString()), 1000);
                 }
                 throw new TrinoException(
                         DECODER_CONVERSION_NOT_SUPPORTED,
@@ -87,7 +87,7 @@ public class SecondsSinceEpochJsonFieldDecoder
             catch (NumberFormatException | ArithmeticException e) {
                 throw new TrinoException(
                         DECODER_CONVERSION_NOT_SUPPORTED,
-                        format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
+                        format("could not parse value '%s' as '%s' for column '%s'", value.asString(), columnHandle.getType(), columnHandle.getName()));
             }
         }
 

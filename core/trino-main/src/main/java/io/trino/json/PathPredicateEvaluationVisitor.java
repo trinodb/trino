@@ -13,8 +13,6 @@
  */
 package io.trino.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.NullNode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.json.CachingResolver.ResolvedOperatorAndCoercions;
@@ -36,6 +34,8 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.ComparisonExpression;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.NullNode;
 
 import java.util.List;
 import java.util.Optional;

@@ -13,13 +13,6 @@
  */
 package io.trino.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.JsonNodeType;
-import com.fasterxml.jackson.databind.node.NullNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -75,6 +68,13 @@ import io.trino.type.RealOperators;
 import io.trino.type.SmallintOperators;
 import io.trino.type.TinyintOperators;
 import io.trino.type.VarcharOperators;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.IntNode;
+import tools.jackson.databind.node.JsonNodeFactory;
+import tools.jackson.databind.node.JsonNodeType;
+import tools.jackson.databind.node.NullNode;
+import tools.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.node.StringNode;
 
 import java.util.List;
 import java.util.Optional;
@@ -450,7 +450,7 @@ class PathEvaluationVisitor
             List<Object> elements;
             if (object instanceof JsonNode jsonNode) {
                 if (jsonNode.isArray()) {
-                    elements = ImmutableList.copyOf(jsonNode.elements());
+                    elements = ImmutableList.copyOf(jsonNode.iterator());
                 }
                 else if (lax) {
                     elements = ImmutableList.of(object);
@@ -855,7 +855,7 @@ class PathEvaluationVisitor
                     field -> outputSequence.add(new ObjectNode(
                             JsonNodeFactory.instance,
                             ImmutableMap.of(
-                                    "name", TextNode.valueOf(field.getKey()),
+                                    "name", StringNode.valueOf(field.getKey()),
                                     "value", field.getValue(),
                                     "id", IntNode.valueOf(objectId)))));
             objectId++;
@@ -904,7 +904,7 @@ class PathEvaluationVisitor
             if (object instanceof JsonNode jsonNode && jsonNode.isObject()) {
                 // handle wildcard member accessor
                 if (node.key().isEmpty()) {
-                    outputSequence.addAll(jsonNode.elements());
+                    outputSequence.addAll(jsonNode.iterator());
                 }
                 else {
                     JsonNode boundValue = jsonNode.get(node.key().get());

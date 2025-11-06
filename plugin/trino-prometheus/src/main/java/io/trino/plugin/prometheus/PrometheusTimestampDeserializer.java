@@ -13,25 +13,23 @@
  */
 package io.trino.plugin.prometheus;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
 import io.trino.spi.TrinoException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.ValueDeserializer;
 
-import java.io.IOException;
 import java.time.Instant;
 
 import static io.trino.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_UNKNOWN_ERROR;
 import static java.time.Instant.ofEpochMilli;
 
 public class PrometheusTimestampDeserializer
-        extends JsonDeserializer<Instant>
+        extends ValueDeserializer<Instant>
 {
     @Override
     public Instant deserialize(JsonParser jsonParser, DeserializationContext context)
-            throws IOException
     {
-        String timestamp = jsonParser.getText().trim();
+        String timestamp = jsonParser.getString().trim();
         try {
             return decimalEpochTimestampToSQLTimestamp(timestamp);
         }

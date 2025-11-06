@@ -13,9 +13,6 @@
  */
 package io.trino.server.security.oauth2;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
@@ -54,6 +51,8 @@ import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -317,8 +316,8 @@ public class TestingHydraIdentityProvider
                                     .url("https://localhost:" + getAdminPort() + "/oauth2/auth/requests/consent/accept?consent_challenge=" + consentChallenge)
                                     .put(RequestBody.create(
                                             mapper.writeValueAsString(mapper.createObjectNode()
-                                                    .<ObjectNode>set("grant_scope", consentRequest.get("requested_scope"))
-                                                    .<ObjectNode>set("grant_access_token_audience", consentRequest.get("requested_access_token_audience"))),
+                                                    .set("grant_scope", consentRequest.get("requested_scope"))
+                                                    .set("grant_access_token_audience", consentRequest.get("requested_access_token_audience"))),
                                             MediaType.get(APPLICATION_JSON)))
                                     .build())
                     .execute();

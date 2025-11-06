@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.TrinoOutputFile;
@@ -46,6 +45,7 @@ import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.format.CompressionCodec;
 import org.joda.time.DateTimeZone;
+import tools.jackson.core.JacksonException;
 
 import java.io.IOException;
 import java.util.List;
@@ -371,7 +371,7 @@ public class CheckpointWriter
         try {
             return Optional.of(serializeStatsAsJson(parsedStats));
         }
-        catch (JsonProcessingException e) {
+        catch (JacksonException e) {
             return Optional.empty();
         }
     }

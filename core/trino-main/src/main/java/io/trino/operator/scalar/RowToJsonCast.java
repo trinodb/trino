@@ -13,8 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -31,6 +29,8 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.util.JsonUtil.JsonGeneratorWriter;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.json.JsonFactory;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
@@ -107,7 +107,7 @@ public class RowToJsonCast
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
                 jsonGenerator.writeStartObject();
                 for (int i = 0; i < sqlRow.getFieldCount(); i++) {
-                    jsonGenerator.writeFieldName(fieldNames.get(i));
+                    jsonGenerator.writeName(fieldNames.get(i));
                     Block fieldBlock = sqlRow.getRawFieldBlock(i);
                     fieldWriters.get(i).writeJsonValue(jsonGenerator, fieldBlock, rawIndex);
                 }

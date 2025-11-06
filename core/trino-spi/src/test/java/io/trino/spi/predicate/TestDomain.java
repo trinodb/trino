@@ -13,9 +13,8 @@
  */
 package io.trino.spi.predicate;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
@@ -25,6 +24,7 @@ import io.trino.spi.type.TestingTypeDeserializer;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -526,11 +526,11 @@ public class TestDomain
         TestingTypeManager typeManager = new TestingTypeManager();
         TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
 
-        ObjectMapper mapper = new ObjectMapperProvider().get()
-                .registerModule(new SimpleModule()
-                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
-                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
-                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
+        ObjectMapper mapper = new ObjectMapperProvider()
+                .withJsonDeserializers(ImmutableMap.of(Type.class, new TestingTypeDeserializer(typeManager),
+                        Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)))
+                .withJsonSerializers(ImmutableMap.of(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde)))
+                .get();
 
         Domain domain = Domain.all(BIGINT);
         assertThat(domain).isEqualTo(mapper.readValue(mapper.writeValueAsString(domain), Domain.class));

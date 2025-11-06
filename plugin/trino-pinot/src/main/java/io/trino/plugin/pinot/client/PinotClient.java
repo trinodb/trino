@@ -15,8 +15,6 @@ package io.trino.plugin.pinot.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -38,6 +36,7 @@ import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecBinder;
 import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
 import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.plugin.pinot.ForPinot;
@@ -99,6 +98,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
 import static java.util.stream.Collectors.joining;
 import static org.apache.pinot.spi.utils.builder.TableNameBuilder.extractRawTableName;
+import static tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 
 public class PinotClient
 {
@@ -151,8 +151,9 @@ public class PinotClient
         this.brokersForTableJsonCodec = requireNonNull(brokersForTableJsonCodec, "brokersForTableJsonCodec is null");
         this.timeBoundaryJsonCodec = requireNonNull(timeBoundaryJsonCodec, "timeBoundaryJsonCodec is null");
         this.tablesJsonCodec = requireNonNull(tablesJsonCodec, "tablesJsonCodec is null");
-        this.schemaJsonCodec = new JsonCodecFactory(() -> new ObjectMapper()
-                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)).jsonCodec(Schema.class);
+        this.schemaJsonCodec = new JsonCodecFactory(new ObjectMapperProvider()
+                .withCustomizer(builder -> builder.enable(FAIL_ON_UNKNOWN_PROPERTIES)))
+                .jsonCodec(Schema.class);
         this.brokerResponseCodec = requireNonNull(brokerResponseCodec, "brokerResponseCodec is null");
         this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");
         this.scheme = config.isTlsEnabled() ? "https" : "http";

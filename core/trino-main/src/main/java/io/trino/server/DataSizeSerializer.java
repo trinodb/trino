@@ -13,28 +13,25 @@
  */
 package io.trino.server;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
 import io.airlift.units.DataSize;
-
-import java.io.IOException;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.ValueSerializer;
 
 public class DataSizeSerializer
-        extends JsonSerializer<DataSize>
+        extends ValueSerializer<DataSize>
 {
     public static final String SUCCINCT_DATA_SIZE_ENABLED = "dataSize.succinct.enabled";
 
     @Override
-    public void serialize(DataSize dataSize, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
-            throws IOException
+    public void serialize(DataSize dataSize, JsonGenerator jsonGenerator, SerializationContext context)
     {
         if (dataSize == null) {
             jsonGenerator.writeNull();
             return;
         }
 
-        if (Boolean.TRUE.equals(serializerProvider.getAttribute(SUCCINCT_DATA_SIZE_ENABLED))) {
+        if (Boolean.TRUE.equals(context.getAttribute(SUCCINCT_DATA_SIZE_ENABLED))) {
             jsonGenerator.writeString(dataSize.succinct().toString());
             return;
         }

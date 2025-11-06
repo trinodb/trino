@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.resourcegroups;
 
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
@@ -27,6 +25,8 @@ import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.resourcegroups.ResourceGroup;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
+import tools.jackson.databind.exc.PropertyBindingException;
+import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,16 +35,18 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 
-import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 import static java.lang.String.format;
 import static java.nio.file.Files.newInputStream;
 import static java.util.Objects.requireNonNull;
+import static tools.jackson.databind.DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES;
 
 public class FileResourceGroupConfigurationManager
         extends AbstractResourceConfigurationManager
 {
     private static final JsonCodec<ManagerSpec> CODEC = new JsonCodecFactory(
-            () -> new ObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES))
+            () -> new ObjectMapperProvider().withCustomizer(builder ->
+                        builder.enable(FAIL_ON_NULL_FOR_PRIMITIVES))
+                    .get())
             .jsonCodec(ManagerSpec.class);
 
     private final Optional<LifeCycleManager> lifeCycleManager;
@@ -103,7 +105,7 @@ public class FileResourceGroupConfigurationManager
                         ex.getPropertyName());
                 throw new IllegalArgumentException(message, e);
             }
-            if (cause instanceof JsonMappingException) {
+            if (cause instanceof PropertyBindingException) {
                 // remove the extra "through reference chain" message
                 if (cause.getCause() != null) {
                     cause = cause.getCause();

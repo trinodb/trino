@@ -152,7 +152,6 @@ public class ConnectorViewDefinition
                 @JsonProperty("name") String name,
                 @JsonProperty("type") TypeId type,
                 @JsonProperty("comment") Optional<String> comment)
-
         {
             this.name = requireNonNull(name, "name is null");
             this.type = requireNonNull(type, "type is null");

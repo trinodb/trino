@@ -15,14 +15,14 @@ package io.trino.plugin.elasticsearch.decoders;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slices;
 import io.trino.plugin.elasticsearch.DecoderDescriptor;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -55,7 +55,7 @@ public class RawJsonDecoder
                 String rawJsonValue = OBJECT_MAPPER.writeValueAsString(value);
                 VARCHAR.writeSlice(output, Slices.utf8Slice(rawJsonValue));
             }
-            catch (JsonProcessingException e) {
+            catch (JacksonException e) {
                 throw new TrinoException(
                         TYPE_MISMATCH,
                         format("Expected valid json for field '%s' marked to be rendered as JSON: %s [%s]", path, value, value.getClass().getSimpleName()),

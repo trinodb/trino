@@ -13,7 +13,6 @@
  */
 package io.trino.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
@@ -21,6 +20,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.InterpretedFunctionInvoker;
+import tools.jackson.databind.JsonNode;
 
 import java.util.List;
 

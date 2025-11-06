@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.plan;
 
-import com.fasterxml.jackson.databind.KeyDeserializer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -52,6 +51,7 @@ import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.KeyDeserializer;
 
 import java.util.Optional;
 

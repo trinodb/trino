@@ -110,10 +110,12 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMNS;
 import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMN_TYPES;
@@ -629,11 +631,11 @@ public class TestOpenxJsonFormat
 
         // Exponents are expanded, and decimals are truncated
         assertNumber(type, "1.2345e2", coercion.apply(123L), true);
-        assertNumber(type, "%1.18e".formatted(new BigDecimal(maxValue)).trim(), coercion.apply(maxValue), true);
-        assertNumber(type, "%+1.18e".formatted(new BigDecimal(maxValue)).trim(), coercion.apply(maxValue), true);
-        assertNumber(type, "%1.18e".formatted(new BigDecimal(minValue)).trim(), coercion.apply(minValue), true);
-        assertNumberOutOfBounds(type, "%1.18e".formatted(new BigDecimal(maxValue).add(BigDecimal.ONE)).trim(), coercion.apply(minValue));
-        assertNumberOutOfBounds(type, "%1.18e".formatted(new BigDecimal(minValue).subtract(BigDecimal.ONE)).trim(), coercion.apply(maxValue));
+        assertNumber(type, format(ENGLISH, "%1.18e", new BigDecimal(maxValue)).trim(), coercion.apply(maxValue), true);
+        assertNumber(type, format(ENGLISH, "%+1.18e", new BigDecimal(maxValue)).trim(), coercion.apply(maxValue), true);
+        assertNumber(type, format(ENGLISH, "%1.18e", new BigDecimal(minValue)).trim(), coercion.apply(minValue), true);
+        assertNumberOutOfBounds(type, format(ENGLISH, "%1.18e", new BigDecimal(maxValue).add(BigDecimal.ONE)).trim(), coercion.apply(minValue));
+        assertNumberOutOfBounds(type, format(ENGLISH, "%1.18e", new BigDecimal(minValue).subtract(BigDecimal.ONE)).trim(), coercion.apply(maxValue));
 
         // Hex is supported
         assertNumber(type, "0x0", coercion.apply(0));

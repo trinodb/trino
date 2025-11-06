@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.File;
 import java.io.IOException;
@@ -81,7 +81,6 @@ public class TestReadJsonTransactionLog
 
     @Test
     public void testReadLastCheckpointFile()
-            throws JsonProcessingException
     {
         LastCheckpoint lastCheckpoint = objectMapper.readValue("{\"version\":10,\"size\":17}", LastCheckpoint.class);
         assertThat(lastCheckpoint.version()).isEqualTo(10L);
@@ -91,7 +90,6 @@ public class TestReadJsonTransactionLog
 
     @Test
     public void testReadLastCheckpointFileForMultipart()
-            throws JsonProcessingException
     {
         LastCheckpoint lastCheckpoint = objectMapper.readValue("{\"version\":237580,\"size\":658573,\"parts\":2}", LastCheckpoint.class);
         assertThat(lastCheckpoint.version()).isEqualTo(237580L);
@@ -128,7 +126,7 @@ public class TestReadJsonTransactionLog
         try {
             return objectMapper.readValue(json, DeltaLakeTransactionLogEntry.class);
         }
-        catch (JsonProcessingException e) {
+        catch (JacksonException e) {
             throw new RuntimeException("Failed to parse " + json, e);
         }
     }

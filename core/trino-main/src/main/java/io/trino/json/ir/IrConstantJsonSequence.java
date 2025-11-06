@@ -13,9 +13,9 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
+import tools.jackson.databind.JsonNode;
 
 import java.util.List;
 import java.util.Optional;

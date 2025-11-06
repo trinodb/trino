@@ -13,18 +13,17 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.ObjectWriteContext;
+import tools.jackson.core.json.JsonFactory;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
-import java.io.IOException;
 import java.io.StringWriter;
-import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.UUID;
 
@@ -40,7 +39,9 @@ public class PartitionData
     private static final String PARTITION_VALUES_FIELD = "partitionValues";
     private static final JsonFactory FACTORY = jsonFactory();
     private static final ObjectMapper MAPPER = new ObjectMapper(FACTORY)
-            .configure(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, true);
+            .rebuild()
+            .configure(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, true)
+            .build();
 
     private final Object[] partitionValues;
 
@@ -79,22 +80,17 @@ public class PartitionData
 
     public static String toJson(StructLike structLike)
     {
-        try {
-            StringWriter writer = new StringWriter();
-            JsonGenerator generator = FACTORY.createGenerator(writer);
-            generator.writeStartObject();
-            generator.writeArrayFieldStart(PARTITION_VALUES_FIELD);
-            for (int i = 0; i < structLike.size(); i++) {
-                generator.writeObject(structLike.get(i, Object.class));
-            }
-            generator.writeEndArray();
-            generator.writeEndObject();
-            generator.flush();
-            return writer.toString();
+        StringWriter writer = new StringWriter();
+        JsonGenerator generator = FACTORY.createGenerator(ObjectWriteContext.empty(), writer);
+        generator.writeStartObject();
+        generator.writeArrayPropertyStart(PARTITION_VALUES_FIELD);
+        for (int i = 0; i < structLike.size(); i++) {
+            generator.writePOJO(structLike.get(i, Object.class));
         }
-        catch (IOException e) {
-            throw new UncheckedIOException("JSON conversion failed for: " + structLike, e);
-        }
+        generator.writeEndArray();
+        generator.writeEndObject();
+        generator.flush();
+        return writer.toString();
     }
 
     public static PartitionData fromJson(String partitionDataAsJson, Type[] types)
@@ -103,13 +99,7 @@ public class PartitionData
             return null;
         }
 
-        JsonNode jsonNode;
-        try {
-            jsonNode = MAPPER.readTree(partitionDataAsJson);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException("Conversion from JSON failed for PartitionData: " + partitionDataAsJson, e);
-        }
+        JsonNode jsonNode = MAPPER.readTree(partitionDataAsJson);
         if (jsonNode.isNull()) {
             return null;
         }
@@ -155,12 +145,7 @@ public class PartitionData
                 return UUID.fromString(partitionValue.asText());
             case FIXED:
             case BINARY:
-                try {
-                    return partitionValue.binaryValue();
-                }
-                catch (IOException e) {
-                    throw new UncheckedIOException("Failed during JSON conversion of " + partitionValue, e);
-                }
+                return partitionValue.binaryValue();
             case DECIMAL:
                 Types.DecimalType decimalType = (Types.DecimalType) type;
                 return rescale(

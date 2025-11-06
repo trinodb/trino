@@ -13,12 +13,6 @@
  */
 package io.trino.sql.planner.optimizations;
 
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -31,8 +25,12 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ValueDeserializer;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -697,17 +695,16 @@ public class TestLocalProperties
     public void testJsonSerialization()
             throws Exception
     {
-        ObjectMapper mapper = new ObjectMapperProvider().get()
-                .registerModule(new SimpleModule()
-                        .addDeserializer(ColumnHandle.class, new JsonDeserializer<>()
+        ObjectMapper mapper = new ObjectMapperProvider()
+                .withJsonDeserializers(Map.of(ColumnHandle.class, new ValueDeserializer<>()
                         {
                             @Override
                             public ColumnHandle deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
-                                    throws IOException
                             {
                                 return new ObjectMapperProvider().get().readValue(jsonParser, TestingColumnHandle.class);
                             }
-                        }));
+                        }))
+                .get();
 
         TestingColumnHandle columnHandle = new TestingColumnHandle("a");
 

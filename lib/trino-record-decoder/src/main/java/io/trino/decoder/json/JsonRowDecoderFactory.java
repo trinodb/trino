@@ -13,7 +13,6 @@
  */
 package io.trino.decoder.json;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.RowDecoder;
@@ -21,6 +20,7 @@ import io.trino.decoder.RowDecoderFactory;
 import io.trino.decoder.RowDecoderSpec;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.Map;
 import java.util.Optional;

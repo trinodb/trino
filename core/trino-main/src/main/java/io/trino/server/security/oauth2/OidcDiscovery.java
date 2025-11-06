@@ -13,9 +13,6 @@
  */
 package io.trino.server.security.oauth2;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Inject;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.http.HTTPResponse;
@@ -26,6 +23,9 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.net.URI;
 import java.time.Duration;
@@ -126,7 +126,7 @@ public class OidcDiscovery
                     userinfoEndpoint.map(URI::create),
                     endSessionEndpoint);
         }
-        catch (JsonProcessingException e) {
+        catch (JacksonException e) {
             throw new ParseException("Invalid JSON value", e);
         }
     }

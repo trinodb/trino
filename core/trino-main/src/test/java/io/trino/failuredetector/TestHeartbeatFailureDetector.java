@@ -13,8 +13,6 @@
  */
 package io.trino.failuredetector;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
@@ -35,6 +33,8 @@ import io.trino.server.security.SecurityConfig;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.net.SocketTimeoutException;
 import java.net.URI;

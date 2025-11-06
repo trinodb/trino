@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.json.JsonPathEvaluator;
@@ -36,6 +35,7 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.tree.JsonExists.ErrorBehavior;
 import io.trino.type.JsonPath2016Type;
+import tools.jackson.databind.JsonNode;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;

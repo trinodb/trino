@@ -15,8 +15,6 @@ package io.trino.plugin.deltalake.transactionlog.statistics;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
 import io.airlift.slice.SizeOf;
@@ -27,6 +25,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
@@ -69,7 +68,6 @@ public class DeltaLakeJsonFileStatistics
     private final Optional<Map<CanonicalColumnName, Object>> nullCount;
 
     public static DeltaLakeJsonFileStatistics create(String jsonStatistics)
-            throws JsonProcessingException
     {
         return parseJson(OBJECT_MAPPER, jsonStatistics, DeltaLakeJsonFileStatistics.class);
     }

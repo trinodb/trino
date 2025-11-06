@@ -13,9 +13,9 @@
  */
 package io.trino.operator.table.json.execution;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
+import tools.jackson.databind.JsonNode;
 
 import java.util.Arrays;
 import java.util.List;

@@ -14,8 +14,6 @@
 
 package io.trino.plugin.eventlistener.kafka;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.trino.plugin.eventlistener.kafka.metadata.EnvMetadataProvider;
@@ -23,6 +21,8 @@ import io.trino.plugin.eventlistener.kafka.metadata.MetadataProvider;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.util.Map;

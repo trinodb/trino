@@ -13,11 +13,6 @@
  */
 package io.trino.util;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
@@ -59,10 +54,14 @@ import io.trino.type.DoubleOperators;
 import io.trino.type.JsonType;
 import io.trino.type.UnknownType;
 import io.trino.type.VarcharOperators;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.core.json.JsonFactory;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.StringReader;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -73,12 +72,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 
-import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
-import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
-import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
-import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
-import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -103,6 +96,12 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
+import static tools.jackson.core.JsonToken.END_ARRAY;
+import static tools.jackson.core.JsonToken.END_OBJECT;
+import static tools.jackson.core.JsonToken.PROPERTY_NAME;
+import static tools.jackson.core.JsonToken.START_ARRAY;
+import static tools.jackson.core.JsonToken.START_OBJECT;
+import static tools.jackson.core.TokenStreamFactory.Feature.CANONICALIZE_PROPERTY_NAMES;
 
 public final class JsonUtil
 {
@@ -121,7 +120,7 @@ public final class JsonUtil
     // Note: JsonFactory is mutable, instances cannot be shared openly.
     public static JsonFactory createJsonFactory()
     {
-        return jsonFactoryBuilder().disable(CANONICALIZE_FIELD_NAMES).build();
+        return jsonFactoryBuilder().disable(CANONICALIZE_PROPERTY_NAMES).build();
     }
 
     public static JsonParser createJsonParser(JsonFactory factory, Slice json)
@@ -133,16 +132,16 @@ public final class JsonUtil
         // is still valid for small inputs.
         if (json.length() < STRING_READER_LENGTH_LIMIT) {
             // StringReader is more performant than InputStreamReader for small inputs
-            return factory.createParser(new StringReader(json.toStringUtf8()));
+            return new ObjectMapper(factory).createParser(new StringReader(json.toStringUtf8()));
         }
 
-        return factory.createParser(new InputStreamReader(json.getInput(), UTF_8));
+        return new ObjectMapper(factory).createParser(new InputStreamReader(json.getInput(), UTF_8));
     }
 
     public static JsonGenerator createJsonGenerator(JsonFactory factory, SliceOutput output)
             throws IOException
     {
-        return factory.createGenerator((OutputStream) output);
+        return factory.createGenerator(output);
     }
 
     public static String truncateIfNecessaryForErrorMessage(Slice json)
@@ -632,7 +631,7 @@ public final class JsonUtil
 
                 jsonGenerator.writeStartObject();
                 for (Map.Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
-                    jsonGenerator.writeFieldName(entry.getKey());
+                    jsonGenerator.writeName(entry.getKey());
                     valueWriter.writeJsonValue(jsonGenerator, rawValueBlock, rawOffset + entry.getValue());
                 }
                 jsonGenerator.writeEndObject();
@@ -666,7 +665,7 @@ public final class JsonUtil
                 List<TypeSignatureParameter> typeSignatureParameters = type.getTypeSignature().getParameters();
                 jsonGenerator.writeStartObject();
                 for (int i = 0; i < sqlRow.getFieldCount(); i++) {
-                    jsonGenerator.writeFieldName(typeSignatureParameters.get(i).getNamedTypeSignature().getName().orElse(""));
+                    jsonGenerator.writeName(typeSignatureParameters.get(i).getNamedTypeSignature().getName().orElse(""));
                     fieldWriters.get(i).writeJsonValue(jsonGenerator, sqlRow.getRawFieldBlock(i), rawIndex);
                 }
                 jsonGenerator.writeEndObject();
@@ -680,7 +679,7 @@ public final class JsonUtil
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
-            case VALUE_STRING, FIELD_NAME -> Slices.utf8Slice(parser.getText());
+            case VALUE_STRING, PROPERTY_NAME -> Slices.utf8Slice(parser.getText());
             // Avoidance of loss of precision does not seem to be possible here because of Jackson implementation.
             case VALUE_NUMBER_FLOAT -> DoubleOperators.castToVarchar(UNBOUNDED_LENGTH, parser.getDoubleValue());
             // An alternative is calling getLongValue and then BigintOperators.castToVarchar.
@@ -697,7 +696,7 @@ public final class JsonUtil
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
-            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToBigint(Slices.utf8Slice(parser.getText()));
+            case VALUE_STRING, PROPERTY_NAME -> VarcharOperators.castToBigint(Slices.utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT -> DoubleOperators.castToLong(parser.getDoubleValue());
             case VALUE_NUMBER_INT -> parser.getLongValue();
             case VALUE_TRUE -> BooleanOperators.castToBigint(true);
@@ -711,7 +710,7 @@ public final class JsonUtil
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
-            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToInteger(Slices.utf8Slice(parser.getText()));
+            case VALUE_STRING, PROPERTY_NAME -> VarcharOperators.castToInteger(Slices.utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT -> DoubleOperators.castToInteger(parser.getDoubleValue());
             case VALUE_NUMBER_INT -> (long) toIntExact(parser.getLongValue());
             case VALUE_TRUE -> BooleanOperators.castToInteger(true);
@@ -725,7 +724,7 @@ public final class JsonUtil
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
-            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToSmallint(Slices.utf8Slice(parser.getText()));
+            case VALUE_STRING, PROPERTY_NAME -> VarcharOperators.castToSmallint(Slices.utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT -> DoubleOperators.castToSmallint(parser.getDoubleValue());
             case VALUE_NUMBER_INT -> (long) Shorts.checkedCast(parser.getLongValue());
             case VALUE_TRUE -> BooleanOperators.castToSmallint(true);
@@ -739,7 +738,7 @@ public final class JsonUtil
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
-            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToTinyint(Slices.utf8Slice(parser.getText()));
+            case VALUE_STRING, PROPERTY_NAME -> VarcharOperators.castToTinyint(Slices.utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT -> DoubleOperators.castToTinyint(parser.getDoubleValue());
             case VALUE_NUMBER_INT -> (long) SignedBytes.checkedCast(parser.getLongValue());
             case VALUE_TRUE -> BooleanOperators.castToTinyint(true);
@@ -753,7 +752,7 @@ public final class JsonUtil
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
-            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToDouble(Slices.utf8Slice(parser.getText()));
+            case VALUE_STRING, PROPERTY_NAME -> VarcharOperators.castToDouble(Slices.utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT -> parser.getDoubleValue();
             // An alternative is calling getLongValue and then BigintOperators.castToDouble.
             // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
@@ -769,7 +768,7 @@ public final class JsonUtil
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
-            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToFloat(Slices.utf8Slice(parser.getText()));
+            case VALUE_STRING, PROPERTY_NAME -> VarcharOperators.castToFloat(Slices.utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT -> (long) floatToRawIntBits(parser.getFloatValue());
             // An alternative is calling getLongValue and then BigintOperators.castToReal.
             // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
@@ -785,7 +784,7 @@ public final class JsonUtil
     {
         return switch (parser.currentToken()) {
             case VALUE_NULL -> null;
-            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToBoolean(Slices.utf8Slice(parser.getText()));
+            case VALUE_STRING, PROPERTY_NAME -> VarcharOperators.castToBoolean(Slices.utf8Slice(parser.getText()));
             case VALUE_NUMBER_FLOAT -> DoubleOperators.castToBoolean(parser.getDoubleValue());
             case VALUE_NUMBER_INT -> BigintOperators.castToBoolean(parser.getLongValue());
             case VALUE_TRUE -> true;
@@ -819,11 +818,11 @@ public final class JsonUtil
             throws IOException
     {
         BigDecimal result;
-        switch (parser.getCurrentToken()) {
+        switch (parser.currentToken()) {
             case VALUE_NULL:
                 return null;
             case VALUE_STRING:
-            case FIELD_NAME:
+            case PROPERTY_NAME:
                 result = new BigDecimal(parser.getText());
                 result = result.setScale(scale, HALF_UP);
                 break;
@@ -1122,12 +1121,12 @@ public final class JsonUtil
         public void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException
         {
-            if (parser.getCurrentToken() == JsonToken.VALUE_NULL) {
+            if (parser.currentToken() == JsonToken.VALUE_NULL) {
                 blockBuilder.appendNull();
                 return;
             }
 
-            if (parser.getCurrentToken() != START_ARRAY) {
+            if (parser.currentToken() != START_ARRAY) {
                 throw new JsonCastException(format("Expected a json array, but got %s", parser.getText()));
             }
             ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
@@ -1154,12 +1153,12 @@ public final class JsonUtil
         public void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException
         {
-            if (parser.getCurrentToken() == JsonToken.VALUE_NULL) {
+            if (parser.currentToken() == JsonToken.VALUE_NULL) {
                 blockBuilder.appendNull();
                 return;
             }
 
-            if (parser.getCurrentToken() != START_OBJECT) {
+            if (parser.currentToken() != START_OBJECT) {
                 throw new JsonCastException(format("Expected a json object, but got %s", parser.getText()));
             }
 
@@ -1200,12 +1199,12 @@ public final class JsonUtil
         public void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException
         {
-            if (parser.getCurrentToken() == JsonToken.VALUE_NULL) {
+            if (parser.currentToken() == JsonToken.VALUE_NULL) {
                 blockBuilder.appendNull();
                 return;
             }
 
-            if (parser.getCurrentToken() != START_ARRAY && parser.getCurrentToken() != START_OBJECT) {
+            if (parser.currentToken() != START_ARRAY && parser.currentToken() != START_OBJECT) {
                 throw new JsonCastException(format("Expected a json array or object, but got %s", parser.getText()));
             }
 
@@ -1236,25 +1235,25 @@ public final class JsonUtil
             Optional<Map<String, Integer>> fieldNameToIndex)
             throws IOException
     {
-        if (parser.getCurrentToken() == START_ARRAY) {
+        if (parser.currentToken() == START_ARRAY) {
             for (int i = 0; i < fieldAppenders.length; i++) {
                 parser.nextToken();
                 fieldAppenders[i].append(parser, fieldBuilders.get(i));
             }
-            if (parser.nextToken() != JsonToken.END_ARRAY) {
+            if (parser.nextToken() != END_ARRAY) {
                 throw new JsonCastException(format("Expected json array ending, but got %s", parser.getText()));
             }
         }
         else {
-            verify(parser.getCurrentToken() == START_OBJECT);
+            verify(parser.currentToken() == START_OBJECT);
             if (fieldNameToIndex.isEmpty()) {
                 throw new JsonCastException("Cannot cast a JSON object to anonymous row type. Input must be a JSON array.");
             }
             boolean[] fieldWritten = new boolean[fieldAppenders.length];
             int numFieldsWritten = 0;
 
-            while (parser.nextToken() != JsonToken.END_OBJECT) {
-                if (parser.currentToken() != FIELD_NAME) {
+            while (parser.nextToken() != END_OBJECT) {
+                if (parser.currentToken() != PROPERTY_NAME) {
                     throw new JsonCastException(format("Expected a json field name, but got %s", parser.getText()));
                 }
                 String fieldName = parser.getText().toLowerCase(Locale.ENGLISH);

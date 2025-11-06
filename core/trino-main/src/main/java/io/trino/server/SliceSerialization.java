@@ -13,39 +13,35 @@
  */
 package io.trino.server;
 
-import com.fasterxml.jackson.core.Base64Variants;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-
-import java.io.IOException;
+import tools.jackson.core.Base64Variants;
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.core.JsonParser;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.ValueDeserializer;
+import tools.jackson.databind.ValueSerializer;
 
 public final class SliceSerialization
 {
     private SliceSerialization() {}
 
     public static class SliceSerializer
-            extends JsonSerializer<Slice>
+            extends ValueSerializer<Slice>
     {
         @Override
-        public void serialize(Slice slice, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
-                throws IOException
+        public void serialize(Slice slice, JsonGenerator jsonGenerator, SerializationContext context)
         {
             jsonGenerator.writeBinary(Base64Variants.MIME_NO_LINEFEEDS, slice.byteArray(), slice.byteArrayOffset(), slice.length());
         }
     }
 
     public static class SliceDeserializer
-            extends JsonDeserializer<Slice>
+            extends ValueDeserializer<Slice>
     {
         @Override
         public Slice deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
-                throws IOException
         {
             return Slices.wrappedBuffer(jsonParser.getBinaryValue(Base64Variants.MIME_NO_LINEFEEDS));
         }

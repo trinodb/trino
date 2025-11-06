@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.ml;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
@@ -24,9 +21,10 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.Type;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -56,7 +54,7 @@ public class EvaluateClassifierPredictionsStateSerializer
         try {
             VARCHAR.writeSlice(out, Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(jsonState)));
         }
-        catch (JsonProcessingException e) {
+        catch (JacksonException e) {
             throw new RuntimeException(e);
         }
     }
@@ -65,13 +63,7 @@ public class EvaluateClassifierPredictionsStateSerializer
     public void deserialize(Block block, int index, EvaluateClassifierPredictionsState state)
     {
         Slice slice = VARCHAR.getSlice(block, index);
-        Map<String, Map<String, Integer>> jsonState;
-        try {
-            jsonState = OBJECT_MAPPER.readValue(slice.getBytes(), new TypeReference<>() {});
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        Map<String, Map<String, Integer>> jsonState = OBJECT_MAPPER.readValue(slice.getBytes(), new TypeReference<>() {});
         state.addMemoryUsage(slice.length());
         state.getTruePositives().putAll(jsonState.getOrDefault(TRUE_POSITIVES, ImmutableMap.of()));
         state.getFalsePositives().putAll(jsonState.getOrDefault(FALSE_POSITIVES, ImmutableMap.of()));

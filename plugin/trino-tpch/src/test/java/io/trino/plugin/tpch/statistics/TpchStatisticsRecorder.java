@@ -12,13 +12,11 @@
  * limitations under the License.
  */
 package io.trino.plugin.tpch.statistics;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.common.collect.ImmutableList;
 import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchEntity;
 import io.trino.tpch.TpchTable;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.Optional;
@@ -43,7 +41,7 @@ public class TpchStatisticsRecorder
 
     public static void main(String[] args)
     {
-        TpchStatisticsRecorder tool = new TpchStatisticsRecorder(new TableStatisticsRecorder(), new TableStatisticsDataRepository(createObjectMapper()));
+        TpchStatisticsRecorder tool = new TpchStatisticsRecorder(new TableStatisticsRecorder(), new TableStatisticsDataRepository(new ObjectMapper()));
 
         SUPPORTED_SCHEMAS.forEach(schemaName -> {
             TpchTable.getTables()
@@ -60,12 +58,6 @@ public class TpchStatisticsRecorder
     {
         this.tableStatisticsRecorder = tableStatisticsRecorder;
         this.tableStatisticsDataRepository = tableStatisticsDataRepository;
-    }
-
-    private static ObjectMapper createObjectMapper()
-    {
-        return new ObjectMapper()
-                .registerModule(new Jdk8Module());
     }
 
     private <E extends TpchEntity> void computeAndOutputStatsFor(String schemaName, TpchTable<E> table)

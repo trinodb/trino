@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.elasticsearch.client;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.NullNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -68,6 +65,10 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.NullNode;
 
 import javax.net.ssl.SSLContext;
 
@@ -76,7 +77,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
-import java.util.Iterator;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -416,7 +417,7 @@ public class ElasticsearchClient
                 }
                 return result.build();
             }
-            catch (IOException e) {
+            catch (JacksonException e) {
                 throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
             }
         });
@@ -431,14 +432,14 @@ public class ElasticsearchClient
 
                 for (Map.Entry<String, JsonNode> element : root.properties()) {
                     JsonNode aliases = element.getValue().get("aliases");
-                    Iterator<String> aliasNames = aliases.fieldNames();
-                    if (aliasNames.hasNext()) {
+                    Collection<String> aliasNames = aliases.propertyNames();
+                    if (!aliasNames.isEmpty()) {
                         result.put(element.getKey(), ImmutableList.copyOf(aliasNames));
                     }
                 }
                 return result.buildOrThrow();
             }
-            catch (IOException e) {
+            catch (JacksonException e) {
                 throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
             }
         });
@@ -451,17 +452,18 @@ public class ElasticsearchClient
         return doRequest(path, body -> {
             try {
                 JsonNode mappings = OBJECT_MAPPER.readTree(body)
-                        .elements().next()
+                        .iterator()
+                        .next()
                         .get("mappings");
 
-                if (!mappings.elements().hasNext()) {
+                if (!mappings.iterator().hasNext()) {
                     return new IndexMetadata(new IndexMetadata.ObjectType(ImmutableList.of()));
                 }
                 if (!mappings.has("properties")) {
                     // Older versions of ElasticSearch supported multiple "type" mappings
                     // for a given index. Newer versions support only one and don't
                     // expose it in the document. Here we skip it if it's present.
-                    mappings = mappings.elements().next();
+                    mappings = mappings.iterator().next();
 
                     if (!mappings.has("properties")) {
                         return new IndexMetadata(new IndexMetadata.ObjectType(ImmutableList.of()));
@@ -479,7 +481,7 @@ public class ElasticsearchClient
 
                 return new IndexMetadata(parseType(mappings.get("properties"), metaProperties));
             }
-            catch (IOException e) {
+            catch (JacksonException e) {
                 throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
             }
         });

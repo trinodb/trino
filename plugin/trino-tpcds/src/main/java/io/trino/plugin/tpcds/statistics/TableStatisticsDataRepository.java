@@ -14,13 +14,13 @@
 
 package io.trino.plugin.tpcds.statistics;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import io.trino.tpcds.Table;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -32,8 +32,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class TableStatisticsDataRepository
 {
-    private final ObjectMapper objectMapper = new ObjectMapper()
-            .registerModule(new Jdk8Module());
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public void save(
             String schemaName,
@@ -83,8 +82,8 @@ public class TableStatisticsDataRepository
         if (resource == null) {
             return Optional.empty();
         }
-        try {
-            return Optional.of(parseJson(objectMapper, resource, TableStatisticsData.class));
+        try (InputStream stream = resource.openStream()) {
+            return Optional.of(parseJson(objectMapper, stream, TableStatisticsData.class));
         }
         catch (Exception e) {
             throw new RuntimeException(format("Failed to parse stats from resource [%s]", resourcePath), e);
