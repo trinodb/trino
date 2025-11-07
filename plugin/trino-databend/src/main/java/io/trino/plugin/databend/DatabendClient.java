@@ -44,6 +44,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -65,12 +66,13 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.databend.DatabendTableProperties.ENGINE_PROPERTY;
-import static io.trino.plugin.databend.DatabendUtil.convertToQuotedString;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
@@ -126,8 +128,6 @@ import static org.weakref.jmx.$internal.guava.base.Strings.emptyToNull;
 public final class DatabendClient
         extends BaseJdbcClient
 {
-    private static final String NO_COMMENT = "";
-
     @Inject
     public DatabendClient(
             BaseJdbcConfig config,
@@ -202,6 +202,75 @@ public final class DatabendClient
     }
 
     @Override
+    protected ResultSet getColumns(RemoteTableName remoteTableName, DatabaseMetaData metadata)
+            throws SQLException
+    {
+        // Databend exposes databases via JDBC catalogs and does not use schemas
+        Optional<String> database = remoteTableName.getSchemaName();
+        if (database.isEmpty()) {
+            database = remoteTableName.getCatalogName();
+        }
+        return metadata.getColumns(
+                database.orElse(null),
+                null,
+                escapeObjectNameForMetadataQuery(remoteTableName.getTableName(), metadata.getSearchStringEscape()),
+                null);
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
+    {
+        Map<String, Boolean> remoteNullability = getRemoteNullability(session, remoteTableName);
+        return super.getColumns(session, schemaTableName, remoteTableName).stream()
+                .map(column -> applyRemoteNullability(column, remoteNullability))
+                .collect(toImmutableList());
+    }
+
+    private Map<String, Boolean> getRemoteNullability(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        Optional<String> database = remoteTableName.getSchemaName();
+        if (database.isEmpty()) {
+            database = remoteTableName.getCatalogName();
+        }
+        if (database.isEmpty()) {
+            return Map.of();
+        }
+        try (Connection connection = connectionFactory.openConnection(session);
+                PreparedStatement statement = connection.prepareStatement("""
+                        SELECT column_name, is_nullable
+                        FROM information_schema.columns
+                        WHERE table_catalog = ?
+                          AND table_name = ?
+                        """)) {
+            statement.setString(1, database.get());
+            statement.setString(2, remoteTableName.getTableName());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                ImmutableMap.Builder<String, Boolean> builder = ImmutableMap.builder();
+                while (resultSet.next()) {
+                    builder.put(
+                            resultSet.getString("column_name").toLowerCase(ENGLISH),
+                            "YES".equalsIgnoreCase(resultSet.getString("is_nullable")));
+                }
+                return builder.buildOrThrow();
+            }
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, "Failed to fetch column nullability", e);
+        }
+    }
+
+    private JdbcColumnHandle applyRemoteNullability(JdbcColumnHandle column, Map<String, Boolean> remoteNullability)
+    {
+        Boolean remoteNullable = remoteNullability.get(column.getColumnName().toLowerCase(ENGLISH));
+        if (remoteNullable == null || remoteNullable == column.isNullable()) {
+            return column;
+        }
+        return JdbcColumnHandle.builderFrom(column)
+                .setNullable(remoteNullable)
+                .build();
+    }
+
+    @Override
     protected String quoted(@Nullable String catalog, @Nullable String schema, String table)
     {
         StringBuilder sb = new StringBuilder();
@@ -259,19 +328,15 @@ public final class DatabendClient
     {
         ImmutableList.Builder<String> tableOptions = ImmutableList.builder();
         Map<String, Object> tableProperties = tableMetadata.getProperties();
+        if (tableMetadata.getComment().isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
+        }
         DatabendEngineType engine = DatabendTableProperties.getEngine(tableProperties);
         tableOptions.add("ENGINE = " + engine.getEngineType());
 
         formatProperty(DatabendTableProperties.getOrderBy(tableProperties)).ifPresent(value -> tableOptions.add("ORDER BY " + value));
-        tableMetadata.getComment().ifPresent(comment -> tableOptions.add(format("COMMENT = %s", databendVarcharLiteral(comment))));
 
         return ImmutableList.of(format("CREATE TABLE %s (%s) %s", quoted(remoteTableName), join(", ", columns), join(" ", tableOptions.build())));
-    }
-
-    private static String databendVarcharLiteral(String value)
-    {
-        requireNonNull(value, "value is null");
-        return convertToQuotedString(value);
     }
 
     /**
@@ -319,6 +384,21 @@ public final class DatabendClient
     }
 
     @Override
+    public JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery)
+    {
+        try {
+            return super.getTableHandle(session, preparedQuery);
+        }
+        catch (TrinoException e) {
+            if (e.getErrorCode().equals(NOT_SUPPORTED.toErrorCode()) &&
+                    e.getMessage().startsWith("Query not supported: ResultSetMetaData not available for query")) {
+                throw new TrinoException(JDBC_ERROR, "Failed to get table handle for prepared query. " + e.getMessage(), e);
+            }
+            throw e;
+        }
+    }
+
+    @Override
     public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Optional<Object>> nullableProperties)
     {
         checkArgument(nullableProperties.values().stream().noneMatch(Optional::isEmpty), "Setting a property to null is not supported");
@@ -333,6 +413,9 @@ public final class DatabendClient
     @Override
     protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
     {
+        if (column.getComment() != null) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+        }
         StringBuilder sb = new StringBuilder()
                 .append(quoted(columnName))
                 .append(" ");
@@ -343,9 +426,6 @@ public final class DatabendClient
         else {
             // By default, the clickhouse column is not allowed to be null
             sb.append(toWriteMapping(session, column.getType()).getDataType());
-        }
-        if (column.getComment() != null) {
-            sb.append(format(" COMMENT %s", databendVarcharLiteral(column.getComment())));
         }
         return sb.toString();
     }
@@ -375,12 +455,21 @@ public final class DatabendClient
     protected void renameSchema(ConnectorSession session, Connection connection, String remoteSchemaName, String newRemoteSchemaName)
             throws SQLException
     {
-        execute(session, connection, "ALTER DATABASE IF EXISTS " + quoted(remoteSchemaName) + " RENAME TO " + quoted(newRemoteSchemaName));
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
     }
 
     @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position)
     {
+        if (column.getComment() != null) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
+        }
+        if (!(position instanceof ColumnPosition.Last)) {
+            if (position instanceof ColumnPosition.First) {
+                throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with FIRST clause");
+            }
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with AFTER clause");
+        }
         try (Connection connection = connectionFactory.openConnection(session)) {
             String remoteColumnName = getIdentifierMapping().toRemoteColumnName(getRemoteIdentifiers(connection), column.getName());
             String sql = format("ALTER TABLE %s ADD COLUMN %s", quoted(handle.asPlainTable().getRemoteTableName()), getColumnDefinitionSql(session, column, remoteColumnName));
@@ -389,13 +478,6 @@ public final class DatabendClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
-    }
-
-    @Override
-    public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
-    {
-        String sql = format("ALTER TABLE %s COMMENT = %s", quoted(handle.asPlainTable().getRemoteTableName()), databendVarcharLiteral(comment.orElse(NO_COMMENT)));
-        execute(session, sql);
     }
 
     @Override
@@ -420,6 +502,9 @@ public final class DatabendClient
     protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
             throws SQLException
     {
+        if (!Objects.equals(remoteSchemaName, newRemoteSchemaName)) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
+        }
         execute(session, connection, format("RENAME TABLE %s TO %s", quoted(catalogName, remoteSchemaName, remoteTableName), quoted(catalogName, newRemoteSchemaName, newRemoteTableName)));
     }
 
@@ -525,7 +610,7 @@ public final class DatabendClient
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         if (type == BOOLEAN) {
-            return WriteMapping.booleanMapping("UInt8", booleanWriteFunction());
+            return WriteMapping.booleanMapping("Boolean", booleanWriteFunction());
         }
         if (type == TINYINT) {
             return WriteMapping.longMapping("Int8", tinyintWriteFunction());

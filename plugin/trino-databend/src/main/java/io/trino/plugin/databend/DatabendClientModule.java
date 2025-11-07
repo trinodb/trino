@@ -22,18 +22,18 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.DecimalConfig;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
-import io.trino.plugin.jdbc.ptf.Query;
-import io.trino.spi.function.table.ConnectorTableFunction;
 
 import java.util.Properties;
 
-import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
+import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 
 public final class DatabendClientModule
         extends AbstractConfigurationAwareModule
@@ -44,7 +44,9 @@ public final class DatabendClientModule
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(DatabendClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
         configBinder(binder).bindConfig(DatabendConfig.class);
-        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(DecimalConfig.class);
+        bindSessionPropertiesProvider(binder, DatabendSessionProperties.class);
+        bindTablePropertiesProvider(binder, DatabendTableProperties.class);
     }
 
     @Provides
