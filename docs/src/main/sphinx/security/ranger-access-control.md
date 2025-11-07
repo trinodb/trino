@@ -17,7 +17,7 @@ column-masking, row-filtering and audit logging.
 ## Configuration
 
 To use only Ranger for access control, create the file
-`etc/access-control.properties` on the coordinator, with the following
+`etc/trino/access-control.properties` on the coordinator, with the following
 configuration, and configurations listed in the table below:
 
 ```properties
