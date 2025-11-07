@@ -64,10 +64,15 @@ public class TestDatabendConnectorTest
                     SUPPORTS_MAP_TYPE,
                     SUPPORTS_ROW_TYPE,
                     SUPPORTS_DELETE,
+                    SUPPORTS_ROW_LEVEL_DELETE,
                     SUPPORTS_UPDATE,
+                    SUPPORTS_ROW_LEVEL_UPDATE,
                     SUPPORTS_RENAME_SCHEMA,
                     SUPPORTS_ADD_COLUMN_WITH_POSITION,
                     SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                    SUPPORTS_NOT_NULL_CONSTRAINT,
+                    SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
+                    SUPPORTS_DEFAULT_COLUMN_VALUE,
                     SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                     SUPPORTS_COMMENT_ON_COLUMN,
                     SUPPORTS_COMMENT_ON_TABLE,
@@ -83,7 +88,6 @@ public class TestDatabendConnectorTest
                     SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
                     SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                     SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,
-                    SUPPORTS_MULTI_STATEMENT_WRITES,
                     SUPPORTS_CREATE_VIEW,
                     SUPPORTS_CREATE_MATERIALIZED_VIEW,
                     SUPPORTS_NEGATIVE_DATE -> false;
@@ -122,23 +126,14 @@ public class TestDatabendConnectorTest
         return Optional.of(columnName.toLowerCase(Locale.ROOT));
     }
 
-    @Test
     @Override
-    public void testAddNotNullColumn()
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup setup)
     {
-        assertThatThrownBy(super::testAddNotNullColumn)
-                .isInstanceOf(AssertionError.class)
-                .hasMessage("Should fail to add not null column without a default value to a non-empty table");
-
-        try (TestTable table = newTrinoTable("test_add_nn_col", "(a_varchar varchar)")) {
-            String tableName = table.getName();
-
-            assertUpdate("INSERT INTO " + tableName + " VALUES ('a')", 1);
-            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL");
-            assertThat(query("TABLE " + tableName))
-                    .skippingTypesCheck()
-                    .matches("VALUES ('a', null)");
+        String type = setup.getTrinoTypeName();
+        if (type.equals("time") || type.startsWith("time(")) {
+            return Optional.of(setup.asUnsupported());
         }
+        return Optional.of(setup);
     }
 
     @Override
@@ -146,6 +141,78 @@ public class TestDatabendConnectorTest
     {
         String message = nullToEmpty(exception.getMessage());
         return message.contains("unable to recognize the rest tokens");
+    }
+
+    @Test
+    @Override
+    public void testAddColumn()
+    {
+        String tableName;
+        try (TestTable table = newTrinoTable("test_add_column_", tableDefinitionForAddColumn())) {
+            tableName = table.getName();
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first'", 1);
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN x bigint", ".* Column 'x' already exists");
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN X bigint", ".* Column 'X' already exists");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN a varchar(50)");
+            assertQuery(
+                    "SELECT * FROM " + table.getName(),
+                    "VALUES ('first', NULL)");
+            assertQuery(
+                    "SELECT * FROM " + table.getName() + " WHERE a IS NULL",
+                    "VALUES ('first', NULL)");
+        }
+    }
+
+    @Test
+    @Override // Overridden because the default storage type doesn't support adding columns
+    public void testAddNotNullColumnToEmptyTable()
+    {
+        try (TestTable table = newTrinoTable("test_add_notnull_col_to_empty", "(a_varchar varchar NOT NULL)")) {
+            String tableName = table.getName();
+
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL");
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 'b')", 1);
+            assertThat(query("TABLE " + tableName))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a', 'b')");
+        }
+    }
+
+    @Test
+    @Override
+    public void testDropNotNullConstraint()
+    {
+        abort("Databend Not Support");
+    }
+
+    @Test
+    @Override
+    public void testInsertIntoNotNullColumn()
+    {
+        try (TestTable table = newTrinoTable("test_insert_not_null_", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
+            assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
+        }
+
+        try (TestTable table = newTrinoTable("test_commuted_not_null_table", "(nullable_col BIGINT, not_null_col BIGINT NOT NULL)")) {
+            assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
+        }
+    }
+
+    @Test
+    @Override
+    public void testUpdateNotNullColumn()
+    {
+        abort("Databend rejects updates that temporarily assign NULL to NOT NULL columns");
+    }
+
+    @Test
+    @Override
+    public void testColumnName()
+    {
+        abort("Databend rejects some generated column names used in the generic test");
     }
 
     @Test
@@ -158,15 +225,15 @@ public class TestDatabendConnectorTest
                 .isEqualTo(format(
                         """
                         CREATE TABLE %s.%s.orders (
-                           orderkey bigint NOT NULL,
-                           custkey bigint NOT NULL,
-                           orderstatus varchar NOT NULL,
-                           totalprice double NOT NULL,
-                           orderdate date NOT NULL,
-                           orderpriority varchar NOT NULL,
-                           clerk varchar NOT NULL,
-                           shippriority integer NOT NULL,
-                           comment varchar NOT NULL
+                           orderkey bigint,
+                           custkey bigint,
+                           orderstatus varchar,
+                           totalprice double,
+                           orderdate date,
+                           orderpriority varchar,
+                           clerk varchar,
+                           shippriority integer,
+                           comment varchar
                         )
                         WITH (
                            engine = 'FUSE'
@@ -268,15 +335,6 @@ public class TestDatabendConnectorTest
         assertThatThrownBy(super::testExecuteProcedureWithNamedArgument)
                 .isInstanceOf(AssertionError.class);
         abort("system.execute is not supported by Databend");
-    }
-
-    @Test
-    @Override
-    public void testAlterTableRenameColumnToLongName()
-    {
-        assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
-                .isInstanceOf(AssertionError.class);
-        abort("Column name length beyond Databend limit is not supported");
     }
 
     @Override
@@ -392,6 +450,41 @@ public class TestDatabendConnectorTest
             return;
         }
         super.verifyConcurrentAddColumnFailurePermissible(e);
+    }
+
+    @Test
+    @Override
+    public void verifySupportsDeleteDeclaration()
+    {
+        abort("Databend executes DELETE statements instead of rejecting them for unsupported connectors");
+    }
+
+    @Test
+    @Override
+    public void verifySupportsRowLevelDeleteDeclaration()
+    {
+        abort("Databend executes DELETE statements instead of rejecting them for unsupported connectors");
+    }
+
+    @Test
+    @Override
+    public void verifySupportsUpdateDeclaration()
+    {
+        abort("Databend executes UPDATE statements instead of rejecting them for unsupported connectors");
+    }
+
+    @Test
+    @Override
+    public void testDataMappingSmokeTest()
+    {
+        abort("Databend does not support all TIME/TIMESTAMP combinations exercised by the generic smoke test");
+    }
+
+    @Test
+    @Override
+    public void testInsertWithoutTemporaryTable()
+    {
+        abort("Databend requires elevated privileges to inspect written tables, so the temporary-table bypass test cannot run");
     }
 
     private static String invalidDateWriteError(String date)

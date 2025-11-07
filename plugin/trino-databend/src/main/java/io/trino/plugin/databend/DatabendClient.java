@@ -237,10 +237,10 @@ public final class DatabendClient
         }
         try (Connection connection = connectionFactory.openConnection(session);
                 PreparedStatement statement = connection.prepareStatement("""
-                        SELECT column_name, is_nullable
-                        FROM information_schema.columns
-                        WHERE table_catalog = ?
-                          AND table_name = ?
+                        SELECT name, is_nullable
+                        FROM system.columns
+                        WHERE database = ?
+                          AND table = ?
                         """)) {
             statement.setString(1, database.get());
             statement.setString(2, remoteTableName.getTableName());
@@ -248,7 +248,7 @@ public final class DatabendClient
                 ImmutableMap.Builder<String, Boolean> builder = ImmutableMap.builder();
                 while (resultSet.next()) {
                     builder.put(
-                            resultSet.getString("column_name").toLowerCase(ENGLISH),
+                            resultSet.getString("name").toLowerCase(ENGLISH),
                             "YES".equalsIgnoreCase(resultSet.getString("is_nullable")));
                 }
                 return builder.buildOrThrow();
@@ -287,8 +287,13 @@ public final class DatabendClient
     @Override
     protected void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
     {
-        String tableCopyFormat = "CREATE TABLE %s AS SELECT * FROM %s";
-        String sql = format(tableCopyFormat, quoted(catalogName, schemaName, newTableName), quoted(catalogName, schemaName, tableName));
+        String sql = format(
+                "CREATE TABLE %s AS SELECT %s FROM %s WHERE 0 = 1",
+                quoted(catalogName, schemaName, newTableName),
+                columnNames.stream()
+                        .map(this::quoted)
+                        .collect(joining(", ")),
+                quoted(catalogName, schemaName, tableName));
         try {
             execute(session, connection, sql);
         }
