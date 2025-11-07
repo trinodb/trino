@@ -13,91 +13,61 @@
  */
 package io.trino.plugin.databend;
 
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.Network;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.databend.DatabendContainer;
 import org.testcontainers.utility.DockerImageName;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.S3Configuration;
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
-import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
-import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
-import software.amazon.awssdk.services.s3.model.S3Exception;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.Closeable;
-import java.net.URI;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TestingDatabendServer
         implements Closeable
 {
     private static final DockerImageName DATABEND_IMAGE = DockerImageName.parse("datafuselabs/databend:nightly");
-    private static final String DEFAULT_MINIO_IMAGE = "quay.io/minio/minio:RELEASE.2024-10-13T13-34-11Z";
-    private static final DockerImageName MINIO_IMAGE = DockerImageName.parse(
-            System.getProperty("databend.minio.image", DEFAULT_MINIO_IMAGE))
-            .asCompatibleSubstituteFor("minio/minio");
-    private static final int MINIO_PORT = 9000;
-    private static final String MINIO_ALIAS = "minio";
-    private static final String DATABEND_ALIAS = "databend";
-    private static final String MINIO_ACCESS_KEY = "minioadmin";
-    private static final String MINIO_SECRET_KEY = "minioadmin";
-    private static final String S3_REGION = "us-east-1";
-    private static final int BUCKET_CREATION_ATTEMPTS = 60;
-    private static final String S3_BUCKET = "databend";
+    private static final String QUERY_CONFIG_PATH = "/databend-config/query.toml";
 
-    private final Network network;
-    private final GenericContainer<?> minioContainer;
     private final DatabendContainer databendContainer;
     private final String jdbcUrl;
 
     public TestingDatabendServer()
     {
-        network = Network.newNetwork();
+        DatabendContainer started = null;
+        String readyJdbcUrl = null;
+        boolean success = false;
+        try {
+            Path configFile = createConfigFile(buildDatabendConfig());
 
-        minioContainer = new GenericContainer<>(MINIO_IMAGE)
-                .withNetwork(network)
-                .withNetworkAliases(MINIO_ALIAS)
-                .withEnv("MINIO_ROOT_USER", MINIO_ACCESS_KEY)
-                .withEnv("MINIO_ROOT_PASSWORD", MINIO_SECRET_KEY)
-                .withEnv("MINIO_REGION_NAME", S3_REGION)
-                .withCommand("server", "/data")
-                .withExposedPorts(MINIO_PORT)
-                .waitingFor(Wait.forHttp("/minio/health/ready")
-                        .forPort(MINIO_PORT)
-                        .withStartupTimeout(Duration.ofMinutes(2)));
+            started = new DatabendContainer(DATABEND_IMAGE)
+                    .withEnv("QUERY_DEFAULT_USER", getUser())
+                    .withEnv("QUERY_DEFAULT_PASSWORD", getPassword())
+                    .withEnv("QUERY_CONFIG_FILE", QUERY_CONFIG_PATH)
+                    .withCopyFileToContainer(MountableFile.forHostPath(configFile), QUERY_CONFIG_PATH);
 
-        minioContainer.start();
-        createBucket();
+            started.start();
+            readyJdbcUrl = ensureReadyAndGetJdbcUrl(started);
+            success = true;
+        }
+        catch (IOException e) {
+            throw new RuntimeException("Failed to prepare Databend config", e);
+        }
+        finally {
+            if (!success) {
+                closeQuietly(started);
+            }
+        }
 
-        databendContainer = new DatabendContainer(DATABEND_IMAGE)
-                .withNetwork(network)
-                .withNetworkAliases(DATABEND_ALIAS)
-                .withUsername(getUser())
-                .withPassword(getPassword())
-                .withEnv("STORAGE_TYPE", "s3")
-                .withEnv("STORAGE_S3_ENDPOINT_URL", format("http://%s:%s", MINIO_ALIAS, MINIO_PORT))
-                .withEnv("STORAGE_S3_ACCESS_KEY_ID", MINIO_ACCESS_KEY)
-                .withEnv("STORAGE_S3_SECRET_ACCESS_KEY", MINIO_SECRET_KEY)
-                .withEnv("STORAGE_S3_BUCKET", S3_BUCKET)
-                .withEnv("STORAGE_S3_REGION", S3_REGION)
-                .withEnv("STORAGE_S3_ENABLE_VIRTUAL_HOST_STYLE", "false")
-                .withEnv("STORAGE_S3_FORCE_PATH_STYLE", "true")
-                .withEnv("QUERY_DEFAULT_STORAGE_FORMAT", "native");
-
-        databendContainer.start();
-
-        jdbcUrl = ensureReadyAndGetJdbcUrl();
+        this.databendContainer = started;
+        this.jdbcUrl = readyJdbcUrl;
     }
 
     public String getJdbcUrl()
@@ -129,106 +99,12 @@ public class TestingDatabendServer
     @Override
     public void close()
     {
-        RuntimeException suppressed = null;
-        try {
-            databendContainer.close();
-        }
-        catch (RuntimeException e) {
-            suppressed = e;
-        }
-
-        try {
-            minioContainer.close();
-        }
-        catch (RuntimeException e) {
-            if (suppressed != null) {
-                suppressed.addSuppressed(e);
-            }
-            else {
-                suppressed = e;
-            }
-        }
-
-        try {
-            network.close();
-        }
-        catch (Exception e) {
-            if (suppressed != null) {
-                suppressed.addSuppressed(e);
-            }
-            else {
-                suppressed = new RuntimeException("Failed to close Databend test network", e);
-            }
-        }
-
-        if (suppressed != null) {
-            throw suppressed;
-        }
+        closeQuietly(databendContainer);
     }
 
-    private void createBucket()
+    private String ensureReadyAndGetJdbcUrl(DatabendContainer container)
     {
-        URI endpoint = URI.create(format("http://%s:%s", minioContainer.getHost(), minioContainer.getMappedPort(MINIO_PORT)));
-        StaticCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(
-                AwsBasicCredentials.create(MINIO_ACCESS_KEY, MINIO_SECRET_KEY));
-        S3Configuration s3Configuration = S3Configuration.builder()
-                .chunkedEncodingEnabled(false)
-                .pathStyleAccessEnabled(true)
-                .build();
-
-        RuntimeException lastFailure = null;
-        for (int attempt = 0; attempt < BUCKET_CREATION_ATTEMPTS; attempt++) {
-            try (S3Client s3Client = S3Client.builder()
-                    .endpointOverride(endpoint)
-                    .credentialsProvider(credentialsProvider)
-                    .region(Region.of(S3_REGION))
-                    .serviceConfiguration(s3Configuration)
-                    .build()) {
-                if (!bucketExists(s3Client)) {
-                    s3Client.createBucket(CreateBucketRequest.builder()
-                            .bucket(S3_BUCKET)
-                            .createBucketConfiguration(builder -> builder.locationConstraint(S3_REGION))
-                            .build());
-                }
-                return;
-            }
-            catch (RuntimeException e) {
-                lastFailure = e;
-                try {
-                    Thread.sleep(1_000);
-                }
-                catch (InterruptedException interrupted) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException("Interrupted while creating MinIO bucket", interrupted);
-                }
-            }
-        }
-
-        throw new RuntimeException("Failed to create MinIO bucket for Databend", lastFailure);
-    }
-
-    private static boolean bucketExists(S3Client s3Client)
-    {
-        try {
-            s3Client.headBucket(HeadBucketRequest.builder()
-                    .bucket(S3_BUCKET)
-                    .build());
-            return true;
-        }
-        catch (NoSuchBucketException e) {
-            return false;
-        }
-        catch (S3Exception e) {
-            if (e.statusCode() == 404 || e.statusCode() == 503) {
-                return false;
-            }
-            throw e;
-        }
-    }
-
-    private String ensureReadyAndGetJdbcUrl()
-    {
-        String url = databendContainer.getJdbcUrl();
+        String url = withPresignDisabled(container.getJdbcUrl());
         requireNonNull(url, "Databend JDBC URL is null");
 
         long deadline = System.nanoTime() + Duration.ofMinutes(2).toNanos();
@@ -253,5 +129,92 @@ public class TestingDatabendServer
                 }
             }
         }
+    }
+
+    private static void closeQuietly(DatabendContainer container)
+    {
+        if (container != null) {
+            try {
+                container.close();
+            }
+            catch (RuntimeException ignored) {
+            }
+        }
+    }
+
+    private static Path createConfigFile(String contents)
+            throws IOException
+    {
+        Path configFile = Files.createTempFile("databend-config", ".toml");
+        Files.writeString(configFile, contents, StandardCharsets.UTF_8);
+        configFile.toFile().deleteOnExit();
+        return configFile;
+    }
+
+    private static String buildDatabendConfig()
+    {
+        return String.join("\n",
+                "[query]",
+                "max_active_sessions = 256",
+                "shutdown_wait_timeout_ms = 5000",
+                "",
+                "flight_api_address = \"0.0.0.0:9090\"",
+                "admin_api_address = \"0.0.0.0:8080\"",
+                "metric_api_address = \"0.0.0.0:7070\"",
+                "",
+                "mysql_handler_host = \"0.0.0.0\"",
+                "mysql_handler_port = 3307",
+                "",
+                "clickhouse_http_handler_host = \"0.0.0.0\"",
+                "clickhouse_http_handler_port = 8124",
+                "",
+                "http_handler_host = \"0.0.0.0\"",
+                "http_handler_port = 8000",
+                "",
+                "flight_sql_handler_host = \"0.0.0.0\"",
+                "flight_sql_handler_port = 8900",
+                "",
+                "tenant_id = \"default\"",
+                "cluster_id = \"default\"",
+                "",
+                "[log]",
+                "",
+                "[log.stderr]",
+                "level = \"WARN\"",
+                "format = \"text\"",
+                "",
+                "[log.file]",
+                "level = \"INFO\"",
+                "dir = \"/var/log/databend\"",
+                "",
+                "[meta]",
+                "endpoints = [\"0.0.0.0:9191\"]",
+                "username = \"root\"",
+                "password = \"root\"",
+                "client_timeout_in_second = 60",
+                "",
+                "[[query.users]]",
+                "name = \"databend\"",
+                "auth_type = \"double_sha1_password\"",
+                "auth_string = \"3081f32caef285c232d066033c89a78d88a6d8a5\"",
+                "",
+                "[[query.users]]",
+                "name = \"root\"",
+                "auth_type = \"no_password\"",
+                "",
+                "[storage]",
+                "type = \"fs\"",
+                "",
+                "[storage.fs]",
+                "data_path = \"/var/lib/databend/data\"",
+                "") + "\n";
+    }
+
+    private static String withPresignDisabled(String jdbcUrl)
+    {
+        if (jdbcUrl.contains("?")) {
+            return jdbcUrl + "&presigned_url_disabled=true";
+        }
+        return jdbcUrl + "?presigned_url_disabled=true";
     }
 }

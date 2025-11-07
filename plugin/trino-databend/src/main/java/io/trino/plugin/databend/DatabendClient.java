@@ -25,8 +25,10 @@ import io.trino.plugin.jdbc.CaseSensitivity;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
@@ -54,6 +56,7 @@ import javax.annotation.Nullable;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -80,7 +83,6 @@ import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateReadFunctionUsingLocalDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
@@ -137,6 +139,12 @@ public final class DatabendClient
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
         requireNonNull(databendConfig, "databendConfig is null");
+    }
+
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
+    {
+        return true;
     }
 
     @Override
@@ -455,6 +463,10 @@ public final class DatabendClient
             case Types.TINYINT:
                 return Optional.of(tinyintColumnMapping());
 
+            case Types.BOOLEAN:
+            case Types.BIT:
+                return Optional.of(StandardColumnMappings.booleanColumnMapping());
+
             case Types.SMALLINT:
                 return Optional.of(smallintColumnMapping());
 
@@ -575,7 +587,37 @@ public final class DatabendClient
 
     private static ColumnMapping dateColumnMappingUsingLocalDate()
     {
-        return ColumnMapping.longMapping(DATE, dateReadFunctionUsingLocalDate(), dateWriteFunctionUsingLocalDate());
+        return ColumnMapping.longMapping(DATE, databendDateReadFunction(), dateWriteFunctionUsingLocalDate());
+    }
+
+    private static LongReadFunction databendDateReadFunction()
+    {
+        return new LongReadFunction() {
+            @Override
+            public boolean isNull(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                resultSet.getObject(columnIndex);
+                return resultSet.wasNull();
+            }
+
+            @Override
+            public long readLong(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                Object value = resultSet.getObject(columnIndex);
+                if (value == null) {
+                    throw new TrinoException(JDBC_ERROR, "Driver returned null LocalDate for a non-null value");
+                }
+                if (value instanceof LocalDate localDate) {
+                    return localDate.toEpochDay();
+                }
+                if (value instanceof Date date) {
+                    return date.toLocalDate().toEpochDay();
+                }
+                return LocalDate.parse(value.toString()).toEpochDay();
+            }
+        };
     }
 
     private static LongWriteFunction dateWriteFunctionUsingLocalDate()

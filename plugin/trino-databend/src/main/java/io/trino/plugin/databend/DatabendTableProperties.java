@@ -59,7 +59,8 @@ public final class DatabendTableProperties
     public static DatabendEngineType getEngine(Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties, "tableProperties is null");
-        return (DatabendEngineType) tableProperties.get(ENGINE_PROPERTY);
+        DatabendEngineType engine = (DatabendEngineType) tableProperties.get(ENGINE_PROPERTY);
+        return engine != null ? engine : DatabendEngineType.FUSE;
     }
 
     public static List<String> getOrderBy(Map<String, Object> tableProperties)
@@ -67,6 +68,9 @@ public final class DatabendTableProperties
         requireNonNull(tableProperties, "tableProperties is null");
         @SuppressWarnings("unchecked")
         List<String> orderBy = (List<String>) tableProperties.get("order_by");
+        if (orderBy == null) {
+            return ImmutableList.of();
+        }
         return orderBy;
     }
 

@@ -64,6 +64,7 @@ public class TestDatabendConnectorTest
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT -> false;
             case SUPPORTS_SET_COLUMN_TYPE -> false;
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS -> false;
+            case SUPPORTS_ROW_TYPE -> false;
             default -> super.hasBehavior(behavior);
         };
     }

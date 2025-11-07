@@ -17,10 +17,16 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
 
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TimeZone;
 
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class DatabendQueryRunner
@@ -33,10 +39,14 @@ public final class DatabendQueryRunner
             Map<String, String> connectorProperties)
             throws Exception
     {
+        System.setProperty("user.timezone", "UTC");
+        TimeZone.setDefault(TimeZone.getTimeZone(ZoneId.of("UTC")));
+
         QueryRunner queryRunner = DistributedQueryRunner.builder(
                         testSessionBuilder()
                                 .setCatalog("databend")
                                 .setSchema("default")
+                                .setTimeZoneKey(getTimeZoneKey("UTC"))
                                 .build())
                 .setExtraProperties(extraProperties)
                 .build();
@@ -54,6 +64,8 @@ public final class DatabendQueryRunner
 
             queryRunner.installPlugin(new DatabendPlugin());
             queryRunner.createCatalog("databend", "databend", properties);
+
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, TpchTable.getTables());
 
             return queryRunner;
         }
