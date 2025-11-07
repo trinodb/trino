@@ -181,7 +181,6 @@ import static io.trino.metastore.Partitions.toPartitionValues;
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.metastore.PrincipalPrivileges.fromHivePrivilegeInfos;
 import static io.trino.metastore.StatisticsUpdateMode.MERGE_INCREMENTAL;
-import static io.trino.metastore.StatisticsUpdateMode.OVERWRITE_ALL;
 import static io.trino.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.metastore.type.Category.PRIMITIVE;
 import static io.trino.parquet.writer.ParquetWriter.SUPPORTED_BLOOM_FILTER_TYPES;
@@ -2361,8 +2360,7 @@ public class HiveMetadata
                                 partitionValues,
                                 partitionUpdate.getWritePath(),
                                 partitionUpdate.getFileNames(),
-                                partitionStatistics,
-                                MERGE_INCREMENTAL));
+                                partitionStatistics));
             }
             else if (partitionUpdate.getUpdateMode() == NEW || partitionUpdate.getUpdateMode() == OVERWRITE) {
                 // insert into new partition or overwrite existing partition
@@ -2387,13 +2385,6 @@ public class HiveMetadata
                             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
                             cleanExtraOutputFiles(fileSystem, session.getQueryId(), partitionUpdate.getTargetPath(), ImmutableSet.copyOf(partitionUpdate.getFileNames()));
                         }
-                        partitionUpdateInfosBuilder.add(
-                                new PartitionUpdateInfo(
-                                        partitionValues,
-                                        partitionUpdate.getWritePath(),
-                                        partitionUpdate.getFileNames(),
-                                        partitionStatistics,
-                                        OVERWRITE_ALL));
                     }
                     else {
                         metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), partition.getValues(), true);
@@ -2699,8 +2690,7 @@ public class HiveMetadata
                                 partitionValues,
                                 partitionUpdate.getWritePath(),
                                 partitionUpdate.getFileNames(),
-                                PartitionStatistics.empty(),
-                                MERGE_INCREMENTAL));
+                                PartitionStatistics.empty()));
             }
         }
 

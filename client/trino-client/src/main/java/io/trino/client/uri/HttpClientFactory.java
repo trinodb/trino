@@ -30,7 +30,6 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
 import static io.trino.client.OkHttpUtil.basicAuth;
-import static io.trino.client.OkHttpUtil.extraHeaders;
 import static io.trino.client.OkHttpUtil.setupAlternateHostnameVerification;
 import static io.trino.client.OkHttpUtil.setupCookieJar;
 import static io.trino.client.OkHttpUtil.setupHttpLogging;
@@ -86,10 +85,6 @@ public class HttpClientFactory
                 throw new RuntimeException("TLS/SSL required for authentication using an access token");
             }
             builder.addNetworkInterceptor(tokenAuth(uri.getAccessToken().get()));
-        }
-
-        if (!uri.getExtraHeaders().isEmpty()) {
-            builder.addNetworkInterceptor(extraHeaders(uri.getExtraHeaders()));
         }
 
         if (uri.isExternalAuthenticationEnabled()) {

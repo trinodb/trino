@@ -15,7 +15,6 @@ package org.apache.iceberg.rest;
 
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
-import io.airlift.http.server.ServerFeature;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.node.NodeInfo;
 import org.apache.iceberg.catalog.Catalog;
@@ -67,10 +66,7 @@ public class DelegatingRestSessionCatalog
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
         RestCatalogServlet servlet = new RestCatalogServlet(adapter);
 
-        return new TestingHttpServer(httpServerInfo, nodeInfo, config, servlet, ServerFeature.builder()
-                // Required due to URIs like: HEAD /v1/namespaces/level_1%1Flevel_2
-                .withLegacyUriCompliance(true)
-                .build());
+        return new TestingHttpServer(httpServerInfo, nodeInfo, config, servlet, false, true, false);
     }
 
     public static Builder builder()

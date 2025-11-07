@@ -47,7 +47,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
-import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.uri.PropertyName.ACCESS_TOKEN;
 import static io.trino.client.uri.PropertyName.CATALOG;
 import static io.trino.client.uri.PropertyName.CLIENT_INFO;
@@ -57,7 +56,6 @@ import static io.trino.client.uri.PropertyName.ENCODING;
 import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION;
 import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
 import static io.trino.client.uri.PropertyName.EXTRA_CREDENTIALS;
-import static io.trino.client.uri.PropertyName.EXTRA_HEADERS;
 import static io.trino.client.uri.PropertyName.HTTP_LOGGING_LEVEL;
 import static io.trino.client.uri.PropertyName.HTTP_PROXY;
 import static io.trino.client.uri.PropertyName.KERBEROS_CONFIG_PATH;
@@ -205,10 +203,6 @@ public class ClientOptions
     @PropertyMapping(CLIENT_TAGS)
     @Option(names = "--client-tags", paramLabel = "<tags>", description = "Client tags", converter = ClientTagsConverter.class)
     public Optional<Set<String>> clientTags;
-
-    @PropertyMapping(EXTRA_HEADERS)
-    @Option(names = "--extra-header", paramLabel = "<header>", description = "Additional HTTP header to add to HTTP requests (property can be used multiple times; format is key=value)")
-    public final List<ExtraHeader> extraHeaders = new ArrayList<>();
 
     @PropertyMapping(TRACE_TOKEN)
     @Option(names = "--trace-token", paramLabel = "<token>", description = "Trace token")
@@ -428,9 +422,6 @@ public class ClientOptions
         if (!sessionProperties.isEmpty()) {
             builder.setSessionProperties(toProperties(sessionProperties));
         }
-        if (!extraHeaders.isEmpty()) {
-            builder.setExtraHeaders(toExtraHeaders(extraHeaders));
-        }
         if (!resourceEstimates.isEmpty()) {
             builder.setResourceEstimates(toResourceEstimates(resourceEstimates));
         }
@@ -505,15 +496,6 @@ public class ClientOptions
         catch (URISyntaxException e) {
             throw new IllegalArgumentException(e);
         }
-    }
-
-    public static Map<String, String> toExtraHeaders(List<ExtraHeader> extraHeaders)
-    {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        for (ExtraHeader extraHeader : extraHeaders) {
-            builder.put(extraHeader.getHeader(), extraHeader.getValue());
-        }
-        return builder.buildOrThrow();
     }
 
     private static Map<String, String> toProperties(List<ClientSessionProperty> sessionProperties)
@@ -620,59 +602,6 @@ public class ClientOptions
         public int hashCode()
         {
             return Objects.hash(resource, estimate);
-        }
-    }
-
-    public static final class ExtraHeader
-    {
-        private final String header;
-        private final String value;
-
-        public ExtraHeader(String headerAndValue)
-        {
-            List<String> nameValue = NAME_VALUE_SPLITTER.splitToList(headerAndValue);
-            checkArgument(nameValue.size() == 2, "Header and value: %s", headerAndValue);
-            this.header = nameValue.get(0);
-            this.value = nameValue.get(1);
-
-            checkArgument(!TRINO_HEADERS.isProtocolHeader(header), "Header '%s' is a protocol header and cannot be set as an extra header", header);
-            checkArgument(!header.isEmpty(), "Header name is empty");
-            checkArgument(!value.isEmpty(), "Header value is empty");
-        }
-
-        public ExtraHeader(String header, String value)
-        {
-            this.header = header;
-            this.value = value;
-        }
-
-        public String getHeader()
-        {
-            return header;
-        }
-
-        public String getValue()
-        {
-            return value;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            ExtraHeader other = (ExtraHeader) o;
-            return Objects.equals(header, other.header) && Objects.equals(value, other.value);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(header, value);
         }
     }
 

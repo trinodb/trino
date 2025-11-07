@@ -292,12 +292,4 @@ public class TestSqlServerConnectorTest
         // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/10846
         executeExclusively(super::testSelectInformationSchemaColumns);
     }
-
-    @Test
-    @Override
-    public void testBulkColumnListingOptions()
-    {
-        // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/10846
-        executeExclusively(super::testBulkColumnListingOptions);
-    }
 }

@@ -51,7 +51,6 @@ public class ClientSession
     private final ZoneId timeZone;
     private final Locale locale;
     private final Map<String, String> resourceEstimates;
-    private final Map<String, String> extraHeaders;
     private final Map<String, String> properties;
     private final Map<String, String> preparedStatements;
     private final Map<String, ClientSelectedRole> roles;
@@ -88,7 +87,6 @@ public class ClientSession
             String source,
             Optional<String> traceToken,
             Set<String> clientTags,
-            Map<String, String> extraHeaders,
             String clientInfo,
             Optional<String> catalog,
             Optional<String> schema,
@@ -114,7 +112,6 @@ public class ClientSession
         this.source = requireNonNull(source, "source is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
-        this.extraHeaders = ImmutableMap.copyOf(requireNonNull(extraHeaders, "extraHeaders is null"));
         this.clientInfo = clientInfo;
         this.catalog = catalog;
         this.schema = schema;
@@ -199,11 +196,6 @@ public class ClientSession
     public Set<String> getClientTags()
     {
         return clientTags;
-    }
-
-    public Map<String, String> getExtraHeaders()
-    {
-        return extraHeaders;
     }
 
     public String getClientInfo()
@@ -303,7 +295,6 @@ public class ClientSession
                 .add("sessionUser", sessionUser)
                 .add("authorizationUser", authorizationUser)
                 .add("clientTags", clientTags)
-                .add("extraHeaders", extraHeaders)
                 .add("clientInfo", clientInfo)
                 .add("catalog", catalog)
                 .add("schema", schema)
@@ -333,7 +324,6 @@ public class ClientSession
         private String source;
         private Optional<String> traceToken = Optional.empty();
         private Set<String> clientTags = ImmutableSet.of();
-        private Map<String, String> extraHeaders = ImmutableMap.of();
         private String clientInfo;
         private String catalog;
         private String schema;
@@ -364,7 +354,6 @@ public class ClientSession
             source = clientSession.getSource();
             traceToken = clientSession.getTraceToken();
             clientTags = clientSession.getClientTags();
-            extraHeaders = clientSession.getExtraHeaders();
             clientInfo = clientSession.getClientInfo();
             catalog = clientSession.getCatalog().orElse(null);
             schema = clientSession.getSchema().orElse(null);
@@ -427,12 +416,6 @@ public class ClientSession
         public Builder clientTags(Set<String> clientTags)
         {
             this.clientTags = clientTags;
-            return this;
-        }
-
-        public Builder extraHeaders(Map<String, String> extraHeaders)
-        {
-            this.extraHeaders = extraHeaders;
             return this;
         }
 
@@ -543,7 +526,6 @@ public class ClientSession
                     source,
                     traceToken,
                     clientTags,
-                    extraHeaders,
                     clientInfo,
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(schema),

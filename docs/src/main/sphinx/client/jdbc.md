@@ -235,12 +235,6 @@ may not be specified using both methods.
     list of key-value pairs. For example, `abc:xyz;example.foo:bar` sets the
     system property `abc` to the value `xyz` and the `foo` property for catalog
     `example` to the value `bar`.
-* - `extraHeaders`
-  - HTTP headers to add to the authenticated HTTP requests, specified as a
-    list of key-value pairs. For example, `X-Trino-Foo:xyz;X-Trino-Bar:bar` 
-    sends the `X-Trino-Foo` header with the value `xyz` and the `X-Trino-Bar`
-    header with the value `bar`. Protocol headers such as `X-Trino-User` cannot be
-    overridden using this parameter.
 * - `externalAuthentication`
   - Set to true if you want to use external authentication via
     [](/security/oauth2). Use a local web browser to authenticate with an

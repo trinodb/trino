@@ -16,7 +16,6 @@ package io.trino.client.uri;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
@@ -45,7 +44,6 @@ import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.client.ClientSelectedRole.Type.ALL;
 import static io.trino.client.ClientSelectedRole.Type.NONE;
-import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.uri.AbstractConnectionProperty.Validator;
 import static io.trino.client.uri.AbstractConnectionProperty.validator;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.FULL;
@@ -101,7 +99,6 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
     public static final ConnectionProperty<String, String> CLIENT_INFO = new ClientInfo();
     public static final ConnectionProperty<String, Set<String>> CLIENT_TAGS = new ClientTags();
-    public static final ConnectionProperty<String, Map<String, String>> EXTRA_HEADERS = new ExtraHeaders();
     public static final ConnectionProperty<String, String> TRACE_TOKEN = new TraceToken();
     public static final ConnectionProperty<String, Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
     public static final ConnectionProperty<String, String> SOURCE = new Source();
@@ -142,7 +139,6 @@ final class ConnectionProperties
             .add(EXTERNAL_AUTHENTICATION_TIMEOUT)
             .add(EXTERNAL_AUTHENTICATION_TOKEN_CACHE)
             .add(EXTRA_CREDENTIALS)
-            .add(EXTRA_HEADERS)
             .add(HOSTNAME_IN_CERTIFICATE)
             .add(HTTP_LOGGING_LEVEL)
             .add(HTTP_PROXY)
@@ -790,42 +786,6 @@ final class ConnectionProperties
             return values.entrySet().stream()
                     .map(entry -> entry.getKey() + ":" + entry.getValue())
                     .collect(Collectors.joining(";"));
-        }
-    }
-
-    private static class ExtraHeaders
-            extends AbstractConnectionProperty<String, Map<String, String>>
-    {
-        private static final Validator<Properties> VALIDATE_EXTRA_HEADER = validator(
-                ExtraHeaders::isNotReservedHeader,
-                format("Connection property %s cannot override any of the Trino protocol headers", PropertyName.EXTRA_HEADERS));
-
-        public ExtraHeaders()
-        {
-            super(PropertyName.EXTRA_HEADERS, NOT_REQUIRED, VALIDATE_EXTRA_HEADER, converter(ExtraHeaders::parseExtraHeaders, ExtraHeaders::toString));
-        }
-
-        // Extra headers consists of a list of header name value pairs.
-        // E.g., `jdbc:trino://example.net:8080/?extraHeaders=X-Trino-Route:foo;X-Trino-Custom:bar` will send
-        // HTTP headers `X-Trino-Route=foo` and `X-Trino-Custom=bar`.
-        // These headers must not conflict with Trino protocol headers.
-        public static Map<String, String> parseExtraHeaders(String extraHeadersString)
-        {
-            return new MapPropertyParser(PropertyName.EXTRA_HEADERS.toString()).parse(extraHeadersString);
-        }
-
-        public static String toString(Map<String, String> values)
-        {
-            return values.entrySet().stream()
-                    .map(entry -> entry.getKey() + ":" + entry.getValue())
-                    .collect(Collectors.joining(";"));
-        }
-
-        private static boolean isNotReservedHeader(Properties properties)
-        {
-            Map<String, String> extraHeaders = EXTRA_HEADERS.getValueOrDefault(properties, ImmutableMap.of());
-            return extraHeaders.keySet().stream()
-                    .noneMatch(TRINO_HEADERS::isProtocolHeader);
         }
     }
 

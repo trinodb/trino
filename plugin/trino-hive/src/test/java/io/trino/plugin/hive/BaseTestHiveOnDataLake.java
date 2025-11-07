@@ -50,7 +50,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
@@ -280,80 +279,6 @@ abstract class BaseTestHiveOnDataLake
         assertQuery("SELECT * FROM " + fullyQualifiedTestTableName, "VALUES ('hello', 'world', 'part_val'), ('bye', 'world', 'part_val')");
 
         assertUpdate("DROP TABLE " + fullyQualifiedTestTableName);
-    }
-
-    @Test
-    public void testUpdateStatisticInsertOverwritePartitionedTable()
-    {
-        String partitionValue = "0";
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "OVERWRITE")
-                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "true")
-                .build();
-        String tableName = "test_statistic" + randomNameSuffix();
-        String testTable = getFullyQualifiedTestTableName(tableName);
-        computeActual(getCreateTableStatement(
-                testTable,
-                "partitioned_by=ARRAY['regionkey']"));
-        copyTpchNationToTable(session, testTable);
-        Table hiveTable = metastoreClient.getTable(HIVE_TEST_SCHEMA, tableName).orElseThrow();
-        Partition partition = metastoreClient.getPartition(hiveTable, List.of(partitionValue)).orElseThrow();
-        Map<String, Map<String, HiveColumnStatistics>> partitionStatistics = metastoreClient.getPartitionColumnStatistics(
-                HIVE_TEST_SCHEMA,
-                tableName,
-                ImmutableSet.of("regionkey=0"),
-                partition.getColumns().stream().map(Column::getName).collect(toSet()));
-        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().isPresent()).isTrue();
-        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().get().getMin()).isEqualTo(OptionalLong.of(0));
-        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().get().getMax()).isEqualTo(OptionalLong.of(16));
-
-        assertUpdate(session, "INSERT INTO " + testTable + "(name, comment, nationkey, regionkey) values ('name1', 'comment1', 20, 0)", 1);
-
-        partitionStatistics = metastoreClient.getPartitionColumnStatistics(
-                HIVE_TEST_SCHEMA,
-                tableName,
-                ImmutableSet.of("regionkey=0"),
-                partition.getColumns().stream().map(Column::getName).collect(toSet()));
-        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().isPresent()).isTrue();
-        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().get().getMin()).isEqualTo(OptionalLong.of(20));
-        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().get().getMax()).isEqualTo(OptionalLong.of(20));
-    }
-
-    @Test
-    public void testUpdateStatisticInsertAppendPartitionedTable()
-    {
-        String partitionValue = "0";
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
-                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "true")
-                .build();
-        String tableName = "test_statistic" + randomNameSuffix();
-        String testTable = getFullyQualifiedTestTableName(tableName);
-        computeActual(session, getCreateTableStatement(
-                testTable,
-                "partitioned_by=ARRAY['regionkey']"));
-        copyTpchNationToTable(session, testTable);
-        Table hiveTable = metastoreClient.getTable(HIVE_TEST_SCHEMA, tableName).orElseThrow();
-        Partition partition = metastoreClient.getPartition(hiveTable, List.of(partitionValue)).orElseThrow();
-        Map<String, Map<String, HiveColumnStatistics>> partitionStatistics = metastoreClient.getPartitionColumnStatistics(
-                HIVE_TEST_SCHEMA,
-                tableName,
-                ImmutableSet.of("regionkey=0"),
-                partition.getColumns().stream().map(Column::getName).collect(toSet()));
-        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().isPresent()).isTrue();
-        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().get().getMin()).isEqualTo(OptionalLong.of(0));
-        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().get().getMax()).isEqualTo(OptionalLong.of(16));
-
-        computeActual(session, "INSERT INTO " + testTable + "(name, comment, nationkey, regionkey) values ('name1', 'comment1', 20, 0)");
-
-        partitionStatistics = metastoreClient.getPartitionColumnStatistics(
-                HIVE_TEST_SCHEMA,
-                tableName,
-                ImmutableSet.of("regionkey=0"),
-                partition.getColumns().stream().map(Column::getName).collect(toSet()));
-        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().isPresent()).isTrue();
-        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().get().getMin()).isEqualTo(OptionalLong.of(0));
-        assertThat(partitionStatistics.get("regionkey=0").get("nationkey").getIntegerStatistics().get().getMax()).isEqualTo(OptionalLong.of(20));
     }
 
     @Test
@@ -2545,13 +2470,9 @@ abstract class BaseTestHiveOnDataLake
                 tableName);
     }
 
-    protected void copyTpchNationToTable(String testTable) {
-        copyTpchNationToTable(getSession(), testTable);
-    }
-
-    protected void copyTpchNationToTable(Session session, String testTable)
+    protected void copyTpchNationToTable(String testTable)
     {
-        computeActual(session, format("INSERT INTO " + testTable + " SELECT name, comment, nationkey, regionkey FROM tpch.tiny.nation"));
+        computeActual(format("INSERT INTO " + testTable + " SELECT name, comment, nationkey, regionkey FROM tpch.tiny.nation"));
     }
 
     private void testWriteWithFileSize(String testTable, int scaleFactorInThousands, long fileSizeRangeStart, long fileSizeRangeEnd)

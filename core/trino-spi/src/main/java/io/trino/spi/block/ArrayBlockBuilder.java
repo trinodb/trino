@@ -119,45 +119,6 @@ public class ArrayBlockBuilder
         currentEntryOpened = false;
     }
 
-    public ArrayEntryBuilder buildEntry()
-    {
-        return new ArrayEntryBuilderImplementation();
-    }
-
-    private class ArrayEntryBuilderImplementation
-            implements ArrayEntryBuilder
-    {
-        private boolean entryBuilt;
-
-        public ArrayEntryBuilderImplementation()
-        {
-            if (currentEntryOpened) {
-                throw new IllegalStateException("Expected current entry to be closed but was opened");
-            }
-            currentEntryOpened = true;
-        }
-
-        @Override
-        public BlockBuilder getElementBuilder()
-        {
-            if (entryBuilt || !currentEntryOpened) {
-                throw new IllegalStateException("Entry has already been built");
-            }
-            return values;
-        }
-
-        @Override
-        public void build()
-        {
-            if (entryBuilt || !currentEntryOpened) {
-                throw new IllegalStateException("Entry has already been built");
-            }
-            entryBuilt = true;
-            entryAdded(false);
-            currentEntryOpened = false;
-        }
-    }
-
     @Override
     public void append(ValueBlock block, int position)
     {

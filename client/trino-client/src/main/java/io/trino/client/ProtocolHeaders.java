@@ -194,16 +194,6 @@ public final class ProtocolHeaders
         responseOriginalRole = RESPONSE_SET_ORIGINAL_ROLES.withProtocolName(name);
     }
 
-    public boolean isProtocolHeader(String headerName)
-    {
-        for (Headers header : Headers.values()) {
-            if (header.withProtocolName(name).equalsIgnoreCase(headerName)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     public String getProtocolName()
     {
         return name;

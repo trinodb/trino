@@ -61,7 +61,6 @@ import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_R
 import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_TIMEOUT;
 import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_TOKEN_CACHE;
 import static io.trino.client.uri.ConnectionProperties.EXTRA_CREDENTIALS;
-import static io.trino.client.uri.ConnectionProperties.EXTRA_HEADERS;
 import static io.trino.client.uri.ConnectionProperties.HOSTNAME_IN_CERTIFICATE;
 import static io.trino.client.uri.ConnectionProperties.HTTP_LOGGING_LEVEL;
 import static io.trino.client.uri.ConnectionProperties.HTTP_PROXY;
@@ -243,11 +242,6 @@ public class TrinoUri
     public Map<String, String> getSessionProperties()
     {
         return resolveWithDefault(SESSION_PROPERTIES, ImmutableMap.of());
-    }
-
-    public Map<String, String> getExtraHeaders()
-    {
-        return resolveWithDefault(EXTRA_HEADERS, ImmutableMap.of());
     }
 
     public Optional<String> getSource()
@@ -527,7 +521,6 @@ public class TrinoUri
                 .timeZone(getTimeZone())
                 .locale(getLocale())
                 .properties(getSessionProperties())
-                .extraHeaders(getExtraHeaders())
                 .credentials(getExtraCredentials())
                 .transactionId(null)
                 .resourceEstimates(getResourceEstimates())
@@ -1014,11 +1007,6 @@ public class TrinoUri
         public Builder setSessionProperties(Map<String, String> sessionProperties)
         {
             return setProperty(SESSION_PROPERTIES, requireNonNull(sessionProperties, "sessionProperties is null"));
-        }
-
-        public Builder setExtraHeaders(Map<String, String> extraHeaders)
-        {
-            return setProperty(EXTRA_HEADERS, requireNonNull(extraHeaders, "extraHeaders is null"));
         }
 
         public Builder setSource(String source)

@@ -794,11 +794,10 @@ public abstract class BaseHiveConnectorTest
         // make sure role-grants only work on existing roles
         assertQueryFails(admin, "ALTER SCHEMA test_schema_authorization_role SET AUTHORIZATION ROLE nonexisting_role", ".*?Role 'nonexisting_role' does not exist in catalog 'hive'");
 
-        String role = "authorized_users" + randomNameSuffix();
-        assertUpdate(admin, "CREATE ROLE " + role + " IN hive");
-        assertUpdate(admin, "GRANT " + role + " TO user IN hive");
+        assertUpdate(admin, "CREATE ROLE authorized_users IN hive");
+        assertUpdate(admin, "GRANT authorized_users TO user IN hive");
 
-        assertUpdate(admin, "ALTER SCHEMA test_schema_authorization_role SET AUTHORIZATION ROLE " + role);
+        assertUpdate(admin, "ALTER SCHEMA test_schema_authorization_role SET AUTHORIZATION ROLE authorized_users");
 
         Session user = testSessionBuilder()
                 .setCatalog(getSession().getCatalog())
@@ -826,7 +825,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(user, "DROP TABLE test_schema_authorization_role.test");
         assertUpdate(user, "DROP SCHEMA test_schema_authorization_role");
 
-        assertUpdate(admin, "DROP ROLE " + role + " IN hive");
+        assertUpdate(admin, "DROP ROLE authorized_users IN hive");
     }
 
     @Test
@@ -909,12 +908,11 @@ public abstract class BaseHiveConnectorTest
                         .build())
                 .build();
 
-        String role = "authorized_users" + randomNameSuffix();
-        assertUpdate(admin, "CREATE ROLE " + role + " IN hive");
-        assertUpdate(admin, "GRANT " + role + " TO user IN hive");
+        assertUpdate(admin, "CREATE ROLE authorized_users IN hive");
+        assertUpdate(admin, "GRANT authorized_users TO user IN hive");
 
         assertQueryFails(admin, "CREATE SCHEMA test_createschema_authorization_role AUTHORIZATION ROLE nonexisting_role", ".*?Role 'nonexisting_role' does not exist in catalog 'hive'");
-        assertUpdate(admin, "CREATE SCHEMA test_createschema_authorization_role AUTHORIZATION ROLE " + role);
+        assertUpdate(admin, "CREATE SCHEMA test_createschema_authorization_role AUTHORIZATION ROLE authorized_users");
         assertUpdate(user, "CREATE TABLE test_createschema_authorization_role.test (x bigint)");
 
         // "user" without the role enabled cannot create new tables
@@ -928,7 +926,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(user, "DROP TABLE test_createschema_authorization_role.test");
         assertUpdate(user, "DROP SCHEMA test_createschema_authorization_role");
 
-        assertUpdate(admin, "DROP ROLE " + role + " IN hive");
+        assertUpdate(admin, "DROP ROLE authorized_users IN hive");
     }
 
     @Test

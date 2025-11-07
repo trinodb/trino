@@ -218,6 +218,40 @@
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
                                     <ignore>true</ignore>
+                                    <code>java.method.noLongerDefault</code>
+                                    <old>method void io.trino.spi.connector.Connector::shutdown()</old>
+                                    <new>method void io.trino.spi.connector.Connector::shutdown()</new>
+                                    <justification>Require connector to implement shutdown to prevent leaks</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.nowAbstract</code>
+                                    <old>method void io.trino.spi.connector.Connector::shutdown()</old>
+                                    <new>method void io.trino.spi.connector.Connector::shutdown()</new>
+                                    <justification>Require connector to implement shutdown to prevent leaks</justification>
+                                </item>
+                                <item>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.QueryId::toString()</old>
+                                    <new>method java.lang.String io.trino.spi.QueryId::toString()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
+                                    <justification>QueryId converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.kindChanged</code>
+                                    <old>class io.trino.spi.QueryId</old>
+                                    <new>class io.trino.spi.QueryId</new>
+                                    <justification>QueryId converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.resourcegroups.SelectionCriteria::&lt;init&gt;(boolean, java.lang.String, java.util.Set&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Set&lt;java.lang.String&gt;, io.trino.spi.session.ResourceEstimates, java.util.Optional&lt;java.lang.String&gt;)</old>
+                                    <justification>Remove a deprecated constructor</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
                                     <code>java.method.varargOverloadsOnlyDifferInVarargParameter</code>
                                     <old>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, boolean[])</old>
                                     <new>method io.opentelemetry.api.common.AttributesBuilder io.opentelemetry.api.common.AttributesBuilder::put(java.lang.String, boolean[])</new>
@@ -257,6 +291,46 @@
                                     <old>method io.opentelemetry.api.common.Value&lt;java.util.List&lt;io.opentelemetry.api.common.Value&lt;?&gt;&gt;&gt; io.opentelemetry.api.common.Value&lt;T&gt;::of(io.opentelemetry.api.common.Value&lt;?&gt;[])</old>
                                     <new>method io.opentelemetry.api.common.Value&lt;java.util.List&lt;io.opentelemetry.api.common.Value&lt;?&gt;&gt;&gt; io.opentelemetry.api.common.Value&lt;T&gt;::of(io.opentelemetry.api.common.Value&lt;?&gt;[])</new>
                                     <justification>Revapi now detects new API changes to vararg args</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method boolean[] io.trino.spi.block.RowBlock::getRawRowIsNull()</old>
+                                    <new>method boolean[] io.trino.spi.block.RowBlock::getRawRowIsNull()</new>
+                                    <oldVisibility>package</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                    <justification>Allow direct access to isNull mask on RowBlock for performance critical sections</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method void io.trino.spi.connector.ConnectorMetadata::executeTableExecute(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableExecuteHandle)</old>
+                                    <new>method java.util.Map&lt;java.lang.String, java.lang.Long&gt; io.trino.spi.connector.ConnectorMetadata::executeTableExecute(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableExecuteHandle)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.PageSorter::decodePageIndex(long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.PageSorter::decodePositionIndex(long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method long[] io.trino.spi.PageSorter::sort(java.util.List&lt;io.trino.spi.type.Type&gt;, java.util.List&lt;io.trino.spi.Page&gt;, java.util.List&lt;java.lang.Integer&gt;, java.util.List&lt;io.trino.spi.connector.SortOrder&gt;, int)</old>
+                                    <new>method java.util.Iterator&lt;io.trino.spi.Page&gt; io.trino.spi.PageSorter::sort(java.util.List&lt;io.trino.spi.type.Type&gt;, java.util.List&lt;io.trino.spi.Page&gt;, java.util.List&lt;java.lang.Integer&gt;, java.util.List&lt;io.trino.spi.connector.SortOrder&gt;, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method double io.trino.spi.metrics.Distribution&lt;T&gt;::getPercentile(double)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method double[] io.trino.spi.metrics.Distribution&lt;T&gt;::getPercentiles(double[])</new>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferUtilization&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferMetrics&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageTaskStatistics&gt;, java.util.List&lt;io.trino.spi.eventlistener.DynamicFilterDomainStatistics&gt;, java.util.function.Supplier&lt;java.util.List&lt;java.lang.String&gt;&gt;, java.util.List&lt;io.trino.spi.eventlistener.QueryPlanOptimizerStatistics&gt;, java.util.Optional&lt;java.lang.String&gt;)</old>
+                                    <new>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferUtilization&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferMetrics&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageTaskStatistics&gt;, java.util.List&lt;io.trino.spi.eventlistener.DynamicFilterDomainStatistics&gt;, java.util.function.Supplier&lt;java.util.List&lt;java.lang.String&gt;&gt;, java.util.List&lt;io.trino.spi.eventlistener.QueryPlanOptimizerStatistics&gt;, java.util.Map&lt;java.lang.String, io.trino.spi.metrics.Metrics&gt;, java.util.Optional&lt;java.lang.String&gt;)</new>
                                 </item>
                                 <item>
                                     <code>java.method.numberOfParametersChanged</code>
