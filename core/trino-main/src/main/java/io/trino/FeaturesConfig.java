@@ -94,6 +94,7 @@ public class FeaturesConfig
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
      */
     private CompressionCodec exchangeCompressionCodec = NONE;
+    private boolean blockSerdeVectorizedNullSuppressionEnabled = true;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean omitDateTimeTypePrecision;
     private int maxRecursionDepth = 10;
@@ -364,6 +365,19 @@ public class FeaturesConfig
     {
         this.exchangeCompressionCodec = exchangeCompressionCodec;
         return this;
+    }
+
+    @Config("exchange.experimental.vectorized-serde.enabled")
+    @ConfigDescription("Enable using Java Vector API for faster serialization and deserialization of exchange data")
+    public FeaturesConfig setBlockSerdeVectorizedNullSuppressionEnabled(boolean blockSerdeVectorizedNullSuppressionEnabled)
+    {
+        this.blockSerdeVectorizedNullSuppressionEnabled = blockSerdeVectorizedNullSuppressionEnabled;
+        return this;
+    }
+
+    public boolean isBlockSerdeVectorizedNullSuppressionEnabled()
+    {
+        return blockSerdeVectorizedNullSuppressionEnabled;
     }
 
     public DataIntegrityVerification getExchangeDataIntegrityVerification()
