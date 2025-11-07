@@ -3,10 +3,10 @@
 ## General
 
 * Support automatic TLS certificate generation in the `ANNOUNCE` node discovery mode. ({issue}`27030`)
-* Fix planning failure of certain queries involving empty VALUES. ({issue}`21506`)
 * Add support for specifying the location of the Exchange Manager configuration file. ({issue}`26611`)
 * Publish query finishing time event listener. ({issue}`27202`)
 * Enhance after `RemoveTrivialFilters` call `RemoveEmptyUnionBranches` to prune empty union branches. ({issue}`21506`)
+* Fix planning failure of certain queries involving empty VALUES. ({issue}`21506`)
 
 ## Security
 
@@ -50,8 +50,8 @@
 
 ## Iceberg connector
 
-* Fix failures when querying `$files` table after changes to table partitioning. ({issue}`26746`)
 * Add support for disabling token exchange via the `iceberg.rest-catalog.oauth2.token-exchange-enabled` config property. ({issue}`27174`)
+* Fix failures when querying `$files` table after changes to table partitioning. ({issue}`26746`)
 
 ## Ignite connector
 
