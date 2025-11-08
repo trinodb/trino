@@ -26,18 +26,20 @@ import io.trino.matching.Pattern;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinNode.DistributionType;
 import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.SystemSessionProperties.getJoinDistributionType;
 import static io.trino.SystemSessionProperties.getJoinMaxBroadcastTableSize;
 import static io.trino.cost.CostCalculatorWithEstimatedExchanges.calculateJoinCostWithoutOutput;
 import static io.trino.cost.PlanNodeStatsEstimateMath.getFirstKnownOutputSizeInBytes;
 import static io.trino.cost.PlanNodeStatsEstimateMath.getSourceTablesSizeInBytes;
-import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.AUTOMATIC;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
@@ -73,10 +75,21 @@ public class DetermineJoinDistributionType
     public Result apply(JoinNode joinNode, Captures captures, Context context)
     {
         JoinDistributionType joinDistributionType = getJoinDistributionType(context.getSession());
-        if (joinDistributionType == AUTOMATIC) {
-            return Result.ofPlanNode(getCostBasedJoin(joinNode, context));
-        }
-        return Result.ofPlanNode(getSyntacticOrderJoin(joinNode, context, joinDistributionType));
+        PlanNode result = switch (joinDistributionType) {
+            case AUTOMATIC -> getCostBasedJoin(joinNode, context, true, true);
+            case BROADCAST -> getCostBasedJoin(joinNode, context, true, false);
+            case PARTITIONED -> getCostBasedJoin(joinNode, context, false, true);
+        };
+
+        // On cases where the join type generated isn't the same as the joinDistributionType, which could happen for cases like
+        // the joinDistributionType is Broadcast but a join is full join thus a partitioned join is generated via
+        // getSyntacticOrderJoin, we want to run getCostBasedJoin again as a last chance to do the join reordering
+        Optional<DistributionType> calculatedJoinDistributionType = ((JoinNode) result).getDistributionType();
+        checkState(calculatedJoinDistributionType.isPresent());
+        boolean allowReplicated = calculatedJoinDistributionType.get().equals(REPLICATED);
+        boolean allowPartitioned = calculatedJoinDistributionType.get().equals(PARTITIONED);
+
+        return Result.ofPlanNode(getCostBasedJoin(joinNode, context, allowReplicated, allowPartitioned));
     }
 
     public static boolean canReplicate(JoinNode joinNode, Context context)
@@ -95,15 +108,15 @@ public class DetermineJoinDistributionType
                 || getSourceTablesSizeInBytes(buildSide, context.getLookup(), context.getStatsProvider()) <= joinMaxBroadcastTableSize.toBytes();
     }
 
-    private PlanNode getCostBasedJoin(JoinNode joinNode, Context context)
+    private PlanNode getCostBasedJoin(JoinNode joinNode, Context context, boolean allowReplicated, boolean allowPartitioned)
     {
         List<PlanNodeWithCost> possibleJoinNodes = new ArrayList<>();
 
-        addJoinsWithDifferentDistributions(joinNode, possibleJoinNodes, context);
-        addJoinsWithDifferentDistributions(joinNode.flipChildren(), possibleJoinNodes, context);
+        addJoinsWithDifferentDistributions(joinNode, possibleJoinNodes, context, allowReplicated, allowPartitioned);
+        addJoinsWithDifferentDistributions(joinNode.flipChildren(), possibleJoinNodes, context, allowReplicated, allowPartitioned);
 
         if (possibleJoinNodes.stream().anyMatch(result -> result.getCost().hasUnknownComponents()) || possibleJoinNodes.isEmpty()) {
-            return getSizeBasedJoin(joinNode, context);
+            return getSizeBasedJoin(joinNode, context, allowReplicated, allowPartitioned);
         }
 
         // Using Ordering to facilitate rule determinism
@@ -111,29 +124,29 @@ public class DetermineJoinDistributionType
         return planNodeOrderings.min(possibleJoinNodes).getPlanNode();
     }
 
-    private JoinNode getSizeBasedJoin(JoinNode joinNode, Context context)
+    private JoinNode getSizeBasedJoin(JoinNode joinNode, Context context, boolean allowReplicated, boolean allowPartitioned)
     {
         DataSize joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
 
         boolean isRightSideSmall = getSourceTablesSizeInBytes(joinNode.getRight(), context.getLookup(), context.getStatsProvider()) <= joinMaxBroadcastTableSize.toBytes();
-        if (isRightSideSmall && !mustPartition(joinNode)) {
+        if (allowReplicated && isRightSideSmall && !mustPartition(joinNode)) {
             // choose right join side with small source tables as replicated build side
             return joinNode.withDistributionType(REPLICATED);
         }
 
         boolean isLeftSideSmall = getSourceTablesSizeInBytes(joinNode.getLeft(), context.getLookup(), context.getStatsProvider()) <= joinMaxBroadcastTableSize.toBytes();
         JoinNode flippedJoin = joinNode.flipChildren();
-        if (isLeftSideSmall && !mustPartition(flippedJoin)) {
+        if (allowReplicated && isLeftSideSmall && !mustPartition(flippedJoin)) {
             // choose join left side with small source tables as replicated build side
             return flippedJoin.withDistributionType(REPLICATED);
         }
 
-        if (isRightSideSmall) {
+        if (allowPartitioned && isRightSideSmall) {
             // right side is small enough, but must be partitioned
             return joinNode.withDistributionType(PARTITIONED);
         }
 
-        if (isLeftSideSmall) {
+        if (allowPartitioned && isLeftSideSmall) {
             // left side is small enough, but must be partitioned
             return flippedJoin.withDistributionType(PARTITIONED);
         }
@@ -146,29 +159,29 @@ public class DetermineJoinDistributionType
         double leftOutputSizeInBytes = getFirstKnownOutputSizeInBytes(joinNode.getLeft(), context.getLookup(), context.getStatsProvider());
         double rightOutputSizeInBytes = getFirstKnownOutputSizeInBytes(joinNode.getRight(), context.getLookup(), context.getStatsProvider());
         // All the REPLICATED cases were handled in the code above, so now we only consider PARTITIONED cases here
-        if (rightOutputSizeInBytes * SIZE_DIFFERENCE_THRESHOLD < leftOutputSizeInBytes && !mustReplicate(joinNode, context)) {
+        if (allowPartitioned && rightOutputSizeInBytes * SIZE_DIFFERENCE_THRESHOLD < leftOutputSizeInBytes && !mustReplicate(joinNode, context)) {
             return joinNode.withDistributionType(PARTITIONED);
         }
 
-        if (leftOutputSizeInBytes * SIZE_DIFFERENCE_THRESHOLD < rightOutputSizeInBytes && !mustReplicate(flippedJoin, context)) {
+        if (allowPartitioned && leftOutputSizeInBytes * SIZE_DIFFERENCE_THRESHOLD < rightOutputSizeInBytes && !mustReplicate(flippedJoin, context)) {
             return flippedJoin.withDistributionType(PARTITIONED);
         }
 
         // neither side is small enough, choose syntactic join order
-        return getSyntacticOrderJoin(joinNode, context, AUTOMATIC);
+        return getSyntacticOrderJoin(joinNode, context, allowPartitioned);
     }
 
-    private void addJoinsWithDifferentDistributions(JoinNode joinNode, List<PlanNodeWithCost> possibleJoinNodes, Context context)
+    private void addJoinsWithDifferentDistributions(JoinNode joinNode, List<PlanNodeWithCost> possibleJoinNodes, Context context, boolean allowReplicated, boolean allowPartitioned)
     {
-        if (!mustPartition(joinNode) && canReplicate(joinNode, context)) {
+        if (allowReplicated && !mustPartition(joinNode) && canReplicate(joinNode, context)) {
             possibleJoinNodes.add(getJoinNodeWithCost(context, joinNode.withDistributionType(REPLICATED)));
         }
-        if (!mustReplicate(joinNode, context)) {
+        if (allowPartitioned && !mustReplicate(joinNode, context)) {
             possibleJoinNodes.add(getJoinNodeWithCost(context, joinNode.withDistributionType(PARTITIONED)));
         }
     }
 
-    private JoinNode getSyntacticOrderJoin(JoinNode joinNode, Context context, JoinDistributionType joinDistributionType)
+    private JoinNode getSyntacticOrderJoin(JoinNode joinNode, Context context, boolean allowPartitioned)
     {
         if (mustPartition(joinNode)) {
             return joinNode.withDistributionType(PARTITIONED);
@@ -176,7 +189,7 @@ public class DetermineJoinDistributionType
         if (mustReplicate(joinNode, context)) {
             return joinNode.withDistributionType(REPLICATED);
         }
-        if (joinDistributionType.canPartition()) {
+        if (allowPartitioned) {
             return joinNode.withDistributionType(PARTITIONED);
         }
         return joinNode.withDistributionType(REPLICATED);
