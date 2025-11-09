@@ -32,6 +32,8 @@
 
 ## Delta Lake connector
 
+* Fix incorrect results due to incorrect pushdown of `IS NOT DISTINCT FROM`. ({issue}`27213`)
+
 ## Druid connector
 
 ## DuckDB connector
@@ -54,6 +56,7 @@
 
 * Add support for disabling token exchange via the `iceberg.rest-catalog.oauth2.token-exchange-enabled` config property. ({issue}`27174`)
 * Fix failures when querying `$files` table after changes to table partitioning. ({issue}`26746`)
+* Fix incorrect results due to incorrect pushdown of `IS NOT DISTINCT FROM`. ({issue}`27213`)
 
 ## Ignite connector
 
@@ -75,6 +78,8 @@
 
 ## MySQL connector
 
+* Fix incorrect results due to incorrect pushdown of `IS NOT DISTINCT FROM`. ({issue}`27213`)
+
 ## OpenSearch connector
 
 ## Oracle connector
@@ -82,6 +87,8 @@
 ## Pinot connector
 
 ## PostgreSQL connector
+
+* Fix incorrect results due to incorrect pushdown of `IS NOT DISTINCT FROM`. ({issue}`27213`)
 
 ## Prometheus connector
 
