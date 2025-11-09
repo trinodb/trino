@@ -69,6 +69,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -93,6 +94,7 @@ public class TrinoJdbcCatalog
         extends AbstractTrinoCatalog
 {
     private static final Logger LOG = Logger.get(TrinoJdbcCatalog.class);
+    private static final Pattern METADATA_SUFFIX_PATTERN = Pattern.compile("/metadata/[^/]*$");
 
     private static final int PER_QUERY_CACHE_SIZE = 1000;
 
@@ -362,7 +364,7 @@ public class TrinoJdbcCatalog
         if (metadataLocation.isEmpty()) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, format("Could not find metadata_location for table %s", schemaTableName));
         }
-        String tableLocation = metadataLocation.get().replaceFirst("/metadata/[^/]*$", "");
+        String tableLocation = METADATA_SUFFIX_PATTERN.matcher(metadataLocation.get()).replaceFirst("");
         deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, tableLocation);
         invalidateTableCache(schemaTableName);
     }

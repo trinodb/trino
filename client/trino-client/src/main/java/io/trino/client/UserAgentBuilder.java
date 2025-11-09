@@ -20,12 +20,14 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 
 public class UserAgentBuilder
 {
     private static final Joiner.MapJoiner MAP_JOINER = Joiner.on(" ").withKeyValueSeparator("=");
+    private static final Pattern SANITIZE_PATTERN = Pattern.compile("[^a-zA-Z0-9_.-]+");
     private static final String LANGUAGE = "lang/java";
     private static final String OS_NAME = "os";
     private static final String OS_VERSION = "os/version";
@@ -69,7 +71,7 @@ public class UserAgentBuilder
     @VisibleForTesting
     static String sanitize(String value)
     {
-        return value.replaceAll("[^a-zA-Z0-9_.-]+", "_");
+        return SANITIZE_PATTERN.matcher(value).replaceAll("_");
     }
 
     private static String getProductVersion()

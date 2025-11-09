@@ -37,6 +37,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
@@ -65,6 +66,7 @@ public class RegisterTableProcedure
     private static final String TABLE_NAME = "TABLE_NAME";
     private static final String TABLE_LOCATION = "TABLE_LOCATION";
     private static final String METADATA_FILE_NAME = "METADATA_FILE_NAME";
+    private static final Pattern S3_SCHEMA_PATTERN = Pattern.compile("^s3[an]://");
 
     static {
         try {
@@ -211,7 +213,7 @@ public class RegisterTableProcedure
     {
         // Normalize e.g. s3a to s3, so that table can be registered using s3:// location
         // even if internally it uses s3a:// paths.
-        String normalizedSchema = tableLocation.replaceFirst("^s3[an]://", "s3://");
+        String normalizedSchema = S3_SCHEMA_PATTERN.matcher(tableLocation).replaceFirst("s3://");
         // Remove trailing slashes so that test_dir is equal to test_dir/
         return stripTrailingSlash(normalizedSchema);
     }
