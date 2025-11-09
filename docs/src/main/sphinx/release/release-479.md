@@ -4,9 +4,9 @@
 
 * Support automatic TLS certificate generation in the `ANNOUNCE` node discovery mode. ({issue}`27030`)
 * Add support for specifying the location of the Exchange Manager configuration file. ({issue}`26611`)
-* Publish query finishing time event listener. ({issue}`27202`)
+* Publish query finishing time in event listener. ({issue}`27202`)
 * Enhance after `RemoveTrivialFilters` call `RemoveEmptyUnionBranches` to prune empty union branches. ({issue}`21506`)
-* Fix planning failure of certain queries involving empty VALUES. ({issue}`21506`)
+* Fix planning failure of certain queries where part of the plan is optimized to empty values. ({issue}`21506`)
 
 ## Security
 
