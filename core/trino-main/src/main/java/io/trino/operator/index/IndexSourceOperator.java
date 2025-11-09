@@ -118,7 +118,7 @@ public class IndexSourceOperator
         requireNonNull(split, "split is null");
         checkState(source == null, "Index source split already set");
 
-        IndexSplit indexSplit = (IndexSplit) split.getConnectorSplit();
+        IndexSplit indexSplit = (IndexSplit) split.connectorSplit();
 
         // Normalize the incoming RecordSet to something that can be consumed by the index
         RecordSet normalizedRecordSet = probeKeyNormalizer.apply(indexSplit.getKeyRecordSet());

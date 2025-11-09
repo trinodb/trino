@@ -500,13 +500,13 @@ public class TestNodeScheduler
         assertThat(assignments2.keySet()).contains(node2);
 
         long node1Splits = assignments2.values().stream()
-                .map(Split::getConnectorSplit)
+                .map(Split::connectorSplit)
                 .filter(TestSplitLocal.class::isInstance)
                 .count();
         assertThat(node1Splits).isEqualTo(20);
 
         long node2Splits = assignments2.values().stream()
-                .map(Split::getConnectorSplit)
+                .map(Split::connectorSplit)
                 .filter(TestSplitRemote.class::isInstance)
                 .count();
         assertThat(node2Splits).isEqualTo(19);
@@ -527,13 +527,13 @@ public class TestNodeScheduler
         // If optimized-local-scheduling is disabled, the 41st split will be unassigned (the last slot in node2 will be taken up by the 40th split with node1 as local)
         // optimized-local-scheduling ensures that all splits that can be assigned locally will be assigned first
         node1Splits = assignments3.values().stream()
-                .map(Split::getConnectorSplit)
+                .map(Split::connectorSplit)
                 .filter(TestSplitLocal.class::isInstance)
                 .count();
         assertThat(node1Splits).isEqualTo(20);
 
         node2Splits = assignments3.values().stream()
-                .map(Split::getConnectorSplit)
+                .map(Split::connectorSplit)
                 .filter(TestSplitRemote.class::isInstance)
                 .count();
         assertThat(node2Splits).isEqualTo(20);

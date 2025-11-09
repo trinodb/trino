@@ -203,7 +203,7 @@ class EventDrivenTaskSource
 
     private int getSplitPartition(Split split)
     {
-        if (split.getConnectorSplit() instanceof RemoteSplit remoteSplit) {
+        if (split.connectorSplit() instanceof RemoteSplit remoteSplit) {
             SpoolingExchangeInput exchangeInput = (SpoolingExchangeInput) remoteSplit.getExchangeInput();
             List<ExchangeSourceHandle> handles = exchangeInput.getExchangeSourceHandles();
             return handles.get(0).getPartitionId();

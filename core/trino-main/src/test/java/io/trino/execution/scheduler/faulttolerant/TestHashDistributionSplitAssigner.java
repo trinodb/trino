@@ -576,7 +576,7 @@ public class TestHashDistributionSplitAssigner
     private static ListMultimap<Integer, Split> createSplitMap(Split... splits)
     {
         return Arrays.stream(splits)
-                .collect(toImmutableListMultimap(split -> ((TestingConnectorSplit) split.getConnectorSplit()).getBucket().orElseThrow(), Function.identity()));
+                .collect(toImmutableListMultimap(split -> ((TestingConnectorSplit) split.connectorSplit()).getBucket().orElseThrow(), Function.identity()));
     }
 
     private static FaultTolerantPartitioningScheme createPartitioningScheme(int partitionCount, Optional<List<InternalNode>> partitionToNodeMap)
@@ -584,7 +584,7 @@ public class TestHashDistributionSplitAssigner
         return new FaultTolerantPartitioningScheme(
                 partitionCount,
                 Optional.of(IntStream.range(0, partitionCount).toArray()),
-                Optional.of(split -> ((TestingConnectorSplit) split.getConnectorSplit()).getBucket().orElseThrow()),
+                Optional.of(split -> ((TestingConnectorSplit) split.connectorSplit()).getBucket().orElseThrow()),
                 partitionToNodeMap);
     }
 

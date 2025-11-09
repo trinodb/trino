@@ -13,8 +13,6 @@
  */
 package io.trino.metadata;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.connector.CatalogHandle;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
@@ -26,32 +24,14 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
-public final class Split
+public record Split(CatalogHandle catalogHandle, ConnectorSplit connectorSplit)
 {
     private static final int INSTANCE_SIZE = instanceSize(Split.class);
 
-    private final CatalogHandle catalogHandle;
-    private final ConnectorSplit connectorSplit;
-
-    @JsonCreator
-    public Split(
-            @JsonProperty("catalogHandle") CatalogHandle catalogHandle,
-            @JsonProperty("connectorSplit") ConnectorSplit connectorSplit)
+    public Split
     {
-        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
-        this.connectorSplit = requireNonNull(connectorSplit, "connectorSplit is null");
-    }
-
-    @JsonProperty
-    public CatalogHandle getCatalogHandle()
-    {
-        return catalogHandle;
-    }
-
-    @JsonProperty
-    public ConnectorSplit getConnectorSplit()
-    {
-        return connectorSplit;
+        requireNonNull(catalogHandle, "catalogHandle is null");
+        requireNonNull(connectorSplit, "connectorSplit is null");
     }
 
     public List<HostAddress> getAddresses()

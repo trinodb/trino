@@ -73,7 +73,7 @@ class SplitAssignerTester
         SplitsMapping taskPartitionSplits = splits.getOrDefault(taskPartition, SplitsMapping.EMPTY);
         List<Split> splitsFlat = taskPartitionSplits.getSplitsFlat(planNodeId);
         return splitsFlat.stream()
-                .map(split -> (TestingConnectorSplit) split.getConnectorSplit())
+                .map(split -> (TestingConnectorSplit) split.connectorSplit())
                 .map(TestingConnectorSplit::getId)
                 .collect(toImmutableSet());
     }
