@@ -46,6 +46,8 @@
 
 ## Hive connector
 
+* Fix updating table statistics when running INSERT queries with OVERWRITE behaviour. ({issue}`26517`)
+
 ## Hudi connector
 
 ## Iceberg connector
