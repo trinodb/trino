@@ -100,7 +100,8 @@ public class TestWorkerRestart
                         .isInstanceOf(ExecutionException.class)
                         .cause().hasMessageFindingMatch("^Expected response code from \\S+ to be 200, but was 500" +
                                                         "|Error fetching \\S+: Expected response code to be 200, but was 500" +
-                                                        "|Could not communicate with the remote task. The node may have crashed or be under too much load");
+                                                        "|Could not communicate with the remote task. The node may have crashed or be under too much load" +
+                                                        "|Error fetching \\S+: Content-Type header is not set");
 
                 // Ensure that the restarted worker is able to serve queries.
                 assertThat((long) queryRunner.execute("SELECT count(*) FROM tpch.tiny.lineitem").getOnlyValue())
