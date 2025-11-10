@@ -20,6 +20,7 @@ import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
@@ -275,5 +276,57 @@ public class TestSqlServerConnectorTest
                 .add("open[bracket")
                 .add("close]bracket")
                 .build();
+    }
+
+    @RepeatedTest(100)
+    @Override
+    public void testShowTablesLike()
+    {
+        super.testShowTablesLike();
+        try {
+            super.testUpdateRowConcurrently();
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @RepeatedTest(100)
+    @Override
+    public void testSelectInformationSchemaTables()
+    {
+        super.testSelectInformationSchemaTables();
+        try {
+            super.testUpdateRowConcurrently();
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @RepeatedTest(100)
+    @Override
+    public void testSelectInformationSchemaColumns()
+    {
+        super.testSelectInformationSchemaColumns();
+        try {
+            super.testUpdateRowConcurrently();
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @RepeatedTest(100)
+    @Override
+    public void testBulkColumnListingOptions()
+    {
+        super.testBulkColumnListingOptions();
+        try {
+            super.testUpdateRowConcurrently();
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }
