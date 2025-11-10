@@ -210,6 +210,7 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
+import static java.sql.Connection.TRANSACTION_READ_UNCOMMITTED;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -1235,6 +1236,16 @@ public class SqlServerClient
             connection.close();
             throw e;
         }
+        return connection;
+    }
+
+    @Override
+    public Connection openConnectionForListOperations(ConnectorSession session)
+            throws SQLException
+    {
+        Connection connection = connectionFactory.openConnection(session);
+        // Set weak isolation level to avoid deadlocks when reading from system tables
+        connection.setTransactionIsolation(TRANSACTION_READ_UNCOMMITTED);
         return connection;
     }
 

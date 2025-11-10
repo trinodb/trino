@@ -202,7 +202,7 @@ public abstract class BaseJdbcClient
     @Override
     public List<RelationCommentMetadata> getAllTableComments(ConnectorSession session, Optional<String> schema)
     {
-        try (Connection connection = connectionFactory.openConnection(session)) {
+        try (Connection connection = openConnectionForListOperations(session)) {
             ConnectorIdentity identity = session.getIdentity();
             Optional<String> remoteSchema = schema.map(schemaName -> identifierMapping.toRemoteSchemaName(getRemoteIdentifiers(connection), identity, schemaName));
             if (remoteSchema.isPresent() && !filterSchema(remoteSchema.get())) {
@@ -312,7 +312,7 @@ public abstract class BaseJdbcClient
     @Override
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
-        try (Connection connection = connectionFactory.openConnection(session);
+        try (Connection connection = openConnectionForListOperations(session);
                 ResultSet resultSet = getColumns(remoteTableName, connection.getMetaData())) {
             Map<String, CaseSensitivity> caseSensitivityMapping = getCaseSensitivityForColumns(session, connection, schemaTableName, remoteTableName);
             int allColumns = 0;
@@ -372,7 +372,7 @@ public abstract class BaseJdbcClient
         Connection connection = null;
         ResultSet resultSet = null;
         try {
-            connection = connectionFactory.openConnection(session);
+            connection = openConnectionForListOperations(session);
             Connection connectionFinal = connection;
             Optional<String> remoteSchema = schema.map(name -> {
                 RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers(connectionFinal);
@@ -663,6 +663,12 @@ public abstract class BaseJdbcClient
             throw e;
         }
         return connection;
+    }
+
+    public Connection openConnectionForListOperations(ConnectorSession session)
+            throws SQLException
+    {
+        return connectionFactory.openConnection(session);
     }
 
     @Override
