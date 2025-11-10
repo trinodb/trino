@@ -19,13 +19,6 @@ import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInputFile;
-import io.trino.orc.OrcDataSource;
-import io.trino.orc.OrcDataSourceId;
-import io.trino.orc.OrcReaderOptions;
-import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
-import io.trino.plugin.hive.orc.HdfsOrcDataSource;
-import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.util.MergingPageIterator;
 import io.trino.plugin.hive.util.SortBuffer;
 import io.trino.plugin.hive.util.TempFileReader;
@@ -231,15 +224,9 @@ public final class SortingFileWriter
             Collection<Iterator<Page>> iterators = new ArrayList<>();
 
             for (TempFile tempFile : files) {
-                TrinoInputFile inputFile = fileSystem.newInputFile(tempFile.location());
-                OrcDataSource dataSource = new HdfsOrcDataSource(
-                        new OrcDataSourceId(tempFile.location().toString()),
-                        inputFile.length(),
-                        new OrcReaderOptions(),
-                        inputFile,
-                        new FileFormatDataSourceStats());
-                closer.register(dataSource);
-                iterators.add(new TempFileReader(types, dataSource));
+                TempFileReader reader = new TempFileReader(types, fileSystem, tempFile.location());
+                closer.register(reader);
+                iterators.add(reader);
             }
 
             new MergingPageIterator(iterators, types, sortFields, sortOrders, typeOperators)
@@ -258,7 +245,7 @@ public final class SortingFileWriter
     {
         Location tempFile = getTempFileName();
 
-        try (TempFileWriter writer = new TempFileWriter(types, OrcFileWriterFactory.createOrcDataSink(fileSystem, tempFile))) {
+        try (TempFileWriter writer = new TempFileWriter(types, fileSystem, tempFile)) {
             consumer.accept(writer);
             writer.close();
             tempFiles.add(new TempFile(tempFile, writer.getWrittenBytes()));
