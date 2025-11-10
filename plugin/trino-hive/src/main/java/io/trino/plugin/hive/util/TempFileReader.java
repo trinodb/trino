@@ -46,7 +46,6 @@ public class TempFileReader
         implements Closeable
 {
     private final OrcRecordReader reader;
-    private final OrcDataSource dataSource;
 
     public TempFileReader(List<Type> types, TrinoFileSystem fileSystem, Location tempFileLocation)
     {
@@ -55,7 +54,7 @@ public class TempFileReader
 
         TrinoInputFile inputFile = fileSystem.newInputFile(tempFileLocation);
         try {
-            dataSource = new HdfsOrcDataSource(
+            OrcDataSource dataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(tempFileLocation.toString()),
                     inputFile.length(),
                     new OrcReaderOptions(),
@@ -108,6 +107,6 @@ public class TempFileReader
     public void close()
             throws IOException
     {
-        dataSource.close();
+        reader.close();
     }
 }
