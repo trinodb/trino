@@ -909,6 +909,13 @@ public class ElasticsearchMetadata
         }
         // Global aggregation is represented by [[]]
         verify(!groupingSets.isEmpty(), "No grouping sets provided");
+
+        // We can only handle a single grouping set
+        if (groupingSets.size() != 1) {
+            // Multiple grouping sets (GROUPING SETS, CUBE, ROLLUP) are not supported
+            return Optional.empty();
+        }
+
         if (!handle.termAggregations().isEmpty()) {
             /*
              applyAggregation may be called multiple times if an aggregation is done over the results of another aggregation
