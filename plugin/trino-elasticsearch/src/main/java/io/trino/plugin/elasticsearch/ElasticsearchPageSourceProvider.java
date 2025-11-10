@@ -28,6 +28,7 @@ import io.trino.spi.type.TypeManager;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.AGGREGATION;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static java.util.Objects.requireNonNull;
 
@@ -61,6 +62,17 @@ public class ElasticsearchPageSourceProvider
 
         if (elasticsearchTable.type().equals(QUERY)) {
             return new PassthroughQueryPageSource(client, elasticsearchTable);
+        }
+
+        if (elasticsearchTable.type().equals(AGGREGATION)) {
+            return new AggregateQueryPageSource(
+                    client,
+                    typeManager,
+                    elasticsearchTable,
+                    elasticsearchSplit,
+                    columns.stream()
+                            .map(ElasticsearchColumnHandle.class::cast)
+                            .collect(toImmutableList()));
         }
 
         if (columns.isEmpty()) {
