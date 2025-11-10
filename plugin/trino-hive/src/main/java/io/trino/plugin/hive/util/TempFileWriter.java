@@ -16,12 +16,15 @@ package io.trino.plugin.hive.util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.orc.OrcDataSink;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.trino.orc.OrcWriter;
 import io.trino.orc.OrcWriterOptions;
 import io.trino.orc.OrcWriterStats;
 import io.trino.orc.metadata.OrcType;
+import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
@@ -38,14 +41,20 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.orc.metadata.CompressionKind.LZ4;
 import static io.trino.orc.reader.ColumnReaders.ICEBERG_BINARY_TYPE;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
+import static java.util.Objects.requireNonNull;
 
 public class TempFileWriter
         implements Closeable
 {
     private final OrcWriter orcWriter;
 
-    public TempFileWriter(List<Type> types, OrcDataSink sink)
+    public TempFileWriter(List<Type> types, TrinoFileSystem fileSystem, Location tempFileLocation)
+            throws IOException
     {
+        requireNonNull(fileSystem, "fileSystem is null");
+        requireNonNull(tempFileLocation, "tempFileLocation is null");
+
+        OrcDataSink sink = OrcFileWriterFactory.createOrcDataSink(fileSystem, tempFileLocation);
         this.orcWriter = createOrcFileWriter(sink, types);
     }
 
