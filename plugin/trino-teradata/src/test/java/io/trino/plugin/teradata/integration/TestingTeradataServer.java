@@ -26,6 +26,7 @@ import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Random;
 
 import static io.trino.testing.SystemEnvironmentUtils.isEnvSet;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
@@ -33,9 +34,12 @@ import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 public final class TestingTeradataServer
         implements AutoCloseable, SqlExecutor
 {
-    private static final int MAX_RETRIES = 3;
-    private static final long RETRY_DELAY_MS = 1000;
-    private final Connection connection;
+    private static final int MAX_RETRIES = 5;
+    private static final long BASE_RETRY_DELAY_MS = 1500L;
+    private static final long MAX_RETRY_DELAY_MS = 10_000L;
+    private static final Random RANDOM = new Random();
+
+    private volatile Connection connection;
     private DatabaseConfig config;
     private ClearScapeSetup clearScapeSetup;
 
@@ -43,7 +47,8 @@ public final class TestingTeradataServer
     {
         config = DatabaseConfigFactory.create(envName);
         String hostName = config.getHostName();
-        // Initialize ClearScape Instance and Get the host name from ClearScape API in case config is using clearscape
+
+        // Initialize ClearScape Instance and get hostname from ClearScape API when used
         if (config.isUseClearScape()) {
             if (isEnvSet("CLEARSCAPE_DESTROY_ENV")) {
                 destroyEnv = Boolean.parseBoolean(requireEnv("CLEARSCAPE_DESTROY_ENV"));
@@ -62,43 +67,9 @@ public final class TestingTeradataServer
                 .hostName(hostName)
                 .jdbcUrl(jdbcUrl)
                 .build();
-        connection = createConnection();
+        // Recreate the connection with retries to handle transient ClearScape socket or connection closure issues.
+        connection = createConnectionWithRetries();
         createTestDatabaseIfAbsent();
-    }
-
-    private String buildJdbcUrl(String hostName)
-    {
-        String baseUrl = String.format("jdbc:teradata://%s/", hostName);
-        String propertiesString = buildPropertiesString();
-        if (propertiesString.isEmpty()) {
-            return baseUrl;
-        }
-        return baseUrl + propertiesString;
-    }
-
-    private String buildPropertiesString()
-    {
-        Map<String, String> properties = config.getJdbcProperties();
-        if (properties == null || properties.isEmpty()) {
-            return "";
-        }
-
-        return properties.entrySet()
-                .stream()
-                .map(entry -> entry.getKey() + "=" + entry.getValue())
-                .collect(java.util.stream.Collectors.joining(","));
-    }
-
-    private Connection createConnection()
-    {
-        try {
-            Class.forName("com.teradata.jdbc.TeraDriver");
-            Properties props = buildConnectionProperties(config.getAuthConfig());
-            return DriverManager.getConnection(config.getJdbcUrl(), props);
-        }
-        catch (SQLException | ClassNotFoundException e) {
-            throw new RuntimeException("Failed to create database connection", e);
-        }
     }
 
     private static Properties buildConnectionProperties(AuthenticationConfig auth)
@@ -108,6 +79,26 @@ public final class TestingTeradataServer
         props.setProperty("username", auth.userName());
         props.setProperty("password", auth.password());
         return props;
+    }
+
+    private static long computeBackoffDelay(int attempt)
+    {
+        // Calculates how long to wait before retrying an operation that failed
+        long base = BASE_RETRY_DELAY_MS * (1L << Math.max(0, attempt - 1));
+        long jitter = (long) (RANDOM.nextDouble() * BASE_RETRY_DELAY_MS);
+        long delay = Math.min(base + jitter, MAX_RETRY_DELAY_MS);
+        return Math.max(delay, BASE_RETRY_DELAY_MS);
+    }
+
+    private static void sleepUnchecked(long millis)
+    {
+        try {
+            Thread.sleep(millis);
+        }
+        catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted during retry wait", ie);
+        }
     }
 
     public Map<String, String> getCatalogProperties()
@@ -141,56 +132,9 @@ public final class TestingTeradataServer
         });
     }
 
-    private void executeWithRetry(Runnable operation)
-    {
-        int attempts = 0;
-        while (attempts < MAX_RETRIES) {
-            try {
-                operation.run();
-                return; // Success, exit retry loop
-            }
-            catch (RuntimeException e) {
-                if (isTeradataError3598(e) && attempts < MAX_RETRIES - 1) {
-                    attempts++;
-                    try {
-                        Thread.sleep(RETRY_DELAY_MS * attempts); // Exponential backoff
-                    }
-                    catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        throw new RuntimeException("Interrupted during retry", ie);
-                    }
-                }
-                else {
-                    throw e; // Re-throw if not error 3598 or max retries reached
-                }
-            }
-        }
-    }
-
-    private boolean isTeradataError3598(Exception e)
-    {
-        if (e.getCause() instanceof SQLException sqlException) {
-            return sqlException.getErrorCode() == 3598;
-        }
-        return false;
-    }
-
-    private boolean schemaExists(String schemaName)
-    {
-        String query = "SELECT COUNT(1) FROM DBC.DatabasesV WHERE DatabaseName = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(query)) {
-            stmt.setString(1, schemaName);
-            try (ResultSet rs = stmt.executeQuery()) {
-                return rs.next() && rs.getInt(1) > 0;
-            }
-        }
-        catch (SQLException e) {
-            throw new RuntimeException("Failed to check schema existence", e);
-        }
-    }
-
     public boolean isTableExists(String tableName)
     {
+        ensureConnection();
         String query = "SELECT count(1) FROM DBC.TablesV WHERE DataBaseName = ? AND TableName = ?";
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setString(1, config.getDatabaseName());
@@ -200,6 +144,19 @@ public final class TestingTeradataServer
             }
         }
         catch (SQLException e) {
+            if (isConnectionException(e)) {
+                connection = createConnectionWithRetries();
+                try (PreparedStatement stmt = connection.prepareStatement(query)) {
+                    stmt.setString(1, config.getDatabaseName());
+                    stmt.setString(2, tableName);
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        return rs.next() && rs.getInt(1) > 0;
+                    }
+                }
+                catch (SQLException ex) {
+                    throw new RuntimeException("Failed to check table existence: " + ex.getMessage(), ex);
+                }
+            }
             throw new RuntimeException("Failed to check table existence: " + e.getMessage(), e);
         }
     }
@@ -207,15 +164,7 @@ public final class TestingTeradataServer
     @Override
     public void execute(String sql)
     {
-        try (Statement stmt = connection.createStatement()) {
-            if (config.getDatabaseName() != null && schemaExists(config.getDatabaseName())) {
-                stmt.execute(String.format("DATABASE \"%s\"", config.getDatabaseName()));
-            }
-            stmt.execute(sql);
-        }
-        catch (SQLException e) {
-            throw new RuntimeException("SQL execution failed: " + sql, e);
-        }
+        executeWithRetry(() -> doExecute(sql));
     }
 
     public String getDatabaseName()
@@ -233,15 +182,23 @@ public final class TestingTeradataServer
     {
         try {
             dropTestDatabaseIfExists();
-            if (!connection.isClosed()) {
-                connection.close();
-            }
-            if (clearScapeSetup != null) {
-                clearScapeSetup.cleanup();
-            }
         }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
+        finally {
+            try {
+                if (connection != null && !connection.isClosed()) {
+                    connection.close();
+                }
+            }
+            catch (SQLException ignored) {
+            }
+            connection = null;
+            if (clearScapeSetup != null) {
+                try {
+                    clearScapeSetup.cleanup();
+                }
+                catch (Exception ignored) {
+                }
+            }
         }
     }
 
@@ -249,5 +206,182 @@ public final class TestingTeradataServer
     public boolean supportsMultiRowInsert()
     {
         return false;
+    }
+
+    private String buildJdbcUrl(String hostName)
+    {
+        String baseUrl = String.format("jdbc:teradata://%s/", hostName);
+        String propertiesString = buildPropertiesString();
+        return propertiesString.isEmpty() ? baseUrl : baseUrl + propertiesString;
+    }
+
+    private String buildPropertiesString()
+    {
+        Map<String, String> properties = config.getJdbcProperties();
+        if (properties == null || properties.isEmpty()) {
+            return "";
+        }
+        return properties.entrySet()
+                .stream()
+                .map(entry -> entry.getKey() + "=" + entry.getValue())
+                .collect(java.util.stream.Collectors.joining(","));
+    }
+
+    private Connection createConnection()
+    {
+        try {
+            Class.forName("com.teradata.jdbc.TeraDriver");
+            Properties props = buildConnectionProperties(config.getAuthConfig());
+            return DriverManager.getConnection(config.getJdbcUrl(), props);
+        }
+        catch (SQLException | ClassNotFoundException e) {
+            throw new RuntimeException("Failed to create database connection", e);
+        }
+    }
+
+    private Connection createConnectionWithRetries()
+    {
+        int attempt = 0;
+        while (true) {
+            try {
+                return createConnection();
+            }
+            catch (RuntimeException e) {
+                attempt++;
+                if (attempt >= MAX_RETRIES) {
+                    throw new RuntimeException("Failed to create database connection after retries", e);
+                }
+                long delay = computeBackoffDelay(attempt);
+                sleepUnchecked(delay);
+            }
+        }
+    }
+
+    private void doExecute(String sql)
+    {
+        ensureConnection();
+        try (Statement stmt = connection.createStatement()) {
+            if (config.getDatabaseName() != null && schemaExists(config.getDatabaseName())) {
+                stmt.execute(String.format("DATABASE \"%s\"", config.getDatabaseName()));
+            }
+            stmt.execute(sql);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException("SQL execution failed: " + sql, e);
+        }
+    }
+
+    private synchronized void ensureConnection()
+    {
+        try {
+            if (connection == null || connection.isClosed()) {
+                connection = createConnectionWithRetries();
+            }
+        }
+        catch (SQLException e) {
+            connection = createConnectionWithRetries();
+        }
+    }
+
+    private boolean schemaExists(String schemaName)
+    {
+        ensureConnection();
+        String query = "SELECT COUNT(1) FROM DBC.DatabasesV WHERE DatabaseName = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setString(1, schemaName);
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next() && rs.getInt(1) > 0;
+            }
+        }
+        catch (SQLException e) {
+            if (isConnectionException(e)) {
+                connection = createConnectionWithRetries();
+                try (PreparedStatement stmt = connection.prepareStatement(query)) {
+                    stmt.setString(1, schemaName);
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        return rs.next() && rs.getInt(1) > 0;
+                    }
+                }
+                catch (SQLException ex) {
+                    throw new RuntimeException("Failed to check schema existence", ex);
+                }
+            }
+            throw new RuntimeException("Failed to check schema existence", e);
+        }
+    }
+
+    private boolean isTeradataError3598(Throwable t)
+    {
+        if (t == null) {
+            return false;
+        }
+        Throwable root = t;
+        while (root.getCause() != null && !(root instanceof SQLException)) {
+            root = root.getCause();
+        }
+        if (root instanceof SQLException sqlEx) {
+            try {
+                if (sqlEx.getErrorCode() == 3598) {
+                    return true;
+                }
+            }
+            catch (Exception ignored) {
+            }
+        }
+        return false;
+    }
+
+    private boolean isConnectionException(SQLException e)
+    {
+        if (e == null) {
+            return false;
+        }
+        try {
+            int code = e.getErrorCode();
+            if (code == 1095 || code == 804) { // 1095 == closed connection, 804 socket communication failure
+                return true;
+            }
+        }
+        catch (Exception ignored) {
+        }
+
+        try {
+            return connection == null || connection.isClosed();
+        }
+        catch (SQLException ignored) {
+        }
+
+        return false;
+    }
+
+    private void executeWithRetry(Runnable operation)
+    {
+        int attempt = 0;
+
+        while (true) {
+            try {
+                operation.run();
+                return;
+            }
+            catch (RuntimeException e) {
+                attempt++;
+                Throwable cause = e.getCause();
+
+                // Connection-related: recreate connection and retry
+                if (cause instanceof SQLException sqlEx && isConnectionException(sqlEx) && attempt < MAX_RETRIES) {
+                    connection = createConnectionWithRetries();
+                    sleepUnchecked(computeBackoffDelay(attempt));
+                    continue;
+                }
+
+                // Teradata transient concurrency error 3598: backoff & retry
+                if (isTeradataError3598(e) && attempt < MAX_RETRIES) {
+                    long delay = computeBackoffDelay(attempt);
+                    sleepUnchecked(delay);
+                    continue;
+                }
+                throw e;
+            }
+        }
     }
 }
