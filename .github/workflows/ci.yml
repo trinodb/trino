@@ -972,7 +972,6 @@ jobs:
 
           ignore exclusion if:
             # Do not use this property outside of the matrix configuration.
-            #
             # This is added to all matrix entries so they may be conditionally
             # excluded by adding them to the excludes list with a GHA expression
             # for this property.
