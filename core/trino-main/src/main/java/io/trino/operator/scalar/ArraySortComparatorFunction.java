@@ -16,16 +16,12 @@ package io.trino.operator.scalar;
 import com.google.common.primitives.Ints;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BufferedArrayValueBuilder;
-import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.Type;
 import io.trino.sql.gen.lambda.LambdaFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
@@ -43,25 +39,20 @@ import static io.trino.util.Failures.checkCondition;
 @Description("Sorts the given array with a lambda comparator.")
 public final class ArraySortComparatorFunction
 {
-    private final BufferedArrayValueBuilder arrayValueBuilder;
-    private static final int INITIAL_LENGTH = 128;
-    private List<Integer> positions = Ints.asList(new int[INITIAL_LENGTH]);
-
-    @TypeParameter("T")
-    public ArraySortComparatorFunction(@TypeParameter("T") Type elementType)
-    {
-        arrayValueBuilder = BufferedArrayValueBuilder.createBuffered(new ArrayType(elementType));
-    }
+    private ArraySortComparatorFunction() {}
 
     @TypeParameter("T")
     @SqlType("array(T)")
-    public Block sort(
+    public static Block sort(
             @OperatorDependency(operator = READ_VALUE, argumentTypes = "T", convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL)) MethodHandle readValue,
             @SqlType("array(T)") Block block,
             @SqlType("function(T, T, integer)") ComparatorObjectLambda function)
     {
         int arrayLength = block.getPositionCount();
-        initPositionsList(arrayLength);
+        int[] positions = new int[arrayLength];
+        for (int i = 0; i < arrayLength; i++) {
+            positions[i] = i;
+        }
 
         Comparator<Integer> comparator = (x, y) -> {
             try {
@@ -75,29 +66,14 @@ public final class ArraySortComparatorFunction
             }
         };
 
-        sortPositions(arrayLength, comparator);
+        sortPositions(positions, comparator);
 
-        return arrayValueBuilder.build(arrayLength, elementBuilder -> {
-            ValueBlock valueBlock = block.getUnderlyingValueBlock();
-            for (int i = 0; i < arrayLength; i++) {
-                elementBuilder.append(valueBlock, block.getUnderlyingValuePosition(positions.get(i)));
-            }
-        });
+        return block.copyPositions(positions, 0, arrayLength);
     }
 
-    private void initPositionsList(int arrayLength)
+    private static void sortPositions(int[] positions, Comparator<Integer> comparator)
     {
-        if (positions.size() < arrayLength) {
-            positions = Ints.asList(new int[arrayLength]);
-        }
-        for (int i = 0; i < arrayLength; i++) {
-            positions.set(i, i);
-        }
-    }
-
-    private void sortPositions(int arrayLength, Comparator<Integer> comparator)
-    {
-        List<Integer> list = positions.subList(0, arrayLength);
+        List<Integer> list = Ints.asList(positions);
 
         try {
             list.sort(comparator);
