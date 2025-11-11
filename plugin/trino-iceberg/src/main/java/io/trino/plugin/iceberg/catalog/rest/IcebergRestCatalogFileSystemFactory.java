@@ -18,6 +18,7 @@ import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Map;
@@ -67,5 +68,31 @@ public class IcebergRestCatalogFileSystemFactory
         }
 
         return fileSystemFactory.create(identity);
+    }
+
+    @Override
+    public TrinoFileSystem create(ConnectorSession session, Map<String, String> fileIoProperties, boolean cachingEnabled)
+    {
+        ConnectorIdentity identity = session.getIdentity();
+        if (vendedCredentialsEnabled &&
+                fileIoProperties.containsKey(VENDED_S3_ACCESS_KEY) &&
+                fileIoProperties.containsKey(VENDED_S3_SECRET_KEY) &&
+                fileIoProperties.containsKey(VENDED_S3_SESSION_TOKEN)) {
+            // Do not include original credentials as they should not be used in vended mode
+            ConnectorIdentity identityWithExtraCredentials = ConnectorIdentity.forUser(identity.getUser())
+                    .withGroups(identity.getGroups())
+                    .withPrincipal(identity.getPrincipal())
+                    .withEnabledSystemRoles(identity.getEnabledSystemRoles())
+                    .withConnectorRole(identity.getConnectorRole())
+                    .withExtraCredentials(ImmutableMap.<String, String>builder()
+                            .put(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, fileIoProperties.get(VENDED_S3_ACCESS_KEY))
+                            .put(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, fileIoProperties.get(VENDED_S3_SECRET_KEY))
+                            .put(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, fileIoProperties.get(VENDED_S3_SESSION_TOKEN))
+                            .buildOrThrow())
+                    .build();
+            return fileSystemFactory.create(identityWithExtraCredentials, cachingEnabled);
+        }
+
+        return fileSystemFactory.create(session, cachingEnabled);
     }
 }

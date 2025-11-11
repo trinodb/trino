@@ -24,6 +24,7 @@ import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.manager.TableCachingPredicate;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
@@ -75,6 +76,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.FixedPageSource;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.connector.SystemColumnHandle;
 import io.trino.spi.predicate.Domain;
@@ -213,6 +215,7 @@ public class IcebergPageSourceProvider
     private final OrcReaderOptions orcReaderOptions;
     private final ParquetReaderOptions parquetReaderOptions;
     private final TypeManager typeManager;
+    private final TableCachingPredicate tableCachingPredicate;
     private final DeleteManager unpartitionedTableDeleteManager;
     private final Map<Integer, Function<PartitionData, PartitionKey>> partitionKeyFactories = new ConcurrentHashMap<>();
     private final Map<PartitionKey, DeleteManager> partitionedDeleteManagers = new ConcurrentHashMap<>();
@@ -223,7 +226,8 @@ public class IcebergPageSourceProvider
             FileFormatDataSourceStats fileFormatDataSourceStats,
             OrcReaderOptions orcReaderOptions,
             ParquetReaderOptions parquetReaderOptions,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            TableCachingPredicate tableCachingPredicate)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileIoFactory = requireNonNull(fileIoFactory, "fileIoFactory is null");
@@ -231,6 +235,7 @@ public class IcebergPageSourceProvider
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
         this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.tableCachingPredicate = requireNonNull(tableCachingPredicate, "tableCachingPredicate is null");
         this.unpartitionedTableDeleteManager = new DeleteManager(typeManager);
     }
 
@@ -263,8 +268,11 @@ public class IcebergPageSourceProvider
                 .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
                 .toArray(org.apache.iceberg.types.Type[]::new);
 
+        SchemaTableName schemaTableName = new SchemaTableName(tableHandle.getSchemaName(), tableHandle.getTableName());
+
         return createPageSource(
                 session,
+                schemaTableName,
                 icebergColumns,
                 schema,
                 partitionSpec,
@@ -287,6 +295,7 @@ public class IcebergPageSourceProvider
 
     public ConnectorPageSource createPageSource(
             ConnectorSession session,
+            SchemaTableName schemaTableName,
             List<IcebergColumnHandle> icebergColumns,
             Schema tableSchema,
             PartitionSpec partitionSpec,
@@ -316,10 +325,11 @@ public class IcebergPageSourceProvider
         if (effectivePredicate.isNone()) {
             return new EmptyPageSource();
         }
+        boolean shouldCache = tableCachingPredicate.test(schemaTableName);
 
         // exit early when only reading partition keys from a simple split
         String partition = partitionSpec.partitionToPath(partitionData);
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), fileIoProperties);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session, fileIoProperties, shouldCache);
         TrinoInputFile inputFile = isUseFileSizeFromMetadata(session)
                 ? fileSystem.newInputFile(Location.of(path), fileSize)
                 : fileSystem.newInputFile(Location.of(path));
