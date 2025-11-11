@@ -30,12 +30,14 @@ import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.Type;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class DistinctWindowAccumulator
@@ -141,18 +143,18 @@ public class DistinctWindowAccumulator
             }
         }
         else {
-            PageBuilder filteredPageBuilder = new PageBuilder(argumentTypes);
+            IntArrayList selectedPositions = new IntArrayList(min(128, positionCount));
             for (int position = 0; position < positionCount; position++) {
-                if (!test(distinctMask, position)) {
-                    continue;
+                if (test(distinctMask, position)) {
+                    selectedPositions.add(position);
                 }
-                for (int channel = 0; channel < argumentChannels.size(); channel++) {
-                    Block block = page.getBlock(channel);
-                    filteredPageBuilder.getBlockBuilder(channel).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
-                }
-                filteredPageBuilder.declarePosition();
             }
-            pagesIndex.addPage(filteredPageBuilder.build());
+
+            Block[] filteredBlocks = new Block[argumentChannels.size()];
+            for (int channel = 0; channel < argumentChannels.size(); channel++) {
+                filteredBlocks[channel] = page.getBlock(channel).copyPositions(selectedPositions.elements(), 0, selectedPositions.size());
+            }
+            pagesIndex.addPage(new Page(selectedPositions.size(), filteredBlocks));
         }
         int selectedPositionsCount = pagesIndex.getPositionCount();
         if (selectedPositionsCount > 0) {
