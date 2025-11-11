@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.manager;
 
+import com.google.inject.Inject;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 
@@ -29,6 +30,12 @@ import static java.util.Objects.requireNonNull;
 public class TableCachingPredicate
 {
     private final Predicate<SchemaTableName> predicate;
+
+    @Inject
+    public TableCachingPredicate(FileSystemConfig config)
+    {
+        this(config.getCacheIncludeTables());
+    }
 
     public TableCachingPredicate(List<String> includeTables)
     {
