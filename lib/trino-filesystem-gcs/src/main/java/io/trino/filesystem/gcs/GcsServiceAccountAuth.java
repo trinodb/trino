@@ -32,7 +32,7 @@ public class GcsServiceAccountAuth
     private final Optional<GoogleCredentials> jsonGoogleCredential;
 
     @Inject
-    public GcsServiceAccountAuth(GcsFileSystemConfig config)
+    public GcsServiceAccountAuth(GcsServiceAccountAuthConfig config)
             throws IOException
     {
         String jsonKey = config.getJsonKey();

@@ -32,7 +32,6 @@ import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGcsFileSystemConfig
 {
@@ -48,8 +47,6 @@ public class TestGcsFileSystemConfig
                 .setProjectId(null)
                 .setEndpoint(Optional.empty())
                 .setAuthType(AuthType.SERVICE_ACCOUNT)
-                .setJsonKey(null)
-                .setJsonKeyFilePath(null)
                 .setMaxRetries(20)
                 .setBackoffScaleFactor(3.0)
                 .setMaxRetryTime(new Duration(25, SECONDS))
@@ -136,31 +133,6 @@ public class TestGcsFileSystemConfig
     {
         assertFailsValidation(
                 new GcsFileSystemConfig()
-                        .setAuthType(AuthType.ACCESS_TOKEN)
-                        .setJsonKey("{}"),
-                "authMethodValid",
-                "Either gcs.auth-type or gcs.json-key or gcs.json-key-file-path must be set",
-                AssertTrue.class);
-
-        assertFailsValidation(
-                new GcsFileSystemConfig()
-                        .setAuthType(AuthType.ACCESS_TOKEN)
-                        .setJsonKeyFilePath("/dev/null"),
-                "authMethodValid",
-                "Either gcs.auth-type or gcs.json-key or gcs.json-key-file-path must be set",
-                AssertTrue.class);
-
-        assertFailsValidation(
-                new GcsFileSystemConfig()
-                        .setJsonKey("{}")
-                        .setJsonKeyFilePath("/dev/null"),
-                "authMethodValid",
-                "Either gcs.auth-type or gcs.json-key or gcs.json-key-file-path must be set",
-                AssertTrue.class);
-
-        assertFailsValidation(
-                new GcsFileSystemConfig()
-                        .setJsonKey("{}")
                         .setMinBackoffDelay(new Duration(20, MILLISECONDS))
                         .setMaxBackoffDelay(new Duration(19, MILLISECONDS)),
                 "retryDelayValid",
@@ -198,11 +170,5 @@ public class TestGcsFileSystemConfig
                 "authTypeAndGcsAccessTokenConfigured",
                 "Cannot set both gcs.use-access-token and gcs.auth-type",
                 AssertFalse.class);
-    }
-
-    @Test
-    void testAllowingNoConfigurationSpecifiedForServiceAccountAuth()
-    {
-        assertThat(new GcsFileSystemConfig().isAuthMethodValid()).isTrue();
     }
 }
