@@ -8,7 +8,7 @@ column-masking, row-filtering and audit logging.
 ## Requirements
 
 * Access to a Apache Ranger deployment with the desired authorization policies.
-* Access to an audit store using Solr, HDFS, Log4J, Elastic Search, or S3 to save audit logs.
+* Access to an audit store using Solr, HDFS, Log4J, Elasticsearch, or S3 to save audit logs.
 * Apache Ranger 2.5.0 and greater include the required Trino service definition.
   Earlier versions of Apache Ranger require an [update to the service definition
   available on
