@@ -170,5 +170,21 @@ public class TestGcsFileSystemConfig
                 "authTypeAndGcsAccessTokenConfigured",
                 "Cannot set both gcs.use-access-token and gcs.auth-type",
                 AssertFalse.class);
+
+        assertFailsValidation(
+                new GcsFileSystemConfig()
+                        .setUseGcsAccessToken(true)
+                        .setAuthType(AuthType.ASSUMED),
+                "authTypeAndGcsAccessTokenConfigured",
+                "Cannot set both gcs.use-access-token and gcs.auth-type",
+                AssertFalse.class);
+
+        assertFailsValidation(
+                new GcsFileSystemConfig()
+                        .setUseGcsAccessToken(false)
+                        .setAuthType(AuthType.ASSUMED),
+                "authTypeAndGcsAccessTokenConfigured",
+                "Cannot set both gcs.use-access-token and gcs.auth-type",
+                AssertFalse.class);
     }
 }

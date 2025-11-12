@@ -36,6 +36,7 @@ public class GcsFileSystemModule
                 type -> switch (type) {
                     case ACCESS_TOKEN -> _ -> binder.bind(GcsAuth.class).to(GcsAccessTokenAuth.class).in(Scopes.SINGLETON);
                     case SERVICE_ACCOUNT -> new GcsServiceAccountModule();
+                    case ASSUMED -> _ -> binder.bind(GcsAuth.class).to(AssumedAuth.class).in(Scopes.SINGLETON);
                 }));
     }
 }
