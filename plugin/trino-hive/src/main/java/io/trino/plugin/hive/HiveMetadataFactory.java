@@ -19,11 +19,14 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.hive.formats.line.protobuf.ProtobufDeserializerFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryListerFactory;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.trino.plugin.hive.metastore.dynamic.DynamicSchemaHiveMetastore;
+import io.trino.plugin.hive.metastore.dynamic.ProtobufDeserializerFactoryLoader;
 import io.trino.plugin.hive.security.AccessControlMetadataFactory;
 import io.trino.plugin.hive.security.UsingSystemSecurity;
 import io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
@@ -80,6 +83,7 @@ public class HiveMetadataFactory
     private final boolean allowTableRename;
     private final HiveTimestampPrecision hiveViewsTimestampPrecision;
     private final Executor metadataFetchingExecutor;
+    private final ProtobufDeserializerFactory protobufDeserializerFactory;
 
     @Inject
     public HiveMetadataFactory(
@@ -102,7 +106,8 @@ public class HiveMetadataFactory
             DirectoryLister directoryLister,
             TransactionScopeCachingDirectoryListerFactory transactionScopeCachingDirectoryListerFactory,
             @UsingSystemSecurity boolean usingSystemSecurity,
-            @AllowHiveTableRename boolean allowTableRename)
+            @AllowHiveTableRename boolean allowTableRename,
+            ProtobufDeserializerFactoryLoader protobufDeserializerFactoryLoader)
     {
         this(
                 catalogName,
@@ -139,7 +144,8 @@ public class HiveMetadataFactory
                 hiveConfig.isPartitionProjectionEnabled(),
                 allowTableRename,
                 hiveConfig.getTimestampPrecision(),
-                hiveConfig.getMetadataParallelism());
+                hiveConfig.getMetadataParallelism(),
+                protobufDeserializerFactoryLoader.get());
     }
 
     public HiveMetadataFactory(
@@ -177,7 +183,8 @@ public class HiveMetadataFactory
             boolean partitionProjectionEnabled,
             boolean allowTableRename,
             HiveTimestampPrecision hiveViewsTimestampPrecision,
-            int metadataParallelism)
+            int metadataParallelism,
+            ProtobufDeserializerFactory protobufDeserializerFactory)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -202,6 +209,7 @@ public class HiveMetadataFactory
         this.systemTableProviders = requireNonNull(systemTableProviders, "systemTableProviders is null");
         this.accessControlMetadataFactory = requireNonNull(accessControlMetadataFactory, "accessControlMetadataFactory is null");
         this.hiveTransactionHeartbeatInterval = requireNonNull(hiveTransactionHeartbeatInterval, "hiveTransactionHeartbeatInterval is null");
+        this.protobufDeserializerFactory = requireNonNull(protobufDeserializerFactory, "protobufDeserializerFactory is null");
 
         fileSystemExecutor = new BoundedExecutor(executorService, maxConcurrentFileSystemOperations);
         dropExecutor = new BoundedExecutor(executorService, maxConcurrentMetastoreDrops);
@@ -231,7 +239,10 @@ public class HiveMetadataFactory
     @Override
     public TransactionalMetadata create(ConnectorIdentity identity, boolean autoCommit)
     {
-        HiveMetastore hiveMetastore = createPerTransactionCache(metastoreFactory.createMetastore(Optional.of(identity)), perTransactionCacheMaximumSize);
+        HiveMetastore hiveMetastore = new DynamicSchemaHiveMetastore(
+                createPerTransactionCache(metastoreFactory.createMetastore(Optional.of(identity)), perTransactionCacheMaximumSize),
+                protobufDeserializerFactory,
+                Duration.valueOf("1h")); // TODO make configurable
 
         DirectoryLister directoryLister = transactionScopeCachingDirectoryListerFactory.get(this.directoryLister);
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(

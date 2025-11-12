@@ -49,6 +49,7 @@ import io.trino.plugin.hive.line.SimpleSequenceFilePageSourceFactory;
 import io.trino.plugin.hive.line.SimpleSequenceFileWriterFactory;
 import io.trino.plugin.hive.line.SimpleTextFilePageSourceFactory;
 import io.trino.plugin.hive.line.SimpleTextFileWriterFactory;
+import io.trino.plugin.hive.metastore.dynamic.ProtobufDeserializerFactoryLoader;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -180,7 +181,7 @@ public final class HiveTestUtils
                 .add(new RcFilePageSourceFactory(fileSystemFactory, hiveConfig))
                 .add(new OrcPageSourceFactory(new OrcReaderConfig(), fileSystemFactory, stats, hiveConfig))
                 .add(new ParquetPageSourceFactory(fileSystemFactory, stats, Optional.empty(), new ParquetReaderConfig(), hiveConfig))
-                .add(new ProtobufSequenceFilePageSourceFactory(fileSystemFactory, hiveConfig))
+                .add(new ProtobufSequenceFilePageSourceFactory(fileSystemFactory, new ProtobufDeserializerFactoryLoader(hiveConfig), hiveConfig))
                 .build();
     }
 
