@@ -504,19 +504,19 @@ public abstract class BaseTestOpenLineageQueries
                 "TABLE",
                 QueryType.INSERT,
                 true,
-                44,
+                46,
                 true),
         VIEW(
                 "VIEW",
                 QueryType.DATA_DEFINITION,
                 false,
-                43,
+                45,
                 false),
         MATERIALIZED_VIEW(
                 "MATERIALIZED VIEW",
                 QueryType.DATA_DEFINITION,
                 false,
-                43,
+                45,
                 false);
 
         private final String queryReplacement;

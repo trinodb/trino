@@ -16,8 +16,8 @@ package io.trino.plugin.exchange.filesystem.alluxio;
 import io.trino.plugin.exchange.filesystem.AbstractTestExchangeManager;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeManagerFactory;
 import io.trino.plugin.exchange.filesystem.TestExchangeManagerContext;
-import io.trino.plugin.exchange.filesystem.containers.AlluxioStorage;
 import io.trino.spi.exchange.ExchangeManager;
+import io.trino.testing.containers.Alluxio;
 import org.junit.jupiter.api.AfterAll;
 
 import static io.trino.plugin.exchange.filesystem.containers.AlluxioStorage.getExchangeManagerProperties;
@@ -25,13 +25,13 @@ import static io.trino.plugin.exchange.filesystem.containers.AlluxioStorage.getE
 public class TestAlluxioFileSystemExchangeManager
         extends AbstractTestExchangeManager
 {
-    private AlluxioStorage alluxioStorage;
+    private Alluxio alluxio;
 
     @Override
     protected ExchangeManager createExchangeManager()
     {
-        this.alluxioStorage = new AlluxioStorage();
-        alluxioStorage.start();
+        this.alluxio = new Alluxio();
+        alluxio.start();
 
         return new FileSystemExchangeManagerFactory().create(
                 getExchangeManagerProperties(),
@@ -44,9 +44,9 @@ public class TestAlluxioFileSystemExchangeManager
             throws Exception
     {
         super.destroy();
-        if (alluxioStorage != null) {
-            alluxioStorage.close();
-            alluxioStorage = null;
+        if (alluxio != null) {
+            alluxio.close();
+            alluxio = null;
         }
     }
 }

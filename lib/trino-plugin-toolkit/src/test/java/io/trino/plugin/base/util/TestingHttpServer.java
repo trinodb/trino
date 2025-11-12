@@ -48,6 +48,7 @@ public class TestingHttpServer
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .quiet()
                 .initialize();
 

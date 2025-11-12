@@ -9,7 +9,7 @@
 </p>
 <p align="center">
   <a href="https://trino.io/download.html" style="text-decoration: none"><img
-    src="https://img.shields.io/maven-central/v/io.trino/trino-server.svg?label=Trino"
+    src="https://img.shields.io/github/v/release/trinodb/trino"
     alt="Trino download"
   /></a>
   <a href="https://github.com/jvm-repo-rebuild/reproducible-central/blob/master/content/io/trino/README.md" style="text-decoration: none"><img
@@ -28,23 +28,8 @@
 
 ## Development
 
-Learn about development for all Trino organization projects:
-
-* [Vision](https://trino.io/development/vision)
-* [Contribution process](https://trino.io/development/process#contribution-process)
-* [Pull request and commit guidelines](https://trino.io/development/process#pull-request-and-commit-guidelines-)
-* [Release note guidelines](https://trino.io/development/process#release-note-guidelines-)
-
-Further information in the [development section of the
-website](https://trino.io/development) includes different roles, like
-contributors, reviewers, and maintainers, related processes, and other aspects.
-
-See [the Trino developer guide](https://trino.io/docs/current/develop.html) for
-information about the SPI, implementing connectors and other plugins plugins,
-the client protocol, writing tests and other lower level details.
-
-See [DEVELOPMENT](.github/DEVELOPMENT.md) for information about code style,
-development process, and guidelines.
+See [DEVELOPMENT](.github/DEVELOPMENT.md) for information about development and release process,
+code style and guidelines for implementors of Trino plugins.
 
 See [CONTRIBUTING](.github/CONTRIBUTING.md) for contribution requirements.
 

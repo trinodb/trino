@@ -68,6 +68,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrincipalType;
@@ -169,6 +170,8 @@ public class SemiTransactionalHiveMetastore
     private static final Map<AcidOperation, ActionType> ACID_OPERATION_ACTION_TYPES = ImmutableMap.of(
             AcidOperation.INSERT, ActionType.INSERT_EXISTING,
             AcidOperation.MERGE, ActionType.MERGE);
+
+    private static final boolean SHOULD_MERGE_STATISTICS = true;
 
     private final HiveMetastore delegate;
     private final TypeManager typeManager;
@@ -910,7 +913,7 @@ public class SemiTransactionalHiveMetastore
         if (oldPartitionAction == null) {
             partitionActionsOfTable.put(
                     partition.getValues(),
-                    new Action<>(ActionType.ADD, new PartitionAndMore(partition, currentLocation, files, statistics, statistics, cleanExtraOutputFilesOnCommit), session.getIdentity(), session.getQueryId()));
+                    new Action<>(ActionType.ADD, new PartitionAndMore(partition, currentLocation, files, statistics, statistics, SHOULD_MERGE_STATISTICS, cleanExtraOutputFilesOnCommit), session.getIdentity(), session.getQueryId()));
             return;
         }
         switch (oldPartitionAction.type()) {
@@ -920,7 +923,7 @@ public class SemiTransactionalHiveMetastore
                 }
                 partitionActionsOfTable.put(
                         partition.getValues(),
-                        new Action<>(ActionType.ALTER, new PartitionAndMore(partition, currentLocation, files, statistics, statistics, cleanExtraOutputFilesOnCommit), session.getIdentity(), session.getQueryId()));
+                        new Action<>(ActionType.ALTER, new PartitionAndMore(partition, currentLocation, files, statistics, statistics, SHOULD_MERGE_STATISTICS, cleanExtraOutputFilesOnCommit), session.getIdentity(), session.getQueryId()));
             }
             case ADD, ALTER, INSERT_EXISTING, MERGE ->
                     throw new TrinoException(ALREADY_EXISTS, format("Partition already exists for table '%s.%s': %s", databaseName, tableName, partition.getValues()));
@@ -1002,8 +1005,9 @@ public class SemiTransactionalHiveMetastore
                                         partition,
                                         partitionInfo.currentLocation(),
                                         Optional.of(partitionInfo.fileNames()),
-                                        MERGE_INCREMENTAL.updatePartitionStatistics(currentStatistics, partitionInfo.statisticsUpdate()),
+                                        partitionInfo.statisticsUpdateMode().updatePartitionStatistics(currentStatistics, partitionInfo.statisticsUpdate()),
                                         partitionInfo.statisticsUpdate(),
+                                        partitionInfo.statisticsUpdateMode() != OVERWRITE_ALL,
                                         cleanExtraOutputFilesOnCommit),
                                 session.getIdentity(),
                                 session.getQueryId()));
@@ -1280,6 +1284,11 @@ public class SemiTransactionalHiveMetastore
     public void checkSupportsHiveAcidTransactions()
     {
         delegate.checkSupportsTransactions();
+    }
+
+    public Metrics getMetrics()
+    {
+        return delegate.getMetrics();
     }
 
     public void beginQuery(ConnectorSession session)
@@ -1983,7 +1992,7 @@ public class SemiTransactionalHiveMetastore
                     partition.getSchemaTableName(),
                     Optional.of(getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues())),
                     partitionAndMore.statisticsUpdate(),
-                    true));
+                    partitionAndMore.mergeStatistic()));
         }
 
         private void executeCleanupTasksForAbort(Collection<DeclaredIntentionToWrite> declaredIntentionsToWrite)
@@ -2834,6 +2843,7 @@ public class SemiTransactionalHiveMetastore
             Optional<List<String>> fileNames,
             PartitionStatistics statistics,
             PartitionStatistics statisticsUpdate,
+            boolean mergeStatistic,
             boolean cleanExtraOutputFilesOnCommit)
     {
         private PartitionAndMore
@@ -3356,7 +3366,7 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    public record PartitionUpdateInfo(List<String> partitionValues, Location currentLocation, List<String> fileNames, PartitionStatistics statisticsUpdate)
+    public record PartitionUpdateInfo(List<String> partitionValues, Location currentLocation, List<String> fileNames, PartitionStatistics statisticsUpdate, StatisticsUpdateMode statisticsUpdateMode)
     {
         public PartitionUpdateInfo
         {
@@ -3364,6 +3374,7 @@ public class SemiTransactionalHiveMetastore
             requireNonNull(currentLocation, "currentLocation is null");
             requireNonNull(fileNames, "fileNames is null");
             requireNonNull(statisticsUpdate, "statisticsUpdate is null");
+            requireNonNull(statisticsUpdateMode, "statisticsUpdateMode is null");
         }
     }
 }

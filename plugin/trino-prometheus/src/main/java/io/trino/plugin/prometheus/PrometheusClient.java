@@ -174,7 +174,7 @@ public class PrometheusClient
         Request.Builder requestBuilder = new Request.Builder().url(uri.toString());
         try {
             Response response = httpClient.newCall(requestBuilder.build()).execute();
-            if (response.isSuccessful() && response.body() != null) {
+            if (response.isSuccessful()) {
                 return response.body();
             }
             throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "Bad response " + response.code() + " " + response.message());

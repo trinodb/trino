@@ -97,6 +97,7 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.FunctionAuthorization;
 import io.trino.spi.security.GrantInfo;
@@ -282,6 +283,14 @@ public class TracingMetadata
         try (var _ = scopedSpan(span)) {
             return delegate.getInfo(session, handle);
         }
+    }
+
+    @Override
+    public Metrics getMetrics(Session session, String catalogName)
+    {
+        // Do not trace getMetrics as this is expected to be a quick local jvm call,
+        // and adding this span would only obfuscate the trace
+        return delegate.getMetrics(session, catalogName);
     }
 
     @Override
@@ -630,11 +639,11 @@ public class TracingMetadata
     }
 
     @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata)
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata, boolean tableReplace)
     {
         Span span = startSpan("getStatisticsCollectionMetadataForWrite", catalogHandle.getCatalogName().toString(), tableMetadata);
         try (var _ = scopedSpan(span)) {
-            return delegate.getStatisticsCollectionMetadataForWrite(session, catalogHandle, tableMetadata);
+            return delegate.getStatisticsCollectionMetadataForWrite(session, catalogHandle, tableMetadata, tableReplace);
         }
     }
 
@@ -865,6 +874,15 @@ public class TracingMetadata
         Span span = startSpan("listCatalogs");
         try (var _ = scopedSpan(span)) {
             return delegate.listCatalogs(session);
+        }
+    }
+
+    @Override
+    public List<CatalogInfo> listActiveCatalogs(Session session)
+    {
+        Span span = startSpan("listActiveCatalogs");
+        try (var _ = scopedSpan(span)) {
+            return delegate.listActiveCatalogs(session);
         }
     }
 

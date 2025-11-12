@@ -13,47 +13,69 @@
  */
 package io.trino.spiller;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.airlift.slice.OutputStreamSliceOutput;
+import io.airlift.slice.Slice;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
-import java.nio.file.OpenOption;
 import java.nio.file.Path;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.nio.file.StandardOpenOption.APPEND;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-final class FileHolder
+final class SpillFile
         implements Closeable
 {
+    @VisibleForTesting
+    static final int BUFFER_SIZE = 4 * 1024;
+
     private final Path filePath;
 
     @GuardedBy("this")
     private boolean deleted;
 
-    public FileHolder(Path filePath)
+    @GuardedBy("this")
+    private OutputStreamSliceOutput output;
+
+    public SpillFile(Path filePath)
     {
         this.filePath = requireNonNull(filePath, "filePath is null");
     }
 
-    public synchronized OutputStream newOutputStream(OpenOption... options)
+    public synchronized void writeBytes(Slice slice)
             throws IOException
     {
+        requireNonNull(slice, "slice is null");
         checkState(!deleted, "File already deleted");
-        return Files.newOutputStream(filePath, options);
+        if (output == null) {
+            output = new OutputStreamSliceOutput(Files.newOutputStream(filePath, APPEND), BUFFER_SIZE);
+        }
+        output.writeBytes(slice);
     }
 
-    public synchronized InputStream newInputStream(OpenOption... options)
+    public synchronized void closeOutput()
+            throws IOException
+    {
+        if (output != null) {
+            output.close();
+            output = null;
+        }
+    }
+
+    public synchronized InputStream newInputStream()
             throws IOException
     {
         checkState(!deleted, "File already deleted");
-        return Files.newInputStream(filePath, options);
+        closeOutput();
+        return Files.newInputStream(filePath);
     }
 
     @Override
@@ -65,6 +87,7 @@ final class FileHolder
         deleted = true;
 
         try {
+            closeOutput();
             Files.delete(filePath);
         }
         catch (IOException e) {

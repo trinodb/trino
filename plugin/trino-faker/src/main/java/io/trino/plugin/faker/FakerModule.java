@@ -15,30 +15,17 @@
 package io.trino.plugin.faker;
 
 import com.google.inject.Binder;
-import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.trino.spi.type.TypeManager;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.util.Objects.requireNonNull;
 
 public class FakerModule
         implements Module
 {
-    private final TypeManager typeManager;
-
-    @Inject
-    public FakerModule(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
-
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(TypeManager.class).toInstance(typeManager);
-
         binder.bind(FakerConnector.class).in(Scopes.SINGLETON);
         binder.bind(FakerMetadata.class).in(Scopes.SINGLETON);
         binder.bind(FakerSplitManager.class).in(Scopes.SINGLETON);

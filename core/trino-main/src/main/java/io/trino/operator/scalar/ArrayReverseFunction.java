@@ -14,30 +14,20 @@
 package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BufferedArrayValueBuilder;
-import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.Type;
 
 @ScalarFunction("reverse")
 @Description("Returns an array which has the reversed order of the given array.")
 public final class ArrayReverseFunction
 {
-    private final BufferedArrayValueBuilder arrayValueBuilder;
-
-    @TypeParameter("E")
-    public ArrayReverseFunction(@TypeParameter("E") Type elementType)
-    {
-        arrayValueBuilder = BufferedArrayValueBuilder.createBuffered(new ArrayType(elementType));
-    }
+    private ArrayReverseFunction() {}
 
     @TypeParameter("E")
     @SqlType("array(E)")
-    public Block reverse(@SqlType("array(E)") Block block)
+    public static Block reverse(@SqlType("array(E)") Block block)
     {
         int arrayLength = block.getPositionCount();
 
@@ -45,11 +35,10 @@ public final class ArrayReverseFunction
             return block;
         }
 
-        return arrayValueBuilder.build(arrayLength, elementBuilder -> {
-            ValueBlock valueBlock = block.getUnderlyingValueBlock();
-            for (int i = arrayLength - 1; i >= 0; i--) {
-                elementBuilder.append(valueBlock, block.getUnderlyingValuePosition(i));
-            }
-        });
+        int[] positions = new int[arrayLength];
+        for (int i = 0; i < arrayLength; i++) {
+            positions[i] = arrayLength - i - 1;
+        }
+        return block.copyPositions(positions, 0, arrayLength);
     }
 }

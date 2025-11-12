@@ -11,22 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive;
+package io.trino.server.protocol;
 
-import static java.util.Objects.requireNonNull;
+import com.google.common.collect.ImmutableMap;
 
-public final class NodeVersion
+import java.util.Map;
+
+public class TestJsonSpooledPartitionedLayoutQueries
+        extends AbstractSpooledQueryDataDistributedQueries
 {
-    private final String version;
-
-    public NodeVersion(String version)
+    @Override
+    protected String encoding()
     {
-        this.version = requireNonNull(version, "version is null");
+        return "json";
     }
 
     @Override
-    public String toString()
+    protected Map<String, String> spoolingFileSystemConfig()
     {
-        return version;
+        return ImmutableMap.of("fs.layout", "partitioned");
+    }
+
+    @Override
+    protected Map<String, String> spoolingConfig()
+    {
+        return ImmutableMap.of("protocol.spooling.inlining.enabled", "false");
     }
 }

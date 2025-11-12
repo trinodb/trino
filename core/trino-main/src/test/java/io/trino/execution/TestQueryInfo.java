@@ -28,6 +28,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.client.NodeVersion;
 import io.trino.operator.RetryPolicy;
+import io.trino.plugin.base.metrics.DistributionSnapshot;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.server.BasicQueryStats;
@@ -318,7 +319,7 @@ public class TestQueryInfo
                 Duration.succinctDuration(value, SECONDS),
                 Duration.succinctDuration(value, SECONDS),
                 succinctBytes(value),
-                Optional.of(new DistributionSnapshot(new TDigestHistogram(new TDigest()))),
+                Optional.of(DistributionSnapshot.fromDistribution(new TDigestHistogram(new TDigest()))),
                 succinctBytes(value),
                 succinctBytes(value),
                 value,

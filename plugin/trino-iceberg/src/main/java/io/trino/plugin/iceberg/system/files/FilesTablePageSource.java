@@ -17,6 +17,7 @@ import com.google.common.io.Closer;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.iceberg.IcebergUtil;
+import io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.system.FilesTable;
 import io.trino.plugin.iceberg.system.IcebergPartitionColumn;
@@ -63,6 +64,7 @@ import static com.google.common.collect.Streams.mapWithIndex;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.IcebergUtil.readerForManifest;
+import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
 import static io.trino.plugin.iceberg.system.FilesTable.COLUMN_SIZES_COLUMN_NAME;
 import static io.trino.plugin.iceberg.system.FilesTable.CONTENT_COLUMN_NAME;
 import static io.trino.plugin.iceberg.system.FilesTable.EQUALITY_IDS_COLUMN_NAME;
@@ -101,6 +103,7 @@ public final class FilesTablePageSource
     private final Schema schema;
     private final Schema metadataSchema;
     private final Map<Integer, PrimitiveType> idToTypeMapping;
+    private final Map<Integer, PartitionSpec> idToPartitionSpecMapping;
     private final List<PartitionField> partitionFields;
     private final Optional<IcebergPartitionColumn> partitionColumnType;
     private final List<Types.NestedField> primitiveFields;
@@ -123,15 +126,15 @@ public final class FilesTablePageSource
         this.schema = SchemaParser.fromJson(requireNonNull(split.schemaJson(), "schema is null"));
         this.metadataSchema = SchemaParser.fromJson(requireNonNull(split.metadataTableJson(), "metadataSchema is null"));
         this.idToTypeMapping = primitiveFieldTypes(schema);
-        Map<Integer, PartitionSpec> specs = split.partitionSpecsByIdJson().entrySet().stream().collect(toImmutableMap(
+        this.idToPartitionSpecMapping = split.partitionSpecsByIdJson().entrySet().stream().collect(toImmutableMap(
                 Map.Entry::getKey,
-                entry -> PartitionSpecParser.fromJson(SchemaParser.fromJson(split.schemaJson()), entry.getValue())));
-        this.partitionFields = getAllPartitionFields(schema, specs);
+                entry -> PartitionSpecParser.fromJson(schema, entry.getValue())));
+        this.partitionFields = getAllPartitionFields(schema, idToPartitionSpecMapping);
         this.partitionColumnType = getPartitionColumnType(typeManager, partitionFields, schema);
         this.primitiveFields = IcebergUtil.primitiveFields(schema).stream()
                 .sorted(Comparator.comparing(Types.NestedField::name))
                 .collect(toImmutableList());
-        ManifestReader<? extends ContentFile<?>> manifestReader = closer.register(readerForManifest(split.manifestFile(), fileIoFactory.create(trinoFileSystem), specs));
+        ManifestReader<? extends ContentFile<?>> manifestReader = closer.register(readerForManifest(split.manifestFile(), fileIoFactory.create(trinoFileSystem), idToPartitionSpecMapping));
         // TODO figure out why selecting the specific column causes null to be returned for offset_splits
         this.contentIterator = closer.register(requireNonNull(manifestReader, "manifestReader is null").iterator());
         this.pageBuilder = new PageBuilder(requiredColumns.stream().map(column -> {
@@ -195,7 +198,12 @@ public final class FilesTablePageSource
             writeValueOrNull(pageBuilder, SPEC_ID_COLUMN_NAME, contentFile::specId, INTEGER::writeInt);
             // partitions
             if (partitionColumnType.isPresent() && columnNameToIndex.containsKey(FilesTable.PARTITION_COLUMN_NAME)) {
+                PartitionSpec partitionSpec = idToPartitionSpecMapping.get(contentFile.specId());
+                StructLikeWrapperWithFieldIdToIndex partitionStruct = createStructLikeWrapper(partitionSpec.partitionType(), contentFile.partition());
                 List<Type> partitionTypes = partitionTypes(partitionFields, idToTypeMapping);
+                List<? extends Class<?>> partitionColumnClass = partitionTypes.stream()
+                        .map(type -> type.typeId().javaClass())
+                        .collect(toImmutableList());
                 List<io.trino.spi.type.Type> partitionColumnTypes = partitionColumnType.orElseThrow().rowType().getFields().stream()
                         .map(RowType.Field::getType)
                         .collect(toImmutableList());
@@ -203,12 +211,13 @@ public final class FilesTablePageSource
                 if (pageBuilder.getBlockBuilder(columnNameToIndex.get(FilesTable.PARTITION_COLUMN_NAME)) instanceof RowBlockBuilder rowBlockBuilder) {
                     rowBlockBuilder.buildEntry(fields -> {
                         for (int i = 0; i < partitionColumnTypes.size(); i++) {
-                            Type type = partitionTypes.get(i);
                             io.trino.spi.type.Type trinoType = partitionColumnType.get().rowType().getFields().get(i).getType();
                             Object value = null;
                             Integer fieldId = partitionColumnType.get().fieldIds().get(i);
-                            if (fieldId != null) {
-                                value = convertIcebergValueToTrino(type, contentFile.partition().get(i, type.typeId().javaClass()));
+                            if (partitionStruct.getFieldIdToIndex().containsKey(fieldId)) {
+                                value = convertIcebergValueToTrino(
+                                        partitionTypes.get(i),
+                                        partitionStruct.getStructLikeWrapper().get().get(partitionStruct.getFieldIdToIndex().get(fieldId), partitionColumnClass.get(i)));
                             }
                             writeNativeValue(trinoType, fields.get(i), value);
                         }

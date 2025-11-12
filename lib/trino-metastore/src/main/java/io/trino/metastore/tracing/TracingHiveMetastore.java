@@ -33,6 +33,7 @@ import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 
@@ -675,5 +676,11 @@ public class TracingHiveMetastore
                 .setAttribute(FUNCTION, functionName)
                 .startSpan();
         withTracing(span, () -> delegate.dropFunction(databaseName, functionName, signatureToken));
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return delegate.getMetrics();
     }
 }

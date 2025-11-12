@@ -137,8 +137,8 @@ public class CatalogPruneTask
         List<CatalogHandle> activeCatalogs = getActiveCatalogs();
         pruneWorkerCatalogs(online, activeCatalogs);
 
-        // prune all inactive catalogs - we pass an empty set here because manager always retains active catalogs
-        connectorServicesProvider.pruneCatalogs(ImmutableSet.of());
+        // prune inactive catalogs locally
+        connectorServicesProvider.pruneCatalogs(ImmutableSet.copyOf(activeCatalogs));
     }
 
     void pruneWorkerCatalogs(Set<URI> online, List<CatalogHandle> activeCatalogs)

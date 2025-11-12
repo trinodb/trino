@@ -153,6 +153,7 @@ final class TestHttpEventListener
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 0L,
                 0L,
                 0L,
@@ -179,6 +180,7 @@ final class TestHttpEventListener
                 Collections.emptyList(),
                 Collections.emptyList(),
                 Collections.emptyList(),
+                ImmutableMap.of(),
                 Optional.empty());
 
         queryCreatedEvent = new QueryCreatedEvent(

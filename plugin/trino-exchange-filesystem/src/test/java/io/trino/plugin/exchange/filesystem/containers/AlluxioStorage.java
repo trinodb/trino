@@ -14,82 +14,25 @@
 package io.trino.plugin.exchange.filesystem.containers;
 
 import com.google.common.collect.ImmutableMap;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
-import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.utility.DockerImageName;
+import io.trino.testing.containers.Alluxio;
 
-import java.time.Duration;
 import java.util.Map;
 
 public class AlluxioStorage
         implements AutoCloseable
 {
-    private static final String IMAGE_NAME = "alluxio/alluxio:2.9.5";
-    private static final DockerImageName ALLUXIO_IMAGE = DockerImageName.parse(IMAGE_NAME);
-
-    private GenericContainer<?> alluxioMaster;
-    private GenericContainer<?> alluxioWorker;
+    private final Alluxio alluxio = new Alluxio();
 
     public void start()
     {
-        alluxioMaster = createAlluxioMasterContainer();
-        alluxioMaster.start();
-        alluxioWorker = createAlluxioWorkerContainer();
-        alluxioWorker.start();
-    }
-
-    private static GenericContainer<?> createAlluxioMasterContainer()
-    {
-        GenericContainer<?> container = new GenericContainer<>(ALLUXIO_IMAGE);
-        container.withCommand("master-only")
-                .withEnv("ALLUXIO_JAVA_OPTS",
-                        "-Dalluxio.security.authentication.type=NOSASL "
-                                + "-Dalluxio.master.hostname=localhost "
-                                + "-Dalluxio.worker.hostname=localhost "
-                                + "-Dalluxio.master.mount.table.root.ufs=/opt/alluxio/underFSStorage "
-                                + "-Dalluxio.master.journal.type=NOOP "
-                                + "-Dalluxio.security.authorization.permission.enabled=false "
-                                + "-Dalluxio.security.authorization.plugins.enabled=false ")
-                .withNetworkMode("host")
-                .withAccessToHost(true)
-                .waitingFor(new LogMessageWaitStrategy()
-                        .withRegEx(".*Primary started*\n")
-                        .withStartupTimeout(Duration.ofMinutes(3)));
-        container.start();
-        return container;
-    }
-
-    private static GenericContainer<?> createAlluxioWorkerContainer()
-    {
-        GenericContainer<?> container = new GenericContainer<>(ALLUXIO_IMAGE);
-        container.withCommand("worker-only")
-                .withNetworkMode("host")
-                .withEnv("ALLUXIO_JAVA_OPTS",
-                        "-Dalluxio.security.authentication.type=NOSASL "
-                                + "-Dalluxio.worker.ramdisk.size=512MB "
-                                + "-Dalluxio.worker.hostname=localhost "
-                                + "-Dalluxio.worker.tieredstore.level0.alias=HDD "
-                                + "-Dalluxio.worker.tieredstore.level0.dirs.path=/tmp "
-                                + "-Dalluxio.master.hostname=localhost "
-                                + "-Dalluxio.security.authorization.permission.enabled=false "
-                                + "-Dalluxio.security.authorization.plugins.enabled=false ")
-                .withAccessToHost(true)
-                .waitingFor(Wait.forLogMessage(".*Alluxio worker started.*\n", 1));
-        container.start();
-        return container;
+        alluxio.start();
     }
 
     @Override
     public void close()
             throws Exception
     {
-        if (alluxioMaster != null) {
-            alluxioMaster.close();
-        }
-        if (alluxioWorker != null) {
-            alluxioWorker.close();
-        }
+        alluxio.close();
     }
 
     public static Map<String, String> getExchangeManagerProperties()

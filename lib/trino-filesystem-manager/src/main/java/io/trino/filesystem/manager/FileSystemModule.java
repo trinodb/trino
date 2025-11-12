@@ -20,7 +20,6 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.configuration.ConfigPropertyMetadata;
-import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -46,6 +45,7 @@ import io.trino.filesystem.s3.S3FileSystemModule;
 import io.trino.filesystem.switching.SwitchingFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.filesystem.tracking.TrackingFileSystemFactory;
+import io.trino.spi.connector.ConnectorContext;
 
 import java.util.Map;
 import java.util.Optional;
@@ -60,15 +60,15 @@ public class FileSystemModule
         extends AbstractConfigurationAwareModule
 {
     private final String catalogName;
+    private final ConnectorContext context;
     private final boolean isCoordinator;
-    private final OpenTelemetry openTelemetry;
     private final boolean coordinatorFileCaching;
 
-    public FileSystemModule(String catalogName, boolean isCoordinator, OpenTelemetry openTelemetry, boolean coordinatorFileCaching)
+    public FileSystemModule(String catalogName, ConnectorContext context, boolean coordinatorFileCaching)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
-        this.isCoordinator = isCoordinator;
-        this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
+        this.context = requireNonNull(context, "context is null");
+        this.isCoordinator = context.getCurrentNode().isCoordinator();
         this.coordinatorFileCaching = coordinatorFileCaching;
     }
 
@@ -86,7 +86,7 @@ public class FileSystemModule
                     !config.isNativeGcsEnabled(),
                     !config.isNativeS3Enabled(),
                     catalogName,
-                    openTelemetry);
+                    context);
 
             loader.configure().forEach((name, securitySensitive) ->
                     consumeProperty(new ConfigPropertyMetadata(name, securitySensitive)));

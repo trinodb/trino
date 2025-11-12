@@ -236,3 +236,7 @@ The following table lists the configuration properties for the Ranger access con
   execute any query.
   * To allow this, create a policy in Apache Ranger for a `trinouser` resource
     with value `{USER}` and with the `impersonate` permission for user `{USER}`.
+* External clients can use the `system.runtime.kill_query()` procedure to 
+  kill running queries. Add a policy with Schema `system`, Database
+  `runtime` and Procedure `kill_query` with `execute` permission for user
+  `{USER}`.

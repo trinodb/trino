@@ -215,6 +215,7 @@ public class QueryMonitor
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty(),
                         0,
                         0,
                         0,
@@ -241,6 +242,7 @@ public class QueryMonitor
                         ImmutableList.of(),
                         ImmutableList.of(),
                         ImmutableList.of(),
+                        ImmutableMap.of(),
                         Optional.empty()),
                 createQueryContext(
                         queryInfo.getSession(),
@@ -331,6 +333,7 @@ public class QueryMonitor
                 Optional.of(queryStats.getOutputBlockedTime().toJavaTime()),
                 Optional.of(queryStats.getFailedOutputBlockedTime().toJavaTime()),
                 Optional.of(queryStats.getPhysicalInputReadTime().toJavaTime()),
+                Optional.of(queryStats.getFinishingTime().toJavaTime()),
                 queryStats.getPeakUserMemoryReservation().toBytes(),
                 queryStats.getPeakTaskUserMemory().toBytes(),
                 queryStats.getPeakTaskTotalMemory().toBytes(),
@@ -357,6 +360,7 @@ public class QueryMonitor
                 getDynamicFilterDomainStats(queryInfo),
                 memoize(() -> operatorStats.stream().map(operatorStatsCodec::toJson).toList()),
                 ImmutableList.copyOf(queryInfo.getQueryStats().getOptimizerRulesSummaries()),
+                ImmutableMap.copyOf(queryInfo.getQueryStats().getCatalogMetadataMetrics()),
                 serializedPlanNodeStatsAndCosts);
     }
 

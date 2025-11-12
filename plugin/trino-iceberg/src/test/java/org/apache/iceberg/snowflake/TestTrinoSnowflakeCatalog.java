@@ -21,7 +21,6 @@ import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.filesystem.s3.S3FileSystemFactory;
 import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.metastore.TableInfo;
-import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergMetadata;
@@ -33,6 +32,7 @@ import io.trino.plugin.iceberg.catalog.snowflake.IcebergSnowflakeCatalogConfig;
 import io.trino.plugin.iceberg.catalog.snowflake.SnowflakeIcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer;
 import io.trino.plugin.iceberg.catalog.snowflake.TrinoSnowflakeCatalog;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
@@ -48,6 +48,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.jdbc.JdbcClientPool;
 import org.apache.iceberg.types.Types;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -146,6 +147,12 @@ public class TestTrinoSnowflakeCatalog
             throws SQLException
     {
         server.execute(SNOWFLAKE_TEST_SCHEMA, sql);
+    }
+
+    @Override
+    protected void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> namespaceProperties)
+    {
+        Assumptions.abort("Snowflake catalog does not support creating namespaces");
     }
 
     @Override

@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
-import io.trino.plugin.base.CatalogNameModule;
 import io.trino.spi.QueryId;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -855,7 +855,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     protected ConnectorAccessControl createAccessControl(Map<String, String> configProperties)
     {
-        Bootstrap bootstrap = new Bootstrap(new CatalogNameModule("test_catalog"), new FileBasedAccessControlModule());
+        Bootstrap bootstrap = new Bootstrap(binder -> binder.bind(CatalogName.class).toInstance(new CatalogName("test_catalog")), new FileBasedAccessControlModule());
 
         Injector injector = bootstrap
                 .doNotInitializeLogging()

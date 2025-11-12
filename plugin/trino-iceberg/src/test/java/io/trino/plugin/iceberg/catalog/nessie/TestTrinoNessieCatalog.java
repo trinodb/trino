@@ -16,19 +16,20 @@ package io.trino.plugin.iceberg.catalog.nessie;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
-import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.containers.NessieContainer;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TestingTypeManager;
+import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.nessie.NessieIcebergClient;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -82,6 +83,18 @@ public class TestTrinoNessieCatalog
         if (nessieContainer != null) {
             nessieContainer.close();
         }
+    }
+
+    @Override
+    protected void createNamespaceWithProperties(TrinoCatalog catalog, String namespace, Map<String, String> properties)
+    {
+        IcebergNessieCatalogConfig icebergNessieCatalogConfig = new IcebergNessieCatalogConfig()
+                .setServerUri(URI.create(nessieContainer.getRestApiUri()));
+        NessieApiV2 nessieApi = NessieClientBuilder.createClientBuilderFromSystemSettings()
+                .withUri(nessieContainer.getRestApiUri())
+                .build(NessieApiV2.class);
+        NessieIcebergClient nessieClient = new NessieIcebergClient(nessieApi, icebergNessieCatalogConfig.getDefaultReferenceName(), null, ImmutableMap.of());
+        nessieClient.createNamespace(Namespace.of(namespace), properties);
     }
 
     @Override

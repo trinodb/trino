@@ -79,18 +79,9 @@ import static java.util.Objects.requireNonNull;
 public class ConfluentModule
         extends AbstractConfigurationAwareModule
 {
-    private final TypeManager typeManager;
-
-    public ConfluentModule(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
-
     @Override
     protected void setup(Binder binder)
     {
-        binder.bind(TypeManager.class).toInstance(typeManager);
-
         configBinder(binder).bindConfig(ConfluentSchemaRegistryConfig.class);
         install(new ConfluentDecoderModule());
         install(new ConfluentEncoderModule());

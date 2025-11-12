@@ -60,6 +60,7 @@ import io.trino.cost.StatsNormalizer;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
+import io.trino.exchange.ExchangeManagerConfig;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.NodeTaskMap;
@@ -474,7 +475,7 @@ public class PlanTester
                 ImmutableSet.of(),
                 ImmutableSet.of(new ExcludeColumnsFunction()));
 
-        exchangeManagerRegistry = new ExchangeManagerRegistry(noop(), noopTracer(), secretsResolver);
+        exchangeManagerRegistry = new ExchangeManagerRegistry(noop(), noopTracer(), secretsResolver, new ExchangeManagerConfig());
         spoolingManagerRegistry = new SpoolingManagerRegistry(
                 new InternalNode("nodeId", URI.create("http://localhost:8080"), NodeVersion.UNKNOWN, false),
                 new ServerConfig(),

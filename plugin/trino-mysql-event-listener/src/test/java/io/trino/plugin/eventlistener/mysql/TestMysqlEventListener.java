@@ -106,6 +106,7 @@ final class TestMysqlEventListener
             Optional.of(ofMillis(113)),
             Optional.of(ofMillis(114)),
             Optional.of(ofMillis(115)),
+            Optional.of(ofMillis(116)),
             115L,
             116L,
             117L,
@@ -140,6 +141,8 @@ final class TestMysqlEventListener
             List.of("{operator: \"operator1\"}", "{operator: \"operator2\"}"),
             // not stored
             Collections.emptyList(),
+            // not stored
+            ImmutableMap.of(),
             // not stored
             Optional.empty());
 
@@ -272,6 +275,7 @@ final class TestMysqlEventListener
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
             115L,
             116L,
             117L,
@@ -304,6 +308,7 @@ final class TestMysqlEventListener
             Collections.emptyList(),
             Collections.emptyList(),
             Collections.emptyList(),
+            ImmutableMap.of(),
             // not stored
             Optional.empty());
 

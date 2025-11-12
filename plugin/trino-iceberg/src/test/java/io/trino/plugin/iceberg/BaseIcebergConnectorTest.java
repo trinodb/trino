@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
 import io.trino.execution.StagesInfo;
@@ -42,8 +44,10 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -56,9 +60,11 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.TestingSession;
 import io.trino.testing.sql.TestTable;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
@@ -113,6 +119,8 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.trino.SystemSessionProperties.DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
+import static io.trino.SystemSessionProperties.ITERATIVE_OPTIMIZER_TIMEOUT;
 import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.MAX_WRITER_TASK_COUNT;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
@@ -179,6 +187,7 @@ import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.offset;
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseIcebergConnectorTest
@@ -218,6 +227,29 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @BeforeAll
+    public void initMockMetricsCatalog()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String mockConnector = "mock_metrics";
+        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                .withName(mockConnector)
+                .withListSchemaNames(_ -> ImmutableList.of("default"))
+                .withGetTableStatistics(_ -> {
+                    try {
+                        Thread.sleep(110);
+                    }
+                    catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException(e);
+                    }
+                    return TableStatistics.empty();
+                })
+                .build()));
+
+        queryRunner.createCatalog("mock_metrics", mockConnector);
+    }
+
+    @BeforeAll
     public void initFileSystem()
     {
         fileSystem = getFileSystemFactory(getDistributedQueryRunner()).create(SESSION);
@@ -246,6 +278,7 @@ public abstract class BaseIcebergConnectorTest
                  SUPPORTS_REPORTING_WRITTEN_BYTES -> true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
                  SUPPORTS_DEFAULT_COLUMN_VALUE,
+                 SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_REFRESH_VIEW,
                  SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS,
                  SUPPORTS_TOPN_PUSHDOWN -> false;
@@ -3287,6 +3320,10 @@ public abstract class BaseIcebergConnectorTest
 
         // year()
         assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE year(d) = 2015"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE year(d) IS DISTINCT FROM 2015"))
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE year(d) IS NOT DISTINCT FROM 2015"))
                 .isFullyPushedDown();
 
         // date_trunc
@@ -6614,6 +6651,34 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testExplainOptimize()
+    {
+        Session sessionWithIgnoreStatsCalculatorFailuresFalse = withoutIgnoreStatsCalculatorFailures(getSession());
+
+        String tableName = "test_explain_optimize" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (partitioning = ARRAY['key'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
+
+        assertExplain(sessionWithIgnoreStatsCalculatorFailuresFalse, "EXPLAIN ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                ".*Output layout:.*");
+    }
+
+    @Test
+    public void testExplainAnalyzeOptimize()
+    {
+        Session sessionWithIgnoreStatsCalculatorFailuresFalse = withoutIgnoreStatsCalculatorFailures(getSession());
+
+        String tableName = "test_explain_analyze_optimize" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer) WITH (partitioning = ARRAY['key'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
+
+        assertExplain(sessionWithIgnoreStatsCalculatorFailuresFalse, "EXPLAIN ANALYZE ALTER TABLE " + tableName + " EXECUTE OPTIMIZE",
+                ".*Output layout:.*");
+    }
+
+    @Test
     public void testRemoveOrphanFilesWithUnexpectedMissingManifest()
             throws Exception
     {
@@ -8493,6 +8558,11 @@ public abstract class BaseIcebergConnectorTest
             expectedQuery = "SELECT a.custkey, b.orderkey FROM orders a JOIN orders b on a.orderkey = b.custkey";
             assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(1));
             assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(2));
+
+            // optimize should not require a remote exchange between the scan and the execute nodes
+            query = "ALTER TABLE test_bucketed_select EXECUTE OPTIMIZE";
+            assertUpdate(planWithTableNodePartitioning, query, assertRemoteExchangesCount(1));
+            assertUpdate(planWithoutTableNodePartitioning, query, assertRemoteExchangesCount(2));
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_bucketed_select");
@@ -9218,6 +9288,38 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testCatalogMetadataMetrics()
+    {
+        MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(
+                getSession(),
+                "SELECT count(*) FROM region r, nation n WHERE r.regionkey = n.regionkey");
+        Map<String, Metrics> metrics = getCatalogMetadataMetrics(result.queryId());
+        assertCountMetricExists(metrics, "iceberg", "metastore.all.time.total");
+        assertDistributionMetricExists(metrics, "iceberg", "metastore.all.time.distribution");
+        assertCountMetricExists(metrics, "iceberg", "metastore.getTable.time.total");
+        assertDistributionMetricExists(metrics, "iceberg", "metastore.getTable.time.distribution");
+    }
+
+    @Test
+    public void testCatalogMetadataMetricsWithOptimizerTimeoutExceeded()
+    {
+        String query = "SELECT count(*) FROM region r, nation n, mock_metrics.default.mock_table m WHERE r.regionkey = n.regionkey";
+        try {
+            Session smallOptimizerTimeout = TestingSession.testSessionBuilder(getSession())
+                    .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "100ms")
+                    .build();
+            MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(smallOptimizerTimeout, query);
+            fail(format("Expected query to fail: %s [QueryId: %s]", query, result.queryId()));
+        }
+        catch (QueryFailedException e) {
+            assertThat(e.getMessage()).contains("The optimizer exhausted the time limit");
+            Map<String, Metrics> metrics = getCatalogMetadataMetrics(e.getQueryId());
+            assertCountMetricExists(metrics, "iceberg", "metastore.all.time.total");
+            assertCountMetricExists(metrics, "iceberg", "metastore.getTable.time.total");
+        }
+    }
+
+    @Test
     @Override
     public void testSetFieldMapKeyType()
     {
@@ -9321,6 +9423,13 @@ public abstract class BaseIcebergConnectorTest
         return Session.builder(session)
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "parquet_small_file_threshold", "0B")
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "orc_tiny_stripe_threshold", "0B")
+                .build();
+    }
+
+    private Session withoutIgnoreStatsCalculatorFailures(Session session)
+    {
+        return Session.builder(session)
+                .setSystemProperty(IGNORE_STATS_CALCULATOR_FAILURES, "false")
                 .build();
     }
 

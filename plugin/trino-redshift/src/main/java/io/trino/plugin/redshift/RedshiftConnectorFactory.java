@@ -15,17 +15,13 @@ package io.trino.plugin.redshift;
 
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
-import io.opentelemetry.api.OpenTelemetry;
+import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
 import io.trino.plugin.jdbc.JdbcModule;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
-import io.trino.spi.Node;
-import io.trino.spi.VersionEmbedder;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
 
@@ -49,11 +45,7 @@ public class RedshiftConnectorFactory
 
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
-                binder -> binder.bind(Node.class).toInstance(context.getCurrentNode()),
-                binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),
-                binder -> binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder()),
-                binder -> binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry()),
-                binder -> binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName)),
+                new ConnectorContextModule(catalogName, context),
                 new JdbcModule(),
                 new CredentialProviderModule(),
                 new ExtraCredentialsBasedIdentityCacheMappingModule(),
@@ -61,6 +53,7 @@ public class RedshiftConnectorFactory
 
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(requiredConfig)
                 .initialize();
 

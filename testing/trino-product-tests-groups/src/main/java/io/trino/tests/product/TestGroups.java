@@ -72,6 +72,7 @@ public final class TestGroups
     public static final String LDAP_CLI = "ldap_cli";
     public static final String LDAP_AND_FILE_CLI = "ldap_and_file_cli";
     public static final String LDAP_MULTIPLE_BINDS = "ldap_multiple_binds";
+    public static final String LOKI = "loki";
     public static final String TLS = "tls";
     public static final String LARGE_QUERY = "large_query";
     public static final String KAFKA = "kafka";
@@ -98,8 +99,9 @@ public final class TestGroups
     public static final String DELTA_LAKE_DATABRICKS_133 = "delta-lake-databricks-133";
     public static final String DELTA_LAKE_DATABRICKS_143 = "delta-lake-databricks-143";
     public static final String DELTA_LAKE_DATABRICKS_154 = "delta-lake-databricks-154";
+    public static final String DELTA_LAKE_DATABRICKS_164 = "delta-lake-databricks-164";
     // TODO: Remove it once we support generatedColumns, particularly for writes in Delta Lake
-    public static final String DELTA_LAKE_EXCLUDE_164 = "delta-lake-exclude-164";
+    public static final String DELTA_LAKE_EXCLUDE_173 = "delta-lake-exclude-173";
     public static final String DELTA_LAKE_ALLUXIO_CACHING = "delta-lake-alluxio-caching";
     public static final String HUDI = "hudi";
     public static final String PARQUET = "parquet";

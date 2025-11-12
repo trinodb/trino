@@ -33,14 +33,25 @@ import io.trino.util.EmbedVersion;
 
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.util.Objects.requireNonNull;
 
 public final class TestingConnectorContext
         implements ConnectorContext
 {
-    private final NodeManager nodeManager = TestingNodeManager.create();
+    private final NodeManager nodeManager;
     private final VersionEmbedder versionEmbedder = new EmbedVersion(NodeVersion.UNKNOWN);
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
     private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators()));
+
+    public TestingConnectorContext()
+    {
+        this(TestingNodeManager.create());
+    }
+
+    public TestingConnectorContext(NodeManager nodeManager)
+    {
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+    }
 
     @Override
     public OpenTelemetry getOpenTelemetry()
