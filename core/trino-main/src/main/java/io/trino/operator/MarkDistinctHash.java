@@ -42,6 +42,11 @@ public class MarkDistinctHash
         nextDistinctId = other.nextDistinctId;
     }
 
+    public long getGroupCount()
+    {
+        return groupByHash.getGroupCount();
+    }
+
     public long getEstimatedSize()
     {
         return groupByHash.getEstimatedSize();
