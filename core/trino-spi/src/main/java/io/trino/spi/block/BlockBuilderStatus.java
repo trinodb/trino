@@ -37,7 +37,6 @@ public class BlockBuilderStatus
     public void addBytes(int bytes)
     {
         currentSize += bytes;
-        pageBuilderStatus.addBytes(bytes);
     }
 
     @Override

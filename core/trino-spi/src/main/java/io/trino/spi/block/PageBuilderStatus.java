@@ -13,26 +13,35 @@
  */
 package io.trino.spi.block;
 
+import java.util.OptionalInt;
+import java.util.function.Supplier;
+
 import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.clamp;
+import static java.lang.Math.min;
 
 public class PageBuilderStatus
 {
+    private static final int INITIAL_BATCH_SIZE = 2;
+    private static final int BATCH_SIZE_GROWTH_FACTOR = 2;
+
     public static final int INSTANCE_SIZE = instanceSize(PageBuilderStatus.class);
 
     public static final int DEFAULT_MAX_PAGE_SIZE_IN_BYTES = 1024 * 1024;
 
     private final int maxPageSizeInBytes;
+    private final Supplier<Long> currentSizeSupplier;
 
-    private long currentSize;
+    private long lastRecordedSize;
+    private int positionsAtLastRecordedSize;
+    private int batchSize = INITIAL_BATCH_SIZE;
 
-    public PageBuilderStatus(int maxPageSizeInBytes)
+    public PageBuilderStatus(int maxPageSizeInBytes, Supplier<Long> currentSizeSupplier, OptionalInt maxRowCountHint)
     {
         this.maxPageSizeInBytes = maxPageSizeInBytes;
-    }
-
-    public BlockBuilderStatus createBlockBuilderStatus()
-    {
-        return new BlockBuilderStatus(this);
+        this.currentSizeSupplier = currentSizeSupplier;
+        // Use row count of previous page to start initial batch size from a higher value
+        maxRowCountHint.ifPresent(value -> batchSize = value / 4);
     }
 
     public int getMaxPageSizeInBytes()
@@ -40,27 +49,30 @@ public class PageBuilderStatus
         return maxPageSizeInBytes;
     }
 
-    public boolean isEmpty()
+    public boolean isFull(int declaredPositions)
     {
-        return currentSize == 0;
-    }
-
-    public boolean isFull()
-    {
-        return currentSize >= maxPageSizeInBytes;
-    }
-
-    void addBytes(int bytes)
-    {
-        if (bytes < 0) {
-            throw new IllegalArgumentException("bytes cannot be negative");
+        if (declaredPositions - positionsAtLastRecordedSize >= batchSize) {
+            positionsAtLastRecordedSize = declaredPositions;
+            lastRecordedSize = currentSizeSupplier.get();
+            if (lastRecordedSize >= maxPageSizeInBytes) {
+                batchSize = 0;
+                return true;
+            }
+            double sizePerPosition = (double) lastRecordedSize / declaredPositions;
+            int maxRemainingPositions = clamp((long) (maxPageSizeInBytes / sizePerPosition) - declaredPositions, 1, Integer.MAX_VALUE);
+            batchSize = min(batchSize * BATCH_SIZE_GROWTH_FACTOR, min(maxRemainingPositions, 8192));
         }
-        currentSize += bytes;
+        return false;
     }
 
     public long getSizeInBytes()
     {
-        return currentSize;
+        return lastRecordedSize;
+    }
+
+    public int getMaxRowCountHint()
+    {
+        return positionsAtLastRecordedSize;
     }
 
     @Override
@@ -68,7 +80,7 @@ public class PageBuilderStatus
     {
         StringBuilder buffer = new StringBuilder("PageBuilderStatus{");
         buffer.append("maxPageSizeInBytes=").append(maxPageSizeInBytes);
-        buffer.append(", currentSize=").append(currentSize);
+        buffer.append(", currentSize=").append(lastRecordedSize);
         buffer.append('}');
         return buffer.toString();
     }
