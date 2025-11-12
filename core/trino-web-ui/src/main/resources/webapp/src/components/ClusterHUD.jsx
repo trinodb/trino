@@ -146,31 +146,67 @@ export class ClusterHUD extends React.Component {
                 this.state.runningQueries,
                 $.extend({}, SPARKLINE_PROPERTIES, { chartRangeMin: 0 })
             )
+            // Apply ARIA attributes to the generated canvas
+            $('#running-queries-sparkline canvas').attr({
+                'aria-label': `Running queries over time. Current value: ${this.state.runningQueries[this.state.runningQueries.length - 1]} queries`,
+                'role': 'img',
+                'id': 'running-queries-chart'
+            })
             $('#blocked-queries-sparkline').sparkline(
                 this.state.blockedQueries,
                 $.extend({}, SPARKLINE_PROPERTIES, { chartRangeMin: 0 })
             )
+            // Apply ARIA attributes to the generated canvas
+            $('#blocked-queries-sparkline canvas').attr({
+                'aria-label': `Blocked queries over time. Current value: ${this.state.blockedQueries[this.state.blockedQueries.length - 1]} queries`,
+                'role': 'img',
+                'id': 'blocked-queries-chart'
+            })
             $('#queued-queries-sparkline').sparkline(
                 this.state.queuedQueries,
                 $.extend({}, SPARKLINE_PROPERTIES, { chartRangeMin: 0 })
             )
+            // Apply ARIA attributes to the generated canvas
+            $('#queued-queries-sparkline canvas').attr({
+                'aria-label': `Queued queries over time. Current value: ${this.state.queuedQueries[this.state.queuedQueries.length - 1]} queries`,
+                'role': 'img',
+                'id': 'queued-queries-chart'
+            })
 
             $('#active-workers-sparkline').sparkline(
                 this.state.activeWorkers,
                 $.extend({}, SPARKLINE_PROPERTIES, { chartRangeMin: 0 })
             )
+            // Apply ARIA attributes to the generated canvas
+            $('#active-workers-sparkline canvas').attr({
+                'aria-label': `Active workers over time. Current value: ${this.state.activeWorkers[this.state.activeWorkers.length - 1]} workers`,
+                'role': 'img',
+                'id': 'active-workers-chart'
+            })
             $('#running-drivers-sparkline').sparkline(
                 this.state.runningDrivers,
                 $.extend({}, SPARKLINE_PROPERTIES, {
                     numberFormatter: precisionRound,
                 })
             )
+            // Apply ARIA attributes to the generated canvas
+            $('#running-drivers-sparkline canvas').attr({
+                'aria-label': `Running drivers over time. Current value: ${formatCount(this.state.runningDrivers[this.state.runningDrivers.length - 1])} drivers`,
+                'role': 'img',
+                'id': 'running-drivers-chart'
+            })
             $('#reserved-memory-sparkline').sparkline(
                 this.state.reservedMemory,
                 $.extend({}, SPARKLINE_PROPERTIES, {
                     numberFormatter: formatDataSizeBytes,
                 })
             )
+            // Apply ARIA attributes to the generated canvas
+            $('#reserved-memory-sparkline canvas').attr({
+                'aria-label': `Reserved memory over time. Current value: ${formatDataSizeBytes(this.state.reservedMemory[this.state.reservedMemory.length - 1])}`,
+                'role': 'img',
+                'id': 'reserved-memory-chart'
+            })
 
             $('#row-input-rate-sparkline').sparkline(
                 this.state.rowInputRate,
@@ -178,18 +214,36 @@ export class ClusterHUD extends React.Component {
                     numberFormatter: formatCount,
                 })
             )
+            // Apply ARIA attributes to the generated canvas
+            $('#row-input-rate-sparkline canvas').attr({
+                'aria-label': `Row input rate over time. Current value: ${formatCount(this.state.rowInputRate[this.state.rowInputRate.length - 1])} rows per second`,
+                'role': 'img',
+                'id': 'row-input-rate-chart'
+            })
             $('#byte-input-rate-sparkline').sparkline(
                 this.state.byteInputRate,
                 $.extend({}, SPARKLINE_PROPERTIES, {
                     numberFormatter: formatDataSizeBytes,
                 })
             )
+            // Apply ARIA attributes to the generated canvas
+            $('#byte-input-rate-sparkline canvas').attr({
+                'aria-label': `Byte input rate over time. Current value: ${formatDataSizeBytes(this.state.byteInputRate[this.state.byteInputRate.length - 1])} per second`,
+                'role': 'img',
+                'id': 'byte-input-rate-chart'
+            })
             $('#cpu-time-rate-sparkline').sparkline(
                 this.state.perWorkerCpuTimeRate,
                 $.extend({}, SPARKLINE_PROPERTIES, {
                     numberFormatter: precisionRound,
                 })
             )
+            // Apply ARIA attributes to the generated canvas
+            $('#cpu-time-rate-sparkline canvas').attr({
+                'aria-label': `CPU time rate per worker over time. Current value: ${formatCount(this.state.perWorkerCpuTimeRate[this.state.perWorkerCpuTimeRate.length - 1])} CPU seconds per worker per second`,
+                'role': 'img',
+                'id': 'cpu-time-rate-chart'
+            })
 
             this.setState({
                 lastRender: renderTimestamp,
@@ -211,6 +265,9 @@ export class ClusterHUD extends React.Component {
                                     data-toggle="tooltip"
                                     data-placement="right"
                                     title="Total number of queries currently running"
+                                    tabIndex="0"
+                                    aria-label="Running queries - Total number of queries currently running"
+                                    aria-describedby="running-queries-chart"
                                 >
                                     Running queries
                                 </span>
@@ -223,6 +280,9 @@ export class ClusterHUD extends React.Component {
                                     data-toggle="tooltip"
                                     data-placement="right"
                                     title="Total number of active worker nodes"
+                                    tabIndex="0"
+                                    aria-label="Active workers - Total number of active worker nodes"
+                                    aria-describedby="active-workers-chart"
                                 >
                                     Active workers
                                 </span>
@@ -235,6 +295,9 @@ export class ClusterHUD extends React.Component {
                                     data-toggle="tooltip"
                                     data-placement="right"
                                     title="Moving average of input rows processed per second"
+                                    tabIndex="0"
+                                    aria-label="Rows per second - Moving average of input rows processed per second"
+                                    aria-describedby="row-input-rate-chart"
                                 >
                                     rows/s
                                 </span>
@@ -283,6 +346,9 @@ export class ClusterHUD extends React.Component {
                                     data-toggle="tooltip"
                                     data-placement="right"
                                     title="Total number of queries currently queued and awaiting execution"
+                                    tabIndex="0"
+                                    aria-label="Queued queries - Total number of queries currently queued and awaiting execution"
+                                    aria-describedby="queued-queries-chart"
                                 >
                                     Queued queries
                                 </span>
@@ -295,6 +361,9 @@ export class ClusterHUD extends React.Component {
                                     data-toggle="tooltip"
                                     data-placement="right"
                                     title="Moving average of total running drivers"
+                                    tabIndex="0"
+                                    aria-label="Runnable drivers - Moving average of total running drivers"
+                                    aria-describedby="running-drivers-chart"
                                 >
                                     Runnable drivers
                                 </span>
@@ -307,6 +376,9 @@ export class ClusterHUD extends React.Component {
                                     data-toggle="tooltip"
                                     data-placement="right"
                                     title="Moving average of input bytes processed per second"
+                                    tabIndex="0"
+                                    aria-label="Bytes per second - Moving average of input bytes processed per second"
+                                    aria-describedby="byte-input-rate-chart"
                                 >
                                     bytes/s
                                 </span>
@@ -353,6 +425,9 @@ export class ClusterHUD extends React.Component {
                                     data-toggle="tooltip"
                                     data-placement="right"
                                     title="Total number of queries currently blocked and unable to make progress"
+                                    tabIndex="0"
+                                    aria-label="Blocked Queries - Total number of queries currently blocked and unable to make progress"
+                                    aria-describedby="blocked-queries-chart"
                                 >
                                     Blocked Queries
                                 </span>
@@ -365,6 +440,9 @@ export class ClusterHUD extends React.Component {
                                     data-toggle="tooltip"
                                     data-placement="right"
                                     title="Total amount of memory reserved by all running queries"
+                                    tabIndex="0"
+                                    aria-label="Reserved Memory - Total amount of memory reserved by all running queries"
+                                    aria-describedby="reserved-memory-chart"
                                 >
                                     Reserved Memory (B)
                                 </span>
@@ -377,6 +455,9 @@ export class ClusterHUD extends React.Component {
                                     data-toggle="tooltip"
                                     data-placement="right"
                                     title="Moving average of CPU time utilized per second per worker"
+                                    tabIndex="0"
+                                    aria-label="Worker Parallelism - Moving average of CPU time utilized per second per worker"
+                                    aria-describedby="cpu-time-rate-chart"
                                 >
                                     Worker Parallelism
                                 </span>
