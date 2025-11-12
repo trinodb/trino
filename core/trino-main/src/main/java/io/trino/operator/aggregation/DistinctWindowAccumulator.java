@@ -26,7 +26,6 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.Type;
@@ -118,8 +117,7 @@ public class DistinctWindowAccumulator
                 pageBuilder.reset();
             }
             for (int channel = 0; channel < argumentChannels.size(); channel++) {
-                ValueBlock value = index.getSingleValueBlock(channel, position).getSingleValueBlock(0);
-                pageBuilder.getBlockBuilder(channel).append(value, 0);
+                index.appendTo(channel, position, pageBuilder.getBlockBuilder(channel));
             }
             pageBuilder.declarePosition();
         }
