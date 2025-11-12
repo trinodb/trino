@@ -755,6 +755,16 @@ jobs:
             -Dtesting.snowflake.catalog.s3.secret-key="${SNOWFLAKE_CATALOG_S3_SECRET_ACCESS_KEY}" \
             -Dtesting.snowflake.catalog.s3.external.volume="${SNOWFLAKE_EXTERNAL_VOLUME}" \
             -Dtesting.snowflake.catalog.s3.region="${SNOWFLAKE_CATALOG_S3_REGION}"
+      - name: Cleanup dangling ephemeral Redshift Clusters
+        id: cleanup-redshift
+        env:
+          AWS_REGION: ${{ vars.REDSHIFT_AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ vars.REDSHIFT_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.REDSHIFT_AWS_SECRET_ACCESS_KEY }}
+          MAX_REDSHIFT_AGE_HOURS: 4
+        if: (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '')
+        run: |
+          .github/bin/redshift/cleanup/cleanup-redshift.sh --name-substring "trino-redshift-ci-cluster" --age-hours "${MAX_REDSHIFT_AGE_HOURS}" --region "${AWS_REGION}" --delete --auto-confirm
       - name: Cloud Redshift Tests ${{ matrix.profile }}
         id: tests-redshift
         env:
@@ -965,7 +975,7 @@ jobs:
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks173
               ignore exclusion if: >-
-                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}          
+                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-snowflake
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.SNOWFLAKE_PASSWORD != '' }}
