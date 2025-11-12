@@ -16,7 +16,6 @@ package io.trino.parquet.writer;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -57,7 +56,7 @@ public class BenchmarkBinaryColumnWriter
     @Override
     protected Block generateBlock(int size)
     {
-        BlockBuilder blockBuilder = getTrinoType().createBlockBuilder(new PageBuilderStatus().createBlockBuilderStatus(), size);
+        BlockBuilder blockBuilder = getTrinoType().createBlockBuilder(null, size);
         for (byte[] value : type.generateData(size, positionLength.getRange())) {
             getTrinoType().writeSlice(blockBuilder, Slices.wrappedBuffer(value));
         }

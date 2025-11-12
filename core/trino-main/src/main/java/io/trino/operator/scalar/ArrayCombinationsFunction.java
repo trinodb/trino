@@ -18,7 +18,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -61,7 +60,7 @@ public final class ArrayCombinationsFunction
 
         ArrayType arrayType = new ArrayType(elementType);
         if (combinationLength > arrayLength) {
-            return arrayType.createBlockBuilder(new PageBuilderStatus().createBlockBuilderStatus(), 0).build();
+            return arrayType.createBlockBuilder(null, 0).build();
         }
 
         int combinationCount = combinationCount(arrayLength, combinationLength);

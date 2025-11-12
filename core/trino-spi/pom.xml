@@ -291,6 +291,12 @@
                                     <new>method void io.trino.spi.block.ShortArrayBlockEncoding::&lt;init&gt;(boolean)</new>
                                     <justification>ShortArrayBlockEncoding need to accept a parameter to enable SIMD support</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.PageBuilderStatus::&lt;init&gt;()</old>
+                                    <justification>Method is unnecessary</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
