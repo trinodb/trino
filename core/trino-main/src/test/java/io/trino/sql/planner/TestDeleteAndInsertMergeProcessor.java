@@ -22,7 +22,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
-import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.RowType;
@@ -213,7 +212,7 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
 
     private Block makeVarcharArrayBlock(String... elements)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(new PageBuilderStatus().createBlockBuilderStatus(), elements.length);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, elements.length);
         for (String element : elements) {
             if (element == null) {
                 builder.appendNull();
