@@ -558,7 +558,7 @@ public class TestPositionsAppender
 
     private static void assertBlockIsValid(Block actual, long sizeInBytes, Type type, List<BlockView> inputs)
     {
-        PageBuilderStatus pageBuilderStatus = new PageBuilderStatus();
+        PageBuilderStatus pageBuilderStatus = new PageBuilderStatus(DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
         BlockBuilderStatus blockBuilderStatus = pageBuilderStatus.createBlockBuilderStatus();
         Block expected = buildBlock(type, inputs, blockBuilderStatus);
 
