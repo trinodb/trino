@@ -1,0 +1,30 @@
+name: AWS CICD resources cleanup
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+
+jobs:
+  cleanup-redshift:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execution environment
+        uses: hmarr/debug-action@v3
+
+      - name: git checkout
+        uses: actions/checkout@v4
+
+      - name: Cleanup danging ephemeral AWS Redshift CI clusters
+        continue-on-error: true
+        env:
+          AWS_REGION: ${{ vars.REDSHIFT_AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ vars.REDSHIFT_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.REDSHIFT_AWS_SECRET_ACCESS_KEY }}
+          MAX_REDSHIFT_AGE_HOURS: 4
+        run: |
+          .github/bin/redshift/cleanup/cleanup-redshift.sh --name-substring "trino-redshift-ci-cluster" --age-hours "${MAX_REDSHIFT_AGE_HOURS}" --region "${AWS_REGION}" --delete --auto-confirm
