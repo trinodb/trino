@@ -34,6 +34,7 @@
 ## Delta Lake connector
 
 * Fix incorrect results due to incorrect pushdown of `IS NOT DISTINCT FROM`. ({issue}`27213`)
+* Fix failure when writing to tables written by Databricks 17.3. ({issue}`27100`)
 
 ## Druid connector
 
