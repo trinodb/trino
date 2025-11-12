@@ -53,6 +53,8 @@ public final class BlockEncodingSimdSupport
     private final SimdSupport simdSupport;
     private static final SimdSupport AUTO_DETECTED_SUPPORT = detectSimd();
 
+    public static final BlockEncodingSimdSupport TESTING_BLOCK_ENCODING_SIMD_SUPPORT = new BlockEncodingSimdSupport(true);
+
     @Inject
     public BlockEncodingSimdSupport(
             FeaturesConfig featuresConfig)
