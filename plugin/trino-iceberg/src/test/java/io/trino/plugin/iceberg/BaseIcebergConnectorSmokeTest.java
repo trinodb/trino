@@ -893,6 +893,33 @@ public abstract class BaseIcebergConnectorSmokeTest
         }
     }
 
+    @Test
+    public void testAnalyze()
+    {
+        String tableName = "test_analyze_" + randomNameSuffix();
+
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
+            assertThat(query("SELECT count(*) FROM " + tableName))
+                    .matches("VALUES BIGINT '25'");
+            assertUpdate("ANALYZE " + tableName);
+            assertThat(computeActual("SHOW STATS FOR " + tableName).getRowCount())
+                    .as("Statistics should be collected after ANALYZE")
+                    .isGreaterThan(0);
+        }
+        catch (Exception e) {
+            assertThat(e.getMessage())
+                    .as("If ANALYZE fails, it should be due to lack of support")
+                    .containsAnyOf(
+                            "S3 Tables do not support analyze",
+                            "do not support analyze",
+                            "NOT_SUPPORTED");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
     protected void dropSchema(String schema)
             throws Exception
     {
