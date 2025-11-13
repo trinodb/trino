@@ -208,6 +208,7 @@ jobs:
         with:
           cache: restore
           java-version: 25
+          cleanup-node: 'true'
       - name: Maven Install
         run: |
           # build everything to make sure dependencies of impacted modules are present
