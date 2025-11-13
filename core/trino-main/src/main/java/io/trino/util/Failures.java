@@ -77,6 +77,11 @@ public final class Failures
         }
     }
 
+    /**
+     * @deprecated This overload can result in performance issues due to the varargs array creation and primitive boxing, consider adding an overload that
+     * matches the specific argument types you're passing instead of using this method.
+     */
+    @Deprecated
     @FormatMethod
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, @FormatString String formatString, Object... args)
     {
