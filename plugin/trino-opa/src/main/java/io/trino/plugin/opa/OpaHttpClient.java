@@ -49,6 +49,8 @@ import java.util.function.Function;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.ImmutableSetMultimap.flatteningToImmutableSetMultimap;
+import static com.google.common.collect.Lists.partition;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
@@ -66,6 +68,7 @@ public class OpaHttpClient
     private final boolean logRequests;
     private final boolean logResponses;
     private static final Logger log = Logger.get(OpaHttpClient.class);
+    private final Optional<Integer> opaBatchSize;
 
     @Inject
     public OpaHttpClient(
@@ -79,6 +82,7 @@ public class OpaHttpClient
         this.executor = requireNonNull(executor, "executor is null");
         this.logRequests = config.getLogRequests();
         this.logResponses = config.getLogResponses();
+        this.opaBatchSize = config.getOpaBatchSize();
     }
 
     public <T> FluentFuture<T> submitOpaRequest(OpaQueryInput input, URI uri, JsonCodec<T> deserializer)
@@ -158,11 +162,14 @@ public class OpaHttpClient
 
     public <K, V> Map<K, Set<V>> parallelBatchFilterFromOpa(Map<K, ? extends Collection<V>> items, BiFunction<K, List<V>, OpaQueryInput> requestBuilder, URI uri, JsonCodec<? extends OpaBatchQueryResult> deserializer)
     {
-        List<Map.Entry<K, ImmutableList<V>>> parallelRequestItems = items.entrySet()
+        List<Map.Entry<K, List<V>>> parallelRequestItems = items.entrySet()
                 .stream()
                 .filter(entry -> !entry.getValue().isEmpty())
-                .map(entry -> Map.entry(entry.getKey(), ImmutableList.copyOf(entry.getValue())))
+                .flatMap(entry -> partition(ImmutableList.copyOf(entry.getValue()), this.opaBatchSize.orElse(entry.getValue().size()))
+                        .stream()
+                        .map(partition -> Map.entry(entry.getKey(), partition)))
                 .collect(toImmutableList());
+
         return parallelRequest(
                     parallelRequestItems,
                     entry -> requestBuilder.apply(entry.getKey(), entry.getValue()),
@@ -176,7 +183,11 @@ public class OpaHttpClient
                     uri,
                     deserializer)
                 .stream()
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(flatteningToImmutableSetMultimap(Map.Entry::getKey, entry -> entry.getValue().stream()))
+                .asMap()
+                .entrySet()
+                .stream()
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableSet.copyOf(entry.getValue())));
     }
 
     private <T> T parseOpaResponse(FullJsonResponseHandler.JsonResponse<T> response, URI uri)
