@@ -139,6 +139,8 @@
 
 - {func}`e`
 - {func}`element_at`
+- {func}`element_first`
+- {func}`element_last`
 - {func}`empty_approx_set`
 - `evaluate_classifier_predictions`
 - {func}`every`
