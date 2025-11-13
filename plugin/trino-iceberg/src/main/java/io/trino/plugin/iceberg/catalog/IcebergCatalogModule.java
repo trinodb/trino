@@ -18,6 +18,7 @@ import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.iceberg.CatalogType;
 import io.trino.plugin.iceberg.IcebergConfig;
+import io.trino.plugin.iceberg.catalog.bigquery.IcebergBigQueryMetastoreModule;
 import io.trino.plugin.iceberg.catalog.file.IcebergFileMetastoreCatalogModule;
 import io.trino.plugin.iceberg.catalog.glue.IcebergGlueCatalogModule;
 import io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule;
@@ -27,6 +28,7 @@ import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogModule;
 import io.trino.plugin.iceberg.catalog.snowflake.IcebergSnowflakeCatalogModule;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static io.trino.plugin.iceberg.CatalogType.BIGQUERY_METASTORE;
 import static io.trino.plugin.iceberg.CatalogType.GLUE;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.CatalogType.JDBC;
@@ -48,6 +50,7 @@ public class IcebergCatalogModule
         bindCatalogModule(JDBC, new IcebergJdbcCatalogModule());
         bindCatalogModule(NESSIE, new IcebergNessieCatalogModule());
         bindCatalogModule(SNOWFLAKE, new IcebergSnowflakeCatalogModule());
+        bindCatalogModule(BIGQUERY_METASTORE, new IcebergBigQueryMetastoreModule());
     }
 
     private void bindCatalogModule(CatalogType catalogType, Module module)
