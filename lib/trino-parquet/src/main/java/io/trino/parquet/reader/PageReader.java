@@ -70,7 +70,8 @@ public final class PageReader
             ColumnDescriptor columnDescriptor,
             @Nullable OffsetIndex offsetIndex,
             Optional<String> fileCreatedBy,
-            Optional<FileDecryptionContext> decryptionContext)
+            Optional<FileDecryptionContext> decryptionContext,
+            long maxPageSizeInBytes)
     {
         // Parquet schema may specify a column definition as OPTIONAL even though there are no nulls in the actual data.
         // Row-group column statistics can be used to identify such cases and switch to faster non-nullable read
@@ -86,7 +87,8 @@ public final class PageReader
                 metadata,
                 columnChunk,
                 offsetIndex,
-                columnDecryptionContext);
+                columnDecryptionContext,
+                maxPageSizeInBytes);
 
         return new PageReader(
                 dataSourceId,

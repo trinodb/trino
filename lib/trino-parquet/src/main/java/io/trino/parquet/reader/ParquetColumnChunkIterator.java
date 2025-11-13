@@ -39,6 +39,7 @@ import java.util.Iterator;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static java.util.Objects.requireNonNull;
@@ -53,6 +54,7 @@ public final class ParquetColumnChunkIterator
     private final ChunkedInputStream input;
     private final OffsetIndex offsetIndex;
     private final Optional<ColumnDecryptionContext> decryptionContext;
+    private final long maxPageReadSizeInBytes;
 
     private long valueCount;
     private int dataPageCount;
@@ -67,7 +69,8 @@ public final class ParquetColumnChunkIterator
             ColumnChunkMetadata metadata,
             ChunkedInputStream input,
             @Nullable OffsetIndex offsetIndex,
-            Optional<ColumnDecryptionContext> decryptionContext)
+            Optional<ColumnDecryptionContext> decryptionContext,
+            long maxPageReadSizeInBytes)
     {
         this.dataSourceId = requireNonNull(dataSourceId, "dataSourceId is null");
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
@@ -76,6 +79,8 @@ public final class ParquetColumnChunkIterator
         this.input = requireNonNull(input, "input is null");
         this.offsetIndex = offsetIndex;
         this.decryptionContext = requireNonNull(decryptionContext, "decryptionContext is null");
+        checkArgument(maxPageReadSizeInBytes > 0, "maxPageReadSizeInBytes must be positive");
+        this.maxPageReadSizeInBytes = maxPageReadSizeInBytes;
     }
 
     @Override
@@ -102,6 +107,16 @@ public final class ParquetColumnChunkIterator
             PageHeader pageHeader = readPageHeader(decryptionContext.map(ColumnDecryptionContext::metadataDecryptor).orElse(null), pageHeaderAAD);
             int uncompressedPageSize = pageHeader.getUncompressed_page_size();
             int compressedPageSize = pageHeader.getCompressed_page_size();
+
+            if (uncompressedPageSize > maxPageReadSizeInBytes) {
+                throw new ParquetCorruptionException(
+                        dataSourceId,
+                        "Parquet page size %d bytes exceeds maximum allowed size %d bytes for column %s",
+                        uncompressedPageSize,
+                        maxPageReadSizeInBytes,
+                        descriptor);
+            }
+
             Page result = null;
             switch (pageHeader.type) {
                 case DICTIONARY_PAGE:

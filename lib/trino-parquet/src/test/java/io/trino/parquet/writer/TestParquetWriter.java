@@ -146,7 +146,8 @@ public class TestParquetWriter
                 new ColumnDescriptor(new String[] {"columna"}, new PrimitiveType(REQUIRED, INT32, "columna"), 0, 0),
                 null,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                Long.MAX_VALUE);
 
         pageReader.readDictionaryPage();
         assertThat(pageReader.hasNext()).isTrue();
@@ -200,7 +201,8 @@ public class TestParquetWriter
                 new ColumnDescriptor(new String[] {"columna"}, new PrimitiveType(REQUIRED, INT32, "columna"), 0, 0),
                 null,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                Long.MAX_VALUE);
 
         pageReader.readDictionaryPage();
         assertThat(pageReader.hasNext()).isTrue();
@@ -220,7 +222,8 @@ public class TestParquetWriter
                 new ColumnDescriptor(new String[] {"columnb"}, new PrimitiveType(REQUIRED, INT64, "columnb"), 0, 0),
                 null,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                Long.MAX_VALUE);
 
         pageReader.readDictionaryPage();
         assertThat(pageReader.hasNext()).isTrue();
