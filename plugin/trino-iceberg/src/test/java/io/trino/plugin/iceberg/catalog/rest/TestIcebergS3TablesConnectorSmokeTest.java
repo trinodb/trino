@@ -123,6 +123,12 @@ final class TestIcebergS3TablesConnectorSmokeTest
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    protected void verifyAnalyzeFailurePermissible(Exception e)
+    {
+        assertThat(e).hasMessageContaining("S3 Tables do not support analyze");
+    }
+
     @Test
     @Override // Override because the location pattern differs
     public void testShowCreateTable()

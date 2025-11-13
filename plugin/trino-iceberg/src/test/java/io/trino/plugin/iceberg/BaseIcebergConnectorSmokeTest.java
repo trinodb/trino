@@ -56,6 +56,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
@@ -891,6 +892,34 @@ public abstract class BaseIcebergConnectorSmokeTest
             dropSchema(firstSchema);
             dropSchema(secondSchema);
         }
+    }
+
+    @Test
+    public void testAnalyze()
+    {
+        Session noStatsOnWrite = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", COLLECT_EXTENDED_STATISTICS_ON_WRITE, "false")
+                .build();
+
+        try (TestTable table = newTrinoTable("test_analyze", "(id int)")) {
+            assertUpdate(noStatsOnWrite, "INSERT INTO " + table.getName() + " VALUES 1, 2, 3", 3);
+
+            try {
+                assertUpdate("ANALYZE " + table.getName());
+            }
+            catch (Exception e) {
+                verifyAnalyzeFailurePermissible(e);
+                return;
+            }
+            assertThat(query("SHOW STATS FOR " + table.getName())).result()
+                    .projected("column_name", "distinct_values_count")
+                    .matches("VALUES (VARCHAR 'id', 3e0), (null, null)");
+        }
+    }
+
+    protected void verifyAnalyzeFailurePermissible(Exception e)
+    {
+        throw new AssertionError("Unexpected analyze failure", e);
     }
 
     protected void dropSchema(String schema)

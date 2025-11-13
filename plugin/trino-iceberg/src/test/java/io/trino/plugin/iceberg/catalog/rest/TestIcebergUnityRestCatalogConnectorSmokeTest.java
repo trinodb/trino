@@ -548,4 +548,12 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
         assertThatThrownBy(super::testMetadataDeleteAfterCommitEnabled)
                 .hasStackTraceContaining("Access Denied");
     }
+
+    @Test
+    @Override
+    public void testAnalyze()
+    {
+        assertThatThrownBy(super::testAnalyze)
+                .hasStackTraceContaining("Access Denied");
+    }
 }
