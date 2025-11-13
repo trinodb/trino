@@ -25,20 +25,27 @@ import static java.util.Objects.requireNonNull;
 public class CanonicalizationAware<T extends Node>
 {
     private final T node;
+    private final boolean ignoreCase;
 
     // Updates to this field are thread-safe despite benign data race due to:
     // 1. idempotent hash computation
     // 2. atomic updates to int fields per JMM
     private int hashCode;
 
-    private CanonicalizationAware(T node)
+    private CanonicalizationAware(T node, boolean ignoreCase)
     {
         this.node = requireNonNull(node, "node is null");
+        this.ignoreCase = ignoreCase;
     }
 
     public static <T extends Node> CanonicalizationAware<T> canonicalizationAwareKey(T node)
     {
-        return new CanonicalizationAware<T>(node);
+        return new CanonicalizationAware<T>(node, false);
+    }
+
+    public static <T extends Node> CanonicalizationAware<T> canonicalizationAwareKey(T node, boolean ignoreCase)
+    {
+        return new CanonicalizationAware<T>(node, ignoreCase);
     }
 
     public T getNode()
@@ -51,7 +58,8 @@ public class CanonicalizationAware<T extends Node>
     {
         int hash = hashCode;
         if (hash == 0) {
-            hash = treeHash(node, CanonicalizationAware::canonicalizationAwareHash);
+            hash = treeHash(node,
+                    ignoreCase ? CanonicalizationAware::canonicalizationAwareIgnoreCaseHash : CanonicalizationAware::canonicalizationAwareHash);
             if (hash == 0) {
                 hash = 1;
             }
@@ -73,7 +81,8 @@ public class CanonicalizationAware<T extends Node>
         }
 
         CanonicalizationAware<T> other = (CanonicalizationAware<T>) o;
-        return treeEqual(node, other.node, CanonicalizationAware::canonicalizationAwareComparison);
+        return treeEqual(node, other.node,
+                ignoreCase ? CanonicalizationAware::canonicalizationAwareIgnoreCaseComparison : CanonicalizationAware::canonicalizationAwareComparison);
     }
 
     @Override
@@ -91,10 +100,30 @@ public class CanonicalizationAware<T extends Node>
         return null;
     }
 
+    public static Boolean canonicalizationAwareIgnoreCaseComparison(Node left, Node right)
+    {
+        if (left instanceof Identifier leftIdentifier && right instanceof Identifier rightIdentifier) {
+            return leftIdentifier.getCanonicalValue(true).equals(rightIdentifier.getCanonicalValue(true));
+        }
+
+        return null;
+    }
+
     public static OptionalInt canonicalizationAwareHash(Node node)
     {
         if (node instanceof Identifier identifier) {
             return OptionalInt.of(identifier.getCanonicalValue().hashCode());
+        }
+        if (node.getChildren().isEmpty()) {
+            return OptionalInt.of(node.hashCode());
+        }
+        return OptionalInt.empty();
+    }
+
+    public static OptionalInt canonicalizationAwareIgnoreCaseHash(Node node)
+    {
+        if (node instanceof Identifier identifier) {
+            return OptionalInt.of(identifier.getCanonicalValue(true).hashCode());
         }
         if (node.getChildren().isEmpty()) {
             return OptionalInt.of(node.hashCode());
