@@ -448,6 +448,9 @@ pre {
 
 .toolbar-row {
     padding-right: 15px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 
 .toolbar-col {
