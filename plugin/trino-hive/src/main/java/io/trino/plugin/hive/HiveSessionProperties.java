@@ -98,6 +98,7 @@ public final class HiveSessionProperties
     private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet_max_read_block_row_count";
     private static final String PARQUET_SMALL_FILE_THRESHOLD = "parquet_small_file_threshold";
     private static final String PARQUET_VECTORIZED_DECODING_ENABLED = "parquet_vectorized_decoding_enabled";
+    private static final String PARQUET_MAX_PAGE_SIZE = "parquet_max_page_size";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String PARQUET_WRITER_PAGE_VALUE_COUNT = "parquet_writer_page_value_count";
@@ -365,6 +366,11 @@ public final class HiveSessionProperties
                         PARQUET_VECTORIZED_DECODING_ENABLED,
                         "Enable using Java Vector API for faster decoding of parquet files",
                         parquetReaderConfig.isVectorizedDecodingEnabled(),
+                        false),
+                dataSizeProperty(
+                        PARQUET_MAX_PAGE_SIZE,
+                        "Parquet: Maximum size for a single Parquet page. Prevents OOM from extremely large pages",
+                        parquetReaderConfig.getMaxPageSize(),
                         false),
                 dataSizeProperty(
                         PARQUET_WRITER_BLOCK_SIZE,
@@ -747,6 +753,11 @@ public final class HiveSessionProperties
     public static DataSize getParquetSmallFileThreshold(ConnectorSession session)
     {
         return session.getProperty(PARQUET_SMALL_FILE_THRESHOLD, DataSize.class);
+    }
+
+    public static DataSize getParquetMaxPageSize(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_MAX_PAGE_SIZE, DataSize.class);
     }
 
     public static boolean isParquetVectorizedDecodingEnabled(ConnectorSession session)

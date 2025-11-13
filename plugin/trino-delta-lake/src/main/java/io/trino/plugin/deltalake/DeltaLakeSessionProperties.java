@@ -56,6 +56,7 @@ public final class DeltaLakeSessionProperties
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet_max_read_block_row_count";
     private static final String PARQUET_SMALL_FILE_THRESHOLD = "parquet_small_file_threshold";
+    private static final String PARQUET_MAX_PAGE_SIZE = "parquet_max_page_size";
     private static final String PARQUET_USE_COLUMN_INDEX = "parquet_use_column_index";
     private static final String PARQUET_IGNORE_STATISTICS = "parquet_ignore_statistics";
     private static final String PARQUET_VECTORIZED_DECODING_ENABLED = "parquet_vectorized_decoding_enabled";
@@ -125,6 +126,11 @@ public final class DeltaLakeSessionProperties
                         "Parquet: Size below which a parquet file will be read entirely",
                         parquetReaderConfig.getSmallFileThreshold(),
                         value -> validateMaxDataSize(PARQUET_SMALL_FILE_THRESHOLD, value, DataSize.valueOf(PARQUET_READER_MAX_SMALL_FILE_THRESHOLD)),
+                        false),
+                dataSizeProperty(
+                        PARQUET_MAX_PAGE_SIZE,
+                        "Parquet: Maximum size for a single Parquet page. Prevents OOM from extremely large pages",
+                        parquetReaderConfig.getMaxPageSize(),
                         false),
                 booleanProperty(
                         PARQUET_USE_COLUMN_INDEX,
@@ -273,6 +279,11 @@ public final class DeltaLakeSessionProperties
     public static DataSize getParquetSmallFileThreshold(ConnectorSession session)
     {
         return session.getProperty(PARQUET_SMALL_FILE_THRESHOLD, DataSize.class);
+    }
+
+    public static DataSize getParquetMaxPageSize(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_MAX_PAGE_SIZE, DataSize.class);
     }
 
     public static boolean isParquetUseColumnIndex(ConnectorSession session)

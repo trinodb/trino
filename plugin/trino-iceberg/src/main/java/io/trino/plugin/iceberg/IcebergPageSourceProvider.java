@@ -157,6 +157,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcMaxMergeDis
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcMaxReadBlockSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcStreamBufferSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcTinyStripeThreshold;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxPageSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxReadBlockRowCount;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetSmallFileThreshold;
@@ -554,6 +555,7 @@ public class IcebergPageSourceProvider
                             .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
                             .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                             .withSmallFileThreshold(getParquetSmallFileThreshold(session))
+                            .withMaxPageSize(getParquetMaxPageSize(session))
                             .withIgnoreStatistics(isParquetIgnoreStatistics(session))
                             .withBloomFilter(useParquetBloomFilter(session))
                             // TODO https://github.com/trinodb/trino/issues/11000

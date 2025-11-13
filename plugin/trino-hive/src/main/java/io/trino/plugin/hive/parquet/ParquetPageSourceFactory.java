@@ -97,6 +97,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hive.HivePageSourceProvider.getProjection;
+import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxPageSize;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockRowCount;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetSmallFileThreshold;
@@ -203,6 +204,7 @@ public class ParquetPageSourceFactory
                         .withUseColumnIndex(isParquetUseColumnIndex(session))
                         .withBloomFilter(useParquetBloomFilter(session))
                         .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
+                        .withMaxPageSize(getParquetMaxPageSize(session))
                         .build(),
                 Optional.empty(),
                 fileDecryptionProperties,

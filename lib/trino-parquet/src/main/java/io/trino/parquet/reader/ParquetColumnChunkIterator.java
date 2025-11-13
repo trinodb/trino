@@ -53,6 +53,7 @@ public final class ParquetColumnChunkIterator
     private final ChunkedInputStream input;
     private final OffsetIndex offsetIndex;
     private final Optional<ColumnDecryptionContext> decryptionContext;
+    private final long maxPageSize;
 
     private long valueCount;
     private int dataPageCount;
@@ -67,7 +68,8 @@ public final class ParquetColumnChunkIterator
             ColumnChunkMetadata metadata,
             ChunkedInputStream input,
             @Nullable OffsetIndex offsetIndex,
-            Optional<ColumnDecryptionContext> decryptionContext)
+            Optional<ColumnDecryptionContext> decryptionContext,
+            long maxPageSize)
     {
         this.dataSourceId = requireNonNull(dataSourceId, "dataSourceId is null");
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
@@ -76,6 +78,7 @@ public final class ParquetColumnChunkIterator
         this.input = requireNonNull(input, "input is null");
         this.offsetIndex = offsetIndex;
         this.decryptionContext = requireNonNull(decryptionContext, "decryptionContext is null");
+        this.maxPageSize = maxPageSize;
     }
 
     @Override
@@ -102,6 +105,17 @@ public final class ParquetColumnChunkIterator
             PageHeader pageHeader = readPageHeader(decryptionContext.map(ColumnDecryptionContext::metadataDecryptor).orElse(null), pageHeaderAAD);
             int uncompressedPageSize = pageHeader.getUncompressed_page_size();
             int compressedPageSize = pageHeader.getCompressed_page_size();
+
+            // Validate page size limit
+            if (maxPageSize > 0 && uncompressedPageSize > maxPageSize) {
+                throw new ParquetCorruptionException(
+                        dataSourceId,
+                        "Parquet page size %d bytes exceeds maximum allowed size %d bytes for column %s",
+                        uncompressedPageSize,
+                        maxPageSize,
+                        descriptor);
+            }
+
             Page result = null;
             switch (pageHeader.type) {
                 case DICTIONARY_PAGE:
