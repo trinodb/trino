@@ -13,6 +13,10 @@
  */
 package io.trino.operator;
 
+import com.google.common.util.concurrent.ListenableFuture;
+
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+
 public interface OperatorFactory
 {
     Operator createOperator(DriverContext driverContext);
@@ -27,4 +31,14 @@ public interface OperatorFactory
     void noMoreOperators();
 
     OperatorFactory duplicate();
+
+    /**
+     * Returns a future indicating that any dependencies operators have on other pipelines has been satisfied and that leaf splits
+     * should be allowed to start for this operator. This is used to prevent join probe splits from starting before the build side
+     * of a join is ready when the two are in the same stage (i.e.: broadcast join on top of a table scan).
+     */
+    default ListenableFuture<Void> pipelineDependenciesSatisfied()
+    {
+        return immediateVoidFuture();
+    }
 }
