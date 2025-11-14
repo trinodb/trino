@@ -19,7 +19,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -47,6 +46,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.execution.buffer.PagesSerdeUtil.readPages;
 import static io.trino.execution.buffer.PagesSerdeUtil.writePages;
+import static io.trino.metadata.BlockEncodingManager.TESTING_BLOCK_ENCODING_MANAGER;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -66,7 +66,7 @@ public class TestPagesSerde
     @BeforeAll
     public void setup()
     {
-        blockEncodingSerde = new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER);
+        blockEncodingSerde = new InternalBlockEncodingSerde(TESTING_BLOCK_ENCODING_MANAGER, TESTING_TYPE_MANAGER);
     }
 
     @AfterAll

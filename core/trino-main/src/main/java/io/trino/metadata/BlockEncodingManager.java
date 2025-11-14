@@ -13,6 +13,9 @@
  */
 package io.trino.metadata;
 
+import com.google.inject.Inject;
+import io.trino.simd.BlockEncodingSimdSupport;
+import io.trino.simd.BlockEncodingSimdSupport.SimdSupport;
 import io.trino.spi.block.ArrayBlockEncoding;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncoding;
@@ -32,6 +35,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.simd.BlockEncodingSimdSupport.TESTING_BLOCK_ENCODING_SIMD_SUPPORT;
 import static java.util.Objects.requireNonNull;
 
 public final class BlockEncodingManager
@@ -41,14 +45,19 @@ public final class BlockEncodingManager
     // for serialization
     private final Map<Class<? extends Block>, BlockEncoding> blockEncodingNamesByClass = new ConcurrentHashMap<>();
 
-    public BlockEncodingManager()
+    public static final BlockEncodingManager TESTING_BLOCK_ENCODING_MANAGER = new BlockEncodingManager(TESTING_BLOCK_ENCODING_SIMD_SUPPORT);
+
+    @Inject
+    public BlockEncodingManager(
+            BlockEncodingSimdSupport blockEncodingSimdSupport)
     {
         // add the built-in BlockEncodings
+        SimdSupport simdSupport = blockEncodingSimdSupport.getSimdSupport();
         addBlockEncoding(new VariableWidthBlockEncoding());
-        addBlockEncoding(new ByteArrayBlockEncoding());
-        addBlockEncoding(new ShortArrayBlockEncoding());
-        addBlockEncoding(new IntArrayBlockEncoding());
-        addBlockEncoding(new LongArrayBlockEncoding());
+        addBlockEncoding(new ByteArrayBlockEncoding(simdSupport.expandAndCompressByte()));
+        addBlockEncoding(new ShortArrayBlockEncoding(simdSupport.expandAndCompressShort()));
+        addBlockEncoding(new IntArrayBlockEncoding(simdSupport.expandAndCompressInt()));
+        addBlockEncoding(new LongArrayBlockEncoding(simdSupport.expandAndCompressLong()));
         addBlockEncoding(new Fixed12BlockEncoding());
         addBlockEncoding(new Int128ArrayBlockEncoding());
         addBlockEncoding(new DictionaryBlockEncoding());
