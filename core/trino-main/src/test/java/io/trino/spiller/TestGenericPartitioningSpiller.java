@@ -265,6 +265,24 @@ public class TestGenericPartitioningSpiller
             }
             return 0;
         }
+
+        @Override
+        public void getPartitions(Page page, int[] partitions, long[] rawHashes, int offset, int length)
+        {
+            for (int i = 0; i < length; i++) {
+                long value = BIGINT.getLong(page.getBlock(valueChannel), offset + i);
+                if (value >= FOURTH_PARTITION_START) {
+                    partitions[i] = 3;
+                }
+                if (value >= THIRD_PARTITION_START) {
+                    partitions[i] = 2;
+                }
+                if (value >= SECOND_PARTITION_START) {
+                    partitions[i] = 1;
+                }
+                partitions[i] = 0;
+            }
+        }
     }
 
     private static class ModuloPartitionFunction
@@ -291,6 +309,15 @@ public class TestGenericPartitioningSpiller
         {
             long value = BIGINT.getLong(page.getBlock(valueChannel), position);
             return toIntExact(Math.abs(value) % partitionCount);
+        }
+
+        @Override
+        public void getPartitions(Page page, int[] partitions, long[] rawHashes, int offset, int length)
+        {
+            for (int i = 0; i < length; i++) {
+                long value = BIGINT.getLong(page.getBlock(valueChannel), offset + i);
+                partitions[i] = toIntExact(Math.abs(value) % partitionCount);
+            }
         }
     }
 }

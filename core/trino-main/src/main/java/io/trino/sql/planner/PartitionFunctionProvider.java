@@ -19,6 +19,7 @@ import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.PartitionFunction;
+import io.trino.operator.PartitionHashGeneratorCompiler;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.type.Type;
@@ -41,15 +42,15 @@ public class PartitionFunctionProvider
         this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
     }
 
-    public PartitionFunction getPartitionFunction(Session session, PartitioningHandle partitioningHandle, List<Type> partitionChannelTypes, int[] bucketToPartition)
+    public PartitionFunction getPartitionFunction(Session session, PartitioningHandle partitioningHandle, List<Type> partitionChannelTypes, int[] bucketToPartition, PartitionHashGeneratorCompiler partitionHashGeneratorCompiler)
     {
         if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle handle) {
-            return handle.getPartitionFunction(partitionChannelTypes, bucketToPartition, typeOperators);
+            return handle.getPartitionFunction(partitionChannelTypes, bucketToPartition, typeOperators, partitionHashGeneratorCompiler);
         }
 
         if (partitioningHandle.getConnectorHandle() instanceof MergePartitioningHandle handle) {
             return handle.getPartitionFunction(
-                    (scheme, types) -> getPartitionFunction(session, scheme.getPartitioning().getHandle(), types, bucketToPartition),
+                    (scheme, types) -> getPartitionFunction(session, scheme.getPartitioning().getHandle(), types, bucketToPartition, partitionHashGeneratorCompiler),
                     partitionChannelTypes,
                     bucketToPartition);
         }

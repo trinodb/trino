@@ -23,4 +23,6 @@ public interface PartitionFunction
      * @param page the arguments to bucketing function in order (no extra columns)
      */
     int getPartition(Page page, int position);
+
+    void getPartitions(Page page, int[] partitions, long[] rawHashes, int offset, int length);
 }

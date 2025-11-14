@@ -28,15 +28,15 @@ import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
-import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.cache.CacheStatsMBean;
+import io.trino.operator.HashStrategyCompilerUtils.ChunkClass;
+import io.trino.operator.HashStrategyCompilerUtils.HashGeneratorKeyField;
 import io.trino.operator.scalar.CombineHashFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.CallSiteBinder;
@@ -45,10 +45,8 @@ import org.weakref.jmx.Nested;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -61,7 +59,6 @@ import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.add;
-import static io.airlift.bytecode.expression.BytecodeExpressions.and;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
@@ -78,6 +75,9 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.not;
 import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.HashGenerator.INITIAL_HASH_VALUE;
+import static io.trino.operator.HashStrategyCompilerUtils.generateHashBlock;
+import static io.trino.operator.HashStrategyCompilerUtils.generateHashBlockChunk;
+import static io.trino.operator.HashStrategyCompilerUtils.generateHashBlocksBatchedChunk;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
@@ -124,6 +124,7 @@ public final class FlatHashStrategyCompiler
     public static FlatHashStrategy compileFlatHashStrategy(List<Type> types, TypeOperators typeOperators)
     {
         List<KeyField> keyFields = new ArrayList<>();
+        List<HashGeneratorKeyField> hashGeneratorKeyFields = new ArrayList<>();
         int fixedOffset = 0;
         for (int i = 0; i < types.size(); i++) {
             Type type = types.get(i);
@@ -136,7 +137,13 @@ public final class FlatHashStrategyCompiler
                     typeOperators.getReadValueOperator(type, simpleConvention(FLAT_RETURN, BLOCK_POSITION_NOT_NULL)),
                     typeOperators.getIdenticalOperator(type, simpleConvention(FAIL_ON_NULL, FLAT, BLOCK_POSITION_NOT_NULL)),
                     typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, FLAT)),
-                    typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL))));
+                    typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)),
+                    null));
+            hashGeneratorKeyFields.add(new HashGeneratorKeyField(
+                    i,
+                    type,
+                    typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)),
+                    i));
             fixedOffset += 1 + type.getFlatFixedSize();
         }
 
@@ -145,8 +152,13 @@ public final class FlatHashStrategyCompiler
         int chunkNumber = 0;
         // generate a separate class for each chunk of 500 types to avoid hitting the JVM method size and constant pool limits
         boolean singleChunkClass = keyFields.size() <= COLUMNS_PER_CHUNK;
+        Iterator<HashGeneratorKeyField> hashGeneratorKeyFieldsIterator = hashGeneratorKeyFields.iterator();
         for (List<KeyField> chunk : Lists.partition(keyFields, COLUMNS_PER_CHUNK)) {
-            chunkClasses.add(compileFlatHashStrategyChunk(callSiteBinder, chunk, chunkNumber, singleChunkClass));
+            List<HashGeneratorKeyField> hashGeneratorKeyFieldChunk = new ArrayList<>();
+            for (int i = 0; i < chunk.size(); i++) {
+                hashGeneratorKeyFieldChunk.add(hashGeneratorKeyFieldsIterator.next());
+            }
+            chunkClasses.add(compileFlatHashStrategyChunk(callSiteBinder, chunk, hashGeneratorKeyFieldChunk, chunkNumber, singleChunkClass));
             chunkNumber++;
         }
 
@@ -197,7 +209,7 @@ public final class FlatHashStrategyCompiler
         }
     }
 
-    private static ChunkClass compileFlatHashStrategyChunk(CallSiteBinder callSiteBinder, List<KeyField> keyFields, int chunkNumber, boolean singleChunkClass)
+    private static ChunkClass compileFlatHashStrategyChunk(CallSiteBinder callSiteBinder, List<KeyField> keyFields, List<HashGeneratorKeyField> hashGeneratorKeyFields, int chunkNumber, boolean singleChunkClass)
     {
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -211,7 +223,7 @@ public final class FlatHashStrategyCompiler
         MethodDefinition readFlatChunk = generateReadFlatChunk(definition, keyFields, callSiteBinder);
         MethodDefinition writeFlatChunk = generateWriteFlatChunk(definition, keyFields, callSiteBinder);
         MethodDefinition identicalChunkMethod = generateIdenticalChunkMethod(definition, keyFields, callSiteBinder);
-        MethodDefinition hashBlockChunk = generateHashBlockChunk(definition, keyFields, callSiteBinder);
+        MethodDefinition hashBlockChunk = generateHashBlockChunk(definition, hashGeneratorKeyFields, callSiteBinder);
         MethodDefinition hashFlatChunk;
         if (singleChunkClass) {
             hashFlatChunk = generateHashFlatSingleChunk(definition, keyFields, callSiteBinder);
@@ -219,7 +231,7 @@ public final class FlatHashStrategyCompiler
         else {
             hashFlatChunk = generateHashFlatMultiChunk(definition, keyFields, callSiteBinder);
         }
-        MethodDefinition hashBlocksBatchedChunk = generateHashBlocksBatchedChunk(definition, keyFields, callSiteBinder);
+        MethodDefinition hashBlocksBatchedChunk = generateHashBlocksBatchedChunk(definition, hashGeneratorKeyFields, callSiteBinder);
 
         return new ChunkClass(
                 definition,
@@ -629,63 +641,6 @@ public final class FlatHashStrategyCompiler
         return methodDefinition;
     }
 
-    private static void generateHashBlock(ClassDefinition definition, List<ChunkClass> chunkClasses)
-    {
-        Parameter blocks = arg("blocks", type(Block[].class));
-        Parameter position = arg("position", type(int.class));
-        MethodDefinition methodDefinition = definition.declareMethod(
-                a(PUBLIC),
-                "hash",
-                type(long.class),
-                blocks,
-                position);
-        BytecodeBlock body = methodDefinition.getBody();
-
-        Scope scope = methodDefinition.getScope();
-        Variable result = scope.declareVariable("result", body, constantLong(INITIAL_HASH_VALUE));
-        for (ChunkClass chunkClass : chunkClasses) {
-            body.append(result.set(invokeStatic(chunkClass.hashBlockChunk(), blocks, position, result)));
-        }
-        body.append(result.ret());
-    }
-
-    private static MethodDefinition generateHashBlockChunk(ClassDefinition definition, List<KeyField> keyFields, CallSiteBinder callSiteBinder)
-    {
-        Parameter blocks = arg("blocks", type(Block[].class));
-        Parameter position = arg("position", type(int.class));
-        Parameter seed = arg("seed", type(long.class));
-        MethodDefinition methodDefinition = definition.declareMethod(
-                a(PUBLIC, STATIC),
-                "hashBlocks",
-                type(long.class),
-                blocks,
-                position,
-                seed);
-        BytecodeBlock body = methodDefinition.getBody();
-
-        Scope scope = methodDefinition.getScope();
-        Variable result = scope.declareVariable("result", body, seed);
-        Variable hash = scope.declareVariable(long.class, "hash");
-        Variable block = scope.declareVariable(Block.class, "block");
-
-        for (KeyField keyField : keyFields) {
-            body.append(block.set(blocks.getElement(keyField.index())));
-            body.append(new IfStatement()
-                    .condition(block.invoke("isNull", boolean.class, position))
-                    .ifTrue(hash.set(constantLong(NULL_HASH_CODE)))
-                    .ifFalse(hash.set(invokeDynamic(
-                            BOOTSTRAP_METHOD,
-                            ImmutableList.of(callSiteBinder.bind(keyField.hashBlockMethod()).getBindingId()),
-                            "hash",
-                            long.class,
-                            block,
-                            position))));
-            body.append(result.set(invokeStatic(CombineHashFunction.class, "getHash", long.class, result, hash)));
-        }
-        body.append(result.ret());
-        return methodDefinition;
-    }
-
     private static void generateHashBlocksBatched(ClassDefinition definition, List<ChunkClass> chunkClasses)
     {
         Parameter blocks = arg("blocks", type(Block[].class));
@@ -714,135 +669,6 @@ public final class FlatHashStrategyCompiler
                 .condition(equal(length, constantInt(0)))
                 .ifFalse(nonEmptyLength))
                 .ret();
-    }
-
-    private static MethodDefinition generateHashBlocksBatchedChunk(ClassDefinition definition, List<KeyField> keyFields, CallSiteBinder callSiteBinder)
-    {
-        Parameter blocks = arg("blocks", type(Block[].class));
-        Parameter hashes = arg("hashes", type(long[].class));
-        Parameter offset = arg("offset", type(int.class));
-        Parameter length = arg("length", type(int.class));
-
-        MethodDefinition methodDefinition = definition.declareMethod(
-                a(PUBLIC, STATIC),
-                "hashBlocksBatched",
-                type(void.class),
-                blocks,
-                hashes,
-                offset,
-                length);
-
-        BytecodeBlock body = methodDefinition.getBody();
-        body.append(invokeStatic(Objects.class, "checkFromIndexSize", int.class, constantInt(0), length, hashes.length()).pop());
-
-        BytecodeBlock nonEmptyLength = new BytecodeBlock();
-
-        Map<Type, MethodDefinition> typeMethods = new HashMap<>();
-        for (KeyField keyField : keyFields) {
-            MethodDefinition method;
-            // The first hash method implementation does not combine hashes, so it can't be reused
-            if (keyField.index() == 0) {
-                method = generateHashBlockVectorized(definition, keyField, callSiteBinder);
-            }
-            else {
-                // Columns of the same type can reuse the same static method implementation
-                method = typeMethods.get(keyField.type());
-                if (method == null) {
-                    method = generateHashBlockVectorized(definition, keyField, callSiteBinder);
-                    typeMethods.put(keyField.type(), method);
-                }
-            }
-            nonEmptyLength.append(invokeStatic(method, blocks.getElement(keyField.index()), hashes, offset, length));
-        }
-
-        body.append(new IfStatement("if (length != 0)")
-                .condition(equal(length, constantInt(0)))
-                .ifFalse(nonEmptyLength))
-                .ret();
-
-        return methodDefinition;
-    }
-
-    private static MethodDefinition generateHashBlockVectorized(ClassDefinition definition, KeyField field, CallSiteBinder callSiteBinder)
-    {
-        Parameter block = arg("block", type(Block.class));
-        Parameter hashes = arg("hashes", type(long[].class));
-        Parameter offset = arg("offset", type(int.class));
-        Parameter length = arg("length", type(int.class));
-
-        MethodDefinition methodDefinition = definition.declareMethod(
-                a(PUBLIC, STATIC),
-                "hashBlockVectorized_" + field.index(),
-                type(void.class),
-                block,
-                hashes,
-                offset,
-                length);
-
-        Scope scope = methodDefinition.getScope();
-        BytecodeBlock body = methodDefinition.getBody();
-
-        Variable index = scope.declareVariable(int.class, "index");
-        Variable position = scope.declareVariable(int.class, "position");
-        Variable mayHaveNull = scope.declareVariable(boolean.class, "mayHaveNull");
-        Variable hash = scope.declareVariable(long.class, "hash");
-
-        body.append(position.set(invokeStatic(Objects.class, "checkFromToIndex", int.class, offset, add(offset, length), block.invoke("getPositionCount", int.class))));
-        body.append(invokeStatic(Objects.class, "checkFromIndexSize", int.class, constantInt(0), length, hashes.length()).pop());
-
-        BytecodeExpression computeHashNonNull = invokeDynamic(
-                BOOTSTRAP_METHOD,
-                ImmutableList.of(callSiteBinder.bind(field.hashBlockMethod()).getBindingId()),
-                "hash",
-                long.class,
-                block,
-                position);
-
-        BytecodeBlock rleHandling = new BytecodeBlock()
-                .append(new IfStatement("hash = block.isNull(position) ? NULL_HASH_CODE : hash(block, position)")
-                        .condition(block.invoke("isNull", boolean.class, position))
-                        .ifTrue(hash.set(constantLong(NULL_HASH_CODE)))
-                        .ifFalse(hash.set(computeHashNonNull)));
-        if (field.index() == 0) {
-            // Arrays.fill(hashes, 0, length, hash)
-            rleHandling.append(invokeStatic(Arrays.class, "fill", void.class, hashes, constantInt(0), length, hash));
-        }
-        else {
-            // CombineHashFunction.combineAllHashesWithConstant(hashes, 0, length, hash)
-            rleHandling.append(invokeStatic(CombineHashFunction.class, "combineAllHashesWithConstant", void.class, hashes, constantInt(0), length, hash));
-        }
-
-        BytecodeExpression setHashExpression;
-        if (field.index() == 0) {
-            // hashes[index] = hash;
-            setHashExpression = hashes.setElement(index, hash);
-        }
-        else {
-            // hashes[index] = CombineHashFunction.getHash(hashes[index], hash);
-            setHashExpression = hashes.setElement(index, invokeStatic(CombineHashFunction.class, "getHash", long.class, hashes.getElement(index), hash));
-        }
-
-        BytecodeBlock computeHashLoop = new BytecodeBlock()
-                .append(mayHaveNull.set(block.invoke("mayHaveNull", boolean.class)))
-                .append(new ForLoop("for (int index = 0; index < length; index++)")
-                        .initialize(index.set(constantInt(0)))
-                        .condition(lessThan(index, length))
-                        .update(index.increment())
-                        .body(new BytecodeBlock()
-                                .append(new IfStatement("if (mayHaveNull && block.isNull(position))")
-                                        .condition(and(mayHaveNull, block.invoke("isNull", boolean.class, position)))
-                                        .ifTrue(hash.set(constantLong(NULL_HASH_CODE)))
-                                        .ifFalse(hash.set(computeHashNonNull)))
-                                .append(setHashExpression)
-                                .append(position.increment())));
-
-        body.append(new IfStatement("if (block instanceof RunLengthEncodedBlock)")
-                .condition(block.instanceOf(RunLengthEncodedBlock.class))
-                .ifTrue(rleHandling)
-                .ifFalse(computeHashLoop))
-                .ret();
-
-        return methodDefinition;
     }
 
     private static void generateHashFlat(ClassDefinition definition, List<ChunkClass> chunkClasses, boolean singleChunkClass)
@@ -1013,7 +839,7 @@ public final class FlatHashStrategyCompiler
         return variableWidthOffset;
     }
 
-    private record KeyField(
+    public record KeyField(
             int index,
             Type type,
             int fieldIsNullOffset,
@@ -1022,15 +848,6 @@ public final class FlatHashStrategyCompiler
             MethodHandle writeFlatMethod,
             MethodHandle identicalFlatBlockMethod,
             MethodHandle hashFlatMethod,
-            MethodHandle hashBlockMethod) {}
-
-    private record ChunkClass(
-            ClassDefinition definition,
-            MethodDefinition getTotalVariableWidth,
-            MethodDefinition readFlatChunk,
-            MethodDefinition writeFlatChunk,
-            MethodDefinition identicalMethodChunk,
-            MethodDefinition hashBlockChunk,
-            MethodDefinition hashFlatChunk,
-            MethodDefinition hashBlocksBatchedChunk) {}
+            MethodHandle hashBlockMethod,
+            Integer hashChannelIndex) {}
 }

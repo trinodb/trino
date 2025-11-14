@@ -23,10 +23,10 @@ import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.operator.HashGenerator;
 import io.trino.operator.PartitionFunction;
+import io.trino.operator.PartitionHashGeneratorCompiler;
 import io.trino.operator.output.SkewedPartitionRebalancer;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.MergePartitioningHandle;
 import io.trino.sql.planner.PartitionFunctionProvider;
 import io.trino.sql.planner.PartitioningHandle;
@@ -49,7 +49,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static io.trino.SystemSessionProperties.getSkewedPartitionMinDataProcessedRebalanceThreshold;
-import static io.trino.operator.InterpretedHashGenerator.createChannelsHashGenerator;
+import static io.trino.operator.InterpretedHashGenerator.isPositionalChannels;
 import static io.trino.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
 import static io.trino.sql.planner.PartitioningHandle.isScaledWriterHashDistribution;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -85,6 +85,8 @@ public class LocalExchange
     @GuardedBy("this")
     private int nextSourceIndex;
 
+    private final PartitionHashGeneratorCompiler partitionHashGeneratorCompiler;
+
     public LocalExchange(
             PartitionFunctionProvider partitionFunctionProvider,
             Session session,
@@ -94,11 +96,12 @@ public class LocalExchange
             List<Integer> partitionChannels,
             List<Type> partitionChannelTypes,
             DataSize maxBufferedBytes,
-            TypeOperators typeOperators,
             DataSize writerScalingMinDataProcessed,
-            Supplier<Long> totalMemoryUsed)
+            Supplier<Long> totalMemoryUsed,
+            PartitionHashGeneratorCompiler partitionHashGeneratorCompiler)
     {
         int bufferCount = computeBufferCount(partitioning, defaultConcurrency, partitionChannels);
+        this.partitionHashGeneratorCompiler = requireNonNull(partitionHashGeneratorCompiler, "partitionHashGeneratorCompiler is null");
 
         if (partitioning.equals(SINGLE_DISTRIBUTION) || partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
             LocalExchangeMemoryManager memoryManager = new LocalExchangeMemoryManager(maxBufferedBytes.toBytes());
@@ -153,12 +156,12 @@ public class LocalExchange
                 PartitionFunction partitionFunction = createPartitionFunction(
                         partitionFunctionProvider,
                         session,
-                        typeOperators,
                         bucketCount,
                         partitioning,
                         partitionCount,
                         partitionChannels,
-                        partitionChannelTypes);
+                        partitionChannelTypes,
+                        partitionHashGeneratorCompiler);
                 return new ScaleWriterPartitioningExchanger(
                         asPageConsumers(sources),
                         memoryManager,
@@ -181,12 +184,12 @@ public class LocalExchange
                 PartitionFunction partitionFunction = createPartitionFunction(
                         partitionFunctionProvider,
                         session,
-                        typeOperators,
                         bucketCount,
                         partitioning,
                         bufferCount,
                         partitionChannels,
-                        partitionChannelTypes);
+                        partitionChannelTypes,
+                        partitionHashGeneratorCompiler);
                 return new PartitioningExchanger(
                         asPageConsumers(sources),
                         memoryManager,
@@ -236,17 +239,24 @@ public class LocalExchange
     private static PartitionFunction createPartitionFunction(
             PartitionFunctionProvider partitionFunctionProvider,
             Session session,
-            TypeOperators typeOperators,
             OptionalInt optionalBucketCount,
             PartitioningHandle partitioningHandle,
             int partitionCount,
             List<Integer> partitionChannels,
-            List<Type> partitionChannelTypes)
+            List<Type> partitionChannelTypes,
+            PartitionHashGeneratorCompiler partitionHashGeneratorCompiler)
     {
         checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
 
         if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
-            HashGenerator hashGenerator = createChannelsHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels), typeOperators);
+            HashGenerator hashGenerator;
+            int[] partitionChannelsArray = partitionChannels == null ? null : Ints.toArray(partitionChannels);
+            if (partitionChannelsArray != null && !isPositionalChannels(partitionChannelsArray)) {
+                hashGenerator = partitionHashGeneratorCompiler.getPartitionHashGenerator(partitionChannelTypes, partitionChannelsArray);
+            }
+            else {
+                hashGenerator = partitionHashGeneratorCompiler.getPartitionHashGenerator(partitionChannelTypes, null);
+            }
             return new LocalPartitionGenerator(hashGenerator, partitionCount);
         }
 
@@ -263,7 +273,7 @@ public class LocalExchange
             bucketToPartition[bucket] = hashedBucket & (partitionCount - 1);
         }
 
-        return partitionFunctionProvider.getPartitionFunction(session, partitioningHandle, partitionChannelTypes, bucketToPartition);
+        return partitionFunctionProvider.getPartitionFunction(session, partitioningHandle, partitionChannelTypes, bucketToPartition, partitionHashGeneratorCompiler);
     }
 
     private void checkAllSourcesFinished()

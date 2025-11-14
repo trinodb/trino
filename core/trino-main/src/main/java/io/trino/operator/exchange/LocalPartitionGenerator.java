@@ -48,6 +48,16 @@ public class LocalPartitionGenerator
         return processRawHash(rawHash) & hashMask;
     }
 
+    @Override
+    public void getPartitions(Page page, int[] partitions, long[] rawHashes, int offset, int length)
+    {
+        hashGenerator.hashBlocksBatched(page, rawHashes, offset, length);
+        for (int i = 0; i < length; i++) {
+            long rawHash = rawHashes[i];
+            partitions[i] = processRawHash(rawHash) & hashMask;
+        }
+    }
+
     public long getRawHash(Page page, int position)
     {
         return hashGenerator.hashPosition(position, page);

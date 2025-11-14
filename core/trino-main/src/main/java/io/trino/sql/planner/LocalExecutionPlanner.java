@@ -78,6 +78,7 @@ import io.trino.operator.OutputSpoolingOperatorFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesSpatialIndexFactory;
 import io.trino.operator.PartitionFunction;
+import io.trino.operator.PartitionHashGeneratorCompiler;
 import io.trino.operator.RefreshMaterializedViewOperator.RefreshMaterializedViewOperatorFactory;
 import io.trino.operator.RowNumberOperator;
 import io.trino.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
@@ -458,6 +459,7 @@ public class LocalExecutionPlanner
     private final PositionsAppenderFactory positionsAppenderFactory;
     private final NodeVersion version;
     private final boolean specializeAggregationLoops;
+    private final PartitionHashGeneratorCompiler partitionHashGeneratorCompiler;
 
     private final NonEvictableCache<FunctionKey, AccumulatorFactory> accumulatorFactoryCache = buildNonEvictableCache(CacheBuilder.newBuilder()
             .maximumSize(1000)
@@ -495,7 +497,8 @@ public class LocalExecutionPlanner
             TableExecuteContextManager tableExecuteContextManager,
             ExchangeManagerRegistry exchangeManagerRegistry,
             NodeVersion version,
-            CompilerConfig compilerConfig)
+            CompilerConfig compilerConfig,
+            PartitionHashGeneratorCompiler partitionHashGeneratorCompiler)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
@@ -545,6 +548,7 @@ public class LocalExecutionPlanner
         this.positionsAppenderFactory = new PositionsAppenderFactory(blockTypeOperators);
         this.version = requireNonNull(version, "version is null");
         this.specializeAggregationLoops = compilerConfig.isSpecializeAggregationLoops();
+        this.partitionHashGeneratorCompiler = requireNonNull(partitionHashGeneratorCompiler, "partitionHashGeneratorCompiler is null");
     }
 
     public LocalExecutionPlan plan(
@@ -595,7 +599,7 @@ public class LocalExecutionPlanner
         Optional<SkewedPartitionRebalancer> skewedPartitionRebalancer = Optional.empty();
         int taskCount = getTaskCount(partitioningScheme);
         if (outputSkewedBucketCount.isPresent()) {
-            partitionFunction = createPartitionFunction(taskContext.getSession(), partitionFunctionProvider, partitioningScheme.getPartitioning().getHandle(), outputSkewedBucketCount.getAsInt(), partitionChannelTypes);
+            partitionFunction = createPartitionFunction(taskContext.getSession(), partitionFunctionProvider, partitioningScheme.getPartitioning().getHandle(), outputSkewedBucketCount.getAsInt(), partitionChannelTypes, partitionHashGeneratorCompiler);
             int partitionedWriterCount = getPartitionedWriterCountBasedOnMemory(taskContext.getSession());
             // Keep the task bucket count to 50% of total local writers
             int taskBucketCount = (int) ceil(0.5 * partitionedWriterCount);
@@ -612,7 +616,8 @@ public class LocalExecutionPlanner
                     partitioningScheme.getPartitioning().getHandle(),
                     partitionChannelTypes,
                     partitioningScheme.getBucketToPartition()
-                            .orElseThrow(() -> new IllegalArgumentException("Bucket to partition must be set before a partition function can be created")));
+                            .orElseThrow(() -> new IllegalArgumentException("Bucket to partition must be set before a partition function can be created")),
+                    partitionHashGeneratorCompiler);
         }
         OptionalInt nullChannel = OptionalInt.empty();
         Set<Symbol> partitioningColumns = partitioningScheme.getPartitioning().getColumns();
@@ -3705,9 +3710,9 @@ public class LocalExecutionPlanner
                     ImmutableList.of(),
                     ImmutableList.of(),
                     maxLocalExchangeBufferSize,
-                    typeOperators,
                     getWriterScalingMinDataProcessed(session),
-                    () -> context.getTaskContext().getQueryMemoryReservation().toBytes());
+                    () -> context.getTaskContext().getQueryMemoryReservation().toBytes(),
+                    partitionHashGeneratorCompiler);
 
             List<Symbol> expectedLayout = getOnlyElement(node.getInputs());
             Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(expectedLayout, source.getLayout());
@@ -3780,9 +3785,9 @@ public class LocalExecutionPlanner
                     partitionChannels,
                     partitionChannelTypes,
                     maxLocalExchangeBufferSize,
-                    typeOperators,
                     getWriterScalingMinDataProcessed(session),
-                    () -> context.getTaskContext().getQueryMemoryReservation().toBytes());
+                    () -> context.getTaskContext().getQueryMemoryReservation().toBytes(),
+                    partitionHashGeneratorCompiler);
             for (int i = 0; i < node.getSources().size(); i++) {
                 DriverFactoryParameters driverFactoryParameters = driverFactoryParametersList.get(i);
                 PhysicalOperation source = driverFactoryParameters.getSource();

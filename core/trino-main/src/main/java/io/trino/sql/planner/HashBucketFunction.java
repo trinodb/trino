@@ -39,6 +39,12 @@ public class HashBucketFunction
         return generator.getPartition(bucketCount, position, page);
     }
 
+    public boolean calculateBatchedHashes(Page page, long[] hashes, int offset, int length)
+    {
+        generator.hashBlocksBatched(page, hashes, offset, length);
+        return true;
+    }
+
     @Override
     public String toString()
     {

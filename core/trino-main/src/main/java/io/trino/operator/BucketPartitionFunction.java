@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import io.trino.spi.Page;
 import io.trino.spi.connector.BucketFunction;
+import io.trino.sql.planner.HashBucketFunction;
 
 import java.util.stream.IntStream;
 
@@ -45,5 +46,28 @@ public class BucketPartitionFunction
     {
         int bucket = bucketFunction.getBucket(functionArguments, position);
         return bucketToPartition[bucket];
+    }
+
+    @Override
+    public void getPartitions(Page page, int[] partitions, long[] rawHashes, int offset, int length)
+    {
+        boolean isBatchedHashCalculated = false;
+        if (bucketFunction instanceof HashBucketFunction) {
+            isBatchedHashCalculated = ((HashBucketFunction) bucketFunction).calculateBatchedHashes(page, rawHashes, offset, length);
+        }
+        if (isBatchedHashCalculated) {
+            for (int i = 0; i < length; i++) {
+                long rawHash = rawHashes[i];
+                // This function reduces the 64 bit rawHash to [0, partitionCount) uniformly. It first reduces the rawHash to 32 bit
+                // integer x then normalize it to x / 2^32 * partitionCount to reduce the range of x from [0, 2^32) to [0, partitionCount)
+                int bucket = (int) ((Integer.toUnsignedLong(Long.hashCode(rawHash)) * bucketToPartition.length) >>> 32);
+                partitions[i] = bucketToPartition[bucket];
+            }
+        }
+        else {
+            for (int i = 0; i < length; i++) {
+                partitions[i] = getPartition(page, offset + i);
+            }
+        }
     }
 }

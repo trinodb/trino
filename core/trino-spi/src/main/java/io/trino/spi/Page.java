@@ -292,6 +292,11 @@ public final class Page
         return retainedSizeInBytes;
     }
 
+    public Block[] getBlocks()
+    {
+        return blocks;
+    }
+
     private static class DictionaryBlockIndexes
     {
         private final List<DictionaryBlock> blocks = new ArrayList<>();

@@ -20,6 +20,7 @@ import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex;
+import io.trino.operator.PartitionHashGeneratorCompiler;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.TaskContext;
 import io.trino.operator.ValuesOperator;
@@ -62,6 +63,7 @@ public final class JoinTestUtils
 {
     private static final int PARTITION_COUNT = 4;
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
+    private static final PartitionHashGeneratorCompiler partitionHashGeneratorCompiler = new PartitionHashGeneratorCompiler(TYPE_OPERATORS);
 
     private JoinTestUtils() {}
 
@@ -145,9 +147,9 @@ public final class JoinTestUtils
                 hashChannels,
                 hashChannelTypes,
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
-                TYPE_OPERATORS,
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
-                () -> 0L);
+                () -> 0L,
+                partitionHashGeneratorCompiler);
 
         // collect input data into the partitioned exchange
         DriverContext collectDriverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();

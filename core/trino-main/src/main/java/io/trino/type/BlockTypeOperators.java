@@ -72,6 +72,11 @@ public final class BlockTypeOperators
                         .expireAfterWrite(2, TimeUnit.HOURS));
     }
 
+    public TypeOperators getTypeOperators()
+    {
+        return typeOperators;
+    }
+
     public BlockPositionEqual getEqualOperator(Type type)
     {
         return getBlockOperator(type, BlockPositionEqual.class, () -> typeOperators.getEqualOperator(type, BLOCK_EQUAL_CONVENTION));
