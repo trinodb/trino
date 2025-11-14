@@ -28,4 +28,6 @@ public interface HashGenerator
         // integer x then normalize it to x / 2^32 * partitionCount to reduce the range of x from [0, 2^32) to [0, partitionCount)
         return (int) ((Integer.toUnsignedLong(Long.hashCode(rawHash)) * partitionCount) >>> 32);
     }
+
+    void hashBlocksBatched(Page page, long[] hashes, int offset, int length);
 }

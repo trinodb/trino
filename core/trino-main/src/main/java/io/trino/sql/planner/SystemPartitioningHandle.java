@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.PartitionFunction;
+import io.trino.operator.PartitionHashGeneratorCompiler;
 import io.trino.spi.Page;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
@@ -29,7 +30,6 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.operator.InterpretedHashGenerator.createPagePrefixHashGenerator;
 import static java.util.Objects.requireNonNull;
 
 public final class SystemPartitioningHandle
@@ -135,12 +135,12 @@ public final class SystemPartitioningHandle
         return partitioning.toString();
     }
 
-    public PartitionFunction getPartitionFunction(List<Type> partitionChannelTypes, int[] bucketToPartition, TypeOperators typeOperators)
+    public PartitionFunction getPartitionFunction(List<Type> partitionChannelTypes, int[] bucketToPartition, TypeOperators typeOperators, PartitionHashGeneratorCompiler partitionHashGeneratorCompiler)
     {
         requireNonNull(partitionChannelTypes, "partitionChannelTypes is null");
         requireNonNull(bucketToPartition, "bucketToPartition is null");
 
-        BucketFunction bucketFunction = function.createBucketFunction(partitionChannelTypes, bucketToPartition.length, typeOperators);
+        BucketFunction bucketFunction = function.createBucketFunction(partitionChannelTypes, bucketToPartition.length, typeOperators, partitionHashGeneratorCompiler);
         return new BucketPartitionFunction(bucketFunction, bucketToPartition);
     }
 
@@ -148,7 +148,7 @@ public final class SystemPartitioningHandle
     {
         SINGLE {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators, PartitionHashGeneratorCompiler partitionHashGeneratorCompiler)
             {
                 checkArgument(bucketCount == 1, "Single partition can only have one bucket");
                 return new SingleBucketFunction();
@@ -156,28 +156,28 @@ public final class SystemPartitioningHandle
         },
         HASH {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators, PartitionHashGeneratorCompiler partitionHashGeneratorCompiler)
             {
-                return new HashBucketFunction(createPagePrefixHashGenerator(partitionChannelTypes, typeOperators), bucketCount);
+                return new HashBucketFunction(partitionHashGeneratorCompiler.getPartitionHashGenerator(partitionChannelTypes, null), bucketCount);
             }
         },
         ROUND_ROBIN {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators, PartitionHashGeneratorCompiler partitionHashGeneratorCompiler)
             {
                 return new RoundRobinBucketFunction(bucketCount);
             }
         },
         BROADCAST {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators, PartitionHashGeneratorCompiler partitionHashGeneratorCompiler)
             {
                 throw new UnsupportedOperationException();
             }
         },
         UNKNOWN {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators, PartitionHashGeneratorCompiler partitionHashGeneratorCompiler)
             {
                 throw new UnsupportedOperationException();
             }
@@ -185,7 +185,8 @@ public final class SystemPartitioningHandle
 
         public abstract BucketFunction createBucketFunction(List<Type> partitionChannelTypes,
                 int bucketCount,
-                TypeOperators typeOperators);
+                TypeOperators typeOperators,
+                PartitionHashGeneratorCompiler partitionHashGeneratorCompiler);
 
         private static class SingleBucketFunction
                 implements BucketFunction

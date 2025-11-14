@@ -84,6 +84,12 @@ public class InterpretedHashGenerator
         return result;
     }
 
+    @Override
+    public void hashBlocksBatched(Page page, long[] hashes, int offset, int length)
+    {
+        throw new UnsupportedOperationException("This method is not supported");
+    }
+
     private long nullSafeHash(int operatorIndex, Block block, int position)
     {
         try {
@@ -104,7 +110,7 @@ public class InterpretedHashGenerator
                 .toString();
     }
 
-    private static boolean isPositionalChannels(int[] hashChannels)
+    public static boolean isPositionalChannels(int[] hashChannels)
     {
         for (int i = 0; i < hashChannels.length; i++) {
             if (hashChannels[i] != i) {

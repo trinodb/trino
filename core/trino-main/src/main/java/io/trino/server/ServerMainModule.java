@@ -88,6 +88,7 @@ import io.trino.operator.ForExchange;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
+import io.trino.operator.PartitionHashGeneratorCompiler;
 import io.trino.operator.RetryPolicy;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.index.IndexManager;
@@ -316,6 +317,8 @@ public class ServerMainModule
         newExporter(binder).export(FlatHashStrategyCompiler.class).withGeneratedName();
         binder.bind(OrderingCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(OrderingCompiler.class).withGeneratedName();
+        binder.bind(PartitionHashGeneratorCompiler.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(PartitionHashGeneratorCompiler.class).withGeneratedName();
         binder.bind(PagesIndex.Factory.class).to(PagesIndex.DefaultFactory.class);
         binder.bind(PagesInputStreamFactory.class);
         jaxrsBinder(binder).bind(IoExceptionSuppressingWriterInterceptor.class);

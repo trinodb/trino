@@ -119,6 +119,7 @@ import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.OutputFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
+import io.trino.operator.PartitionHashGeneratorCompiler;
 import io.trino.operator.TaskContext;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.index.IndexManager;
@@ -320,6 +321,7 @@ public class PlanTester
     private final TaskManagerConfig taskManagerConfig;
     private final OptimizerConfig optimizerConfig;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
+    private final PartitionHashGeneratorCompiler partitionHashGeneratorCompiler;
     private boolean printPlan;
 
     public static PlanTester create(Session defaultSession)
@@ -389,6 +391,7 @@ public class PlanTester
         typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
         this.joinCompiler = new JoinCompiler(typeOperators);
         this.hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators);
+        this.partitionHashGeneratorCompiler = new PartitionHashGeneratorCompiler(typeOperators);
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(hashStrategyCompiler);
         EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig(), secretsResolver, noop(), tracer, CURRENT_NODE.getNodeVersion());
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager, secretsResolver);
@@ -793,7 +796,8 @@ public class PlanTester
                 tableExecuteContextManager,
                 exchangeManagerRegistry,
                 CURRENT_NODE.getNodeVersion(),
-                new CompilerConfig());
+                new CompilerConfig(),
+                partitionHashGeneratorCompiler);
 
         // plan query
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(

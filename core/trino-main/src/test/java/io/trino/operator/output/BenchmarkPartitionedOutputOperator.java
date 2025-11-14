@@ -31,7 +31,7 @@ import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.DriverContext;
 import io.trino.operator.PageTestUtils;
 import io.trino.operator.PartitionFunction;
-import io.trino.operator.PrecomputedHashGenerator;
+import io.trino.operator.PartitionHashGeneratorCompiler;
 import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputFactory;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
@@ -95,7 +95,6 @@ import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTIT
 import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.output.BenchmarkPartitionedOutputOperator.BenchmarkData.TestType;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static java.util.Collections.nCopies;
@@ -113,7 +112,9 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkPartitionedOutputOperator
 {
-    private static final PositionsAppenderFactory POSITIONS_APPENDER_FACTORY = new PositionsAppenderFactory(new BlockTypeOperators());
+    private static final BlockTypeOperators BLOCK_TYPE_OPERATORS = new BlockTypeOperators();
+    private static final PositionsAppenderFactory POSITIONS_APPENDER_FACTORY = new PositionsAppenderFactory(BLOCK_TYPE_OPERATORS);
+    private static final PartitionHashGeneratorCompiler partitionHashGeneratorCompiler = new PartitionHashGeneratorCompiler(BLOCK_TYPE_OPERATORS.getTypeOperators());
 
     @Benchmark
     public void addPage(BenchmarkData data)
@@ -152,6 +153,9 @@ public class BenchmarkPartitionedOutputOperator
 
         @Param("8192")
         private int positionCount = DEFAULT_POSITION_COUNT;
+
+        @Param({"5", "50", "100"})
+        private int columns = 5;
 
         @Param({
                 // Flat BIGINT data channel, flat BIGINT partition channel.
@@ -382,6 +386,11 @@ public class BenchmarkPartitionedOutputOperator
             this.positionCount = positionCount;
         }
 
+        public void setColumns(int columns)
+        {
+            this.columns = columns;
+        }
+
         public void setType(TestType type)
         {
             this.type = requireNonNull(type, "type is null");
@@ -405,11 +414,17 @@ public class BenchmarkPartitionedOutputOperator
             // and in case of unit test it will be null
             this.blackhole = blackhole;
             types = type.getTypes(channelCount);
+            List<Type> types2 = new ArrayList<Type>();
+            for (int i = 0; i < columns; i++) {
+                types2.add(type.type);
+            }
+            types = ImmutableList.<Type>builder()
+                    .addAll(types2)
+                    .build();
             dataPage = type.getPageGenerator().createPage(types, positionCount, nullRate);
             pageCount = type.getPageCount();
             types = ImmutableList.<Type>builder()
                     .addAll(types)
-                    .add(BIGINT) // dataPage has pre-computed hash block at the last channel
                     .build();
         }
 
@@ -440,7 +455,7 @@ public class BenchmarkPartitionedOutputOperator
         private PartitionedOutputOperator createPartitionedOutputOperator()
         {
             PartitionFunction partitionFunction = new BucketPartitionFunction(
-                    new HashBucketFunction(new PrecomputedHashGenerator(0), partitionCount),
+                    new HashBucketFunction(partitionHashGeneratorCompiler.getPartitionHashGenerator(types, null), partitionCount),
                     IntStream.range(0, partitionCount).toArray());
             PagesSerdeFactory serdeFactory = createTestingPagesSerdeFactory(compressionCodec);
 
@@ -448,7 +463,7 @@ public class BenchmarkPartitionedOutputOperator
 
             PartitionedOutputFactory operatorFactory = new PartitionedOutputFactory(
                     partitionFunction,
-                    ImmutableList.of(types.size() - 1), // hash block is at the last channel
+                    IntStream.rangeClosed(0, types.size() - 1).boxed().toList(),
                     ImmutableList.of(Optional.empty()),
                     false,
                     OptionalInt.empty(),
@@ -562,6 +577,7 @@ public class BenchmarkPartitionedOutputOperator
                 data.setPositionCount(256);
                 data.setupData(null);
                 data.setPageCount(50);
+                data.setColumns(50);
                 benchmark.addPage(data);
             });
         }
