@@ -482,28 +482,28 @@ public class TestHiveRedirectionToIceberg
         assertThat(onTrino().executeQuery(
                 format("SELECT * FROM hive.information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", schemaName, tableName)))
                 .containsOnly(
-                        row("hive", schemaName, tableName, "nationkey", 1, null, "YES", "bigint"),
-                        row("hive", schemaName, tableName, "name", 2, null, "YES", "varchar"),
-                        row("hive", schemaName, tableName, "regionkey", 3, null, "YES", "bigint"),
-                        row("hive", schemaName, tableName, "comment", 4, null, "YES", "varchar"));
+                        row("hive", schemaName, tableName, "nationkey", 1, null, "NO", "YES", "NO", "bigint"),
+                        row("hive", schemaName, tableName, "name", 2, null, "NO", "YES", "NO", "varchar"),
+                        row("hive", schemaName, tableName, "regionkey", 3, null, "NO", "YES", "NO", "bigint"),
+                        row("hive", schemaName, tableName, "comment", 4, null, "NO", "YES", "NO", "varchar"));
 
         // test via redirection with just schema filter
         assertThat(onTrino().executeQuery(
                 format("SELECT * FROM hive.information_schema.columns WHERE table_schema = '%s'", schemaName)))
                 .containsOnly(
-                        row("hive", schemaName, tableName, "nationkey", 1, null, "YES", "bigint"),
-                        row("hive", schemaName, tableName, "name", 2, null, "YES", "varchar"),
-                        row("hive", schemaName, tableName, "regionkey", 3, null, "YES", "bigint"),
-                        row("hive", schemaName, tableName, "comment", 4, null, "YES", "varchar"));
+                        row("hive", schemaName, tableName, "nationkey", 1, null, "NO", "YES", "NO", "bigint"),
+                        row("hive", schemaName, tableName, "name", 2, null, "NO", "YES", "NO", "varchar"),
+                        row("hive", schemaName, tableName, "regionkey", 3, null, "NO", "YES", "NO", "bigint"),
+                        row("hive", schemaName, tableName, "comment", 4, null, "NO", "YES", "NO", "varchar"));
 
         // sanity check that getting columns info without redirection produces matching result
         assertThat(onTrino().executeQuery(
                 format("SELECT * FROM iceberg.information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", schemaName, tableName)))
                 .containsOnly(
-                        row("iceberg", schemaName, tableName, "nationkey", 1, null, "YES", "bigint"),
-                        row("iceberg", schemaName, tableName, "name", 2, null, "YES", "varchar"),
-                        row("iceberg", schemaName, tableName, "regionkey", 3, null, "YES", "bigint"),
-                        row("iceberg", schemaName, tableName, "comment", 4, null, "YES", "varchar"));
+                        row("iceberg", schemaName, tableName, "nationkey", 1, null, "NO", "YES", "NO", "bigint"),
+                        row("iceberg", schemaName, tableName, "name", 2, null, "NO", "YES", "NO", "varchar"),
+                        row("iceberg", schemaName, tableName, "regionkey", 3, null, "NO", "YES", "NO", "bigint"),
+                        row("iceberg", schemaName, tableName, "comment", 4, null, "NO", "YES", "NO", "varchar"));
 
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
         onTrino().executeQuery("DROP SCHEMA hive." + schemaName);

@@ -351,9 +351,9 @@ public class ColumnJdbcTable
                     // source_data_type
                     null,
                     // is_autoincrement
-                    null,
+                    column.isAutoIncrement() ? "YES" : "NO",
                     // is_generatedcolumn
-                    null);
+                    column.isReadOnly() ? "YES" : "NO");
             ordinalPosition++;
         }
     }

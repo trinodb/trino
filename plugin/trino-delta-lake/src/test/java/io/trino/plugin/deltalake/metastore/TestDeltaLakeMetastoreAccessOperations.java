@@ -341,6 +341,10 @@ public class TestDeltaLakeMetastoreAccessOperations
         assertMetastoreInvocations("SELECT * FROM test_select_versioned_without_cache FOR VERSION AS OF 0",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
+                        .build(),
+                ImmutableMultiset.<MetastoreMethod>builder()
+                        .add(GET_TABLE)
+                        .add(REPLACE_TABLE)
                         .build());
     }
 
@@ -587,7 +591,12 @@ public class TestDeltaLakeMetastoreAccessOperations
 
     private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<MetastoreMethod> expectedInvocations)
     {
-        assertMetastoreInvocations(getSession(), query, expectedInvocations, ImmutableMultiset.of());
+        assertMetastoreInvocations(query, expectedInvocations, ImmutableMultiset.of());
+    }
+
+    private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<MetastoreMethod> expectedInvocations, Multiset<MetastoreMethod> expectedInvocationsAfterAsync)
+    {
+        assertMetastoreInvocations(getSession(), query, expectedInvocations, expectedInvocationsAfterAsync);
     }
 
     private void assertMetastoreInvocations(Session session, @Language("SQL") String query, Multiset<MetastoreMethod> expectedInvocations)

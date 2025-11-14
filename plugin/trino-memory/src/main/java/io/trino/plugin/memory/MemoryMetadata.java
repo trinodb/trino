@@ -216,7 +216,7 @@ public class MemoryMetadata
         }
 
         Long id = tableIds.get(schemaTableName);
-        if (id == null) {
+        if (id == null || !tables.containsKey(id)) {
             return null;
         }
 

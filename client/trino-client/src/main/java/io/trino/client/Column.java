@@ -18,31 +18,119 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.Immutable;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class Column
 {
+    private final Optional<String> catalog;
+    private final Optional<String> schema;
+    private final Optional<String> table;
     private final String name;
+    private final Optional<String> label;
+    private final boolean autoIncrement;
+    private final boolean caseSensitive;
+    private final boolean nullable;
+    private final Boolean readOnly;
     private final String type;
     private final ClientTypeSignature typeSignature;
 
+    public Column(String name, String type, ClientTypeSignature typeSignature)
+    {
+        this(Optional.empty(), Optional.empty(), Optional.empty(), name, Optional.of(name), false, false, true, true, type, typeSignature);
+    }
+
+    public Column(String catalog, String schema, String table, String name, String label, String type, ClientTypeSignature typeSignature)
+    {
+        this(Optional.of(catalog), Optional.of(schema), Optional.of(table), name, Optional.of(label), false, false, true, true, type, typeSignature);
+    }
+
+    public Column(String catalog, String schema, String table, String name, String label, boolean autoIncrement, boolean nullable, boolean readOnly, String type, ClientTypeSignature typeSignature)
+    {
+        this(Optional.of(catalog), Optional.of(schema), Optional.of(table), name, Optional.of(label), autoIncrement, false, nullable, readOnly, type, typeSignature);
+    }
+
     @JsonCreator
     public Column(
+            @JsonProperty("catalog") Optional<String> catalog,
+            @JsonProperty("schema") Optional<String> schema,
+            @JsonProperty("table") Optional<String> table,
             @JsonProperty("name") String name,
+            @JsonProperty("label") Optional<String> label,
+            @JsonProperty("autoIncrement") boolean autoIncrement,
+            @JsonProperty("caseSensitive") boolean caseSensitive,
+            @JsonProperty("nullable") boolean nullable,
+            @JsonProperty("readOnly") boolean readOnly,
             @JsonProperty("type") String type,
             @JsonProperty("typeSignature") ClientTypeSignature typeSignature)
     {
+        this.catalog = requireNonNull(catalog, "catalog is null");
+        this.schema = requireNonNull(schema, "schema is null");
+        this.table = requireNonNull(table, "table is null");
         this.name = requireNonNull(name, "name is null");
+        this.label = requireNonNull(label, "label is null");
+        this.autoIncrement = autoIncrement;
+        this.caseSensitive = caseSensitive;
+        this.nullable = nullable;
+        this.readOnly = readOnly;
         this.type = requireNonNull(type, "type is null");
         this.typeSignature = typeSignature;
+    }
+
+    @JsonProperty
+    public Optional<String> getCatalog()
+    {
+        return catalog;
+    }
+
+    @JsonProperty
+    public Optional<String> getSchema()
+    {
+        return schema;
+    }
+
+    @JsonProperty
+    public Optional<String> getTable()
+    {
+        return table;
     }
 
     @JsonProperty
     public String getName()
     {
         return name;
+    }
+
+    @JsonProperty
+    public Optional<String> getLabel()
+    {
+        return label;
+    }
+
+    @JsonProperty
+    public boolean getAutoIncrement()
+    {
+        return autoIncrement;
+    }
+
+    @JsonProperty
+    public boolean getCaseSensitive()
+    {
+        return caseSensitive;
+    }
+
+    @JsonProperty
+    public boolean getNullable()
+    {
+        return nullable;
+    }
+
+    @JsonProperty
+    public boolean getReadOnly()
+    {
+        return readOnly;
     }
 
     @JsonProperty

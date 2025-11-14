@@ -530,7 +530,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertUpdate("CREATE SCHEMA " + schemaName);
         hiveHadoop.runOnHive(format("CREATE VIEW %s.%s AS SELECT * FROM %s.customer", schemaName, viewName, SCHEMA));
         assertThat(computeScalar(format("SHOW TABLES FROM %s LIKE '%s'", schemaName, viewName))).isEqualTo(viewName);
-        assertThatThrownBy(() -> computeActual("DESCRIBE " + schemaName + "." + viewName)).hasMessageContaining(format("%s.%s is not a Delta Lake table", schemaName, viewName));
+        assertThatThrownBy(() -> computeActual("DESCRIBE " + schemaName + "." + viewName)).hasMessageContaining(format("line 1:1: Table 'delta.%s.%s' does not exist", schemaName, viewName));
         hiveHadoop.runOnHive("DROP DATABASE " + schemaName + " CASCADE");
     }
 

@@ -103,6 +103,9 @@ public class TestRowFilter
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_optional_column"))) {
                         return TPCH_NATION_WITH_OPTIONAL_COLUMN;
                     }
+                    if (schemaTableName.equals(new SchemaTableName("default", "nation_view"))) {
+                        return ImmutableList.of();
+                    }
                     throw new UnsupportedOperationException();
                 })
                 .withData(schemaTableName -> {
@@ -114,6 +117,9 @@ public class TestRowFilter
                     }
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_optional_column"))) {
                         return TPCH_NATION_DATA;
+                    }
+                    if (schemaTableName.equals(new SchemaTableName("default", "nation_view"))) {
+                        return ImmutableList.of();
                     }
                     throw new UnsupportedOperationException();
                 })

@@ -40,6 +40,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_WITH_HIDDEN_COLUMN;
@@ -73,6 +74,13 @@ public class TestColumnMask
 
     private final QueryAssertions assertions;
     private final TestingAccessControlManager accessControl;
+
+    private final List<SchemaTableName> schemaViews = ImmutableList.of(
+            new SchemaTableName("default", "nation_view"),
+            new SchemaTableName("default", "nation_view_uppercase"),
+            new SchemaTableName("default", "nation_materialized_view"),
+            new SchemaTableName("default", "nation_fresh_materialized_view"),
+            new SchemaTableName("default", "materialized_view_with_casts"));
 
     public TestColumnMask()
     {
@@ -177,11 +185,17 @@ public class TestColumnMask
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_hidden_column"))) {
                         return TPCH_NATION_WITH_HIDDEN_COLUMN;
                     }
+                    if (schemaViews.contains(schemaTableName)) {
+                        return ImmutableList.of();
+                    }
                     throw new UnsupportedOperationException();
                 })
                 .withData(schemaTableName -> {
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_hidden_column"))) {
                         return TPCH_WITH_HIDDEN_COLUMN_DATA;
+                    }
+                    if (schemaViews.contains(schemaTableName)) {
+                        return ImmutableList.of();
                     }
                     throw new UnsupportedOperationException();
                 })

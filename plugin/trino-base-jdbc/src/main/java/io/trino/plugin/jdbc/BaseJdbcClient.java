@@ -107,7 +107,7 @@ import static java.lang.Boolean.TRUE;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.lang.String.format;
 import static java.lang.String.join;
-import static java.sql.DatabaseMetaData.columnNoNulls;
+import static java.sql.ResultSetMetaData.columnNoNulls;
 import static java.util.Collections.emptyIterator;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
@@ -335,6 +335,9 @@ public abstract class BaseJdbcClient
                 Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
                 log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
+                Optional<String> defaultValue = getColumnDefaultValue(resultSet);
+                boolean autoIncrement = "YES".equals(resultSet.getString("IS_AUTOINCREMENT"));
+                boolean readOnly = "YES".equals(resultSet.getString("IS_GENERATEDCOLUMN"));
                 // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
                 Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
                 // skip unsupported column types
@@ -342,8 +345,11 @@ public abstract class BaseJdbcClient
                         .setColumnName(columnName)
                         .setJdbcTypeHandle(typeHandle)
                         .setColumnType(mapping.getType())
+                        .setAutoIncrement(autoIncrement)
                         .setNullable(nullable)
+                        .setReadOnly(readOnly)
                         .setComment(comment)
+                        .setDefaultValue(defaultValue)
                         .build()));
                 if (columnMapping.isEmpty()) {
                     UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
@@ -365,6 +371,12 @@ public abstract class BaseJdbcClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    protected Optional<String> getColumnDefaultValue(ResultSet resultSet)
+            throws SQLException
+    {
+        return Optional.empty();
     }
 
     @Override
@@ -471,13 +483,18 @@ public abstract class BaseJdbcClient
                                 Optional.<Integer>empty(),
                                 // This code doesn't do getCaseSensitivityForColumns. However, this does not impact the ColumnMetadata returned.
                                 Optional.<CaseSensitivity>empty());
+
                         boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
+                        boolean autoIncrement = "YES".equals(resultSet.getString("IS_AUTOINCREMENT"));
+                        boolean readOnly = "YES".equals(resultSet.getString("IS_GENERATEDCOLUMN"));
                         Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
                         toColumnMapping(session, connection, typeHandle).ifPresent(columnMapping -> {
                             currentTableColumns.add(ColumnMetadata.builder()
                                     .setName(columnName)
                                     .setType(columnMapping.getType())
+                                    .setAutoIncrement(autoIncrement)
                                     .setNullable(nullable)
+                                    .setReadOnly(readOnly)
                                     .setComment(comment)
                                     .build());
                         });
