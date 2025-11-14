@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.spi.connector.MergePage.createDeleteAndInsertPages;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -64,6 +65,7 @@ public class IcebergMergeSink
     private final ConnectorPageSink insertPageSink;
     private final int columnCount;
     private final Map<Slice, FileDeletion> fileDeletions = new HashMap<>();
+    private long writtenBytes;
 
     public IcebergMergeSink(
             LocationProvider locationProvider,
@@ -118,12 +120,21 @@ public class IcebergMergeSink
                 deletion.rowsToDelete().addLong(rowPosition);
             }
         });
+
+        writtenBytes = insertPageSink.getCompletedBytes();
+    }
+
+    @Override
+    public long getCompletedBytes()
+    {
+        return writtenBytes;
     }
 
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
         List<Slice> fragments = new ArrayList<>(insertPageSink.finish().join());
+        writtenBytes = insertPageSink.getCompletedBytes();
 
         fileDeletions.forEach((dataFilePath, deletion) -> {
             PositionDeleteWriter writer = createPositionDeleteWriter(
@@ -160,16 +171,17 @@ public class IcebergMergeSink
                 locationProvider,
                 fileWriterFactory,
                 fileSystem,
-                jsonCodec,
                 session,
                 fileFormat,
                 storageProperties);
     }
 
-    private static Collection<Slice> writePositionDeletes(PositionDeleteWriter writer, ImmutableLongBitmapDataProvider rowsToDelete)
+    private Collection<Slice> writePositionDeletes(PositionDeleteWriter writer, ImmutableLongBitmapDataProvider rowsToDelete)
     {
         try {
-            return writer.write(rowsToDelete);
+            CommitTaskData task = writer.write(rowsToDelete);
+            writtenBytes += task.fileSizeInBytes();
+            return List.of(wrappedBuffer(jsonCodec.toJsonBytes(task)));
         }
         catch (Throwable t) {
             closeAllSuppress(t, writer::abort);

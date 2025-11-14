@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.iceberg.delete;
 
-import io.airlift.json.JsonCodec;
-import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.iceberg.CommitTaskData;
@@ -34,13 +32,11 @@ import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.io.LocationProvider;
 import org.roaringbitmap.longlong.ImmutableLongBitmapDataProvider;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -54,7 +50,6 @@ public class PositionDeleteWriter
     private final PartitionSpec partitionSpec;
     private final Optional<PartitionData> partition;
     private final String outputPath;
-    private final JsonCodec<CommitTaskData> jsonCodec;
     private final IcebergFileWriter writer;
     private final IcebergFileFormat fileFormat;
 
@@ -65,14 +60,12 @@ public class PositionDeleteWriter
             LocationProvider locationProvider,
             IcebergFileWriterFactory fileWriterFactory,
             TrinoFileSystem fileSystem,
-            JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
             IcebergFileFormat fileFormat,
             Map<String, String> storageProperties)
     {
         this.dataFilePath = requireNonNull(dataFilePath, "dataFilePath is null");
         this.dataFilePathBlock = nativeValueToBlock(VARCHAR, utf8Slice(dataFilePath));
-        this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.partitionSpec = requireNonNull(partitionSpec, "partitionSpec is null");
         this.partition = requireNonNull(partition, "partition is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
@@ -86,12 +79,12 @@ public class PositionDeleteWriter
         this.writer = fileWriterFactory.createPositionDeleteWriter(fileSystem, Location.of(outputPath), session, fileFormat, storageProperties);
     }
 
-    public Collection<Slice> write(ImmutableLongBitmapDataProvider rowsToDelete)
+    public CommitTaskData write(ImmutableLongBitmapDataProvider rowsToDelete)
     {
         writeDeletes(rowsToDelete);
         writer.commit();
 
-        CommitTaskData task = new CommitTaskData(
+        return new CommitTaskData(
                 outputPath,
                 fileFormat,
                 writer.getWrittenBytes(),
@@ -101,8 +94,6 @@ public class PositionDeleteWriter
                 FileContent.POSITION_DELETES,
                 Optional.of(dataFilePath),
                 writer.getFileMetrics().splitOffsets());
-
-        return List.of(wrappedBuffer(jsonCodec.toJsonBytes(task)));
     }
 
     public void abort()
