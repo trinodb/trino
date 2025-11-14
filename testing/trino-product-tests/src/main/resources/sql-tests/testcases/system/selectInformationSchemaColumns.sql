@@ -5,7 +5,9 @@ select
   table_name,
   column_name,
   data_type,
+  is_autoincrement,
   is_nullable,
+  is_readonly,
   column_default,
   comment
 from SYSTEM.information_schema.columns

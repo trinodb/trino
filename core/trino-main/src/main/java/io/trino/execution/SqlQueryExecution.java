@@ -56,10 +56,12 @@ import io.trino.server.ResultQueryInfo;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.QueryType;
 import io.trino.sql.planner.AdaptivePlanner;
 import io.trino.sql.planner.InputExtractor;
 import io.trino.sql.planner.LogicalPlanner;
@@ -524,9 +526,11 @@ public class SqlQueryExecution
 
         // record output field
         PlanFragment rootFragment = plan.getRoot().getFragment();
-        stateMachine.setColumns(
-                ((OutputNode) rootFragment.getRoot()).getColumnNames(),
-                rootFragment.getTypes());
+        List<String> columnNames = ((OutputNode) rootFragment.getRoot()).getColumnNames();
+        List<Type> columnTypes = rootFragment.getTypes();
+
+        boolean withMetadata = analysis.getQueryType() == QueryType.OTHERS;
+        stateMachine.setColumns(columnNames, columnTypes, analysis.getColumnFields(columnNames), withMetadata);
 
         RetryPolicy retryPolicy = getRetryPolicy(getSession());
         QueryScheduler scheduler = switch (retryPolicy) {
