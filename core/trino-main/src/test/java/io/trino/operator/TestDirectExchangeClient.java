@@ -34,6 +34,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.block.BlockAssertions;
+import io.trino.exchange.ExchangeManagerConfig;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
@@ -492,7 +493,7 @@ public class TestDirectExchangeClient
                 scheduler,
                 DataSize.of(1, Unit.MEGABYTE),
                 RetryPolicy.QUERY,
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
                 new QueryId("query"),
                 Span.getInvalid(),
                 createRandomExchangeId());
@@ -553,7 +554,7 @@ public class TestDirectExchangeClient
                         scheduler,
                         DataSize.of(1, Unit.KILOBYTE),
                         RetryPolicy.QUERY,
-                        new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())),
+                        new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
                         new QueryId("query"),
                         Span.getInvalid(),
                         createRandomExchangeId()),

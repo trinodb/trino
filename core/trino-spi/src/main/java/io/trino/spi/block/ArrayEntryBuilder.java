@@ -11,21 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.exchange;
+package io.trino.spi.block;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
-
-import static io.airlift.configuration.ConfigBinder.configBinder;
-
-public class ExchangeManagerModule
-        implements Module
+public interface ArrayEntryBuilder
 {
-    @Override
-    public void configure(Binder binder)
-    {
-        configBinder(binder).bindConfig(ExchangeManagerConfig.class);
-        binder.bind(ExchangeManagerRegistry.class).in(Scopes.SINGLETON);
-    }
+    /**
+     * Get the element BlockBuilder.
+     * The block builder must not be retained or used after build() is called.
+     */
+    BlockBuilder getElementBuilder();
+
+    /**
+     * Finalize the entry the elements have been appended to the element builder.
+     * This method MUST be called exactly once.
+     */
+    void build();
 }

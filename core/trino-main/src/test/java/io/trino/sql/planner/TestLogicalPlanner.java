@@ -1320,6 +1320,22 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testRemoveEmptyUnionBranch()
+    {
+        assertThat(countOfMatchingNodes(
+                plan("""
+                    SELECT *
+                    FROM (
+                           SELECT n.name, CAST(null AS varchar) AS comment FROM nation n WHERE n.nationkey <= 3
+                           UNION ALL
+                           SELECT r.name, r.comment FROM region r
+                    )
+                    WHERE comment IN (SELECT r.comment FROM region r)
+                """),
+                ValuesNode.class::isInstance)).isEqualTo(0);
+    }
+
+    @Test
     public void testRemovesTrivialFilters()
     {
         assertPlan(

@@ -15,20 +15,16 @@ package io.trino.operator.scalar;
 
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BufferedArrayValueBuilder;
-import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
-import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import java.lang.invoke.MethodHandle;
-import java.util.ArrayList;
-import java.util.List;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -36,22 +32,17 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.util.Failures.internalError;
+import static java.lang.Math.min;
 
 @ScalarFunction("array_remove")
 @Description("Remove specified values from the given array")
 public final class ArrayRemoveFunction
 {
-    private final BufferedArrayValueBuilder arrayValueBuilder;
-
-    @TypeParameter("E")
-    public ArrayRemoveFunction(@TypeParameter("E") Type elementType)
-    {
-        arrayValueBuilder = BufferedArrayValueBuilder.createBuffered(new ArrayType(elementType));
-    }
+    private ArrayRemoveFunction() {}
 
     @TypeParameter("E")
     @SqlType("array(E)")
-    public Block remove(
+    public static Block remove(
             @OperatorDependency(
                     operator = EQUAL,
                     argumentTypes = {"E", "E"},
@@ -61,7 +52,7 @@ public final class ArrayRemoveFunction
             @SqlType("array(E)") Block array,
             @SqlType("E") Object value)
     {
-        List<Integer> positions = new ArrayList<>();
+        IntArrayList positions = new IntArrayList(min(64, array.getPositionCount()));
 
         for (int i = 0; i < array.getPositionCount(); i++) {
             Object element = readNativeValue(type, array, i);
@@ -88,11 +79,6 @@ public final class ArrayRemoveFunction
             return array;
         }
 
-        return arrayValueBuilder.build(positions.size(), elementBuilder -> {
-            ValueBlock valueBlock = array.getUnderlyingValueBlock();
-            for (int position : positions) {
-                elementBuilder.append(valueBlock, array.getUnderlyingValuePosition(position));
-            }
-        });
+        return array.copyPositions(positions.elements(), 0, positions.size());
     }
 }

@@ -19,7 +19,6 @@ import io.trino.operator.PagesIndexOrdering;
 import io.trino.operator.window.PagesWindowIndex;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
@@ -112,8 +111,7 @@ public class OrderedWindowAccumulator
                 indexCurrentPage();
             }
             for (int channel = 0; channel < argumentTypes.size(); channel++) {
-                ValueBlock value = index.getSingleValueBlock(channel, position).getSingleValueBlock(0);
-                pageBuilder.getBlockBuilder(channel).append(value, 0);
+                index.appendTo(channel, position, pageBuilder.getBlockBuilder(channel));
             }
             pageBuilder.declarePosition();
         }

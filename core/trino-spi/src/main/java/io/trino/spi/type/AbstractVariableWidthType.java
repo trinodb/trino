@@ -201,10 +201,10 @@ public abstract class AbstractVariableWidthType
         @ScalarOperator(READ_VALUE)
         private static void writeFlatFromStack(
                 Slice value,
-                byte[] fixedSizeSlice,
-                int fixedSizeOffset,
-                byte[] variableSizeSlice,
-                int variableSizeOffset)
+                @FlatFixed byte[] fixedSizeSlice,
+                @FlatFixedOffset int fixedSizeOffset,
+                @FlatVariableWidth byte[] variableSizeSlice,
+                @FlatVariableOffset int variableSizeOffset)
         {
             int length = value.length();
             writeFlatVariableLength(length, fixedSizeSlice, fixedSizeOffset);
@@ -225,10 +225,10 @@ public abstract class AbstractVariableWidthType
         private static void writeFlatFromBlock(
                 @BlockPosition VariableWidthBlock block,
                 @BlockIndex int position,
-                byte[] fixedSizeSlice,
-                int fixedSizeOffset,
-                byte[] variableSizeSlice,
-                int variableSizeOffset)
+                @FlatFixed byte[] fixedSizeSlice,
+                @FlatFixedOffset int fixedSizeOffset,
+                @FlatVariableWidth byte[] variableSizeSlice,
+                @FlatVariableOffset int variableSizeOffset)
         {
             Slice rawSlice = block.getRawSlice();
             int rawSliceOffset = block.getRawSliceOffset(position);

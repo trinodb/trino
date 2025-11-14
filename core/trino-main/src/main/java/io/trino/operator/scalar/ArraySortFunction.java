@@ -14,18 +14,14 @@
 package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BufferedArrayValueBuilder;
-import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionComparison;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntArrays;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -36,19 +32,12 @@ import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 public final class ArraySortFunction
 {
     public static final String NAME = "array_sort";
-    private final BufferedArrayValueBuilder arrayValueBuilder;
-    private static final int INITIAL_LENGTH = 128;
-    private final IntArrayList positions = new IntArrayList(INITIAL_LENGTH);
 
-    @TypeParameter("E")
-    public ArraySortFunction(@TypeParameter("E") Type elementType)
-    {
-        arrayValueBuilder = BufferedArrayValueBuilder.createBuffered(new ArrayType(elementType));
-    }
+    private ArraySortFunction() {}
 
     @TypeParameter("E")
     @SqlType("array(E)")
-    public Block sort(
+    public static Block sort(
             @OperatorDependency(
                     operator = COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"E", "E"},
@@ -56,12 +45,12 @@ public final class ArraySortFunction
             @SqlType("array(E)") Block block)
     {
         int arrayLength = block.getPositionCount();
-        positions.clear();
+        int[] positions = new int[arrayLength];
         for (int i = 0; i < arrayLength; i++) {
-            positions.add(i);
+            positions[i] = i;
         }
 
-        positions.subList(0, arrayLength).sort((left, right) -> {
+        IntArrays.stableSort(positions, (left, right) -> {
             boolean nullLeft = block.isNull(left);
             boolean nullRight = block.isNull(right);
             if (nullLeft && nullRight) {
@@ -77,11 +66,6 @@ public final class ArraySortFunction
             return (int) comparisonOperator.compare(block, left, block, right);
         });
 
-        return arrayValueBuilder.build(arrayLength, elementBuilder -> {
-            ValueBlock valueBlock = block.getUnderlyingValueBlock();
-            for (int i = 0; i < arrayLength; i++) {
-                elementBuilder.append(valueBlock, block.getUnderlyingValuePosition(positions.getInt(i)));
-            }
-        });
+        return block.copyPositions(positions, 0, arrayLength);
     }
 }

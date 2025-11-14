@@ -165,10 +165,10 @@ public abstract class AbstractIntType
     @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             long value,
-            byte[] fixedSizeSlice,
-            int fixedSizeOffset,
-            byte[] unusedVariableSizeSlice,
-            int unusedVariableSizeOffset)
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset, (int) value);
     }

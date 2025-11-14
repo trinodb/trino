@@ -50,6 +50,7 @@ public class H2ResourceGroupConfigurationManagerFactory
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
+                    "io.trino.bootstrap.resource-group." + getName(),
                     new JsonModule(),
                     new H2ResourceGroupsModule(),
                     new NodeModule(),

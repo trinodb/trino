@@ -11,21 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.exchange;
+package io.trino.server.protocol;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
+import com.google.common.collect.ImmutableMap;
 
-import static io.airlift.configuration.ConfigBinder.configBinder;
+import java.util.Map;
 
-public class ExchangeManagerModule
-        implements Module
+public class TestJsonSpooledPartitionedLayoutQueries
+        extends AbstractSpooledQueryDataDistributedQueries
 {
     @Override
-    public void configure(Binder binder)
+    protected String encoding()
     {
-        configBinder(binder).bindConfig(ExchangeManagerConfig.class);
-        binder.bind(ExchangeManagerRegistry.class).in(Scopes.SINGLETON);
+        return "json";
+    }
+
+    @Override
+    protected Map<String, String> spoolingFileSystemConfig()
+    {
+        return ImmutableMap.of("fs.layout", "partitioned");
+    }
+
+    @Override
+    protected Map<String, String> spoolingConfig()
+    {
+        return ImmutableMap.of("protocol.spooling.inlining.enabled", "false");
     }
 }
