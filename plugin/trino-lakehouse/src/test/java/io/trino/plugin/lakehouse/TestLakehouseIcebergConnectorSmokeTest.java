@@ -44,4 +44,23 @@ public class TestLakehouseIcebergConnectorSmokeTest
                    type = 'ICEBERG'
                 )\\E""");
     }
+
+    @Test
+    void testSelectMetadataTable()
+    {
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$history\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$metadata_log_entries\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$snapshots\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$all_manifests\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$manifests\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$partitions\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$files\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$all_entries\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$entries\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$properties\"")).matches("VALUES (CAST(6 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$refs\"")).matches("VALUES (CAST(1 AS BIGINT))");
+
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$timeline\""))
+                .failure().hasMessageMatching(".* Table .* does not exist");
+    }
 }

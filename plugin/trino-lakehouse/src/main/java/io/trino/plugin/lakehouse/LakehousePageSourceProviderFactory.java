@@ -22,8 +22,10 @@ import io.trino.plugin.hudi.HudiPageSourceProvider;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.iceberg.IcebergPageSourceProviderFactory;
 import io.trino.plugin.iceberg.IcebergTableHandle;
+import io.trino.plugin.iceberg.system.files.FilesTableSplit;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
+import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 
 import static java.util.Objects.requireNonNull;
@@ -53,17 +55,24 @@ public class LakehousePageSourceProviderFactory
     public ConnectorPageSourceProvider createPageSourceProvider()
     {
         return (transaction, session, split, table, columns, dynamicFilter) ->
-                forHandle(table).createPageSource(transaction, session, split, table, columns, dynamicFilter);
+                forHandle(split, table).createPageSource(transaction, session, split, table, columns, dynamicFilter);
     }
 
-    private ConnectorPageSourceProvider forHandle(ConnectorTableHandle handle)
+    private ConnectorPageSourceProvider forHandle(ConnectorSplit split, ConnectorTableHandle handle)
     {
         return switch (handle) {
             case HiveTableHandle _ -> hivePageSourceProvider;
             case IcebergTableHandle _ -> icebergPageSourceProviderFactory.createPageSourceProvider();
             case DeltaLakeTableHandle _ -> deltaLakePageSourceProvider;
             case HudiTableHandle _ -> hudiPageSourceProvider;
-            default -> throw new UnsupportedOperationException("Unsupported table handle " + handle.getClass());
+            default -> {
+                // For system tables, the handle will be an instance of io.trino.connector.system.SystemTableHandle
+                // Some Iceberg system tables ($files and $history) use special splits (FilesTableSplit)
+                if (split instanceof FilesTableSplit) {
+                    yield icebergPageSourceProviderFactory.createPageSourceProvider();
+                }
+                throw new UnsupportedOperationException("Unsupported table handle " + handle.getClass() + " with split " + split.getClass());
+            }
         };
     }
 }
