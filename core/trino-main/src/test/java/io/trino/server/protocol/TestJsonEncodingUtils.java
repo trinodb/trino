@@ -563,7 +563,7 @@ public class TestJsonEncodingUtils
         ImmutableList.Builder<OutputColumn> columns = ImmutableList.builderWithExpectedSize(types.size());
         for (int i = 0; i < types.size(); i++) {
             TypedColumn typedColumn = types.get(i);
-            columns.add(new OutputColumn(i, typedColumn.name(), typedColumn.type()));
+            columns.add(new OutputColumn(i, "", "", "", typedColumn.name(), typedColumn.name(), typedColumn.type()));
         }
         return createEncoder(columns.build());
     }

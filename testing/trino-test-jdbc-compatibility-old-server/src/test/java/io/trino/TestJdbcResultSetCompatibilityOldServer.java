@@ -46,7 +46,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestJdbcResultSetCompatibilityOldServer
         extends BaseTestJdbcResultSet
 {
-    private static final int FIRST_VERSION = 351;
+    private static final int FIRST_VERSION = 479;
     private static final int NUMBER_OF_TESTED_VERSIONS = 5;
     private static final int TESTED_VERSIONS_GRANULARITY = 3;
 

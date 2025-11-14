@@ -17,11 +17,15 @@ import io.trino.spi.type.Type;
 
 import static java.util.Objects.requireNonNull;
 
-public record OutputColumn(int sourcePageChannel, String columnName, Type type)
+public record OutputColumn(int sourcePageChannel, String catalogName, String schemaName, String tableName, String columnName, String columnLabel, Type type)
 {
     public OutputColumn
     {
+        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(tableName, "tableName is null");
         requireNonNull(columnName, "columnName is null");
+        requireNonNull(columnLabel, "columnLabel is null");
         requireNonNull(type, "type is null");
 
         if (sourcePageChannel < 0) {

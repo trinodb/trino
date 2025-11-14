@@ -76,9 +76,14 @@ public final class ProtocolUtil
 
     public static Column createColumn(String name, Type type, boolean supportsParametricDateTime)
     {
+        return createColumn("", "", "", name, name, type, supportsParametricDateTime);
+    }
+
+    public static Column createColumn(String catalog, String schema, String table, String name, String label, Type type, boolean supportsParametricDateTime)
+    {
         String formatted = formatType(TypeSignatureTranslator.toSqlType(type), supportsParametricDateTime);
 
-        return new Column(name, formatted, toClientTypeSignature(type.getTypeSignature(), supportsParametricDateTime));
+        return new Column(catalog, schema, table, name, label, formatted, toClientTypeSignature(type.getTypeSignature(), supportsParametricDateTime));
     }
 
     private static String formatType(DataType type, boolean supportsParametricDateTime)

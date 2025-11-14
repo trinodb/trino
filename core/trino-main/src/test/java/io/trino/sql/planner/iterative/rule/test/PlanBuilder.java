@@ -122,6 +122,7 @@ import io.trino.testing.TestingTransactionHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -175,6 +176,10 @@ public class PlanBuilder
         return new OutputNode(
                 idAllocator.getNextId(),
                 source,
+                Collections.nCopies(columnNames.size(), ""),
+                Collections.nCopies(columnNames.size(), ""),
+                Collections.nCopies(columnNames.size(), ""),
+                columnNames,
                 columnNames,
                 outputs);
     }
@@ -199,7 +204,11 @@ public class PlanBuilder
     public class OutputBuilder
     {
         private PlanNode source;
+        private final List<String> catalogNames = new ArrayList<>();
+        private final List<String> schemaNames = new ArrayList<>();
+        private final List<String> tableNames = new ArrayList<>();
         private final List<String> columnNames = new ArrayList<>();
+        private final List<String> columnLabels = new ArrayList<>();
         private final List<Symbol> outputs = new ArrayList<>();
 
         public OutputBuilder source(PlanNode source)
@@ -215,14 +224,23 @@ public class PlanBuilder
 
         public OutputBuilder column(Symbol symbol, String columnName)
         {
+            return column(symbol, "", "", "", columnName, columnName);
+        }
+
+        public OutputBuilder column(Symbol symbol, String catalogName, String schemaName, String tableName, String columnName, String columnLabel)
+        {
             outputs.add(symbol);
+            catalogNames.add(catalogName);
+            schemaNames.add(schemaName);
+            tableNames.add(tableName);
             columnNames.add(columnName);
+            columnLabels.add(columnLabel);
             return this;
         }
 
         protected OutputNode build()
         {
-            return new OutputNode(idAllocator.getNextId(), source, columnNames, outputs);
+            return new OutputNode(idAllocator.getNextId(), source, catalogNames, schemaNames, tableNames, columnNames, columnLabels, outputs);
         }
     }
 

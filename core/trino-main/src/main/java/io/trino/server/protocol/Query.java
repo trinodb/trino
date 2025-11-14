@@ -683,13 +683,21 @@ class Query
     {
         // if first callback, set column names
         if (columns == null) {
+            List<String> catalogNames = outputInfo.getCatalogNames();
+            List<String> schemaNames = outputInfo.getSchemaNames();
+            List<String> tableNames = outputInfo.getTableNames();
             List<String> columnNames = outputInfo.getColumnNames();
+            List<String> columnLabels = outputInfo.getColumnLabels();
             List<Type> columnTypes = outputInfo.getColumnTypes();
+            checkArgument(columnNames.size() == catalogNames.size(), "Column names and Catalog names size mismatch");
+            checkArgument(columnNames.size() == schemaNames.size(), "Column names and Schema names size mismatch");
+            checkArgument(columnNames.size() == tableNames.size(), "Column names and Table names size mismatch");
+            checkArgument(columnNames.size() == columnLabels.size(), "Column names and Column labels size mismatch");
             checkArgument(columnNames.size() == columnTypes.size(), "Column names and types size mismatch");
 
             ImmutableList.Builder<Column> list = ImmutableList.builder();
             for (int i = 0; i < columnNames.size(); i++) {
-                list.add(createColumn(columnNames.get(i), columnTypes.get(i), supportsParametricDateTime));
+                list.add(createColumn(catalogNames.get(i), schemaNames.get(i), tableNames.get(i), columnNames.get(i), columnLabels.get(i), columnTypes.get(i), supportsParametricDateTime));
             }
             columns = list.build();
             types = outputInfo.getColumnTypes();

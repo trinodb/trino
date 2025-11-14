@@ -341,7 +341,7 @@ public class LogicalPlanner
                 statement instanceof RefreshMaterializedView && analysis.isSkipMaterializedViewRefresh()) {
             Symbol symbol = symbolAllocator.newSymbol("rows", BIGINT);
             PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbol), ImmutableList.of(new Row(ImmutableList.of(new Constant(BIGINT, 0L)))));
-            return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(symbol));
+            return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("catalogs"), ImmutableList.of("schemas"), ImmutableList.of("tables"), ImmutableList.of("rows"), ImmutableList.of("labels"), ImmutableList.of(symbol));
         }
         return createOutputPlan(planStatementWithoutOutput(analysis, statement), analysis);
     }
@@ -898,13 +898,35 @@ public class LogicalPlanner
     private PlanNode createOutputPlan(RelationPlan plan, Analysis analysis)
     {
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
+        ImmutableList.Builder<String> catalogs = ImmutableList.builder();
+        ImmutableList.Builder<String> schemas = ImmutableList.builder();
+        ImmutableList.Builder<String> tables = ImmutableList.builder();
         ImmutableList.Builder<String> names = ImmutableList.builder();
+        ImmutableList.Builder<String> labels = ImmutableList.builder();
 
         int columnNumber = 0;
         RelationType outputDescriptor = analysis.getOutputDescriptor();
         for (Field field : outputDescriptor.getVisibleFields()) {
+            String catalog;
+            String schema;
+            String table;
+            if (field.getOriginTable().isPresent()) {
+                catalog = field.getOriginTable().get().catalogName();
+                schema = field.getOriginTable().get().schemaName();
+                table = field.getOriginTable().get().objectName();
+            }
+            else {
+                catalog = "";
+                schema = "";
+                table = "";
+            }
             String name = field.getName().orElse("_col" + columnNumber);
+            String label = field.getOriginColumnName().orElse(name);
+            catalogs.add(catalog);
+            schemas.add(schema);
+            tables.add(table);
             names.add(name);
+            labels.add(label);
 
             int fieldIndex = outputDescriptor.indexOf(field);
             Symbol symbol = plan.getSymbol(fieldIndex);
@@ -912,7 +934,7 @@ public class LogicalPlanner
 
             columnNumber++;
         }
-        return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());
+        return new OutputNode(idAllocator.getNextId(), plan.getRoot(), catalogs.build(), schemas.build(), tables.build(), names.build(), labels.build(), outputs.build());
     }
 
     private RelationPlan createRelationPlan(Analysis analysis, Query query)

@@ -153,8 +153,8 @@ final class TestClientRedirect
                 server.url("/query.html?" + queryId).uri(),
                 null,
                 null,
-                Stream.of(new Column("id", INTEGER, new ClientTypeSignature("integer")),
-                                new Column("name", VARCHAR, new ClientTypeSignature("varchar")))
+                Stream.of(new Column("", "", "", "id", "id", INTEGER, new ClientTypeSignature("integer")),
+                                new Column("", "", "", "name", "name", VARCHAR, new ClientTypeSignature("varchar")))
                         .collect(toList()),
                 TypedQueryData.of(IntStream.range(0, numRecords)
                         .mapToObj(index -> Stream.of((Object) index, "a").collect(toList()))

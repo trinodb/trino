@@ -24,25 +24,61 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class Column
 {
+    private final String catalog;
+    private final String schema;
+    private final String table;
     private final String name;
+    private final String label;
     private final String type;
     private final ClientTypeSignature typeSignature;
 
     @JsonCreator
     public Column(
+            @JsonProperty("catalog") String catalog,
+            @JsonProperty("schema") String schema,
+            @JsonProperty("table") String table,
             @JsonProperty("name") String name,
+            @JsonProperty("label") String label,
             @JsonProperty("type") String type,
             @JsonProperty("typeSignature") ClientTypeSignature typeSignature)
     {
+        this.catalog = requireNonNull(catalog, "catalog is null");
+        this.schema = requireNonNull(schema, "schema is null");
+        this.table = requireNonNull(table, "table is null");
         this.name = requireNonNull(name, "name is null");
+        this.label = requireNonNull(label, "label is null");
         this.type = requireNonNull(type, "type is null");
         this.typeSignature = typeSignature;
+    }
+
+    @JsonProperty
+    public String getCatalog()
+    {
+        return catalog;
+    }
+
+    @JsonProperty
+    public String getSchema()
+    {
+        return schema;
+    }
+
+    @JsonProperty
+    public String getTable()
+    {
+        return table;
     }
 
     @JsonProperty
     public String getName()
     {
         return name;
+    }
+
+    @JsonProperty
+    public String getLabel()
+    {
+        return label;
     }
 
     @JsonProperty
