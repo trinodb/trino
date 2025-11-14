@@ -21,6 +21,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
@@ -164,11 +165,13 @@ public class LocalFileSystem
     public FileIterator listFiles(Location location)
             throws IOException
     {
+        validateLocalLocation(location);
         return new LocalFileIterator(location, rootPath, toDirectoryPath(location));
     }
 
     @Override
     public Optional<Boolean> directoryExists(Location location)
+            throws IOException
     {
         return Optional.of(Files.isDirectory(toDirectoryPath(location)));
     }
@@ -255,7 +258,12 @@ public class LocalFileSystem
 
     private Path toFilePath(Location location)
     {
-        validateLocalLocation(location);
+        try {
+            validateLocalLocation(location);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
         location.verifyValidFileLocation();
 
         Path localPath = toPath(location);
@@ -266,16 +274,21 @@ public class LocalFileSystem
     }
 
     private Path toDirectoryPath(Location location)
+            throws IOException
     {
         validateLocalLocation(location);
         return toPath(location);
     }
 
-    private static void validateLocalLocation(Location location)
+    static void validateLocalLocation(Location location)
+            throws IOException
     {
-        checkArgument(location.scheme().equals(Optional.of("local")) || location.scheme().equals(Optional.of("file")), "Only 'local' and 'file' scheme is supported: %s", location);
-        checkArgument(location.userInfo().isEmpty(), "Local location cannot contain user info: %s", location);
-        checkArgument(location.host().isEmpty(), "Local location cannot contain a host: %s", location);
+        checkArgument(location.scheme().isEmpty() || location.scheme().equals(Optional.of("local")) || location.scheme().equals(Optional.of("file")),
+                "Only 'local' and 'file' scheme is supported: %s", location);
+
+        if (location.userInfo().isPresent() || location.host().isPresent()) {
+            throw new IOException("Local location cannot contain user info or host: " + location);
+        }
     }
 
     private Path toPath(Location location)
