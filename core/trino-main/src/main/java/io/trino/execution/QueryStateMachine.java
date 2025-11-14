@@ -111,6 +111,7 @@ import static io.trino.execution.StagesInfo.getAllStages;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
 import static io.trino.spi.connector.StandardWarningCode.SPOOLING_NOT_SUPPORTED;
 import static io.trino.spi.resourcegroups.QueryType.SELECT;
@@ -417,7 +418,9 @@ public class QueryStateMachine
             // the transaction can be committed or aborted concurrently, after the check is done.
         }
         catch (RuntimeException e) {
-            QUERY_STATE_LOG.error(e, "Error collecting query catalog metadata metrics: %s", queryId);
+            if (!(e instanceof TrinoException trinoException && TRANSACTION_ALREADY_ABORTED.toErrorCode().equals(trinoException.getErrorCode()))) {
+                QUERY_STATE_LOG.error(e, "Error collecting query catalog metadata metrics: %s", queryId);
+            }
         }
     }
 
