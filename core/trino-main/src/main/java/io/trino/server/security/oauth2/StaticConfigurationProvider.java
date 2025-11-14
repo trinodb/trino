@@ -29,7 +29,8 @@ public class StaticConfigurationProvider
                 config.getTokenUrl(),
                 config.getJwksUrl(),
                 config.getUserinfoUrl(),
-                config.getEndSessionUrl());
+                config.getEndSessionUrl(),
+                config.getDynamicClientRegistrationUrl());
     }
 
     @Override
