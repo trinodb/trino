@@ -1080,6 +1080,12 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName table, List<ColumnSchema> columns)
+    {
+        return getRowFilters(context, table);
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         SchemaTableName tableName = table.getSchemaTableName();

@@ -729,7 +729,7 @@ public sealed class OpaAccessControl
     }
 
     @Override
-    public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
+    public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName, List<ColumnSchema> columns)
     {
         List<OpaViewExpression> rowFilterExpressions = opaHighLevelClient.getRowFilterExpressionsFromOpa(buildQueryContext(context), tableName);
         return rowFilterExpressions.stream()
