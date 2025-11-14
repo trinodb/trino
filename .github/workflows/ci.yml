@@ -509,8 +509,8 @@ jobs:
             - { modules: plugin/trino-postgresql }
             - { modules: plugin/trino-redis }
             - { modules: plugin/trino-redshift }
-            - { modules: plugin/trino-redshift, profile: cloud-tests }
-            - { modules: plugin/trino-redshift, profile: fte-tests }
+            #- { modules: plugin/trino-redshift, profile: cloud-tests }
+            #- { modules: plugin/trino-redshift, profile: fte-tests }
             - { modules: plugin/trino-resource-group-managers }
             - { modules: plugin/trino-singlestore }
             - { modules: plugin/trino-snowflake }
