@@ -88,10 +88,10 @@ public class TestOpenLineageEventsFromQueries
                 completedEvent.getInputs().getFirst(),
                 "tpch.tiny.nation",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("regionkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("name", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("comment", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("regionkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("name", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("comment", null, null, null, null)));
 
         assertThat(completedEvent.getOutputs())
                 .hasSize(1);
@@ -130,10 +130,10 @@ public class TestOpenLineageEventsFromQueries
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.nation", "name", null),
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.nation", "comment", null));
         List<SchemaDatasetFacetFields> expectedSchemaFields = List.of(
-                openLineage.newSchemaDatasetFacetFields("nationkey", "bigint", null, null),
-                openLineage.newSchemaDatasetFacetFields("name", "varchar(25)", null, null),
-                openLineage.newSchemaDatasetFacetFields("regionkey", "bigint", null, null),
-                openLineage.newSchemaDatasetFacetFields("comment", "varchar(152)", null, null));
+                openLineage.newSchemaDatasetFacetFields("nationkey", "bigint", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("name", "varchar(25)", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("regionkey", "bigint", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("comment", "varchar(152)", null, null, null));
         assertCompletedEventOutput(
                 completedEvent.getOutputs().getFirst(),
                 fullTableName,
@@ -185,10 +185,10 @@ public class TestOpenLineageEventsFromQueries
                 completeCreateTableEvent.getInputs().getFirst(),
                 format("marquez.default.%s", viewName),
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("regionkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("name", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("comment", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("regionkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("name", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("comment", null, null, null, null)));
 
         assertThat(completeCreateTableEvent.getOutputs())
                 .hasSize(1);
@@ -227,10 +227,10 @@ public class TestOpenLineageEventsFromQueries
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.nation", "name", null),
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.nation", "comment", null));
         List<SchemaDatasetFacetFields> expectedSchemaFields = List.of(
-                openLineage.newSchemaDatasetFacetFields("nationkey", "bigint", null, null),
-                openLineage.newSchemaDatasetFacetFields("name", "varchar(25)", null, null),
-                openLineage.newSchemaDatasetFacetFields("regionkey", "bigint", null, null),
-                openLineage.newSchemaDatasetFacetFields("comment", "varchar(152)", null, null));
+                openLineage.newSchemaDatasetFacetFields("nationkey", "bigint", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("name", "varchar(25)", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("regionkey", "bigint", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("comment", "varchar(152)", null, null, null));
         assertCompletedEventOutput(
                 completeCreateTableEvent.getOutputs().getFirst(),
                 fullTableName,
@@ -268,21 +268,21 @@ public class TestOpenLineageEventsFromQueries
                 completedEvent.getInputs().getFirst(),
                 "tpch.tiny.nation",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("name", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("name", null, null, null, null)));
         assertCompletedEventInput(
                 completedEvent.getInputs().get(1),
                 "tpch.sf1.customer",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("custkey", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("custkey", null, null, null, null)));
         assertCompletedEventInput(
                 completedEvent.getInputs().get(2),
                 "tpch.tiny.orders",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("custkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("totalprice", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("orderdate", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("custkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("totalprice", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("orderdate", null, null, null, null)));
 
         assertThat(completedEvent.getOutputs())
                 .hasSize(1);
@@ -320,10 +320,10 @@ public class TestOpenLineageEventsFromQueries
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.nation", "nationkey", null),
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.nation", "name", null));
         List<SchemaDatasetFacetFields> expectedSchemaFields = ImmutableList.of(
-                openLineage.newSchemaDatasetFacetFields("nation", "varchar(25)", null, null),
-                openLineage.newSchemaDatasetFacetFields("order_count", "bigint", null, null),
-                openLineage.newSchemaDatasetFacetFields("total_revenue", "double", null, null),
-                openLineage.newSchemaDatasetFacetFields("avg_order_value", "double", null, null));
+                openLineage.newSchemaDatasetFacetFields("nation", "varchar(25)", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("order_count", "bigint", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("total_revenue", "double", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("avg_order_value", "double", null, null, null));
         assertCompletedEventOutput(
                 completedEvent.getOutputs().getFirst(),
                 "marquez.default.test_create_table_with_join",
@@ -359,22 +359,22 @@ public class TestOpenLineageEventsFromQueries
                 completedEvent.getInputs().getFirst(),
                 "tpcds.tiny.store_sales",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("ss_sold_date_sk", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("ss_store_sk", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("ss_sales_price", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("ss_sold_date_sk", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("ss_store_sk", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("ss_sales_price", null, null, null, null)));
         assertCompletedEventInput(
                 completedEvent.getInputs().get(1),
                 "tpcds.tiny.date_dim",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("d_moy", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("d_date_sk", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("d_year", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("d_moy", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("d_date_sk", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("d_year", null, null, null, null)));
         assertCompletedEventInput(
                 completedEvent.getInputs().get(2),
                 "tpcds.tiny.store",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("s_store_name", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("s_store_sk", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("s_store_name", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("s_store_sk", null, null, null, null)));
 
         assertThat(completedEvent.getOutputs())
                 .hasSize(1);
@@ -448,12 +448,12 @@ public class TestOpenLineageEventsFromQueries
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpcds.sf0.01.store", "s_store_sk", null),
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpcds.sf0.01.store", "s_store_name", null));
         List<SchemaDatasetFacetFields> expectedSchemaFields = ImmutableList.of(
-                openLineage.newSchemaDatasetFacetFields("d_year", "integer", null, null),
-                openLineage.newSchemaDatasetFacetFields("d_moy", "integer", null, null),
-                openLineage.newSchemaDatasetFacetFields("year_month", "varchar", null, null),
-                openLineage.newSchemaDatasetFacetFields("s_store_name", "varchar(50)", null, null),
-                openLineage.newSchemaDatasetFacetFields("monthly_total", "decimal(38,2)", null, null),
-                openLineage.newSchemaDatasetFacetFields("store_rank", "bigint", null, null));
+                openLineage.newSchemaDatasetFacetFields("d_year", "integer", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("d_moy", "integer", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("year_month", "varchar", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("s_store_name", "varchar(50)", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("monthly_total", "decimal(38,2)", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("store_rank", "bigint", null, null, null));
         assertCompletedEventOutput(
                 completedEvent.getOutputs().getFirst(),
                 "marquez.default.monthly_store_rankings",
@@ -489,30 +489,30 @@ public class TestOpenLineageEventsFromQueries
                 completedEvent.getInputs().getFirst(),
                 "tpch.tiny.supplier",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("address", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("phone", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("name", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("suppkey", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("address", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("phone", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("name", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("suppkey", null, null, null, null)));
         assertCompletedEventInput(
                 completedEvent.getInputs().get(1),
                 "tpch.tiny.nation",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("name", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("name", null, null, null, null)));
         assertCompletedEventInput(
                 completedEvent.getInputs().get(2),
                 "tpch.tiny.lineitem",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("orderkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("quantity", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("suppkey", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("orderkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("quantity", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("suppkey", null, null, null, null)));
         assertCompletedEventInput(
                 completedEvent.getInputs().get(3),
                 "tpch.tiny.orders",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("orderkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("orderdate", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("orderkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("orderdate", null, null, null, null)));
 
         assertThat(completedEvent.getOutputs())
                 .hasSize(1);
@@ -566,11 +566,11 @@ public class TestOpenLineageEventsFromQueries
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.nation", "nationkey", null),
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.nation", "name", null));
         List<SchemaDatasetFacetFields> expectedSchemaFields = ImmutableList.of(
-                openLineage.newSchemaDatasetFacetFields("suppkey", "bigint", null, null),
-                openLineage.newSchemaDatasetFacetFields("name", "varchar(25)", null, null),
-                openLineage.newSchemaDatasetFacetFields("address", "varchar(40)", null, null),
-                openLineage.newSchemaDatasetFacetFields("phone", "varchar(15)", null, null),
-                openLineage.newSchemaDatasetFacetFields("nation_name", "varchar(25)", null, null));
+                openLineage.newSchemaDatasetFacetFields("suppkey", "bigint", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("name", "varchar(25)", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("address", "varchar(40)", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("phone", "varchar(15)", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("nation_name", "varchar(25)", null, null, null));
         assertCompletedEventOutput(
                 completedEvent.getOutputs().getFirst(),
                 "marquez.default.active_suppliers",
@@ -606,20 +606,20 @@ public class TestOpenLineageEventsFromQueries
                 completedEvent.getInputs().getFirst(),
                 "tpch.tiny.orders",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("totalprice", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("orderdate", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("totalprice", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("orderdate", null, null, null, null)));
         assertCompletedEventInput(
                 completedEvent.getInputs().get(1),
                 "tpcds.tiny.store_sales",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("ss_sold_date_sk", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("ss_sales_price", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("ss_sold_date_sk", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("ss_sales_price", null, null, null, null)));
         assertCompletedEventInput(
                 completedEvent.getInputs().get(2),
                 "tpcds.tiny.date_dim",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("d_date_sk", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("d_year", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("d_date_sk", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("d_year", null, null, null, null)));
 
         assertThat(completedEvent.getOutputs())
                 .hasSize(1);
@@ -667,11 +667,11 @@ public class TestOpenLineageEventsFromQueries
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpcds.sf0.01.date_dim", "d_date_sk", null),
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpcds.sf0.01.date_dim", "d_year", null));
         List<SchemaDatasetFacetFields> expectedSchemaFields = ImmutableList.of(
-                openLineage.newSchemaDatasetFacetFields("dataset", "varchar(6)", null, null),
-                openLineage.newSchemaDatasetFacetFields("metric_type", "varchar(15)", null, null),
-                openLineage.newSchemaDatasetFacetFields("record_count", "bigint", null, null),
-                openLineage.newSchemaDatasetFacetFields("total_value", "double", null, null),
-                openLineage.newSchemaDatasetFacetFields("avg_value", "double", null, null));
+                openLineage.newSchemaDatasetFacetFields("dataset", "varchar(6)", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("metric_type", "varchar(15)", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("record_count", "bigint", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("total_value", "double", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("avg_value", "double", null, null, null));
         assertCompletedEventOutput(
                 completedEvent.getOutputs().getFirst(),
                 fullTableName,
@@ -717,10 +717,10 @@ public class TestOpenLineageEventsFromQueries
                 completeCreateTableEvent.getInputs().getFirst(),
                 "tpch.tiny.nation",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("regionkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("name", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("comment", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("regionkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("name", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("comment", null, null, null, null)));
 
         assertThat(completeCreateTableEvent.getOutputs())
                 .hasSize(1);
@@ -759,10 +759,10 @@ public class TestOpenLineageEventsFromQueries
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.nation", "name", null),
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.nation", "comment", null));
         List<SchemaDatasetFacetFields> expectedCreateTableSchemaFields = List.of(
-                openLineage.newSchemaDatasetFacetFields("nationkey", "bigint", null, null),
-                openLineage.newSchemaDatasetFacetFields("name", "varchar(25)", null, null),
-                openLineage.newSchemaDatasetFacetFields("regionkey", "bigint", null, null),
-                openLineage.newSchemaDatasetFacetFields("comment", "varchar(152)", null, null));
+                openLineage.newSchemaDatasetFacetFields("nationkey", "bigint", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("name", "varchar(25)", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("regionkey", "bigint", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("comment", "varchar(152)", null, null, null));
         assertCompletedEventOutput(
                 completeCreateTableEvent.getOutputs().getFirst(),
                 fullTableName,
@@ -781,10 +781,10 @@ public class TestOpenLineageEventsFromQueries
                 completeInsertIntoTableEvent.getInputs().getFirst(),
                 "tpch.tiny.nation",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("regionkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("name", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("comment", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("regionkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("name", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("comment", null, null, null, null)));
 
         assertThat(completeInsertIntoTableEvent.getOutputs())
                 .hasSize(1);
@@ -823,10 +823,10 @@ public class TestOpenLineageEventsFromQueries
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.nation", "name", null),
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.nation", "comment", null));
         List<SchemaDatasetFacetFields> expectedInsertIntoTableSchemaFields = List.of(
-                openLineage.newSchemaDatasetFacetFields("nationkey", "bigint", null, null),
-                openLineage.newSchemaDatasetFacetFields("name", "varchar(25)", null, null),
-                openLineage.newSchemaDatasetFacetFields("regionkey", "bigint", null, null),
-                openLineage.newSchemaDatasetFacetFields("comment", "varchar(152)", null, null));
+                openLineage.newSchemaDatasetFacetFields("nationkey", "bigint", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("name", "varchar(25)", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("regionkey", "bigint", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("comment", "varchar(152)", null, null, null));
         assertCompletedEventOutput(
                 completeInsertIntoTableEvent.getOutputs().getFirst(),
                 fullTableName,
@@ -882,10 +882,10 @@ public class TestOpenLineageEventsFromQueries
                 completeCreateTableEvent.getInputs().getFirst(),
                 "tpch.tiny.customer",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("mktsegment", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("custkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("name", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("mktsegment", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("custkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("name", null, null, null, null)));
 
         assertThat(completeCreateTableEvent.getOutputs())
                 .hasSize(1);
@@ -924,10 +924,10 @@ public class TestOpenLineageEventsFromQueries
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.customer", "nationkey", null),
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.customer", "name", null));
         List<SchemaDatasetFacetFields> expectedCreateTableSchemaFields = List.of(
-                openLineage.newSchemaDatasetFacetFields("custkey", "bigint", null, null),
-                openLineage.newSchemaDatasetFacetFields("name", "varchar(25)", null, null),
-                openLineage.newSchemaDatasetFacetFields("mktsegment", "varchar(10)", null, null),
-                openLineage.newSchemaDatasetFacetFields("nationkey", "bigint", null, null));
+                openLineage.newSchemaDatasetFacetFields("custkey", "bigint", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("name", "varchar(25)", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("mktsegment", "varchar(10)", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("nationkey", "bigint", null, null, null));
         assertCompletedEventOutput(
                 completeCreateTableEvent.getOutputs().getFirst(),
                 fullTableName,
@@ -946,8 +946,8 @@ public class TestOpenLineageEventsFromQueries
                 completeDeleteFromTableEvent.getInputs().getFirst(),
                 "tpch.tiny.customer",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("custkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("acctbal", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("custkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("acctbal", null, null, null, null)));
 
         assertThat(completeDeleteFromTableEvent.getOutputs())
                 .hasSize(1);
@@ -1011,10 +1011,10 @@ public class TestOpenLineageEventsFromQueries
                 completeCreateTableEvent.getInputs().getFirst(),
                 "tpch.tiny.customer",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("mktsegment", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("custkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("name", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("mktsegment", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("custkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("name", null, null, null, null)));
 
         assertThat(completeCreateTableEvent.getOutputs())
                 .hasSize(1);
@@ -1053,10 +1053,10 @@ public class TestOpenLineageEventsFromQueries
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.customer", "nationkey", null),
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.customer", "name", null));
         List<SchemaDatasetFacetFields> expectedCreateTableSchemaFields = List.of(
-                openLineage.newSchemaDatasetFacetFields("custkey", "bigint", null, null),
-                openLineage.newSchemaDatasetFacetFields("name", "varchar(25)", null, null),
-                openLineage.newSchemaDatasetFacetFields("mktsegment", "varchar(10)", null, null),
-                openLineage.newSchemaDatasetFacetFields("nationkey", "bigint", null, null));
+                openLineage.newSchemaDatasetFacetFields("custkey", "bigint", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("name", "varchar(25)", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("mktsegment", "varchar(10)", null, null, null),
+                openLineage.newSchemaDatasetFacetFields("nationkey", "bigint", null, null, null));
         assertCompletedEventOutput(
                 completeCreateTableEvent.getOutputs().getFirst(),
                 fullTableName,
@@ -1075,10 +1075,10 @@ public class TestOpenLineageEventsFromQueries
                 completeMergeIntoTableEvent.getInputs().getFirst(),
                 "tpch.tiny.customer",
                 ImmutableList.of(
-                        openLineage.newSchemaDatasetFacetFields("mktsegment", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("custkey", null, null, null),
-                        openLineage.newSchemaDatasetFacetFields("name", null, null, null)));
+                        openLineage.newSchemaDatasetFacetFields("mktsegment", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("nationkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("custkey", null, null, null, null),
+                        openLineage.newSchemaDatasetFacetFields("name", null, null, null, null)));
 
         assertThat(completeMergeIntoTableEvent.getOutputs())
                 .hasSize(1);
@@ -1096,7 +1096,7 @@ public class TestOpenLineageEventsFromQueries
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.customer", "nationkey", null),
                 openLineage.newInputField(OPEN_LINEAGE_NAMESPACE, "tpch.tiny.customer", "name", null));
         List<SchemaDatasetFacetFields> expectedMergeIntoTableSchemaFields = List.of(
-                openLineage.newSchemaDatasetFacetFields("name", "varchar(25)", null, null));
+                openLineage.newSchemaDatasetFacetFields("name", "varchar(25)", null, null, null));
         assertCompletedEventOutput(
                 completeMergeIntoTableEvent.getOutputs().getFirst(),
                 fullTableName,
