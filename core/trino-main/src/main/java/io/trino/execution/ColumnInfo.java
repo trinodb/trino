@@ -11,22 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server.protocol;
+package io.trino.execution;
 
-import io.trino.execution.ColumnInfo;
-import io.trino.spi.type.Type;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public record OutputColumn(int sourcePageChannel, ColumnInfo columnInfo, Type type)
+public record ColumnInfo(Optional<String> catalog, Optional<String> schema, Optional<String> table, String name, Optional<String> label)
 {
-    public OutputColumn
+    public ColumnInfo(String name)
     {
-        requireNonNull(columnInfo, "columnInfo is null");
-        requireNonNull(type, "type is null");
+        this(Optional.empty(), Optional.empty(), Optional.empty(), name, Optional.of(name));
+    }
 
-        if (sourcePageChannel < 0) {
-            throw new IllegalArgumentException("sourcePageChannel is negative");
-        }
+    public ColumnInfo
+    {
+        requireNonNull(catalog, "catalog is null");
+        requireNonNull(schema, "schema is null");
+        requireNonNull(table, "table is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(label, "label is null");
     }
 }
