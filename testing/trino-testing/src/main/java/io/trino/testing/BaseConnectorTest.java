@@ -5886,6 +5886,33 @@ public abstract class BaseConnectorTest
         }
     }
 
+    @Test
+    public void testMergeWrittenStats()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_MERGE));
+
+        String tableName = "merge_written_stats_" + randomNameSuffix();
+        createTableForWrites("CREATE TABLE %s (id INT, data VARCHAR)", tableName, Optional.of("id"));
+
+        try {
+            assertQueryStats(
+                    getSession(),
+                    "MERGE INTO " + tableName + " USING (VALUES 42) t(dummy) ON false WHEN NOT MATCHED THEN INSERT VALUES (1, 'alice')",
+                    queryStats -> {
+                        assertThat(queryStats.getWrittenPositions()).isEqualTo(1L);
+                        assertThat(queryStats.getLogicalWrittenDataSize().toBytes()).isPositive();
+
+                        if (hasBehavior(SUPPORTS_REPORTING_WRITTEN_BYTES)) {
+                            assertThat(queryStats.getPhysicalWrittenDataSize().toBytes()).isPositive();
+                        }
+                    },
+                    _ -> {});
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
     /**
      * Some connectors support system table denoted with $-suffix. Ensure no connector exposes table_name$data
      * directly to users, as it would mean the same thing as table_name itself.
