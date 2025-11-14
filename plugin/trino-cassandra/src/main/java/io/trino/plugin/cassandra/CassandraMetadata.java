@@ -42,11 +42,13 @@ import io.trino.spi.connector.NotFoundException;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RetryMode;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ComputedStatistics;
@@ -78,6 +80,7 @@ import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.connector.RelationColumnsMetadata.forTable;
 import static io.trino.spi.connector.RelationCommentMetadata.forRelation;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
+import static io.trino.spi.connector.RowChangeParadigm.CHANGE_ONLY_UPDATED_COLUMNS;
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -285,6 +288,7 @@ public class CassandraMetadata
 
         String clusteringKeyPredicates = "";
         TupleDomain<ColumnHandle> unenforcedConstraint;
+        Boolean includesAllClusteringColumnsAndHasAllEqPredicates = null;
         if (partitionResult.unpartitioned() || partitionResult.indexedColumnPredicatePushdown()) {
             // When the filter is missing at least one of the partition keys or when the table is not partitioned,
             // use the raw unenforced constraint of the partitionResult
@@ -297,6 +301,7 @@ public class CassandraMetadata
                     partitionResult.unenforcedConstraint());
             clusteringKeyPredicates = clusteringPredicatesExtractor.getClusteringKeyPredicates();
             unenforcedConstraint = clusteringPredicatesExtractor.getUnenforcedConstraints();
+            includesAllClusteringColumnsAndHasAllEqPredicates = clusteringPredicatesExtractor.includesAllClusteringColumnsAndHasAllEqPredicates();
         }
 
         Optional<List<CassandraPartition>> currentPartitions = handle.getPartitions();
@@ -313,7 +318,8 @@ public class CassandraMetadata
                         handle.getTableName(),
                         Optional.of(partitionResult.partitions()),
                         // TODO this should probably be AND-ed with handle.getClusteringKeyPredicates()
-                        clusteringKeyPredicates)),
+                        clusteringKeyPredicates,
+                        includesAllClusteringColumnsAndHasAllEqPredicates)),
                         unenforcedConstraint,
                         constraint.getExpression(),
                         false));
@@ -470,9 +476,66 @@ public class CassandraMetadata
     }
 
     @Override
-    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateCaseColumns, RetryMode retryMode)
+    public RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new TrinoException(NOT_SUPPORTED, "Delete without primary key or partition key is not supported");
+        return CHANGE_ONLY_UPDATED_COLUMNS;
+    }
+
+    /**
+     * Attempt to push down an update operation into the connector. If a connector
+     * can execute an update for the table handle on its own, it should return a
+     * table handle, which will be passed back to {@link #executeUpdate} during
+     * query executing to actually execute the update.
+     */
+    @Override
+    public Optional<ConnectorTableHandle> applyUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Map<ColumnHandle, Constant> assignments)
+    {
+        CassandraNamedRelationHandle table = ((CassandraTableHandle) tableHandle).getRequiredNamedRelation();
+        if (cassandraSession.isMaterializedView(table.getSchemaTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, "Updating materialized views not yet supported");
+        }
+
+        CassandraNamedRelationHandle handle = ((CassandraTableHandle) tableHandle).getRequiredNamedRelation();
+        List<CassandraPartition> partitions = handle.getPartitions()
+                .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Updating without partition key is not supported"));
+        if (partitions.isEmpty()) {
+            // there are no records of a given partition key
+            throw new TrinoException(NOT_SUPPORTED, "Updating without partition key is not supported");
+        }
+        if (!handle.getIncludesAllClusteringColumnsAndHasAllEqPredicates()) {
+            throw new TrinoException(NOT_SUPPORTED, "Updating without all clustering keys or with non-eq predicates is not supported");
+        }
+
+        Map<String, String> assignmentsMap = new HashMap<>();
+        for (Map.Entry<ColumnHandle, Constant> entry : assignments.entrySet()) {
+            CassandraColumnHandle column = (CassandraColumnHandle) entry.getKey();
+            if (isHiddenIdColumn(column)) {
+                throw new TrinoException(NOT_SUPPORTED, "Updating the hidden id column is not supported");
+            }
+            Object value = entry.getValue().getValue();
+            if (value == null) {
+                throw new TrinoException(NOT_SUPPORTED, "Updating columns to null is not supported");
+            }
+            String cqlLiteral = cassandraTypeManager.toCqlLiteral(column.cassandraType(), value); // validate that the value can be converted to the cassandra type
+            assignmentsMap.put(column.name(), cqlLiteral);
+        }
+
+        return Optional.of(new CassandraUpdateTableHandle(tableHandle, assignmentsMap));
+    }
+
+    /**
+     * Execute the update operation on the handle returned from {@link #applyUpdate}.
+     */
+    @Override
+    public OptionalLong executeUpdate(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        CassandraUpdateTableHandle updateTableHandle = ((CassandraUpdateTableHandle) tableHandle);
+        CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) updateTableHandle.tableHandle();
+        CassandraNamedRelationHandle namedRelationHandle = cassandraTableHandle.getRequiredNamedRelation();
+        for (String cql : CassandraCqlUtils.getUpdateQueries(namedRelationHandle, updateTableHandle.assignments())) {
+            cassandraSession.execute(cql);
+        }
+        return OptionalLong.empty();
     }
 
     @Override
@@ -482,25 +545,32 @@ public class CassandraMetadata
     }
 
     @Override
-    public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
-    {
-        return Optional.of(handle);
-    }
-
-    @Override
-    public OptionalLong executeDelete(ConnectorSession session, ConnectorTableHandle deleteHandle)
+    public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle deleteHandle)
     {
         CassandraNamedRelationHandle handle = ((CassandraTableHandle) deleteHandle).getRequiredNamedRelation();
         List<CassandraPartition> partitions = handle.getPartitions()
                 .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Deleting without partition key is not supported"));
         if (partitions.isEmpty()) {
             // there are no records of a given partition key
-            return OptionalLong.empty();
+            return Optional.empty();
         }
+        return Optional.of(deleteHandle);
+    }
+
+    @Override
+    public OptionalLong executeDelete(ConnectorSession session, ConnectorTableHandle deleteHandle)
+    {
+        CassandraNamedRelationHandle handle = ((CassandraTableHandle) deleteHandle).getRequiredNamedRelation();
         for (String cql : CassandraCqlUtils.getDeleteQueries(handle)) {
             cassandraSession.execute(cql);
         }
         return OptionalLong.empty();
+    }
+
+    @Override
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateCaseColumns, RetryMode retryMode)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support modifying table rows");
     }
 
     @Override
