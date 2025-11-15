@@ -45,6 +45,7 @@ import java.time.LocalTime;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.function.BiFunction;
+import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -81,6 +82,7 @@ public final class FormatFunction
     public static final FormatFunction FORMAT_FUNCTION = new FormatFunction();
     private static final MethodHandle METHOD_HANDLE = methodHandle(FormatFunction.class, "sqlFormat", List.class, ConnectorSession.class, Slice.class, SqlRow.class);
     private static final CatalogSchemaFunctionName JSON_FORMAT_NAME = builtinFunctionName("json_format");
+    private static final Pattern JAVA_UTIL_EXCEPTION_PATTERN = Pattern.compile("^java\\.util\\.(\\w+)Exception");
 
     private FormatFunction()
     {
@@ -166,7 +168,7 @@ public final class FormatFunction
             return utf8Slice(format(session.getLocale(), format, args));
         }
         catch (IllegalFormatException e) {
-            String message = e.toString().replaceFirst("^java\\.util\\.(\\w+)Exception", "$1");
+            String message = JAVA_UTIL_EXCEPTION_PATTERN.matcher(e.toString()).replaceFirst("$1");
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid format string: %s (%s)", format, message), e);
         }
     }
