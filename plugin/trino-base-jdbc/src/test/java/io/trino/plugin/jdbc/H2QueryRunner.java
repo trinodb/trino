@@ -37,7 +37,13 @@ public final class H2QueryRunner
 {
     private H2QueryRunner() {}
 
-    private static final String TPCH_SCHEMA = "tpch";
+    private static final String PUBLIC_SCHEMA = "PUBLIC";
+
+    public static QueryRunner createH2QueryRunner()
+            throws Exception
+    {
+        return createH2QueryRunner(ImmutableList.of());
+    }
 
     public static QueryRunner createH2QueryRunner(TpchTable<?>... tables)
             throws Exception
@@ -99,15 +105,16 @@ public final class H2QueryRunner
     {
         try (Connection connection = DriverManager.getConnection(properties.get("connection-url"));
                 Statement statement = connection.createStatement()) {
-            statement.execute("CREATE SCHEMA " + schema);
+            statement.execute("CREATE SCHEMA \"%s\"".formatted(schema));
         }
     }
 
     public static Session createSession()
     {
+        System.out.println("H2QueryRunner.createSession() 1");
         return testSessionBuilder()
                 .setCatalog("jdbc")
-                .setSchema(TPCH_SCHEMA)
+                .setSchema(PUBLIC_SCHEMA)
                 .build();
     }
 }

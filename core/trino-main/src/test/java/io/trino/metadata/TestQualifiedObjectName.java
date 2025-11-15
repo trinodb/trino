@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestQualifiedObjectName
 {
@@ -36,10 +35,8 @@ public class TestQualifiedObjectName
         // names with apostrophes
         testRoundTrip(new QualifiedObjectName("cata\"l.o.g\"", "s\"ch.e.ma\"", "\"t.a.b.e.l\""));
 
-        // non-lowercase (currently illegal but TODO coming in https://github.com/trinodb/trino/issues/17)
-        assertThatThrownBy(() -> new QualifiedObjectName("CataLOG", "SchemA", "TabEl"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("catalogName is not lowercase: CataLOG");
+        // non-lowercase
+        testRoundTrip(new QualifiedObjectName("CataLOG", "SchemA", "TabEl"));
 
         // empty
         testRoundTrip(new QualifiedObjectName("", "", ""));

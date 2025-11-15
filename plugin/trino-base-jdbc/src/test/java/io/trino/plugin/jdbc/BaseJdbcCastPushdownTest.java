@@ -60,13 +60,14 @@ public abstract class BaseJdbcCastPushdownTest
     @Test
     public void testJoinPushdownWithCast()
     {
+        // FIXME: The table alias name must be delimited and in lowercase to enable successful push-down
         for (CastTestCase testCase : supportedCastTypePushdown()) {
-            assertThat(query("SELECT l.id FROM %s l JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
+            assertThat(query("SELECT \"l\".id FROM %s \"l\" JOIN %s \"r\" ON CAST(\"l\".%s AS %s) = \"r\".%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
                     .isFullyPushedDown();
         }
 
         for (CastTestCase testCase : unsupportedCastTypePushdown()) {
-            assertThat(query("SELECT l.id FROM %s l JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
+            assertThat(query("SELECT \"l\".id FROM %s \"l\" JOIN %s \"r\" ON CAST(\"l\".%s AS %s) = \"r\".%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
                     .joinIsNotFullyPushedDown();
         }
     }

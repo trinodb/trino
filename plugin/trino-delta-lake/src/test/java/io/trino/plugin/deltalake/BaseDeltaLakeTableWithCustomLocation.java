@@ -36,6 +36,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseDeltaLakeTableWithCustomLocation
         extends AbstractTestQueryFramework
 {
+    @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
     @Test
     public void testTableHasUuidSuffixInLocation()
     {

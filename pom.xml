@@ -78,10 +78,12 @@
         <module>plugin/trino-exchange-filesystem</module>
         <module>plugin/trino-exchange-hdfs</module>
         <module>plugin/trino-faker</module>
+        <module>plugin/trino-firebird</module>
         <module>plugin/trino-functions-python</module>
         <module>plugin/trino-geospatial</module>
         <module>plugin/trino-google-sheets</module>
         <module>plugin/trino-hive</module>
+        <module>plugin/trino-hsqldb</module>
         <module>plugin/trino-http-event-listener</module>
         <module>plugin/trino-http-server-event-listener</module>
         <module>plugin/trino-hudi</module>
@@ -115,6 +117,7 @@
         <module>plugin/trino-singlestore</module>
         <module>plugin/trino-snowflake</module>
         <module>plugin/trino-spooling-filesystem</module>
+        <module>plugin/trino-sqlite</module>
         <module>plugin/trino-sqlserver</module>
         <module>plugin/trino-teradata-functions</module>
         <module>plugin/trino-thrift</module>
@@ -1118,6 +1121,12 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-hsqldb</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-hudi</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -1388,6 +1397,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-spooling-filesystem</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-sqlite</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -2191,6 +2206,12 @@
                 <version>2.2.2</version>
             </dependency>
 
+            <dependency>
+                <groupId>org.hsqldb</groupId>
+                <artifactId>hsqldb</artifactId>
+                <version>2.7.4</version>
+            </dependency>
+
             <!-- force newer version to be used for dependencies -->
             <dependency>
                 <groupId>org.javassist</groupId>
@@ -2268,6 +2289,12 @@
                 <groupId>org.roaringbitmap</groupId>
                 <artifactId>RoaringBitmap</artifactId>
                 <version>1.6.20</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.xerial</groupId>
+                <artifactId>sqlite-jdbc</artifactId>
+                <version>3.51.1.0</version>
             </dependency>
 
             <dependency>

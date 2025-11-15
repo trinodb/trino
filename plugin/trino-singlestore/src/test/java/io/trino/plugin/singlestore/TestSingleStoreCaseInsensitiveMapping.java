@@ -44,6 +44,12 @@ public class TestSingleStoreCaseInsensitiveMapping
     }
 
     @Override
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
+
+    @Override
     protected Path getMappingFile()
     {
         return requireNonNull(mappingFile, "mappingFile is null");
@@ -58,8 +64,6 @@ public class TestSingleStoreCaseInsensitiveMapping
     @Override
     protected String quoted(String name)
     {
-        String identifierQuote = "`";
-        name = name.replace(identifierQuote, identifierQuote + identifierQuote);
-        return identifierQuote + name + identifierQuote;
+        return quoted(name, "`");
     }
 }
