@@ -350,6 +350,7 @@ jobs:
             !:trino-hdfs,
             !:trino-hive,
             !:trino-hive-formats,
+            !:trino-hsqldb,
             !:trino-hudi,
             !:trino-iceberg,
             !:trino-ignite,
