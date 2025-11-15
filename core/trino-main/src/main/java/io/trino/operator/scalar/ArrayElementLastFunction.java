@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
@@ -25,53 +24,25 @@ import io.trino.spi.function.TypeParameter;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.operator.scalar.ArrayElementAtFunction.elementAt;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
-import static java.lang.Math.toIntExact;
 
-@ScalarFunction("element_at")
-@Description("Get element of array at given index")
-public final class ArrayElementAtFunction
+@ScalarFunction("element_last")
+@Description("Get last element of array")
+public final class ArrayElementLastFunction
 {
-    private ArrayElementAtFunction() {}
+    private ArrayElementLastFunction() {}
 
     @TypeParameter("E")
     @SqlNullable
     @SqlType("E")
-    public static Object elementAt(
+    public static Object elementLast(
             @OperatorDependency(operator = READ_VALUE, argumentTypes = "E", convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL)) MethodHandle readValue,
-            @SqlType("array(E)") Block array,
-            @SqlType("bigint") long index)
+            @SqlType("array(E)") Block array)
             throws Throwable
     {
-        int position = checkedIndexToBlockPosition(array, index);
-        if (position == -1) {
-            return null;
-        }
-        if (array.isNull(position)) {
-            return null;
-        }
-
-        return readValue.invoke(array, position);
-    }
-
-    /**
-     * @return TrinoException if the index is 0, -1 if the index is out of range (to tell the calling function to return null), and the element position otherwise.
-     */
-    private static int checkedIndexToBlockPosition(Block block, long index)
-    {
-        int arrayLength = block.getPositionCount();
-        if (index == 0) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
-        }
-        if (Math.abs(index) > arrayLength) {
-            return -1; // -1 indicates that the element is out of range and "ELEMENT_AT" should return null
-        }
-        if (index > 0) {
-            return toIntExact(index - 1);
-        }
-        return toIntExact(arrayLength + index);
+        return elementAt(readValue, array, -1);
     }
 }

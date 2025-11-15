@@ -70,6 +70,8 @@ For more details, see {doc}`array`
 - `concat()`
 - {func}`contains`
 - {func}`element_at`
+- {func}`element_first`
+- {func}`element_last`
 - {func}`filter`
 - {func}`flatten`
 - {func}`ngrams`

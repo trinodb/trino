@@ -98,6 +98,8 @@ import io.trino.operator.scalar.ArrayContains;
 import io.trino.operator.scalar.ArrayContainsSequence;
 import io.trino.operator.scalar.ArrayDistinctFunction;
 import io.trino.operator.scalar.ArrayElementAtFunction;
+import io.trino.operator.scalar.ArrayElementFirstFunction;
+import io.trino.operator.scalar.ArrayElementLastFunction;
 import io.trino.operator.scalar.ArrayExceptFunction;
 import io.trino.operator.scalar.ArrayFilterFunction;
 import io.trino.operator.scalar.ArrayHistogramFunction;
@@ -492,6 +494,8 @@ public final class SystemFunctionBundle
                 .functions(IDENTITY_CAST, CAST_FROM_UNKNOWN)
                 .scalar(ArrayRemoveFunction.class)
                 .scalar(ArrayElementAtFunction.class)
+                .scalar(ArrayElementFirstFunction.class)
+                .scalar(ArrayElementLastFunction.class)
                 .scalar(ArraySortFunction.class)
                 .scalar(ArraySortComparatorFunction.class)
                 .scalar(ArrayShuffleFunction.class)

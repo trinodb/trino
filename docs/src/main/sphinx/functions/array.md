@@ -252,6 +252,18 @@ the subscript operator would fail in such a case.
 If `index` \< 0, `element_at` accesses elements from the last to the first.
 :::
 
+:::{function} element_first(array(E)) -> E
+Returns the first element of `array`.
+If the array is empty, the function returns `NULL`, whereas
+the subscript operator would fail in such a case.
+:::
+
+:::{function} element_last(array(E)) -> E
+Returns the last element of `array`.
+If the array is empty, the function returns `NULL`, whereas
+the subscript operator would fail in such a case.
+:::
+
 :::{function} filter(array(T), function(T,boolean)) -> array(T)
 Constructs an array from those elements of `array` for which `function` returns true:
 
