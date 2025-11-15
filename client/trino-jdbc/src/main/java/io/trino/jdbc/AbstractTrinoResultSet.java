@@ -1970,11 +1970,11 @@ abstract class AbstractTrinoResultSet
         ImmutableList.Builder<ColumnInfo> list = ImmutableList.builderWithExpectedSize(columns.size());
         for (Column column : columns) {
             ColumnInfo.Builder builder = new ColumnInfo.Builder()
-                    .setCatalogName("") // TODO
-                    .setSchemaName("") // TODO
-                    .setTableName("") // TODO
-                    .setColumnLabel(column.getName())
-                    .setColumnName(column.getName()) // TODO
+                    .setCatalogName(column.getCatalog())
+                    .setSchemaName(column.getSchema())
+                    .setTableName(column.getTable())
+                    .setColumnLabel(column.getLabel())
+                    .setColumnName(column.getName())
                     .setColumnTypeSignature(column.getTypeSignature())
                     .setNullable(Nullable.UNKNOWN)
                     .setCurrency(false);

@@ -163,7 +163,7 @@ public class TestMarkdownTablePrinter
 
     static Column column(String name, String type)
     {
-        return new Column(name, type, new ClientTypeSignature(type));
+        return new Column("", "", "", name, name, type, new ClientTypeSignature(type));
     }
 
     static List<?> row(Object... values)

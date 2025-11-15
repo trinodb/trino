@@ -99,22 +99,50 @@ public interface QueryExecution
      */
     class QueryOutputInfo
     {
+        private final List<String> catalogNames;
+        private final List<String> schemaNames;
+        private final List<String> tableNames;
         private final List<String> columnNames;
+        private final List<String> columnLabels;
         private final List<Type> columnTypes;
         private final Queue<ExchangeInput> inputsQueue;
         private final boolean noMoreInputs;
 
-        public QueryOutputInfo(List<String> columnNames, List<Type> columnTypes, Queue<ExchangeInput> inputsQueue, boolean noMoreInputs)
+        public QueryOutputInfo(List<String> catalogNames, List<String> schemaNames, List<String> tableNames, List<String> columnNames, List<String> columnLabels, List<Type> columnTypes, Queue<ExchangeInput> inputsQueue, boolean noMoreInputs)
         {
+            this.catalogNames = ImmutableList.copyOf(requireNonNull(catalogNames, "catalogNames is null"));
+            this.schemaNames = ImmutableList.copyOf(requireNonNull(schemaNames, "schemaNames is null"));
+            this.tableNames = ImmutableList.copyOf(requireNonNull(tableNames, "tableNames is null"));
             this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
+            this.columnLabels = ImmutableList.copyOf(requireNonNull(columnLabels, "columnLabels is null"));
             this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
             this.inputsQueue = requireNonNull(inputsQueue, "inputsQueue is null");
             this.noMoreInputs = noMoreInputs;
         }
 
+        public List<String> getCatalogNames()
+        {
+            return catalogNames;
+        }
+
+        public List<String> getSchemaNames()
+        {
+            return schemaNames;
+        }
+
+        public List<String> getTableNames()
+        {
+            return tableNames;
+        }
+
         public List<String> getColumnNames()
         {
             return columnNames;
+        }
+
+        public List<String> getColumnLabels()
+        {
+            return columnLabels;
         }
 
         public List<Type> getColumnTypes()

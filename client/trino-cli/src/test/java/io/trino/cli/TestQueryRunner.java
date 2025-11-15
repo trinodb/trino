@@ -123,7 +123,7 @@ public class TestQueryRunner
                 server.url("/query.html?20160128_214710_00012_rk68b").uri(),
                 null,
                 null,
-                ImmutableList.of(new Column("_col0", BIGINT, new ClientTypeSignature(BIGINT))),
+                ImmutableList.of(new Column("", "", "", "_col0", "_col0", BIGINT, new ClientTypeSignature(BIGINT))),
                 TypedQueryData.of(ImmutableList.of(ImmutableList.of(123))),
                 StatementStats.builder()
                         .setState("FINISHED")

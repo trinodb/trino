@@ -284,7 +284,7 @@ public class TestTrinoDatabaseMetaData
 
                 ResultSetMetaData metadata = rs.getMetaData();
                 assertThat(metadata.getColumnCount()).isEqualTo(1);
-                assertThat(metadata.getColumnLabel(1)).isEqualTo("TABLE_CAT");
+                assertThat(metadata.getColumnName(1)).isEqualTo("TABLE_CAT");
                 assertThat(metadata.getColumnType(1)).isEqualTo(Types.VARCHAR);
             }
         }
@@ -408,10 +408,10 @@ public class TestTrinoDatabaseMetaData
         ResultSetMetaData metadata = rs.getMetaData();
         assertThat(metadata.getColumnCount()).isEqualTo(2);
 
-        assertThat(metadata.getColumnLabel(1)).isEqualTo("TABLE_SCHEM");
+        assertThat(metadata.getColumnName(1)).isEqualTo("TABLE_SCHEM");
         assertThat(metadata.getColumnType(1)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(2)).isEqualTo("TABLE_CATALOG");
+        assertThat(metadata.getColumnName(2)).isEqualTo("TABLE_CATALOG");
         assertThat(metadata.getColumnType(2)).isEqualTo(Types.VARCHAR);
     }
 
@@ -615,34 +615,34 @@ public class TestTrinoDatabaseMetaData
         ResultSetMetaData metadata = rs.getMetaData();
         assertThat(metadata.getColumnCount()).isEqualTo(10);
 
-        assertThat(metadata.getColumnLabel(1)).isEqualTo("TABLE_CAT");
+        assertThat(metadata.getColumnName(1)).isEqualTo("TABLE_CAT");
         assertThat(metadata.getColumnType(1)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(2)).isEqualTo("TABLE_SCHEM");
+        assertThat(metadata.getColumnName(2)).isEqualTo("TABLE_SCHEM");
         assertThat(metadata.getColumnType(2)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(3)).isEqualTo("TABLE_NAME");
+        assertThat(metadata.getColumnName(3)).isEqualTo("TABLE_NAME");
         assertThat(metadata.getColumnType(3)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(4)).isEqualTo("TABLE_TYPE");
+        assertThat(metadata.getColumnName(4)).isEqualTo("TABLE_TYPE");
         assertThat(metadata.getColumnType(4)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(5)).isEqualTo("REMARKS");
+        assertThat(metadata.getColumnName(5)).isEqualTo("REMARKS");
         assertThat(metadata.getColumnType(5)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(6)).isEqualTo("TYPE_CAT");
+        assertThat(metadata.getColumnName(6)).isEqualTo("TYPE_CAT");
         assertThat(metadata.getColumnType(6)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(7)).isEqualTo("TYPE_SCHEM");
+        assertThat(metadata.getColumnName(7)).isEqualTo("TYPE_SCHEM");
         assertThat(metadata.getColumnType(7)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(8)).isEqualTo("TYPE_NAME");
+        assertThat(metadata.getColumnName(8)).isEqualTo("TYPE_NAME");
         assertThat(metadata.getColumnType(8)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(9)).isEqualTo("SELF_REFERENCING_COL_NAME");
+        assertThat(metadata.getColumnName(9)).isEqualTo("SELF_REFERENCING_COL_NAME");
         assertThat(metadata.getColumnType(9)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(10)).isEqualTo("REF_GENERATION");
+        assertThat(metadata.getColumnName(10)).isEqualTo("REF_GENERATION");
         assertThat(metadata.getColumnType(10)).isEqualTo(Types.VARCHAR);
     }
 
@@ -658,7 +658,7 @@ public class TestTrinoDatabaseMetaData
                 ResultSetMetaData metadata = tableTypes.getMetaData();
                 assertThat(metadata.getColumnCount()).isEqualTo(1);
 
-                assertThat(metadata.getColumnLabel(1)).isEqualTo("TABLE_TYPE");
+                assertThat(metadata.getColumnName(1)).isEqualTo("TABLE_TYPE");
                 assertThat(metadata.getColumnType(1)).isEqualTo(Types.VARCHAR);
             }
         }
@@ -877,76 +877,76 @@ public class TestTrinoDatabaseMetaData
         ResultSetMetaData metadata = rs.getMetaData();
         assertThat(metadata.getColumnCount()).isEqualTo(24);
 
-        assertThat(metadata.getColumnLabel(1)).isEqualTo("TABLE_CAT");
+        assertThat(metadata.getColumnName(1)).isEqualTo("TABLE_CAT");
         assertThat(metadata.getColumnType(1)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(2)).isEqualTo("TABLE_SCHEM");
+        assertThat(metadata.getColumnName(2)).isEqualTo("TABLE_SCHEM");
         assertThat(metadata.getColumnType(2)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(3)).isEqualTo("TABLE_NAME");
+        assertThat(metadata.getColumnName(3)).isEqualTo("TABLE_NAME");
         assertThat(metadata.getColumnType(3)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(4)).isEqualTo("COLUMN_NAME");
+        assertThat(metadata.getColumnName(4)).isEqualTo("COLUMN_NAME");
         assertThat(metadata.getColumnType(4)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(5)).isEqualTo("DATA_TYPE");
+        assertThat(metadata.getColumnName(5)).isEqualTo("DATA_TYPE");
         assertThat(metadata.getColumnType(5)).isEqualTo(Types.BIGINT);
 
-        assertThat(metadata.getColumnLabel(6)).isEqualTo("TYPE_NAME");
+        assertThat(metadata.getColumnName(6)).isEqualTo("TYPE_NAME");
         assertThat(metadata.getColumnType(6)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(7)).isEqualTo("COLUMN_SIZE");
+        assertThat(metadata.getColumnName(7)).isEqualTo("COLUMN_SIZE");
         assertThat(metadata.getColumnType(7)).isEqualTo(Types.BIGINT);
 
-        assertThat(metadata.getColumnLabel(8)).isEqualTo("BUFFER_LENGTH");
+        assertThat(metadata.getColumnName(8)).isEqualTo("BUFFER_LENGTH");
         assertThat(metadata.getColumnType(8)).isEqualTo(Types.BIGINT);
 
-        assertThat(metadata.getColumnLabel(9)).isEqualTo("DECIMAL_DIGITS");
+        assertThat(metadata.getColumnName(9)).isEqualTo("DECIMAL_DIGITS");
         assertThat(metadata.getColumnType(9)).isEqualTo(Types.BIGINT);
 
-        assertThat(metadata.getColumnLabel(10)).isEqualTo("NUM_PREC_RADIX");
+        assertThat(metadata.getColumnName(10)).isEqualTo("NUM_PREC_RADIX");
         assertThat(metadata.getColumnType(10)).isEqualTo(Types.BIGINT);
 
-        assertThat(metadata.getColumnLabel(11)).isEqualTo("NULLABLE");
+        assertThat(metadata.getColumnName(11)).isEqualTo("NULLABLE");
         assertThat(metadata.getColumnType(11)).isEqualTo(Types.BIGINT);
 
-        assertThat(metadata.getColumnLabel(12)).isEqualTo("REMARKS");
+        assertThat(metadata.getColumnName(12)).isEqualTo("REMARKS");
         assertThat(metadata.getColumnType(12)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(13)).isEqualTo("COLUMN_DEF");
+        assertThat(metadata.getColumnName(13)).isEqualTo("COLUMN_DEF");
         assertThat(metadata.getColumnType(13)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(14)).isEqualTo("SQL_DATA_TYPE");
+        assertThat(metadata.getColumnName(14)).isEqualTo("SQL_DATA_TYPE");
         assertThat(metadata.getColumnType(14)).isEqualTo(Types.BIGINT);
 
-        assertThat(metadata.getColumnLabel(15)).isEqualTo("SQL_DATETIME_SUB");
+        assertThat(metadata.getColumnName(15)).isEqualTo("SQL_DATETIME_SUB");
         assertThat(metadata.getColumnType(15)).isEqualTo(Types.BIGINT);
 
-        assertThat(metadata.getColumnLabel(16)).isEqualTo("CHAR_OCTET_LENGTH");
+        assertThat(metadata.getColumnName(16)).isEqualTo("CHAR_OCTET_LENGTH");
         assertThat(metadata.getColumnType(16)).isEqualTo(Types.BIGINT);
 
-        assertThat(metadata.getColumnLabel(17)).isEqualTo("ORDINAL_POSITION");
+        assertThat(metadata.getColumnName(17)).isEqualTo("ORDINAL_POSITION");
         assertThat(metadata.getColumnType(17)).isEqualTo(Types.BIGINT);
 
-        assertThat(metadata.getColumnLabel(18)).isEqualTo("IS_NULLABLE");
+        assertThat(metadata.getColumnName(18)).isEqualTo("IS_NULLABLE");
         assertThat(metadata.getColumnType(18)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(19)).isEqualTo("SCOPE_CATALOG");
+        assertThat(metadata.getColumnName(19)).isEqualTo("SCOPE_CATALOG");
         assertThat(metadata.getColumnType(19)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(20)).isEqualTo("SCOPE_SCHEMA");
+        assertThat(metadata.getColumnName(20)).isEqualTo("SCOPE_SCHEMA");
         assertThat(metadata.getColumnType(20)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(21)).isEqualTo("SCOPE_TABLE");
+        assertThat(metadata.getColumnName(21)).isEqualTo("SCOPE_TABLE");
         assertThat(metadata.getColumnType(21)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(22)).isEqualTo("SOURCE_DATA_TYPE");
+        assertThat(metadata.getColumnName(22)).isEqualTo("SOURCE_DATA_TYPE");
         assertThat(metadata.getColumnType(22)).isEqualTo(Types.BIGINT);
 
-        assertThat(metadata.getColumnLabel(23)).isEqualTo("IS_AUTOINCREMENT");
+        assertThat(metadata.getColumnName(23)).isEqualTo("IS_AUTOINCREMENT");
         assertThat(metadata.getColumnType(23)).isEqualTo(Types.VARCHAR);
 
-        assertThat(metadata.getColumnLabel(24)).isEqualTo("IS_GENERATEDCOLUMN");
+        assertThat(metadata.getColumnName(24)).isEqualTo("IS_GENERATEDCOLUMN");
         assertThat(metadata.getColumnType(24)).isEqualTo(Types.VARCHAR);
     }
 

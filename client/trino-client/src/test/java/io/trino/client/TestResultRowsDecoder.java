@@ -265,7 +265,7 @@ class TestResultRowsDecoder
                 URI.create("https://localhost"),
                 URI.create("https://localhost"),
                 URI.create("https://localhost"),
-                ImmutableList.of(new Column("id", "integer", new ClientTypeSignature("integer", ImmutableList.of()))),
+                ImmutableList.of(new Column("", "", "", "id", "id", "integer", new ClientTypeSignature("integer", ImmutableList.of()))),
                 queryData,
                 StatementStats.builder()
                         .setState("FINISHED")

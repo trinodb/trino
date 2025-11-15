@@ -1013,9 +1013,9 @@ public class QueryStateMachine
         outputManager.outputTaskFailed(taskId, failure);
     }
 
-    public void setColumns(List<String> columnNames, List<Type> columnTypes)
+    public void setColumns(List<String> catalogNames, List<String> schemaNames, List<String> tableNames, List<String> columnNames, List<String> columnLabels, List<Type> columnTypes)
     {
-        outputManager.setColumns(columnNames, columnTypes);
+        outputManager.setColumns(catalogNames, schemaNames, tableNames, columnNames, columnLabels, columnTypes);
     }
 
     public void updateInputsForQueryResults(List<ExchangeInput> inputs, boolean noMoreInputs)
@@ -1640,7 +1640,15 @@ public class QueryStateMachine
         private Optional<Consumer<QueryOutputInfo>> listener = Optional.empty();
 
         @GuardedBy("this")
+        private List<String> catalogNames;
+        @GuardedBy("this")
+        private List<String> schemaNames;
+        @GuardedBy("this")
+        private List<String> tableNames;
+        @GuardedBy("this")
         private List<String> columnNames;
+        @GuardedBy("this")
+        private List<String> columnLabels;
         @GuardedBy("this")
         private List<Type> columnTypes;
         @GuardedBy("this")
@@ -1673,17 +1681,30 @@ public class QueryStateMachine
             fireStateChangedIfReady(queryOutputInfo, Optional.of(listener));
         }
 
-        public void setColumns(List<String> columnNames, List<Type> columnTypes)
+        public void setColumns(List<String> catalogNames, List<String> schemaNames, List<String> tableNames, List<String> columnNames, List<String> columnLabels, List<Type> columnTypes)
         {
+            requireNonNull(catalogNames, "catalogNames is null");
+            requireNonNull(schemaNames, "schemaNames is null");
+            requireNonNull(tableNames, "tableNames is null");
             requireNonNull(columnNames, "columnNames is null");
+            requireNonNull(columnLabels, "columnLabels is null");
             requireNonNull(columnTypes, "columnTypes is null");
+            checkArgument(columnNames.size() == catalogNames.size(), "columnNames and catalogNames must be the same size");
+            checkArgument(columnNames.size() == schemaNames.size(), "columnNames and schemaNames must be the same size");
+            checkArgument(columnNames.size() == tableNames.size(), "columnNames and tableNames must be the same size");
+            checkArgument(columnNames.size() == columnLabels.size(), "columnNames and columnLabels must be the same size");
             checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes must be the same size");
 
             Optional<QueryOutputInfo> queryOutputInfo;
             Optional<Consumer<QueryOutputInfo>> listener;
             synchronized (this) {
-                checkState(this.columnNames == null && this.columnTypes == null, "output fields already set");
+                checkState(this.catalogNames == null && this.schemaNames == null && this.tableNames == null
+                        && this.columnNames == null && this.columnLabels == null && this.columnTypes == null, "output fields already set");
+                this.catalogNames = ImmutableList.copyOf(catalogNames);
+                this.schemaNames = ImmutableList.copyOf(schemaNames);
+                this.tableNames = ImmutableList.copyOf(tableNames);
                 this.columnNames = ImmutableList.copyOf(columnNames);
+                this.columnLabels = ImmutableList.copyOf(columnLabels);
                 this.columnTypes = ImmutableList.copyOf(columnTypes);
 
                 queryOutputInfo = getQueryOutputInfo();
@@ -1758,10 +1779,11 @@ public class QueryStateMachine
 
         private synchronized Optional<QueryOutputInfo> getQueryOutputInfo()
         {
-            if (columnNames == null || columnTypes == null) {
+            if (catalogNames == null || schemaNames == null || tableNames == null
+                    || columnNames == null || columnLabels == null || columnTypes == null) {
                 return Optional.empty();
             }
-            return Optional.of(new QueryOutputInfo(columnNames, columnTypes, inputsQueue, noMoreInputs));
+            return Optional.of(new QueryOutputInfo(catalogNames, schemaNames, tableNames, columnNames, columnLabels, columnTypes, inputsQueue, noMoreInputs));
         }
 
         private void fireStateChangedIfReady(Optional<QueryOutputInfo> info, Optional<Consumer<QueryOutputInfo>> listener)

@@ -1429,10 +1429,10 @@ public class TrinoDatabaseMetaData
         ClientTypeSignature varchar = new ClientTypeSignature("varchar", ImmutableList.of(ClientTypeSignatureParameter.ofLong(VARCHAR_UNBOUNDED_LENGTH)));
 
         ImmutableList.Builder<Column> columns = ImmutableList.builder();
-        columns.add(new Column("NAME", "varchar", varchar));
-        columns.add(new Column("MAX_LEN", "integer", new ClientTypeSignature("integer")));
-        columns.add(new Column("DEFAULT_VALUE", "varchar", varchar));
-        columns.add(new Column("DESCRIPTION", "varchar", varchar));
+        columns.add(new Column("", "", "", "NAME", "NAME", "varchar", varchar));
+        columns.add(new Column("", "", "", "MAX_LEN", "MAX_LEN", "integer", new ClientTypeSignature("integer")));
+        columns.add(new Column("", "", "", "DEFAULT_VALUE", "DEFAULT_VALUE", "varchar", varchar));
+        columns.add(new Column("", "", "", "DESCRIPTION", "DESCRIPTION", "varchar", varchar));
 
         ImmutableList.Builder<List<Object>> results = ImmutableList.builder();
 

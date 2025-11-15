@@ -64,7 +64,7 @@ public class TestProgressMonitor
 
     private List<String> createResults()
     {
-        List<Column> columns = ImmutableList.of(new Column("_col0", StandardTypes.BIGINT, new ClientTypeSignature(StandardTypes.BIGINT)));
+        List<Column> columns = ImmutableList.of(new Column("_cat0", "_sch0", "_tab0", "_col0", "_lab0", StandardTypes.BIGINT, new ClientTypeSignature(StandardTypes.BIGINT)));
         return ImmutableList.<String>builder()
                 .add(newQueryResults(null, 1, null, null, "QUEUED"))
                 .add(newQueryResults(1, 2, columns, null, "RUNNING"))

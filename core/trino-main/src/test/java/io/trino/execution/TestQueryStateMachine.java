@@ -120,7 +120,11 @@ public class TestQueryStateMachine
             new PlanFragmentId("fragment"),
             new PlanNodeId("plan-node")));
     private static final Optional<Output> OUTPUT = Optional.empty();
+    private static final List<String> OUTPUT_CATALOG_NAMES = ImmutableList.of("c1", "c2", "c3");
+    private static final List<String> OUTPUT_SCHEMA_NAMES = ImmutableList.of("s1", "s2", "s3");
+    private static final List<String> OUTPUT_TABLE_NAMES = ImmutableList.of("t1", "t2", "t3");
     private static final List<String> OUTPUT_FIELD_NAMES = ImmutableList.of("a", "b", "c");
+    private static final List<String> OUTPUT_LABEL_NAMES = ImmutableList.of("l1", "l2", "l3");
     private static final List<Type> OUTPUT_FIELD_TYPES = ImmutableList.of(BIGINT, BIGINT, BIGINT);
     private static final String UPDATE_TYPE = "update type";
     private static final Map<String, String> SET_SESSION_PROPERTIES = ImmutableMap.<String, String>builder()
@@ -874,7 +878,7 @@ public class TestQueryStateMachine
                     new NodeVersion("test"));
             stateMachine.setInputs(INPUTS);
             stateMachine.setOutput(OUTPUT);
-            stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);
+            stateMachine.setColumns(OUTPUT_CATALOG_NAMES, OUTPUT_SCHEMA_NAMES, OUTPUT_TABLE_NAMES, OUTPUT_FIELD_NAMES, OUTPUT_LABEL_NAMES, OUTPUT_FIELD_TYPES);
             if (setPath != null) {
                 stateMachine.setSetPath(setPath);
             }

@@ -992,11 +992,15 @@ public class LocalExecutionPlanner
                     .map(encoders::get)
                     .orElseThrow(() -> new IllegalStateException("Spooled query encoding was not found"));
 
+            List<String> catalogNames = node.getCatalogNames();
+            List<String> schemaNames = node.getSchemaNames();
+            List<String> tableNames = node.getTableNames();
             List<String> columnNames = node.getColumnNames();
+            List<String> columnLabels = node.getColumnLabels();
             List<Symbol> outputSymbols = node.getOutputSymbols();
             ImmutableList.Builder<OutputColumn> outputColumnBuilder = ImmutableList.builderWithExpectedSize(node.getColumnNames().size());
             for (int i = 0; i < columnNames.size(); i++) {
-                outputColumnBuilder.add(new OutputColumn(operation.layout.get(outputSymbols.get(i)), columnNames.get(i), outputSymbols.get(i).type()));
+                outputColumnBuilder.add(new OutputColumn(operation.layout.get(outputSymbols.get(i)), catalogNames.get(i), schemaNames.get(i), tableNames.get(i), columnNames.get(i), columnLabels.get(i), outputSymbols.get(i).type()));
             }
             List<OutputColumn> encodingLayout = outputColumnBuilder.build();
 

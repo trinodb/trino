@@ -30,24 +30,44 @@ public class OutputNode
         extends PlanNode
 {
     private final PlanNode source;
+    private final List<String> catalogNames;
+    private final List<String> schemaNames;
+    private final List<String> tableNames;
     private final List<String> columnNames;
+    private final List<String> columnLabels;
     private final List<Symbol> outputs; // column name = symbol
 
     @JsonCreator
     public OutputNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
+            @JsonProperty("catalogs") List<String> catalogNames,
+            @JsonProperty("schemas") List<String> schemaNames,
+            @JsonProperty("tables") List<String> tableNames,
             @JsonProperty("columns") List<String> columnNames,
+            @JsonProperty("labels") List<String> columnLabels,
             @JsonProperty("outputs") List<Symbol> outputs)
     {
         super(id);
 
         requireNonNull(source, "source is null");
+        requireNonNull(catalogNames, "catalogNames is null");
+        requireNonNull(schemaNames, "schemaNames is null");
+        requireNonNull(tableNames, "tableNames is null");
         requireNonNull(columnNames, "columnNames is null");
+        requireNonNull(columnLabels, "columnLabels is null");
         requireNonNull(outputs, "outputs is null");
+        checkArgument(columnNames.size() == catalogNames.size(), "columnNames and catalogNames sizes don't match");
+        checkArgument(columnNames.size() == schemaNames.size(), "columnNames and schemaNames sizes don't match");
+        checkArgument(columnNames.size() == tableNames.size(), "columnNames and tableNames sizes don't match");
+        checkArgument(columnNames.size() == columnLabels.size(), "columnNames and columnLabels sizes don't match");
         checkArgument(columnNames.size() == outputs.size(), "columnNames and assignments sizes don't match");
 
         this.source = source;
+        this.catalogNames = ImmutableList.copyOf(catalogNames);
+        this.schemaNames = ImmutableList.copyOf(schemaNames);
+        this.tableNames = ImmutableList.copyOf(tableNames);
         this.columnNames = ImmutableList.copyOf(columnNames);
+        this.columnLabels = ImmutableList.copyOf(columnLabels);
         this.outputs = ImmutableList.copyOf(outputs);
     }
 
@@ -64,10 +84,34 @@ public class OutputNode
         return outputs;
     }
 
+    @JsonProperty("catalogs")
+    public List<String> getCatalogNames()
+    {
+        return catalogNames;
+    }
+
+    @JsonProperty("schemas")
+    public List<String> getSchemaNames()
+    {
+        return schemaNames;
+    }
+
+    @JsonProperty("tables")
+    public List<String> getTableNames()
+    {
+        return tableNames;
+    }
+
     @JsonProperty("columns")
     public List<String> getColumnNames()
     {
         return columnNames;
+    }
+
+    @JsonProperty("labels")
+    public List<String> getColumnLabels()
+    {
+        return columnLabels;
     }
 
     @JsonProperty
@@ -85,6 +129,6 @@ public class OutputNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new OutputNode(getId(), Iterables.getOnlyElement(newChildren), columnNames, outputs);
+        return new OutputNode(getId(), Iterables.getOnlyElement(newChildren), catalogNames, schemaNames, tableNames, columnNames, columnLabels, outputs);
     }
 }
