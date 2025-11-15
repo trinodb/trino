@@ -145,7 +145,7 @@ public class BenchmarkTransformValue
 
         private static Block createChannel(int positionCount, MapType mapType, Type elementType)
         {
-            MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
+            MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(1);
             mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
                 Object key;
                 Object value;

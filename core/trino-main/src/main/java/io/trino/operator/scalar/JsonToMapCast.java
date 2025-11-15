@@ -104,7 +104,7 @@ public class JsonToMapCast
                 return null;
             }
 
-            BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 1);
+            BlockBuilder blockBuilder = mapType.createBlockBuilder(1);
             mapAppender.append(jsonParser, blockBuilder);
             if (jsonParser.nextToken() != null) {
                 throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));

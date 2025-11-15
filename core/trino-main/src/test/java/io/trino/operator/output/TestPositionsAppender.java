@@ -19,9 +19,7 @@ import io.trino.block.BlockAssertions;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
@@ -382,7 +380,7 @@ public class TestPositionsAppender
 
     private static ValueBlock singleValueBlock(String value)
     {
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(1);
         VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice(value));
         return blockBuilder.buildValueBlock();
     }
@@ -450,7 +448,7 @@ public class TestPositionsAppender
 
     private static Block nullBlock(TestType type, int positionCount)
     {
-        BlockBuilder blockBuilder = type.getType().createBlockBuilder(null, positionCount);
+        BlockBuilder blockBuilder = type.getType().createBlockBuilder(positionCount);
         for (int i = 0; i < positionCount; i++) {
             blockBuilder.appendNull();
         }
@@ -459,7 +457,7 @@ public class TestPositionsAppender
 
     private static Block nullBlock(Type type, int positionCount)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, positionCount);
+        BlockBuilder blockBuilder = type.createBlockBuilder(positionCount);
         for (int i = 0; i < positionCount; i++) {
             blockBuilder.appendNull();
         }
@@ -468,7 +466,7 @@ public class TestPositionsAppender
 
     private static Block emptyBlock(TestType type)
     {
-        return type.adapt(type.getType().createBlockBuilder(null, 0).build());
+        return type.adapt(type.getType().createBlockBuilder(0).build());
     }
 
     private static Block createRandomBlockForType(TestType type, int positionCount, float nullRate)
@@ -558,23 +556,21 @@ public class TestPositionsAppender
 
     private static void assertBlockIsValid(Block actual, long sizeInBytes, Type type, List<BlockView> inputs)
     {
-        PageBuilderStatus pageBuilderStatus = new PageBuilderStatus();
-        BlockBuilderStatus blockBuilderStatus = pageBuilderStatus.createBlockBuilderStatus();
-        Block expected = buildBlock(type, inputs, blockBuilderStatus);
+        Block expected = buildBlock(type, inputs, sizeInBytes);
 
         assertBlockEquals(type, actual, expected);
-        assertThat(sizeInBytes).isEqualTo(pageBuilderStatus.getSizeInBytes());
     }
 
-    private static Block buildBlock(Type type, List<BlockView> inputs, BlockBuilderStatus blockBuilderStatus)
+    private static Block buildBlock(Type type, List<BlockView> inputs, long sizeInBytes)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(blockBuilderStatus, 10);
+        BlockBuilder blockBuilder = type.createBlockBuilder(10);
         for (BlockView input : inputs) {
             ValueBlock valueBlock = input.block().getUnderlyingValueBlock();
             for (int position : input.positions()) {
                 blockBuilder.append(valueBlock, input.block().getUnderlyingValuePosition(position));
             }
         }
+        assertThat(sizeInBytes).isEqualTo(blockBuilder.getSizeInBytes());
         return blockBuilder.build();
     }
 

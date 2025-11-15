@@ -75,10 +75,10 @@ public class NodesSystemTable
     {
         Set<OpenSearchNode> nodes = client.getNodes();
 
-        BlockBuilder nodeId = VARCHAR.createBlockBuilder(null, nodes.size());
-        BlockBuilder trinoAddress = VARCHAR.createBlockBuilder(null, nodes.size());
-        BlockBuilder opensearchNodeId = VARCHAR.createBlockBuilder(null, nodes.size());
-        BlockBuilder opensearchAddress = VARCHAR.createBlockBuilder(null, nodes.size());
+        BlockBuilder nodeId = VARCHAR.createBlockBuilder(nodes.size());
+        BlockBuilder trinoAddress = VARCHAR.createBlockBuilder(nodes.size());
+        BlockBuilder opensearchNodeId = VARCHAR.createBlockBuilder(nodes.size());
+        BlockBuilder opensearchAddress = VARCHAR.createBlockBuilder(nodes.size());
 
         for (OpenSearchNode node : nodes) {
             VARCHAR.writeString(nodeId, currentNode.getNodeIdentifier());

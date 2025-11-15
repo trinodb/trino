@@ -50,7 +50,7 @@ public record Constant(Type type, @JsonIgnore Object value)
     @JsonProperty
     public Block getValueAsBlock()
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = type.createBlockBuilder(1);
         writeNativeValue(type, blockBuilder, value);
         return blockBuilder.build();
     }

@@ -154,7 +154,7 @@ public class TestDoubleSumAggregation
             oldWidth = width;
 
             Type outputType = resolvedFunction.signature().getReturnType();
-            BlockBuilder blockBuilder = outputType.createBlockBuilder(null, 1000);
+            BlockBuilder blockBuilder = outputType.createBlockBuilder(1000);
             aggregation.output(blockBuilder);
             Block block = blockBuilder.build();
 
@@ -194,7 +194,7 @@ public class TestDoubleSumAggregation
             oldWidth = width;
 
             Type outputType = resolvedFunction.signature().getReturnType();
-            BlockBuilder blockBuilder = outputType.createBlockBuilder(null, 1000);
+            BlockBuilder blockBuilder = outputType.createBlockBuilder(1000);
             aggregation2.output(blockBuilder);
             Block block = blockBuilder.build();
 

@@ -62,7 +62,7 @@ public class SpooledMetadataBlockSerde
 
     public static Page serialize(List<SpooledMetadataBlock> blocks)
     {
-        RowBlockBuilder rowBlockBuilder = SPOOLING_METADATA_TYPE.createBlockBuilder(null, blocks.size());
+        RowBlockBuilder rowBlockBuilder = SPOOLING_METADATA_TYPE.createBlockBuilder(blocks.size());
 
         for (SpooledMetadataBlock block : blocks) {
             rowBlockBuilder.buildEntry(rowEntryBuilder -> {

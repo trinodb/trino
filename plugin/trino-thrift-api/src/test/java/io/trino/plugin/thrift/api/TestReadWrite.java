@@ -180,7 +180,7 @@ public class TestReadWrite
 
     private static Block generateColumn(ColumnDefinition column, Random random, int records)
     {
-        BlockBuilder builder = column.getType().createBlockBuilder(null, records);
+        BlockBuilder builder = column.getType().createBlockBuilder(records);
         for (int i = 0; i < records; i++) {
             if (random.nextDouble() < NULL_FRACTION) {
                 builder.appendNull();

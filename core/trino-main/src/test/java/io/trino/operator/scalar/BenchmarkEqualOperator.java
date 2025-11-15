@@ -84,8 +84,8 @@ public class BenchmarkEqualOperator
         private static Block[] createChannels(int positionCount, Type type)
         {
             ThreadLocalRandom random = ThreadLocalRandom.current();
-            BlockBuilder leftBlockBuilder = type.createBlockBuilder(null, positionCount);
-            BlockBuilder rightBlockBuilder = type.createBlockBuilder(null, positionCount);
+            BlockBuilder leftBlockBuilder = type.createBlockBuilder(positionCount);
+            BlockBuilder rightBlockBuilder = type.createBlockBuilder(positionCount);
             for (int position = 0; position < positionCount; position++) {
                 // 50% chance of being equal
                 addElement(type, random, leftBlockBuilder, rightBlockBuilder, random.nextBoolean());

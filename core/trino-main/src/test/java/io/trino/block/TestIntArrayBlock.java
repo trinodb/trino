@@ -47,9 +47,9 @@ public class TestIntArrayBlock
     public void testLazyBlockBuilderInitialization()
     {
         Integer[] expectedValues = createTestValue(100);
-        BlockBuilder emptyBlockBuilder = new IntArrayBlockBuilder(null, 0);
+        BlockBuilder emptyBlockBuilder = new IntArrayBlockBuilder(0);
 
-        IntArrayBlockBuilder blockBuilder = new IntArrayBlockBuilder(null, expectedValues.length);
+        IntArrayBlockBuilder blockBuilder = new IntArrayBlockBuilder(expectedValues.length);
         assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
 
@@ -57,7 +57,7 @@ public class TestIntArrayBlock
         assertThat(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes()).isTrue();
         assertThat(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes()).isTrue();
 
-        blockBuilder = (IntArrayBlockBuilder) blockBuilder.newBlockBuilderLike(null);
+        blockBuilder = (IntArrayBlockBuilder) blockBuilder.newBlockBuilderLike();
         assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
     }
@@ -71,7 +71,7 @@ public class TestIntArrayBlock
             assertThat(block.getEstimatedDataSizeForStats(i)).isEqualTo(Integer.BYTES);
         }
 
-        assertThat(new IntArrayBlockBuilder(null, 22).appendNull().build().getEstimatedDataSizeForStats(0)).isEqualTo(0);
+        assertThat(new IntArrayBlockBuilder(22).appendNull().build().getEstimatedDataSizeForStats(0)).isEqualTo(0);
     }
 
     @Test
@@ -93,7 +93,7 @@ public class TestIntArrayBlock
 
     private static BlockBuilder createBlockBuilderWithValues(Integer[] expectedValues)
     {
-        IntArrayBlockBuilder blockBuilder = new IntArrayBlockBuilder(null, expectedValues.length);
+        IntArrayBlockBuilder blockBuilder = new IntArrayBlockBuilder(expectedValues.length);
         writeValues(expectedValues, blockBuilder);
         return blockBuilder;
     }

@@ -378,7 +378,7 @@ public class RegularTableFunctionPartition
         public Block getPassThroughColumn(Page page)
         {
             Block indexes = page.getBlock(indexChannel);
-            BlockBuilder builder = type.createBlockBuilder(null, page.getPositionCount());
+            BlockBuilder builder = type.createBlockBuilder(page.getPositionCount());
             for (int position = 0; position < page.getPositionCount(); position++) {
                 if (indexes.isNull(position)) {
                     builder.appendNull();

@@ -103,21 +103,21 @@ public final class AggregationTestUtils
 
     public static Block getIntermediateBlock(Type intermediateType, Aggregator aggregator)
     {
-        BlockBuilder blockBuilder = intermediateType.createBlockBuilder(null, 1000);
+        BlockBuilder blockBuilder = intermediateType.createBlockBuilder(1000);
         aggregator.evaluate(blockBuilder);
         return blockBuilder.build();
     }
 
     public static Block getIntermediateBlock(Type intermediateType, GroupedAggregator aggregator)
     {
-        BlockBuilder blockBuilder = intermediateType.createBlockBuilder(null, 1000);
+        BlockBuilder blockBuilder = intermediateType.createBlockBuilder(1000);
         aggregator.evaluate(0, blockBuilder);
         return blockBuilder.build();
     }
 
     public static Block getFinalBlock(Type finalType, Aggregator aggregator)
     {
-        BlockBuilder blockBuilder = finalType.createBlockBuilder(null, 1000);
+        BlockBuilder blockBuilder = finalType.createBlockBuilder(1000);
         aggregator.evaluate(blockBuilder);
         return blockBuilder.build();
     }
@@ -453,7 +453,7 @@ public final class AggregationTestUtils
 
     public static Object getGroupValue(Type finalType, GroupedAggregator groupedAggregator, int groupId)
     {
-        BlockBuilder out = finalType.createBlockBuilder(null, 1);
+        BlockBuilder out = finalType.createBlockBuilder(1);
         groupedAggregator.evaluate(groupId, out);
         return BlockAssertions.getOnlyValue(finalType, out.build());
     }

@@ -164,7 +164,7 @@ public class TestFastutilSetHelper
             this.type = type;
             ImmutableList.Builder<Block> builder = ImmutableList.builder();
             for (List<?> values : inputs) {
-                BlockBuilder blockBuilder = type.createBlockBuilder(null, inputs.size());
+                BlockBuilder blockBuilder = type.createBlockBuilder(inputs.size());
                 for (Object value : values) {
                     writeNativeValue(type, blockBuilder, value);
                 }

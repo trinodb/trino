@@ -13,14 +13,11 @@
  */
 package io.trino.spi.block;
 
-import jakarta.annotation.Nullable;
-
 import java.util.Arrays;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
-import static io.trino.spi.block.Fixed12Block.FIXED12_BYTES;
 import static io.trino.spi.block.Fixed12Block.encodeFixed12;
 import static java.lang.Math.max;
 import static java.util.Objects.checkIndex;
@@ -31,8 +28,6 @@ public class Fixed12BlockBuilder
     private static final int INSTANCE_SIZE = instanceSize(Fixed12BlockBuilder.class);
     private static final Block NULL_VALUE_BLOCK = new Fixed12Block(0, 1, new boolean[] {true}, new int[3]);
 
-    @Nullable
-    private final BlockBuilderStatus blockBuilderStatus;
     private boolean initialized;
     private final int initialEntryCount;
 
@@ -46,9 +41,8 @@ public class Fixed12BlockBuilder
 
     private long retainedSizeInBytes;
 
-    public Fixed12BlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public Fixed12BlockBuilder(int expectedEntries)
     {
-        this.blockBuilderStatus = blockBuilderStatus;
         this.initialEntryCount = max(expectedEntries, 1);
 
         updateRetainedSize();
@@ -62,9 +56,6 @@ public class Fixed12BlockBuilder
 
         hasNonNullValue = true;
         positionCount++;
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(Byte.BYTES + FIXED12_BYTES);
-        }
     }
 
     @Override
@@ -88,10 +79,6 @@ public class Fixed12BlockBuilder
             hasNonNullValue = true;
         }
         positionCount++;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(Fixed12Block.SIZE_IN_BYTES_PER_POSITION);
-        }
     }
 
     @Override
@@ -130,10 +117,6 @@ public class Fixed12BlockBuilder
             hasNonNullValue = true;
         }
         positionCount += count;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(count * Fixed12Block.SIZE_IN_BYTES_PER_POSITION);
-        }
     }
 
     @Override
@@ -174,10 +157,6 @@ public class Fixed12BlockBuilder
             hasNonNullValue = true;
         }
         positionCount += length;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(length * LongArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
     }
 
     @Override
@@ -228,10 +207,6 @@ public class Fixed12BlockBuilder
             hasNonNullValue = true;
         }
         positionCount += length;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(length * Fixed12Block.SIZE_IN_BYTES_PER_POSITION);
-        }
     }
 
     @Override
@@ -243,9 +218,6 @@ public class Fixed12BlockBuilder
 
         hasNullValue = true;
         positionCount++;
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(Byte.BYTES + FIXED12_BYTES);
-        }
         return this;
     }
 
@@ -272,9 +244,9 @@ public class Fixed12BlockBuilder
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries)
     {
-        return new Fixed12BlockBuilder(blockBuilderStatus, expectedEntries);
+        return new Fixed12BlockBuilder(expectedEntries);
     }
 
     private void ensureCapacity(int capacity)
@@ -301,9 +273,6 @@ public class Fixed12BlockBuilder
     private void updateRetainedSize()
     {
         retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
-        if (blockBuilderStatus != null) {
-            retainedSizeInBytes += BlockBuilderStatus.INSTANCE_SIZE;
-        }
     }
 
     @Override

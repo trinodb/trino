@@ -275,7 +275,7 @@ public class BenchmarkJsonFunctions
 
         private static Block createChannel(int positionCount, int depth)
         {
-            BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, positionCount);
+            BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(positionCount);
             for (int position = 0; position < positionCount; position++) {
                 SliceOutput slice = new DynamicSliceOutput(20);
                 for (int i = 1; i <= depth; i++) {

@@ -421,7 +421,7 @@ public class HivePageSink
             return null;
         }
 
-        IntArrayBlockBuilder bucketColumnBuilder = new IntArrayBlockBuilder(null, page.getPositionCount());
+        IntArrayBlockBuilder bucketColumnBuilder = new IntArrayBlockBuilder(page.getPositionCount());
         Page bucketColumnsPage = extractColumns(page, bucketColumns);
         for (int position = 0; position < page.getPositionCount(); position++) {
             int bucket = bucketFunction.getBucket(bucketColumnsPage, position);

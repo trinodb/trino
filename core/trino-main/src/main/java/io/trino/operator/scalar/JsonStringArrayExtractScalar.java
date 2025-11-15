@@ -99,7 +99,7 @@ public final class JsonStringArrayExtractScalar
             if (jsonParser.getCurrentToken() == JsonToken.VALUE_NULL) {
                 return null;
             }
-            BlockBuilder blockBuilder = ARRAY_TYPE.createBlockBuilder(null, 1);
+            BlockBuilder blockBuilder = ARRAY_TYPE.createBlockBuilder(1);
             append(jsonParser, jsonPath.getScalarExtractor(), blockBuilder);
             Block block = blockBuilder.build();
             return ARRAY_TYPE.getObject(block, 0);

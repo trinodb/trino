@@ -47,7 +47,7 @@ public class RowPageBuilder
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         ImmutableList.Builder<BlockBuilder> builders = ImmutableList.builderWithExpectedSize(this.types.size());
         for (Type type : types) {
-            builders.add(type.createBlockBuilder(null, 1));
+            builders.add(type.createBlockBuilder(1));
         }
         this.builders = builders.build();
         checkArgument(!this.builders.isEmpty(), "At least one value info is required");

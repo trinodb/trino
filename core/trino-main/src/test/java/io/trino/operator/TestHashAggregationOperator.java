@@ -364,7 +364,7 @@ public class TestHashAggregationOperator
     {
         DummySpillerFactory spillerFactory = new DummySpillerFactory();
 
-        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1, MAX_BLOCK_SIZE_IN_BYTES);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(1, MAX_BLOCK_SIZE_IN_BYTES);
         VARCHAR.writeSlice(builder, Slices.allocate(200_000)); // this must be larger than MAX_BLOCK_SIZE_IN_BYTES, 64K
         builder.build();
 
@@ -446,7 +446,7 @@ public class TestHashAggregationOperator
     public void testHashBuilderResizeLimit()
     {
         assertThatThrownBy(() -> {
-            BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1, MAX_BLOCK_SIZE_IN_BYTES);
+            BlockBuilder builder = VARCHAR.createBlockBuilder(1, MAX_BLOCK_SIZE_IN_BYTES);
             VARCHAR.writeSlice(builder, Slices.allocate(5_000_000)); // this must be larger than MAX_BLOCK_SIZE_IN_BYTES, 64K
             builder.build();
 

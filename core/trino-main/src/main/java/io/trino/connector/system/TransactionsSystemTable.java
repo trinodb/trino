@@ -104,7 +104,7 @@ public class TransactionsSystemTable
     private static Block createStringsBlock(List<String> values)
     {
         VarcharType varchar = createUnboundedVarcharType();
-        BlockBuilder builder = varchar.createBlockBuilder(null, values.size());
+        BlockBuilder builder = varchar.createBlockBuilder(values.size());
         for (String value : values) {
             if (value == null) {
                 builder.appendNull();

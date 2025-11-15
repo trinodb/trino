@@ -394,7 +394,7 @@ public final class BlockAssertions
 
     public static VariableWidthBlock createStringsBlock(Iterable<String> values)
     {
-        VariableWidthBlockBuilder builder = VARCHAR.createBlockBuilder(null, 100);
+        VariableWidthBlockBuilder builder = VARCHAR.createBlockBuilder(100);
 
         for (String value : values) {
             if (value == null) {
@@ -426,7 +426,7 @@ public final class BlockAssertions
 
     public static ValueBlock createStringSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 100);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(100);
 
         for (int i = start; i < end; i++) {
             VARCHAR.writeString(builder, String.valueOf(i));
@@ -440,7 +440,7 @@ public final class BlockAssertions
         checkArgument(length > 5, "block must have more than 5 entries");
 
         int dictionarySize = length / 5;
-        BlockBuilder builder = VARCHAR.createBlockBuilder(null, dictionarySize);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(dictionarySize);
         for (int i = start; i < start + dictionarySize; i++) {
             VARCHAR.writeString(builder, String.valueOf(i));
         }
@@ -454,7 +454,7 @@ public final class BlockAssertions
     public static ValueBlock createStringArraysBlock(Iterable<? extends Iterable<String>> values)
     {
         ArrayType arrayType = new ArrayType(VARCHAR);
-        BlockBuilder builder = arrayType.createBlockBuilder(null, 100);
+        BlockBuilder builder = arrayType.createBlockBuilder(100);
 
         for (Iterable<String> value : values) {
             if (value == null) {
@@ -609,7 +609,7 @@ public final class BlockAssertions
 
     public static RowBlock createRowBlock(List<Type> fieldTypes, Object[]... rows)
     {
-        RowBlockBuilder rowBlockBuilder = new RowBlockBuilder(fieldTypes, null, 1);
+        RowBlockBuilder rowBlockBuilder = new RowBlockBuilder(fieldTypes, 1);
         for (Object[] row : rows) {
             if (row == null) {
                 rowBlockBuilder.appendNull();
@@ -805,7 +805,7 @@ public final class BlockAssertions
     public static ValueBlock createArrayBigintBlock(Iterable<? extends Iterable<Long>> values)
     {
         ArrayType arrayType = new ArrayType(BIGINT);
-        BlockBuilder builder = arrayType.createBlockBuilder(null, 100);
+        BlockBuilder builder = arrayType.createBlockBuilder(100);
 
         for (Iterable<Long> value : values) {
             if (value == null) {
@@ -899,7 +899,7 @@ public final class BlockAssertions
 
     private static <T> ValueBlock createBlock(Type type, ValueWriter<T> valueWriter, Iterable<T> values)
     {
-        BlockBuilder builder = type.createBlockBuilder(null, 100);
+        BlockBuilder builder = type.createBlockBuilder(100);
 
         for (T value : values) {
             if (value == null) {

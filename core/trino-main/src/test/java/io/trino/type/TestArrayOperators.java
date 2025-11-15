@@ -121,7 +121,7 @@ public class TestArrayOperators
         DynamicSliceOutput actualSliceOutput = new DynamicSliceOutput(100);
         writeBlock(assertions.getQueryRunner().getPlannerContext().getBlockEncodingSerde(), actualSliceOutput, actualBlock);
 
-        ArrayBlockBuilder expectedBlockBuilder = arrayType.createBlockBuilder(null, 3);
+        ArrayBlockBuilder expectedBlockBuilder = arrayType.createBlockBuilder(3);
         expectedBlockBuilder.buildEntry(elementBuilder -> {
             BIGINT.writeLong(elementBuilder, 1);
             BIGINT.writeLong(elementBuilder, 2);

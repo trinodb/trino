@@ -255,7 +255,7 @@ public final class MapToMapCast
 
         // Cast the keys into a new block
         Type toKeyType = toType.getKeyType();
-        BlockBuilder keyBlockBuilder = toKeyType.createBlockBuilder(null, size);
+        BlockBuilder keyBlockBuilder = toKeyType.createBlockBuilder(size);
         for (int i = 0; i < size; i++) {
             try {
                 keyProcessFunction.invokeExact(rawKeyBlock, rawOffset + i, session, keyBlockBuilder);
@@ -268,7 +268,7 @@ public final class MapToMapCast
 
         // Cast the values into a new block
         Type toValueType = toType.getValueType();
-        BlockBuilder valueBlockBuilder = toValueType.createBlockBuilder(null, size);
+        BlockBuilder valueBlockBuilder = toValueType.createBlockBuilder(size);
         for (int i = 0; i < size; i++) {
             if (rawValueBlock.isNull(rawOffset + i)) {
                 valueBlockBuilder.appendNull();

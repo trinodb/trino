@@ -144,7 +144,7 @@ public class TestSimplifyContinuousInValues
             assertThat(type.getJavaType()).isEqualTo(long.class);
 
             // Continuous logical values for the Type
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, 201);
+            BlockBuilder blockBuilder = type.createBlockBuilder(201);
             Object currentValue = 0L;
             for (int i = 0; i < 100; i++) {
                 writeNativeValue(type, blockBuilder, currentValue);

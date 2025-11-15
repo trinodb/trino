@@ -132,7 +132,7 @@ public class TestGeoFunctions
     @Test
     public void testGeometryGetObjectValue()
     {
-        BlockBuilder builder = GEOMETRY.createBlockBuilder(null, 1);
+        BlockBuilder builder = GEOMETRY.createBlockBuilder(1);
         GEOMETRY.writeSlice(builder, GeoFunctions.stPoint(1.2, 3.4));
         Block block = builder.build();
 

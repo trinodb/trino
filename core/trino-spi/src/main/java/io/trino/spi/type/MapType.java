@@ -15,7 +15,6 @@ package io.trino.spi.type;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.SqlMap;
@@ -256,15 +255,15 @@ public class MapType
     }
 
     @Override
-    public MapBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public MapBlockBuilder createBlockBuilder(int expectedEntries, int expectedBytesPerEntry)
     {
-        return new MapBlockBuilder(this, blockBuilderStatus, expectedEntries);
+        return new MapBlockBuilder(this, expectedEntries);
     }
 
     @Override
-    public MapBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public MapBlockBuilder createBlockBuilder(int expectedEntries)
     {
-        return createBlockBuilder(blockBuilderStatus, expectedEntries, EXPECTED_BYTES_PER_ENTRY);
+        return createBlockBuilder(expectedEntries, EXPECTED_BYTES_PER_ENTRY);
     }
 
     public Type getKeyType()

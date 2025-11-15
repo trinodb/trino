@@ -311,7 +311,7 @@ public class TestHiveBucketing
             Object hiveValue = hiveValues.get(i);
             Type type = TESTING_TYPE_MANAGER.getType(getTypeSignature(hiveTypes.get(i)));
 
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, 3);
+            BlockBuilder blockBuilder = type.createBlockBuilder(3);
             // prepend 2 nulls to make sure position is respected when HiveBucketing function
             blockBuilder.appendNull();
             blockBuilder.appendNull();

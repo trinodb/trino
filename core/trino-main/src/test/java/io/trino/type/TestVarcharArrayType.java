@@ -38,7 +38,7 @@ public class TestVarcharArrayType
 
     public static ValueBlock createTestBlock(Type arrayType)
     {
-        BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 4);
+        BlockBuilder blockBuilder = arrayType.createBlockBuilder(4);
         arrayType.writeObject(blockBuilder, arrayBlockOf(VARCHAR, "1", "2"));
         arrayType.writeObject(blockBuilder, arrayBlockOf(VARCHAR, "the", "quick", "brown", "fox"));
         arrayType.writeObject(blockBuilder, arrayBlockOf(VARCHAR, "one-two-three-four-five", "123456789012345", "the quick brown fox", "hello-world-hello-world-hello-world"));
@@ -49,7 +49,7 @@ public class TestVarcharArrayType
     protected Object getGreaterValue(Object value)
     {
         Block block = (Block) value;
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, block.getPositionCount() + 1);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(block.getPositionCount() + 1);
         for (int i = 0; i < block.getPositionCount(); i++) {
             blockBuilder.append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(i));
         }

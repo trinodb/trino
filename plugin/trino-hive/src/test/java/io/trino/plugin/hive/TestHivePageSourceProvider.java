@@ -165,7 +165,7 @@ class TestHivePageSourceProvider
             return data;
         }
 
-        BlockBuilder builder = finalType.createBlockBuilder(null, data.getPositionCount());
+        BlockBuilder builder = finalType.createBlockBuilder(data.getPositionCount());
 
         for (int i = 0; i < data.getPositionCount(); i++) {
             RowType sourceType = blockType;

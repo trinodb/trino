@@ -107,7 +107,7 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
             try (ParquetWriter writer = createParquetWriter(outputFile, schemaConverter)) {
                 BlockBuilder keyBuilder = INTEGER.createFixedSizeBlockBuilder(1);
                 INTEGER.writeLong(keyBuilder, keyColumnValue);
-                BlockBuilder dataBuilder = VARCHAR.createBlockBuilder(null, 1);
+                BlockBuilder dataBuilder = VARCHAR.createBlockBuilder(1);
                 VARCHAR.writeString(dataBuilder, dataColumnValue);
                 writer.write(new Page(keyBuilder.build(), dataBuilder.build()));
             }
@@ -204,7 +204,7 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
             TrinoInputFile inputFile = new LocalInputFile(file.file());
 
             try (ParquetWriter writer = createParquetWriter(outputFile, schemaConverter)) {
-                BlockBuilder receiptBuilder = VARCHAR.createBlockBuilder(null, 1);
+                BlockBuilder receiptBuilder = VARCHAR.createBlockBuilder(1);
                 VARCHAR.writeString(receiptBuilder, receiptColumnValue);
                 BlockBuilder amountBuilder = amountColumnType.createFixedSizeBlockBuilder(1);
                 writeShortDecimal(amountBuilder, amountColumnValue.unscaledValue().longValueExact());

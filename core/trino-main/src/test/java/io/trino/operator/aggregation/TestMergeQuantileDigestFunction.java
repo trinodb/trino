@@ -58,7 +58,7 @@ public class TestMergeQuantileDigestFunction
     protected Block[] getSequenceBlocks(int start, int length)
     {
         Type type = functionResolution.getPlannerContext().getTypeManager().getType(new TypeSignature(QDIGEST.getName(), TypeSignatureParameter.typeParameter(DOUBLE.getTypeSignature())));
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = type.createBlockBuilder(length);
         for (int i = start; i < start + length; i++) {
             QuantileDigest qdigest = new QuantileDigest(0.0);
             qdigest.add(i);

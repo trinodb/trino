@@ -134,14 +134,14 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
 
         ALL_SUPPORTED_TYPES_GENERIC_RECORD.put("smallBytesDecimal", ByteBuffer.wrap(Longs.toByteArray(78068160000000L)));
         ALL_SUPPORTED_TYPES_GENERIC_RECORD.put("smallFixedDecimal", GENERIC_SMALL_FIXED_DECIMAL);
-        BlockBuilder smallDecimalBlock = SMALL_DECIMAL_TYPE.createBlockBuilder(null, 1);
+        BlockBuilder smallDecimalBlock = SMALL_DECIMAL_TYPE.createBlockBuilder(1);
         SMALL_DECIMAL_TYPE.writeLong(smallDecimalBlock, 78068160000000L);
         blocks.add(smallDecimalBlock.build());
         blocks.add(smallDecimalBlock.build());
 
         ALL_SUPPORTED_TYPES_GENERIC_RECORD.put("largeBytesDecimal", ByteBuffer.wrap(Int128.valueOf(78068160000000L).toBigEndianBytes()));
         ALL_SUPPORTED_TYPES_GENERIC_RECORD.put("largeFixedDecimal", GENERIC_LARGE_FIXED_DECIMAL);
-        BlockBuilder largeDecimalBlock = LARGE_DECIMAL_TYPE.createBlockBuilder(null, 1);
+        BlockBuilder largeDecimalBlock = LARGE_DECIMAL_TYPE.createBlockBuilder(1);
         LARGE_DECIMAL_TYPE.writeObject(largeDecimalBlock, Int128.valueOf(78068160000000L));
         blocks.add(largeDecimalBlock.build());
         blocks.add(largeDecimalBlock.build());

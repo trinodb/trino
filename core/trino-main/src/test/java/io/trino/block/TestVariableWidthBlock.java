@@ -68,9 +68,9 @@ public class TestVariableWidthBlock
     public void testLazyBlockBuilderInitialization()
     {
         Slice[] expectedValues = createExpectedValues(100);
-        BlockBuilder emptyBlockBuilder = new VariableWidthBlockBuilder(null, 0, 0);
+        BlockBuilder emptyBlockBuilder = new VariableWidthBlockBuilder(0, 0);
 
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, expectedValues.length, 32 * expectedValues.length);
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(expectedValues.length, 32 * expectedValues.length);
         assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
 
@@ -78,7 +78,7 @@ public class TestVariableWidthBlock
         assertThat(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes()).isTrue();
         assertThat(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes()).isTrue();
 
-        blockBuilder = blockBuilder.newBlockBuilderLike(null);
+        blockBuilder = blockBuilder.newBlockBuilderLike();
         assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
     }
@@ -88,7 +88,7 @@ public class TestVariableWidthBlock
     {
         int numEntries = 1000;
         VarcharType unboundedVarcharType = createUnboundedVarcharType();
-        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, numEntries, 20 * numEntries);
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(numEntries, 20 * numEntries);
         for (int i = 0; i < numEntries; i++) {
             unboundedVarcharType.writeString(blockBuilder, String.valueOf(ThreadLocalRandom.current().nextLong()));
         }
@@ -148,7 +148,7 @@ public class TestVariableWidthBlock
 
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, expectedValues.length, 32 * expectedValues.length);
+        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(expectedValues.length, 32 * expectedValues.length);
         return writeValues(expectedValues, blockBuilder);
     }
 

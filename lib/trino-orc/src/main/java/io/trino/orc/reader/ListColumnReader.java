@@ -148,7 +148,7 @@ public class ListColumnReader
             elements = elementColumnReader.readBlock();
         }
         else {
-            elements = elementType.createBlockBuilder(null, 0).build();
+            elements = elementType.createBlockBuilder(0).build();
         }
         Block arrayBlock = ArrayBlock.fromElementBlock(nextBatchSize, Optional.ofNullable(nullVector), offsetVector, elements);
 

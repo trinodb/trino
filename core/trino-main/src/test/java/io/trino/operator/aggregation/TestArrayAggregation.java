@@ -158,7 +158,7 @@ public class TestArrayAggregation
         TestingAggregationFunction bigIntAgg = FUNCTION_RESOLUTION.getAggregateFunction("array_agg", fromTypes(BIGINT));
         GroupedAggregator groupedAggregator = bigIntAgg.createAggregatorFactory(SINGLE, ImmutableList.of(), OptionalInt.empty())
                 .createGroupedAggregator(new AggregationMetrics());
-        BlockBuilder blockBuilder = bigIntAgg.getFinalType().createBlockBuilder(null, 1000);
+        BlockBuilder blockBuilder = bigIntAgg.getFinalType().createBlockBuilder(1000);
 
         groupedAggregator.evaluate(0, blockBuilder);
         assertThat(blockBuilder.build().isNull(0)).isTrue();

@@ -61,7 +61,7 @@ public final class TypeUtils
 
     public static ValueBlock writeNativeValue(Type type, @Nullable Object value)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = type.createBlockBuilder(1);
         writeNativeValue(type, blockBuilder, value);
         return blockBuilder.buildValueBlock();
     }

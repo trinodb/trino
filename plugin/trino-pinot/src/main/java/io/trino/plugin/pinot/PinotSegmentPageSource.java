@@ -306,35 +306,35 @@ public class PinotSegmentPageSource
         switch (columnType) {
             case INT_ARRAY:
                 int[] intArray = currentDataTable.dataTable().getIntArray(rowIndex, columnIndex);
-                blockBuilder = elementType.createBlockBuilder(null, intArray.length);
+                blockBuilder = elementType.createBlockBuilder(intArray.length);
                 for (int element : intArray) {
                     INTEGER.writeInt(blockBuilder, element);
                 }
                 break;
             case LONG_ARRAY:
                 long[] longArray = currentDataTable.dataTable().getLongArray(rowIndex, columnIndex);
-                blockBuilder = elementType.createBlockBuilder(null, longArray.length);
+                blockBuilder = elementType.createBlockBuilder(longArray.length);
                 for (long element : longArray) {
                     BIGINT.writeLong(blockBuilder, element);
                 }
                 break;
             case FLOAT_ARRAY:
                 float[] floatArray = currentDataTable.dataTable().getFloatArray(rowIndex, columnIndex);
-                blockBuilder = elementType.createBlockBuilder(null, floatArray.length);
+                blockBuilder = elementType.createBlockBuilder(floatArray.length);
                 for (float element : floatArray) {
                     REAL.writeFloat(blockBuilder, element);
                 }
                 break;
             case DOUBLE_ARRAY:
                 double[] doubleArray = currentDataTable.dataTable().getDoubleArray(rowIndex, columnIndex);
-                blockBuilder = elementType.createBlockBuilder(null, doubleArray.length);
+                blockBuilder = elementType.createBlockBuilder(doubleArray.length);
                 for (double element : doubleArray) {
                     elementType.writeDouble(blockBuilder, element);
                 }
                 break;
             case STRING_ARRAY:
                 String[] stringArray = currentDataTable.dataTable().getStringArray(rowIndex, columnIndex);
-                blockBuilder = elementType.createBlockBuilder(null, stringArray.length);
+                blockBuilder = elementType.createBlockBuilder(stringArray.length);
                 for (String element : stringArray) {
                     Slice slice = getUtf8Slice(element);
                     elementType.writeSlice(blockBuilder, slice, 0, slice.length());

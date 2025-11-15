@@ -227,7 +227,7 @@ public final class RowPositionsAppender
             result = RunLengthEncodedBlock.create(nullRowBlock, positionCount);
         }
         else {
-            result = type.createBlockBuilder(null, 0).build();
+            result = type.createBlockBuilder(0).build();
         }
 
         reset();

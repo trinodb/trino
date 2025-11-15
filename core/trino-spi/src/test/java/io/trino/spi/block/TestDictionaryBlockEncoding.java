@@ -84,7 +84,7 @@ public class TestDictionaryBlockEncoding
     private static Block buildTestDictionary()
     {
         // build dictionary
-        BlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(null, 4);
+        BlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(4);
         VARCHAR.writeString(dictionaryBuilder, "alice");
         VARCHAR.writeString(dictionaryBuilder, "bob");
         VARCHAR.writeString(dictionaryBuilder, "charlie");

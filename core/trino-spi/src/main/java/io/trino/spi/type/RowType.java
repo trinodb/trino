@@ -17,7 +17,6 @@ import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlRow;
@@ -198,15 +197,15 @@ public class RowType
     }
 
     @Override
-    public RowBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public RowBlockBuilder createBlockBuilder(int expectedEntries, int expectedBytesPerEntry)
     {
-        return new RowBlockBuilder(getTypeParameters(), blockBuilderStatus, expectedEntries);
+        return new RowBlockBuilder(getTypeParameters(), expectedEntries);
     }
 
     @Override
-    public RowBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public RowBlockBuilder createBlockBuilder(int expectedEntries)
     {
-        return new RowBlockBuilder(getTypeParameters(), blockBuilderStatus, expectedEntries);
+        return new RowBlockBuilder(getTypeParameters(), expectedEntries);
     }
 
     @Override

@@ -142,7 +142,7 @@ public class QuerySystemTable
     {
         requireNonNull(resourceGroupId, "resourceGroupId is null");
         List<String> segments = resourceGroupId.getSegments();
-        BlockBuilder blockBuilder = createUnboundedVarcharType().createBlockBuilder(null, segments.size());
+        BlockBuilder blockBuilder = createUnboundedVarcharType().createBlockBuilder(segments.size());
         for (String segment : segments) {
             createUnboundedVarcharType().writeSlice(blockBuilder, utf8Slice(segment));
         }

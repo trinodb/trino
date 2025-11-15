@@ -30,7 +30,7 @@ public class TestMergeTDigestAggregation
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = TDIGEST.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = TDIGEST.createBlockBuilder(length);
         for (int i = start; i < start + length; i++) {
             TDigest tdigest = new TDigest();
             tdigest.add(i);

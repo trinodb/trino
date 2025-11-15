@@ -58,7 +58,7 @@ public class TestListaggAggregationFunction
                 overflowFiller,
                 true);
 
-        VariableWidthBlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1);
+        VariableWidthBlockBuilder blockBuilder = VARCHAR.createBlockBuilder(1);
         state.write(blockBuilder);
         String result = VARCHAR.getSlice(blockBuilder.build(), 0).toString(StandardCharsets.UTF_8);
         assertThat(result).isEqualTo(s);
@@ -98,7 +98,7 @@ public class TestListaggAggregationFunction
                 "overflowvalue1", "overflowvalue2");
         state.setMaxOutputLength(20);
 
-        assertThatThrownBy(() -> state.write(VARCHAR.createBlockBuilder(null, 1)))
+        assertThatThrownBy(() -> state.write(VARCHAR.createBlockBuilder(1)))
                 .isInstanceOf(TrinoException.class)
                 .matches(throwable -> ((TrinoException) throwable).getErrorCode() == EXCEEDED_FUNCTION_MEMORY_LIMIT.toErrorCode());
     }
@@ -230,7 +230,7 @@ public class TestListaggAggregationFunction
 
     private static String getOutputStateOnlyValue(SingleListaggAggregationState state, int maxOutputLengthInBytes)
     {
-        VariableWidthBlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1, maxOutputLengthInBytes + 20);
+        VariableWidthBlockBuilder blockBuilder = VARCHAR.createBlockBuilder(1, maxOutputLengthInBytes + 20);
         state.setMaxOutputLength(maxOutputLengthInBytes);
         state.write(blockBuilder);
         return VARCHAR.getSlice(blockBuilder.build(), 0).toStringUtf8();

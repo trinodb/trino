@@ -41,7 +41,7 @@ public class EvaluateArray
             return Optional.empty();
         }
 
-        BlockBuilder builder = elementType.createBlockBuilder(null, elements.size());
+        BlockBuilder builder = elementType.createBlockBuilder(elements.size());
         for (Expression element : elements) {
             writeNativeValue(elementType, builder, ((Constant) element).value());
         }

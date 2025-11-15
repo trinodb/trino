@@ -35,7 +35,7 @@ public class TestBoundedVarcharType
 
     private static ValueBlock createTestBlock(VarcharType type)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 15);
+        BlockBuilder blockBuilder = type.createBlockBuilder(15);
         type.writeString(blockBuilder, "apple");
         type.writeString(blockBuilder, "apple");
         type.writeString(blockBuilder, "apple");

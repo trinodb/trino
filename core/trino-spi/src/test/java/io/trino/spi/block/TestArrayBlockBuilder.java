@@ -13,6 +13,9 @@
  */
 package io.trino.spi.block;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.type.ArrayType;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -36,14 +39,15 @@ public class TestArrayBlockBuilder
     @Test
     public void testArrayBlockIsFull()
     {
-        testIsFull(new PageBuilderStatus(THREE_INTS_ENTRY_SIZE * EXPECTED_ENTRY_COUNT));
+        testIsFull(PageBuilder.withMaxPageSize(THREE_INTS_ENTRY_SIZE * EXPECTED_ENTRY_COUNT, ImmutableList.of(new ArrayType(BIGINT))));
     }
 
-    private void testIsFull(PageBuilderStatus pageBuilderStatus)
+    private void testIsFull(PageBuilder pageBuilder)
     {
-        ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, pageBuilderStatus.createBlockBuilderStatus(), EXPECTED_ENTRY_COUNT);
-        assertThat(pageBuilderStatus.isEmpty()).isTrue();
-        while (!pageBuilderStatus.isFull()) {
+        ArrayBlockBuilder blockBuilder = (ArrayBlockBuilder) pageBuilder.getBlockBuilder(0);
+        assertThat(pageBuilder.isEmpty()).isTrue();
+        while (!pageBuilder.isFull()) {
+            pageBuilder.declarePosition();
             blockBuilder.buildEntry(elementBuilder -> {
                 BIGINT.writeLong(elementBuilder, 12);
                 elementBuilder.appendNull();
@@ -51,7 +55,7 @@ public class TestArrayBlockBuilder
             });
         }
         assertThat(blockBuilder.getPositionCount()).isEqualTo(EXPECTED_ENTRY_COUNT);
-        assertThat(pageBuilderStatus.isFull()).isEqualTo(true);
+        assertThat(pageBuilder.isFull()).isEqualTo(true);
     }
 
     //TODO we should systematically test Block::getRetainedSizeInBytes()
@@ -59,7 +63,7 @@ public class TestArrayBlockBuilder
     public void testRetainedSizeInBytes()
     {
         int expectedEntries = 1000;
-        ArrayBlockBuilder arrayBlockBuilder = new ArrayBlockBuilder(BIGINT, null, expectedEntries);
+        ArrayBlockBuilder arrayBlockBuilder = new ArrayBlockBuilder(BIGINT, expectedEntries);
         long initialRetainedSize = arrayBlockBuilder.getRetainedSizeInBytes();
         for (int i = 0; i < expectedEntries; i++) {
             int value = i;
@@ -72,7 +76,7 @@ public class TestArrayBlockBuilder
     @Test
     public void testConcurrentWriting()
     {
-        ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, null, EXPECTED_ENTRY_COUNT);
+        ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, EXPECTED_ENTRY_COUNT);
         blockBuilder.buildEntry(elementBuilder -> {
             BIGINT.writeLong(elementBuilder, 45);
             assertThatThrownBy(() -> blockBuilder.buildEntry(ignore -> {}))
@@ -146,7 +150,7 @@ public class TestArrayBlockBuilder
 
     private static BlockBuilder blockBuilder()
     {
-        return new ArrayBlockBuilder(BIGINT, null, 10);
+        return new ArrayBlockBuilder(BIGINT, 10);
     }
 
     private static void assertIsAllNulls(Block block, int expectedPositionCount)
@@ -167,7 +171,7 @@ public class TestArrayBlockBuilder
     @Override
     protected BlockBuilder createBlockBuilder()
     {
-        return new ArrayBlockBuilder(new VariableWidthBlockBuilder(null, 1, 100), null, 1);
+        return new ArrayBlockBuilder(new VariableWidthBlockBuilder(1, 100), 1);
     }
 
     @Override
@@ -190,7 +194,7 @@ public class TestArrayBlockBuilder
     @Override
     protected ValueBlock blockFromValues(Iterable<List<String>> values)
     {
-        ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(new VariableWidthBlockBuilder(null, 1, 100), null, 1);
+        ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(new VariableWidthBlockBuilder(1, 100), 1);
         for (List<String> array : values) {
             if (array == null) {
                 blockBuilder.appendNull();

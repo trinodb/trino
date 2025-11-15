@@ -138,7 +138,7 @@ public class MatchAggregation
             memoryContext.setBytes(accumulator.getEstimatedSize() + setEvaluator.getAllPositionsSizeInBytes());
         }
 
-        BlockBuilder blockBuilder = boundSignature.getReturnType().createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = boundSignature.getReturnType().createBlockBuilder(1);
         accumulator.output(blockBuilder);
         return blockBuilder.build();
     }
@@ -156,7 +156,7 @@ public class MatchAggregation
         if (resultOnEmpty != null) {
             return resultOnEmpty;
         }
-        BlockBuilder blockBuilder = boundSignature.getReturnType().createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = boundSignature.getReturnType().createBlockBuilder(1);
         accumulatorFactory.get().output(blockBuilder);
         resultOnEmpty = blockBuilder.build();
         return resultOnEmpty;

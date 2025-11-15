@@ -148,7 +148,7 @@ public class UnionColumnReader
                 blocks = new Block[typeParameters.size() + 1];
                 blocks[0] = TINYINT.createFixedSizeBlockBuilder(0).build();
                 for (int i = 0; i < typeParameters.size(); i++) {
-                    blocks[i + 1] = typeParameters.get(i).createBlockBuilder(null, 0).build();
+                    blocks[i + 1] = typeParameters.get(i).createBlockBuilder(0).build();
                 }
             }
         }
@@ -264,7 +264,7 @@ public class UnionColumnReader
             }
             else {
                 blocks[i + 1] = RunLengthEncodedBlock.create(
-                        fieldType.createBlockBuilder(null, 1).appendNull().build(),
+                        fieldType.createBlockBuilder(1).appendNull().build(),
                         positionCount);
             }
         }

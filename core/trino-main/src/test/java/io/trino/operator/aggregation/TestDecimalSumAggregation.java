@@ -131,7 +131,7 @@ public class TestDecimalSumAggregation
         addToState(state, TWO.pow(126));
 
         assertThat(state.getOverflow()).isEqualTo(1);
-        assertThatThrownBy(() -> DecimalSumAggregation.outputDecimal(state, new VariableWidthBlockBuilder(null, 10, 100)))
+        assertThatThrownBy(() -> DecimalSumAggregation.outputDecimal(state, new VariableWidthBlockBuilder(10, 100)))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Decimal overflow");
     }

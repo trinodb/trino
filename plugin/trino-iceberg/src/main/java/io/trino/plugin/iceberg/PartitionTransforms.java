@@ -710,7 +710,7 @@ public final class PartitionTransforms
 
     private static Block truncateVarchar(Block block, int width)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(null, block.getPositionCount());
+        BlockBuilder builder = VARCHAR.createBlockBuilder(block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (block.isNull(position)) {
                 builder.appendNull();
@@ -752,7 +752,7 @@ public final class PartitionTransforms
 
     private static Block truncateVarbinary(Block block, int width)
     {
-        BlockBuilder builder = VARBINARY.createBlockBuilder(null, block.getPositionCount());
+        BlockBuilder builder = VARBINARY.createBlockBuilder(block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (block.isNull(position)) {
                 builder.appendNull();

@@ -51,41 +51,41 @@ public class TestRunLengthEncodedBlock
 
     private static Block createSingleValueBlock(Slice expectedValue)
     {
-        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, expectedValue.length());
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(1, expectedValue.length());
         blockBuilder.writeEntry(expectedValue);
         return blockBuilder.build();
     }
 
     private static BlockBuilder createBlockBuilder()
     {
-        return new VariableWidthBlockBuilder(null, 1, 1);
+        return new VariableWidthBlockBuilder(1, 1);
     }
 
     @Test
     public void testBuildingFromLongArrayBlockBuilder()
     {
-        LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(null, 100);
+        LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(100);
         populateNullValues(blockBuilder, 100);
     }
 
     @Test
     public void testBuildingFromIntArrayBlockBuilder()
     {
-        IntArrayBlockBuilder blockBuilder = new IntArrayBlockBuilder(null, 100);
+        IntArrayBlockBuilder blockBuilder = new IntArrayBlockBuilder(100);
         populateNullValues(blockBuilder, 100);
     }
 
     @Test
     public void testBuildingFromShortArrayBlockBuilder()
     {
-        ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(null, 100);
+        ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(100);
         populateNullValues(blockBuilder, 100);
     }
 
     @Test
     public void testBuildingFromByteArrayBlockBuilder()
     {
-        ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(null, 100);
+        ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(100);
         populateNullValues(blockBuilder, 100);
     }
 

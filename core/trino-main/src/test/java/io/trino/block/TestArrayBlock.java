@@ -124,9 +124,9 @@ public class TestArrayBlock
         for (int i = 0; i < ARRAY_SIZES.length; i++) {
             expectedValues[i] = rand.longs(ARRAY_SIZES[i]).toArray();
         }
-        ArrayBlockBuilder emptyBlockBuilder = new ArrayBlockBuilder(BIGINT, null, 0, 0);
+        ArrayBlockBuilder emptyBlockBuilder = new ArrayBlockBuilder(BIGINT, 0, 0);
 
-        BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, null, 100, 100);
+        BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, 100, 100);
         assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
 
@@ -134,7 +134,7 @@ public class TestArrayBlock
         assertThat(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes()).isTrue();
         assertThat(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes()).isTrue();
 
-        blockBuilder = blockBuilder.newBlockBuilderLike(null);
+        blockBuilder = blockBuilder.newBlockBuilderLike();
         assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
     }
@@ -183,7 +183,7 @@ public class TestArrayBlock
 
     private static BlockBuilder createBlockBuilderWithValues(long[][][] expectedValues)
     {
-        ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(new ArrayBlockBuilder(BIGINT, null, 100, 100), null, 100);
+        ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(new ArrayBlockBuilder(BIGINT, 100, 100), 100);
         for (long[][] expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
@@ -206,7 +206,7 @@ public class TestArrayBlock
 
     private static BlockBuilder createBlockBuilderWithValues(long[][] expectedValues)
     {
-        ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, null, 100, 100);
+        ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, 100, 100);
         return writeValues(expectedValues, blockBuilder);
     }
 
@@ -229,7 +229,7 @@ public class TestArrayBlock
 
     private static BlockBuilder createBlockBuilderWithValues(Slice[][] expectedValues)
     {
-        ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(VARCHAR, null, 100, 100);
+        ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(VARCHAR, 100, 100);
         for (Slice[] expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();

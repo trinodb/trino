@@ -75,10 +75,10 @@ public class NodesSystemTable
     {
         Set<ElasticsearchNode> nodes = client.getNodes();
 
-        BlockBuilder nodeId = VARCHAR.createBlockBuilder(null, nodes.size());
-        BlockBuilder trinoAddress = VARCHAR.createBlockBuilder(null, nodes.size());
-        BlockBuilder elasticsearchNodeId = VARCHAR.createBlockBuilder(null, nodes.size());
-        BlockBuilder elasticsearchAddress = VARCHAR.createBlockBuilder(null, nodes.size());
+        BlockBuilder nodeId = VARCHAR.createBlockBuilder(nodes.size());
+        BlockBuilder trinoAddress = VARCHAR.createBlockBuilder(nodes.size());
+        BlockBuilder elasticsearchNodeId = VARCHAR.createBlockBuilder(nodes.size());
+        BlockBuilder elasticsearchAddress = VARCHAR.createBlockBuilder(nodes.size());
 
         for (ElasticsearchNode node : nodes) {
             VARCHAR.writeString(nodeId, currentNode.getNodeIdentifier());

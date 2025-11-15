@@ -745,7 +745,7 @@ public final class OpenXJsonDeserializer
             this.valueDecoder = valueDecoder;
 
             this.distinctMapKeys = new DistinctMapKeys(mapType, true);
-            this.tempKeyBlockBuilder = mapType.getKeyType().createBlockBuilder(null, 128);
+            this.tempKeyBlockBuilder = mapType.getKeyType().createBlockBuilder(128);
         }
 
         @Override
@@ -790,7 +790,7 @@ public final class OpenXJsonDeserializer
             }
 
             Block keyBlock = tempKeyBlockBuilder.build();
-            tempKeyBlockBuilder = keyType.createBlockBuilder(null, keyBlock.getPositionCount());
+            tempKeyBlockBuilder = keyType.createBlockBuilder(keyBlock.getPositionCount());
             return keyBlock;
         }
     }

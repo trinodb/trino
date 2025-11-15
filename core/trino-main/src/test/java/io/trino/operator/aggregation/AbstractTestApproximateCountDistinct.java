@@ -183,7 +183,7 @@ public abstract class AbstractTestApproximateCountDistinct
      */
     private static Block createBlock(Type type, List<?> values)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, values.size());
+        BlockBuilder blockBuilder = type.createBlockBuilder(values.size());
 
         for (Object value : values) {
             Class<?> javaType = type.getJavaType();

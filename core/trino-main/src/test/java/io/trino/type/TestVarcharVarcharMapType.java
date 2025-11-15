@@ -37,7 +37,7 @@ public class TestVarcharVarcharMapType
 
     public static ValueBlock createTestBlock(Type mapType)
     {
-        BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 2);
+        BlockBuilder blockBuilder = mapType.createBlockBuilder(2);
         mapType.writeObject(blockBuilder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("hi", "there")));
         mapType.writeObject(blockBuilder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("one", "1", "hello", "world")));
         mapType.writeObject(blockBuilder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("one-two-three-four-five", "123456789012345", "the quick brown fox", "hello-world-hello-world-hello-world")));

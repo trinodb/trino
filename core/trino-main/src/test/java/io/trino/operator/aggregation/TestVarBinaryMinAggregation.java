@@ -33,7 +33,7 @@ public class TestVarBinaryMinAggregation
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(null, length);
+        BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(length);
         for (int i = start; i < start + length; i++) {
             VARBINARY.writeSlice(blockBuilder, Slices.wrappedBuffer(Ints.toByteArray(i)));
         }

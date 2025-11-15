@@ -154,7 +154,7 @@ public class TestOrcWriter
             // write down some data with unsorted streams
             Block[] blocks = new Block[data.length];
             int entries = 65536;
-            VariableWidthBlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, entries);
+            VariableWidthBlockBuilder blockBuilder = VARCHAR.createBlockBuilder(entries);
             for (int i = 0; i < data.length; i++) {
                 byte[] bytes = data[i].getBytes(UTF_8);
                 for (int j = 0; j < entries; j++) {
@@ -163,7 +163,7 @@ public class TestOrcWriter
                     blockBuilder.writeEntry(Slices.wrappedBuffer(bytes, 0, bytes.length));
                 }
                 blocks[i] = blockBuilder.build();
-                blockBuilder = (VariableWidthBlockBuilder) blockBuilder.newBlockBuilderLike(null);
+                blockBuilder = (VariableWidthBlockBuilder) blockBuilder.newBlockBuilderLike();
             }
 
             writer.write(new Page(blocks));

@@ -98,7 +98,7 @@ public class FlatGroupByHash
                         return null;
                     }
                     ValueBlock valueBlock = builder.buildValueBlock();
-                    BlockBuilder newBuilder = builder.newBlockBuilderLike(null);
+                    BlockBuilder newBuilder = builder.newBlockBuilderLike();
                     newBuilder.appendRange(valueBlock, 0, valueBlock.getPositionCount());
                     return newBuilder;
                 })

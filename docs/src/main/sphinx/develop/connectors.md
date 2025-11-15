@@ -750,7 +750,7 @@ The following example creates a block for an `array(varchar)`  column:
 ```java
 private Block encodeArray(List<String> names)
 {
-    BlockBuilder builder = VARCHAR.createBlockBuilder(null, names.size());
+    BlockBuilder builder = VARCHAR.createBlockBuilder(names.size());
     blockBuilder.buildEntry(elementBuilder -> names.forEach(name -> {
         if (name == null) {
             elementBuilder.appendNull();
@@ -771,7 +771,7 @@ private SqlMap encodeMap(Map<String, ?> map)
     MapType mapType = typeManager.getType(TypeSignature.mapType(
                             VARCHAR.getTypeSignature(),
                             VARCHAR.getTypeSignature()));
-    MapBlockBuilder values = mapType.createBlockBuilder(null, map != null ? map.size() : 0);
+    MapBlockBuilder values = mapType.createBlockBuilder(map != null ? map.size() : 0);
     if (map == null) {
         values.appendNull();
         return values.build().getObject(0, Block.class);

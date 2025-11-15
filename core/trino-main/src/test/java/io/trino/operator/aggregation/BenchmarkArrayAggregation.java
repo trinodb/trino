@@ -106,7 +106,7 @@ public class BenchmarkArrayAggregation
 
         private static Block createChannel(int arraySize, Type elementType)
         {
-            BlockBuilder blockBuilder = elementType.createBlockBuilder(null, arraySize);
+            BlockBuilder blockBuilder = elementType.createBlockBuilder(arraySize);
             for (int i = 0; i < arraySize; i++) {
                 if (elementType.getJavaType() == long.class) {
                     elementType.writeLong(blockBuilder, i);

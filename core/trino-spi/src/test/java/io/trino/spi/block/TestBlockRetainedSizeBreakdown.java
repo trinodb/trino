@@ -38,7 +38,7 @@ public class TestBlockRetainedSizeBreakdown
     @Test
     public void testArrayBlock()
     {
-        ArrayBlockBuilder arrayBlockBuilder = new ArrayBlockBuilder(BIGINT, null, EXPECTED_ENTRIES);
+        ArrayBlockBuilder arrayBlockBuilder = new ArrayBlockBuilder(BIGINT, EXPECTED_ENTRIES);
         for (int i = 0; i < EXPECTED_ENTRIES; i++) {
             int value = i;
             arrayBlockBuilder.buildEntry(elementBuilder -> writeNativeValue(BIGINT, elementBuilder, castIntegerToObject(value, BIGINT)));
@@ -49,7 +49,7 @@ public class TestBlockRetainedSizeBreakdown
     @Test
     public void testByteArrayBlock()
     {
-        ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(null, EXPECTED_ENTRIES);
+        ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(EXPECTED_ENTRIES);
         for (int i = 0; i < EXPECTED_ENTRIES; i++) {
             blockBuilder.writeByte((byte) i);
         }
@@ -70,7 +70,7 @@ public class TestBlockRetainedSizeBreakdown
     @Test
     public void testIntArrayBlock()
     {
-        BlockBuilder blockBuilder = new IntArrayBlockBuilder(null, EXPECTED_ENTRIES);
+        BlockBuilder blockBuilder = new IntArrayBlockBuilder(EXPECTED_ENTRIES);
         writeEntries(EXPECTED_ENTRIES, blockBuilder, INTEGER);
         checkRetainedSize(blockBuilder.build(), false);
     }
@@ -78,7 +78,7 @@ public class TestBlockRetainedSizeBreakdown
     @Test
     public void testLongArrayBlock()
     {
-        BlockBuilder blockBuilder = new LongArrayBlockBuilder(null, EXPECTED_ENTRIES);
+        BlockBuilder blockBuilder = new LongArrayBlockBuilder(EXPECTED_ENTRIES);
         writeEntries(EXPECTED_ENTRIES, blockBuilder, BIGINT);
         checkRetainedSize(blockBuilder.build(), false);
     }
@@ -86,7 +86,7 @@ public class TestBlockRetainedSizeBreakdown
     @Test
     public void testRunLengthEncodedBlock()
     {
-        BlockBuilder blockBuilder = new LongArrayBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = new LongArrayBlockBuilder(1);
         writeEntries(1, blockBuilder, BIGINT);
         checkRetainedSize(RunLengthEncodedBlock.create(blockBuilder.build(), 1), false);
     }
@@ -94,7 +94,7 @@ public class TestBlockRetainedSizeBreakdown
     @Test
     public void testShortArrayBlock()
     {
-        ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(null, EXPECTED_ENTRIES);
+        ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(EXPECTED_ENTRIES);
         for (int i = 0; i < EXPECTED_ENTRIES; i++) {
             blockBuilder.writeShort((short) i);
         }

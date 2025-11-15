@@ -42,7 +42,7 @@ public class TestInternalBlockEncodingSerde
     @Test
     public void blockRoundTrip()
     {
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 2);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(2);
         VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice("hello"));
         VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice("world"));
 

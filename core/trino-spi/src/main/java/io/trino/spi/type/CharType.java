@@ -18,7 +18,6 @@ import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.function.ScalarOperator;
@@ -158,11 +157,11 @@ public final class CharType
     }
 
     @Override
-    public VariableWidthBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public VariableWidthBlockBuilder createBlockBuilder(int expectedEntries)
     {
         // If bound on length of char is smaller than EXPECTED_BYTES_PER_ENTRY, use that as expectedBytesPerEntry
         // The data can take up to 4 bytes per character due to UTF-8 encoding, but we assume it is ASCII and only needs one byte.
-        return createBlockBuilder(blockBuilderStatus, expectedEntries, Math.min(length, EXPECTED_BYTES_PER_ENTRY));
+        return createBlockBuilder(expectedEntries, Math.min(length, EXPECTED_BYTES_PER_ENTRY));
     }
 
     @Override

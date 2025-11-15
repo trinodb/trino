@@ -102,7 +102,7 @@ public final class ZipFunction
             biggestCardinality = Math.max(biggestCardinality, array.getPositionCount());
         }
         RowType rowType = RowType.anonymous(types);
-        RowBlockBuilder outputBuilder = rowType.createBlockBuilder(null, biggestCardinality);
+        RowBlockBuilder outputBuilder = rowType.createBlockBuilder(biggestCardinality);
         for (int outputPosition = 0; outputPosition < biggestCardinality; outputPosition++) {
             buildRow(outputBuilder, outputPosition, arrays);
         }

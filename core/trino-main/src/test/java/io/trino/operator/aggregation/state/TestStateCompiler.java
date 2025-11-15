@@ -149,14 +149,14 @@ public class TestStateCompiler
         SliceState deserializedState = factory.createSingleState();
 
         state.setSlice(null);
-        BlockBuilder nullBlockBuilder = VARCHAR.createBlockBuilder(null, 1);
+        BlockBuilder nullBlockBuilder = VARCHAR.createBlockBuilder(1);
         serializer.serialize(state, nullBlockBuilder);
         Block nullBlock = nullBlockBuilder.build();
         serializer.deserialize(nullBlock, 0, deserializedState);
         assertThat(deserializedState.getSlice()).isEqualTo(state.getSlice());
 
         state.setSlice(utf8Slice("test"));
-        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(1);
         serializer.serialize(state, builder);
         Block block = builder.build();
         serializer.deserialize(block, 0, deserializedState);
@@ -175,7 +175,7 @@ public class TestStateCompiler
         singleState.setCount(2);
         singleState.setM2(3);
 
-        BlockBuilder builder = RowType.anonymous(ImmutableList.of(BIGINT, DOUBLE, DOUBLE)).createBlockBuilder(null, 1);
+        BlockBuilder builder = RowType.anonymous(ImmutableList.of(BIGINT, DOUBLE, DOUBLE)).createBlockBuilder(1);
         serializer.serialize(singleState, builder);
 
         Block block = builder.build();
@@ -211,7 +211,7 @@ public class TestStateCompiler
         singleState.setSqlMap(sqlMapOf(BIGINT, VARCHAR, ImmutableMap.of(123L, "testBlock")));
         singleState.setSqlRow(sqlRowOf(RowType.anonymousRow(VARCHAR, BIGINT, VARCHAR), "a", 777, "b"));
 
-        BlockBuilder builder = serializer.getSerializedType().createBlockBuilder(null, 1);
+        BlockBuilder builder = serializer.getSerializedType().createBlockBuilder(1);
         serializer.serialize(singleState, builder);
 
         Block block = builder.build();

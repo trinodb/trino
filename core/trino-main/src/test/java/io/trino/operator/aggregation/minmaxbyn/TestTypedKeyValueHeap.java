@@ -186,16 +186,16 @@ public class TestTypedKeyValueHeap
         TypedKeyValueHeap part1 = new TypedKeyValueHeap(min, keyReadFlat, keyWriteFlat, valueReadFlat, valueWriteFlat, comparisonFlatFlat, comparisonFlatBlock, keyType, valueType, capacity);
         int splitPoint = inputKeys.getPositionCount() / 2;
         getAddAll(part1, inputKeys.getRegion(0, splitPoint), inputValues.getRegion(0, splitPoint));
-        BlockBuilder part1KeyBlockBuilder = keyType.createBlockBuilder(null, part1.getCapacity());
-        BlockBuilder part1ValueBlockBuilder = valueType.createBlockBuilder(null, part1.getCapacity());
+        BlockBuilder part1KeyBlockBuilder = keyType.createBlockBuilder(part1.getCapacity());
+        BlockBuilder part1ValueBlockBuilder = valueType.createBlockBuilder(part1.getCapacity());
         part1.writeAllUnsorted(part1KeyBlockBuilder, part1ValueBlockBuilder);
         ValueBlock part1KeyBlock = part1KeyBlockBuilder.buildValueBlock();
         ValueBlock part1ValueBlock = part1ValueBlockBuilder.buildValueBlock();
 
         TypedKeyValueHeap part2 = new TypedKeyValueHeap(min, keyReadFlat, keyWriteFlat, valueReadFlat, valueWriteFlat, comparisonFlatFlat, comparisonFlatBlock, keyType, valueType, capacity);
         getAddAll(part2, inputKeys.getRegion(splitPoint, inputKeys.getPositionCount() - splitPoint), inputValues.getRegion(splitPoint, inputValues.getPositionCount() - splitPoint));
-        BlockBuilder part2KeyBlockBuilder = keyType.createBlockBuilder(null, part2.getCapacity());
-        BlockBuilder part2ValueBlockBuilder = valueType.createBlockBuilder(null, part2.getCapacity());
+        BlockBuilder part2KeyBlockBuilder = keyType.createBlockBuilder(part2.getCapacity());
+        BlockBuilder part2ValueBlockBuilder = valueType.createBlockBuilder(part2.getCapacity());
         part2.writeAllUnsorted(part2KeyBlockBuilder, part2ValueBlockBuilder);
         ValueBlock part2KeyBlock = part2KeyBlockBuilder.buildValueBlock();
         ValueBlock part2ValueBlock = part2ValueBlockBuilder.buildValueBlock();
@@ -215,7 +215,7 @@ public class TestTypedKeyValueHeap
 
     private static void assertEqual(TypedKeyValueHeap heap, Type valueType, ValueBlock expected)
     {
-        BlockBuilder resultBlockBuilder = valueType.createBlockBuilder(null, OUTPUT_SIZE);
+        BlockBuilder resultBlockBuilder = valueType.createBlockBuilder(OUTPUT_SIZE);
         heap.writeValuesSorted(resultBlockBuilder);
         ValueBlock actual = resultBlockBuilder.buildValueBlock();
         assertBlockEquals(valueType, actual, expected);
@@ -223,7 +223,7 @@ public class TestTypedKeyValueHeap
 
     private static <T> ValueBlock toBlock(Type type, List<T> inputStream)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, INPUT_SIZE);
+        BlockBuilder blockBuilder = type.createBlockBuilder(INPUT_SIZE);
         inputStream.forEach(value -> TypeUtils.writeNativeValue(type, blockBuilder, value));
         return blockBuilder.buildValueBlock();
     }

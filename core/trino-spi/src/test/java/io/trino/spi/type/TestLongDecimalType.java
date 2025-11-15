@@ -73,7 +73,7 @@ public class TestLongDecimalType
     private Block decimalAsBlock(String value)
     {
         Int128 decimal = Decimals.valueOf(new BigDecimal(value));
-        BlockBuilder blockBuilder = new Int128ArrayBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = new Int128ArrayBlockBuilder(1);
         TYPE.writeObject(blockBuilder, decimal);
         return blockBuilder.build();
     }

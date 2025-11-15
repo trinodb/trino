@@ -569,8 +569,8 @@ public class JsonDeserializer
             this.timestampParser = requireNonNull(timestampParser, "timestampParser is null");
 
             this.distinctMapKeys = new DistinctMapKeys(mapType, true);
-            this.keyBlockBuilder = mapType.getKeyType().createBlockBuilder(null, 128);
-            this.valueBlockBuilder = mapType.getValueType().createBlockBuilder(null, 128);
+            this.keyBlockBuilder = mapType.getKeyType().createBlockBuilder(128);
+            this.valueBlockBuilder = mapType.getValueType().createBlockBuilder(128);
         }
 
         @Override
@@ -590,8 +590,8 @@ public class JsonDeserializer
             }
             ValueBlock keys = keyBlockBuilder.buildValueBlock();
             ValueBlock values = valueBlockBuilder.buildValueBlock();
-            keyBlockBuilder = keyType.createBlockBuilder(null, keys.getPositionCount());
-            valueBlockBuilder = valueType.createBlockBuilder(null, values.getPositionCount());
+            keyBlockBuilder = keyType.createBlockBuilder(keys.getPositionCount());
+            valueBlockBuilder = valueType.createBlockBuilder(values.getPositionCount());
 
             // copy the distinct key entries to the output
             boolean[] distinctKeys = distinctMapKeys.selectDistinctKeys(keys);

@@ -90,7 +90,7 @@ public class ScanQueryPageSource
 
         columnBuilders = columns.stream()
                 .map(OpenSearchColumnHandle::type)
-                .map(type -> type.createBlockBuilder(null, 1))
+                .map(type -> type.createBlockBuilder(1))
                 .toArray(BlockBuilder[]::new);
 
         List<String> requiredFields = columns.stream()
@@ -184,7 +184,7 @@ public class ScanQueryPageSource
         Block[] blocks = new Block[columnBuilders.length];
         for (int i = 0; i < columnBuilders.length; i++) {
             blocks[i] = columnBuilders[i].build();
-            columnBuilders[i] = columnBuilders[i].newBlockBuilderLike(null);
+            columnBuilders[i] = columnBuilders[i].newBlockBuilderLike();
         }
 
         return SourcePage.create(new Page(blocks));

@@ -44,7 +44,7 @@ public class TestEvaluateClassifierPredictions
         TestingAggregationFunction aggregation = functionResolution.getAggregateFunction("evaluate_classifier_predictions", fromTypes(BIGINT, BIGINT));
         Aggregator aggregator = aggregation.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty()).createAggregator(new AggregationMetrics());
         aggregator.processPage(getPage());
-        BlockBuilder finalOut = VARCHAR.createBlockBuilder(null, 1);
+        BlockBuilder finalOut = VARCHAR.createBlockBuilder(1);
         aggregator.evaluate(finalOut);
         Block block = finalOut.build();
 

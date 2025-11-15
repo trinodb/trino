@@ -402,7 +402,7 @@ public final class StringFunctions
         checkCondition(limit > 0, INVALID_FUNCTION_ARGUMENT, "Limit must be positive");
         checkCondition(limit <= Integer.MAX_VALUE, INVALID_FUNCTION_ARGUMENT, "Limit is too large");
         checkCondition(delimiter.length() > 0, INVALID_FUNCTION_ARGUMENT, "The delimiter may not be the empty string");
-        BlockBuilder parts = VARCHAR.createBlockBuilder(null, 1, string.length());
+        BlockBuilder parts = VARCHAR.createBlockBuilder(1, string.length());
         // If limit is one, the last and only element is the complete string
         if (limit == 1) {
             VARCHAR.writeSlice(parts, string);

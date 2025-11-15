@@ -24,7 +24,6 @@ import io.airlift.bytecode.control.IfStatement;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -40,7 +39,6 @@ import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
@@ -88,7 +86,6 @@ public class RowConstructorCodeGenerator
             block.append(blockBuilder.set(constantType(binder, fieldType).invoke(
                     "createBlockBuilder",
                     BlockBuilder.class,
-                    constantNull(BlockBuilderStatus.class),
                     constantInt(1))));
 
             block.comment("Clean wasNull and Generate + " + i + "-th field of row");
@@ -195,7 +192,7 @@ public class RowConstructorCodeGenerator
         List<Type> fieldTypes = rowType.getTypeParameters();
         BlockBuilder[] fieldBlockBuilders = new BlockBuilder[fieldTypes.size()];
         for (int i = 0; i < fieldTypes.size(); i++) {
-            fieldBlockBuilders[i] = fieldTypes.get(i).createBlockBuilder(null, 1);
+            fieldBlockBuilders[i] = fieldTypes.get(i).createBlockBuilder(1);
         }
         return fieldBlockBuilders;
     }

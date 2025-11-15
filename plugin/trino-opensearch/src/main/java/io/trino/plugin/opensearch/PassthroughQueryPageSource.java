@@ -70,7 +70,7 @@ public class PassthroughQueryPageSource
         done = true;
 
         Slice slice = Slices.utf8Slice(result);
-        BlockBuilder column = VARCHAR.createBlockBuilder(null, 1, result.length());
+        BlockBuilder column = VARCHAR.createBlockBuilder(1, result.length());
         VARCHAR.writeSlice(column, slice);
         return SourcePage.create(column.build());
     }

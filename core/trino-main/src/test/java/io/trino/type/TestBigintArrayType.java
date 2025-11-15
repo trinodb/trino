@@ -37,7 +37,7 @@ public class TestBigintArrayType
 
     public static ValueBlock createTestBlock(Type arrayType)
     {
-        BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 4);
+        BlockBuilder blockBuilder = arrayType.createBlockBuilder(4);
         arrayType.writeObject(blockBuilder, arrayBlockOf(BIGINT, 1, 2));
         arrayType.writeObject(blockBuilder, arrayBlockOf(BIGINT, 1, 2, 3));
         arrayType.writeObject(blockBuilder, arrayBlockOf(BIGINT, 1, 2, 3));

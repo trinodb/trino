@@ -1587,8 +1587,8 @@ public class PostgreSqlClient
         return ObjectReadFunction.of(SqlMap.class, (resultSet, columnIndex) -> {
             @SuppressWarnings("unchecked")
             Map<String, String> map = (Map<String, String>) resultSet.getObject(columnIndex);
-            BlockBuilder keyBlockBuilder = varcharMapType.getKeyType().createBlockBuilder(null, map.size());
-            BlockBuilder valueBlockBuilder = varcharMapType.getValueType().createBlockBuilder(null, map.size());
+            BlockBuilder keyBlockBuilder = varcharMapType.getKeyType().createBlockBuilder(map.size());
+            BlockBuilder valueBlockBuilder = varcharMapType.getValueType().createBlockBuilder(map.size());
             for (Entry<String, String> entry : map.entrySet()) {
                 if (entry.getKey() == null) {
                     throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "hstore key is null");
@@ -1636,7 +1636,7 @@ public class PostgreSqlClient
     {
         return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
             Array array = resultSet.getArray(columnIndex);
-            BlockBuilder builder = elementType.createBlockBuilder(null, 10);
+            BlockBuilder builder = elementType.createBlockBuilder(10);
             try (ResultSet arrayAsResultSet = array.getResultSet()) {
                 while (arrayAsResultSet.next()) {
                     if (elementReadFunction.isNull(arrayAsResultSet, ARRAY_RESULT_SET_VALUE_COLUMN)) {
@@ -1699,7 +1699,7 @@ public class PostgreSqlClient
             Block block = (Block) ((ObjectReadFunction) readFunction).readObject(resultSet, columnIndex);
 
             // convert block to JSON slice
-            BlockBuilder builder = type.createBlockBuilder(null, 1);
+            BlockBuilder builder = type.createBlockBuilder(1);
             type.writeObject(builder, block);
             Object value = type.getObjectValue(builder.build(), 0);
 

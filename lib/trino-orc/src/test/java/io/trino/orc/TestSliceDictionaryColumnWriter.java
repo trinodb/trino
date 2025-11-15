@@ -91,7 +91,6 @@ public class TestSliceDictionaryColumnWriter
         List<Slice> testValues = new ArrayList<>(valuesCount);
         int expectedEntries = (valuesCount / 9) + 1;
         VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(
-                null,
                 expectedEntries,
                 expectedEntries * 500);
         byte base = 0;

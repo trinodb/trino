@@ -168,7 +168,7 @@ public class BenchmarkArrayFilter
 
         private static Block createChannel(int positionCount, int arraySize, ArrayType arrayType)
         {
-            ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
+            ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(positionCount);
             for (int position = 0; position < positionCount; position++) {
                 blockBuilder.buildEntry(elementBuilder -> {
                     for (int i = 0; i < arraySize; i++) {
@@ -309,7 +309,7 @@ public class BenchmarkArrayFilter
         {
             int positionCount = block.getPositionCount();
             ValueBlock valueBlock = block.getUnderlyingValueBlock();
-            BlockBuilder resultBuilder = type.createBlockBuilder(null, positionCount);
+            BlockBuilder resultBuilder = type.createBlockBuilder(positionCount);
             for (int position = 0; position < positionCount; position++) {
                 Long input = (Long) readNativeValue(type, block, position);
                 Boolean keep;
@@ -363,7 +363,7 @@ public class BenchmarkArrayFilter
         public static Block filterObject(Type type, Block block, MethodHandle function)
         {
             int positionCount = block.getPositionCount();
-            BlockBuilder resultBuilder = type.createBlockBuilder(null, positionCount);
+            BlockBuilder resultBuilder = type.createBlockBuilder(positionCount);
             ValueBlock valueBlock = block.getUnderlyingValueBlock();
             for (int position = 0; position < positionCount; position++) {
                 Object input = type.getObject(block, position);
