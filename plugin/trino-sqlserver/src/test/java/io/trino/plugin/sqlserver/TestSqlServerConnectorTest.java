@@ -20,6 +20,7 @@ import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
@@ -277,27 +278,55 @@ public class TestSqlServerConnectorTest
                 .build();
     }
 
-    @Test
+    @RepeatedTest(100)
+    @Override
+    public void testShowTablesLike()
+    {
+        super.testShowTablesLike();
+        try {
+            super.testUpdateRowConcurrently();
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @RepeatedTest(100)
     @Override
     public void testSelectInformationSchemaTables()
     {
-        // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/10846
-        executeExclusively(super::testSelectInformationSchemaTables);
+        super.testSelectInformationSchemaTables();
+        try {
+            super.testUpdateRowConcurrently();
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    @Test
+    @RepeatedTest(100)
     @Override
     public void testSelectInformationSchemaColumns()
     {
-        // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/10846
-        executeExclusively(super::testSelectInformationSchemaColumns);
+        super.testSelectInformationSchemaColumns();
+        try {
+            super.testUpdateRowConcurrently();
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    @Test
+    @RepeatedTest(100)
     @Override
     public void testBulkColumnListingOptions()
     {
-        // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/10846
-        executeExclusively(super::testBulkColumnListingOptions);
+        super.testBulkColumnListingOptions();
+        try {
+            super.testUpdateRowConcurrently();
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }
