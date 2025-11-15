@@ -29,6 +29,7 @@ class ConcurrencyController
 
     public void update(double utilization, int currentConcurrency)
     {
+        checkArgument(currentConcurrency >= 0, "currentConcurrency must be greater or equal to 0");
         if (utilization > TARGET_UTILIZATION && targetConcurrency > 1) {
             targetConcurrency--;
         }
