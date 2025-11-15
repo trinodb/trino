@@ -1,0 +1,139 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.plugin.hsqldb;
+
+import io.airlift.log.Logger;
+import io.trino.testing.ResourcePresence;
+import io.trino.testing.containers.PrintingLogConsumer;
+import io.trino.testing.sql.JdbcSqlExecutor;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.images.builder.ImageFromDockerfile;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Properties;
+
+final class TestingHsqlDbServer
+        implements AutoCloseable
+{
+    private static final Logger log = Logger.get(TestingHsqlDbServer.class);
+
+    public static final String TEST_SCHEMA = "public";
+    public static final String TEST_USER = "SA";
+    public static final String TEST_PASSWORD = "";
+
+    public static final String DEFAULT_VERSION = "2.7.4";
+    public static final String LATEST_VERSION = "2.7.4";
+    private static final String DEFAULT_JMV = "adoptopenjdk/openjdk11";
+    private static final String HSQLDB_ARCHIVE = "hsqldb-%s.jar";
+    private static final String HSQLDB_URL = "jdbc:hsqldb:hsql://%s:%s/";
+    private static final String DOWNLOAD_LOCATION = "https://repo1.maven.org/maven2/org/hsqldb/hsqldb/%s/%s";
+    private static final int HSQLDB_PORT = 9001;
+
+    private static class HsqldbContainer
+            extends GenericContainer<HsqldbContainer>
+    {
+        private HsqldbContainer(ImageFromDockerfile image)
+        {
+            super(image);
+        }
+    }
+
+    private final HsqldbContainer container;
+
+    public TestingHsqlDbServer()
+    {
+        this(DEFAULT_VERSION);
+    }
+
+    public TestingHsqlDbServer(String tag)
+    {
+        String archive = String.format(HSQLDB_ARCHIVE, tag);
+        String location = String.format(DOWNLOAD_LOCATION, tag, archive);
+        ImageFromDockerfile image = new ImageFromDockerfile()
+                                                .withDockerfileFromBuilder(builder ->
+                                                        builder
+                                                                .from(DEFAULT_JMV)
+                                                                .add(location, archive)
+                                                                .expose(HSQLDB_PORT)
+                                                                .cmd("java", "-cp",
+                                                                        archive, "org.hsqldb.server.Server",
+                                                                        "--port", Integer.toString(HSQLDB_PORT),
+                                                                        "--silent", "false")
+                                                                .build());
+        container = new HsqldbContainer(image).withExposedPorts(HSQLDB_PORT);
+        container.start();
+        container.followOutput(new PrintingLogConsumer("HsqlDB"));
+        log.info("%s version %s listening on port: %s", TestingHsqlDbServer.class.getName(), tag, getJdbcUrl());
+    }
+
+    public JdbcSqlExecutor getSqlExecutor()
+    {
+        return new JdbcSqlExecutor(getJdbcUrl(), getProperties(getUsername(), getPassword()));
+    }
+
+    private static Properties getProperties(String user, String password)
+    {
+        Properties properties = new Properties();
+        properties.setProperty("user", user);
+        properties.setProperty("password", password);
+        return properties;
+    }
+
+    public void execute(String sql)
+    {
+        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), getUsername(), getPassword());
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public String getUsername()
+    {
+        return TEST_USER;
+    }
+
+    public String getPassword()
+    {
+        return TEST_PASSWORD;
+    }
+
+    public String getJdbcUrl()
+    {
+        return String.format(HSQLDB_URL, container.getHost(), container.getMappedPort(HSQLDB_PORT));
+    }
+
+    public Connection getConnection()
+            throws SQLException
+    {
+        return DriverManager.getConnection(getJdbcUrl(), getUsername(), getPassword());
+    }
+
+    @Override
+    public void close()
+    {
+        container.close();
+    }
+
+    @ResourcePresence
+    public boolean isRunning()
+    {
+        return container.isRunning();
+    }
+}
