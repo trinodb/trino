@@ -1520,6 +1520,45 @@ public class TestIcebergV2
         catalog.dropTable(SESSION, schemaTableName);
     }
 
+    @Test // regression test for https://github.com/trinodb/trino/issues/20511
+    void testRequiredField()
+    {
+        testRequiredField(true);
+        testRequiredField(false);
+    }
+
+    private void testRequiredField(boolean projectionPushdown)
+    {
+        Session projectionPushdownEnabled = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "projection_pushdown_enabled", Boolean.toString(projectionPushdown))
+                .build();
+
+        String table = "test_required_field" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", table);
+
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        schemaTableName,
+                        new Schema(
+                                Types.NestedField.optional(1, "id", Types.IntegerType.get()),
+                                Types.NestedField.optional(2, "struct", Types.StructType.of(
+                                        Types.NestedField.required(3, "field", Types.IntegerType.get())))),
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        ImmutableMap.of())
+                .commitTransaction();
+
+        assertUpdate("INSERT INTO " + table + " VALUES (1, row(10)), (2, NULL)", 2);
+
+        assertThat(query(projectionPushdownEnabled, "SELECT id FROM " + table + " WHERE struct.field IS NOT NULL"))
+                .matches("VALUES 1");
+        assertThat(query(projectionPushdownEnabled, "SELECT id FROM " + table + " WHERE struct.field IS NULL"))
+                .matches("VALUES 2");
+
+        catalog.dropTable(SESSION, schemaTableName);
+    }
+
     private void testHighlyNestedFieldPartitioningWithTimestampTransform(String partitioning, String partitionDirectoryRegex, Set<String> expectedPartitionDirectories)
     {
         String tableName = "test_highly_nested_field_partitioning_with_timestamp_transform_" + randomNameSuffix();

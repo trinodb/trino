@@ -7555,6 +7555,77 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testTimeTravelWithFilterOnRenamedColumn()
+    {
+        testTimeTravelWithFilterOnRenamedColumn(false);
+        testTimeTravelWithFilterOnRenamedColumn(true);
+    }
+
+    private void testTimeTravelWithFilterOnRenamedColumn(boolean partitioned)
+    {
+        String partition = partitioned ? "WITH (partitioning = ARRAY['part'])" : "";
+        try (TestTable table = newTrinoTable("time_travel_with_filter_on_rename_", "(x int, y int, part int)" + partition)) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 1, 1), (1, 2, 2), (2, 2, 2)", 3);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (1, 1, 1), (1, 2, 2), (2, 2, 2)");
+            long firstSnapshotId = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN x TO renamed_x");
+
+            // generate a new version
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 2, 3)", 1);
+
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR VERSION AS OF " + firstSnapshotId + " WHERE x = 1"))
+                    .matches("VALUES (1, 1, 1), (1, 2, 2)");
+        }
+    }
+
+    @Test
+    public void testTimeTravelWithFilterOnDroppedColumn()
+    {
+        testTimeTravelWithFilterOnDroppedColumn(false);
+        testTimeTravelWithFilterOnDroppedColumn(true);
+    }
+
+    private void testTimeTravelWithFilterOnDroppedColumn(boolean partitioned)
+    {
+        String partition = partitioned ? "WITH (partitioning = ARRAY['part'])" : "";
+        try (TestTable table = newTrinoTable("time_travel_with_filter_on_drop_", "(x int, y int, part int)" + partition)) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 1, 1), (1, 2, 2), (2, 2, 2)", 3);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (1, 1, 1), (1, 2, 2), (2, 2, 2)");
+            long firstSnapshotId = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN x");
+
+            // generate a new version
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 2)", 1);
+
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR VERSION AS OF " + firstSnapshotId + " WHERE x = 1"))
+                    .matches("VALUES (1, 1, 1), (1, 2, 2)");
+        }
+    }
+
+    @Test
+    public void testTimeTravelWithFilterOnRenamedPartitionColumn()
+    {
+        try (TestTable table = newTrinoTable("time_travel_with_filter_on_drop_", "(x int, part1 int, part2 int) WITH (partitioning = ARRAY['part1', 'part2'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 1, 1), (1, 1, 2), (2, 2, 2)", 3);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (1, 1, 1), (1, 1, 2), (2, 2, 2)");
+            long firstSnapshotId = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN part1 TO renamed_part");
+
+            // generate a new version
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 1, 3)", 1);
+
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR VERSION AS OF " + firstSnapshotId + " WHERE part1 = 1"))
+                    .matches("VALUES (1, 1, 1), (1, 1, 2)");
+        }
+    }
+
+    @Test
     public void testDeleteRetainsTableHistory()
     {
         String tableName = "test_delete_retains_table_history_" + randomNameSuffix();
