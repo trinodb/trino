@@ -337,6 +337,7 @@ public abstract class BaseJdbcClient
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
                 // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
                 Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
+                Optional<String> defaultValue = getColumnDefaultValue(resultSet);
                 // skip unsupported column types
                 columnMapping.ifPresent(mapping -> columns.add(JdbcColumnHandle.builder()
                         .setColumnName(columnName)
@@ -344,6 +345,7 @@ public abstract class BaseJdbcClient
                         .setColumnType(mapping.getType())
                         .setNullable(nullable)
                         .setComment(comment)
+                        .setDefaultValue(defaultValue)
                         .build()));
                 if (columnMapping.isEmpty()) {
                     UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
@@ -365,6 +367,12 @@ public abstract class BaseJdbcClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    protected Optional<String> getColumnDefaultValue(ResultSet resultSet)
+            throws SQLException
+    {
+        return Optional.empty();
     }
 
     @Override
