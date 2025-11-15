@@ -23,8 +23,8 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.block.BlockAssertions.createLongRepeatBlock;
@@ -48,13 +49,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHivePartitionedBucketFunction
 {
-    @DataProvider(name = "hiveBucketingVersion")
-    public static Object[][] hiveBucketingVersion()
+    static Stream<BucketingVersion> hiveBucketingVersion()
     {
-        return new Object[][] {{BUCKETING_V1}, {BUCKETING_V2}};
+        return Stream.of(BUCKETING_V1, BUCKETING_V2);
     }
 
-    @Test(dataProvider = "hiveBucketingVersion")
+    @ParameterizedTest
+    @MethodSource("hiveBucketingVersion")
     public void testSinglePartition(BucketingVersion hiveBucketingVersion)
     {
         int numValues = 1024;
@@ -85,7 +86,8 @@ public class TestHivePartitionedBucketFunction
                 numBuckets);
     }
 
-    @Test(dataProvider = "hiveBucketingVersion")
+    @ParameterizedTest
+    @MethodSource("hiveBucketingVersion")
     public void testMultiplePartitions(BucketingVersion hiveBucketingVersion)
     {
         int numValues = 1024;
@@ -133,7 +135,8 @@ public class TestHivePartitionedBucketFunction
      * (when number of workers is less or equal to number of partition buckets) because
      * workers are assigned to consecutive buckets in sequence.
      */
-    @Test(dataProvider = "hiveBucketingVersion")
+    @ParameterizedTest
+    @MethodSource("hiveBucketingVersion")
     public void testConsecutiveBucketsWithinPartition(BucketingVersion hiveBucketingVersion)
     {
         BlockBuilder bucketColumn = BIGINT.createFixedSizeBlockBuilder(10);
