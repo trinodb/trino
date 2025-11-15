@@ -14,11 +14,13 @@
 package io.trino.filesystem.gcs;
 
 import com.google.auth.Credentials;
+import com.google.cloud.NoCredentials;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.filesystem.gcs.GcsFileSystemConfig.AuthType;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestGcsStorageFactory
@@ -30,9 +32,9 @@ final class TestGcsStorageFactory
         Credentials expectedCredentials = StorageOptions.newBuilder().build().getCredentials();
 
         // No credentials options are set
-        GcsFileSystemConfig config = new GcsFileSystemConfig();
+        GcsServiceAccountAuthConfig config = new GcsServiceAccountAuthConfig();
 
-        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new GcsServiceAccountAuth(config));
+        GcsStorageFactory storageFactory = new GcsStorageFactory(new GcsFileSystemConfig(), new GcsServiceAccountAuth(config));
 
         Credentials actualCredentials;
         try (Storage storage = storageFactory.create(ConnectorIdentity.ofUser("test"))) {
@@ -42,5 +44,21 @@ final class TestGcsStorageFactory
         assertThat(actualCredentials)
                 .as("if credentials are not explicitly configured, should have same behavior as the GCS client")
                 .isEqualTo(expectedCredentials);
+    }
+
+    @Test
+    void testUnauthenticatedCredentials()
+            throws Exception
+    {
+        // Explicit set unauthenticated type
+        GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.ASSUMED);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new AssumedAuth());
+
+        Credentials actualCredentials;
+        try (Storage storage = storageFactory.create(ConnectorIdentity.ofUser("test"))) {
+            actualCredentials = storage.getOptions().getCredentials();
+        }
+
+        assertThat(actualCredentials).isEqualTo(NoCredentials.getInstance());
     }
 }

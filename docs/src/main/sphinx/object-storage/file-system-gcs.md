@@ -79,6 +79,8 @@ Cloud Storage:
       credentials provider.
     * `ACCESS_TOKEN`: usage of client-provided OAuth 2.0 token to access Google
       Cloud Storage.
+    * `ASSUMED`: allows access to Google Cloud Storage without explicitly providing
+      any credentials.
 * - `gcs.json-key`
   - Your Google Cloud service account key in JSON format. Not to be set together
     with `gcs.json-key-file-path`.
