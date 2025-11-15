@@ -475,6 +475,7 @@ public class PostgreSqlClient
             if (getArrayMapping(session) == AS_ARRAY) {
                 arrayColumnDimensions = getArrayColumnDimensions(connection, remoteTableName);
             }
+            Set<String> hiddenColumnNames = hiddenColumnNames(connection, remoteTableName);
             try (ResultSet resultSet = getColumns(remoteTableName, connection.getMetaData())) {
                 int allColumns = 0;
                 List<JdbcColumnHandle> columns = new ArrayList<>();
@@ -491,7 +492,7 @@ public class PostgreSqlClient
                     Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
                     log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
                     // skip unsupported column types
-                    if (columnMapping.isPresent()) {
+                    if (columnMapping.isPresent() && !hiddenColumnNames.contains(columnName)) {
                         boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
                         Optional<String> comment = Optional.ofNullable(resultSet.getString("REMARKS"));
                         columns.add(JdbcColumnHandle.builder()
@@ -523,6 +524,11 @@ public class PostgreSqlClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    protected Set<String> hiddenColumnNames(Connection connection, RemoteTableName remoteTableName)
+    {
+        return Set.of();
     }
 
     @Override

@@ -55,6 +55,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Properties;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -125,19 +126,19 @@ public class TestPostgreSqlConnectorTest
             // Arrays are supported conditionally. Check the defaults.
             case SUPPORTS_ARRAY -> new PostgreSqlConfig().getArrayMapping() != PostgreSqlConfig.ArrayMapping.DISABLED;
             case SUPPORTS_CANCELLATION,
-                    SUPPORTS_JOIN_PUSHDOWN,
-                    SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_ROW_LEVEL_UPDATE,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR -> true;
+                 SUPPORTS_JOIN_PUSHDOWN,
+                 SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_ROW_LEVEL_UPDATE,
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
-                    SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
-                    SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
-                    SUPPORTS_MAP_TYPE,
-                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
-                    SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
-                    SUPPORTS_ROW_TYPE -> false;
+                 SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                 SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
+                 SUPPORTS_MAP_TYPE,
+                 SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
+                 SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
+                 SUPPORTS_ROW_TYPE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -146,13 +147,23 @@ public class TestPostgreSqlConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         return new TestTable(
-                new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties()),
+                new JdbcSqlExecutor(getJdbcUrl(), getProperties()),
                 "table",
                 "(col_required BIGINT NOT NULL," +
                         "col_nullable BIGINT," +
                         "col_default BIGINT DEFAULT 43," +
                         "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
                         "col_required2 BIGINT NOT NULL)");
+    }
+
+    protected String getJdbcUrl()
+    {
+        return postgreSqlServer.getJdbcUrl();
+    }
+
+    protected Properties getProperties()
+    {
+        return postgreSqlServer.getProperties();
     }
 
     @Override
@@ -959,7 +970,7 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Test
-    void testNonLowercaseUserDefinedTypeName()
+    public void testNonLowercaseUserDefinedTypeName()
     {
         String enumType = "TEST_ENUM_" + randomNameSuffix();
         onRemoteDatabase().execute("CREATE TYPE public.\"" + enumType + "\" AS ENUM ('A', 'B')");
@@ -977,7 +988,7 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Test
-    void testUserDefinedTypeNameContainsDoubleQuotes()
+    public void testUserDefinedTypeNameContainsDoubleQuotes()
     {
         String enumType = "test_double_\"\"_quotes_" + randomNameSuffix();
         onRemoteDatabase().execute("CREATE TYPE public.\"" + enumType + "\" AS ENUM ('A', 'B')");
@@ -1117,12 +1128,12 @@ public class TestPostgreSqlConnectorTest
                     .isNotFullyPushedDown(ProjectNode.class)
                     .hasPlan(output(
                             project(ImmutableMap.of("expr", expression(
-                                    new Call(
-                                            FUNCTIONS.resolveFunction("reverse", ImmutableList.of(new TypeSignatureProvider(VARCHAR.getTypeSignature()))),
-                                            ImmutableList.of(
-                                                    new Call(
-                                                            FUNCTIONS.resolveFunction("lower", ImmutableList.of(new TypeSignatureProvider(VARCHAR.getTypeSignature()))),
-                                                            ImmutableList.of(new Reference(VARCHAR, "varchar_col"))))))),
+                                            new Call(
+                                                    FUNCTIONS.resolveFunction("reverse", ImmutableList.of(new TypeSignatureProvider(VARCHAR.getTypeSignature()))),
+                                                    ImmutableList.of(
+                                                            new Call(
+                                                                    FUNCTIONS.resolveFunction("lower", ImmutableList.of(new TypeSignatureProvider(VARCHAR.getTypeSignature()))),
+                                                                    ImmutableList.of(new Reference(VARCHAR, "varchar_col"))))))),
                                     tableScan(table.getName(), ImmutableMap.of("varchar_col", "varchar_col")))));
         }
     }
@@ -1395,7 +1406,7 @@ public class TestPostgreSqlConnectorTest
         return "orderkey IN (" + longValues + ")";
     }
 
-    private AutoCloseable withSchema(String schema)
+    protected AutoCloseable withSchema(String schema)
     {
         onRemoteDatabase().execute(format("CREATE SCHEMA %s", schema));
         return () -> onRemoteDatabase().execute(format("DROP SCHEMA %s", schema));

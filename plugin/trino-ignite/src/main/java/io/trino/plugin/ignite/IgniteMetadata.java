@@ -77,7 +77,7 @@ public class IgniteMetadata
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
         }
 
-        return igniteClient.getTableHandle(session, schemaTableName)
+        return igniteClient.getTableHandle(session, schemaTableName, Optional.empty())
                 .map(JdbcTableHandle::asPlainTable)
                 .map(JdbcNamedRelationHandle::getRemoteTableName)
                 .map(remoteTableName -> new JdbcTableHandle(

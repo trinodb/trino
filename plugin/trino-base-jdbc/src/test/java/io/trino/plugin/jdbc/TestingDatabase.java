@@ -23,6 +23,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -96,7 +97,7 @@ final class TestingDatabase
 
     public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName table)
     {
-        return jdbcClient.getTableHandle(session, table)
+        return jdbcClient.getTableHandle(session, table, Optional.empty())
                 .orElseThrow(() -> new IllegalArgumentException("table not found: " + table));
     }
 
