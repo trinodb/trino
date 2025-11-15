@@ -16,24 +16,23 @@ package io.trino.plugin.hudi.split;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.plugin.hive.util.AsyncQueue;
+import io.trino.plugin.hive.util.ResumableTasks;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.hudi.partition.HudiPartitionInfoLoader;
 import io.trino.plugin.hudi.query.HudiDirectoryLister;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
-import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hudi.HudiSessionProperties.getSplitGeneratorParallelism;
 import static java.util.Objects.requireNonNull;
 
@@ -71,34 +70,22 @@ public class HudiBackgroundSplitLoader
     public void run()
     {
         Deque<String> partitionQueue = new ConcurrentLinkedDeque<>(partitions);
-        List<HudiPartitionInfoLoader> splitGeneratorList = new ArrayList<>();
+        List<HudiPartitionInfoLoader> splitGenerators = new ArrayList<>();
         List<ListenableFuture<Void>> splitGeneratorFutures = new ArrayList<>();
 
-        // Start a number of partition split generators to generate the splits in parallel
         for (int i = 0; i < splitGeneratorNumThreads; i++) {
-            HudiPartitionInfoLoader generator = new HudiPartitionInfoLoader(hudiDirectoryLister, hudiSplitFactory, asyncQueue, partitionQueue);
-            splitGeneratorList.add(generator);
-            ListenableFuture<Void> future = Futures.submit(generator, splitGeneratorExecutor);
+            Deque<Iterator<ConnectorSplit>> splitIterators = new ConcurrentLinkedDeque<>();
+            HudiPartitionInfoLoader generator = new HudiPartitionInfoLoader(hudiDirectoryLister, hudiSplitFactory, asyncQueue, partitionQueue, splitIterators);
+            splitGenerators.add(generator);
+            ListenableFuture<Void> future = ResumableTasks.submit(splitGeneratorExecutor, generator);
             addExceptionCallback(future, errorListener);
             splitGeneratorFutures.add(future);
         }
 
-        for (HudiPartitionInfoLoader generator : splitGeneratorList) {
-            // Let the split generator stop once the partition queue is empty
-            generator.stopRunning();
-        }
+        // Signal all generators to stop once partition queue is drained
+        splitGenerators.forEach(HudiPartitionInfoLoader::stopRunning);
 
-        try {
-            // Wait for all split generators to finish
-            Futures.whenAllComplete(splitGeneratorFutures)
-                    .run(asyncQueue::finish, directExecutor())
-                    .get();
-        }
-        catch (InterruptedException | ExecutionException e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            throw new TrinoException(HUDI_CANNOT_OPEN_SPLIT, "Error generating Hudi split", e);
-        }
+        var unused = Futures.whenAllComplete(splitGeneratorFutures)
+                .run(asyncQueue::finish, directExecutor());
     }
 }
