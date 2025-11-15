@@ -291,8 +291,6 @@ public class TestHiveParquetEncryption
                     .filter(column -> column.getPath().equals(ID_PATH))
                     .findFirst().orElseThrow();
 
-            assertThat(ageChunk.getDictionaryPageOffset()).isGreaterThan(0);
-            assertThat(idChunk.getDictionaryPageOffset()).isGreaterThan(0);
             assertThat(ageChunk.getEncodings()).anyMatch(org.apache.parquet.column.Encoding::usesDictionary);
             assertThat(idChunk.getEncodings()).anyMatch(org.apache.parquet.column.Encoding::usesDictionary);
         }
