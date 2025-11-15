@@ -183,8 +183,11 @@ public final class VariableWidthBlock
     @Override
     public boolean isNull(int position)
     {
+        if (!mayHaveNull()) {
+            return false;
+        }
         checkReadablePosition(this, position);
-        return valueIsNull != null && valueIsNull[position + arrayOffset];
+        return valueIsNull[position + arrayOffset];
     }
 
     @Override

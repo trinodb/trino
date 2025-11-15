@@ -155,8 +155,11 @@ public final class Int128ArrayBlock
     @Override
     public boolean isNull(int position)
     {
+        if (!mayHaveNull()) {
+            return false;
+        }
         checkReadablePosition(this, position);
-        return valueIsNull != null && valueIsNull[position + positionOffset];
+        return valueIsNull[position + positionOffset];
     }
 
     @Override

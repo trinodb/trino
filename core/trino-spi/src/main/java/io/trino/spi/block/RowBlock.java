@@ -375,8 +375,11 @@ public final class RowBlock
     @Override
     public boolean isNull(int position)
     {
+        if (!mayHaveNull()) {
+            return false;
+        }
         checkReadablePosition(this, position);
-        return rowIsNull != null && rowIsNull[startOffset + position];
+        return rowIsNull[startOffset + position];
     }
 
     /**

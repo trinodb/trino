@@ -143,13 +143,13 @@ public final class JsonEncodingUtils
         }
     }
 
-    public interface TypeEncoder
+    public sealed interface TypeEncoder
     {
         void encode(JsonGenerator generator, Block block, int position)
                 throws IOException;
     }
 
-    private static class BigintEncoder
+    private static final class BigintEncoder
             implements TypeEncoder
     {
         @Override
@@ -164,7 +164,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class IntegerEncoder
+    private static final class IntegerEncoder
             implements TypeEncoder
     {
         @Override
@@ -179,7 +179,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class BooleanEncoder
+    private static final class BooleanEncoder
             implements TypeEncoder
     {
         @Override
@@ -194,7 +194,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class SmallintEncoder
+    private static final class SmallintEncoder
             implements TypeEncoder
     {
         @Override
@@ -209,7 +209,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class TinyintEncoder
+    private static final class TinyintEncoder
             implements TypeEncoder
     {
         @Override
@@ -224,7 +224,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class DoubleEncoder
+    private static final class DoubleEncoder
             implements TypeEncoder
     {
         @Override
@@ -239,7 +239,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class RealEncoder
+    private static final class RealEncoder
             implements TypeEncoder
     {
         @Override
@@ -254,7 +254,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class VarcharEncoder
+    private static final class VarcharEncoder
             implements TypeEncoder
     {
         @Override
@@ -270,7 +270,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class CharEncoder
+    private static final class CharEncoder
             implements TypeEncoder
     {
         private final int length;
@@ -293,7 +293,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class VarbinaryEncoder
+    private static final class VarbinaryEncoder
             implements TypeEncoder
     {
         @Override
@@ -311,7 +311,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class ArrayEncoder
+    private static final class ArrayEncoder
             implements TypeEncoder
     {
         private final ArrayType arrayType;
@@ -341,7 +341,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class MapEncoder
+    private static final class MapEncoder
             implements TypeEncoder
     {
         private final MapType mapType;
@@ -380,7 +380,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class RowEncoder
+    private static final class RowEncoder
             implements TypeEncoder
     {
         private final RowType rowType;
@@ -409,7 +409,7 @@ public final class JsonEncodingUtils
         }
     }
 
-    private static class TypeObjectValueEncoder
+    private static final class TypeObjectValueEncoder
             implements TypeEncoder
     {
         private final Type type;
