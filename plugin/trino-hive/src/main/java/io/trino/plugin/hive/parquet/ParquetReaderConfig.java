@@ -191,6 +191,22 @@ public class ParquetReaderConfig
         return options.getMaxFooterReadSize();
     }
 
+    @Config("parquet.max-page-size")
+    @ConfigDescription("Maximum allowed size for a single Parquet page. Prevents OOM from extremely large pages")
+    public ParquetReaderConfig setMaxPageSize(DataSize maxPageSize)
+    {
+        options = ParquetReaderOptions.builder(options)
+                .withMaxPageSize(maxPageSize)
+                .build();
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMaxPageSize()
+    {
+        return options.getMaxPageSize();
+    }
+
     public ParquetReaderOptions toParquetReaderOptions()
     {
         return options;

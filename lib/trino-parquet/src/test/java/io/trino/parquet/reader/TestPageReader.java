@@ -312,6 +312,77 @@ public class TestPageReader
         assertThat(pageReader.readPage()).isNull();
     }
 
+    @Test
+    public void testPageSizeLimit()
+            throws Exception
+    {
+        // Create a page with 100 bytes uncompressed size
+        byte[] largeDataPage = new byte[100];
+        Arrays.fill(largeDataPage, (byte) 42);
+
+        int valueCount = 10;
+        byte[] compressedDataPage = V1.compress(UNCOMPRESSED, largeDataPage);
+
+        PageHeader pageHeader = new PageHeader(PageType.DATA_PAGE, largeDataPage.length, compressedDataPage.length);
+        V1.setDataPageHeader(pageHeader, valueCount);
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        Util.writePageHeader(pageHeader, out);
+        out.write(compressedDataPage);
+        byte[] bytes = out.toByteArray();
+
+        // Create ColumnChunkMetadata
+        EncodingStats.Builder encodingStats = new EncodingStats.Builder();
+        PrimitiveType primitiveType = Types.optional(INT32).named("test_column");
+        ColumnChunkMetadata columnChunkMetaData = ColumnChunkMetadata.get(
+                ColumnPath.get("test_column"),
+                primitiveType,
+                CompressionCodecName.UNCOMPRESSED,
+                encodingStats.build(),
+                ImmutableSet.of(),
+                Statistics.createStats(primitiveType),
+                0,
+                0,
+                valueCount,
+                0,
+                0);
+
+        // Test with maxPageSize = 50 bytes (less than the 100 bytes page)
+        assertThatThrownBy(() -> {
+            PageReader pageReader = PageReader.createPageReader(
+                    new ParquetDataSourceId("test"),
+                    new ChunkedInputStream(ImmutableList.of(new TestingChunkReader(Slices.wrappedBuffer(bytes)))),
+                    columnChunkMetaData,
+                    new ColumnDescriptor(new String[] {"test_column"}, new PrimitiveType(REQUIRED, INT32, "test_column"), 0, 0),
+                    null,
+                    Optional.empty(),
+                    Optional.empty(),
+                    50L); // maxPageSize = 50 bytes
+
+            // Try to read the page - should fail during hasNext() when reading page header
+            pageReader.readPage();
+        })
+                .isInstanceOf(RuntimeException.class)
+                .hasRootCauseInstanceOf(io.trino.parquet.ParquetCorruptionException.class)
+                .hasMessageContaining("Parquet page size 100 bytes exceeds maximum allowed size 50 bytes");
+
+        // Test with maxPageSize = 150 bytes (more than the 100 bytes page) - should succeed
+        PageReader pageReader = PageReader.createPageReader(
+                new ParquetDataSourceId("test"),
+                new ChunkedInputStream(ImmutableList.of(new TestingChunkReader(Slices.wrappedBuffer(bytes)))),
+                columnChunkMetaData,
+                new ColumnDescriptor(new String[] {"test_column"}, new PrimitiveType(REQUIRED, INT32, "test_column"), 0, 0),
+                null,
+                Optional.empty(),
+                Optional.empty(),
+                150L); // maxPageSize = 150 bytes
+
+        assertThat(pageReader.hasNext()).isTrue();
+        DataPage dataPage = pageReader.readPage();
+        assertThat(dataPage).isNotNull();
+        assertThat(dataPage.getUncompressedSize()).isEqualTo(100);
+    }
+
     @DataProvider
     public Object[][] pageParameters()
     {
@@ -409,7 +480,8 @@ public class TestPageReader
                 new ColumnDescriptor(new String[] {}, new PrimitiveType(REQUIRED, INT32, ""), 0, 0),
                 null,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                0);
     }
 
     private static void assertDataPageEquals(PageHeader pageHeader, byte[] dataPage, byte[] compressedDataPage, DataPage decompressedPage)
