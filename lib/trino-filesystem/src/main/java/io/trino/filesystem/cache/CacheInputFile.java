@@ -32,23 +32,30 @@ public final class CacheInputFile
     private final TrinoInputFile delegate;
     private final TrinoFileSystemCache cache;
     private final CacheKeyProvider keyProvider;
+    private final boolean cachingEnabled;
     private OptionalLong length;
     private Optional<Instant> lastModified;
 
     public CacheInputFile(TrinoInputFile delegate, TrinoFileSystemCache cache, CacheKeyProvider keyProvider, OptionalLong length, Optional<Instant> lastModified)
+    {
+        this(delegate, cache, keyProvider, length, lastModified, true);
+    }
+
+    public CacheInputFile(TrinoInputFile delegate, TrinoFileSystemCache cache, CacheKeyProvider keyProvider, OptionalLong length, Optional<Instant> lastModified, boolean cachingEnabled)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.cache = requireNonNull(cache, "cache is null");
         this.keyProvider = requireNonNull(keyProvider, "keyProvider is null");
         this.length = requireNonNull(length, "length is null");
         this.lastModified = requireNonNull(lastModified, "lastModified is null");
+        this.cachingEnabled = cachingEnabled;
     }
 
     @Override
     public TrinoInput newInput()
             throws IOException
     {
-        Optional<String> key = keyProvider.getCacheKey(delegate);
+        Optional<String> key = getCacheKey();
         if (key.isPresent()) {
             return cache.cacheInput(delegate, key.orElseThrow());
         }
@@ -59,7 +66,7 @@ public final class CacheInputFile
     public TrinoInputStream newStream()
             throws IOException
     {
-        Optional<String> key = keyProvider.getCacheKey(delegate);
+        Optional<String> key = getCacheKey();
         if (key.isPresent()) {
             return cache.cacheStream(delegate, key.orElseThrow());
         }
@@ -71,7 +78,7 @@ public final class CacheInputFile
             throws IOException
     {
         if (length.isEmpty()) {
-            Optional<String> key = keyProvider.getCacheKey(delegate);
+            Optional<String> key = getCacheKey();
             if (key.isPresent()) {
                 length = OptionalLong.of(cache.cacheLength(delegate, key.orElseThrow()));
             }
@@ -80,6 +87,15 @@ public final class CacheInputFile
             }
         }
         return length.getAsLong();
+    }
+
+    private Optional<String> getCacheKey()
+            throws IOException
+    {
+        if (!cachingEnabled) {
+            return Optional.empty();
+        }
+        return keyProvider.getCacheKey(delegate);
     }
 
     @Override
