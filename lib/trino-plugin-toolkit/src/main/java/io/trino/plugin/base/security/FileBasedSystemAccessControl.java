@@ -236,6 +236,7 @@ public class FileBasedSystemAccessControl
             requireNonNull(config, "config is null");
 
             Bootstrap bootstrap = new Bootstrap(
+                    "io.trino.bootstrap.access." + getName(),
                     binder -> configBinder(binder).bindConfig(FileBasedAccessControlConfig.class),
                     new FileBasedSystemAccessControlModule());
 

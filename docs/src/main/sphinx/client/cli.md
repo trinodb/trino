@@ -163,6 +163,9 @@ mode:
     EMACS editors. Defaults to `EMACS`.
 * - `--extra-credential`
   - Extra credentials (property can be used multiple times; format is key=value)
+* - `--extra-header`
+  - HTTP header to add to the authenticated HTTP requests
+    (property can be used multiple times; format is key=value).
 * - `--http-proxy`
   - Configures the URL of the HTTP proxy to connect to Trino.
 * - `--history-file`

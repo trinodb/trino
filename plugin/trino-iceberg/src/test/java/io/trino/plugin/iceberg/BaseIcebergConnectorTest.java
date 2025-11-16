@@ -3321,6 +3321,10 @@ public abstract class BaseIcebergConnectorTest
         // year()
         assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE year(d) = 2015"))
                 .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE year(d) IS DISTINCT FROM 2015"))
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE year(d) IS NOT DISTINCT FROM 2015"))
+                .isFullyPushedDown();
 
         // date_trunc
         assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE date_trunc('year', d) = TIMESTAMP '2015-01-01 00:00:00.000000 UTC'"))

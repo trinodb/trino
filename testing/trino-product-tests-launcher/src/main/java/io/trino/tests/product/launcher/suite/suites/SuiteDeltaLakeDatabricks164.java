@@ -22,8 +22,7 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 import java.util.List;
 
 import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_164;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_164;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteDeltaLakeDatabricks164
@@ -34,8 +33,7 @@ public class SuiteDeltaLakeDatabricks164
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvSinglenodeDeltaLakeDatabricks164.class)
-                        .withGroups(CONFIGURED_FEATURES, DELTA_LAKE_DATABRICKS)
-                        .withExcludedGroups(DELTA_LAKE_EXCLUDE_164)
+                        .withGroups(CONFIGURED_FEATURES, DELTA_LAKE_DATABRICKS_164)
                         .withExcludedTests(getExcludedTests())
                         .build());
     }

@@ -815,6 +815,13 @@ public class TestDeltaLakeConnectorTest
                 .isFullyPushedDown()
                 .returnsEmptyResult();
 
+        assertThat(query("SELECT * FROM " + tableName + " WHERE year(part) IS DISTINCT FROM 2006"))
+                .isNotFullyPushedDown(FilterNode.class);
+
+        assertThat(query("SELECT * FROM " + tableName + " WHERE year(part) IS NOT DISTINCT FROM 2006"))
+                .isFullyPushedDown()
+                .returnsEmptyResult();
+
         assertUpdate("DROP TABLE " + tableName);
     }
 

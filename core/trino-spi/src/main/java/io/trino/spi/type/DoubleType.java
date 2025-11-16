@@ -174,10 +174,10 @@ public final class DoubleType
     @ScalarOperator(READ_VALUE)
     private static void writeFlat(
             double value,
-            byte[] fixedSizeSlice,
-            int fixedSizeOffset,
-            byte[] unusedVariableSizeSlice,
-            int unusedVariableSizeOffset)
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            @FlatVariableOffset int unusedVariableSizeOffset)
     {
         DOUBLE_HANDLE.set(fixedSizeSlice, fixedSizeOffset, value);
     }

@@ -26,7 +26,6 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.Type;
@@ -36,6 +35,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class DistinctWindowAccumulator
@@ -117,8 +117,7 @@ public class DistinctWindowAccumulator
                 pageBuilder.reset();
             }
             for (int channel = 0; channel < argumentChannels.size(); channel++) {
-                ValueBlock value = index.getSingleValueBlock(channel, position).getSingleValueBlock(0);
-                pageBuilder.getBlockBuilder(channel).append(value, 0);
+                index.appendTo(channel, position, pageBuilder.getBlockBuilder(channel));
             }
             pageBuilder.declarePosition();
         }
@@ -126,39 +125,46 @@ public class DistinctWindowAccumulator
 
     private void indexCurrentPage(Page page)
     {
+        long initialGroupCount = hash.getGroupCount();
         Work<Block> work = hash.markDistinctRows(page);
         checkState(work.process());
         Block distinctMask = work.getResult();
 
         int positionCount = distinctMask.getPositionCount();
         checkArgument(positionCount == page.getPositionCount(), "Page position count does not match distinct mask position count");
-        PagesIndex pagesIndex = pagesIndexFactory.newPagesIndex(argumentTypes, positionCount);
+
+        int distinctPositions = toIntExact(hash.getGroupCount() - initialGroupCount);
+        if (distinctPositions == 0) {
+            return;
+        }
+        PagesIndex pagesIndex = pagesIndexFactory.newPagesIndex(argumentTypes, distinctPositions);
 
         if (distinctMask instanceof RunLengthEncodedBlock) {
-            if (test(distinctMask, 0)) {
-                // all positions selected
-                pagesIndex.addPage(page);
-            }
+            // all positions selected
+            checkState(test(distinctMask, 0), "all positions must be distinct");
+            pagesIndex.addPage(page);
         }
         else {
-            PageBuilder filteredPageBuilder = new PageBuilder(argumentTypes);
+            int[] selectedPositions = new int[distinctPositions];
+            int selectedIndex = 0;
             for (int position = 0; position < positionCount; position++) {
-                if (!test(distinctMask, position)) {
-                    continue;
+                if (test(distinctMask, position)) {
+                    selectedPositions[selectedIndex++] = position;
                 }
-                for (int channel = 0; channel < argumentChannels.size(); channel++) {
-                    Block block = page.getBlock(channel);
-                    filteredPageBuilder.getBlockBuilder(channel).append(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
-                }
-                filteredPageBuilder.declarePosition();
             }
-            pagesIndex.addPage(filteredPageBuilder.build());
+            checkState(selectedIndex == selectedPositions.length, "Invalid positions in distinct mask");
+
+            Block[] filteredBlocks = new Block[argumentChannels.size()];
+            for (int channel = 0; channel < argumentChannels.size(); channel++) {
+                filteredBlocks[channel] = page.getBlock(channel).copyPositions(selectedPositions, 0, selectedPositions.length);
+            }
+            pagesIndex.addPage(new Page(selectedPositions.length, filteredBlocks));
         }
         int selectedPositionsCount = pagesIndex.getPositionCount();
-        if (selectedPositionsCount > 0) {
-            PagesWindowIndex selectedWindowIndex = new PagesWindowIndex(pagesIndex, 0, selectedPositionsCount);
-            delegate.addInput(selectedWindowIndex, 0, selectedPositionsCount - 1);
-        }
+        checkState(selectedPositionsCount == distinctPositions, "unexpected pagesIndex positions: %s <> %s", selectedPositionsCount, distinctPositions);
+
+        PagesWindowIndex selectedWindowIndex = new PagesWindowIndex(pagesIndex, 0, selectedPositionsCount);
+        delegate.addInput(selectedWindowIndex, 0, selectedPositionsCount - 1);
     }
 
     private static boolean test(Block block, int position)

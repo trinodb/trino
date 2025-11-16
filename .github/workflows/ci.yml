@@ -130,7 +130,7 @@ jobs:
           $MAVEN failsafe:integration-test failsafe:verify -B --strict-checksums -P ci -pl :trino-jdbc
       - name: Clean Maven Output
         run: $MAVEN clean -pl '!:trino-server,!:trino-cli'
-      - uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
         with:
           platforms: arm64,ppc64le
       - name: Build and Test Docker Image
@@ -911,6 +911,7 @@ jobs:
             - suite-delta-lake-databricks143
             - suite-delta-lake-databricks154
             - suite-delta-lake-databricks164
+            - suite-delta-lake-databricks173
             - suite-exasol
             - suite-ranger
             - suite-gcs
@@ -923,6 +924,7 @@ jobs:
             - suite-parquet
             - suite-oauth2
             - suite-ldap
+            - suite-loki
             - suite-compatibility
             - suite-all-connectors-smoke
             - suite-delta-lake-oss
@@ -959,6 +961,9 @@ jobs:
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks164
+              ignore exclusion if: >-
+                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
+            - suite: suite-delta-lake-databricks173
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-snowflake
@@ -1010,6 +1015,7 @@ jobs:
           DATABRICKS_143_JDBC_URL: ""
           DATABRICKS_154_JDBC_URL: ""
           DATABRICKS_164_JDBC_URL: ""
+          DATABRICKS_173_JDBC_URL: ""
           DATABRICKS_LOGIN: ""
           DATABRICKS_TOKEN: ""
           GCP_CREDENTIALS_KEY: ""
@@ -1082,6 +1088,7 @@ jobs:
           DATABRICKS_143_JDBC_URL: ${{ vars.DATABRICKS_143_JDBC_URL }}
           DATABRICKS_154_JDBC_URL: ${{ vars.DATABRICKS_154_JDBC_URL }}
           DATABRICKS_164_JDBC_URL: ${{ vars.DATABRICKS_164_JDBC_URL }}
+          DATABRICKS_173_JDBC_URL: ${{ vars.DATABRICKS_173_JDBC_URL }}
           DATABRICKS_LOGIN: token
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}

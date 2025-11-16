@@ -332,7 +332,8 @@ More information in [](/functions/array).
 ### `MAP`
 
 A map between the given component types. A map is a collection of key-value
-pairs, where each key is associated with a single value.
+pairs, where each key is associated with a single value. Map keys are required,
+while map values can be null.
 
 Example: `MAP(ARRAY['foo', 'bar'], ARRAY[1, 2])`
 

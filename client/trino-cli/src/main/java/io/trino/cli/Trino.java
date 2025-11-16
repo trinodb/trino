@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import io.trino.cli.ClientOptions.ClientExtraCredential;
 import io.trino.cli.ClientOptions.ClientResourceEstimate;
 import io.trino.cli.ClientOptions.ClientSessionProperty;
+import io.trino.cli.ClientOptions.ExtraHeader;
 import org.jline.utils.AttributedStringBuilder;
 import org.jline.utils.AttributedStyle;
 import picocli.CommandLine;
@@ -62,6 +63,7 @@ public final class Trino
                 .registerConverter(ClientResourceEstimate.class, ClientResourceEstimate::new)
                 .registerConverter(ClientSessionProperty.class, ClientSessionProperty::new)
                 .registerConverter(ClientExtraCredential.class, ClientExtraCredential::new)
+                .registerConverter(ExtraHeader.class, ExtraHeader::new)
                 .registerConverter(HostAndPort.class, HostAndPort::fromString)
                 .registerConverter(Duration.class, Duration::valueOf)
                 .setResourceBundle(new TrinoResourceBundle())

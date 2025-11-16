@@ -248,7 +248,7 @@ public final class UtcConstraintExtractor
             return Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, startOfDate)), false));
         }
         if (functionName.equals(IDENTICAL_OPERATOR_FUNCTION_NAME)) {
-            return Optional.of(Domain.create(ValueSet.ofRanges(Range.range(type, startOfDate, true, startOfNextDate, false)), true));
+            return Optional.of(Domain.create(ValueSet.ofRanges(Range.range(type, startOfDate, true, startOfNextDate, false)), false));
         }
 
         return Optional.empty();
@@ -363,7 +363,7 @@ public final class UtcConstraintExtractor
             if (!constantAtPeriodStart) {
                 return Optional.of(Domain.none(type));
             }
-            return Optional.of(Domain.create(ValueSet.ofRanges(Range.range(type, start, true, end, false)), true));
+            return Optional.of(Domain.create(ValueSet.ofRanges(Range.range(type, start, true, end, false)), false));
         }
         if (functionName.equals(LESS_THAN_OPERATOR_FUNCTION_NAME)) {
             if (constantAtPeriodStart) {

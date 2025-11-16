@@ -45,6 +45,7 @@ public class OAuth2SecurityProperties
         securityConfig.getServerUri().ifPresent(
                 value -> propertiesBuilder.put(OAuth2Properties.OAUTH2_SERVER_URI, value.toString()));
         propertiesBuilder.put(OAuth2Properties.TOKEN_REFRESH_ENABLED, String.valueOf(securityConfig.isTokenRefreshEnabled()));
+        propertiesBuilder.put(OAuth2Properties.TOKEN_EXCHANGE_ENABLED, String.valueOf(securityConfig.isTokenExchangeEnabled()));
 
         this.securityProperties = propertiesBuilder.buildOrThrow();
     }

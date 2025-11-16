@@ -36,6 +36,7 @@ public class FileAuthenticatorFactory
     public PasswordAuthenticator create(Map<String, String> config)
     {
         Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.auth." + getName(),
                 binder -> {
                     configBinder(binder).bindConfig(FileConfig.class);
                     binder.bind(FileAuthenticator.class).in(Scopes.SINGLETON);

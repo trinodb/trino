@@ -151,6 +151,6 @@ public final class LikeFunctions
 
     private static void checkEscape(boolean condition)
     {
-        checkCondition(condition, INVALID_FUNCTION_ARGUMENT, "Escape character must be followed by '%%', '_' or the escape character itself");
+        checkCondition(condition, INVALID_FUNCTION_ARGUMENT, "Escape character must be followed by '%', '_' or the escape character itself");
     }
 }

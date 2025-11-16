@@ -13,7 +13,6 @@
  */
 package io.trino.filesystem.local;
 
-import com.google.common.primitives.Ints;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInputStream;
 
@@ -53,7 +52,7 @@ class LocalInputStream
             throws IOException
     {
         ensureOpen();
-        return Ints.saturatedCast(fileLength - position);
+        return input.available();
     }
 
     @Override

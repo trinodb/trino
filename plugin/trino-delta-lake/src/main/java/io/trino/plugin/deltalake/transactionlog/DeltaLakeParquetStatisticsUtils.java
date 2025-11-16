@@ -252,7 +252,7 @@ public final class DeltaLakeParquetStatisticsUtils
     private static Map<String, Object> jsonEncode(Map<String, Optional<Statistics<?>>> stats, Map<String, Type> typeForColumn, BiFunction<Type, Statistics<?>, Optional<Object>> accessor)
     {
         Map<String, Optional<Object>> allStats = stats.entrySet().stream()
-                .filter(entry -> entry.getValue() != null && entry.getValue().isPresent() && !entry.getValue().get().isEmpty())
+                .filter(entry -> entry.getValue() != null && entry.getValue().isPresent() && !entry.getValue().get().isEmpty() && typeForColumn.containsKey(entry.getKey()))
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> accessor.apply(typeForColumn.get(entry.getKey()), entry.getValue().get())));
 
         return allStats.entrySet().stream()

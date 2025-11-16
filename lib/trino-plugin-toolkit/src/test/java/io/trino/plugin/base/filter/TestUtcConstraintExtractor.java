@@ -146,7 +146,7 @@ public class TestUtcConstraintExtractor
                         Map.of(timestampTzColumnSymbol, columnHandle))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(
                         columnHandle,
-                        Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)), true))));
+                        Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)), false))));
     }
 
     /**
@@ -216,7 +216,7 @@ public class TestUtcConstraintExtractor
                         Map.of(timestampTzColumnSymbol, columnHandle))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(
                         columnHandle,
-                        Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)), true))));
+                        Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)), false))));
     }
 
     /**
@@ -302,7 +302,7 @@ public class TestUtcConstraintExtractor
                         Map.of(timestampTzColumnSymbol, columnHandle))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(
                         columnHandle,
-                        Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)), true))));
+                        Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)), false))));
     }
 
     /**
@@ -388,7 +388,7 @@ public class TestUtcConstraintExtractor
                         Map.of(timestampTzColumnSymbol, columnHandle))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(
                         columnHandle,
-                        Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)), true))));
+                        Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfDateUtc, true, startOfNextDateUtc, false)), false))));
     }
 
     /**
@@ -461,7 +461,7 @@ public class TestUtcConstraintExtractor
                         Map.of(timestampTzColumnSymbol, columnHandle))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(
                         columnHandle,
-                        Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfYearUtc, true, startOfNextDateUtc, false)), true))));
+                        Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfYearUtc, true, startOfNextDateUtc, false)), false))));
     }
 
     /**
@@ -534,7 +534,7 @@ public class TestUtcConstraintExtractor
                         Map.of(timestampTzColumnSymbol, columnHandle))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(
                         columnHandle,
-                        Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfYearUtc, true, startOfNextDateUtc, false)), true))));
+                        Domain.create(ValueSet.ofRanges(Range.range(columnType, startOfYearUtc, true, startOfNextDateUtc, false)), false))));
     }
 
     @Test

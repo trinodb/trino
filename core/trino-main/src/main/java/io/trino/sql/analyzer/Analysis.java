@@ -43,6 +43,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.eventlistener.BaseViewReferenceInfo;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
+import io.trino.spi.eventlistener.ColumnLineageInfo;
 import io.trino.spi.eventlistener.ColumnMaskReferenceInfo;
 import io.trino.spi.eventlistener.MaterializedViewReferenceInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
@@ -100,6 +101,7 @@ import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -274,6 +276,31 @@ public class Analysis
         this.root = root;
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
         this.queryType = requireNonNull(queryType, "queryType is null");
+    }
+
+    public Optional<List<ColumnLineageInfo>> getSelectColumnsLineageInfo()
+    {
+        //  This single check should handle all cases where we don't want to produce lineage info:
+        //  - EXPLAIN ✓
+        //  - INSERT/UPDATE/DELETE/MERGE ✓
+        //  - ALTER TABLE ADD COLUMN ✓
+        //  - SET COLUMN TYPE or any other DDL ✓
+        if (!(root instanceof Query)) {
+            return Optional.empty();
+        }
+
+        RelationType rootRelation = getOutputDescriptor();
+        List<ColumnLineageInfo> lineageInfo = rootRelation.getVisibleFields().stream()
+                // sort output fields by their index to ensure consistent ordering of lineage info
+                .sorted(Comparator.comparingInt(rootRelation::indexOf))
+                .map(field -> new ColumnLineageInfo(
+                        field.getName().orElse(""),
+                        getSourceColumns(field)
+                            .stream()
+                            .map(SourceColumn::getColumnDetail)
+                            .collect(toImmutableSet())))
+                .collect(toImmutableList());
+        return lineageInfo.isEmpty() ? Optional.empty() : Optional.of(lineageInfo);
     }
 
     public Statement getStatement()
