@@ -10,7 +10,6 @@
 * Improve performance of array_sort function. ({issue}`27272`)
 * Fix planning failure of certain queries where part of the plan is optimized to empty values. ({issue}`21506`)
 * Fix configuring partitioned layout for spooling protocol ({issue}`27247`)
-* Harden hierarchical namespace check in Azure with root blob fallback check. ({issue}`27278`)
 
 ## Security
 
@@ -38,6 +37,7 @@
 
 * Fix incorrect results due to incorrect pushdown of `IS NOT DISTINCT FROM`. ({issue}`27213`)
 * Fix failure when writing to tables written by Databricks 17.3. ({issue}`27100`)
+* Harden hierarchical namespace check in Azure with root blob fallback check. ({issue}`27278`)
 
 ## Druid connector
 
@@ -54,14 +54,18 @@
 ## Hive connector
 
 * Fix updating table statistics when running INSERT queries with OVERWRITE behaviour. ({issue}`26517`)
+* Harden hierarchical namespace check in Azure with root blob fallback check. ({issue}`27278`)
 
 ## Hudi connector
+
+* Harden hierarchical namespace check in Azure with root blob fallback check. ({issue}`27278`)
 
 ## Iceberg connector
 
 * Add support for disabling token exchange via the `iceberg.rest-catalog.oauth2.token-exchange-enabled` config property. ({issue}`27174`)
 * Fix failures when querying `$files` table after changes to table partitioning. ({issue}`26746`)
 * Fix incorrect results due to incorrect pushdown of `IS NOT DISTINCT FROM`. ({issue}`27213`)
+* Harden hierarchical namespace check in Azure with root blob fallback check. ({issue}`27278`)
 
 ## Ignite connector
 
