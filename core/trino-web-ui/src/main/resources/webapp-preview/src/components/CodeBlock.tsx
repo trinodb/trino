@@ -57,13 +57,28 @@ export const CodeBlock = (props: ICodeBlockProps) => {
             return
         }
 
-        const lineHeightOption = editor.getOption(monaco.editor.EditorOption.lineHeight)
-        const lineHeight = typeof lineHeightOption === 'number' ? lineHeightOption : FALLBACK_LINE_HEIGHT_PX
-        const lineCount = Math.max(code.split(LINE_BREAK_REGEX).length, 1)
-        const estimatedHeight = lineCount * lineHeight + EDITOR_EXTRA_PADDING
-        const viewportCap = window.innerHeight * VIEWPORT_HEIGHT_RATIO
-        const clampedHeight = Math.min(estimatedHeight, viewportCap)
-        setResolvedHeight(`${Math.round(clampedHeight)}px`)
+        const estimateHeightFromLines = () => {
+            const lineHeightOption = editor.getOption(monaco.editor.EditorOption.lineHeight)
+            const lineHeight = typeof lineHeightOption === 'number' ? lineHeightOption : FALLBACK_LINE_HEIGHT_PX
+            const lineCount = Math.max(code.split(LINE_BREAK_REGEX).length, 1)
+            return lineCount * lineHeight + EDITOR_EXTRA_PADDING
+        }
+
+        const updateHeight = (contentHeight?: number) => {
+            const rawHeight =
+                typeof contentHeight === 'number' ? contentHeight + EDITOR_EXTRA_PADDING : estimateHeightFromLines()
+            const viewportCap = window.innerHeight * VIEWPORT_HEIGHT_RATIO
+            const clampedHeight = Math.min(rawHeight, viewportCap)
+            setResolvedHeight(`${Math.round(clampedHeight)}px`)
+        }
+
+        updateHeight(editor.getContentHeight())
+
+        const disposable = editor.onDidContentSizeChange((event) => {
+            updateHeight(event.contentHeight)
+        })
+
+        editor.onDidDispose(() => disposable.dispose())
     }
 
     const defaultMonacoOptions: MonacoEditor.IStandaloneEditorConstructionOptions = {
@@ -94,6 +109,7 @@ export const CodeBlock = (props: ICodeBlockProps) => {
                 border: `1px solid ${theme.palette.mode === 'dark' ? '#3f3f3f' : '#ddd'}`,
                 borderBottom: noBottomBorder ? 'none' : '',
                 width: '100%',
+                height: '100%',
                 maxHeight: '90vh',
             })}
         >
