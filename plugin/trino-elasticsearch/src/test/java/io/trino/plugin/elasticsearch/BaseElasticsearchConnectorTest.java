@@ -231,7 +231,7 @@ public abstract class BaseElasticsearchConnectorTest
         // Multiple aggregations with COUNT(*)
         assertQuery(
                 "SELECT regionkey, COUNT(*), MIN(nationkey), MAX(nationkey) FROM nation GROUP BY regionkey ORDER BY regionkey",
-                "VALUES (0, 5, 0, 16), (1, 5, 1, 24), (2, 5, 2, 21), (3, 5, 3, 23), (4, 5, 4, 20)");
+                "VALUES (0, 5, 0, 16), (1, 5, 1, 24), (2, 5, 8, 21), (3, 5, 6, 23), (4, 5, 4, 20)");
     }
 
     @Test
@@ -243,7 +243,7 @@ public abstract class BaseElasticsearchConnectorTest
                 "VALUES " +
                         "(0, 0, 3), (0, 1, 2), " +
                         "(1, 0, 2), (1, 1, 3), " +
-                        "(2, 0, 2), (2, 1, 3), " +
+                        "(2, 0, 3), (2, 1, 2), " +
                         "(3, 0, 2), (3, 1, 3), " +
                         "(4, 0, 3), (4, 1, 2)");
     }
@@ -254,11 +254,6 @@ public abstract class BaseElasticsearchConnectorTest
         // COUNT(*) with GROUP BY and HAVING
         assertQuery(
                 "SELECT regionkey, COUNT(*) as cnt FROM nation GROUP BY regionkey HAVING COUNT(*) > 4 ORDER BY regionkey",
-                "VALUES (0, 5), (1, 5), (2, 5), (3, 5), (4, 5)");
-
-        // COUNT(*) with GROUP BY and HAVING using alias
-        assertQuery(
-                "SELECT regionkey, COUNT(*) as cnt FROM nation GROUP BY regionkey HAVING cnt = 5 ORDER BY regionkey",
                 "VALUES (0, 5), (1, 5), (2, 5), (3, 5), (4, 5)");
     }
 

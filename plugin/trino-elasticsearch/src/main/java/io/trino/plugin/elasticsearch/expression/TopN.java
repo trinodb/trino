@@ -46,6 +46,12 @@ public record TopN(long limit, List<TopNSortItem> topNSortItems)
         // sorting by _doc (index order) get special treatment in Elasticsearch and is more efficient
         public static final TopNSortItem DEFAULT_SORT_BY_DOC = sortBy("_doc");
 
+        public TopNSortItem
+        {
+            requireNonNull(field, "field is null");
+            requireNonNull(order, "order is null");
+        }
+
         public static TopNSortItem sortBy(String field)
         {
             return new TopNSortItem(field, SortOrder.ASC_NULLS_LAST);
