@@ -39,12 +39,6 @@ public class TestS3FileSystemS3Mock
             .withInitialBuckets(BUCKET);
 
     @Override
-    protected boolean isCreateExclusive()
-    {
-        return false; // not supported by s3-mock
-    }
-
-    @Override
     protected boolean supportsCreateExclusive()
     {
         return false; // not supported by s3-mock
