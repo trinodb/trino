@@ -2404,6 +2404,19 @@ class AstBuilder
     }
 
     @Override
+    public Node visitChainedFunctionCalls(SqlBaseParser.ChainedFunctionCallsContext context)
+    {
+        FunctionCall functionCall = (FunctionCall) visit(context.right);
+        return new FunctionCall(
+                getLocation(context),
+                functionCall.getName(),
+                ImmutableList.<Expression>builder()
+                        .add((Expression) visit(context.left))
+                        .addAll(functionCall.getArguments())
+                        .build());
+    }
+
+    @Override
     public Node visitAtTimeZone(SqlBaseParser.AtTimeZoneContext context)
     {
         return new AtTimeZone(
