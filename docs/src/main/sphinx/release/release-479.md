@@ -6,6 +6,7 @@
 * Add support for specifying the location of the Exchange Manager configuration file. ({issue}`26611`)
 * Publish query finishing time in event listener. ({issue}`27202`)
 * Enhance after `RemoveTrivialFilters` call `RemoveEmptyUnionBranches` to prune empty union branches. ({issue}`21506`)
+* Improve performance of array_sort function. ({issue}`27272`)
 * Fix planning failure of certain queries where part of the plan is optimized to empty values. ({issue}`21506`)
 * Fix configuring partitioned layout for spooling protocol ({issue}`27247`)
 
