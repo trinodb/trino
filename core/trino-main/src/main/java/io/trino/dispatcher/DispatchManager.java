@@ -235,6 +235,7 @@ public class DispatchManager
                     sessionContext.getSource(),
                     sessionContext.getClientTags(),
                     sessionContext.getResourceEstimates(),
+                    query,
                     queryType));
 
             // apply system default session properties (does not override user set properties)
