@@ -62,7 +62,7 @@ public interface TrinoOutputFile
      * <p>
      * If the file already exists, the method may fail or the file may be overwritten,
      * depending on the file system implementation.
-     * For example, S3 does not support creating files exclusively, and performing an
+     * For example, S3 used not to support creating files exclusively, and performing an
      * existence check before creating the file is both expensive and unnecessary for
      * locations that are expected to be unique.
      * <p>
