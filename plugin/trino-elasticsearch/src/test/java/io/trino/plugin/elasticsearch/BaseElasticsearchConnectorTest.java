@@ -263,6 +263,23 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
+    public void testAggregationOnKeywordFields()
+    {
+        // COUNT on keyword field
+        assertQuery("SELECT COUNT(name) FROM nation", "VALUES (25)");
+
+        // MIN/MAX on keyword field (lexicographic ordering)
+        assertQuery(
+                "SELECT regionkey, MIN(name), MAX(name) FROM nation GROUP BY regionkey ORDER BY regionkey LIMIT 2",
+                "VALUES (0, 'ALGERIA', 'MOZAMBIQUE'), (1, 'ARGENTINA', 'UNITED STATES')");
+
+        // COUNT(*) and COUNT(keyword) together
+        assertQuery(
+                "SELECT regionkey, COUNT(*), COUNT(name) FROM nation GROUP BY regionkey ORDER BY regionkey LIMIT 2",
+                "VALUES (0, 5, 5), (1, 5, 5)");
+    }
+
+    @Test
     @Override
     public void testShowCreateTable()
     {
