@@ -14,11 +14,18 @@
 package io.trino.operator.scalar;
 
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.core.util.DefaultIndenter;
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.primitives.Doubles;
+import io.airlift.json.ObjectMapperProvider;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.trino.plugin.base.util.JsonTypeUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
@@ -32,6 +39,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.type.JsonPathType;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -45,6 +53,7 @@ import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_FLOAT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_STRING;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_TRUE;
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -60,6 +69,9 @@ public final class JsonFunctions
 
     private static final JsonFactory MAPPING_JSON_FACTORY = new MappingJsonFactory()
             .disable(CANONICALIZE_FIELD_NAMES);
+
+    private static final ObjectMapper SORTED_MAPPER = new ObjectMapperProvider().get()
+            .configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
 
     private JsonFunctions() {}
 
@@ -122,6 +134,41 @@ public final class JsonFunctions
     public static Slice jsonFormat(@SqlType(StandardTypes.JSON) Slice slice)
     {
         return slice;
+    }
+
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice jsonFormat(@SqlType(StandardTypes.JSON) Slice slice, @SqlType(StandardTypes.BIGINT) long indentSpaces)
+    {
+        if (indentSpaces < 0) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Indentation spaces must be non-negative, got: " + indentSpaces);
+        }
+        if (indentSpaces == 0) {
+            return slice;
+        }
+
+        try {
+            Object jsonValue;
+            try (JsonParser parser = createJsonParser(JSON_FACTORY, slice)) {
+                jsonValue = SORTED_MAPPER.readValue(parser, Object.class);
+            }
+
+            DefaultPrettyPrinter prettyPrinter = new DefaultPrettyPrinter();
+            String indentString = " ".repeat((int) indentSpaces);
+            prettyPrinter.indentObjectsWith(DefaultIndenter.SYSTEM_LINEFEED_INSTANCE.withIndent(indentString));
+            prettyPrinter.indentArraysWith(DefaultIndenter.SYSTEM_LINEFEED_INSTANCE.withIndent(indentString));
+
+            SliceOutput output = new DynamicSliceOutput((int) (slice.length() * 1.5));
+            try (JsonGenerator generator = JSON_FACTORY.createGenerator((OutputStream) output)) {
+                generator.setPrettyPrinter(prettyPrinter);
+                SORTED_MAPPER.writeValue(generator, jsonValue);
+            }
+
+            return output.slice();
+        }
+        catch (IOException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Failed to format JSON: " + truncateIfNecessaryForErrorMessage(slice), e);
+        }
     }
 
     @ScalarFunction
