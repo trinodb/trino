@@ -98,6 +98,12 @@ public class MetricAggregation
         if (!SUPPORTED_AGGREGATION_FUNCTIONS.contains(function.getFunctionName())) {
             return Optional.empty();
         }
+
+        // Special case: COUNT(*) has no arguments
+        if (COUNT.equals(function.getFunctionName()) && function.getArguments().isEmpty()) {
+            return Optional.of(new MetricAggregation(COUNT, function.getOutputType(), Optional.empty(), alias));
+        }
+
         // check
         // 1. Function input can be found in assignments
         // 2. Target type of column being aggregate must be numeric type

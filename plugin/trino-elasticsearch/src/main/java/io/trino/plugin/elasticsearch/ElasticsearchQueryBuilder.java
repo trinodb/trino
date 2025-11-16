@@ -117,7 +117,11 @@ public final class ElasticsearchQueryBuilder
         Optional<ElasticsearchColumnHandle> column = aggregation.getColumnHandle();
         String field;
         if (column.isEmpty()) {
-            field = "_id"; // use value_count("_id") aggregation to resolve count(*)
+            field = "_id";
+            // For COUNT(*), we don't create a sub-aggregation - we rely on the doc_count
+            if (MetricAggregation.COUNT.equals(aggregation.getFunctionName())) {
+                return null;
+            }
         }
         else {
             field = column.get().name();
