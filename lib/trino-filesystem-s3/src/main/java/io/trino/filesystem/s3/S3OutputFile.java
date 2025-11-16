@@ -74,7 +74,7 @@ final class S3OutputFile
         return create(memoryContext, context.exclusiveWriteSupported());
     }
 
-    public OutputStream create(AggregatedMemoryContext memoryContext, boolean exclusive)
+    private OutputStream create(AggregatedMemoryContext memoryContext, boolean exclusive)
     {
         return new S3OutputStream(memoryContext, uploadExecutor, client, context, location, exclusive, key);
     }
