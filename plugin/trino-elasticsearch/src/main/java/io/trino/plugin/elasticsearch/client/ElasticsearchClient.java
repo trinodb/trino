@@ -586,6 +586,9 @@ public class ElasticsearchClient
         if (aggregations.isPresent()) {
             aggregations.get().forEach(sourceBuilder::aggregation);
             sourceBuilder.size(0);
+            // Enable accurate total hits tracking for COUNT(*) aggregations
+            // This ensures we get accurate counts beyond the default 10,000 limit
+            sourceBuilder.trackTotalHits(true);
         }
         else {
             if (topN.isPresent() &&
