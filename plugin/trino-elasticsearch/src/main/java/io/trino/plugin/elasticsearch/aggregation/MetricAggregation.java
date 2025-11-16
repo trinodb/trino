@@ -90,6 +90,19 @@ public class MetricAggregation
         return NUMERIC_TYPES.contains(type);
     }
 
+    private static boolean isValidAggregationColumn(String functionName, ElasticsearchColumnHandle column)
+    {
+        return switch (functionName) {
+            // COUNT works on any column that supports predicates
+            case COUNT -> true;
+            // MIN/MAX work on numeric types and any column that supports predicates (e.g., keywords for lexicographic ordering)
+            case MIN, MAX -> true;
+            // SUM/AVG only work on numeric types
+            case SUM, AVG -> isNumericType(column.type());
+            default -> false;
+        };
+    }
+
     public static Optional<MetricAggregation> handleAggregation(
             AggregateFunction function,
             Map<String, ColumnHandle> assignments,
@@ -106,8 +119,11 @@ public class MetricAggregation
 
         // check
         // 1. Function input can be found in assignments
-        // 2. Target type of column being aggregate must be numeric type
-        // 3. ColumnHandle support predicates(since text treats as VARCHAR, but text can not be treats as term in es by default
+        // 2. Target type of column being aggregate must be appropriate for the aggregation function:
+        //    - COUNT: any column that supports predicates (keyword, numeric)
+        //    - MIN/MAX: numeric types OR columns that support predicates (keyword fields for lexicographic ordering)
+        //    - SUM/AVG: only numeric types
+        // 3. ColumnHandle must support predicates (e.g., keyword fields are OK, but text fields are not)
         Optional<ElasticsearchColumnHandle> parameterColumnHandle = function.getArguments().stream()
                 .filter(input -> input instanceof Variable)
                 .map(Variable.class::cast)
@@ -116,8 +132,8 @@ public class MetricAggregation
                 .findFirst()
                 .map(assignments::get)
                 .map(ElasticsearchColumnHandle.class::cast)
-                .filter(column -> MetricAggregation.isNumericType(column.type()))
-                .filter(ElasticsearchColumnHandle::supportsPredicates);
+                .filter(ElasticsearchColumnHandle::supportsPredicates)
+                .filter(column -> isValidAggregationColumn(function.getFunctionName(), column));
         if (parameterColumnHandle.isEmpty()) {
             return Optional.empty();
         }
