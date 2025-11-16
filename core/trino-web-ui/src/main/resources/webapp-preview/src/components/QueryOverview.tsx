@@ -291,9 +291,13 @@ export const QueryOverview = () => {
                         {key}={value}
                     </div>
                 ))}
-                {Object.entries(session.catalogProperties).map(([key, value]) => (
-                    <div key={key}>
-                        {key}={value}
+                {Object.entries(session.catalogProperties).map(([catalog, catalogProperties]) => (
+                    <div key={catalog}>
+                        {Object.entries(catalogProperties).map(([key, value]) => (
+                            <div key={catalog + key}>
+                                {catalog}.{key}={value}
+                            </div>
+                        ))}
                     </div>
                 ))}
             </>
