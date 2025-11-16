@@ -28,6 +28,7 @@ import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
@@ -99,6 +100,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
+import static org.apache.iceberg.CatalogUtil.dropTableData;
 import static org.apache.iceberg.view.ViewProperties.COMMENT;
 
 public class TrinoRestCatalog
@@ -112,6 +114,7 @@ public class TrinoRestCatalog
     private final RESTSessionCatalog restSessionCatalog;
     private final CatalogName catalogName;
     private final TypeManager typeManager;
+    private final Security security;
     private final SessionType sessionType;
     private final Map<String, String> credentials;
     private final boolean nestedNamespaceEnabled;
@@ -129,6 +132,7 @@ public class TrinoRestCatalog
     public TrinoRestCatalog(
             RESTSessionCatalog restSessionCatalog,
             CatalogName catalogName,
+            Security security,
             SessionType sessionType,
             Map<String, String> credentials,
             boolean nestedNamespaceEnabled,
@@ -142,6 +146,7 @@ public class TrinoRestCatalog
     {
         this.restSessionCatalog = requireNonNull(restSessionCatalog, "restSessionCatalog is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.security = requireNonNull(security, "security is null");
         this.sessionType = requireNonNull(sessionType, "sessionType is null");
         this.credentials = ImmutableMap.copyOf(requireNonNull(credentials, "credentials is null"));
         this.nestedNamespaceEnabled = nestedNamespaceEnabled;
@@ -411,6 +416,11 @@ public class TrinoRestCatalog
                 // TODO Replace with createTransaction once S3 Tables supports stage-create option
                 return tableBuilder.create().newTransaction();
             }
+            if (security == Security.GOOGLE) {
+                // Specifying location results in "Malformed request: The table `location` property can only point to the default location"
+                // even though the generated path is the same as the specific path.
+                return tableBuilder.createTransaction();
+            }
             return tableBuilder.withLocation(location.get()).createTransaction();
         }
         catch (RESTException e) {
@@ -471,6 +481,33 @@ public class TrinoRestCatalog
     @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
+        if (isBigLake()) {
+            dropBigLakeTable(session, schemaTableName);
+        }
+        else {
+            purgeTable(session, schemaTableName);
+        }
+        invalidateTableCache(schemaTableName);
+        invalidateTableMappingCache(schemaTableName);
+    }
+
+    public void dropBigLakeTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        BaseTable table = loadTable(session, schemaTableName);
+        purgeTable(session, schemaTableName);
+        try {
+            // Explicitly remove data like TrinoGlueCatalog.dropTable since BigLake doesn't delete its data and metadata
+            dropTableData(table.io(), table.operations().current());
+        }
+        catch (RuntimeException e) {
+            // If the snapshot file is not found, an exception will be thrown by the dropTableData function.
+            // So log the exception and continue with deleting the table location
+            log.warn(e, "Failed to delete table data referenced by metadata");
+        }
+    }
+
+    public void purgeTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
         try {
             if (!restSessionCatalog.purgeTable(convert(session), toRemoteTable(session, schemaTableName, true))) {
                 throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to drop table '%s'".formatted(schemaTableName));
@@ -479,8 +516,6 @@ public class TrinoRestCatalog
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to drop table '%s'".formatted(schemaTableName.getTableName()), e);
         }
-        invalidateTableCache(schemaTableName);
-        invalidateTableMappingCache(schemaTableName);
     }
 
     @Override
@@ -825,6 +860,11 @@ public class TrinoRestCatalog
         }
 
         replaceViewVersion.commit();
+    }
+
+    public boolean isBigLake()
+    {
+        return security == Security.GOOGLE;
     }
 
     private SessionCatalog.SessionContext convert(ConnectorSession session)

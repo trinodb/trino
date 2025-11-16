@@ -488,7 +488,7 @@ following properties:
     `s3://my_bucket/warehouse_location`
 * - `iceberg.rest-catalog.security`
   - The type of security to use (default: `NONE`). Possible values are `NONE`, 
-    `SIGV4` or `OAUTH2`. `OAUTH2` requires either a `token` or `credential`.
+    `SIGV4`, `GOOGLE` or `OAUTH2`. `OAUTH2` requires either a `token` or `credential`.
 * - `iceberg.rest-catalog.session`
   - Session information included when communicating with the REST Catalog.
     Options are `NONE` or `USER` (default: `NONE`).
@@ -522,6 +522,8 @@ following properties:
   - Enable view endpoints. Defaults to `true`.
 * - `iceberg.rest-catalog.signing-name`
   - AWS SigV4 signing service name. Defaults to `execute-api`.
+* - `iceberg.rest-catalog.google-project-id`
+  - Google Cloud project name. Example: `development-123456`.
 * - `iceberg.rest-catalog.case-insensitive-name-matching`
   - Match namespace, table, and view names case insensitively. Defaults to `false`.
 * - `iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl`
