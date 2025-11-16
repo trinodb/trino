@@ -700,6 +700,42 @@ public class TestJsonFunctions
     }
 
     @Test
+    public void testJsonFormatWithIndentation()
+    {
+        assertThat(assertions.function("json_format", "JSON '{\"a\":1,\"b\":2}'", "2"))
+                .hasType(VARCHAR)
+                .isEqualTo("{\n  \"a\" : 1,\n  \"b\" : 2\n}");
+
+        assertThat(assertions.function("json_format", "JSON '{\"a\":1,\"b\":2}'", "4"))
+                .hasType(VARCHAR)
+                .isEqualTo("{\n    \"a\" : 1,\n    \"b\" : 2\n}");
+
+        assertThat(assertions.function("json_format", "JSON '{\"a\":1,\"b\":2}'", "0"))
+                .hasType(VARCHAR)
+                .isEqualTo("{\"a\":1,\"b\":2}");
+
+        assertThat(assertions.function("json_format", "JSON '{\"a\":{\"x\":1},\"b\":[1,2]}'", "2"))
+                .hasType(VARCHAR)
+                .isEqualTo("{\n  \"a\" : {\n    \"x\" : 1\n  },\n  \"b\" : [\n    1,\n    2\n  ]\n}");
+
+        assertThat(assertions.function("json_format", "JSON '[1,2,3]'", "2"))
+                .hasType(VARCHAR)
+                .isEqualTo("[\n  1,\n  2,\n  3\n]");
+
+        assertThat(assertions.function("json_format", "JSON '{\"id\":9223372036854775807}'", "2"))
+                .hasType(VARCHAR)
+                .isEqualTo("{\n  \"id\" : 9223372036854775807\n}");
+    }
+
+    @Test
+    public void testJsonFormatWithIndentationInvalid()
+    {
+        assertTrinoExceptionThrownBy(assertions.function("json_format", "JSON '{\"a\":1}'", "-1")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageContaining("Indentation spaces must be non-negative");
+    }
+
+    @Test
     public void testJsonSize()
     {
         assertThat(assertions.function("json_size", "'{\"x\": {\"a\" : 1, \"b\" : 2} }'", "'$'"))
