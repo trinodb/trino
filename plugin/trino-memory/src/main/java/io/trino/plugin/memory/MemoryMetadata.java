@@ -482,6 +482,36 @@ public class MemoryMetadata
     }
 
     @Override
+    public synchronized void setDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, String defaultValue)
+    {
+        MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
+        MemoryColumnHandle column = (MemoryColumnHandle) columnHandle;
+        long tableId = handle.id();
+        TableInfo table = tables.get(handle.id());
+
+        List<ColumnInfo> columns = new ArrayList<>(table.columns());
+        ColumnInfo columnInfo = columns.get(column.columnIndex());
+        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), Optional.of(defaultValue), columnInfo.nullable(), columnInfo.comment()));
+
+        tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.truncated(), table.dataFragments(), table.comment()));
+    }
+
+    @Override
+    public synchronized void dropDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
+        MemoryColumnHandle column = (MemoryColumnHandle) columnHandle;
+        long tableId = handle.id();
+        TableInfo table = tables.get(handle.id());
+
+        List<ColumnInfo> columns = new ArrayList<>(table.columns());
+        ColumnInfo columnInfo = columns.get(column.columnIndex());
+        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), Optional.empty(), columnInfo.nullable(), columnInfo.comment()));
+
+        tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.truncated(), table.dataFragments(), table.comment()));
+    }
+
+    @Override
     public synchronized void dropNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;

@@ -138,6 +138,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DEFAULT_COLUMN_
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DEREFERENCE_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_COLUMN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_DEFAULT_COLUMN_VALUE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_FIELD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_FIELD_IN_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_NOT_NULL_CONSTRAINT;
@@ -165,6 +166,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELET
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_UPDATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_COLUMN_TYPE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_DEFAULT_COLUMN_VALUE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_FIELD_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_FIELD_TYPE_IN_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_FIELD_TYPE_IN_MAP;
@@ -3144,6 +3146,48 @@ public abstract class BaseConnectorTest
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("SELECT CAST(row(1, 2) AS row(lower_renamed integer, upper_renamed integer))");
         }
+    }
+
+    @Test
+    public void testSetDefaultColumn()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_DEFAULT_COLUMN_VALUE));
+
+        try (TestTable table = newTrinoTable("test_set_default", "(col int)")) {
+            if (!hasBehavior(SUPPORTS_SET_DEFAULT_COLUMN_VALUE)) {
+                assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DEFAULT NULL", ".* Catalog '.*' does not support default value for column .*");
+                return;
+            }
+
+            assertThat(getColumnDefault(table.getName(), "col")).isNull();
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DEFAULT 123");
+            assertThat(getColumnDefault(table.getName(), "col")).isEqualTo("123");
+        }
+    }
+
+    @Test
+    public void testDropDefaultColumn()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_DEFAULT_COLUMN_VALUE));
+
+        try (TestTable table = newTrinoTable("test_set_default", "(col int DEFAULT 123)")) {
+            if (!hasBehavior(SUPPORTS_DROP_DEFAULT_COLUMN_VALUE)) {
+                assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN nationkey DROP DEFAULT", ".* Catalog '.*' does not support default value for column .*");
+                return;
+            }
+
+            assertThat(getColumnDefault(table.getName(), "col")).isEqualTo("123");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col DROP DEFAULT");
+            assertThat(getColumnDefault(table.getName(), "col")).isNull();
+        }
+    }
+
+    protected String getColumnDefault(String tableName, String columnName)
+    {
+        return (String) computeScalar("SELECT column_default FROM information_schema.columns " +
+                "WHERE table_schema = CURRENT_SCHEMA AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");
     }
 
     @Test
