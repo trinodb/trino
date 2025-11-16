@@ -19,21 +19,17 @@ import io.trino.plugin.elasticsearch.ElasticsearchColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
 
-import java.util.Objects;
 import java.util.Optional;
 
-public class TermAggregation
-{
-    private final String term;
-    private final Type type;
+import static java.util.Objects.requireNonNull;
 
+public record TermAggregation(String term, Type type)
+{
     @JsonCreator
-    public TermAggregation(
-            @JsonProperty("term") String term,
-            @JsonProperty("type") Type type)
+    public TermAggregation
     {
-        this.term = term;
-        this.type = type;
+        requireNonNull(term, "term is null");
+        requireNonNull(type, "type is null");
     }
 
     @JsonProperty
@@ -57,26 +53,6 @@ public class TermAggregation
         else {
             return Optional.empty();
         }
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        TermAggregation that = (TermAggregation) o;
-        return Objects.equals(term, that.term) &&
-                Objects.equals(type, that.type);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(term, type);
     }
 
     @Override

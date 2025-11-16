@@ -15,13 +15,13 @@ package io.trino.plugin.elasticsearch.aggregation;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.elasticsearch.ElasticsearchColumnHandle;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Type;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -33,6 +33,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static java.util.Objects.requireNonNull;
 
 public class MetricAggregation
 {
@@ -41,8 +42,8 @@ public class MetricAggregation
     public static final String AVG = "avg";
     public static final String SUM = "sum";
     public static final String COUNT = "count";
-    private static final List<String> SUPPORTED_AGGREGATION_FUNCTIONS = Arrays.asList(MAX, MIN, AVG, SUM, COUNT);
-    private static final List<Type> NUMERIC_TYPES = Arrays.asList(REAL, DOUBLE, TINYINT, SMALLINT, INTEGER, BIGINT);
+    private static final List<String> SUPPORTED_AGGREGATION_FUNCTIONS = ImmutableList.of(MAX, MIN, AVG, SUM, COUNT);
+    private static final List<Type> NUMERIC_TYPES = ImmutableList.of(REAL, DOUBLE, TINYINT, SMALLINT, INTEGER, BIGINT);
     private final String functionName;
     private final Type outputType;
     private final Optional<ElasticsearchColumnHandle> columnHandle;
@@ -55,10 +56,10 @@ public class MetricAggregation
             @JsonProperty("columnHandle") Optional<ElasticsearchColumnHandle> columnHandle,
             @JsonProperty("alias") String alias)
     {
-        this.functionName = functionName;
-        this.outputType = outputType;
-        this.columnHandle = columnHandle;
-        this.alias = alias;
+        this.functionName = requireNonNull(functionName, "functionName is null");
+        this.outputType = requireNonNull(outputType, "outputType is null");
+        this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
+        this.alias = requireNonNull(alias, "alias is null");
     }
 
     @JsonProperty
