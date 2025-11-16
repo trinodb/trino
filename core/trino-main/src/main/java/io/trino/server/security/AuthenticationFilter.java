@@ -61,8 +61,7 @@ public class AuthenticationFilter
     @Override
     public void filter(ContainerRequestContext request)
     {
-        if (InternalAuthenticationManager.isInternalRequest(request)) {
-            internalAuthenticationManager.handleInternalRequest(request);
+        if (internalAuthenticationManager.handleInternalRequest(request)) {
             return;
         }
 
