@@ -5,10 +5,12 @@
 * Support automatic TLS certificate generation in the `ANNOUNCE` node discovery mode. ({issue}`27030`)
 * Add support for specifying the location of the Exchange Manager configuration file. ({issue}`26611`)
 * Publish query finishing time in event listener. ({issue}`27202`)
+* Add lineage support for output columns in all SELECT queries({issue}`26241`)
 * Enhance after `RemoveTrivialFilters` call `RemoveEmptyUnionBranches` to prune empty union branches. ({issue}`21506`)
 * Improve performance of array_sort function. ({issue}`27272`)
 * Fix planning failure of certain queries where part of the plan is optimized to empty values. ({issue}`21506`)
 * Fix configuring partitioned layout for spooling protocol ({issue}`27247`)
+* Harden hierarchical namespace check in Azure with root blob fallback check. ({issue}`27278`)
 
 ## Security
 
