@@ -14,6 +14,7 @@
 package io.trino.plugin.elasticsearch;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.elasticsearch.aggregation.MetricAggregation;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.plugin.elasticsearch.decoders.Decoder;
 import io.trino.spi.Page;
@@ -21,8 +22,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -175,50 +174,6 @@ public class AggregateQueryPageSource
         return Optional.empty();
     }
 
-    public static Object getField(Map<String, Object> document, String field)
-    {
-        Object value = document.get(field);
-        if (value == null) {
-            Map<String, Object> result = new HashMap<>();
-            String prefix = field + ".";
-            for (Map.Entry<String, Object> entry : document.entrySet()) {
-                String key = entry.getKey();
-                if (key.startsWith(prefix)) {
-                    result.put(key.substring(prefix.length()), entry.getValue());
-                }
-            }
-
-            if (!result.isEmpty()) {
-                return result;
-            }
-        }
-
-        return value;
-    }
-
-    private Map<String, Type> flattenFields(List<ElasticsearchColumnHandle> columns)
-    {
-        Map<String, Type> result = new HashMap<>();
-
-        for (ElasticsearchColumnHandle column : columns) {
-            flattenFields(result, column.name(), column.type());
-        }
-
-        return result;
-    }
-
-    private void flattenFields(Map<String, Type> result, String fieldName, Type type)
-    {
-        if (type instanceof RowType rowType) {
-            for (RowType.Field field : rowType.getFields()) {
-                flattenFields(result, appendPath(fieldName, field.getName().get()), field.getType());
-            }
-        }
-        else {
-            result.put(fieldName, type);
-        }
-    }
-
     private List<Decoder> createDecoders(List<ElasticsearchColumnHandle> columns)
     {
         return columns.stream()
@@ -239,9 +194,23 @@ public class AggregateQueryPageSource
     private List<Map<String, Object>> getResult(SearchResponse searchResponse)
     {
         Aggregations aggregations = searchResponse.getAggregations();
-        if (aggregations == null) {
+
+        // Handle global COUNT(*) when there are no aggregations
+        // This happens because buildMetricAggregation returns null for COUNT(*)
+        if (aggregations == null || aggregations.asList().isEmpty()) {
+            Map<String, Object> singleValueMap = new LinkedHashMap<>();
+            for (MetricAggregation metricAgg : table.metricAggregations()) {
+                if (metricAgg.getColumnHandle().isEmpty() && "count".equals(metricAgg.getFunctionName())) {
+                    // This is global COUNT(*) - use total hits
+                    singleValueMap.put(metricAgg.getAlias(), (double) searchResponse.getHits().getTotalHits().value);
+                }
+            }
+            if (!singleValueMap.isEmpty()) {
+                return ImmutableList.of(singleValueMap);
+            }
             return Collections.emptyList();
         }
+
         Map<String, Object> singleValueMap = new LinkedHashMap<>();
         ImmutableList.Builder<Map<String, Object>> result = ImmutableList.builder();
         boolean hasBucketsAggregation = false;
@@ -255,6 +224,8 @@ public class AggregateQueryPageSource
                 for (CompositeAggregation.Bucket bucket : compositeAggregation.getBuckets()) {
                     Map<String, Object> line = new HashMap<>();
                     line.putAll(bucket.getKey());
+
+                    // Process metric aggregations
                     for (Aggregation metricAgg : bucket.getAggregations()) {
                         if (metricAgg instanceof NumericMetricsAggregation.SingleValue sv) {
                             line.put(metricAgg.getName(), extractSingleValue(sv));
@@ -263,6 +234,14 @@ public class AggregateQueryPageSource
                             line.put(metricAgg.getName(), extractSumFromStatsValue(stats));
                         }
                     }
+
+                    // Handle COUNT(*) - these don't have sub-aggregations, just use bucket doc count
+                    for (MetricAggregation metricAgg : table.metricAggregations()) {
+                        if (metricAgg.getColumnHandle().isEmpty() && "count".equals(metricAgg.getFunctionName())) {
+                            line.put(metricAgg.getAlias(), (double) bucket.getDocCount());
+                        }
+                    }
+
                     result.add(line);
                 }
             }
