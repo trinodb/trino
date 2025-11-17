@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.operator.BlockedReason;
+import io.trino.operator.MergeWriterOperator;
 import io.trino.operator.OperatorStats;
 import io.trino.operator.TableWriterOperator;
 import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
@@ -40,6 +41,8 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryStats
 {
+    private static final Set<String> WRITER_OPERATORS = Set.of(TableWriterOperator.class.getSimpleName(), MergeWriterOperator.class.getSimpleName());
+
     private final Instant createTime;
 
     private final Instant executionStartTime;
@@ -743,7 +746,7 @@ public class QueryStats
     public long getWrittenPositions()
     {
         return operatorSummaries.stream()
-                .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
+                .filter(stats -> WRITER_OPERATORS.contains(stats.getOperatorType()))
                 .mapToLong(OperatorStats::getInputPositions)
                 .sum();
     }
@@ -753,7 +756,7 @@ public class QueryStats
     {
         return succinctBytes(
                 operatorSummaries.stream()
-                        .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
+                        .filter(stats -> WRITER_OPERATORS.contains(stats.getOperatorType()))
                         .mapToLong(stats -> stats.getInputDataSize().toBytes())
                         .sum());
     }
