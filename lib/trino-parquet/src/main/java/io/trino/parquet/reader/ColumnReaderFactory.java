@@ -32,6 +32,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import jdk.incubator.vector.VectorShape;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DateLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
@@ -84,7 +85,7 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 
 public final class ColumnReaderFactory
 {
-    private static final int PREFERRED_BIT_WIDTH = getVectorBitSize();
+    private static final int PREFERRED_BIT_WIDTH = VectorShape.preferredShape().vectorBitSize();
 
     private final DateTimeZone timeZone;
     private final boolean vectorizedDecodingEnabled;
@@ -371,17 +372,5 @@ public final class ColumnReaderFactory
         // Performance gains with vectorized decoding are validated only when the hardware platform provides at least 256 bit width registers
         // Graviton 2 machines return false here, whereas x86 and Graviton 3 machines return true
         return PREFERRED_BIT_WIDTH >= 256;
-    }
-
-    // get VectorShape bit size via reflection to avoid requiring the preview feature is enabled
-    private static int getVectorBitSize()
-    {
-        try {
-            Class<?> clazz = Class.forName("jdk.incubator.vector.VectorShape");
-            return (int) clazz.getMethod("vectorBitSize").invoke(clazz.getMethod("preferredShape").invoke(null));
-        }
-        catch (Throwable e) {
-            return -1;
-        }
     }
 }
