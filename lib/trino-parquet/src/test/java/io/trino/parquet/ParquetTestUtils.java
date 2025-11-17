@@ -205,6 +205,20 @@ public class ParquetTestUtils
         return pagesBuilder.build();
     }
 
+    public static List<io.trino.spi.Page> generateInputPagesWithBlockData(List<Type> types, List<? extends List<?>> blockData, int pageCount)
+    {
+        checkArgument(blockData.size() == types.size());
+        ImmutableList.Builder<io.trino.spi.Page> pagesBuilder = ImmutableList.builder();
+        for (int pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+            Block[] blocks = new Block[types.size()];
+            for (int i = 0; i < types.size(); i++) {
+                blocks[i] = generateBlock(types.get(i), blockData.get(i));
+            }
+            pagesBuilder.add(new Page(blocks));
+        }
+        return pagesBuilder.build();
+    }
+
     public static List<Integer> generateGroupSizes(int positionsCount)
     {
         int maxGroupSize = 17;
