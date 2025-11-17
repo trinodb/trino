@@ -144,6 +144,35 @@ allows static code analysis tools (e.g. Error Prone's `MissingCasesInEnumSwitch`
 check) report a problem when the enum definition is updated but the code using
 it is not.
 
+### Vector API
+It's safe to assume that the JVM has the Vector API
+([JEP 508](https://openjdk.org/jeps/508)) enabled and available at runtime, but
+not safe to assume that the Vector API implementation will perform faster than
+equivalent scalar code on whatever hardware the engine happens to be running on.
+
+Different CPU hardware can exhibit dramatically different performance
+characteristics, so it's important to use hardware feature detection to
+determine under which scenarios a vectorized approach will be faster for
+each implementation. Vectorized code should be tested on AMD, ARM, and Intel
+CPUs to verify the benefits hold on each of those platforms before deciding
+to enable a given code path on each of those platforms. Also note that ARM CPUs
+can exhibit significant differences from between hardware generations as well
+as between Apple Silicon and datacenter class CPUs.
+
+When adding implementations that use the Vector API, prefer the following
+approach unless the specifics of the situation dictate otherwise:
+* Provide an equivalent scalar implementation in code, if one does not already
+exist.
+* Use configuration flags and hardware support detection to ensure that
+vectorized implementation is only selected when running on hardware where it is
+expected to perform better than its scalar equivalent.
+* Add tests that ensure the behavior of the vectorized and scalar
+implementations match.
+* Include micro-benchmarks that demonstrate the performance benefits of the
+vectorized implementation compared to the scalar equivalent logic. Ensure that
+the benefits hold for all CPU architectures on which the vectorized
+implementation is enabled.
+
 ## Keep pom.xml clean and sorted
 
 There are several plugins in place to keep pom.xml clean.
