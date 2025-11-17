@@ -386,7 +386,7 @@ public class QueryManager
         List<QueryExecution> runningQueries = queryTracker.getAllQueries().stream()
                 .filter(query -> query.getState() == RUNNING)
                 .collect(toImmutableList());
-        memoryManager.process(runningQueries, this::getQueries);
+        memoryManager.process(runningQueries, queryTracker::tryGetQuery);
     }
 
     /**

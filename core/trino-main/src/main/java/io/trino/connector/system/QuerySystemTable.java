@@ -104,12 +104,8 @@ public class QuerySystemTable
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
         checkState(dispatchManager.isPresent(), "Query system table can return results only on coordinator");
-
-        List<BasicQueryInfo> queries = dispatchManager.get().getQueries();
-        queries = filterQueries(((FullConnectorSession) session).getSession().getIdentity(), queries, accessControl);
-
         Builder table = InMemoryRecordSet.builder(QUERY_TABLE);
-        for (BasicQueryInfo queryInfo : queries) {
+        for (BasicQueryInfo queryInfo : filterQueries(dispatchManager.get().getQueries(), ((FullConnectorSession) session).getSession().getIdentity(), accessControl)) {
             Optional<QueryInfo> fullQueryInfo = dispatchManager.get().getFullQueryInfo(queryInfo.getQueryId());
             if (fullQueryInfo.isEmpty()) {
                 continue;

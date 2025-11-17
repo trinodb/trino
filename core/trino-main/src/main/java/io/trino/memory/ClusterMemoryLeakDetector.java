@@ -14,21 +14,19 @@
 package io.trino.memory;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
-import io.trino.server.BasicQueryInfo;
+import io.trino.execution.QueryExecution;
+import io.trino.execution.QueryState;
 import io.trino.spi.QueryId;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.execution.QueryState.RUNNING;
 import static java.time.Instant.now;
 import static java.util.Objects.requireNonNull;
@@ -46,47 +44,48 @@ public class ClusterMemoryLeakDetector
     private Set<QueryId> leakedQueries;
 
     /**
-     * @param queryInfoSupplier All queries that the coordinator knows about.
+     * @param executionInfoSupplier Provided QueryId returns a QueryExecution if the query is still tracked by the coordinator.
      * @param queryMemoryReservations The memory reservations of queries in the cluster memory pool.
      */
-    void checkForMemoryLeaks(Supplier<List<BasicQueryInfo>> queryInfoSupplier, Map<QueryId, Long> queryMemoryReservations)
+    void checkForMemoryLeaks(Function<QueryId, Optional<QueryExecution>> executionInfoSupplier, Map<QueryId, Long> queryMemoryReservations)
     {
-        requireNonNull(queryInfoSupplier);
         requireNonNull(queryMemoryReservations);
 
-        Map<QueryId, BasicQueryInfo> queryIdToInfo = Maps.uniqueIndex(queryInfoSupplier.get(), BasicQueryInfo::getQueryId);
+        ImmutableSet.Builder<QueryId> leakedQueriesBuilder = ImmutableSet.builder();
+        queryMemoryReservations.forEach((queryId, reservation) -> {
+            if (reservation > 0) {
+                if (isLeaked(executionInfoSupplier.apply(queryId))) {
+                    leakedQueriesBuilder.add(queryId);
+                }
+            }
+        });
 
-        Map<QueryId, Long> leakedQueryReservations = queryMemoryReservations.entrySet()
-                .stream()
-                .filter(entry -> entry.getValue() > 0)
-                .filter(entry -> isLeaked(queryIdToInfo, entry.getKey()))
-                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
-
+        Set<QueryId> leakedQueryReservations = leakedQueriesBuilder.build();
         if (!leakedQueryReservations.isEmpty()) {
             log.debug("Memory leak detected. The following queries are already finished, " +
                     "but they have memory reservations on some worker node(s): %s", leakedQueryReservations);
         }
 
         synchronized (this) {
-            leakedQueries = ImmutableSet.copyOf(leakedQueryReservations.keySet());
+            leakedQueries = ImmutableSet.copyOf(leakedQueryReservations);
         }
     }
 
-    private static boolean isLeaked(Map<QueryId, BasicQueryInfo> queryIdToInfo, QueryId queryId)
+    private static boolean isLeaked(Optional<QueryExecution> execution)
     {
-        BasicQueryInfo queryInfo = queryIdToInfo.get(queryId);
-
-        if (queryInfo == null) {
+        if (execution.isEmpty()) {
+            // We have a memory reservation but query isn't tracked
             return true;
         }
 
-        Instant queryEndTime = queryInfo.getQueryStats().getEndTime();
+        Optional<Instant> queryEndTime = execution.orElseThrow().getEndTime();
+        QueryState state = execution.orElseThrow().getState();
 
-        if (queryInfo.getState() == RUNNING || queryEndTime == null) {
+        if (state == RUNNING || queryEndTime.isEmpty()) {
             return false;
         }
 
-        return queryEndTime.plusSeconds(DEFAULT_LEAK_CLAIM_DELTA_SEC).isBefore(now());
+        return queryEndTime.orElseThrow().plusSeconds(DEFAULT_LEAK_CLAIM_DELTA_SEC).isBefore(now());
     }
 
     synchronized boolean wasQueryPossiblyLeaked(QueryId queryId)
