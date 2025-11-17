@@ -89,9 +89,7 @@ public class UiQueryResource
     public List<TrimmedBasicQueryInfo> getAllQueryInfo(@QueryParam("state") String stateFilter, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
     {
         QueryState expectedState = stateFilter == null ? null : QueryState.valueOf(stateFilter.toUpperCase(Locale.ENGLISH));
-
-        List<BasicQueryInfo> queries = dispatchManager.getQueries();
-        queries = filterQueries(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders), queries, accessControl);
+        List<BasicQueryInfo> queries = filterQueries(dispatchManager.getQueries(), sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders), accessControl);
 
         ImmutableList.Builder<TrimmedBasicQueryInfo> builder = ImmutableList.builder();
         for (BasicQueryInfo queryInfo : queries) {
