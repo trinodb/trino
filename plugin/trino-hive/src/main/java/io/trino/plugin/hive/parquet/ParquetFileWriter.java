@@ -153,7 +153,7 @@ public final class ParquetFileWriter
             catch (Exception _) {
                 // ignore
             }
-            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write parquet to Hive", e);
+            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Parquet file", e);
         }
 
         if (validationInputFactory.isPresent()) {
