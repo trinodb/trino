@@ -22,8 +22,8 @@ import io.trino.plugin.iceberg.IcebergFileWriterFactory;
 import io.trino.plugin.iceberg.MetricsWrapper;
 import io.trino.plugin.iceberg.PartitionData;
 import io.trino.spi.Page;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.iceberg.FileContent;
@@ -38,7 +38,6 @@ import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -103,26 +102,69 @@ public class PositionDeleteWriter
 
     private void writeDeletes(ImmutableLongBitmapDataProvider rowsToDelete)
     {
-        PageBuilder pageBuilder = new PageBuilder(List.of(BIGINT));
-
+        PositionsList deletedPositions = new PositionsList(4 * 1024);
         rowsToDelete.forEach(rowPosition -> {
-            pageBuilder.declarePosition();
-            BIGINT.writeLong(pageBuilder.getBlockBuilder(0), rowPosition);
-            if (pageBuilder.isFull()) {
-                writePage(pageBuilder.build());
-                pageBuilder.reset();
+            deletedPositions.add(rowPosition);
+            if (deletedPositions.isFull()) {
+                writePage(deletedPositions);
+                deletedPositions.reset();
             }
         });
 
-        if (!pageBuilder.isEmpty()) {
-            writePage(pageBuilder.build());
+        if (!deletedPositions.isEmpty()) {
+            writePage(deletedPositions);
         }
     }
 
-    private void writePage(Page page)
+    private void writePage(PositionsList deletedPositions)
     {
         writer.appendRows(new Page(
-                RunLengthEncodedBlock.create(dataFilePathBlock, page.getPositionCount()),
-                page.getBlock(0)));
+                deletedPositions.size(),
+                RunLengthEncodedBlock.create(dataFilePathBlock, deletedPositions.size()),
+                new LongArrayBlock(deletedPositions.size(), Optional.empty(), deletedPositions.elements())));
+    }
+
+    // Wrapper around a long[] to provide an effectively final variable for lambda use
+    private static class PositionsList
+    {
+        private long[] positions;
+        private int size;
+
+        PositionsList(int initialCapacity)
+        {
+            this.positions = new long[initialCapacity];
+            this.size = 0;
+        }
+
+        void add(long position)
+        {
+            positions[size++] = position;
+        }
+
+        boolean isEmpty()
+        {
+            return size == 0;
+        }
+
+        boolean isFull()
+        {
+            return size == positions.length;
+        }
+
+        long[] elements()
+        {
+            return positions;
+        }
+
+        int size()
+        {
+            return size;
+        }
+
+        void reset()
+        {
+            size = 0;
+            positions = new long[positions.length];
+        }
     }
 }
