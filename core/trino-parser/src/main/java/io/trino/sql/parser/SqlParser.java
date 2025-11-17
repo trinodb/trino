@@ -37,6 +37,7 @@ import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.atn.PredictionMode;
+import org.antlr.v4.runtime.misc.Interval;
 import org.antlr.v4.runtime.misc.Pair;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
@@ -46,6 +47,7 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class SqlParser
@@ -72,6 +74,15 @@ public class SqlParser
             .specialRule(SqlBaseParser.RULE_type, "<type>")
             .specialToken(SqlBaseLexer.INTEGER_VALUE, "<integer>")
             .build();
+
+    static {
+        // TODO: Remove after https://github.com/antlr/antlr4/issues/4901 is fixed
+        //  This is a temporary workaround to prime the internal cache for Interval
+        //  that is not thread safe and can cause concurrency issues.
+        for (int i = 0; i <= Interval.INTERVAL_POOL_MAX_VALUE; i++) {
+            verify(Interval.of(i, i).length() == 1, "Expected Interval.of(%s, %s) to have length 1", i, i);
+        }
+    }
 
     private final BiConsumer<SqlBaseLexer, SqlBaseParser> initializer;
 
