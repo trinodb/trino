@@ -79,6 +79,10 @@ Cloud Storage:
       credentials provider.
     * `ACCESS_TOKEN`: usage of client-provided OAuth 2.0 token to access Google
       Cloud Storage.
+    * `APPLICATION_DEFAULT`: Attempts to obtain Google Application Default
+      Credentials (ADC) from the environment. If no ADC is available, the
+      filesystem falls back to `NoCredentials.getInstance()` to explicitly
+      indicate unauthenticated GCS access.
 * - `gcs.json-key`
   - Your Google Cloud service account key in JSON format. Not to be set together
     with `gcs.json-key-file-path`.
