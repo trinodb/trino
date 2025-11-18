@@ -41,7 +41,7 @@
         <dependency>
             <groupId>com.google.apis</groupId>
             <artifactId>google-api-services-sheets</artifactId>
-            <version>v4-rev20250616-2.0.0</version>
+            <version>v4-rev20251110-2.0.0</version>
         </dependency>
 
         <dependency>
