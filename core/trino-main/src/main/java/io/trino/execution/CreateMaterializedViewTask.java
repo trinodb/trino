@@ -60,6 +60,7 @@ import static io.trino.spi.connector.ConnectorCapabilities.MATERIALIZED_VIEW_WHE
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
 import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.tree.CreateMaterializedView.WhenStaleBehavior.INLINE;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -159,11 +160,11 @@ public class CreateMaterializedViewTask
                 });
 
         Optional<WhenStaleBehavior> whenStale = statement.getWhenStaleBehavior()
-                .map(_ -> {
-                    if (!plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(MATERIALIZED_VIEW_WHEN_STALE_BEHAVIOR)) {
+                .map(whenStaleBehavior -> {
+                    if (!isWhenStaleBehaviorSupported(session, whenStaleBehavior, catalogHandle)) {
                         throw semanticException(NOT_SUPPORTED, statement, "Catalog '%s' does not support WHEN STALE", catalogName);
                     }
-                    throw semanticException(NOT_SUPPORTED, statement, "WHEN STALE is not supported yet");
+                    return toConnectorWhenStaleBehavior(whenStaleBehavior);
                 });
 
         MaterializedViewDefinition definition = new MaterializedViewDefinition(
@@ -192,5 +193,19 @@ public class CreateMaterializedViewTask
         accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name, explicitlySetProperties);
         plannerContext.getMetadata().createMaterializedView(session, name, definition, properties, statement.isReplace(), statement.isNotExists());
         return analysis;
+    }
+
+    private boolean isWhenStaleBehaviorSupported(Session session, CreateMaterializedView.WhenStaleBehavior whenStaleBehavior, CatalogHandle catalogHandle)
+    {
+        // INLINE is always supported as it's the default behavior
+        return whenStaleBehavior == INLINE || plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(MATERIALIZED_VIEW_WHEN_STALE_BEHAVIOR);
+    }
+
+    private static WhenStaleBehavior toConnectorWhenStaleBehavior(CreateMaterializedView.WhenStaleBehavior whenStale)
+    {
+        return switch (whenStale) {
+            case INLINE -> WhenStaleBehavior.INLINE;
+            case FAIL -> WhenStaleBehavior.FAIL;
+        };
     }
 }

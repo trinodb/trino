@@ -66,6 +66,7 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.MaterializedViewFreshness;
@@ -2313,6 +2314,9 @@ class StatementAnalyzer
                             .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Storage table '%s' does not exist", storageTableName));
                     return createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.of(tableHandle));
                 }
+                else if (shouldFailWhenStale(materializedViewDefinition)) {
+                    throw semanticException(VIEW_IS_STALE, table, "Materialized view '%s' is stale", name);
+                }
                 // This is a stale materialized view and should be expanded like a logical view
                 return createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.empty());
             }
@@ -2407,6 +2411,15 @@ class StatementAnalyzer
             // Can be negative
             Duration staleness = Duration.between(lastKnownFreshTime.get(), session.getStart());
             return staleness.compareTo(gracePeriod) <= 0;
+        }
+
+        private static boolean shouldFailWhenStale(MaterializedViewDefinition materializedViewDefinition)
+        {
+            WhenStaleBehavior whenStale = materializedViewDefinition.getWhenStaleBehavior().orElse(WhenStaleBehavior.INLINE);
+            return switch (whenStale) {
+                case WhenStaleBehavior.INLINE -> false;
+                case WhenStaleBehavior.FAIL -> true;
+            };
         }
 
         private void checkStorageTableNotRedirected(QualifiedObjectName source)
