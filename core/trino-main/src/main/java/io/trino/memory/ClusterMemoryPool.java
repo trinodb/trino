@@ -24,12 +24,12 @@ import it.unimi.dsi.fastutil.objects.Object2LongMaps;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import org.weakref.jmx.Managed;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -154,20 +154,22 @@ public class ClusterMemoryPool
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
 
-        Map<String, MemoryAllocation> mergedAllocations = new HashMap<>();
+        Object2LongMap<String> mergedAllocations = new Object2LongOpenHashMap<>();
 
         for (MemoryAllocation allocation : left) {
-            mergedAllocations.put(allocation.tag(), allocation);
+            mergedAllocations.put(allocation.tag(), allocation.allocation());
         }
 
         for (MemoryAllocation allocation : right) {
-            mergedAllocations.merge(
+            mergedAllocations.mergeLong(
                     allocation.tag(),
-                    allocation,
-                    (a, b) -> new MemoryAllocation(a.tag(), a.allocation() + b.allocation()));
+                    allocation.allocation(),
+                    Long::sum);
         }
 
-        return new ArrayList<>(mergedAllocations.values());
+        return mergedAllocations.object2LongEntrySet().stream()
+                .map(entry -> new MemoryAllocation(entry.getKey(), entry.getLongValue()))
+                .collect(toImmutableList());
     }
 
     @Override
