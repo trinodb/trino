@@ -154,14 +154,14 @@ public class ClusterMemoryPool
         Map<String, MemoryAllocation> mergedAllocations = new HashMap<>();
 
         for (MemoryAllocation allocation : left) {
-            mergedAllocations.put(allocation.getTag(), allocation);
+            mergedAllocations.put(allocation.tag(), allocation);
         }
 
         for (MemoryAllocation allocation : right) {
             mergedAllocations.merge(
-                    allocation.getTag(),
+                    allocation.tag(),
                     allocation,
-                    (a, b) -> new MemoryAllocation(a.getTag(), a.getAllocation() + b.getAllocation()));
+                    (a, b) -> new MemoryAllocation(a.tag(), a.allocation() + b.allocation()));
         }
 
         return new ArrayList<>(mergedAllocations.values());
