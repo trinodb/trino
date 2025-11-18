@@ -18,24 +18,14 @@ import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.configuration.SwitchModule.switchModule;
 
-public class GcsFileSystemModule
+public class GcsServiceAccountModule
         extends AbstractConfigurationAwareModule
 {
     @Override
     protected void setup(Binder binder)
     {
-        configBinder(binder).bindConfig(GcsFileSystemConfig.class);
-        binder.bind(GcsStorageFactory.class).in(Scopes.SINGLETON);
-        binder.bind(GcsFileSystemFactory.class).in(Scopes.SINGLETON);
-
-        install(switchModule(
-                GcsFileSystemConfig.class,
-                GcsFileSystemConfig::getAuthType,
-                type -> switch (type) {
-                    case ACCESS_TOKEN -> _ -> binder.bind(GcsAuth.class).to(GcsAccessTokenAuth.class).in(Scopes.SINGLETON);
-                    case SERVICE_ACCOUNT -> new GcsServiceAccountModule();
-                }));
+        configBinder(binder).bindConfig(GcsServiceAccountAuthConfig.class);
+        binder.bind(GcsAuth.class).to(GcsServiceAccountAuth.class).in(Scopes.SINGLETON);
     }
 }
