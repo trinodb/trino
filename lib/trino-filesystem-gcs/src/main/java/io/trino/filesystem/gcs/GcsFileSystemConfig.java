@@ -35,7 +35,8 @@ public class GcsFileSystemConfig
     public enum AuthType
     {
         ACCESS_TOKEN,
-        SERVICE_ACCOUNT;
+        SERVICE_ACCOUNT,
+        APPLICATION_DEFAULT;
     }
 
     private DataSize readBlockSize = DataSize.of(2, MEGABYTE);
