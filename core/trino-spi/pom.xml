@@ -721,6 +721,49 @@
                                     <old>method java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt; io.trino.spi.memory.MemoryPoolInfo::getQueryMemoryRevocableReservations()</old>
                                     <justification>Removal of unused field</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.memory.MemoryAllocation::&lt;init&gt;(===java.lang.String===, long)</old>
+                                    <new>parameter void io.trino.spi.memory.MemoryAllocation::&lt;init&gt;(===java.lang.String===, long)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonProperty("tag")</annotation>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.memory.MemoryAllocation::&lt;init&gt;(java.lang.String, ===long===)</old>
+                                    <new>parameter void io.trino.spi.memory.MemoryAllocation::&lt;init&gt;(java.lang.String, ===long===)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonProperty("allocation")</annotation>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method void io.trino.spi.memory.MemoryAllocation::&lt;init&gt;(java.lang.String, long)</old>
+                                    <new>method void io.trino.spi.memory.MemoryAllocation::&lt;init&gt;(java.lang.String, long)</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonCreator</annotation>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.memory.MemoryAllocation::getAllocation()</old>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.memory.MemoryAllocation::getTag()</old>
+                                    <justification>Class converted to a record</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.kindChanged</code>
+                                    <old>class io.trino.spi.memory.MemoryAllocation</old>
+                                    <new>class io.trino.spi.memory.MemoryAllocation</new>
+                                    <justification>Class converted to a record</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
