@@ -15,8 +15,6 @@ package io.trino.filesystem.gcs;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import io.airlift.configuration.ConfigSecuritySensitive;
-import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
@@ -50,8 +48,6 @@ public class GcsFileSystemConfig
 
     private Optional<Boolean> useGcsAccessToken = Optional.empty();
     private Optional<AuthType> authType = Optional.empty();
-    private String jsonKey;
-    private String jsonKeyFilePath;
     private int maxRetries = 20;
     private double backoffScaleFactor = 3.0;
     private Duration maxRetryTime = new Duration(25, TimeUnit.SECONDS);
@@ -172,35 +168,6 @@ public class GcsFileSystemConfig
         return this;
     }
 
-    @Nullable
-    public String getJsonKey()
-    {
-        return jsonKey;
-    }
-
-    @Config("gcs.json-key")
-    @ConfigSecuritySensitive
-    public GcsFileSystemConfig setJsonKey(String jsonKey)
-    {
-        this.jsonKey = jsonKey;
-        return this;
-    }
-
-    @Nullable
-    @FileExists
-    public String getJsonKeyFilePath()
-    {
-        return jsonKeyFilePath;
-    }
-
-    @Config("gcs.json-key-file-path")
-    @ConfigDescription("JSON key file used to access Google Cloud Storage")
-    public GcsFileSystemConfig setJsonKeyFilePath(String jsonKeyFilePath)
-    {
-        this.jsonKeyFilePath = jsonKeyFilePath;
-        return this;
-    }
-
     @Min(0)
     public int getMaxRetries()
     {
@@ -292,16 +259,6 @@ public class GcsFileSystemConfig
     public boolean isRetryDelayValid()
     {
         return minBackoffDelay.compareTo(maxBackoffDelay) <= 0;
-    }
-
-    @AssertTrue(message = "Either gcs.auth-type or gcs.json-key or gcs.json-key-file-path must be set")
-    public boolean isAuthMethodValid()
-    {
-        if (getAuthType() == AuthType.ACCESS_TOKEN) {
-            return jsonKey == null && jsonKeyFilePath == null;
-        }
-
-        return (jsonKey == null) ^ (jsonKeyFilePath == null);
     }
 
     @AssertFalse(message = "Cannot set both gcs.use-access-token and gcs.auth-type")

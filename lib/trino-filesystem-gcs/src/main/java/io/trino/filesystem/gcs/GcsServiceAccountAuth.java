@@ -22,17 +22,17 @@ import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class GcsServiceAccountAuth
         implements GcsAuth
 {
-    private final Optional<GoogleCredentials> jsonGoogleCredential;
+    private final GoogleCredentials jsonGoogleCredential;
 
     @Inject
-    public GcsServiceAccountAuth(GcsFileSystemConfig config)
+    public GcsServiceAccountAuth(GcsServiceAccountAuthConfig config)
             throws IOException
     {
         String jsonKey = config.getJsonKey();
@@ -40,34 +40,21 @@ public class GcsServiceAccountAuth
 
         if (jsonKey != null) {
             try (InputStream inputStream = new ByteArrayInputStream(jsonKey.getBytes(UTF_8))) {
-                jsonGoogleCredential = Optional.of(GoogleCredentials.fromStream(inputStream).createScoped(DEFAULT_SCOPES));
+                jsonGoogleCredential = GoogleCredentials.fromStream(inputStream).createScoped(DEFAULT_SCOPES);
+                return;
             }
         }
-        else if (jsonKeyFilePath != null) {
-            try (FileInputStream inputStream = new FileInputStream(jsonKeyFilePath)) {
-                jsonGoogleCredential = Optional.of(GoogleCredentials.fromStream(inputStream).createScoped(DEFAULT_SCOPES));
-            }
-        }
-        else {
-            jsonGoogleCredential = Optional.empty();
+
+        verify(jsonKeyFilePath != null);
+
+        try (FileInputStream inputStream = new FileInputStream(jsonKeyFilePath)) {
+            jsonGoogleCredential = GoogleCredentials.fromStream(inputStream).createScoped(DEFAULT_SCOPES);
         }
     }
 
     @Override
     public void setAuth(StorageOptions.Builder builder, ConnectorIdentity identity)
     {
-        GoogleCredentials credentials = jsonGoogleCredential.orElseGet(() -> {
-            try {
-                return GoogleCredentials.getApplicationDefault();
-            }
-            catch (IOException e) {
-                // This is consistent with the GCP SDK when no credentials are available in the environment
-                return null;
-            }
-        });
-
-        if (credentials != null) {
-            builder.setCredentials(credentials);
-        }
+        builder.setCredentials(jsonGoogleCredential);
     }
 }
