@@ -56,6 +56,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
@@ -885,7 +886,8 @@ public abstract class BaseIcebergConnectorSmokeTest
             assertThat(query("SELECT * FROM iceberg.system.iceberg_tables WHERE table_schema = '%s'".formatted(firstSchema)))
                     .matches("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema='%s'".formatted(firstSchema));
             assertThat(query("SELECT * FROM iceberg.system.iceberg_tables WHERE table_schema in ('%s', '%s')".formatted(firstSchema, secondSchema)))
-                    .matches("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema IN ('%s', '%s')".formatted(firstSchema, secondSchema));
+                    .matches("SELECT table_schema, table_name FROM iceber createSchema(tableName);\n" +
+                            "            createTable(tableName,\"schema_table1\",\"(id,int)\");g.information_schema.tables WHERE table_schema IN ('%s', '%s')".formatted(firstSchema, secondSchema));
         }
         finally {
             dropSchema(firstSchema);
@@ -895,30 +897,28 @@ public abstract class BaseIcebergConnectorSmokeTest
 
     @Test
     public void testAnalyze()
+            throws Exception
     {
         String tableName = "test_analyze_" + randomNameSuffix();
+        createSchema(tableName);
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session noStatsOnWrite = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, COLLECT_EXTENDED_STATISTICS_ON_WRITE, "false")
+                .build();
+        TestTable runner = new TestTable(
+                sql -> getQueryRunner().execute(noStatsOnWrite, sql),
+                tableName,
+                "(id,int)");
 
         try {
-            assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
-            assertThat(query("SELECT count(*) FROM " + tableName))
-                    .matches("VALUES BIGINT '25'");
-            assertUpdate("ANALYZE " + tableName);
-            assertThat(computeActual("SHOW STATS FOR " + tableName).getRowCount())
-                    .as("Statistics should be collected after ANALYZE")
-                    .isGreaterThan(0);
+            assertThat(query("ANALYZE ", ));
+
         }
         catch (Exception e) {
-            assertThat(e.getMessage())
-                    .as("If ANALYZE fails, it should be due to lack of support")
-                    .containsAnyOf(
-                            "S3 Tables do not support analyze",
-                            "do not support analyze",
-                            "NOT_SUPPORTED");
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+            errorMessageForAnalyze();
         }
     }
+
 
     protected void dropSchema(String schema)
             throws Exception
