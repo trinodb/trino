@@ -213,6 +213,10 @@ public abstract class BaseElasticsearchConnectorTest
         // COUNT(*) with WHERE clause
         assertQuery("SELECT COUNT(*) FROM nation WHERE regionkey = 1", "SELECT 5");
 
+        // COUNT(*) with other aggregations (global) - ensure COUNT(*) isn't lost
+        assertQuery("SELECT COUNT(*), MIN(nationkey), MAX(nationkey) FROM nation", "VALUES (25, 0, 24)");
+        assertQuery("SELECT COUNT(*), SUM(nationkey) FROM nation", "VALUES (25, 300)");
+
         // COUNT(*) with GROUP BY - this should be pushed down
         assertQuery(
                 "SELECT regionkey, COUNT(*) FROM nation GROUP BY regionkey ORDER BY regionkey",
