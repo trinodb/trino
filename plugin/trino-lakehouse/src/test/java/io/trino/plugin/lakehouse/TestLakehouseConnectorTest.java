@@ -127,6 +127,7 @@ public class TestLakehouseConnectorTest
                  SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_REFRESH_VIEW,
                  SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW_WHEN_STALE,
                  SUPPORTS_TOPN_PUSHDOWN -> false;
             default -> super.hasBehavior(connectorBehavior);
         };

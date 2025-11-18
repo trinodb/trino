@@ -1811,6 +1811,7 @@ public final class MetadataManager
                         .map(column -> new ViewColumn(column.getName(), column.getType(), Optional.empty()))
                         .collect(toImmutableList()),
                 view.getGracePeriod(),
+                view.getWhenStaleBehavior(),
                 view.getComment(),
                 runAsIdentity,
                 view.getPath(),
