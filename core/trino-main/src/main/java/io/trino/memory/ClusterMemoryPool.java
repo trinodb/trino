@@ -60,9 +60,6 @@ public class ClusterMemoryPool
     @GuardedBy("this")
     private final Map<QueryId, List<MemoryAllocation>> queryMemoryAllocations = new HashMap<>();
 
-    @GuardedBy("this")
-    private final Object2LongMap<QueryId> queryMemoryRevocableReservations = new Object2LongOpenHashMap<>();
-
     public synchronized MemoryPoolInfo getInfo()
     {
         return new MemoryPoolInfo(
@@ -71,7 +68,6 @@ public class ClusterMemoryPool
                 reservedRevocableDistributedBytes,
                 ImmutableMap.copyOf(queryMemoryReservations),
                 ImmutableMap.copyOf(queryMemoryAllocations),
-                ImmutableMap.copyOf(queryMemoryRevocableReservations),
                 // not providing per-task memory info for cluster-wide pool
                 ImmutableMap.of(),
                 ImmutableMap.of());
@@ -124,11 +120,6 @@ public class ClusterMemoryPool
         return Object2LongMaps.unmodifiable(queryMemoryReservations);
     }
 
-    public synchronized Map<QueryId, Long> getQueryMemoryRevocableReservations()
-    {
-        return ImmutableMap.copyOf(queryMemoryRevocableReservations);
-    }
-
     public synchronized void update(List<MemoryInfo> memoryInfos, int assignedQueries)
     {
         nodes = 0;
@@ -139,7 +130,6 @@ public class ClusterMemoryPool
         this.assignedQueries = assignedQueries;
         this.queryMemoryReservations.clear();
         this.queryMemoryAllocations.clear();
-        this.queryMemoryRevocableReservations.clear();
 
         for (MemoryInfo info : memoryInfos) {
             MemoryPoolInfo poolInfo = info.getPool();
@@ -155,9 +145,6 @@ public class ClusterMemoryPool
             }
             for (Map.Entry<QueryId, List<MemoryAllocation>> entry : poolInfo.getQueryMemoryAllocations().entrySet()) {
                 queryMemoryAllocations.merge(entry.getKey(), entry.getValue(), this::mergeQueryAllocations);
-            }
-            for (Map.Entry<QueryId, Long> entry : poolInfo.getQueryMemoryRevocableReservations().entrySet()) {
-                queryMemoryRevocableReservations.mergeLong(entry.getKey(), entry.getValue(), Long::sum);
             }
         }
     }
@@ -196,7 +183,6 @@ public class ClusterMemoryPool
                 .add("assignedQueries", assignedQueries)
                 .add("queryMemoryReservations", queryMemoryReservations)
                 .add("queryMemoryAllocations", queryMemoryAllocations)
-                .add("queryMemoryRevocableReservations", queryMemoryRevocableReservations)
                 .toString();
     }
 }
