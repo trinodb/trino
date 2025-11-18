@@ -19,6 +19,9 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryAllocation;
 import io.trino.spi.memory.MemoryPoolInfo;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.Object2LongMaps;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import org.weakref.jmx.Managed;
 
 import java.util.ArrayList;
@@ -52,13 +55,13 @@ public class ClusterMemoryPool
 
     // Does not include queries with zero memory usage
     @GuardedBy("this")
-    private final Map<QueryId, Long> queryMemoryReservations = new HashMap<>();
+    private final Object2LongMap<QueryId> queryMemoryReservations = new Object2LongOpenHashMap<>();
 
     @GuardedBy("this")
     private final Map<QueryId, List<MemoryAllocation>> queryMemoryAllocations = new HashMap<>();
 
     @GuardedBy("this")
-    private final Map<QueryId, Long> queryMemoryRevocableReservations = new HashMap<>();
+    private final Object2LongMap<QueryId> queryMemoryRevocableReservations = new Object2LongOpenHashMap<>();
 
     public synchronized MemoryPoolInfo getInfo()
     {
@@ -116,9 +119,9 @@ public class ClusterMemoryPool
         return assignedQueries;
     }
 
-    public synchronized Map<QueryId, Long> getQueryMemoryReservations()
+    public synchronized Object2LongMap<QueryId> getQueryMemoryReservations()
     {
-        return ImmutableMap.copyOf(queryMemoryReservations);
+        return Object2LongMaps.unmodifiable(queryMemoryReservations);
     }
 
     public synchronized Map<QueryId, Long> getQueryMemoryRevocableReservations()
@@ -148,13 +151,13 @@ public class ClusterMemoryPool
             reservedDistributedBytes += poolInfo.getReservedBytes();
             reservedRevocableDistributedBytes += poolInfo.getReservedRevocableBytes();
             for (Map.Entry<QueryId, Long> entry : poolInfo.getQueryMemoryReservations().entrySet()) {
-                queryMemoryReservations.merge(entry.getKey(), entry.getValue(), Long::sum);
+                queryMemoryReservations.mergeLong(entry.getKey(), entry.getValue(), Long::sum);
             }
             for (Map.Entry<QueryId, List<MemoryAllocation>> entry : poolInfo.getQueryMemoryAllocations().entrySet()) {
                 queryMemoryAllocations.merge(entry.getKey(), entry.getValue(), this::mergeQueryAllocations);
             }
             for (Map.Entry<QueryId, Long> entry : poolInfo.getQueryMemoryRevocableReservations().entrySet()) {
-                queryMemoryRevocableReservations.merge(entry.getKey(), entry.getValue(), Long::sum);
+                queryMemoryRevocableReservations.mergeLong(entry.getKey(), entry.getValue(), Long::sum);
             }
         }
     }

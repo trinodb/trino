@@ -20,6 +20,7 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.trino.server.BasicQueryInfo;
 import io.trino.spi.QueryId;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 
 import java.time.Instant;
 import java.util.List;
@@ -49,16 +50,16 @@ public class ClusterMemoryLeakDetector
      * @param queryInfoSupplier All queries that the coordinator knows about.
      * @param queryMemoryReservations The memory reservations of queries in the cluster memory pool.
      */
-    void checkForMemoryLeaks(Supplier<List<BasicQueryInfo>> queryInfoSupplier, Map<QueryId, Long> queryMemoryReservations)
+    void checkForMemoryLeaks(Supplier<List<BasicQueryInfo>> queryInfoSupplier, Object2LongMap<QueryId> queryMemoryReservations)
     {
         requireNonNull(queryInfoSupplier);
         requireNonNull(queryMemoryReservations);
 
         Map<QueryId, BasicQueryInfo> queryIdToInfo = Maps.uniqueIndex(queryInfoSupplier.get(), BasicQueryInfo::getQueryId);
 
-        Map<QueryId, Long> leakedQueryReservations = queryMemoryReservations.entrySet()
+        Map<QueryId, Long> leakedQueryReservations = queryMemoryReservations.object2LongEntrySet()
                 .stream()
-                .filter(entry -> entry.getValue() > 0)
+                .filter(entry -> entry.getLongValue() > 0)
                 .filter(entry -> isLeaked(queryIdToInfo, entry.getKey()))
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
