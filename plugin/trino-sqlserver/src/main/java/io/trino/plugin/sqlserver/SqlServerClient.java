@@ -444,6 +444,12 @@ public class SqlServerClient
     }
 
     @Override
+    public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        return retryOnDeadlock(() -> super.getTableHandle(session, schemaTableName), "error when getting table handle for '%s'".formatted(schemaTableName));
+    }
+
+    @Override
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
         return retryOnDeadlock(() -> super.getColumns(session, schemaTableName, remoteTableName), "error when getting columns for table '%s'".formatted(remoteTableName));
