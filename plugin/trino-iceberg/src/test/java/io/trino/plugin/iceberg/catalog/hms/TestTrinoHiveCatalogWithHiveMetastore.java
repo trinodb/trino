@@ -215,6 +215,7 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                             Optional.empty(),
                             Optional.empty(),
                             Optional.empty(),
+                            Optional.empty(),
                             ImmutableList.of()),
                     ImmutableMap.of(FILE_FORMAT_PROPERTY, PARQUET, FORMAT_VERSION_PROPERTY, 1),
                     false,

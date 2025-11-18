@@ -186,6 +186,7 @@ public class TestMaterializedViews
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of(STALE_MV_STALENESS.plusHours(1)),
                 Optional.empty(),
+                Optional.empty(),
                 Identity.ofUser("some user"),
                 ImmutableList.of(),
                 Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table")));
@@ -218,6 +219,7 @@ public class TestMaterializedViews
                 Optional.of(TEST_CATALOG_NAME),
                 Optional.of(SCHEMA),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Identity.ofUser("some user"),
@@ -254,6 +256,7 @@ public class TestMaterializedViews
                 ImmutableList.of(new ViewColumn("id", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("ts", timestampWithTimezone3.getTypeId(), Optional.empty())),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Identity.ofUser("some user"),
                 ImmutableList.of(),
                 Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "timestamp_test_storage")));
@@ -284,6 +287,7 @@ public class TestMaterializedViews
                 Optional.of(SCHEMA),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of(STALE_MV_STALENESS.plusHours(1)),
+                Optional.empty(),
                 Optional.empty(),
                 Identity.ofUser("some user"),
                 ImmutableList.of(),

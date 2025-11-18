@@ -219,6 +219,7 @@ public class TestAccessControl
                                 Optional.empty(),
                                 ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("test", BIGINT.getTypeId(), Optional.empty())),
                                 Optional.of(Duration.ZERO),
+                                Optional.empty(),
                                 Optional.of("comment"),
                                 Optional.of("owner"),
                                 ImmutableList.of());
