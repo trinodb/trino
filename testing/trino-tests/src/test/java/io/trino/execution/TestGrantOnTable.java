@@ -99,6 +99,7 @@ public class TestGrantOnTable
                                         ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("test_column", BIGINT.getTypeId(), Optional.empty())),
                                         Optional.of(Duration.ZERO),
                                         Optional.empty(),
+                                        Optional.empty(),
                                         Optional.of("alice"),
                                         ImmutableList.of())))
                 .build();

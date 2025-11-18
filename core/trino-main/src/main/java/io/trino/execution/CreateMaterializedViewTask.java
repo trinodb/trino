@@ -27,6 +27,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ViewColumn;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
@@ -55,6 +56,7 @@ import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.connector.ConnectorCapabilities.MATERIALIZED_VIEW_GRACE_PERIOD;
+import static io.trino.spi.connector.ConnectorCapabilities.MATERIALIZED_VIEW_WHEN_STALE_BEHAVIOR;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
 import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -156,12 +158,21 @@ public class CreateMaterializedViewTask
                     return Duration.ofMillis(milliseconds);
                 });
 
+        Optional<WhenStaleBehavior> whenStale = statement.getWhenStaleBehavior()
+                .map(_ -> {
+                    if (!plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(MATERIALIZED_VIEW_WHEN_STALE_BEHAVIOR)) {
+                        throw semanticException(NOT_SUPPORTED, statement, "Catalog '%s' does not support WHEN STALE", catalogName);
+                    }
+                    throw semanticException(NOT_SUPPORTED, statement, "WHEN STALE is not supported yet");
+                });
+
         MaterializedViewDefinition definition = new MaterializedViewDefinition(
                 sql,
                 session.getCatalog(),
                 session.getSchema(),
                 columns,
                 gracePeriod,
+                whenStale,
                 statement.getComment(),
                 session.getIdentity(),
                 session.getPath().getPath().stream()
