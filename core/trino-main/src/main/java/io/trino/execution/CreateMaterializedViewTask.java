@@ -159,11 +159,11 @@ public class CreateMaterializedViewTask
                 });
 
         Optional<WhenStaleBehavior> whenStale = statement.getWhenStaleBehavior()
-                .map(_ -> {
+                .map(whenStaleBehavior -> {
                     if (!plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(MATERIALIZED_VIEW_WHEN_STALE_BEHAVIOR)) {
                         throw semanticException(NOT_SUPPORTED, statement, "Catalog '%s' does not support WHEN STALE", catalogName);
                     }
-                    throw semanticException(NOT_SUPPORTED, statement, "WHEN STALE is not supported yet");
+                    return toConnectorWhenStaleBehavior(whenStaleBehavior);
                 });
 
         MaterializedViewDefinition definition = new MaterializedViewDefinition(
@@ -192,5 +192,13 @@ public class CreateMaterializedViewTask
         accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name, explicitlySetProperties);
         plannerContext.getMetadata().createMaterializedView(session, name, definition, properties, statement.isReplace(), statement.isNotExists());
         return analysis;
+    }
+
+    private static WhenStaleBehavior toConnectorWhenStaleBehavior(CreateMaterializedView.WhenStaleBehavior whenStale)
+    {
+        return switch (whenStale) {
+            case INLINE -> WhenStaleBehavior.INLINE;
+            case FAIL -> WhenStaleBehavior.FAIL;
+        };
     }
 }
