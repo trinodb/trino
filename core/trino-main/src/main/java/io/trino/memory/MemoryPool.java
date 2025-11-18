@@ -23,20 +23,22 @@ import io.trino.execution.TaskId;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryAllocation;
 import io.trino.spi.memory.MemoryPoolInfo;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.Object2LongMaps;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import jakarta.annotation.Nullable;
 import org.weakref.jmx.Managed;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static java.util.Objects.requireNonNull;
@@ -56,17 +58,17 @@ public class MemoryPool
 
     // TODO: It would be better if we just tracked QueryContexts, but their lifecycle is managed by a weak reference, so we can't do that
     // It is guarded for updates by this, but can be read without holding a lock
-    private final Map<QueryId, Long> queryMemoryReservations = new ConcurrentHashMap<>();
+    private final Object2LongMap<QueryId> queryMemoryReservations = new Object2LongOpenHashMap<>();
 
     // This map keeps track of all the tagged allocations, e.g., query-1 -> ['TableScanOperator': 10MB, 'LazyOutputBuffer': 5MB, ...]
     @GuardedBy("this")
-    private final Map<QueryId, Map<String, Long>> taggedMemoryAllocations = new HashMap<>();
+    private final Map<QueryId, Object2LongMap<String>> taggedMemoryAllocations = new HashMap<>();
 
     @GuardedBy("this")
-    private final Map<TaskId, Long> taskMemoryReservations = new HashMap<>();
+    private final Object2LongMap<TaskId> taskMemoryReservations = new Object2LongOpenHashMap<>();
 
     @GuardedBy("this")
-    private final Map<TaskId, Long> taskRevocableMemoryReservations = new HashMap<>();
+    private final Object2LongMap<TaskId> taskRevocableMemoryReservations = new Object2LongOpenHashMap<>();
 
     private final List<MemoryPoolListener> listeners = new CopyOnWriteArrayList<>();
 
@@ -78,21 +80,20 @@ public class MemoryPool
 
     public synchronized MemoryPoolInfo getInfo()
     {
-        Map<QueryId, List<MemoryAllocation>> memoryAllocations = new HashMap<>();
-        for (Entry<QueryId, Map<String, Long>> entry : taggedMemoryAllocations.entrySet()) {
-            List<MemoryAllocation> allocations = new ArrayList<>();
-            if (entry.getValue() != null) {
-                entry.getValue().forEach((tag, allocation) -> allocations.add(new MemoryAllocation(tag, allocation)));
-            }
+        ImmutableMap.Builder<QueryId, List<MemoryAllocation>> memoryAllocations = ImmutableMap.builder();
+        for (Entry<QueryId, Object2LongMap<String>> entry : taggedMemoryAllocations.entrySet()) {
+            List<MemoryAllocation> allocations = entry.getValue().object2LongEntrySet().stream()
+                    .map(allocation -> new MemoryAllocation(allocation.getKey(), allocation.getLongValue()))
+                    .collect(toImmutableList());
             memoryAllocations.put(entry.getKey(), allocations);
         }
 
-        Map<String, Long> stringKeyedTaskMemoryReservations = taskMemoryReservations.entrySet().stream()
+        Map<String, Long> stringKeyedTaskMemoryReservations = taskMemoryReservations.object2LongEntrySet().stream()
                 .collect(toImmutableMap(
                         entry -> entry.getKey().toString(),
                         Entry::getValue));
 
-        Map<String, Long> stringKeyedTaskRevocableMemoryReservations = taskRevocableMemoryReservations.entrySet().stream()
+        Map<String, Long> stringKeyedTaskRevocableMemoryReservations = taskRevocableMemoryReservations.object2LongEntrySet().stream()
                 .collect(toImmutableMap(
                         entry -> entry.getKey().toString(),
                         Entry::getValue));
@@ -102,7 +103,7 @@ public class MemoryPool
                 reservedBytes,
                 reservedRevocableBytes,
                 queryMemoryReservations,
-                memoryAllocations,
+                memoryAllocations.buildOrThrow(),
                 stringKeyedTaskMemoryReservations,
                 stringKeyedTaskRevocableMemoryReservations);
     }
@@ -127,9 +128,9 @@ public class MemoryPool
         synchronized (this) {
             if (bytes != 0) {
                 QueryId queryId = taskId.queryId();
-                queryMemoryReservations.merge(queryId, bytes, Long::sum);
+                queryMemoryReservations.mergeLong(queryId, bytes, Long::sum);
                 updateTaggedMemoryAllocations(queryId, allocationTag, bytes);
-                taskMemoryReservations.merge(taskId, bytes, Long::sum);
+                taskMemoryReservations.mergeLong(taskId, bytes, Long::sum);
             }
             reservedBytes += bytes;
             if (getFreeBytes() <= 0) {
@@ -192,9 +193,9 @@ public class MemoryPool
             reservedBytes += bytes;
             if (bytes != 0) {
                 QueryId queryId = taskId.queryId();
-                queryMemoryReservations.merge(queryId, bytes, Long::sum);
+                queryMemoryReservations.mergeLong(queryId, bytes, Long::sum);
                 updateTaggedMemoryAllocations(queryId, allocationTag, bytes);
-                taskMemoryReservations.merge(taskId, bytes, Long::sum);
+                taskMemoryReservations.mergeLong(taskId, bytes, Long::sum);
             }
         }
 
@@ -226,17 +227,15 @@ public class MemoryPool
         }
 
         QueryId queryId = taskId.queryId();
-        Long queryReservation = queryMemoryReservations.get(queryId);
-        requireNonNull(queryReservation, "queryReservation is null");
+        long queryReservation = queryMemoryReservations.getLong(queryId);
         checkArgument(queryReservation >= bytes, "tried to free more memory than is reserved by query");
 
-        Long taskReservation = taskMemoryReservations.get(taskId);
-        requireNonNull(taskReservation, "taskReservation is null");
+        long taskReservation = taskMemoryReservations.getLong(taskId);
         checkArgument(taskReservation >= bytes, "tried to free more memory than is reserved by task");
 
         queryReservation -= bytes;
         if (queryReservation == 0) {
-            queryMemoryReservations.remove(queryId);
+            queryMemoryReservations.removeLong(queryId);
             taggedMemoryAllocations.remove(queryId);
         }
         else {
@@ -246,7 +245,7 @@ public class MemoryPool
 
         taskReservation -= bytes;
         if (taskReservation == 0) {
-            taskMemoryReservations.remove(taskId);
+            taskMemoryReservations.removeLong(taskId);
         }
         else {
             taskMemoryReservations.put(taskId, taskReservation);
@@ -268,13 +267,12 @@ public class MemoryPool
             return;
         }
 
-        Long taskReservation = taskRevocableMemoryReservations.get(taskId);
-        requireNonNull(taskReservation, "taskReservation is null");
+        long taskReservation = taskRevocableMemoryReservations.getLong(taskId);
         checkArgument(taskReservation >= bytes, "tried to free more revocable memory than is reserved by task");
 
         taskReservation -= bytes;
         if (taskReservation == 0) {
-            taskRevocableMemoryReservations.remove(taskId);
+            taskRevocableMemoryReservations.removeLong(taskId);
         }
         else {
             taskRevocableMemoryReservations.put(taskId, taskReservation);
@@ -386,12 +384,12 @@ public class MemoryPool
             return;
         }
 
-        Map<String, Long> allocations = taggedMemoryAllocations.computeIfAbsent(queryId, _ -> new HashMap<>());
-        allocations.compute(allocationTag, (ignored, oldValue) -> {
+        Object2LongMap<String> allocations = taggedMemoryAllocations.computeIfAbsent(queryId, _ -> new Object2LongOpenHashMap<>());
+        allocations.computeLong(allocationTag, (_, oldValue) -> {
             if (oldValue == null) {
                 return delta;
             }
-            long newValue = oldValue.longValue() + delta;
+            long newValue = oldValue + delta;
             if (newValue == 0) {
                 return null;
             }
@@ -400,9 +398,9 @@ public class MemoryPool
     }
 
     @VisibleForTesting
-    public synchronized Map<QueryId, Long> getQueryMemoryReservations()
+    public synchronized Object2LongMap<QueryId> getQueryMemoryReservations()
     {
-        return ImmutableMap.copyOf(queryMemoryReservations);
+        return Object2LongMaps.unmodifiable(queryMemoryReservations);
     }
 
     @VisibleForTesting
@@ -412,14 +410,14 @@ public class MemoryPool
     }
 
     @VisibleForTesting
-    public synchronized Map<TaskId, Long> getTaskMemoryReservations()
+    public synchronized Object2LongMap<TaskId> getTaskMemoryReservations()
     {
-        return ImmutableMap.copyOf(taskMemoryReservations);
+        return Object2LongMaps.unmodifiable(taskMemoryReservations);
     }
 
     @VisibleForTesting
-    public synchronized Map<TaskId, Long> getTaskRevocableMemoryReservations()
+    public synchronized Object2LongMap<TaskId> getTaskRevocableMemoryReservations()
     {
-        return ImmutableMap.copyOf(taskRevocableMemoryReservations);
+        return Object2LongMaps.unmodifiable(taskRevocableMemoryReservations);
     }
 }
