@@ -33,7 +33,7 @@ public class TestExasol
     public void testSelect()
     {
         String schemaName = "test_" + randomNameSuffix();
-        String tableName = schemaName + ".tab";
+        String tableName = schemaName + ".tbl";
         onExasol().executeQuery("CREATE SCHEMA " + schemaName);
         try {
             onExasol().executeQuery("CREATE TABLE " + tableName + " (id integer, name varchar(5))");
