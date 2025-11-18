@@ -138,7 +138,6 @@ public class TestBinPackingNodeAllocator
                         0,
                         ImmutableMap.of(),
                         ImmutableMap.of(),
-                        ImmutableMap.of(),
                         taskMemoryUsage.entrySet().stream()
                                 .collect(toImmutableMap(
                                         entry -> entry.getKey().toString(),

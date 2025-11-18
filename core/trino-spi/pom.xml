@@ -315,6 +315,40 @@
                                     <old>method void io.trino.spi.resourcegroups.SelectionCriteria::&lt;init&gt;(boolean, java.lang.String, java.util.Set&lt;java.lang.String&gt;, java.lang.String, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Set&lt;java.lang.String&gt;, io.trino.spi.session.ResourceEstimates, java.util.Optional&lt;java.lang.String&gt;)</old>
                                     <justification>Added queryText before queryType parameter</justification>
                                 </item>
+                                <item>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>parameter void io.trino.spi.memory.MemoryPoolInfo::&lt;init&gt;(long, long, long, java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt;, java.util.Map&lt;io.trino.spi.QueryId, java.util.List&lt;io.trino.spi.memory.MemoryAllocation&gt;&gt;, ===java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt;===, java.util.Map&lt;java.lang.String, java.lang.Long&gt;, java.util.Map&lt;java.lang.String, java.lang.Long&gt;)</old>
+                                    <new>parameter void io.trino.spi.memory.MemoryPoolInfo::&lt;init&gt;(long, long, long, java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt;, java.util.Map&lt;io.trino.spi.QueryId, java.util.List&lt;io.trino.spi.memory.MemoryAllocation&gt;&gt;, ===java.util.Map&lt;java.lang.String, java.lang.Long&gt;===, java.util.Map&lt;java.lang.String, java.lang.Long&gt;)</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonProperty</annotationType>
+                                    <attribute>value</attribute>
+                                    <oldValue>"queryMemoryRevocableReservations"</oldValue>
+                                    <newValue>"taskMemoryReservations"</newValue>
+                                    <justification>Removed unused field</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>parameter void io.trino.spi.memory.MemoryPoolInfo::&lt;init&gt;(long, long, long, java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt;, java.util.Map&lt;io.trino.spi.QueryId, java.util.List&lt;io.trino.spi.memory.MemoryAllocation&gt;&gt;, java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt;, ===java.util.Map&lt;java.lang.String, java.lang.Long&gt;===, java.util.Map&lt;java.lang.String, java.lang.Long&gt;)</old>
+                                    <new>parameter void io.trino.spi.memory.MemoryPoolInfo::&lt;init&gt;(long, long, long, java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt;, java.util.Map&lt;io.trino.spi.QueryId, java.util.List&lt;io.trino.spi.memory.MemoryAllocation&gt;&gt;, java.util.Map&lt;java.lang.String, java.lang.Long&gt;, ===java.util.Map&lt;java.lang.String, java.lang.Long&gt;===)</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonProperty</annotationType>
+                                    <attribute>value</attribute>
+                                    <oldValue>"taskMemoryReservations"</oldValue>
+                                    <newValue>"taskMemoryRevocableReservations"</newValue>
+                                    <justification>Removed unused field</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.memory.MemoryPoolInfo::&lt;init&gt;(long, long, long, java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt;, java.util.Map&lt;io.trino.spi.QueryId, java.util.List&lt;io.trino.spi.memory.MemoryAllocation&gt;&gt;, java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt;, java.util.Map&lt;java.lang.String, java.lang.Long&gt;, java.util.Map&lt;java.lang.String, java.lang.Long&gt;)</old>
+                                    <new>method void io.trino.spi.memory.MemoryPoolInfo::&lt;init&gt;(long, long, long, java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt;, java.util.Map&lt;io.trino.spi.QueryId, java.util.List&lt;io.trino.spi.memory.MemoryAllocation&gt;&gt;, java.util.Map&lt;java.lang.String, java.lang.Long&gt;, java.util.Map&lt;java.lang.String, java.lang.Long&gt;)</new>
+                                    <justification>Removed unused field</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.Map&lt;io.trino.spi.QueryId, java.lang.Long&gt; io.trino.spi.memory.MemoryPoolInfo::getQueryMemoryRevocableReservations()</old>
+                                    <justification>Removed unused field</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
