@@ -127,6 +127,7 @@ class TestCreateMaterializedViewTask
                 false,
                 true,
                 Optional.empty(),
+                Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty());
 
@@ -146,6 +147,7 @@ class TestCreateMaterializedViewTask
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 false,
+                Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty());
@@ -169,6 +171,7 @@ class TestCreateMaterializedViewTask
                 false,
                 true,
                 Optional.empty(),
+                Optional.empty(),
                 ImmutableList.of(new Property(new NodeLocation(1, 88), new Identifier("baz"), new StringLiteral("abc"))),
                 Optional.empty());
 
@@ -190,6 +193,7 @@ class TestCreateMaterializedViewTask
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 true,
+                Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(
                         new Property(new Identifier("foo")),    // set foo to DEFAULT
@@ -216,6 +220,7 @@ class TestCreateMaterializedViewTask
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 true,
+                Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty());
