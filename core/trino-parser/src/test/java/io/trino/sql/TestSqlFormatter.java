@@ -23,6 +23,7 @@ import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.CreateBranch;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
+import io.trino.sql.tree.CreateMaterializedView.WhenStaleBehavior;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.CreateView;
@@ -448,6 +449,7 @@ public class TestSqlFormatter
                         false,
                         false,
                         Optional.empty(),
+                        Optional.empty(),
                         ImmutableList.of(),
                         Optional.empty())))
                 .isEqualTo("CREATE MATERIALIZED VIEW test_mv AS\n" +
@@ -462,6 +464,7 @@ public class TestSqlFormatter
                         false,
                         false,
                         Optional.empty(),
+                        Optional.empty(),
                         ImmutableList.of(),
                         Optional.of("攻殻機動隊"))))
                 .isEqualTo("CREATE MATERIALIZED VIEW test_mv\n" +
@@ -469,6 +472,25 @@ public class TestSqlFormatter
                         "SELECT *\n" +
                         "FROM\n" +
                         "  test_base\n");
+        assertThat(formatSql(
+                new CreateMaterializedView(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("test_mv"),
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("test_base"))),
+                        false,
+                        false,
+                        Optional.empty(),
+                        Optional.of(WhenStaleBehavior.FAIL),
+                        ImmutableList.of(),
+                        Optional.empty())))
+                .isEqualTo(
+                        """
+                        CREATE MATERIALIZED VIEW test_mv
+                        WHEN STALE FAIL AS
+                        SELECT *
+                        FROM
+                          test_base
+                        """);
     }
 
     @Test
