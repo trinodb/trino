@@ -40,6 +40,7 @@ import io.trino.metadata.ViewDefinition;
 import io.trino.metadata.ViewPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
@@ -61,6 +62,7 @@ import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.CreateMaterializedView;
+import io.trino.sql.tree.CreateMaterializedView.WhenStaleBehavior;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateView;
@@ -137,6 +139,7 @@ import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior.INLINE;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.QueryUtil.aliased;
@@ -564,10 +567,18 @@ public final class ShowQueriesRewrite
                     false,
                     viewDefinition.get().getGracePeriod()
                             .map(DateTimeUtils::formatDayTimeInterval),
-                    Optional.empty(), // TODO support WHEN STALE
+                    Optional.of(toSqlWhenStaleBehavior(viewDefinition.get().getWhenStaleBehavior().orElse(INLINE))),
                     propertyNodes,
                     viewDefinition.get().getComment())).trim();
             return singleValueQuery("Create Materialized View", sql);
+        }
+
+        private static WhenStaleBehavior toSqlWhenStaleBehavior(ConnectorMaterializedViewDefinition.WhenStaleBehavior whenStale)
+        {
+            return switch (whenStale) {
+                case INLINE -> WhenStaleBehavior.INLINE;
+                case FAIL -> WhenStaleBehavior.FAIL;
+            };
         }
 
         private Query showCreateView(ShowCreate node)

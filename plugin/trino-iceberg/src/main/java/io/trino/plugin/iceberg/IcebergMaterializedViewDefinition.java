@@ -19,6 +19,7 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior;
 import io.trino.spi.type.TypeId;
 
 import java.time.Duration;
@@ -43,6 +44,7 @@ public record IcebergMaterializedViewDefinition(
         Optional<String> schema,
         List<Column> columns,
         Optional<Duration> gracePeriod,
+        Optional<WhenStaleBehavior> whenStaleBehavior,
         Optional<String> comment,
         List<CatalogSchemaName> path)
 {
@@ -79,6 +81,7 @@ public record IcebergMaterializedViewDefinition(
                         .map(column -> new Column(column.getName(), column.getType(), column.getComment()))
                         .collect(toImmutableList()),
                 definition.getGracePeriod(),
+                definition.getWhenStaleBehavior(),
                 definition.getComment(),
                 definition.getPath());
     }
@@ -90,6 +93,7 @@ public record IcebergMaterializedViewDefinition(
         requireNonNull(schema, "schema is null");
         columns = List.copyOf(requireNonNull(columns, "columns is null"));
         checkArgument(gracePeriod.isEmpty() || !gracePeriod.get().isNegative(), "gracePeriod cannot be negative: %s", gracePeriod);
+        requireNonNull(whenStaleBehavior, "whenStaleBehavior is null");
         requireNonNull(comment, "comment is null");
         path = path == null ? ImmutableList.of() : ImmutableList.copyOf(path);
 
@@ -110,6 +114,7 @@ public record IcebergMaterializedViewDefinition(
         schema.ifPresent(value -> joiner.add("schema=" + value));
         joiner.add("columns=" + columns);
         gracePeriod.ifPresent(value -> joiner.add("gracePeriod≥=" + value));
+        whenStaleBehavior.ifPresent(value -> joiner.add("whenStaleBehavior=" + value.name()));
         comment.ifPresent(value -> joiner.add("comment=" + value));
         joiner.add(path.stream().map(CatalogSchemaName::toString).collect(Collectors.joining(", ", "path=(", ")")));
         return getClass().getSimpleName() + joiner;
