@@ -25,6 +25,19 @@ CREATE TABLE example.default.nation AS
 SELECT * from tpch.tiny.nation;
 ```
 
+Create the table orders if it does not already exist, adding a table comment, adding a column comment and a column with default value:
+
+```
+CREATE TABLE IF NOT EXISTS orders (
+  orderkey bigint,
+  orderstatus varchar,
+  totalprice double COMMENT 'Price in cents.',
+  orderdate date,
+  status varchar default 'created'
+)
+COMMENT 'A table to keep track of orders.'
+```
+
 Insert data into a table in the Memory connector:
 
 ```
