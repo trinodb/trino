@@ -57,6 +57,7 @@ import io.trino.sql.tree.CreateBranch;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateFunction;
 import io.trino.sql.tree.CreateMaterializedView;
+import io.trino.sql.tree.CreateMaterializedView.WhenStaleBehavior;
 import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
@@ -613,6 +614,14 @@ class AstBuilder
             gracePeriod = Optional.of((IntervalLiteral) visit(context.interval()));
         }
 
+        Optional<WhenStaleBehavior> whenStale = Optional.empty();
+        if (context.INLINE() != null) {
+            whenStale = Optional.of(WhenStaleBehavior.INLINE);
+        }
+        else if (context.FAIL() != null) {
+            whenStale = Optional.of(WhenStaleBehavior.FAIL);
+        }
+
         Optional<String> comment = Optional.empty();
         if (context.COMMENT() != null) {
             comment = Optional.of(visitString(context.string()).getValue());
@@ -630,6 +639,7 @@ class AstBuilder
                 context.REPLACE() != null,
                 context.EXISTS() != null,
                 gracePeriod,
+                whenStale,
                 properties,
                 comment);
     }
