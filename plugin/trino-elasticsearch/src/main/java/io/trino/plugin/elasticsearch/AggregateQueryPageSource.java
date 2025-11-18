@@ -200,7 +200,7 @@ public class AggregateQueryPageSource
         if (aggregations == null || aggregations.asList().isEmpty()) {
             Map<String, Object> singleValueMap = new LinkedHashMap<>();
             for (MetricAggregation metricAgg : table.metricAggregations()) {
-                if (metricAgg.getColumnHandle().isEmpty() && "count".equals(metricAgg.getFunctionName())) {
+                if (metricAgg.getColumnHandle().isEmpty() && MetricAggregation.COUNT.equals(metricAgg.getFunctionName())) {
                     // This is global COUNT(*) - use total hits
                     singleValueMap.put(metricAgg.getAlias(), (double) searchResponse.getHits().getTotalHits().value);
                 }
@@ -237,7 +237,7 @@ public class AggregateQueryPageSource
 
                     // Handle COUNT(*) - these don't have sub-aggregations, just use bucket doc count
                     for (MetricAggregation metricAgg : table.metricAggregations()) {
-                        if (metricAgg.getColumnHandle().isEmpty() && "count".equals(metricAgg.getFunctionName())) {
+                        if (metricAgg.getColumnHandle().isEmpty() && MetricAggregation.COUNT.equals(metricAgg.getFunctionName())) {
                             line.put(metricAgg.getAlias(), (double) bucket.getDocCount());
                         }
                     }
@@ -264,6 +264,17 @@ public class AggregateQueryPageSource
                 throw new IllegalStateException("Unrecognized aggregation type: " + agg.getType());
             }
         }
+
+        // Inject COUNT(*) for non-bucket metric aggregations (e.g., SELECT count(*), sum(x))
+        // COUNT(*) doesn't create a sub-aggregation, so we use total hits from the search response
+        if (hasMetricAggregation) {
+            for (MetricAggregation metricAgg : table.metricAggregations()) {
+                if (metricAgg.getColumnHandle().isEmpty() && MetricAggregation.COUNT.equals(metricAgg.getFunctionName())) {
+                    singleValueMap.put(metricAgg.getAlias(), (double) searchResponse.getHits().getTotalHits().value);
+                }
+            }
+        }
+
         if (hasBucketsAggregation) {
             return result.build();
         }
