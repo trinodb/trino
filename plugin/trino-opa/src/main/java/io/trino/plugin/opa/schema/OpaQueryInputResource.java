@@ -14,6 +14,7 @@
 package io.trino.plugin.opa.schema;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.trino.spi.security.ViewSecurity;
 
 import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static java.util.Objects.requireNonNull;
@@ -27,7 +28,8 @@ public record OpaQueryInputResource(
         NamedEntity catalog,
         TrinoSchema schema,
         TrinoTable table,
-        TrinoColumn column)
+        TrinoColumn column,
+        ViewSecurity security)
 {
     public record NamedEntity(String name)
     {
@@ -52,6 +54,7 @@ public record OpaQueryInputResource(
         private TrinoTable table;
         private TrinoFunction function;
         private TrinoColumn column;
+        private ViewSecurity security;
 
         private Builder() {}
 
@@ -109,6 +112,12 @@ public record OpaQueryInputResource(
             return this;
         }
 
+        public Builder security(ViewSecurity security)
+        {
+            this.security = security;
+            return this;
+        }
+
         public OpaQueryInputResource build()
         {
             return new OpaQueryInputResource(
@@ -119,7 +128,8 @@ public record OpaQueryInputResource(
                     this.catalog,
                     this.schema,
                     this.table,
-                    this.column);
+                    this.column,
+                    this.security);
         }
     }
 }

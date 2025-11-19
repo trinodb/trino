@@ -151,24 +151,24 @@ public abstract class BaseFileBasedSystemAccessControlTest
                 "security.refresh-period", "1ms"));
 
         SystemSecurityContext alice = new SystemSecurityContext(BaseFileBasedSystemAccessControlTest.alice, queryId, queryStart);
-        accessControl.checkCanCreateView(alice, aliceView);
-        accessControl.checkCanCreateView(alice, aliceView);
-        accessControl.checkCanCreateView(alice, aliceView);
+        accessControl.checkCanCreateView(alice, aliceView, Optional.empty());
+        accessControl.checkCanCreateView(alice, aliceView, Optional.empty());
+        accessControl.checkCanCreateView(alice, aliceView, Optional.empty());
 
         Files.copy(getResourcePath("file-based-system-security-config-file-with-unknown-rules.json"), configFile, REPLACE_EXISTING);
         sleep(2);
 
-        assertThatThrownBy(() -> accessControl.checkCanCreateView(alice, aliceView))
+        assertThatThrownBy(() -> accessControl.checkCanCreateView(alice, aliceView, Optional.empty()))
                 .hasMessageContaining("Failed to convert JSON tree node");
 
         // test if file based cached control was not cached somewhere
-        assertThatThrownBy(() -> accessControl.checkCanCreateView(alice, aliceView))
+        assertThatThrownBy(() -> accessControl.checkCanCreateView(alice, aliceView, Optional.empty()))
                 .hasMessageContaining("Failed to convert JSON tree node");
 
         Files.copy(getResourcePath("file-based-system-catalog.json"), configFile, REPLACE_EXISTING);
         sleep(2);
 
-        accessControl.checkCanCreateView(alice, aliceView);
+        accessControl.checkCanCreateView(alice, aliceView, Optional.empty());
     }
 
     @Test

@@ -57,6 +57,7 @@ import io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlConte
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.security.ViewSecurity;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import jakarta.annotation.PreDestroy;
@@ -771,16 +772,16 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanCreateView(SecurityContext securityContext, QualifiedObjectName viewName)
+    public void checkCanCreateView(SecurityContext securityContext, QualifiedObjectName viewName, Optional<ViewSecurity> security)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(viewName, "viewName is null");
 
         checkCanAccessCatalog(securityContext, viewName.catalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanCreateView(securityContext.toSystemSecurityContext(), viewName.asCatalogSchemaTableName()));
+        systemAuthorizationCheck(control -> control.checkCanCreateView(securityContext.toSystemSecurityContext(), viewName.asCatalogSchemaTableName(), security));
 
-        catalogAuthorizationCheck(viewName.catalogName(), securityContext, (control, context) -> control.checkCanCreateView(context, viewName.asSchemaTableName()));
+        catalogAuthorizationCheck(viewName.catalogName(), securityContext, (control, context) -> control.checkCanCreateView(context, viewName.asSchemaTableName(), security));
     }
 
     @Override

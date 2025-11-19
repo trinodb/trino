@@ -31,6 +31,7 @@ import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.security.ViewSecurity;
 import io.trino.transaction.TransactionManager;
 
 import java.security.Principal;
@@ -538,13 +539,13 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName)
+    public void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName, Optional<ViewSecurity> security)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), viewName.objectName(), CREATE_VIEW)) {
             denyCreateView(viewName.toString());
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanCreateView(context, viewName);
+            super.checkCanCreateView(context, viewName, security);
         }
     }
 

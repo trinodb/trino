@@ -24,6 +24,7 @@ import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.security.ViewSecurity;
 
 import java.security.Principal;
 import java.util.Collection;
@@ -161,7 +162,7 @@ public class AllowAllAccessControl
     public void checkCanUpdateTableColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames) {}
 
     @Override
-    public void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName) {}
+    public void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName, Optional<ViewSecurity> security) {}
 
     @Override
     public void checkCanRenameView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName) {}
