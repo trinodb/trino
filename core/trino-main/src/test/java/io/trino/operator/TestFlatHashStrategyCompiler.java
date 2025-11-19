@@ -84,7 +84,7 @@ class TestFlatHashStrategyCompiler
     private static Block[] createVariableWidthTestColumns(int columns)
     {
         Block nonNullBlock = createStringsBlock("test string");
-        Block nullsBlock = VARCHAR.createBlockBuilder(null, 1).appendNull().buildValueBlock();
+        Block nullsBlock = VARCHAR.createBlockBuilder(1).appendNull().buildValueBlock();
         Block[] blocks = new Block[columns];
         for (int i = 0; i < columns; i++) {
             blocks[i] = i % 2 == 0 ? nullsBlock : nonNullBlock;
@@ -95,7 +95,7 @@ class TestFlatHashStrategyCompiler
     private static Block[] createFixedWidthTestColumns(int columns)
     {
         Block nonNullBlock = createLongsBlock((long) Integer.MAX_VALUE + 1);
-        Block nullsBlock = BIGINT.createBlockBuilder(null, 1).appendNull().buildValueBlock();
+        Block nullsBlock = BIGINT.createBlockBuilder(1).appendNull().buildValueBlock();
         Block[] blocks = new Block[columns];
         for (int i = 0; i < columns; i++) {
             blocks[i] = i % 2 == 0 ? nullsBlock : nonNullBlock;

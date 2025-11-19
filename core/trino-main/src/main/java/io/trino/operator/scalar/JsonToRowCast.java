@@ -109,7 +109,7 @@ public class JsonToRowCast
                 return null;
             }
 
-            BlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1);
+            BlockBuilder blockBuilder = rowType.createBlockBuilder(1);
             rowAppender.append(jsonParser, blockBuilder);
             if (jsonParser.nextToken() != null) {
                 throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));

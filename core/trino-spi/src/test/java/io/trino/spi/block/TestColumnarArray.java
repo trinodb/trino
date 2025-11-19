@@ -122,13 +122,13 @@ public class TestColumnarArray
 
     public static BlockBuilder createBlockBuilderWithValues(Slice[][] expectedValues)
     {
-        BlockBuilder blockBuilder = ARRAY_TYPE.createBlockBuilder(null, 100, 100);
+        BlockBuilder blockBuilder = ARRAY_TYPE.createBlockBuilder(100, 100);
         for (Slice[] expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
             }
             else {
-                BlockBuilder elementBlockBuilder = VARCHAR.createBlockBuilder(null, expectedValue.length);
+                BlockBuilder elementBlockBuilder = VARCHAR.createBlockBuilder(expectedValue.length);
                 for (Slice v : expectedValue) {
                     if (v == null) {
                         elementBlockBuilder.appendNull();

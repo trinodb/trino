@@ -119,7 +119,7 @@ public class BenchmarkJsonToArrayCast
 
         private static Block createChannel(int positionCount, int mapSize, Type elementType)
         {
-            BlockBuilder blockBuilder = JSON.createBlockBuilder(null, positionCount);
+            BlockBuilder blockBuilder = JSON.createBlockBuilder(positionCount);
             for (int position = 0; position < positionCount; position++) {
                 SliceOutput jsonSlice = new DynamicSliceOutput(20 * mapSize);
                 jsonSlice.appendByte('[');

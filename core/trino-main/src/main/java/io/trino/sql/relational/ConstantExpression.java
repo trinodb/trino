@@ -56,7 +56,7 @@ public record ConstantExpression(Object value, Type type)
     @JsonProperty("value")
     public Block getBlockValue()
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = type.createBlockBuilder(1);
         writeNativeValue(type, blockBuilder, value);
         return blockBuilder.build();
     }

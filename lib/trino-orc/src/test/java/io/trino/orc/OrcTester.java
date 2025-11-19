@@ -703,7 +703,7 @@ public class OrcTester
                 BOTH,
                 stats);
 
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1024);
+        BlockBuilder blockBuilder = type.createBlockBuilder(1024);
         while (values.hasNext()) {
             Object value = values.next();
             writeValue(type, blockBuilder, value);

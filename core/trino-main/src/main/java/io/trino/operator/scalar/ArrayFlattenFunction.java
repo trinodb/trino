@@ -68,10 +68,10 @@ public class ArrayFlattenFunction
     public static Block flatten(Type type, Type arrayType, Block array)
     {
         if (array.getPositionCount() == 0) {
-            return type.createBlockBuilder(null, 0).build();
+            return type.createBlockBuilder(0).build();
         }
 
-        BlockBuilder builder = type.createBlockBuilder(null, array.getPositionCount(), toIntExact(array.getSizeInBytes() / array.getPositionCount()));
+        BlockBuilder builder = type.createBlockBuilder(array.getPositionCount(), toIntExact(array.getSizeInBytes() / array.getPositionCount()));
         for (int i = 0; i < array.getPositionCount(); i++) {
             if (!array.isNull(i)) {
                 Block subArray = (Block) arrayType.getObject(array, i);

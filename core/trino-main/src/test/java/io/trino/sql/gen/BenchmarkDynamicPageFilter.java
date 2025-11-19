@@ -187,7 +187,7 @@ public class BenchmarkDynamicPageFilter
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         Random random = new Random(32167);
         int batchSize = 1;
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, batchSize);
+        BlockBuilder blockBuilder = type.createBlockBuilder(batchSize);
         for (int i = 0; i < rows; i++) {
             if (isTrue(random, nullChance)) {
                 blockBuilder.appendNull();
@@ -200,7 +200,7 @@ public class BenchmarkDynamicPageFilter
                 Block block = blockBuilder.build();
                 pages.add(new Page(block));
                 batchSize = Math.min(1024, batchSize * 2);
-                blockBuilder = type.createBlockBuilder(null, batchSize);
+                blockBuilder = type.createBlockBuilder(batchSize);
             }
         }
         if (blockBuilder.getPositionCount() > 0) {

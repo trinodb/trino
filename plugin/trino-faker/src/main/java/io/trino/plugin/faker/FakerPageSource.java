@@ -364,7 +364,7 @@ class FakerPageSource
                             ValueSet.none(field.getType()))))
                     .collect(toImmutableList());
             return (blockBuilder) -> {
-                RowBlockBuilder rowBlockBuilder = rowType.createBlockBuilder(null, 1);
+                RowBlockBuilder rowBlockBuilder = rowType.createBlockBuilder(1);
                 rowBlockBuilder.buildEntry(fieldBuilders -> {
                     for (int i = 0; i < fieldBuilders.size(); i++) {
                         fieldGenerators.get(i).accept(fieldBuilders.get(i));
@@ -374,13 +374,13 @@ class FakerPageSource
             };
         }
         if (type instanceof ArrayType arrayType) {
-            ArrayBlockBuilder arrayBlockBuilder = arrayType.createBlockBuilder(null, 0);
+            ArrayBlockBuilder arrayBlockBuilder = arrayType.createBlockBuilder(0);
             arrayBlockBuilder.buildEntry(_ -> {});
             ArrayBlock emptyBlock = (ArrayBlock) arrayBlockBuilder.build();
             return (blockBuilder) -> blockBuilder.append(emptyBlock, 0);
         }
         if (type instanceof MapType mapType) {
-            MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 0);
+            MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(0);
             mapBlockBuilder.buildEntry((_, _) -> {});
             MapBlock emptyBlock = (MapBlock) mapBlockBuilder.build();
             return (blockBuilder) -> blockBuilder.append(emptyBlock, 0);

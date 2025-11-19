@@ -251,12 +251,12 @@ public class TestProtobufEncoder
         RowEncoder rowEncoder = createRowEncoder("structural_datatypes.proto", columnHandles.subList(0, 3));
 
         ArrayBlockBuilder arrayBlockBuilder = (ArrayBlockBuilder) columnHandles.get(0).getType()
-                .createBlockBuilder(null, 1);
+                .createBlockBuilder(1);
         arrayBlockBuilder.buildEntry(elementBuilder -> writeNativeValue(createVarcharType(5), elementBuilder, utf8Slice(stringData)));
         rowEncoder.appendColumnValue(arrayBlockBuilder.build(), 0);
 
         MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) columnHandles.get(1).getType()
-                .createBlockBuilder(null, 1);
+                .createBlockBuilder(1);
         mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
             writeNativeValue(VARCHAR, keyBuilder, utf8Slice("Key"));
             writeNativeValue(VARCHAR, valueBuilder, utf8Slice("Value"));
@@ -264,7 +264,7 @@ public class TestProtobufEncoder
         rowEncoder.appendColumnValue(mapBlockBuilder.build(), 0);
 
         RowBlockBuilder rowBlockBuilder = (RowBlockBuilder) columnHandles.get(2).getType()
-                .createBlockBuilder(null, 1);
+                .createBlockBuilder(1);
         rowBlockBuilder.buildEntry(fieldBuilders -> {
             writeNativeValue(VARCHAR, fieldBuilders.get(0), utf8Slice(stringData));
             writeNativeValue(INTEGER, fieldBuilders.get(1), integerData.longValue());
@@ -377,7 +377,7 @@ public class TestProtobufEncoder
 
         RowEncoder rowEncoder = createRowEncoder("structural_datatypes.proto", columnHandles);
 
-        RowBlockBuilder rowBlockBuilder = rowType.createBlockBuilder(null, 1);
+        RowBlockBuilder rowBlockBuilder = rowType.createBlockBuilder(1);
         rowBlockBuilder.buildEntry(fieldBuilders -> {
             writeNativeValue(VARCHAR, fieldBuilders.get(0), Slices.utf8Slice(stringData));
             writeNativeValue(INTEGER, fieldBuilders.get(1), integerData.longValue());
@@ -393,7 +393,7 @@ public class TestProtobufEncoder
         RowType nestedRowType = (RowType) columnHandles.get(0).getType();
 
         MapType mapType = (MapType) nestedRowType.getTypeParameters().get(1);
-        BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
+        BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(1);
         Block mapBlock = mapType.createBlockFromKeyValue(
                 Optional.empty(),
                 new int[] {0, 1},
@@ -402,7 +402,7 @@ public class TestProtobufEncoder
         mapBlockBuilder.append(mapBlock.getUnderlyingValueBlock(), mapBlock.getUnderlyingValuePosition(0));
 
         Type listType = nestedRowType.getTypeParameters().get(0);
-        BlockBuilder listBlockBuilder = listType.createBlockBuilder(null, 1);
+        BlockBuilder listBlockBuilder = listType.createBlockBuilder(1);
         Block arrayBlock = fromElementBlock(
                 1,
                 Optional.empty(),
@@ -410,7 +410,7 @@ public class TestProtobufEncoder
                 rowBlockBuilder.build());
         listBlockBuilder.append(arrayBlock.getUnderlyingValueBlock(), arrayBlock.getUnderlyingValuePosition(0));
 
-        BlockBuilder nestedBlockBuilder = nestedRowType.createBlockBuilder(null, 1);
+        BlockBuilder nestedBlockBuilder = nestedRowType.createBlockBuilder(1);
         Block rowBlock = fromFieldBlocks(1, new Block[] {listBlockBuilder.build(), mapBlockBuilder.build(), rowBlockBuilder.build()});
         nestedBlockBuilder.append(rowBlock.getUnderlyingValueBlock(), rowBlock.getUnderlyingValuePosition(0));
 

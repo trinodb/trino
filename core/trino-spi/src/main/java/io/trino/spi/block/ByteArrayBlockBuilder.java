@@ -13,8 +13,6 @@
  */
 package io.trino.spi.block;
 
-import jakarta.annotation.Nullable;
-
 import java.util.Arrays;
 
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -29,8 +27,6 @@ public class ByteArrayBlockBuilder
     private static final int INSTANCE_SIZE = instanceSize(ByteArrayBlockBuilder.class);
     private static final Block NULL_VALUE_BLOCK = new ByteArrayBlock(0, 1, new boolean[] {true}, new byte[1]);
 
-    @Nullable
-    private final BlockBuilderStatus blockBuilderStatus;
     private boolean initialized;
     private final int initialEntryCount;
 
@@ -44,9 +40,8 @@ public class ByteArrayBlockBuilder
 
     private long retainedSizeInBytes;
 
-    public ByteArrayBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public ByteArrayBlockBuilder(int expectedEntries)
     {
-        this.blockBuilderStatus = blockBuilderStatus;
         this.initialEntryCount = max(expectedEntries, 1);
 
         updateRetainedSize();
@@ -60,9 +55,6 @@ public class ByteArrayBlockBuilder
 
         hasNonNullValue = true;
         positionCount++;
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(ByteArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
         return this;
     }
 
@@ -81,10 +73,6 @@ public class ByteArrayBlockBuilder
             hasNonNullValue = true;
         }
         positionCount++;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(ByteArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
     }
 
     @Override
@@ -112,10 +100,6 @@ public class ByteArrayBlockBuilder
             hasNonNullValue = true;
         }
         positionCount += count;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(count * ByteArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
     }
 
     @Override
@@ -156,10 +140,6 @@ public class ByteArrayBlockBuilder
             hasNonNullValue = true;
         }
         positionCount += length;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(length * ByteArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
     }
 
     @Override
@@ -200,10 +180,6 @@ public class ByteArrayBlockBuilder
             hasNonNullValue = true;
         }
         positionCount += length;
-
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(length * ByteArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
     }
 
     @Override
@@ -215,9 +191,6 @@ public class ByteArrayBlockBuilder
 
         hasNullValue = true;
         positionCount++;
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(ByteArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
         return this;
     }
 
@@ -244,9 +217,9 @@ public class ByteArrayBlockBuilder
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries)
     {
-        return new ByteArrayBlockBuilder(blockBuilderStatus, expectedEntries);
+        return new ByteArrayBlockBuilder(expectedEntries);
     }
 
     private void ensureCapacity(int capacity)
@@ -273,9 +246,6 @@ public class ByteArrayBlockBuilder
     private void updateRetainedSize()
     {
         retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
-        if (blockBuilderStatus != null) {
-            retainedSizeInBytes += BlockBuilderStatus.INSTANCE_SIZE;
-        }
     }
 
     @Override

@@ -52,7 +52,7 @@ public class TestRowBlockBuilder
                 .doesNotContainNull()
                 .doesNotContain(getUnusedTestValue());
 
-        RowBlockBuilder blockBuilder = new RowBlockBuilder(List.of(VARCHAR, INTEGER, BOOLEAN), null, 1);
+        RowBlockBuilder blockBuilder = new RowBlockBuilder(List.of(VARCHAR, INTEGER, BOOLEAN), 1);
         for (TestRow row : values) {
             blockBuilder.buildEntry(fieldBuilders -> {
                 if (row.name() == null) {
@@ -67,7 +67,7 @@ public class TestRowBlockBuilder
         }
         assertThat(blockToValues(blockBuilder.buildValueBlock())).isEqualTo(values);
 
-        blockBuilder = new RowBlockBuilder(List.of(VARCHAR, INTEGER, BOOLEAN), null, 1);
+        blockBuilder = new RowBlockBuilder(List.of(VARCHAR, INTEGER, BOOLEAN), 1);
         for (TestRow row : values) {
             RowEntryBuilder rowEntryBuilder = blockBuilder.buildEntry();
             if (row.name() == null) {
@@ -82,15 +82,15 @@ public class TestRowBlockBuilder
         }
         assertThat(blockToValues(blockBuilder.buildValueBlock())).isEqualTo(values);
 
-        blockBuilder = new RowBlockBuilder(List.of(VARCHAR, INTEGER, BOOLEAN), null, 1);
+        blockBuilder = new RowBlockBuilder(List.of(VARCHAR, INTEGER, BOOLEAN), 1);
         blockBuilder.buildEntry();
         assertThatThrownBy(blockBuilder::buildEntry).isInstanceOf(IllegalStateException.class);
 
-        blockBuilder = new RowBlockBuilder(List.of(VARCHAR, INTEGER, BOOLEAN), null, 1);
+        blockBuilder = new RowBlockBuilder(List.of(VARCHAR, INTEGER, BOOLEAN), 1);
         RowEntryBuilder incompleteEntryBuilder = blockBuilder.buildEntry();
         assertThatThrownBy(incompleteEntryBuilder::build).isInstanceOf(IllegalStateException.class);
 
-        blockBuilder = new RowBlockBuilder(List.of(BOOLEAN), null, 1);
+        blockBuilder = new RowBlockBuilder(List.of(BOOLEAN), 1);
         RowEntryBuilder multipleEntryBuilder = blockBuilder.buildEntry();
         BOOLEAN.writeBoolean(multipleEntryBuilder.getFieldBuilder(0), true);
         multipleEntryBuilder.build();
@@ -100,7 +100,7 @@ public class TestRowBlockBuilder
 
     private static BlockBuilder blockBuilder()
     {
-        return new RowBlockBuilder(ImmutableList.of(BIGINT), null, 10);
+        return new RowBlockBuilder(ImmutableList.of(BIGINT), 10);
     }
 
     private static void assertIsAllNulls(Block block, int expectedPositionCount)
@@ -121,7 +121,7 @@ public class TestRowBlockBuilder
     @Override
     protected BlockBuilder createBlockBuilder()
     {
-        return new RowBlockBuilder(List.of(VARCHAR, INTEGER, BOOLEAN), null, 1);
+        return new RowBlockBuilder(List.of(VARCHAR, INTEGER, BOOLEAN), 1);
     }
 
     @Override
@@ -144,7 +144,7 @@ public class TestRowBlockBuilder
     @Override
     protected ValueBlock blockFromValues(Iterable<TestRow> values)
     {
-        RowBlockBuilder blockBuilder = new RowBlockBuilder(List.of(VARCHAR, INTEGER, BOOLEAN), null, 1);
+        RowBlockBuilder blockBuilder = new RowBlockBuilder(List.of(VARCHAR, INTEGER, BOOLEAN), 1);
         for (TestRow row : values) {
             if (row == null) {
                 blockBuilder.appendNull();

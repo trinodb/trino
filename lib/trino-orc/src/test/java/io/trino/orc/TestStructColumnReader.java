@@ -241,14 +241,14 @@ public class TestStructColumnReader
 
         int entries = 10;
 
-        VariableWidthBlockBuilder fieldBlockBuilder = VARCHAR.createBlockBuilder(null, entries);
+        VariableWidthBlockBuilder fieldBlockBuilder = VARCHAR.createBlockBuilder(entries);
         for (int fieldId = 0; fieldId < data.size(); fieldId++) {
             Slice fieldValue = Slices.utf8Slice(data.get(fieldId));
             for (int rowId = 0; rowId < entries; rowId++) {
                 fieldBlockBuilder.writeEntry(fieldValue);
             }
             fieldBlocks[fieldId] = fieldBlockBuilder.build();
-            fieldBlockBuilder = (VariableWidthBlockBuilder) fieldBlockBuilder.newBlockBuilderLike(null);
+            fieldBlockBuilder = (VariableWidthBlockBuilder) fieldBlockBuilder.newBlockBuilderLike();
         }
         Block rowBlock = RowBlock.fromFieldBlocks(entries, fieldBlocks);
         writer.write(new Page(rowBlock));

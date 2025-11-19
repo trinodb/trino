@@ -55,7 +55,7 @@ public class PositionsAppenderFactory
             // it is guaranteed Math.min will not overflow; safe to cast
             int expectedBytes = (int) min((long) expectedPositions * EXPECTED_VARIABLE_WIDTH_BYTES_PER_ENTRY, maxPageSizeInBytes);
             expectedBytes = min(expectedBytes, MAX_ARRAY_SIZE);
-            return new TypedPositionsAppender(new VariableWidthBlockBuilder(null, expectedPositions, expectedBytes));
+            return new TypedPositionsAppender(new VariableWidthBlockBuilder(expectedPositions, expectedBytes));
         }
         return new TypedPositionsAppender(type, expectedPositions);
     }

@@ -17,7 +17,6 @@ import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
@@ -314,15 +313,15 @@ public class ArrayType
     }
 
     @Override
-    public ArrayBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public ArrayBlockBuilder createBlockBuilder(int expectedEntries, int expectedBytesPerEntry)
     {
-        return new ArrayBlockBuilder(elementType, blockBuilderStatus, expectedEntries, expectedBytesPerEntry);
+        return new ArrayBlockBuilder(elementType, expectedEntries, expectedBytesPerEntry);
     }
 
     @Override
-    public ArrayBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public ArrayBlockBuilder createBlockBuilder(int expectedEntries)
     {
-        return createBlockBuilder(blockBuilderStatus, expectedEntries, 100);
+        return createBlockBuilder(expectedEntries, 100);
     }
 
     @Override
@@ -359,7 +358,7 @@ public class ArrayType
             throws Throwable
     {
         int positionCount = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
-        BlockBuilder elementBuilder = elementType.createBlockBuilder(null, positionCount);
+        BlockBuilder elementBuilder = elementType.createBlockBuilder(positionCount);
         readFlatElements(elementType, elementReadFlat, elementFixedSize, variableSizeSlice, variableSizeOffset, positionCount, elementBuilder);
         return elementBuilder.build();
     }

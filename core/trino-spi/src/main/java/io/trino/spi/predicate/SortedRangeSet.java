@@ -136,7 +136,7 @@ public final class SortedRangeSet
                 type,
                 new boolean[0],
                 // TODO This can perhaps use an empty block singleton
-                type.createBlockBuilder(null, 0).build(),
+                type.createBlockBuilder(0).build(),
                 // empty => no discrete set
                 NON_DISCRETE);
     }
@@ -147,7 +147,7 @@ public final class SortedRangeSet
                 type,
                 new boolean[] {false, false},
                 // TODO This can perhaps use a "block with two nulls" singleton
-                type.createBlockBuilder(null, 2)
+                type.createBlockBuilder(2)
                         .appendNull()
                         .appendNull()
                         .build(),
@@ -178,7 +178,7 @@ public final class SortedRangeSet
             return of(type, first);
         }
 
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1 + rest.length);
+        BlockBuilder blockBuilder = type.createBlockBuilder(1 + rest.length);
         checkNotNaN(type, first);
         writeNativeValue(type, blockBuilder, first);
         for (Object value : rest) {
@@ -196,7 +196,7 @@ public final class SortedRangeSet
             return none(type);
         }
 
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, values.size());
+        BlockBuilder blockBuilder = type.createBlockBuilder(values.size());
         for (Object value : values) {
             checkNotNaN(type, value);
             writeNativeValue(type, blockBuilder, value);
@@ -571,7 +571,7 @@ public final class SortedRangeSet
         int thatRangeCount = that.getRangeCount();
 
         boolean[] inclusive = new boolean[2 * (thisRangeCount + thatRangeCount)];
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 2 * (thisRangeCount + thatRangeCount));
+        BlockBuilder blockBuilder = type.createBlockBuilder(2 * (thisRangeCount + thatRangeCount));
         int resultRangeIndex = 0;
 
         int thisNextRangeIndex = 0;
@@ -629,7 +629,7 @@ public final class SortedRangeSet
         int thatRangeCount = that.getRangeCount();
 
         boolean[] inclusive = new boolean[2 * (thisRangeCount + thatRangeCount)];
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 2 * (thisRangeCount + thatRangeCount));
+        BlockBuilder blockBuilder = type.createBlockBuilder(2 * (thisRangeCount + thatRangeCount));
         int resultRangeIndex = 0;
 
         int thisNextRangeIndex = 0;
@@ -718,7 +718,7 @@ public final class SortedRangeSet
                 }
             }
             if (blockBuilder == null) {
-                blockBuilder = type.createBlockBuilder(null, 2 * (testEnd + probeEnd));
+                blockBuilder = type.createBlockBuilder(2 * (testEnd + probeEnd));
                 inclusive = new boolean[2 * (testEnd + probeEnd)];
             }
             int probeIndex = insertionStartIndex;
@@ -743,7 +743,7 @@ public final class SortedRangeSet
         }
 
         if (blockBuilder == null) {
-            blockBuilder = type.createBlockBuilder(null, 0);
+            blockBuilder = type.createBlockBuilder(0);
             inclusive = new boolean[0];
         }
         if (resultIndex * 2 < inclusive.length) {
@@ -988,7 +988,7 @@ public final class SortedRangeSet
         int thatRangeCount = that.getRangeCount();
 
         boolean[] inclusive = new boolean[2 * (thisRangeCount + thatRangeCount)];
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 2 * (thisRangeCount + thatRangeCount));
+        BlockBuilder blockBuilder = type.createBlockBuilder(2 * (thisRangeCount + thatRangeCount));
         int resultRangeIndex = 0;
 
         int thisNextRangeIndex = 0;
@@ -1059,7 +1059,7 @@ public final class SortedRangeSet
         int rightRangeCount = rightRangeSet.getRangeCount();
 
         boolean[] inclusive = new boolean[2 * (leftRangeCount + rightRangeCount)];
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 2 * (leftRangeCount + rightRangeCount));
+        BlockBuilder blockBuilder = type.createBlockBuilder(2 * (leftRangeCount + rightRangeCount));
 
         int resultRangeIndex = 0;
         int leftNextRangeIndex = 0;
@@ -1200,7 +1200,7 @@ public final class SortedRangeSet
         }
 
         boolean[] inclusive = new boolean[2 * resultRanges];
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 2 * resultRanges);
+        BlockBuilder blockBuilder = type.createBlockBuilder(2 * resultRanges);
         int resultRangeIndex = 0;
 
         if (!first.isLowUnbounded()) {
@@ -1512,7 +1512,7 @@ public final class SortedRangeSet
         }
 
         boolean[] inclusive = new boolean[2 * result.size()];
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, 2 * result.size());
+        BlockBuilder blockBuilder = type.createBlockBuilder(2 * result.size());
         for (int rangeIndex = 0; rangeIndex < result.size(); rangeIndex++) {
             Range range = result.get(rangeIndex);
             writeRange(type, blockBuilder, inclusive, rangeIndex, range);

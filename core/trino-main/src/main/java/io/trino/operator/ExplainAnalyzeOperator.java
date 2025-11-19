@@ -169,7 +169,7 @@ public class ExplainAnalyzeOperator
                 operatorContext.getSession(),
                 verbose,
                 version);
-        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(1);
         VARCHAR.writeString(builder, plan);
 
         outputConsumed = true;

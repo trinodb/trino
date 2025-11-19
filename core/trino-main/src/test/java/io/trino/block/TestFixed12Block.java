@@ -48,9 +48,9 @@ public class TestFixed12Block
     public void testLazyBlockBuilderInitialization()
     {
         Slice[] expectedValues = createTestValue(100);
-        Fixed12BlockBuilder emptyBlockBuilder = new Fixed12BlockBuilder(null, 0);
+        Fixed12BlockBuilder emptyBlockBuilder = new Fixed12BlockBuilder(0);
 
-        Fixed12BlockBuilder blockBuilder = new Fixed12BlockBuilder(null, expectedValues.length);
+        Fixed12BlockBuilder blockBuilder = new Fixed12BlockBuilder(expectedValues.length);
         assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
 
@@ -58,7 +58,7 @@ public class TestFixed12Block
         assertThat(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes()).isTrue();
         assertThat(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes()).isTrue();
 
-        blockBuilder = (Fixed12BlockBuilder) blockBuilder.newBlockBuilderLike(null);
+        blockBuilder = (Fixed12BlockBuilder) blockBuilder.newBlockBuilderLike();
         assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
     }
@@ -95,7 +95,7 @@ public class TestFixed12Block
 
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)
     {
-        Fixed12BlockBuilder blockBuilder = new Fixed12BlockBuilder(null, expectedValues.length);
+        Fixed12BlockBuilder blockBuilder = new Fixed12BlockBuilder(expectedValues.length);
         writeValues(expectedValues, blockBuilder);
         return blockBuilder;
     }

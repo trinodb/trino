@@ -20,7 +20,6 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.sql.relational.RowExpression;
@@ -30,7 +29,6 @@ import java.util.List;
 
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 
 public class ArrayConstructorCodeGenerator
@@ -54,7 +52,7 @@ public class ArrayConstructorCodeGenerator
         BytecodeBlock block = new BytecodeBlock().setDescription("Constructor for array(%s)".formatted(elementType));
 
         Variable blockBuilder = scope.getOrCreateTempVariable(BlockBuilder.class);
-        block.append(blockBuilder.set(constantType(binder, elementType).invoke("createBlockBuilder", BlockBuilder.class, constantNull(BlockBuilderStatus.class), constantInt(elements.size()))));
+        block.append(blockBuilder.set(constantType(binder, elementType).invoke("createBlockBuilder", BlockBuilder.class, constantInt(elements.size()))));
 
         Variable element = scope.getOrCreateTempVariable(elementType.getJavaType());
 

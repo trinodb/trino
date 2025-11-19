@@ -124,7 +124,7 @@ public class TestRowBlock
         assertThat(appendedBlock.isNull(appendedBlock.getPositionCount() - 1)).isTrue();
 
         // Test with existing nulls - create block with nulls manually
-        RowBlockBuilder builderWithNulls = new RowBlockBuilder(fieldTypes, null, 3);
+        RowBlockBuilder builderWithNulls = new RowBlockBuilder(fieldTypes, 3);
         builderWithNulls.buildEntry(fieldBuilders -> {
             VARCHAR.writeString(fieldBuilders.get(0), "test1");
             BIGINT.writeLong(fieldBuilders.get(1), 42);
@@ -286,7 +286,7 @@ public class TestRowBlock
 
     private BlockBuilder createBlockBuilderWithValues(List<Type> fieldTypes, List<Object>[] rows)
     {
-        RowBlockBuilder rowBlockBuilder = new RowBlockBuilder(fieldTypes, null, 1);
+        RowBlockBuilder rowBlockBuilder = new RowBlockBuilder(fieldTypes, 1);
         for (List<Object> row : rows) {
             if (row == null) {
                 rowBlockBuilder.appendNull();

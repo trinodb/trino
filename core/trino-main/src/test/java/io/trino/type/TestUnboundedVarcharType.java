@@ -32,7 +32,7 @@ public class TestUnboundedVarcharType
 
     private static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 15);
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(15);
         VARCHAR.writeString(blockBuilder, "apple");
         VARCHAR.writeString(blockBuilder, "apple");
         VARCHAR.writeString(blockBuilder, "apple");

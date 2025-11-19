@@ -189,7 +189,7 @@ public class TestHistogram
     {
         MapType innerMapType = mapType(VARCHAR, VARCHAR);
 
-        BlockBuilder builder = innerMapType.createBlockBuilder(null, 3);
+        BlockBuilder builder = innerMapType.createBlockBuilder(3);
         innerMapType.writeObject(builder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
         innerMapType.writeObject(builder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("c", "d")));
         innerMapType.writeObject(builder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("e", "f")));
@@ -208,7 +208,7 @@ public class TestHistogram
         RowType innerRowType = RowType.from(ImmutableList.of(
                 RowType.field("f1", BIGINT),
                 RowType.field("f2", DOUBLE)));
-        BlockBuilder builder = innerRowType.createBlockBuilder(null, 3);
+        BlockBuilder builder = innerRowType.createBlockBuilder(3);
         innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 1L, 1.0));
         innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 2L, 2.0));
         innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 3L, 3.0));
@@ -238,7 +238,7 @@ public class TestHistogram
         TestingAggregationFunction function = getInternalDefaultVarCharAggregation();
         GroupedAggregator groupedAggregator = function.createAggregatorFactory(SINGLE, Ints.asList(new int[] {}), OptionalInt.empty())
                 .createGroupedAggregator(new AggregationMetrics());
-        BlockBuilder blockBuilder = function.getFinalType().createBlockBuilder(null, 1000);
+        BlockBuilder blockBuilder = function.getFinalType().createBlockBuilder(1000);
 
         groupedAggregator.evaluate(0, blockBuilder);
         assertThat(blockBuilder.build().isNull(0)).isTrue();

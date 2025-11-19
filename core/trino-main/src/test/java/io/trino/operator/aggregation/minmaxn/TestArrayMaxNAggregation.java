@@ -36,7 +36,7 @@ public class TestArrayMaxNAggregation
     public static Block createLongArraysBlock(Long[] values)
     {
         ArrayType arrayType = new ArrayType(BIGINT);
-        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(null, values.length);
+        ArrayBlockBuilder blockBuilder = arrayType.createBlockBuilder(values.length);
         for (Long value : values) {
             if (value == null) {
                 blockBuilder.appendNull();

@@ -96,10 +96,10 @@ public interface BlockBuilder
     /**
      * Creates a new block builder of the same type based on the current usage statistics of this block builder.
      */
-    BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus);
+    BlockBuilder newBlockBuilderLike(int expectedEntries);
 
-    default BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    default BlockBuilder newBlockBuilderLike()
     {
-        return newBlockBuilderLike(calculateBlockResetSize(getPositionCount()), blockBuilderStatus);
+        return newBlockBuilderLike(calculateBlockResetSize(getPositionCount()));
     }
 }

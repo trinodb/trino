@@ -76,7 +76,7 @@ public final class SessionFunctions
     public static Block currentGroups(ConnectorSession session)
     {
         Set<String> groups = session.getIdentity().getGroups();
-        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, groups.size());
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(groups.size());
         for (String group : groups) {
             VARCHAR.writeSlice(blockBuilder, utf8Slice(group));
         }

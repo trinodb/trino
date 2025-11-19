@@ -36,7 +36,7 @@ public class TestGeometryStateSerializer
 
         state.setGeometry(OGCGeometry.fromText("POINT (1 2)"));
 
-        BlockBuilder builder = GeometryType.GEOMETRY.createBlockBuilder(null, 1);
+        BlockBuilder builder = GeometryType.GEOMETRY.createBlockBuilder(1);
         serializer.serialize(state, builder);
         Block block = builder.build();
 
@@ -64,7 +64,7 @@ public class TestGeometryStateSerializer
         // Return to group 1
         state.setGroupId(1);
 
-        BlockBuilder builder = GeometryType.GEOMETRY.createBlockBuilder(null, 1);
+        BlockBuilder builder = GeometryType.GEOMETRY.createBlockBuilder(1);
         serializer.serialize(state, builder);
         Block block = builder.build();
 

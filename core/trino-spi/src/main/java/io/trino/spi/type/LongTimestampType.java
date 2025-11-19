@@ -16,7 +16,6 @@ package io.trino.spi.type;
 import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.Fixed12Block;
 import io.trino.spi.block.Fixed12BlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
@@ -86,24 +85,17 @@ final class LongTimestampType
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public BlockBuilder createBlockBuilder(int expectedEntries)
     {
-        int maxBlockSizeInBytes;
-        if (blockBuilderStatus == null) {
-            maxBlockSizeInBytes = PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
-        }
-        else {
-            maxBlockSizeInBytes = blockBuilderStatus.getMaxPageSizeInBytes();
-        }
+        int maxBlockSizeInBytes = PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
         return new Fixed12BlockBuilder(
-                blockBuilderStatus,
                 Math.min(expectedEntries, maxBlockSizeInBytes / getFixedSize()));
     }
 
     @Override
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return new Fixed12BlockBuilder(null, positionCount);
+        return new Fixed12BlockBuilder(positionCount);
     }
 
     @Override

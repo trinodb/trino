@@ -28,7 +28,6 @@ import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
@@ -55,7 +54,6 @@ import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
@@ -198,7 +196,6 @@ public class RowToRowCast
             body.append(fieldBuilder.set(constantType(binder, toElementType).invoke(
                     "createBlockBuilder",
                     BlockBuilder.class,
-                    constantNull(BlockBuilderStatus.class),
                     constantInt(1))));
 
             if (fromElementType.equals(UNKNOWN)) {

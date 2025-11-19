@@ -167,7 +167,7 @@ public class TestPage
 
     private static Block createSlicesBlock(Slice[] values)
     {
-        BlockBuilder builder = VARBINARY.createBlockBuilder(null, 100);
+        BlockBuilder builder = VARBINARY.createBlockBuilder(100);
 
         for (Slice value : values) {
             verifyNotNull(value);

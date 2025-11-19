@@ -37,7 +37,7 @@ public abstract class TypeCoercer<F extends Type, T extends Type>
     @Override
     public Block apply(Block block)
     {
-        BlockBuilder blockBuilder = toType.createBlockBuilder(null, block.getPositionCount());
+        BlockBuilder blockBuilder = toType.createBlockBuilder(block.getPositionCount());
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (block.isNull(i)) {
                 blockBuilder.appendNull();

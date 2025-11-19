@@ -62,11 +62,11 @@ public class TestRawEncoderMapping
         buf.put("abcdef".getBytes(StandardCharsets.UTF_8)); // 36-42
         buf.put("abcdef".getBytes(StandardCharsets.UTF_8)); // 42-48
 
-        LongArrayBlockBuilder longArrayBlockBuilder = new LongArrayBlockBuilder(null, 1);
+        LongArrayBlockBuilder longArrayBlockBuilder = new LongArrayBlockBuilder(1);
         BIGINT.writeLong(longArrayBlockBuilder, 123456789);
         Block longArrayBlock = longArrayBlockBuilder.build();
 
-        Block varArrayBlock = new VariableWidthBlockBuilder(null, 1, 6)
+        Block varArrayBlock = new VariableWidthBlockBuilder(1, 6)
                 .writeEntry(Slices.wrappedBuffer("abcdef".getBytes(StandardCharsets.UTF_8)), 0, 6)
                 .build();
 

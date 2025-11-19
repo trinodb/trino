@@ -54,7 +54,7 @@ public class BenchmarkBlockBuilder
     @Benchmark
     public Block benchmarkAppendRange(BlockData data)
     {
-        BlockBuilder builder = data.trinoType.createBlockBuilder(null, POSITIONS);
+        BlockBuilder builder = data.trinoType.createBlockBuilder(POSITIONS);
         // Append twice to simulate "merging" two adjacent blocks
         builder.appendRange(data.valueBlock, data.offset, data.length);
         builder.appendRange(data.valueBlock, data.offset, data.length);
@@ -94,7 +94,7 @@ public class BenchmarkBlockBuilder
 
         private static ValueBlock createBigintBlock(Random random, int offset, int length, float nullRate)
         {
-            BlockBuilder builder = BIGINT.createBlockBuilder(null, offset + length);
+            BlockBuilder builder = BIGINT.createBlockBuilder(offset + length);
             int position = 0;
             // Fill the beginning range with nulls to prevent the isNull array from being suppressed
             for (; position < offset; position++) {
@@ -113,7 +113,7 @@ public class BenchmarkBlockBuilder
 
         private static ValueBlock createVarcharBlock(Random random, int offset, int length, float nullRate)
         {
-            BlockBuilder builder = VARCHAR.createBlockBuilder(null, offset + length);
+            BlockBuilder builder = VARCHAR.createBlockBuilder(offset + length);
             int position = 0;
             // Fill the beginning range with nulls to prevent the isNull array from being suppressed
             for (; position < offset; position++) {

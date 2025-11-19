@@ -22,7 +22,7 @@ public class TestShortArrayBlockBuilder
     @Override
     protected BlockBuilder createBlockBuilder()
     {
-        return new ShortArrayBlockBuilder(null, 1);
+        return new ShortArrayBlockBuilder(1);
     }
 
     @Override
@@ -40,7 +40,7 @@ public class TestShortArrayBlockBuilder
     @Override
     protected ValueBlock blockFromValues(Iterable<Short> values)
     {
-        ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(null, 1);
+        ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(1);
         for (Short value : values) {
             if (value == null) {
                 blockBuilder.appendNull();

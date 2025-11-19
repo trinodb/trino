@@ -15,7 +15,6 @@ package io.trino.type;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.ByteArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
@@ -62,24 +61,17 @@ public final class UnknownType
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public BlockBuilder createBlockBuilder(int expectedEntries)
     {
-        int maxBlockSizeInBytes;
-        if (blockBuilderStatus == null) {
-            maxBlockSizeInBytes = PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
-        }
-        else {
-            maxBlockSizeInBytes = blockBuilderStatus.getMaxPageSizeInBytes();
-        }
+        int maxBlockSizeInBytes = PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
         return new ByteArrayBlockBuilder(
-                blockBuilderStatus,
                 Math.min(expectedEntries, maxBlockSizeInBytes / getFixedSize()));
     }
 
     @Override
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return new ByteArrayBlockBuilder(null, positionCount);
+        return new ByteArrayBlockBuilder(positionCount);
     }
 
     @Override

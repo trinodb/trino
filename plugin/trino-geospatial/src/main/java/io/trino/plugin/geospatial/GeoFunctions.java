@@ -670,7 +670,7 @@ public final class GeoFunctions
         }
 
         List<Point> interpolatedPoints = interpolatePoints(geometry, fractionStep, true);
-        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, interpolatedPoints.size());
+        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(interpolatedPoints.size());
         for (Point point : interpolatedPoints) {
             GEOMETRY.writeSlice(blockBuilder, serialize(createFromEsriGeometry(point, null)));
         }
@@ -804,7 +804,7 @@ public final class GeoFunctions
         }
 
         OGCPolygon polygon = (OGCPolygon) geometry;
-        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, polygon.numInteriorRing());
+        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(polygon.numInteriorRing());
         for (int i = 0; i < polygon.numInteriorRing(); i++) {
             GEOMETRY.writeSlice(blockBuilder, serialize(polygon.interiorRingN(i)));
         }
@@ -943,13 +943,13 @@ public final class GeoFunctions
 
         GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
         if (!type.isMultitype()) {
-            BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, 1);
+            BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(1);
             GEOMETRY.writeSlice(blockBuilder, serialize(geometry));
             return blockBuilder.build();
         }
 
         OGCGeometryCollection collection = (OGCGeometryCollection) geometry;
-        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, collection.numGeometries());
+        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(collection.numGeometries());
         for (int i = 0; i < collection.numGeometries(); i++) {
             GEOMETRY.writeSlice(blockBuilder, serialize(collection.geometryN(i)));
         }
@@ -1057,7 +1057,7 @@ public final class GeoFunctions
         }
 
         int pointCount = geometry.getNumPoints();
-        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, pointCount);
+        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(pointCount);
         buildPointsBlock(geometry, blockBuilder);
 
         return blockBuilder.build();
@@ -1148,7 +1148,7 @@ public final class GeoFunctions
         if (envelope.isEmpty()) {
             return null;
         }
-        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, 2);
+        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(2);
         Point lowerLeftCorner = new Point(envelope.getXMin(), envelope.getYMin());
         Point upperRightCorner = new Point(envelope.getXMax(), envelope.getYMax());
         GEOMETRY.writeSlice(blockBuilder, serialize(createFromEsriGeometry(lowerLeftCorner, null, false)));

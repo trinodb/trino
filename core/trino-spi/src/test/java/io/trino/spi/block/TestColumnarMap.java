@@ -138,7 +138,7 @@ public class TestColumnarMap
 
     public static BlockBuilder createBlockBuilderWithValues(Slice[][][] expectedValues)
     {
-        MapBlockBuilder blockBuilder = MAP_TYPE.createBlockBuilder(null, 100);
+        MapBlockBuilder blockBuilder = MAP_TYPE.createBlockBuilder(100);
         for (Slice[][] expectedMap : expectedValues) {
             if (expectedMap == null) {
                 blockBuilder.appendNull();

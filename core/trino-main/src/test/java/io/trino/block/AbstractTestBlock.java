@@ -19,7 +19,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.DictionaryBlock;
@@ -112,11 +111,6 @@ public abstract class AbstractTestBlock
                     Slice slice = (Slice) field.get(block);
                     if (slice != null) {
                         retainedSize += slice.getRetainedSize();
-                    }
-                }
-                else if (type == BlockBuilderStatus.class) {
-                    if (field.get(block) != null) {
-                        retainedSize += BlockBuilderStatus.INSTANCE_SIZE;
                     }
                 }
                 else if (Block.class.isAssignableFrom(type)) {
@@ -323,7 +317,7 @@ public abstract class AbstractTestBlock
             assertThat(block.getEstimatedDataSizeForStats(i)).isEqualTo(expectedSize);
         }
 
-        Block nullValueBlock = blockBuilder.newBlockBuilderLike(null).appendNull().build();
+        Block nullValueBlock = blockBuilder.newBlockBuilderLike().appendNull().build();
         assertThat(nullValueBlock.getEstimatedDataSizeForStats(0)).isEqualTo(0);
     }
 

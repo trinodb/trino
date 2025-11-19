@@ -48,9 +48,9 @@ public class TestByteArrayBlock
     public void testLazyBlockBuilderInitialization()
     {
         Byte[] expectedValues = createTestValue(100);
-        BlockBuilder emptyBlockBuilder = new ByteArrayBlockBuilder(null, 0);
+        BlockBuilder emptyBlockBuilder = new ByteArrayBlockBuilder(0);
 
-        ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(null, expectedValues.length);
+        ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(expectedValues.length);
         assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
 
@@ -58,7 +58,7 @@ public class TestByteArrayBlock
         assertThat(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes()).isTrue();
         assertThat(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes()).isTrue();
 
-        blockBuilder = (ByteArrayBlockBuilder) blockBuilder.newBlockBuilderLike(null);
+        blockBuilder = (ByteArrayBlockBuilder) blockBuilder.newBlockBuilderLike();
         assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
     }
@@ -72,7 +72,7 @@ public class TestByteArrayBlock
             assertThat(block.getEstimatedDataSizeForStats(i)).isEqualTo(Byte.BYTES);
         }
 
-        assertThat(new ShortArrayBlockBuilder(null, 22).appendNull().build().getEstimatedDataSizeForStats(0)).isEqualTo(0);
+        assertThat(new ShortArrayBlockBuilder(22).appendNull().build().getEstimatedDataSizeForStats(0)).isEqualTo(0);
     }
 
     @Test
@@ -94,7 +94,7 @@ public class TestByteArrayBlock
 
     private static BlockBuilder createBlockBuilderWithValues(Byte[] expectedValues)
     {
-        ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(null, expectedValues.length);
+        ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(expectedValues.length);
         writeValues(expectedValues, blockBuilder);
         return blockBuilder;
     }

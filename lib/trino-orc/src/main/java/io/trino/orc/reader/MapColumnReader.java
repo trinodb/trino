@@ -163,8 +163,8 @@ public class MapColumnReader
             values = valueColumnReader.readBlock();
         }
         else {
-            keys = type.getKeyType().createBlockBuilder(null, 0).build();
-            values = type.getValueType().createBlockBuilder(null, 1).build();
+            keys = type.getKeyType().createBlockBuilder(0).build();
+            values = type.getValueType().createBlockBuilder(1).build();
         }
 
         Block[] keyValueBlock = createKeyValueBlock(nextBatchSize, keys, values, offsetVector);

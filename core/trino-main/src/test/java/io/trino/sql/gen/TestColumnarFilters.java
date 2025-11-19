@@ -766,7 +766,7 @@ public class TestColumnarFilters
             boolean containsNulls = nullsProvider != NullsProvider.NO_NULLS && nullsProvider != NullsProvider.NO_NULLS_WITH_MAY_HAVE_NULL;
             int nonNullDictionarySize = 20;
             int dictionarySize = nonNullDictionarySize + (containsNulls ? 1 : 0); // last element in dictionary denotes null
-            VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(null, dictionarySize, dictionarySize * 10);
+            VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(dictionarySize, dictionarySize * 10);
             for (int i = 0; i < nonNullDictionarySize; i++) {
                 builder.writeEntry(Slices.utf8Slice(Long.toString(CONSTANT - 10 + i)));
             }
@@ -778,7 +778,7 @@ public class TestColumnarFilters
 
         Optional<boolean[]> isNull = nullsProvider.getNulls(positionsCount);
         assertThat(isNull.isEmpty() || isNull.get().length == positionsCount).isTrue();
-        VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(null, positionsCount, positionsCount * 10);
+        VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(positionsCount, positionsCount * 10);
         for (int i = 0; i < positionsCount; i++) {
             if (isNull.isPresent() && isNull.get()[i]) {
                 builder.appendNull();
@@ -792,7 +792,7 @@ public class TestColumnarFilters
 
     private static Block createArraysBlock(int positionsCount, NullsProvider nullsProvider)
     {
-        ArrayBlockBuilder builder = new ArrayBlockBuilder(INTEGER, null, positionsCount);
+        ArrayBlockBuilder builder = new ArrayBlockBuilder(INTEGER, positionsCount);
         Optional<boolean[]> isNull = nullsProvider.getNulls(positionsCount);
         assertThat(isNull.isEmpty() || isNull.get().length == positionsCount).isTrue();
         for (int position = 0; position < positionsCount; position++) {
@@ -876,7 +876,7 @@ public class TestColumnarFilters
 
     private static Block createIntArray(Long... values)
     {
-        IntArrayBlockBuilder builder = new IntArrayBlockBuilder(null, values.length);
+        IntArrayBlockBuilder builder = new IntArrayBlockBuilder(values.length);
         for (Long value : values) {
             if (value == null) {
                 builder.appendNull();

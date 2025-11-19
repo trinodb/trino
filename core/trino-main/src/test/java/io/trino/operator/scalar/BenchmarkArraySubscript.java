@@ -175,7 +175,7 @@ public class BenchmarkArraySubscript
         private static Block createVarWidthValueBlock(int positionCount, int mapSize)
         {
             Type valueType = createUnboundedVarcharType();
-            BlockBuilder valueBlockBuilder = valueType.createBlockBuilder(null, positionCount * mapSize);
+            BlockBuilder valueBlockBuilder = valueType.createBlockBuilder(positionCount * mapSize);
             for (int i = 0; i < positionCount * mapSize; i++) {
                 int wordLength = ThreadLocalRandom.current().nextInt(5, 10);
                 valueType.writeSlice(valueBlockBuilder, utf8Slice(randomString(wordLength)));

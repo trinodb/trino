@@ -47,9 +47,9 @@ public class TestShortArrayBlock
     public void testLazyBlockBuilderInitialization()
     {
         Short[] expectedValues = createTestValue(100);
-        ShortArrayBlockBuilder emptyBlockBuilder = new ShortArrayBlockBuilder(null, 0);
+        ShortArrayBlockBuilder emptyBlockBuilder = new ShortArrayBlockBuilder(0);
 
-        ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(null, expectedValues.length);
+        ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(expectedValues.length);
         assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
 
@@ -57,7 +57,7 @@ public class TestShortArrayBlock
         assertThat(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes()).isTrue();
         assertThat(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes()).isTrue();
 
-        blockBuilder = (ShortArrayBlockBuilder) blockBuilder.newBlockBuilderLike(null);
+        blockBuilder = (ShortArrayBlockBuilder) blockBuilder.newBlockBuilderLike();
         assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
         assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
     }
@@ -71,7 +71,7 @@ public class TestShortArrayBlock
             assertThat(block.getEstimatedDataSizeForStats(i)).isEqualTo(Short.BYTES);
         }
 
-        assertThat(new ShortArrayBlockBuilder(null, 22).appendNull().build().getEstimatedDataSizeForStats(0)).isEqualTo(0);
+        assertThat(new ShortArrayBlockBuilder(22).appendNull().build().getEstimatedDataSizeForStats(0)).isEqualTo(0);
     }
 
     @Test
@@ -93,7 +93,7 @@ public class TestShortArrayBlock
 
     private static BlockBuilder createBlockBuilderWithValues(Short[] expectedValues)
     {
-        ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(null, expectedValues.length);
+        ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(expectedValues.length);
         writeValues(expectedValues, blockBuilder);
         return blockBuilder;
     }

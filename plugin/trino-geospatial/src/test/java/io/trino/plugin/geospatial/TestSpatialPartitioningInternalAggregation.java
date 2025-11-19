@@ -127,7 +127,7 @@ public class TestSpatialPartitioningInternalAggregation
 
     private Block makeGeometryBlock(List<OGCGeometry> geometries)
     {
-        BlockBuilder builder = GEOMETRY.createBlockBuilder(null, geometries.size());
+        BlockBuilder builder = GEOMETRY.createBlockBuilder(geometries.size());
         for (OGCGeometry geometry : geometries) {
             GEOMETRY.writeSlice(builder, serialize(geometry));
         }

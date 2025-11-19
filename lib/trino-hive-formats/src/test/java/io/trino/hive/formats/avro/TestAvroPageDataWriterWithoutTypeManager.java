@@ -120,7 +120,7 @@ public class TestAvroPageDataWriterWithoutTypeManager
                 RunLengthEncodedBlock.create(IntegerType.INTEGER, 2L, 2),
                 RunLengthEncodedBlock.create(VarcharType.VARCHAR, Slices.utf8Slice("rleString"), 2),
                 DictionaryBlock.create(2,
-                        VarcharType.VARCHAR.createBlockBuilder(null, 3, 1)
+                        VarcharType.VARCHAR.createBlockBuilder(3, 1)
                                 .writeEntry(Slices.utf8Slice("A"))
                                 .writeEntry(Slices.utf8Slice("B"))
                                 .writeEntry(Slices.utf8Slice("C"))

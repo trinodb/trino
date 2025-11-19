@@ -105,7 +105,7 @@ public class BenchmarkRowToRowCast
 
         private static Block createBlock(int positionCount, Type type)
         {
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, positionCount);
+            BlockBuilder blockBuilder = type.createBlockBuilder(positionCount);
             if (type instanceof VarcharType) {
                 for (int i = 0; i < positionCount; i++) {
                     type.writeSlice(blockBuilder, utf8Slice(String.valueOf(ThreadLocalRandom.current().nextInt())));

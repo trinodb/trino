@@ -22,7 +22,7 @@ public class TestByteArrayBlockBuilder
     @Override
     protected BlockBuilder createBlockBuilder()
     {
-        return new ByteArrayBlockBuilder(null, 1);
+        return new ByteArrayBlockBuilder(1);
     }
 
     @Override
@@ -40,7 +40,7 @@ public class TestByteArrayBlockBuilder
     @Override
     protected ValueBlock blockFromValues(Iterable<Byte> values)
     {
-        ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(null, 1);
+        ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(1);
         for (Byte value : values) {
             if (value == null) {
                 blockBuilder.appendNull();

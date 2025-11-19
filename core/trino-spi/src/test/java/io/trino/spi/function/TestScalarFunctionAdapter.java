@@ -373,7 +373,7 @@ public class TestScalarFunctionAdapter
             try {
                 boolean expectNull = expectNullReturn(actualConvention, nullArguments);
                 if (expectedConvention.getReturnConvention() == BLOCK_BUILDER) {
-                    BlockBuilder blockBuilder = returnType.createBlockBuilder(null, 1);
+                    BlockBuilder blockBuilder = returnType.createBlockBuilder(1);
                     argumentValues.add(blockBuilder);
                     exactInvoker.invokeWithArguments(argumentValues);
                     Block result = blockBuilder.build();
@@ -513,7 +513,7 @@ public class TestScalarFunctionAdapter
                 }
                 case BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL -> {
                     verify(testValue != null, "null cannot be passed to a block positions not null argument");
-                    BlockBuilder blockBuilder = argumentType.createBlockBuilder(null, 3);
+                    BlockBuilder blockBuilder = argumentType.createBlockBuilder(3);
                     blockBuilder.appendNull();
                     writeNativeValue(argumentType, blockBuilder, testValue);
                     blockBuilder.appendNull();
@@ -526,7 +526,7 @@ public class TestScalarFunctionAdapter
                     callArguments.add(1);
                 }
                 case BLOCK_POSITION, VALUE_BLOCK_POSITION -> {
-                    BlockBuilder blockBuilder = argumentType.createBlockBuilder(null, 3);
+                    BlockBuilder blockBuilder = argumentType.createBlockBuilder(3);
                     blockBuilder.appendNull();
                     writeNativeValue(argumentType, blockBuilder, testValue);
                     blockBuilder.appendNull();
@@ -540,7 +540,7 @@ public class TestScalarFunctionAdapter
                 }
                 case FLAT -> {
                     verify(testValue != null, "null cannot be passed to a flat argument");
-                    BlockBuilder blockBuilder = argumentType.createBlockBuilder(null, 3);
+                    BlockBuilder blockBuilder = argumentType.createBlockBuilder(3);
                     writeNativeValue(argumentType, blockBuilder, testValue);
                     Block block = blockBuilder.build();
 

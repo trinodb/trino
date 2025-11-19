@@ -123,13 +123,13 @@ public class TestTypedHeap
         // build in two parts and merge together
         TypedHeap part1 = new TypedHeap(min, readFlat, writeFlat, comparisonFlatFlat, comparisonFlatBlock, type, OUTPUT_SIZE);
         addAll(part1, inputData.getRegion(0, inputData.getPositionCount() / 2));
-        BlockBuilder part1BlockBuilder = type.createBlockBuilder(null, part1.getCapacity());
+        BlockBuilder part1BlockBuilder = type.createBlockBuilder(part1.getCapacity());
         part1.writeAllUnsorted(part1BlockBuilder);
         ValueBlock part1Block = part1BlockBuilder.buildValueBlock();
 
         TypedHeap part2 = new TypedHeap(min, readFlat, writeFlat, comparisonFlatFlat, comparisonFlatBlock, type, OUTPUT_SIZE);
         addAll(part2, inputData.getRegion(inputData.getPositionCount() / 2, inputData.getPositionCount() - (inputData.getPositionCount() / 2)));
-        BlockBuilder part2BlockBuilder = type.createBlockBuilder(null, part2.getCapacity());
+        BlockBuilder part2BlockBuilder = type.createBlockBuilder(part2.getCapacity());
         part2.writeAllUnsorted(part2BlockBuilder);
         ValueBlock part2Block = part2BlockBuilder.buildValueBlock();
 
@@ -148,7 +148,7 @@ public class TestTypedHeap
 
     private static void assertEqual(TypedHeap heap, Type type, ValueBlock expected)
     {
-        BlockBuilder resultBlockBuilder = type.createBlockBuilder(null, OUTPUT_SIZE);
+        BlockBuilder resultBlockBuilder = type.createBlockBuilder(OUTPUT_SIZE);
         heap.writeAllSorted(resultBlockBuilder);
         ValueBlock actual = resultBlockBuilder.buildValueBlock();
         assertBlockEquals(type, actual, expected);
@@ -156,7 +156,7 @@ public class TestTypedHeap
 
     private static <T> ValueBlock toBlock(Type type, List<T> inputStream)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, INPUT_SIZE);
+        BlockBuilder blockBuilder = type.createBlockBuilder(INPUT_SIZE);
         inputStream.forEach(value -> TypeUtils.writeNativeValue(type, blockBuilder, value));
         return blockBuilder.buildValueBlock();
     }

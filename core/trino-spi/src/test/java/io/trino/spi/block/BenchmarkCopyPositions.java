@@ -133,7 +133,7 @@ public class BenchmarkCopyPositions
 
         private static BlockBuilder createBlockBuilderWithValues(Slice[] generatedValues)
         {
-            VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, generatedValues.length, 32 * generatedValues.length);
+            VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(generatedValues.length, 32 * generatedValues.length);
             for (Slice value : generatedValues) {
                 if (value == null) {
                     blockBuilder.appendNull();

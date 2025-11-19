@@ -93,7 +93,7 @@ public final class StructuralTestUtil
 
     public static Block arrayBlockOf(Type elementType, Object... values)
     {
-        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, 1024);
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(1024);
         for (Object value : values) {
             appendToBlockBuilder(elementType, value, blockBuilder);
         }

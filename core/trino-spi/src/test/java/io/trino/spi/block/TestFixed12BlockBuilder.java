@@ -22,7 +22,7 @@ public class TestFixed12BlockBuilder
     @Override
     protected BlockBuilder createBlockBuilder()
     {
-        return new Fixed12BlockBuilder(null, 1);
+        return new Fixed12BlockBuilder(1);
     }
 
     @Override
@@ -40,7 +40,7 @@ public class TestFixed12BlockBuilder
     @Override
     protected ValueBlock blockFromValues(Iterable<Fixed12> values)
     {
-        Fixed12BlockBuilder blockBuilder = new Fixed12BlockBuilder(null, 1);
+        Fixed12BlockBuilder blockBuilder = new Fixed12BlockBuilder(1);
         for (Fixed12 value : values) {
             if (value == null) {
                 blockBuilder.appendNull();

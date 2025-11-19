@@ -138,7 +138,7 @@ public abstract class BaseBlockEncodingTest<T>
 
     private BlockBuilder createBlockBuilder(int length)
     {
-        return getType().createBlockBuilder(null, length);
+        return getType().createBlockBuilder(length);
     }
 
     private static Random getRandom()

@@ -146,7 +146,7 @@ public class TestRowBlockFieldExtraction
 
     public static Block createBlockBuilderWithValues(RowType rowType, Slice[][] expectedValues)
     {
-        RowBlockBuilder blockBuilder = rowType.createBlockBuilder(null, 100);
+        RowBlockBuilder blockBuilder = rowType.createBlockBuilder(100);
         for (Slice[] expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();

@@ -86,7 +86,7 @@ public class BenchmarkRowHashCodeOperator
         private static Block createChannel(int positionCount, RowType rowType)
         {
             ThreadLocalRandom random = ThreadLocalRandom.current();
-            RowBlockBuilder blockBuilder = rowType.createBlockBuilder(null, positionCount);
+            RowBlockBuilder blockBuilder = rowType.createBlockBuilder(positionCount);
             for (int position = 0; position < positionCount; position++) {
                 blockBuilder.buildEntry(fieldBuilders -> {
                     List<Field> fields = rowType.getFields();

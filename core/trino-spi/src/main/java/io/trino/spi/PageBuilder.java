@@ -19,6 +19,7 @@ import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.OptionalInt;
 
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.lang.String.format;
@@ -31,6 +32,7 @@ public class PageBuilder
     //
     // This could be any other small number.
     private static final int DEFAULT_INITIAL_EXPECTED_ENTRIES = 8;
+    private static final int MAX_ENTRIES = 64 * 1024;
 
     private final BlockBuilder[] blockBuilders;
     private PageBuilderStatus pageBuilderStatus;
@@ -63,12 +65,12 @@ public class PageBuilder
 
     private PageBuilder(int initialExpectedEntries, int maxPageBytes, List<? extends Type> types)
     {
-        pageBuilderStatus = new PageBuilderStatus(maxPageBytes);
+        pageBuilderStatus = new PageBuilderStatus(maxPageBytes, this::getCurrentSizeInBytes, OptionalInt.empty());
 
         // Stream API should not be used since constructor can be called in performance sensitive sections
         blockBuilders = new BlockBuilder[types.size()];
         for (int i = 0; i < blockBuilders.length; i++) {
-            blockBuilders[i] = types.get(i).createBlockBuilder(pageBuilderStatus.createBlockBuilderStatus(), initialExpectedEntries);
+            blockBuilders[i] = types.get(i).createBlockBuilder(initialExpectedEntries);
         }
     }
 
@@ -77,12 +79,12 @@ public class PageBuilder
         if (isEmpty()) {
             return;
         }
-        pageBuilderStatus = new PageBuilderStatus(pageBuilderStatus.getMaxPageSizeInBytes());
+        pageBuilderStatus = new PageBuilderStatus(pageBuilderStatus.getMaxPageSizeInBytes(), this::getCurrentSizeInBytes, OptionalInt.of(pageBuilderStatus.getMaxRowCountHint()));
 
         declaredPositions = 0;
 
         for (int i = 0; i < blockBuilders.length; i++) {
-            blockBuilders[i] = blockBuilders[i].newBlockBuilderLike(pageBuilderStatus.createBlockBuilderStatus());
+            blockBuilders[i] = blockBuilders[i].newBlockBuilderLike();
         }
     }
 
@@ -119,7 +121,7 @@ public class PageBuilder
 
     public boolean isFull()
     {
-        return declaredPositions == Integer.MAX_VALUE || pageBuilderStatus.isFull();
+        return declaredPositions >= MAX_ENTRIES || pageBuilderStatus.isFull(declaredPositions);
     }
 
     public boolean isEmpty()
@@ -163,5 +165,14 @@ public class PageBuilder
         }
 
         return Page.wrapBlocksWithoutCopy(declaredPositions, blocks);
+    }
+
+    private long getCurrentSizeInBytes()
+    {
+        long totalSizeInBytes = 0;
+        for (BlockBuilder blockBuilder : blockBuilders) {
+            totalSizeInBytes += blockBuilder.getSizeInBytes();
+        }
+        return totalSizeInBytes;
     }
 }

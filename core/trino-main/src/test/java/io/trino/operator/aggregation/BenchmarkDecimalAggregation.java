@@ -74,7 +74,7 @@ public class BenchmarkDecimalAggregation
     {
         GroupedAggregator aggregator = data.getPartialAggregatorFactory().createGroupedAggregator(new AggregationMetrics());
         aggregator.processPage(data.getGroupCount(), data.getGroupIds(), data.getValues());
-        BlockBuilder builder = aggregator.getType().createBlockBuilder(null, data.getGroupCount());
+        BlockBuilder builder = aggregator.getType().createBlockBuilder(data.getGroupCount());
         for (int groupId = 0; groupId < data.getGroupCount(); groupId++) {
             aggregator.evaluate(groupId, builder);
         }
@@ -88,7 +88,7 @@ public class BenchmarkDecimalAggregation
         // Add the intermediate input multiple times to invoke the combine behavior
         aggregator.processPage(data.getGroupCount(), data.getGroupIds(), data.getIntermediateValues());
         aggregator.processPage(data.getGroupCount(), data.getGroupIds(), data.getIntermediateValues());
-        BlockBuilder builder = aggregator.getType().createBlockBuilder(null, data.getGroupCount());
+        BlockBuilder builder = aggregator.getType().createBlockBuilder(data.getGroupCount());
         for (int groupId = 0; groupId < data.getGroupCount(); groupId++) {
             aggregator.evaluate(groupId, builder);
         }
@@ -145,7 +145,7 @@ public class BenchmarkDecimalAggregation
         private Block createIntermediateValues(GroupedAggregator aggregator, int[] groupIds, Page inputPage)
         {
             aggregator.processPage(groupCount, groupIds, inputPage);
-            BlockBuilder builder = aggregator.getType().createBlockBuilder(null, groupCount);
+            BlockBuilder builder = aggregator.getType().createBlockBuilder(groupCount);
             for (int groupId = 0; groupId < groupCount; groupId++) {
                 aggregator.evaluate(groupId, builder);
             }

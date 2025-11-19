@@ -38,7 +38,7 @@ public class TestKdbTreeType
 
     private static ValueBlock createTestBlock()
     {
-        BlockBuilder blockBuilder = KDB_TREE.createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = KDB_TREE.createBlockBuilder(1);
         KdbTree kdbTree = new KdbTree(
                 new Node(
                         new Rectangle(10, 20, 30, 40),

@@ -157,7 +157,7 @@ public class TestTableFinishOperator
         assertThat(tableFinisher.getComputedStatistics()).hasSize(1);
         assertThat(getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics()).hasSize(1);
 
-        LongArrayBlockBuilder expectedStatistics = new LongArrayBlockBuilder(null, 1);
+        LongArrayBlockBuilder expectedStatistics = new LongArrayBlockBuilder(1);
         BIGINT.writeLong(expectedStatistics, 7);
         assertBlockEquals(BIGINT, getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().get(statisticMetadata), expectedStatistics.build());
 

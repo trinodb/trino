@@ -194,7 +194,7 @@ public final class TestingUnnesterUtil
 
     private static Block buildExpectedReplicatedBlock(Block block, Type type, int[] maxCardinalities, int totalEntries)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, totalEntries);
+        BlockBuilder blockBuilder = type.createBlockBuilder(totalEntries);
         int positionCount = block.getPositionCount();
         for (int i = 0; i < positionCount; i++) {
             int cardinality = maxCardinalities[i];
@@ -210,7 +210,7 @@ public final class TestingUnnesterUtil
         ColumnarArray columnarArray = ColumnarArray.toColumnarArray(block);
         Block elementBlock = columnarArray.getElementsBlock();
 
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, totalEntries);
+        BlockBuilder blockBuilder = type.createBlockBuilder(totalEntries);
         int positionCount = block.getPositionCount();
         int elementBlockPosition = 0;
         for (int i = 0; i < positionCount; i++) {
@@ -233,8 +233,8 @@ public final class TestingUnnesterUtil
         Block keyBlock = columnarMap.getKeysBlock();
         Block valuesBlock = columnarMap.getValuesBlock();
 
-        BlockBuilder keyBlockBuilder = keyType.createBlockBuilder(null, totalEntries);
-        BlockBuilder valueBlockBuilder = valueType.createBlockBuilder(null, totalEntries);
+        BlockBuilder keyBlockBuilder = keyType.createBlockBuilder(totalEntries);
+        BlockBuilder valueBlockBuilder = valueType.createBlockBuilder(totalEntries);
 
         int positionCount = block.getPositionCount();
         int blockPosition = 0;
@@ -268,7 +268,7 @@ public final class TestingUnnesterUtil
         Block[] blocks = new Block[fields.size()];
         int positionCount = block.getPositionCount();
         for (int i = 0; i < fields.size(); i++) {
-            BlockBuilder blockBuilder = rowTypes.get(i).createBlockBuilder(null, totalEntries);
+            BlockBuilder blockBuilder = rowTypes.get(i).createBlockBuilder(totalEntries);
 
             for (int j = 0; j < positionCount; j++) {
                 int rowBlockIndex = columnarArray.getOffset(j);
