@@ -344,6 +344,8 @@ public class PostgreSqlClient
                 .map("$negate(value: integer_type)").to("-value")
                 .map("$like(value: varchar, pattern: varchar): boolean").to("value LIKE pattern")
                 .map("$like(value: varchar, pattern: varchar, escape: varchar(1)): boolean").to("value LIKE pattern ESCAPE escape")
+                .map("$ilike(value: varchar, pattern: varchar): boolean").to("value ILIKE pattern")
+                .map("$ilike(value: varchar, pattern: varchar, escape: varchar(1)): boolean").to("value ILIKE pattern ESCAPE escape")
                 .map("$not($is_null(value))").to("value IS NOT NULL")
                 .map("$not(value: boolean)").to("NOT value")
                 .map("$is_null(value)").to("value IS NULL")

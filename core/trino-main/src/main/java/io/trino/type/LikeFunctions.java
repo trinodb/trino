@@ -34,6 +34,8 @@ public final class LikeFunctions
 {
     public static final String LIKE_FUNCTION_NAME = "$like";
     public static final String LIKE_PATTERN_FUNCTION_NAME = "$like_pattern";
+    public static final String ILIKE_FUNCTION_NAME = "$ilike";
+    public static final String ILIKE_PATTERN_FUNCTION_NAME = "$ilike_pattern";
 
     private LikeFunctions() {}
 
@@ -67,6 +69,44 @@ public final class LikeFunctions
     {
         try {
             return LikePattern.compile(pattern.toStringUtf8(), getEscapeCharacter(Optional.of(escape)), false);
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
+    }
+
+    @ScalarFunction(value = ILIKE_FUNCTION_NAME, hidden = true)
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean ilikeChar(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice value, @SqlType(LikePatternType.NAME) LikePattern pattern)
+    {
+        return ilikeVarchar(padSpaces(value, x.intValue()), pattern);
+    }
+
+    @ScalarFunction(value = ILIKE_FUNCTION_NAME, hidden = true)
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean ilikeVarchar(@SqlType("varchar(x)") Slice value, @SqlType(LikePatternType.NAME) LikePattern pattern)
+    {
+        // Convert to lowercase for case-insensitive matching
+        String lowerString = value.toStringUtf8().toLowerCase(java.util.Locale.ROOT);
+        byte[] lowerBytes = lowerString.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return pattern.getMatcher().match(lowerBytes, 0, lowerBytes.length);
+    }
+
+    @ScalarFunction(value = ILIKE_PATTERN_FUNCTION_NAME, hidden = true)
+    @SqlType(LikePatternType.NAME)
+    public static LikePattern ilikePattern(@SqlType("varchar") Slice pattern)
+    {
+        return LikePattern.compile(pattern.toStringUtf8(), Optional.empty(), true);
+    }
+
+    @ScalarFunction(value = ILIKE_PATTERN_FUNCTION_NAME, hidden = true)
+    @SqlType(LikePatternType.NAME)
+    public static LikePattern ilikePattern(@SqlType("varchar") Slice pattern, @SqlType("varchar") Slice escape)
+    {
+        try {
+            return LikePattern.compile(pattern.toStringUtf8(), getEscapeCharacter(Optional.of(escape)), true);
         }
         catch (RuntimeException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);

@@ -27,6 +27,9 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.type.LikeFunctions.ilikeChar;
+import static io.trino.type.LikeFunctions.ilikePattern;
+import static io.trino.type.LikeFunctions.ilikeVarchar;
 import static io.trino.type.LikeFunctions.isLikePattern;
 import static io.trino.type.LikeFunctions.likeChar;
 import static io.trino.type.LikeFunctions.likePattern;
@@ -355,5 +358,134 @@ public class TestLikeFunctions
                 WHERE value LIKE pattern ESCAPE esc
                 """))
                 .matches("VALUES 'a%b', 'c%'");
+    }
+
+    @Test
+    public void testIlikeBasic()
+    {
+        LikePattern matcher = ilikePattern(utf8Slice("F%B__"));
+        assertThat(ilikeVarchar(utf8Slice("foobar"), matcher)).isTrue();
+        assertThat(ilikeVarchar(utf8Slice("FOOBAR"), matcher)).isTrue();
+        assertThat(ilikeVarchar(utf8Slice("FooBar"), matcher)).isTrue();
+        assertThat(ilikeVarchar(offsetHeapSlice("foobar"), matcher)).isTrue();
+
+        // Basic case-insensitive tests
+        assertThat(assertions.expression("a ILIKE 'f%b__'")
+                .binding("a", "'foob'"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a ILIKE 'f%b__'")
+                .binding("a", "'FOOBAR'"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a ILIKE 'F%B__'")
+                .binding("a", "'foobar'"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a ILIKE 'f%b'")
+                .binding("a", "'FOOB'"))
+                .isEqualTo(true);
+
+        // Test with mixed case
+        assertThat(assertions.expression("a ILIKE 'FoO%'")
+                .binding("a", "'foobar'"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a ILIKE 'foo%'")
+                .binding("a", "'FOOBAR'"))
+                .isEqualTo(true);
+    }
+
+    @Test
+    public void testIlikeChar()
+    {
+        LikePattern matcher = ilikePattern(utf8Slice("F%B__"));
+        assertThat(ilikeChar(6L, utf8Slice("foobar"), matcher)).isTrue();
+        assertThat(ilikeChar(6L, utf8Slice("FOOBAR"), matcher)).isTrue();
+        assertThat(ilikeChar(6L, offsetHeapSlice("FooBar"), matcher)).isTrue();
+        assertThat(ilikeChar(6L, utf8Slice("foob"), matcher)).isTrue();
+        assertThat(ilikeChar(6L, offsetHeapSlice("FOOB"), matcher)).isTrue();
+        assertThat(ilikeChar(7L, utf8Slice("foob"), matcher)).isFalse();
+
+        // Test with char type
+        assertThat(assertions.expression("a ILIKE 'FOO%'")
+                .binding("a", "CAST('foo' AS char(6))"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a ILIKE 'foo%'")
+                .binding("a", "CAST('FOO' AS char(6))"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a ILIKE 'F%B__'")
+                .binding("a", "CAST('foob' AS char(6))"))
+                .isEqualTo(true);
+    }
+
+    @Test
+    public void testIlikeUtf8()
+    {
+        // Test with UTF-8 characters - case folding
+        LikePattern matcher = ilikePattern(utf8Slice("%ÑAME%"));
+        assertThat(ilikeVarchar(utf8Slice("my ñame is"), matcher)).isTrue();
+        assertThat(ilikeVarchar(utf8Slice("my ÑAME is"), matcher)).isTrue();
+
+        assertThat(assertions.expression("a ILIKE '%名%'")
+                .binding("a", "'foo名bar'"))
+                .isEqualTo(true);
+    }
+
+    @Test
+    public void testIlikeWithEscape()
+    {
+        LikePattern matcher = ilikePattern(utf8Slice("X%X_ABCXX"), utf8Slice("X"));
+        assertThat(ilikeVarchar(utf8Slice("%_ABCx"), matcher)).isTrue();
+        assertThat(ilikeVarchar(utf8Slice("%_abcX"), matcher)).isTrue();
+
+        assertThat(assertions.expression("a ILIKE 'F#%B__' ESCAPE '#'")
+                .binding("a", "'f%bar'"))
+                .isEqualTo(true);
+        assertThat(assertions.expression("a ILIKE 'f#%b__' ESCAPE '#'")
+                .binding("a", "'F%BAR'"))
+                .isEqualTo(true);
+    }
+
+    @Test
+    public void testIlikeWithDynamicPattern()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT value FROM (
+                    VALUES
+                        ('a', 'A'),
+                        ('B', 'a'),
+                        ('C', '%')) t(value, pattern)
+                WHERE value ILIKE pattern
+                """))
+                .matches("VALUES 'a', 'C'");
+
+        assertThat(assertions.query(
+                """
+                SELECT value FROM (
+                    VALUES
+                        ('A%b', 'aX%B', 'X'),
+                        ('a0B', 'AX%b', 'X'),
+                        ('b_', 'aY_', 'Y'),
+                        ('C%', 'cZ%', 'Z')) t(value, pattern, esc)
+                WHERE value ILIKE pattern ESCAPE esc
+                """))
+                .matches("VALUES 'A%b', 'C%'");
+    }
+
+    @Test
+    public void testIlikeDifferentFromLike()
+    {
+        // Verify ILIKE and LIKE behave differently
+        assertThat(assertions.expression("a LIKE 'foo'")
+                .binding("a", "'FOO'"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a ILIKE 'foo'")
+                .binding("a", "'FOO'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a LIKE 'FOO'")
+                .binding("a", "'foo'"))
+                .isEqualTo(false);
+        assertThat(assertions.expression("a ILIKE 'FOO'")
+                .binding("a", "'foo'"))
+                .isEqualTo(true);
     }
 }

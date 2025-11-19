@@ -27,28 +27,42 @@ public class LikePredicate
     private final Expression value;
     private final Expression pattern;
     private final Optional<Expression> escape;
+    private final boolean caseInsensitive;
 
     @Deprecated
     public LikePredicate(Expression value, Expression pattern, Expression escape)
     {
-        this(value, pattern, Optional.of(escape));
+        this(value, pattern, Optional.of(escape), false);
     }
 
     public LikePredicate(NodeLocation location, Expression value, Expression pattern, Optional<Expression> escape)
+    {
+        this(location, value, pattern, escape, false);
+    }
+
+    public LikePredicate(NodeLocation location, Expression value, Expression pattern, Optional<Expression> escape, boolean caseInsensitive)
     {
         super(location);
         this.value = requireNonNull(value, "value is null");
         this.pattern = requireNonNull(pattern, "pattern is null");
         this.escape = requireNonNull(escape, "escape is null");
+        this.caseInsensitive = caseInsensitive;
     }
 
     @Deprecated
     public LikePredicate(Expression value, Expression pattern, Optional<Expression> escape)
     {
+        this(value, pattern, escape, false);
+    }
+
+    @Deprecated
+    public LikePredicate(Expression value, Expression pattern, Optional<Expression> escape, boolean caseInsensitive)
+    {
         super(Optional.empty());
         this.value = requireNonNull(value, "value is null");
         this.pattern = requireNonNull(pattern, "pattern is null");
         this.escape = requireNonNull(escape, "escape is null");
+        this.caseInsensitive = caseInsensitive;
     }
 
     public Expression getValue()
@@ -64,6 +78,11 @@ public class LikePredicate
     public Optional<Expression> getEscape()
     {
         return escape;
+    }
+
+    public boolean isCaseInsensitive()
+    {
+        return caseInsensitive;
     }
 
     @Override
@@ -97,13 +116,14 @@ public class LikePredicate
         LikePredicate that = (LikePredicate) o;
         return Objects.equals(value, that.value) &&
                 Objects.equals(pattern, that.pattern) &&
-                Objects.equals(escape, that.escape);
+                Objects.equals(escape, that.escape) &&
+                caseInsensitive == that.caseInsensitive;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(value, pattern, escape);
+        return Objects.hash(value, pattern, escape, caseInsensitive);
     }
 
     @Override

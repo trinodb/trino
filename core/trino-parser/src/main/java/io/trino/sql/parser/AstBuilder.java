@@ -2313,7 +2313,25 @@ class AstBuilder
                 getLocation(context),
                 (Expression) visit(context.value),
                 (Expression) visit(context.pattern),
-                visitIfPresent(context.escape, Expression.class));
+                visitIfPresent(context.escape, Expression.class),
+                false);
+
+        if (context.NOT() != null) {
+            result = new NotExpression(getLocation(context), result);
+        }
+
+        return result;
+    }
+
+    @Override
+    public Node visitIlike(SqlBaseParser.IlikeContext context)
+    {
+        Expression result = new LikePredicate(
+                getLocation(context),
+                (Expression) visit(context.value),
+                (Expression) visit(context.pattern),
+                visitIfPresent(context.escape, Expression.class),
+                true);
 
         if (context.NOT() != null) {
             result = new NotExpression(getLocation(context), result);

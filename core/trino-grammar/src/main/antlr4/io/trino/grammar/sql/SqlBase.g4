@@ -568,6 +568,7 @@ predicate[ParserRuleContext value]
     | NOT? IN '(' expression (',' expression)* ')'                        #inList
     | NOT? IN '(' query ')'                                               #inSubquery
     | NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?  #like
+    | NOT? ILIKE pattern=valueExpression (ESCAPE escape=valueExpression)? #ilike
     | IS NOT? NULL                                                        #nullPredicate
     | IS NOT? DISTINCT FROM right=valueExpression                         #distinctFrom
     ;
@@ -1193,6 +1194,7 @@ LEAVE: 'LEAVE';
 LEFT: 'LEFT';
 LEVEL: 'LEVEL';
 LIKE: 'LIKE';
+ILIKE: 'ILIKE';
 LIMIT: 'LIMIT';
 LISTAGG: 'LISTAGG';
 LOCAL: 'LOCAL';
