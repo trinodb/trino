@@ -623,6 +623,12 @@ public abstract class AbstractTestTrinoFileSystem
                 assertThatThrownBy(() -> outputFile.createExclusive(new byte[0]))
                         .isInstanceOf(FileAlreadyExistsException.class)
                         .hasMessageContaining(tempBlob.location().toString());
+
+                // likely larger than any internal buffering or potential multipart threshold a filesystem may have
+                byte[] twentyMegabytes = new byte[20 * MEGABYTE];
+                assertThatThrownBy(() -> outputFile.createExclusive(twentyMegabytes))
+                        .isInstanceOf(FileAlreadyExistsException.class)
+                        .hasMessageContaining(tempBlob.location().toString());
             }
             else {
                 assertThatThrownBy(() -> outputFile.createExclusive(new byte[0]))

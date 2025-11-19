@@ -181,6 +181,10 @@ final class S3OutputStream
         }
         catch (SdkException e) {
             abortUploadSuppressed(e);
+            // when `location` already exists, the operation will fail with `412 Precondition Failed`
+            if (e instanceof S3Exception s3Exception && s3Exception.statusCode() == HTTP_PRECON_FAILED) {
+                throw new FileAlreadyExistsException(location.toString());
+            }
             throw new IOException(e);
         }
     }
