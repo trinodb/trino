@@ -1237,8 +1237,8 @@ public abstract class AbstractTestTrinoFileSystem
             List<TempBlob> blobs = randomBlobs(closer, 100);
 
             List<Location> sortedLocations = blobs.stream()
-                        .map(TempBlob::location)
-                        .sorted(comparing(Location::fileName))
+                    .map(TempBlob::location)
+                    .sorted(comparing(Location::fileName))
                     .toList();
 
             assertThat(listPath("")).isEqualTo(sortedLocations);

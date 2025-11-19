@@ -311,11 +311,11 @@ final class S3OutputStream
                     .key(location.key())
                     .storageClass(storageClass)
                     .applyMutation(builder ->
-                        key.ifPresentOrElse(
-                                encryption ->
-                                    builder.sseCustomerKey(encoded(encryption))
-                                            .sseCustomerAlgorithm(encryption.algorithm())
-                                            .sseCustomerKeyMD5(md5Checksum(encryption)),
+                            key.ifPresentOrElse(
+                                    encryption ->
+                                            builder.sseCustomerKey(encoded(encryption))
+                                                    .sseCustomerAlgorithm(encryption.algorithm())
+                                                    .sseCustomerKeyMD5(md5Checksum(encryption)),
                                     () -> setEncryptionSettings(builder, context.s3SseContext())))
                     .build();
 
@@ -332,12 +332,12 @@ final class S3OutputStream
                 .uploadId(uploadId.get())
                 .partNumber(currentPartNumber)
                 .applyMutation(builder ->
-                    key.ifPresentOrElse(
-                            encryption ->
-                                builder.sseCustomerKey(encoded(encryption))
-                                        .sseCustomerAlgorithm(encryption.algorithm())
-                                        .sseCustomerKeyMD5(md5Checksum(encryption)),
-                            () -> setEncryptionSettings(builder, context.s3SseContext())))
+                        key.ifPresentOrElse(
+                                encryption ->
+                                        builder.sseCustomerKey(encoded(encryption))
+                                                .sseCustomerAlgorithm(encryption.algorithm())
+                                                .sseCustomerKeyMD5(md5Checksum(encryption)),
+                                () -> setEncryptionSettings(builder, context.s3SseContext())))
                 .build();
 
         ByteBuffer bytes = ByteBuffer.wrap(data, 0, length);
