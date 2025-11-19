@@ -48,6 +48,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
@@ -95,6 +96,8 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
+// TODO: reenable once https://github.com/airlift/airlift/pull/1646 lands
+@Disabled
 public class TestDirectExchangeClient
 {
     private ScheduledExecutorService scheduler;

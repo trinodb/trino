@@ -21,10 +21,11 @@ import com.google.common.io.LittleEndianDataInputStream;
 import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.http.client.HttpClient;
-import io.airlift.http.client.HttpClient.HttpResponseFuture;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
@@ -49,6 +50,7 @@ import java.io.InputStreamReader;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.concurrent.Executor;
@@ -61,6 +63,8 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static io.airlift.http.client.HttpStatus.NO_CONTENT;
 import static io.airlift.http.client.HttpStatus.familyForStatusCode;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
@@ -91,6 +95,7 @@ import static io.trino.util.Failures.WORKER_NODE_ERROR;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -98,6 +103,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public final class HttpPageBufferClient
         implements Closeable
 {
+    private static final ListeningExecutorService EXECUTOR = listeningDecorator(newThreadPerTaskExecutor(virtualThreadsNamed("http-page-buffer-client#v")));
+
     private static final Logger log = Logger.get(HttpPageBufferClient.class);
 
     /**
@@ -133,7 +140,7 @@ public final class HttpPageBufferClient
     @GuardedBy("this")
     private boolean closed;
     @GuardedBy("this")
-    private HttpResponseFuture<?> future;
+    private Future<?> future;
     @GuardedBy("this")
     private Instant lastUpdate = Instant.now();
     @GuardedBy("this")
@@ -223,30 +230,12 @@ public final class HttpPageBufferClient
 
     public synchronized PageBufferClientStatus getStatus()
     {
-        String state;
-        if (closed) {
-            state = "closed";
-        }
-        else if (future != null) {
-            state = "running";
-        }
-        else if (scheduled) {
-            state = "scheduled";
-        }
-        else if (completed) {
-            state = "completed";
-        }
-        else {
-            state = "queued";
-        }
-        String httpRequestState = "not scheduled";
-        if (future != null) {
-            httpRequestState = future.getState();
-        }
-
         long rejectedRows = rowsRejected.get();
         int rejectedPages = pagesRejected.get();
-
+        String state = Optional.ofNullable(future)
+                .map(Future::state)
+                .map(Future.State::toString)
+                .orElse("n/a");
         return new PageBufferClientStatus(
                 location,
                 state,
@@ -259,7 +248,7 @@ public final class HttpPageBufferClient
                 requestsCompleted.get(),
                 requestsFailed.get(),
                 requestsSucceeded.get(),
-                httpRequestState);
+                state);
     }
 
     public TaskId getRemoteTaskId()
@@ -356,11 +345,11 @@ public final class HttpPageBufferClient
     {
         URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(token)).build();
         lastRequestStartNanos = ticker.read();
-        HttpResponseFuture<PagesResponse> resultFuture = httpClient.executeAsync(
+        ListenableFuture<PagesResponse> resultFuture = EXECUTOR.submit(() -> httpClient.execute(
                 prepareGet()
                         .setHeader(TRINO_MAX_SIZE, maxResponseSize.toString())
                         .setUri(uri).build(),
-                new PageResponseHandler(dataIntegrityVerification != DataIntegrityVerification.NONE));
+                new PageResponseHandler(dataIntegrityVerification != DataIntegrityVerification.NONE)));
 
         future = resultFuture;
         Futures.addCallback(resultFuture, new FutureCallback<>()
@@ -519,7 +508,7 @@ public final class HttpPageBufferClient
 
     private synchronized void destroyTaskResults()
     {
-        HttpResponseFuture<StatusResponse> resultFuture = httpClient.executeAsync(prepareDelete().setUri(location).build(), createStatusResponseHandler());
+        ListenableFuture<StatusResponse> resultFuture = EXECUTOR.submit(() -> httpClient.execute(prepareDelete().setUri(location).build(), createStatusResponseHandler()));
         future = resultFuture;
         Futures.addCallback(resultFuture, new FutureCallback<>()
         {
@@ -575,7 +564,7 @@ public final class HttpPageBufferClient
         assert !Thread.holdsLock(lock) : "Cannot execute this method while holding a lock";
     }
 
-    private void handleFailure(Throwable t, HttpResponseFuture<?> expectedFuture)
+    private void handleFailure(Throwable t, Future<?> expectedFuture)
     {
         assertNotHoldsLock(HttpPageBufferClient.this);
 
