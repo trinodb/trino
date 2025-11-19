@@ -78,6 +78,9 @@ public class TestS3FileSystemMinIo
     @Override
     protected S3FileSystemFactory createS3FileSystemFactory()
     {
+        DataSize streamingPartSize = DataSize.valueOf("5.5MB");
+        assertThat(streamingPartSize).describedAs("Configured part size should be less than test's larger file size")
+                .isLessThan(LARGER_FILE_DATA_SIZE);
         return new S3FileSystemFactory(
                 OpenTelemetry.noop(),
                 new S3FileSystemConfig()
@@ -87,7 +90,7 @@ public class TestS3FileSystemMinIo
                         .setAwsAccessKey(Minio.MINIO_ACCESS_KEY)
                         .setAwsSecretKey(Minio.MINIO_SECRET_KEY)
                         .setSupportsExclusiveCreate(true)
-                        .setStreamingPartSize(DataSize.valueOf("5.5MB")),
+                        .setStreamingPartSize(streamingPartSize),
                 new S3FileSystemStats());
     }
 

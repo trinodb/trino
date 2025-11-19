@@ -24,6 +24,8 @@ import io.minio.BucketExistsArgs;
 import io.minio.CloseableIterator;
 import io.minio.CopyObjectArgs;
 import io.minio.CopySource;
+import io.minio.GetObjectArgs;
+import io.minio.GetObjectResponse;
 import io.minio.ListObjectsArgs;
 import io.minio.ListenBucketNotificationArgs;
 import io.minio.MakeBucketArgs;
@@ -121,6 +123,11 @@ public class MinioClient
         ensureBucketExists(bucket);
 
         putObject(bucket, ByteSource.wrap(contents), targetPath);
+    }
+
+    public byte[] getObjectContents(String bucket, String targetPath)
+    {
+        return doGetObjectContents(bucket, targetPath);
     }
 
     public void captureBucketNotifications(String bucket, Consumer<Event> consumer)
@@ -222,6 +229,21 @@ public class MinioClient
                                 .stream(inputStream, byteSource.size(), -1)
                                 .build());
             }
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private byte[] doGetObjectContents(String bucket, String targetPath)
+    {
+        try {
+            GetObjectResponse response = client.getObject(
+                    GetObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(targetPath)
+                            .build());
+            return response.readAllBytes();
         }
         catch (Exception e) {
             throw new RuntimeException(e);

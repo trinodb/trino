@@ -26,6 +26,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 
 import java.net.URI;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Testcontainers
@@ -65,6 +66,9 @@ public class TestS3FileSystemS3Mock
     @Override
     protected S3FileSystemFactory createS3FileSystemFactory()
     {
+        DataSize streamingPartSize = DataSize.valueOf("5.5MB");
+        assertThat(streamingPartSize).describedAs("Configured part size should be less than test's larger file size")
+                .isLessThan(LARGER_FILE_DATA_SIZE);
         return new S3FileSystemFactory(
                 OpenTelemetry.noop(),
                 new S3FileSystemConfig()
@@ -73,7 +77,7 @@ public class TestS3FileSystemS3Mock
                         .setEndpoint(S3_MOCK.getHttpEndpoint())
                         .setRegion(Region.US_EAST_1.id())
                         .setPathStyleAccess(true)
-                        .setStreamingPartSize(DataSize.valueOf("5.5MB"))
+                        .setStreamingPartSize(streamingPartSize)
                         .setSignerType(S3FileSystemConfig.SignerType.AwsS3V4Signer)
                         .setSupportsExclusiveCreate(false),
                 new S3FileSystemStats());

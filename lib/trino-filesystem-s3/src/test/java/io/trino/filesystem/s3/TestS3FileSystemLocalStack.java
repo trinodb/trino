@@ -25,6 +25,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Testcontainers
@@ -65,6 +66,9 @@ public class TestS3FileSystemLocalStack
     @Override
     protected S3FileSystemFactory createS3FileSystemFactory()
     {
+        DataSize streamingPartSize = DataSize.valueOf("5.5MB");
+        assertThat(streamingPartSize).describedAs("Configured part size should be less than test's larger file size")
+                .isLessThan(LARGER_FILE_DATA_SIZE);
         return new S3FileSystemFactory(
                 OpenTelemetry.noop(),
                 new S3FileSystemConfig()
@@ -72,7 +76,7 @@ public class TestS3FileSystemLocalStack
                         .setAwsSecretKey(LOCALSTACK.getSecretKey())
                         .setEndpoint(LOCALSTACK.getEndpoint().toString())
                         .setRegion(LOCALSTACK.getRegion())
-                        .setStreamingPartSize(DataSize.valueOf("5.5MB")),
+                        .setStreamingPartSize(streamingPartSize),
                 new S3FileSystemStats());
     }
 

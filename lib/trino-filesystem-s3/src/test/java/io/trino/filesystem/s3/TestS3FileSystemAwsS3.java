@@ -83,6 +83,9 @@ public class TestS3FileSystemAwsS3
     @Override
     protected S3FileSystemFactory createS3FileSystemFactory()
     {
+        DataSize streamingPartSize = DataSize.valueOf("5.5MB");
+        assertThat(streamingPartSize).describedAs("Configured part size should be less than test's larger file size")
+                .isLessThan(LARGER_FILE_DATA_SIZE);
         return new S3FileSystemFactory(
                 OpenTelemetry.noop(),
                 new S3FileSystemConfig()
@@ -92,7 +95,7 @@ public class TestS3FileSystemAwsS3
                         .setEndpoint(endpoint)
                         .setSupportsExclusiveCreate(true)
                         .setSignerType(S3FileSystemConfig.SignerType.AwsS3V4Signer)
-                        .setStreamingPartSize(DataSize.valueOf("5.5MB")),
+                        .setStreamingPartSize(streamingPartSize),
                 new S3FileSystemStats());
     }
 

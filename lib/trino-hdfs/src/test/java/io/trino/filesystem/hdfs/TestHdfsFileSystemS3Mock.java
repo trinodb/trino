@@ -62,12 +62,15 @@ public class TestHdfsFileSystemS3Mock
     @BeforeAll
     void beforeAll()
     {
+        DataSize streamingPartSize = DataSize.valueOf("5.5MB");
+        assertThat(streamingPartSize).describedAs("Configured part size should be less than test's larger file size")
+                .isLessThan(LARGER_FILE_DATA_SIZE);
         HiveS3Config s3Config = new HiveS3Config()
                 .setS3AwsAccessKey("accesskey")
                 .setS3AwsSecretKey("secretkey")
                 .setS3Endpoint(S3_MOCK.getHttpEndpoint())
                 .setS3PathStyleAccess(true)
-                .setS3StreamingPartSize(DataSize.valueOf("5.5MB"));
+                .setS3StreamingPartSize(streamingPartSize);
 
         HdfsConfig hdfsConfig = new HdfsConfig();
         ConfigurationInitializer s3Initializer = new TrinoS3ConfigurationInitializer(s3Config);
