@@ -22,6 +22,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.EXPIRE_SNAPSHOTS;
 import static io.trino.spi.connector.TableProcedureExecutionMode.coordinatorOnly;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 
 public class ExpireSnapshotsTableProcedure
@@ -44,6 +45,11 @@ public class ExpireSnapshotsTableProcedure
                                 "Number of snapshots to retain",
                                 null,
                                 value -> checkArgument(value == null || value >= 1, "Number of snapshots to retain must be at least 1"),
+                                false),
+                        booleanProperty(
+                                "clean_expired_metadata",
+                                "When true, cleans up metadata such as partition specs and schemas that are no longer referenced by snapshots",
+                                false, // Same default as cleanExpiredMetadata field in org.apache.iceberg.RemoveSnapshots
                                 false)));
     }
 }
