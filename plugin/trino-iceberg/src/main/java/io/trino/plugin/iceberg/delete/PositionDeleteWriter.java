@@ -32,7 +32,6 @@ import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.io.LocationProvider;
 import org.roaringbitmap.longlong.ImmutableLongBitmapDataProvider;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
