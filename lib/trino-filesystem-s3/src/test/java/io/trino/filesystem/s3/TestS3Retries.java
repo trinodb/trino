@@ -19,8 +19,9 @@ import eu.rekawek.toxiproxy.model.ToxicDirection;
 import io.trino.filesystem.Location;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.testing.containers.Minio;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import io.trino.testing.minio.MinioClient;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.Network;
@@ -32,36 +33,41 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
-import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
 
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_API_PORT;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
-@TestInstance(PER_CLASS)
+@TestInstance(PER_METHOD)
 public class TestS3Retries
 {
     private static final int TOXIPROXY_CONTROL_PORT = 8474;
     private static final int MINIO_PROXY_PORT = 1234;
-    private static final int TEST_DATA_SIZE = 1024;
 
+    private AutoCloseableCloser closer = AutoCloseableCloser.create();
+    private String bucketName;
+    private MinioClient minioClient;
+    private Proxy toxiProxy;
     private S3Client s3client;
 
-    private final AutoCloseableCloser closer = AutoCloseableCloser.create();
-
-    @BeforeAll
+    @BeforeEach
     final void init()
-            throws IOException
+            throws Exception
     {
+        closer.close();
+        closer = AutoCloseableCloser.create();
+
         Network network = closer.register(Network.newNetwork());
         Minio minio = closer.register(Minio.builder()
                 .withNetwork(network)
                 .build());
         minio.start();
-        minio.createBucket("bucket");
-        minio.writeFile(getTestData(), "bucket", "object");
+        bucketName = "bucket-" + randomNameSuffix();
+        minio.createBucket(bucketName);
+        minioClient = closer.register(minio.createMinioClient());
 
         ToxiproxyContainer toxiproxy = closer.register(new ToxiproxyContainer("ghcr.io/shopify/toxiproxy:2.5.0")
                 .withExposedPorts(TOXIPROXY_CONTROL_PORT, MINIO_PROXY_PORT)
@@ -69,10 +75,7 @@ public class TestS3Retries
         toxiproxy.start();
 
         ToxiproxyClient toxiproxyClient = new ToxiproxyClient(toxiproxy.getHost(), toxiproxy.getControlPort());
-        Proxy proxy = toxiproxyClient.createProxy("minio", "0.0.0.0:" + MINIO_PROXY_PORT, "minio:" + MINIO_API_PORT);
-        // the number of transferred bytes includes both the response headers (around 570 bytes) and body
-        proxy.toxics()
-                .limitData("broken_connection", ToxicDirection.DOWNSTREAM, 700);
+        toxiProxy = toxiproxyClient.createProxy("minio", "0.0.0.0:" + MINIO_PROXY_PORT, "minio:" + MINIO_API_PORT);
 
         s3client = closer.register(S3Client.builder()
                 .endpointOverride(URI.create("http://" + toxiproxy.getHost() + ":" + toxiproxy.getMappedPort(MINIO_PROXY_PORT)))
@@ -85,34 +88,37 @@ public class TestS3Retries
                 .build());
     }
 
-    @AfterAll
+    @AfterEach
     final void cleanup()
             throws Exception
     {
         closer.close();
     }
 
-    private static byte[] getTestData()
-    {
-        byte[] data = new byte[TEST_DATA_SIZE];
-        Arrays.fill(data, (byte) 1);
-        return data;
-    }
-
     @Test
-    public void testRetries()
+    public void testRead()
+            throws Exception
     {
-        S3Location location = new S3Location(Location.of("s3://%s/object".formatted("bucket")));
+        int testDataSize = 1024;
+        byte[] data = new byte[testDataSize];
+        Arrays.fill(data, (byte) 1);
+        minioClient.putObject(bucketName, data, "object");
+
+        // the number of transferred bytes includes both the response headers (around 570 bytes) and body
+        toxiProxy.toxics()
+                .limitData("broken_connection", ToxicDirection.DOWNSTREAM, 700);
+
+        S3Location location = new S3Location(Location.of("s3://%s/object".formatted(bucketName)));
         GetObjectRequest request = GetObjectRequest.builder()
                 .bucket(location.bucket())
                 .key(location.key())
                 .build();
         S3Input input = new S3Input(location.location(), s3client, request);
 
-        byte[] bytes = new byte[TEST_DATA_SIZE];
-        assertThatThrownBy(() -> input.readFully(0, bytes, 0, TEST_DATA_SIZE)).cause()
+        byte[] bytes = new byte[testDataSize];
+        assertThatThrownBy(() -> input.readFully(0, bytes, 0, testDataSize)).cause()
                 .hasSuppressedException(SdkClientException.create("Request attempt 2 failure: Error reading getObject response"));
-        assertThatThrownBy(() -> input.readTail(bytes, 0, TEST_DATA_SIZE)).cause()
+        assertThatThrownBy(() -> input.readTail(bytes, 0, testDataSize)).cause()
                 .hasSuppressedException(SdkClientException.create("Request attempt 2 failure: Error reading getObject response"));
     }
 }
