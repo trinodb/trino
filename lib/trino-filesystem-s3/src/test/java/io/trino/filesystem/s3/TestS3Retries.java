@@ -13,11 +13,11 @@
  */
 package io.trino.filesystem.s3;
 
-import com.google.common.io.Closer;
 import eu.rekawek.toxiproxy.Proxy;
 import eu.rekawek.toxiproxy.ToxiproxyClient;
 import eu.rekawek.toxiproxy.model.ToxicDirection;
 import io.trino.filesystem.Location;
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.testing.containers.Minio;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -38,8 +38,9 @@ import java.util.Arrays;
 
 import static io.trino.testing.containers.Minio.MINIO_API_PORT;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@TestInstance(PER_CLASS)
 public class TestS3Retries
 {
     private static final int TOXIPROXY_CONTROL_PORT = 8474;
@@ -48,36 +49,32 @@ public class TestS3Retries
 
     private S3Client s3client;
 
-    private final Closer closer = Closer.create();
+    private final AutoCloseableCloser closer = AutoCloseableCloser.create();
 
     @BeforeAll
     final void init()
             throws IOException
     {
-        Network network = Network.newNetwork();
-        closer.register(network::close);
-        Minio minio = Minio.builder()
+        Network network = closer.register(Network.newNetwork());
+        Minio minio = closer.register(Minio.builder()
                 .withNetwork(network)
-                .build();
+                .build());
         minio.start();
         minio.createBucket("bucket");
         minio.writeFile(getTestData(), "bucket", "object");
-        closer.register(minio::close);
 
-        ToxiproxyContainer toxiproxy = new ToxiproxyContainer("ghcr.io/shopify/toxiproxy:2.5.0")
+        ToxiproxyContainer toxiproxy = closer.register(new ToxiproxyContainer("ghcr.io/shopify/toxiproxy:2.5.0")
                 .withExposedPorts(TOXIPROXY_CONTROL_PORT, MINIO_PROXY_PORT)
-                .withNetwork(network)
-                .withNetworkAliases("minio");
+                .withNetwork(network));
         toxiproxy.start();
-        closer.register(toxiproxy::close);
 
         ToxiproxyClient toxiproxyClient = new ToxiproxyClient(toxiproxy.getHost(), toxiproxy.getControlPort());
         Proxy proxy = toxiproxyClient.createProxy("minio", "0.0.0.0:" + MINIO_PROXY_PORT, "minio:" + MINIO_API_PORT);
         // the number of transferred bytes includes both the response headers (around 570 bytes) and body
         proxy.toxics()
-                .limitData("broken connection", ToxicDirection.DOWNSTREAM, 700);
+                .limitData("broken_connection", ToxicDirection.DOWNSTREAM, 700);
 
-        s3client = S3Client.builder()
+        s3client = closer.register(S3Client.builder()
                 .endpointOverride(URI.create("http://" + toxiproxy.getHost() + ":" + toxiproxy.getMappedPort(MINIO_PROXY_PORT)))
                 .region(Region.of(Minio.MINIO_REGION))
                 .forcePathStyle(true)
@@ -85,13 +82,12 @@ public class TestS3Retries
                         AwsBasicCredentials.create(Minio.MINIO_ACCESS_KEY, Minio.MINIO_SECRET_KEY)))
                 // explicitly configure the number of retries
                 .overrideConfiguration(o -> o.retryStrategy(b -> b.maxAttempts(3)))
-                .build();
-        closer.register(s3client::close);
+                .build());
     }
 
     @AfterAll
     final void cleanup()
-            throws IOException
+            throws Exception
     {
         closer.close();
     }
@@ -106,7 +102,7 @@ public class TestS3Retries
     @Test
     public void testRetries()
     {
-        S3Location location = new S3Location(Location.of("s3://bucket/object"));
+        S3Location location = new S3Location(Location.of("s3://%s/object".formatted("bucket")));
         GetObjectRequest request = GetObjectRequest.builder()
                 .bucket(location.bucket())
                 .key(location.key())
