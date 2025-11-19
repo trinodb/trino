@@ -19,7 +19,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -51,6 +50,7 @@ import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.PlanTester.TESTING_BLOCK_ENCODING_MANAGER;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -66,7 +66,7 @@ public class TestPagesSerde
     @BeforeAll
     public void setup()
     {
-        blockEncodingSerde = new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER);
+        blockEncodingSerde = new InternalBlockEncodingSerde(TESTING_BLOCK_ENCODING_MANAGER, TESTING_TYPE_MANAGER);
     }
 
     @AfterAll

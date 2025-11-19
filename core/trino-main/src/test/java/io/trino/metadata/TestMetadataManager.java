@@ -29,6 +29,7 @@ import java.util.Set;
 
 import static io.trino.client.NodeVersion.UNKNOWN;
 import static io.trino.metadata.CatalogManager.NO_CATALOGS;
+import static io.trino.testing.PlanTester.TESTING_BLOCK_ENCODING_MANAGER;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Objects.requireNonNull;
@@ -98,7 +99,7 @@ public final class TestMetadataManager
             }
 
             if (languageFunctionManager == null) {
-                BlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager);
+                BlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(TESTING_BLOCK_ENCODING_MANAGER, typeManager);
                 LanguageFunctionEngineManager engineManager = new LanguageFunctionEngineManager();
                 languageFunctionManager = new LanguageFunctionManager(new SqlParser(), typeManager, _ -> ImmutableSet.of(), blockEncodingSerde, engineManager);
             }

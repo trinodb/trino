@@ -140,6 +140,7 @@ import io.trino.server.security.HeaderAuthenticatorConfig;
 import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorConfig;
 import io.trino.server.security.PasswordAuthenticatorManager;
+import io.trino.simd.BlockEncodingSimdSupport;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.Plugin;
@@ -273,6 +274,8 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 public class PlanTester
         implements Closeable
 {
+    public static final BlockEncodingManager TESTING_BLOCK_ENCODING_MANAGER = new BlockEncodingManager(new BlockEncodingSimdSupport(true));
+
     private final Session defaultSession;
     private final ExecutorService notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
@@ -359,10 +362,9 @@ public class PlanTester
                 catalogManager,
                 notificationExecutor);
 
-        BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
         TypeRegistry typeRegistry = new TypeRegistry(typeOperators, new FeaturesConfig());
         TypeManager typeManager = new InternalTypeManager(typeRegistry);
-        InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodingManager, typeManager);
+        InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(TESTING_BLOCK_ENCODING_MANAGER, typeManager);
         SecretsResolver secretsResolver = new SecretsResolver(ImmutableMap.of());
 
         this.globalFunctionCatalog = new GlobalFunctionCatalog(
@@ -497,7 +499,7 @@ public class PlanTester
                 new GroupProviderManager(secretsResolver),
                 new SessionPropertyDefaults(nodeInfo, accessControl, secretsResolver),
                 typeRegistry,
-                blockEncodingManager,
+                TESTING_BLOCK_ENCODING_MANAGER,
                 new HandleResolver(),
                 exchangeManagerRegistry,
                 spoolingManagerRegistry);
