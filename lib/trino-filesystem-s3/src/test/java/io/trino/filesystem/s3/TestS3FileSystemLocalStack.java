@@ -65,12 +65,15 @@ public class TestS3FileSystemLocalStack
     @Override
     protected S3FileSystemFactory createS3FileSystemFactory()
     {
-        return new S3FileSystemFactory(OpenTelemetry.noop(), new S3FileSystemConfig()
-                .setAwsAccessKey(LOCALSTACK.getAccessKey())
-                .setAwsSecretKey(LOCALSTACK.getSecretKey())
-                .setEndpoint(LOCALSTACK.getEndpoint().toString())
-                .setRegion(LOCALSTACK.getRegion())
-                .setStreamingPartSize(DataSize.valueOf("5.5MB")), new S3FileSystemStats());
+        return new S3FileSystemFactory(
+                OpenTelemetry.noop(),
+                new S3FileSystemConfig()
+                        .setAwsAccessKey(LOCALSTACK.getAccessKey())
+                        .setAwsSecretKey(LOCALSTACK.getSecretKey())
+                        .setEndpoint(LOCALSTACK.getEndpoint().toString())
+                        .setRegion(LOCALSTACK.getRegion())
+                        .setStreamingPartSize(DataSize.valueOf("5.5MB")),
+                new S3FileSystemStats());
     }
 
     @Test

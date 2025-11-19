@@ -173,7 +173,8 @@ public class TestTrinoSnowflakeCatalog
                                 .setAwsAccessKey(S3_ACCESS_KEY)
                                 .setAwsSecretKey(S3_SECRET_KEY)
                                 .setRegion(S3_REGION)
-                                .setStreamingPartSize(DataSize.valueOf("5.5MB")), new S3FileSystemStats());
+                                .setStreamingPartSize(DataSize.valueOf("5.5MB")),
+                        new S3FileSystemStats());
 
         CatalogName catalogName = new CatalogName("snowflake_test_catalog");
         TrinoIcebergSnowflakeCatalogFileIOFactory catalogFileIOFactory = new TrinoIcebergSnowflakeCatalogFileIOFactory(s3FileSystemFactory, FILE_IO_FACTORY, ConnectorIdentity.ofUser("trino"));
