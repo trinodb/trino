@@ -31,6 +31,7 @@ import io.trino.execution.StagesInfo;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInputStream;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
@@ -6625,6 +6626,66 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testExpireSnapshotsCleanExpiredMetadata()
+            throws Exception
+    {
+        String tableName = "test_expiring_snapshots_" + randomNameSuffix();
+        Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN value");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 'two'", 1);
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES VARCHAR 'one', 'two'");
+
+        List<Long> initialSnapshots = getSnapshotIds(tableName);
+        String tableLocation = getTableLocation(tableName);
+        List<String> initialFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
+        assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS(retention_threshold => '0s', clean_expired_metadata => true)");
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES VARCHAR 'one', 'two'");
+        List<String> updatedFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
+        List<Long> updatedSnapshots = getSnapshotIds(tableName);
+        assertThat(updatedFiles).hasSize(initialFiles.size() - 2);
+        assertThat(updatedSnapshots.size()).isLessThan(initialSnapshots.size());
+        assertThat(updatedSnapshots).hasSize(1);
+        assertThat(initialSnapshots).containsAll(updatedSnapshots);
+
+        for (String updateFile : updatedFiles) {
+            if (!updateFile.endsWith(".metadata.json")) {
+                continue;
+            }
+
+            String fileName = updateFile.substring(updateFile.lastIndexOf('/') + 1);
+            String metadata = readFile(updateFile);
+            if (fileName.startsWith("00000") || fileName.startsWith("00001")) {
+                // CREATE TABLE and first INSERT only have schema-id 0
+                assertThat(metadata).contains("\"schema-id\":0").doesNotContain("\"schema-id\":1");
+            }
+            else if (fileName.startsWith("00002") || fileName.startsWith("00003")) {
+                // DROP COLUMN and second INSERT have both schema-id 0 and 1
+                assertThat(metadata).contains("\"schema-id\":0", "\"schema-id\":1");
+            }
+            else if (fileName.startsWith("00004")) {
+                // Final metadata only has schema-id 1 after cleaning expired metadata
+                assertThat(metadata).contains("\"schema-id\":1").doesNotContain("\"schema-id\":0");
+            }
+            else {
+                throw new IllegalStateException("Unexpected metadata file: " + updateFile);
+            }
+        }
+    }
+
+    private String readFile(String location)
+            throws IOException
+    {
+        try (TrinoInputStream inputStream = fileSystem.newInputFile(Location.of(location)).newStream()) {
+            return new String(inputStream.readAllBytes(), UTF_8);
+        }
+    }
+
+    @Test
     public void testExpireSnapshotsOnSnapshot()
     {
         String tableName = "test_expire_snapshots_on_snapshot_" + randomNameSuffix();
@@ -6658,7 +6719,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
 
         assertExplain("EXPLAIN ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')",
-                "SimpleTableExecute\\[table = iceberg:schemaTableName:tpch.test_expiring_snapshots.*\\[retentionThreshold=0\\.00s, retainLast=1].*");
+                "SimpleTableExecute\\[table = iceberg:schemaTableName:tpch.test_expiring_snapshots.*\\[retentionThreshold=0\\.00s, retainLast=1, cleanExpiredMetadata=false].*");
     }
 
     @Test
