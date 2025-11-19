@@ -17,16 +17,24 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import jakarta.annotation.Nullable;
 
+import static io.trino.spi.block.EncoderUtil.compactLongsWithNullsScalar;
+import static io.trino.spi.block.EncoderUtil.compactLongsWithNullsVectorized;
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
 import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
 import static java.lang.System.arraycopy;
-import static java.util.Objects.checkFromIndexSize;
 
 public class LongArrayBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "LONG_ARRAY";
+
+    private final boolean enableVectorizedNullSuppression;
+
+    public LongArrayBlockEncoding(boolean enableVectorizedNullSuppression)
+    {
+        this.enableVectorizedNullSuppression = enableVectorizedNullSuppression;
+    }
 
     @Override
     public String getName()
@@ -51,7 +59,6 @@ public class LongArrayBlockEncoding
         @Nullable
         boolean[] isNull = longArrayBlock.getRawValueIsNull();
         long[] rawValues = longArrayBlock.getRawValues();
-        checkFromIndexSize(rawOffset, positionCount, rawValues.length);
 
         encodeNullsAsBits(sliceOutput, isNull, rawOffset, positionCount);
 
@@ -59,15 +66,12 @@ public class LongArrayBlockEncoding
             sliceOutput.writeLongs(rawValues, rawOffset, positionCount);
         }
         else {
-            long[] valuesWithoutNull = new long[positionCount];
-            int nonNullPositionCount = 0;
-            for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = rawValues[i + rawOffset];
-                nonNullPositionCount += isNull[i + rawOffset] ? 0 : 1;
+            if (enableVectorizedNullSuppression) {
+                compactLongsWithNullsVectorized(sliceOutput, rawValues, isNull, rawOffset, positionCount);
             }
-
-            sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeLongs(valuesWithoutNull, 0, nonNullPositionCount);
+            else {
+                compactLongsWithNullsScalar(sliceOutput, rawValues, isNull, rawOffset, positionCount);
+            }
         }
     }
 

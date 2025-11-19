@@ -16,7 +16,6 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableSet;
 import io.trino.FeaturesConfig;
 import io.trino.connector.CatalogServiceProvider;
-import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
@@ -51,6 +50,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.client.NodeVersion.UNKNOWN;
+import static io.trino.testing.PlanTester.TESTING_BLOCK_ENCODING_MANAGER;
 import static java.util.Objects.requireNonNull;
 
 public final class TestingPlannerContext
@@ -125,7 +125,7 @@ public final class TestingPlannerContext
             globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN));
             functionBundles.forEach(globalFunctionCatalog::addFunctions);
 
-            BlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager);
+            BlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(TESTING_BLOCK_ENCODING_MANAGER, typeManager);
 
             LanguageFunctionManager languageFunctionManager = new LanguageFunctionManager(
                     new SqlParser(),
