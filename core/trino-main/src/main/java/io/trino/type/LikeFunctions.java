@@ -60,7 +60,7 @@ public final class LikeFunctions
     @SqlType(LikePatternType.NAME)
     public static LikePattern likePattern(@SqlType("varchar") Slice pattern)
     {
-        return LikePattern.compile(pattern.toStringUtf8(), Optional.empty(), false);
+        return LikePattern.compile(pattern.toStringUtf8(), Optional.empty(), false, true);
     }
 
     @ScalarFunction(value = LIKE_PATTERN_FUNCTION_NAME, hidden = true)
@@ -68,7 +68,7 @@ public final class LikeFunctions
     public static LikePattern likePattern(@SqlType("varchar") Slice pattern, @SqlType("varchar") Slice escape)
     {
         try {
-            return LikePattern.compile(pattern.toStringUtf8(), getEscapeCharacter(Optional.of(escape)), false);
+            return LikePattern.compile(pattern.toStringUtf8(), getEscapeCharacter(Optional.of(escape)), false, true);
         }
         catch (RuntimeException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
@@ -98,7 +98,7 @@ public final class LikeFunctions
     @SqlType(LikePatternType.NAME)
     public static LikePattern ilikePattern(@SqlType("varchar") Slice pattern)
     {
-        return LikePattern.compile(pattern.toStringUtf8(), Optional.empty(), true);
+        return LikePattern.compile(pattern.toStringUtf8(), Optional.empty(), true, true);
     }
 
     @ScalarFunction(value = ILIKE_PATTERN_FUNCTION_NAME, hidden = true)
@@ -106,7 +106,7 @@ public final class LikeFunctions
     public static LikePattern ilikePattern(@SqlType("varchar") Slice pattern, @SqlType("varchar") Slice escape)
     {
         try {
-            return LikePattern.compile(pattern.toStringUtf8(), getEscapeCharacter(Optional.of(escape)), true);
+            return LikePattern.compile(pattern.toStringUtf8(), getEscapeCharacter(Optional.of(escape)), true, true);
         }
         catch (RuntimeException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);

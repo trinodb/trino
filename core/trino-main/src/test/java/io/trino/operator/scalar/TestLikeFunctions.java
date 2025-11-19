@@ -369,27 +369,21 @@ public class TestLikeFunctions
         assertThat(ilikeVarchar(utf8Slice("FooBar"), matcher)).isTrue();
         assertThat(ilikeVarchar(offsetHeapSlice("foobar"), matcher)).isTrue();
 
-        // Basic case-insensitive tests
-        assertThat(assertions.expression("a ILIKE 'f%b__'")
-                .binding("a", "'foob'"))
-                .isEqualTo(false);
-        assertThat(assertions.expression("a ILIKE 'f%b__'")
-                .binding("a", "'FOOBAR'"))
-                .isEqualTo(true);
-        assertThat(assertions.expression("a ILIKE 'F%B__'")
-                .binding("a", "'foobar'"))
-                .isEqualTo(true);
-        assertThat(assertions.expression("a ILIKE 'f%b'")
-                .binding("a", "'FOOB'"))
-                .isEqualTo(true);
+        // Basic case-insensitive tests using query() to avoid constant folding issues
+        assertThat(assertions.query("SELECT 'foob' ILIKE 'f%b__'"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT 'FOOBAR' ILIKE 'f%b__'"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT 'foobar' ILIKE 'F%B__'"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT 'FOOB' ILIKE 'f%b'"))
+                .matches("VALUES true");
 
         // Test with mixed case
-        assertThat(assertions.expression("a ILIKE 'FoO%'")
-                .binding("a", "'foobar'"))
-                .isEqualTo(true);
-        assertThat(assertions.expression("a ILIKE 'foo%'")
-                .binding("a", "'FOOBAR'"))
-                .isEqualTo(true);
+        assertThat(assertions.query("SELECT 'foobar' ILIKE 'FoO%'"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT 'FOOBAR' ILIKE 'foo%'"))
+                .matches("VALUES true");
     }
 
     @Test
@@ -403,16 +397,13 @@ public class TestLikeFunctions
         assertThat(ilikeChar(6L, offsetHeapSlice("FOOB"), matcher)).isTrue();
         assertThat(ilikeChar(7L, utf8Slice("foob"), matcher)).isFalse();
 
-        // Test with char type
-        assertThat(assertions.expression("a ILIKE 'FOO%'")
-                .binding("a", "CAST('foo' AS char(6))"))
-                .isEqualTo(true);
-        assertThat(assertions.expression("a ILIKE 'foo%'")
-                .binding("a", "CAST('FOO' AS char(6))"))
-                .isEqualTo(true);
-        assertThat(assertions.expression("a ILIKE 'F%B__'")
-                .binding("a", "CAST('foob' AS char(6))"))
-                .isEqualTo(true);
+        // Test with char type using query() to avoid constant folding issues
+        assertThat(assertions.query("SELECT CAST('foo' AS char(6)) ILIKE 'FOO%'"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT CAST('FOO' AS char(6)) ILIKE 'foo%'"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT CAST('foob' AS char(6)) ILIKE 'F%B__'"))
+                .matches("VALUES true");
     }
 
     @Test
@@ -423,9 +414,8 @@ public class TestLikeFunctions
         assertThat(ilikeVarchar(utf8Slice("my ñame is"), matcher)).isTrue();
         assertThat(ilikeVarchar(utf8Slice("my ÑAME is"), matcher)).isTrue();
 
-        assertThat(assertions.expression("a ILIKE '%名%'")
-                .binding("a", "'foo名bar'"))
-                .isEqualTo(true);
+        assertThat(assertions.query("SELECT 'foo名bar' ILIKE '%名%'"))
+                .matches("VALUES true");
     }
 
     @Test
@@ -435,12 +425,10 @@ public class TestLikeFunctions
         assertThat(ilikeVarchar(utf8Slice("%_ABCx"), matcher)).isTrue();
         assertThat(ilikeVarchar(utf8Slice("%_abcX"), matcher)).isTrue();
 
-        assertThat(assertions.expression("a ILIKE 'F#%B__' ESCAPE '#'")
-                .binding("a", "'f%bar'"))
-                .isEqualTo(true);
-        assertThat(assertions.expression("a ILIKE 'f#%b__' ESCAPE '#'")
-                .binding("a", "'F%BAR'"))
-                .isEqualTo(true);
+        assertThat(assertions.query("SELECT 'f%bar' ILIKE 'F#%B__' ESCAPE '#'"))
+                .matches("VALUES true");
+        assertThat(assertions.query("SELECT 'F%BAR' ILIKE 'f#%b__' ESCAPE '#'"))
+                .matches("VALUES true");
     }
 
     @Test
@@ -474,18 +462,14 @@ public class TestLikeFunctions
     public void testIlikeDifferentFromLike()
     {
         // Verify ILIKE and LIKE behave differently
-        assertThat(assertions.expression("a LIKE 'foo'")
-                .binding("a", "'FOO'"))
-                .isEqualTo(false);
-        assertThat(assertions.expression("a ILIKE 'foo'")
-                .binding("a", "'FOO'"))
-                .isEqualTo(true);
+        assertThat(assertions.query("SELECT 'FOO' LIKE 'foo'"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT 'FOO' ILIKE 'foo'"))
+                .matches("VALUES true");
 
-        assertThat(assertions.expression("a LIKE 'FOO'")
-                .binding("a", "'foo'"))
-                .isEqualTo(false);
-        assertThat(assertions.expression("a ILIKE 'FOO'")
-                .binding("a", "'foo'"))
-                .isEqualTo(true);
+        assertThat(assertions.query("SELECT 'foo' LIKE 'FOO'"))
+                .matches("VALUES false");
+        assertThat(assertions.query("SELECT 'foo' ILIKE 'FOO'"))
+                .matches("VALUES true");
     }
 }

@@ -169,6 +169,7 @@ public class TestSqlKeywords
                         "LEFT",
                         "LEVEL",
                         "LIKE",
+                        "ILIKE",
                         "LIMIT",
                         "LISTAGG",
                         "LOCAL",

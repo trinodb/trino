@@ -15,6 +15,7 @@ package io.trino.type;
 
 import io.trino.likematcher.LikeMatcher;
 
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -34,13 +35,19 @@ public class LikePattern
 
     public static LikePattern compile(String pattern, Optional<Character> escape)
     {
-        return compile(pattern, escape, false);
+        return compile(pattern, escape, false, true);
     }
 
-    public static LikePattern compile(String pattern, Optional<Character> escape, boolean caseInsensitive)
+    public static LikePattern compile(String pattern, Optional<Character> escape, boolean optimize)
     {
-        String effectivePattern = caseInsensitive ? pattern.toLowerCase() : pattern;
-        return new LikePattern(pattern, escape, caseInsensitive, LikeMatcher.compile(effectivePattern, escape));
+        return compile(pattern, escape, false, optimize);
+    }
+
+    public static LikePattern compile(String pattern, Optional<Character> escape, boolean caseInsensitive, boolean optimize)
+    {
+        String effectivePattern = caseInsensitive ? pattern.toLowerCase(Locale.ROOT) : pattern;
+        Optional<Character> effectiveEscape = escape.map(ch -> caseInsensitive ? Character.toLowerCase(ch) : ch);
+        return new LikePattern(pattern, escape, caseInsensitive, LikeMatcher.compile(effectivePattern, effectiveEscape, optimize));
     }
 
     private LikePattern(String pattern, Optional<Character> escape, boolean caseInsensitive, LikeMatcher matcher)

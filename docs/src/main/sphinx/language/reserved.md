@@ -62,6 +62,7 @@ be quoted (using double quotes) in order to be used as an identifier.
 | `JSON_VALUE`        | reserved |          |
 | `LEFT`              | reserved | reserved |
 | `LIKE`              | reserved | reserved |
+| `ILIKE`             |          |          |
 | `LISTAGG`           | reserved |          |
 | `LOCALTIME`         | reserved |          |
 | `LOCALTIMESTAMP`    | reserved |          |
