@@ -34,11 +34,18 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
+import java.io.OutputStream;
 import java.net.URI;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_API_PORT;
+import static java.lang.Math.toIntExact;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -123,5 +130,68 @@ public class TestS3Retries
                 .hasSuppressedException(SdkClientException.create("Request attempt 2 failure: Error reading getObject response"));
         assertThatThrownBy(() -> input.readTail(bytes, 0, testDataSize)).cause()
                 .hasSuppressedException(SdkClientException.create("Request attempt 2 failure: Error reading getObject response"));
+    }
+
+    @Test
+    public void testCreate()
+            throws Exception
+    {
+        S3FileSystemConfig config = new S3FileSystemConfig();
+        int partSize = toIntExact(config.getStreamingPartSize().toBytes());
+        S3Context context = new S3Context(
+                partSize,
+                config.isRequesterPays(),
+                S3Context.S3SseContext.of(
+                        config.getSseType(),
+                        config.getSseKmsKeyId(),
+                        config.getSseCustomerKey()),
+                Optional.empty(),
+                config.getStorageClass(),
+                config.getCannedAcl(),
+                config.isSupportsExclusiveCreate());
+
+        // The toxicity is randomized, so iterate for determinism
+        for (int iteration = 0; iteration < 5; iteration++) {
+            for (boolean exclusive : List.of(false, true)) {
+                testCreate(context, exclusive, 0);
+                testCreate(context, exclusive, 10);
+                testCreate(context, exclusive, partSize + 1);
+            }
+        }
+    }
+
+    private void testCreate(S3Context context, boolean exclusive, int dataSize)
+            throws Exception
+    {
+        String objectKey = "test-exclusive-create-" + randomNameSuffix();
+        String s3Uri = "s3://%s/%s".formatted(bucketName, objectKey);
+        S3Location location = new S3Location(Location.of(s3Uri));
+        S3OutputFile outputFile = new S3OutputFile(directExecutor(), s3client, context, location, Optional.empty());
+
+        byte[] data = new byte[dataSize];
+        ThreadLocalRandom.current().nextBytes(data);
+        if (exclusive) {
+            outputFile.createExclusive(data);
+        }
+        else {
+            try (OutputStream outputStream = outputFile.create()) {
+                outputStream.write(data);
+            }
+        }
+
+        assertThat(minioClient.getObjectContents(bucketName, objectKey)).as("Object data read back from storage")
+                .isEqualTo(data);
+
+        // Subsequent exclusive creation should fail
+        assertThatThrownBy(() -> outputFile.createExclusive(data))
+                .isInstanceOf(java.nio.file.FileAlreadyExistsException.class)
+                .hasMessage(s3Uri);
+
+        // Subsequent non-exclusive create may succeed (or fail cleanly)
+        try (OutputStream outputStream = outputFile.create()) {
+            outputStream.write(data);
+        }
+
+        minioClient.removeObject(bucketName, objectKey);
     }
 }
