@@ -221,6 +221,7 @@ public class TestEventListenerBasic
                                     ImmutableList.of(new Column("test_column", BIGINT.getTypeId(), Optional.empty())),
                                     Optional.of(Duration.ZERO),
                                     Optional.empty(),
+                                    Optional.empty(),
                                     Optional.of("alice"),
                                     ImmutableList.of());
                             ConnectorMaterializedViewDefinition definitionFresh = new ConnectorMaterializedViewDefinition(
@@ -233,6 +234,7 @@ public class TestEventListenerBasic
                                             .map(column -> new Column(column.getName(), column.getType().getTypeId(), Optional.empty()))
                                             .collect(toImmutableList()),
                                     Optional.of(Duration.ofDays(1)),
+                                    Optional.empty(),
                                     Optional.empty(),
                                     Optional.of("alice"),
                                     ImmutableList.of());
