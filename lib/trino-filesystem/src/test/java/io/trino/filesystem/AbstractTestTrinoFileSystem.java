@@ -598,26 +598,12 @@ public abstract class AbstractTestTrinoFileSystem
                 outputStream.write("initial".getBytes(UTF_8));
             }
 
-            if (isCreateExclusive()) {
+            boolean isCreateExclusive = isCreateExclusive();
+            if (isCreateExclusive) {
                 // re-create without overwrite is an error
                 assertThatThrownBy(() -> outputFile.create().close())
                         .isInstanceOf(FileAlreadyExistsException.class)
                         .hasMessageContaining(tempBlob.location().toString());
-
-                // verify nothing changed
-                assertThat(tempBlob.read()).isEqualTo("initial");
-
-                // re-create exclusive is an error
-                if (supportsCreateExclusive()) {
-                    assertThatThrownBy(() -> outputFile.createExclusive(new byte[0]))
-                            .isInstanceOf(FileAlreadyExistsException.class)
-                            .hasMessageContaining(tempBlob.location().toString());
-                }
-                else {
-                    assertThatThrownBy(() -> outputFile.createExclusive(new byte[0]))
-                            .isInstanceOf(UnsupportedOperationException.class)
-                            .hasMessageStartingWith("createExclusive not supported");
-                }
 
                 // verify nothing changed
                 assertThat(tempBlob.read()).isEqualTo("initial");
@@ -630,19 +616,23 @@ public abstract class AbstractTestTrinoFileSystem
 
                 // verify contents changed
                 assertThat(tempBlob.read()).isEqualTo("replaced");
-
-                // create exclusive is an error
-                if (supportsCreateExclusive()) {
-                    assertThatThrownBy(() -> outputFile.createExclusive(new byte[0]))
-                            .isInstanceOf(FileAlreadyExistsException.class)
-                            .hasMessageContaining(tempBlob.location().toString());
-                }
-                else {
-                    assertThatThrownBy(() -> outputFile.createExclusive(new byte[0]))
-                            .isInstanceOf(UnsupportedOperationException.class)
-                            .hasMessageStartingWith("createExclusive not supported");
-                }
             }
+
+            // re-create exclusive is an error
+            if (supportsCreateExclusive()) {
+                assertThatThrownBy(() -> outputFile.createExclusive(new byte[0]))
+                        .isInstanceOf(FileAlreadyExistsException.class)
+                        .hasMessageContaining(tempBlob.location().toString());
+            }
+            else {
+                assertThatThrownBy(() -> outputFile.createExclusive(new byte[0]))
+                        .isInstanceOf(UnsupportedOperationException.class)
+                        .hasMessageStartingWith("createExclusive not supported");
+            }
+
+            // verify re-create did not change the file
+            assertThat(tempBlob.read())
+                    .isEqualTo(isCreateExclusive ? "initial" : "replaced");
 
             // overwrite file
             outputFile.createOrOverwrite("overwrite".getBytes(UTF_8));
