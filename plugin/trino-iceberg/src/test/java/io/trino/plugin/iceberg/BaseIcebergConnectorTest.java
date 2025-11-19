@@ -6597,6 +6597,34 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testExpireSnapshotsRetainLast()
+            throws Exception
+    {
+        String tableName = "test_expiring_snapshots_" + randomNameSuffix();
+        Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('three', 3)", 1);
+        assertThat(query("SELECT sum(value), listagg(key, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
+                .matches("VALUES (BIGINT '6', VARCHAR 'one three two')");
+
+        List<Long> initialSnapshots = getSnapshotIds(tableName);
+        String tableLocation = getTableLocation(tableName);
+        List<String> initialFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
+        assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s', retain_last => 2)");
+
+        assertThat(query("SELECT sum(value), listagg(key, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
+                .matches("VALUES (BIGINT '6', VARCHAR 'one three two')");
+        List<String> updatedFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
+        List<Long> updatedSnapshots = getSnapshotIds(tableName);
+        assertThat(updatedFiles).hasSize(initialFiles.size() - 2);
+        assertThat(updatedSnapshots.size()).isLessThan(initialSnapshots.size());
+        assertThat(updatedSnapshots).hasSize(2);
+        assertThat(initialSnapshots).containsAll(updatedSnapshots);
+    }
+
+    @Test
     public void testExpireSnapshotsOnSnapshot()
     {
         String tableName = "test_expire_snapshots_on_snapshot_" + randomNameSuffix();
@@ -6630,7 +6658,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
 
         assertExplain("EXPLAIN ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')",
-                "SimpleTableExecute\\[table = iceberg:schemaTableName:tpch.test_expiring_snapshots.*\\[retentionThreshold=0\\.00s].*");
+                "SimpleTableExecute\\[table = iceberg:schemaTableName:tpch.test_expiring_snapshots.*\\[retentionThreshold=0\\.00s, retainLast=1].*");
     }
 
     @Test
@@ -6648,6 +6676,13 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '33s')",
                 "\\QRetention specified (33.00s) is shorter than the minimum retention configured in the system (7.00d). Minimum retention can be changed with iceberg.expire-snapshots.min-retention configuration property or iceberg.expire_snapshots_min_retention session property");
+
+        assertQueryFails(
+                "ALTER TABLE nation EXECUTE EXPIRE_SNAPSHOTS (retain_last => 0)",
+                ".* Number of snapshots to retain must be at least 1");
+        assertQueryFails(
+                "ALTER TABLE nation EXECUTE EXPIRE_SNAPSHOTS (retain_last => -1)",
+                ".* Number of snapshots to retain must be at least 1");
     }
 
     @Test

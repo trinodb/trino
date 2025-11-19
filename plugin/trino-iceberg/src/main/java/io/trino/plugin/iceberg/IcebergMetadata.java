@@ -414,6 +414,8 @@ import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.MANIFEST_TARGET_SIZE_BYTES;
 import static org.apache.iceberg.TableProperties.MANIFEST_TARGET_SIZE_BYTES_DEFAULT;
+import static org.apache.iceberg.TableProperties.MIN_SNAPSHOTS_TO_KEEP;
+import static org.apache.iceberg.TableProperties.MIN_SNAPSHOTS_TO_KEEP_DEFAULT;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static org.apache.iceberg.TableProperties.PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX;
@@ -423,6 +425,7 @@ import static org.apache.iceberg.TableUtil.formatVersion;
 import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
 import static org.apache.iceberg.types.TypeUtil.indexParents;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
+import static org.apache.iceberg.util.PropertyUtil.propertyAsInt;
 import static org.apache.iceberg.util.SnapshotUtil.schemaFor;
 
 public class IcebergMetadata
@@ -1635,11 +1638,14 @@ public class IcebergMetadata
     {
         Duration retentionThreshold = (Duration) executeProperties.get(RETENTION_THRESHOLD);
         Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
+        int retainLast = firstNonNull(
+                (Integer) executeProperties.get("retain_last"),
+                propertyAsInt(icebergTable.properties(), MIN_SNAPSHOTS_TO_KEEP, MIN_SNAPSHOTS_TO_KEEP_DEFAULT));
 
         return Optional.of(new IcebergTableExecuteHandle(
                 tableHandle.getSchemaTableName(),
                 EXPIRE_SNAPSHOTS,
-                new IcebergExpireSnapshotsHandle(retentionThreshold),
+                new IcebergExpireSnapshotsHandle(retentionThreshold, retainLast),
                 icebergTable.location(),
                 icebergTable.io().properties()));
     }
@@ -2088,6 +2094,7 @@ public class IcebergMetadata
         try {
             table.expireSnapshots()
                     .expireOlderThan(session.getStart().toEpochMilli() - retention.toMillis())
+                    .retainLast(expireSnapshotsHandle.retainLast())
                     .planWith(icebergScanExecutor)
                     .commit();
         }
