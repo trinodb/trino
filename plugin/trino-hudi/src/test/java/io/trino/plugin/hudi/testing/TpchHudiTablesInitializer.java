@@ -166,9 +166,8 @@ public class TpchHudiTablesInitializer
                     .map(MaterializedRow::getFields)
                     .map(recordConverter::toRecord)
                     .collect(Collectors.toList());
-            String timestamp = "0";
-            writeClient.startCommitWithTime(timestamp);
-            writeClient.insert(records, timestamp);
+            String newCommitTime = writeClient.startCommit();
+            writeClient.insert(records, newCommitTime);
         }
     }
 

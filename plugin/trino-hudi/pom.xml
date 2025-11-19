@@ -16,7 +16,7 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-        <dep.hudi.version>1.0.2</dep.hudi.version>
+        <dep.hudi.version>1.1.0</dep.hudi.version>
     </properties>
 
     <dependencies>
@@ -426,6 +426,10 @@
                         <ignoredResourcePattern>log4j.properties</ignoredResourcePattern>
                         <ignoredResourcePattern>log4j-surefire.properties</ignoredResourcePattern>
                     </ignoredResourcePatterns>
+
+                    <ignoredClassPatterns>
+                        <ignoredClassPattern>org.apache.parquet.conf.ParquetConfiguration</ignoredClassPattern>
+                    </ignoredClassPatterns>
                 </configuration>
             </plugin>
         </plugins>
