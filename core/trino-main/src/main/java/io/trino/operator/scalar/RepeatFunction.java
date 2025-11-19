@@ -13,6 +13,7 @@
  */
 package io.trino.operator.scalar;
 
+import io.airlift.units.DataSize;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.function.Description;
@@ -23,6 +24,7 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.Failures.checkCondition;
@@ -32,8 +34,8 @@ import static java.lang.Math.toIntExact;
 @Description("Repeat an element for a given number of times")
 public final class RepeatFunction
 {
-    private static final long MAX_RESULT_ENTRIES = 10_000;
-    private static final long MAX_SIZE_IN_BYTES = 1_000_000;
+    private static final long MAX_RESULT_ENTRIES = 100_000;
+    private static final long MAX_SIZE_IN_BYTES = DataSize.of(4, MEGABYTE).toBytes();
 
     private RepeatFunction() {}
 
@@ -100,7 +102,7 @@ public final class RepeatFunction
 
     private static void checkCountConditions(long count)
     {
-        checkCondition(count <= MAX_RESULT_ENTRIES, INVALID_FUNCTION_ARGUMENT, "count argument of repeat function must be less than or equal to 10000");
+        checkCondition(count <= MAX_RESULT_ENTRIES, INVALID_FUNCTION_ARGUMENT, "count argument of repeat function must be less than or equal to %s", MAX_RESULT_ENTRIES);
         checkCondition(count >= 0, INVALID_FUNCTION_ARGUMENT, "count argument of repeat function must be greater than or equal to 0");
     }
 
@@ -114,6 +116,7 @@ public final class RepeatFunction
         checkCondition(
                 block.getSizeInBytes() <= MAX_SIZE_IN_BYTES,
                 INVALID_FUNCTION_ARGUMENT,
-                "result of repeat function must not take more than 1000000 bytes");
+                "result of repeat function must not take more than %s bytes",
+                MAX_SIZE_IN_BYTES);
     }
 }
