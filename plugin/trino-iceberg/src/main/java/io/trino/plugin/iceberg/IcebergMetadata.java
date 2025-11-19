@@ -1171,7 +1171,11 @@ public class IcebergMetadata
                 dropView(session, viewName);
             }
             for (SchemaTableName tableName : listTables(session, Optional.of(schemaName))) {
-                dropTable(session, getTableHandle(session, tableName, Optional.empty(), Optional.empty()));
+                ConnectorTableHandle tableHandle = getTableHandle(session, tableName, Optional.empty(), Optional.empty());
+                if (tableHandle != null) {
+                    // getTableHandle method returns null if the table is dropped concurrently
+                    dropTable(session, tableHandle);
+                }
             }
         }
         catalog.dropNamespace(session, schemaName);
