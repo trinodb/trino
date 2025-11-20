@@ -293,6 +293,44 @@ final class TestTrinoHudiStorage
         }
     }
 
+    @Test
+    public void testListEmptyDirectory()
+            throws IOException
+    {
+        HoodieStorage storage = getStorage();
+
+        // Create an empty directory
+        StoragePath emptyDir = new StoragePath(getTempDir(), "empty_directory");
+        assertThat(storage.createDirectory(emptyDir)).isTrue();
+        assertThat(storage.exists(emptyDir)).isTrue();
+
+        // List the empty directory - should return empty list, not throw exception
+        List<StoragePathInfo> entries = storage.listDirectEntries(emptyDir);
+        assertThat(entries).isEmpty();
+
+        List<StoragePathInfo> files = storage.listFiles(emptyDir);
+        assertThat(files).isEmpty();
+    }
+
+    @Test
+    public void testListNonExistentDirectory()
+            throws IOException
+    {
+        HoodieStorage storage = getStorage();
+
+        // Try to list a non-existent directory - should throw FileNotFoundException
+        StoragePath nonExistentDir = new StoragePath(getTempDir(), "does_not_exist");
+        assertThat(storage.exists(nonExistentDir)).isFalse();
+
+        assertThatThrownBy(() -> storage.listDirectEntries(nonExistentDir))
+                .isInstanceOf(FileNotFoundException.class)
+                .hasMessageContaining("does not exist");
+
+        assertThatThrownBy(() -> storage.listDirectEntries(nonExistentDir, path -> true))
+                .isInstanceOf(FileNotFoundException.class)
+                .hasMessageContaining("does not exist");
+    }
+
     private void prepareFilesOnStorage(HoodieStorage storage)
             throws IOException
     {
