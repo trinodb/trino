@@ -109,6 +109,7 @@ import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
+import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.Trim;
@@ -316,6 +317,7 @@ public class TranslationMap
                 case io.trino.sql.tree.FieldReference expression -> translate(expression);
                 case Identifier expression -> translate(expression);
                 case FunctionCall expression -> translate(expression);
+                case StaticMethodCall expression -> translate(expression);
                 case DereferenceExpression expression -> translate(expression);
                 case Array expression -> translate(expression);
                 case CurrentCatalog expression -> translate(expression);
@@ -661,6 +663,14 @@ public class TranslationMap
                 expression.getArguments().stream()
                         .map(this::translateExpression)
                         .collect(toImmutableList()));
+    }
+
+    private io.trino.sql.ir.Expression translate(StaticMethodCall expression)
+    {
+        // Currently, only PostgreSQL-style cast shorthand expressions are supported
+        return new io.trino.sql.ir.Cast(
+                translateExpression(expression.getTarget()),
+                analysis.getType(expression));
     }
 
     private io.trino.sql.ir.Expression translate(DereferenceExpression expression)

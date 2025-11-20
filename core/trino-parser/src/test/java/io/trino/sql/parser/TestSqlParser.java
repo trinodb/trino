@@ -210,6 +210,7 @@ import io.trino.sql.tree.SingleColumn;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
+import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
@@ -819,6 +820,36 @@ public class TestSqlParser
         assertInvalidExpression("IF(true)", "Invalid number of arguments for 'if' function");
         assertInvalidExpression("IF(true, 1, 0) FILTER (WHERE true)", "FILTER not valid for 'if' function");
         assertInvalidExpression("IF(true, 1, 0) OVER()", "OVER clause not valid for 'if' function");
+    }
+
+    @Test
+    void testStaticMethodCall()
+    {
+        assertThat(expression("integer::parse('123')"))
+                .isEqualTo(new StaticMethodCall(
+                        location(1, 8),
+                        new Identifier(location(1, 1), "integer", false),
+                        new Identifier(location(1, 10), "parse", false),
+                        ImmutableList.of(new StringLiteral(location(1, 16), "123"))));
+
+        assertThat(expression("integer::max"))
+                .isEqualTo(new StaticMethodCall(
+                        location(1, 8),
+                        new Identifier(location(1, 1), "integer", false),
+                        new Identifier(location(1, 10), "max", false),
+                        emptyList()
+                ));
+
+        assertThat(expression("(a + b)::double"))
+                .isEqualTo(new StaticMethodCall(
+                        location(1, 8),
+                        new ArithmeticBinaryExpression(
+                                location(1, 4),
+                                ArithmeticBinaryExpression.Operator.ADD,
+                                new Identifier(location(1, 2), "a", false),
+                                new Identifier(location(1, 6), "b", false)),
+                        new Identifier(location(1, 10), "double", false),
+                        emptyList()));
     }
 
     @Test

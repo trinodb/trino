@@ -322,6 +322,11 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitStaticMethodCall(StaticMethodCall node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitProcessingMode(ProcessingMode node, C context)
     {
         return visitNode(node, context);

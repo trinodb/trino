@@ -145,6 +145,7 @@ import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SortItem.Ordering;
+import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
@@ -1702,6 +1703,44 @@ public class ExpressionAnalyzer
             }
 
             frameBoundCalculations.put(NodeRef.of(offsetValue), function);
+        }
+
+        @Override
+        protected Type visitStaticMethodCall(StaticMethodCall node, Context context)
+        {
+            // PostgreSQL-style are syntactically ambiguous with static method calls. So, static method call semantics take precendence.
+            // A static method call is characterized by the target being an expression whose type is "type". This not yet supported
+            // as a first-class concept, so we fake it by analyzing the expression normally. If the analysis succeeds, we treat it as
+            // the target of a cast. If the analysis fails, check whether the target is an identifier matching a known type name.
+            try {
+                process(node.getTarget(), context);
+            }
+            catch (TrinoException e) {
+                // assume it might be a type name, so check if it's an identifier matching a known type
+                if (node.getTarget() instanceof Identifier target) {
+                    try {
+                        plannerContext.getTypeManager().fromSqlType(target.getValue());
+                    }
+                    catch (TypeNotFoundException typeException) {
+                        // since the type is not found, treat the expression as normal expression that failed analysis
+                        throw e;
+                    }
+                }
+                throw semanticException(NOT_SUPPORTED, node, "Static method calls are not supported");
+            }
+
+            if (!node.getArguments().isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, node, "Static method calls are not supported");
+            }
+
+            // assume it's a PostgreSQL-style cast unless result type is not a known type
+            try {
+                Type type = plannerContext.getTypeManager().fromSqlType(node.getMethod().getValue());
+                return setExpressionType(node, type);
+            }
+            catch (Exception e) {
+                throw semanticException(NOT_SUPPORTED, node, "Static method calls are not supported");
+            }
         }
 
         @Override
