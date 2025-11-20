@@ -201,8 +201,12 @@ public class BenchmarkBlockSerde
     public abstract static class TypeBenchmarkData
             extends BenchmarkData
     {
+        private static final int OFFSET_LENGTH = 3;
+
         @Param({"0", ".01", ".10", ".50", ".90", ".99"})
         private double nullChance;
+        @Param({"true", "false"})
+        private boolean offset;
 
         public void setup(Type type, Function<Random, ?> valueGenerator)
         {
@@ -218,13 +222,21 @@ public class BenchmarkBlockSerde
                 writeValue(type, values.next(), blockBuilder);
                 pageBuilder.declarePosition();
                 if (pageBuilder.isFull()) {
-                    pagesBuilder.add(pageBuilder.build());
+                    Page page = pageBuilder.build();
+                    if (offset && page.getPositionCount() > (OFFSET_LENGTH * 2)) {
+                        page = page.getRegion(OFFSET_LENGTH, page.getPositionCount() - (OFFSET_LENGTH * 2));
+                    }
+                    pagesBuilder.add(page);
                     pageBuilder.reset();
                     blockBuilder = pageBuilder.getBlockBuilder(0);
                 }
             }
             if (pageBuilder.getPositionCount() > 0) {
-                pagesBuilder.add(pageBuilder.build());
+                Page page = pageBuilder.build();
+                if (offset && page.getPositionCount() > (OFFSET_LENGTH * 2)) {
+                    page = page.getRegion(OFFSET_LENGTH, page.getPositionCount() - (OFFSET_LENGTH * 2));
+                }
+                pagesBuilder.add(page);
             }
 
             List<Page> pages = pagesBuilder.build();
