@@ -41,6 +41,7 @@ public class BasicQueryStats
     private final Instant endTime;
 
     private final Duration queuedTime;
+    private final Duration resourceWaitingTime;
     private final Duration elapsedTime;
     private final Duration executionTime;
 
@@ -83,6 +84,7 @@ public class BasicQueryStats
             @JsonProperty("createTime") Instant createTime,
             @JsonProperty("endTime") Instant endTime,
             @JsonProperty("queuedTime") Duration queuedTime,
+            @JsonProperty("resourceWaitingTime") Duration resourceWaitingTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("executionTime") Duration executionTime,
             @JsonProperty("failedTasks") int failedTasks,
@@ -119,6 +121,7 @@ public class BasicQueryStats
         this.endTime = endTime;
 
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
+        this.resourceWaitingTime = requireNonNull(resourceWaitingTime, "resourceWaitingTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
 
@@ -169,6 +172,7 @@ public class BasicQueryStats
         this(queryStats.getCreateTime(),
                 queryStats.getEndTime(),
                 queryStats.getQueuedTime(),
+                queryStats.getResourceWaitingTime(),
                 queryStats.getElapsedTime(),
                 queryStats.getExecutionTime(),
                 queryStats.getFailedTasks(),
@@ -208,6 +212,7 @@ public class BasicQueryStats
         return new BasicQueryStats(
                 now,
                 now,
+                new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -258,6 +263,12 @@ public class BasicQueryStats
     public Duration getQueuedTime()
     {
         return queuedTime;
+    }
+
+    @JsonProperty
+    public Duration getResourceWaitingTime()
+    {
+        return resourceWaitingTime;
     }
 
     @JsonProperty
