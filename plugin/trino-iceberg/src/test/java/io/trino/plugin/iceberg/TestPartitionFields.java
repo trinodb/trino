@@ -127,14 +127,47 @@ public class TestPartitionFields
         assertParseName(List.of("col", "col_year", "col_year_2"), TimestampType.withZone(), List.of("year(col)", "col_year_2"), List.of("col_year_3", "col_year_2"));
     }
 
+    @Test
+    public void testConflictsWithPartitionName()
+    {
+        Schema schema = new Schema(
+                NestedField.required(1, "order_key", LongType.get()),
+                NestedField.optional(2, "comment", StringType.get()));
+
+        List<PartitionField> existingPartitionFields = PartitionSpec.builderFor(schema)
+                .truncate("comment", 10)
+                .bucket("order_key", 10)
+                .build()
+                .fields();
+
+        // size matches the existing partition specification
+        assertParseName(List.of("order_key"), LongType.get(), existingPartitionFields, List.of("bucket(order_key, 10)"), List.of("order_key_bucket"));
+        assertParseName(List.of("comment"), StringType.get(), existingPartitionFields, List.of("truncate(comment, 10)"), List.of("comment_trunc"));
+
+        // size differs from the existing partition specification
+        assertParseName(List.of("order_key"), LongType.get(), existingPartitionFields, List.of("bucket(order_key, 20)"), List.of("order_key_bucket_20"));
+        assertParseName(List.of("comment"), StringType.get(), existingPartitionFields, List.of("truncate(comment, 20)"), List.of("comment_trunc_20"));
+
+        // conflicts with existing column names
+        assertParseName(List.of("order_key", "order_key_bucket_20"), LongType.get(), existingPartitionFields, List.of("bucket(order_key, 20)"), List.of("order_key_bucket_20_2"));
+        assertParseName(List.of("comment", "comment_trunc_20"), StringType.get(), existingPartitionFields, List.of("truncate(comment, 20)"), List.of("comment_trunc_20_2"));
+        assertParseName(List.of("order_key", "order_key_bucket_20", "order_key_bucket_20_2"), LongType.get(), existingPartitionFields, List.of("bucket(order_key, 20)"), List.of("order_key_bucket_20_3"));
+        assertParseName(List.of("comment", "comment_trunc_20", "comment_trunc_20_2"), StringType.get(), existingPartitionFields, List.of("truncate(comment, 20)"), List.of("comment_trunc_20_3"));
+    }
+
     private static void assertParseName(List<String> columnNames, Type type, List<String> partitions, List<String> expected)
+    {
+        assertParseName(columnNames, type, ImmutableList.of(), partitions, expected);
+    }
+
+    private static void assertParseName(List<String> columnNames, Type type, List<PartitionField> existingPartitionFields, List<String> partitions, List<String> expected)
     {
         ImmutableList.Builder<NestedField> columns = ImmutableList.builderWithExpectedSize(columnNames.size());
         int i = 1;
         for (String name : columnNames) {
             columns.add(NestedField.required(i++, name, type));
         }
-        PartitionSpec spec = parsePartitionFields(new Schema(columns.build()), partitions);
+        PartitionSpec spec = parsePartitionFields(new Schema(columns.build()), partitions, existingPartitionFields);
         assertThat(spec.fields()).extracting(PartitionField::name)
                 .containsExactlyElementsOf(expected);
     }
@@ -163,7 +196,7 @@ public class TestPartitionFields
 
     private static PartitionSpec parseField(String value)
     {
-        return partitionSpec(builder -> parsePartitionField(builder, value, ""));
+        return partitionSpec(builder -> parsePartitionField(builder, value, "", false));
     }
 
     private static PartitionSpec partitionSpec(Consumer<PartitionSpec.Builder> consumer)
