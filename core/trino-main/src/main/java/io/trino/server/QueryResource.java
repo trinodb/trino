@@ -80,9 +80,7 @@ public class QueryResource
                 .map(QueryState::valueOf)
                 .collect(toImmutableSet());
 
-        List<BasicQueryInfo> queries = dispatchManager.getQueries();
-        queries = filterQueries(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders), queries, accessControl);
-
+        List<BasicQueryInfo> queries = filterQueries(dispatchManager.getQueries(), sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders), accessControl);
         if (expectedStates.isEmpty()) {
             return queries;
         }
