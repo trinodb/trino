@@ -91,6 +91,7 @@ import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SimpleGroupBy;
 import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
+import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
@@ -462,6 +463,24 @@ public final class ExpressionFormatter
 
             if (node.getWindow().isPresent()) {
                 builder.append(" OVER ").append(formatWindow(node.getWindow().get()));
+            }
+
+            return builder.toString();
+        }
+
+        @Override
+        protected String visitStaticMethodCall(StaticMethodCall node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append(process(node.getTarget(), context))
+                    .append("::")
+                    .append(process(node.getMethod(), context));
+
+            if (!node.getArguments().isEmpty()) {
+                builder.append('(')
+                        .append(joinExpressions(node.getArguments()))
+                        .append(')');
             }
 
             return builder.toString();

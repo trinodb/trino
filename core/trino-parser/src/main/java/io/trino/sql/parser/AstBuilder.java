@@ -278,6 +278,7 @@ import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
+import io.trino.sql.tree.StaticMethodCall;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
@@ -3102,6 +3103,16 @@ class AstBuilder
                 nulls,
                 mode,
                 arguments);
+    }
+
+    @Override
+    public Node visitStaticMethodCall(SqlBaseParser.StaticMethodCallContext context)
+    {
+        return new StaticMethodCall(
+                getLocation(context.DOUBLE_COLON()),
+                (Expression) visit(context.primaryExpression()),
+                (Identifier) visit(context.identifier()),
+                visit(context.expression(), Expression.class));
     }
 
     @Override
