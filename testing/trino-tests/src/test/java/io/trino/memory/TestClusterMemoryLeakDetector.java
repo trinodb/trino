@@ -83,6 +83,7 @@ public class TestClusterMemoryLeakDetector
                         Instant.parse("2025-05-11T13:32:17.751968Z"),
                         new Duration(8, MINUTES),
                         new Duration(7, MINUTES),
+                        new Duration(9, MINUTES),
                         new Duration(34, MINUTES),
                         99,
                         13,

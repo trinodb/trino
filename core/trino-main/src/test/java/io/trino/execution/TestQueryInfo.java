@@ -170,6 +170,7 @@ public class TestQueryInfo
         assertThat(queryStats.getCreateTime()).isEqualTo(basicQueryStats.getCreateTime());
         assertThat(queryStats.getEndTime()).isEqualTo(basicQueryStats.getEndTime());
         assertThat(queryStats.getQueuedTime()).isEqualTo(basicQueryStats.getQueuedTime());
+        assertThat(queryStats.getResourceWaitingTime()).isEqualTo(basicQueryStats.getResourceWaitingTime());
         assertThat(queryStats.getElapsedTime()).isEqualTo(basicQueryStats.getElapsedTime());
         assertThat(queryStats.getExecutionTime()).isEqualTo(basicQueryStats.getExecutionTime());
         assertThat(queryStats.getFailedTasks()).isEqualTo(basicQueryStats.getFailedTasks());
