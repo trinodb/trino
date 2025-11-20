@@ -21,6 +21,7 @@ import jakarta.ws.rs.container.ContainerRequestContext;
 import java.security.Principal;
 import java.security.cert.X509Certificate;
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.server.security.UserMapping.createUserMapping;
 import static java.util.Objects.requireNonNull;
@@ -55,6 +56,13 @@ public class CertificateAuthenticator
         }
 
         try {
+            Optional<Identity> authenticatedIdentity = authenticatorManager.getAuthenticator().createAuthenticatedIdentity(certificates);
+            if (authenticatedIdentity.isPresent()) {
+                String authenticatedUser = userMapping.mapUser(authenticatedIdentity.get().getUser());
+                return Identity.from(authenticatedIdentity.get())
+                        .withUser(authenticatedUser)
+                        .build();
+            }
             Principal principal = authenticatorManager.getAuthenticator().authenticate(certificates);
             String authenticatedUser = userMapping.mapUser(principal.toString());
             return Identity.forUser(authenticatedUser)
