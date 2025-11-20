@@ -78,6 +78,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -313,7 +314,14 @@ public class TestEventListenerBasic
     public void testAnalysisFailure()
             throws Exception
     {
-        assertFailedQuery("EXPLAIN (TYPE IO) SELECT sum(bogus) FROM lineitem", "line 1:30: Column 'bogus' cannot be resolved");
+        assertFailedQuery(
+                getSession(),
+                "EXPLAIN (TYPE IO) SELECT sum(bogus) FROM lineitem",
+                "line 1:30: Column 'bogus' cannot be resolved",
+                event -> {
+                    QueryStatistics statistics = event.getStatistics();
+                    assertThat(statistics.getAnalysisTime()).isPresent();
+                });
     }
 
     @Test
@@ -327,7 +335,14 @@ public class TestEventListenerBasic
     public void testPlanningFailure()
             throws Exception
     {
-        assertFailedQuery("SELECT lower(test_varchar) FROM mock.default.tests_table", "Throw from apply projection");
+        assertFailedQuery(
+                getSession(),
+                "SELECT lower(test_varchar) FROM mock.default.tests_table",
+                "Throw from apply projection",
+                event -> {
+                    QueryStatistics statistics = event.getStatistics();
+                    assertThat(statistics.getPlanningTime()).isPresent();
+                });
     }
 
     @Test
@@ -338,7 +353,15 @@ public class TestEventListenerBasic
                 .setSystemProperty("required_workers_count", "17")
                 .setSystemProperty("required_workers_max_wait_time", "10ms")
                 .build();
-        assertFailedQuery(mySession, "SELECT * FROM tpch.sf1.nation", "Insufficient active worker nodes. Waited 10.00ms for at least 17 workers, but only 1 workers are active");
+        assertFailedQuery(
+                mySession,
+                "SELECT * FROM tpch.sf1.nation",
+                "Insufficient active worker nodes. Waited 10.00ms for at least 17 workers, but only 1 workers are active",
+                event -> {
+                    QueryStatistics statistics = event.getStatistics();
+                    assertThat(statistics.getResourceWaitingTime()).isPresent();
+                    assertThat(statistics.getPlanningTime()).isPresent();
+                });
     }
 
     @Test
@@ -365,7 +388,15 @@ public class TestEventListenerBasic
                         return null;
                     });
 
-            assertFailedQuery(mySession, sql, "Query killed. Message: because");
+            assertFailedQuery(
+                    mySession,
+                    sql,
+                    "Query killed. Message: because",
+                    event -> {
+                        QueryStatistics statistics = event.getStatistics();
+                        assertThat(statistics.getResourceWaitingTime()).isPresent();
+                        assertThat(statistics.getPlanningTime()).isPresent();
+                    });
         }
         finally {
             shutdownAndAwaitTermination(executorService, Duration.ZERO);
@@ -379,7 +410,7 @@ public class TestEventListenerBasic
         Session mySession = Session.builder(getSession())
                 .setSystemProperty("execution_policy", "invalid_as_hell")
                 .build();
-        assertFailedQuery(mySession, "SELECT 1", "No execution policy invalid_as_hell");
+        assertFailedQuery(mySession, "SELECT 1", "No execution policy invalid_as_hell", _ -> {});
     }
 
     private Optional<String> findQueryId(String queryPattern)
@@ -399,10 +430,10 @@ public class TestEventListenerBasic
     private void assertFailedQuery(@Language("SQL") String sql, String expectedFailure)
             throws Exception
     {
-        assertFailedQuery(getSession(), sql, expectedFailure);
+        assertFailedQuery(getSession(), sql, expectedFailure, _ -> {});
     }
 
-    private void assertFailedQuery(Session session, @Language("SQL") String sql, String expectedFailure)
+    private void assertFailedQuery(Session session, @Language("SQL") String sql, String expectedFailure, Consumer<QueryCompletedEvent> additionalAssertions)
             throws Exception
     {
         QueryEvents queryEvents = queries.runQueryAndWaitForEvents(sql, session, Optional.of(expectedFailure)).getQueryEvents();
@@ -413,6 +444,7 @@ public class TestEventListenerBasic
         QueryFailureInfo failureInfo = queryCompletedEvent.getFailureInfo()
                 .orElseThrow(() -> new AssertionError("Expected query event to be failed"));
         assertThat(expectedFailure).isEqualTo(failureInfo.getFailureMessage().orElse(null));
+        additionalAssertions.accept(queryCompletedEvent);
     }
 
     @Test
