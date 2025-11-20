@@ -28,6 +28,7 @@ public class StaticOAuth2ServerConfig
     public static final String JWKS_URL = "http-server.authentication.oauth2.jwks-url";
     public static final String USERINFO_URL = "http-server.authentication.oauth2.userinfo-url";
     public static final String END_SESSION_URL = "http-server.authentication.oauth2.end-session-url";
+    public static final String DYNAMIC_CLIENT_REGISTRATION_URL = "http-server.authentication.oauth2.dynamic-client-registration-url";
 
     private Optional<String> accessTokenIssuer = Optional.empty();
     private URI authUrl;
@@ -35,6 +36,7 @@ public class StaticOAuth2ServerConfig
     private URI jwksUrl;
     private Optional<URI> userinfoUrl = Optional.empty();
     private Optional<URI> endSessionUrl = Optional.empty();
+    private Optional<URI> dynamicClientRegistrationUrl = Optional.empty();
 
     @NotNull
     public Optional<String> getAccessTokenIssuer()
@@ -115,6 +117,19 @@ public class StaticOAuth2ServerConfig
     public StaticOAuth2ServerConfig setEndSessionUrl(URI endSessionUrl)
     {
         this.endSessionUrl = Optional.ofNullable(endSessionUrl);
+        return this;
+    }
+
+    public Optional<URI> getDynamicClientRegistrationUrl()
+    {
+        return dynamicClientRegistrationUrl;
+    }
+
+    @Config(DYNAMIC_CLIENT_REGISTRATION_URL)
+    @ConfigDescription("URL of the dynamic client registration endpoint")
+    public StaticOAuth2ServerConfig setDynamicClientRegistrationUrl(URI dynamicClientRegistrationUrl)
+    {
+        this.dynamicClientRegistrationUrl = Optional.ofNullable(dynamicClientRegistrationUrl);
         return this;
     }
 }
