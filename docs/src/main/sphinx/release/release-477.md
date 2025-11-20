@@ -155,7 +155,7 @@
   The `iceberg.rest-catalog.sigv4-enabled` config property is no longer 
   supported. ({issue}`26218`)
 * Add support for using GCS without credentials. ({issue}`25810`)
-* Allow configuring the compression codec to use for reading a table via the `compression_codec` table 
+* {{breaking}} Allow configuring the compression codec to use for reading a table via the `compression_codec` table
   property. The `compression_codec` session is no longer supported. ({issue}`25755`)
 * Add metrics for data read from filesystem cache in `EXPLAIN ANALYZE VERBOSE` 
   output. ({issue}`26342`)
