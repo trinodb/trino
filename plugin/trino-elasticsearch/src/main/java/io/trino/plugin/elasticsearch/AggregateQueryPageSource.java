@@ -58,6 +58,7 @@ public class AggregateQueryPageSource
 
     private final BlockBuilder[] columnBuilders;
     private final List<ElasticsearchColumnHandle> columns;
+    private final int aggregationPageSize;
     private long totalBytes;
     private long readTimeNanos;
     private Optional<Map<String, Object>> after = Optional.empty();
@@ -69,7 +70,8 @@ public class AggregateQueryPageSource
             TypeManager typeManager,
             ElasticsearchTableHandle table,
             ElasticsearchSplit split,
-            List<ElasticsearchColumnHandle> columns)
+            List<ElasticsearchColumnHandle> columns,
+            int aggregationPageSize)
     {
         requireNonNull(client, "client is null");
         requireNonNull(table, "table is null");
@@ -80,6 +82,7 @@ public class AggregateQueryPageSource
         this.client = client;
         this.table = table;
         this.split = split;
+        this.aggregationPageSize = aggregationPageSize;
 
         this.columns = ImmutableList.copyOf(columns);
 
@@ -131,7 +134,7 @@ public class AggregateQueryPageSource
     public SourcePage getNextSourcePage()
     {
         long start = System.nanoTime();
-        OptionalInt pageSize = table.topN().isEmpty() ? OptionalInt.empty() : OptionalInt.of((int) table.topN().get().limit());
+        OptionalInt pageSize = table.topN().isEmpty() ? OptionalInt.of(aggregationPageSize) : OptionalInt.of((int) table.topN().get().limit());
         SearchResponse searchResponse = client.beginSearch(
                 split.index(),
                 split.shard(),

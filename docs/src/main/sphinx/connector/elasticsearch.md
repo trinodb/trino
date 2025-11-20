@@ -56,6 +56,10 @@ The following table details all general configuration properties:
   - [Duration](prop-type-duration) for Elasticsearch to keep the search context
     alive for scroll requests.
   - `1m`
+* - `elasticsearch.aggregation-page-size`
+  - Default page size for aggregation queries when no explicit limit is specified.
+    Controls the number of buckets returned per request to Elasticsearch.
+  - `10000`
 * - `elasticsearch.request-timeout`
   - Timeout [duration](prop-type-duration) for all Elasticsearch requests.
   - `10s`

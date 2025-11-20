@@ -37,12 +37,14 @@ public class ElasticsearchPageSourceProvider
 {
     private final ElasticsearchClient client;
     private final TypeManager typeManager;
+    private final ElasticsearchConfig config;
 
     @Inject
-    public ElasticsearchPageSourceProvider(ElasticsearchClient client, TypeManager typeManager)
+    public ElasticsearchPageSourceProvider(ElasticsearchClient client, TypeManager typeManager, ElasticsearchConfig config)
     {
         this.client = requireNonNull(client, "client is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.config = requireNonNull(config, "config is null");
     }
 
     @Override
@@ -72,7 +74,8 @@ public class ElasticsearchPageSourceProvider
                     elasticsearchSplit,
                     columns.stream()
                             .map(ElasticsearchColumnHandle.class::cast)
-                            .collect(toImmutableList()));
+                            .collect(toImmutableList()),
+                    config.getAggregationPageSize());
         }
 
         if (columns.isEmpty()) {
