@@ -28,6 +28,7 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.client.ProtocolHeaders.detectProtocol;
 import static io.trino.server.security.BasicAuthCredentials.extractBasicAuthCredentials;
 import static io.trino.server.security.UserMapping.createUserMapping;
+import static io.trino.server.security.UserMapping.tryMapUser;
 import static java.util.Objects.requireNonNull;
 
 public class PasswordAuthenticator
@@ -41,7 +42,6 @@ public class PasswordAuthenticator
     public PasswordAuthenticator(PasswordAuthenticatorManager authenticatorManager, PasswordAuthenticatorConfig config, ProtocolConfig protocolConfig)
     {
         this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
-
         this.authenticatorManager = requireNonNull(authenticatorManager, "authenticatorManager is null");
         authenticatorManager.setRequired();
         this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
@@ -60,14 +60,20 @@ public class PasswordAuthenticator
         AuthenticationException exception = null;
         for (io.trino.spi.security.PasswordAuthenticator authenticator : authenticatorManager.getAuthenticators()) {
             try {
+                Optional<Identity> authenticatedIdentity = authenticator.createAuthenticatedIdentity(user, password);
+                if (authenticatedIdentity.isPresent()) {
+                    Identity mappedIdentity = tryMapUser(userMapping, authenticatedIdentity.get());
+                    rewriteUserHeaderToMappedUser(basicAuthCredentials, request.getHeaders(), mappedIdentity.getUser());
+                    return mappedIdentity;
+                }
                 Principal principal = authenticator.createAuthenticatedPrincipal(user, password);
-                String authenticatedUser = userMapping.mapUser(principal.toString());
+                Identity mappedIdentity = tryMapUser(userMapping, Identity.forUser(principal.toString())
+                        .withPrincipal(principal)
+                        .build());
 
                 // rewrite the original "unmapped" user header to the mapped user (see method Javadoc for more details)
-                rewriteUserHeaderToMappedUser(basicAuthCredentials, request.getHeaders(), authenticatedUser);
-                return Identity.forUser(authenticatedUser)
-                        .withPrincipal(principal)
-                        .build();
+                rewriteUserHeaderToMappedUser(basicAuthCredentials, request.getHeaders(), mappedIdentity.getUser());
+                return mappedIdentity;
             }
             catch (UserMappingException | AccessDeniedException e) {
                 if (exception == null) {

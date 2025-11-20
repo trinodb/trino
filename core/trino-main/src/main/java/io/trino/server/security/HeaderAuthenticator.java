@@ -22,10 +22,12 @@ import java.security.Principal;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.server.security.UserMapping.createUserMapping;
+import static io.trino.server.security.UserMapping.tryMapUser;
 import static java.util.Objects.requireNonNull;
 
 public class HeaderAuthenticator
@@ -38,9 +40,7 @@ public class HeaderAuthenticator
     public HeaderAuthenticator(HeaderAuthenticatorConfig authenticatorConfig, HeaderAuthenticatorManager authenticatorManager)
     {
         this.authenticatorManager = requireNonNull(authenticatorManager, "authenticatorManager is null");
-
         this.userMapping = createUserMapping(authenticatorConfig.getUserMappingPattern(), authenticatorConfig.getUserMappingFile());
-
         this.authenticatorManager.setRequired();
     }
 
@@ -52,14 +52,16 @@ public class HeaderAuthenticator
         Map<String, List<String>> lowerCasedHeaders = request.getHeaders().entrySet().stream()
                 .collect(Collectors.toMap(entry -> entry.getKey().toLowerCase(Locale.ENGLISH), Map.Entry::getValue));
 
-        for (io.trino.spi.security.HeaderAuthenticator authenticator : this.authenticatorManager.getAuthenticators()) {
+        for (io.trino.spi.security.HeaderAuthenticator authenticator : authenticatorManager.getAuthenticators()) {
             try {
+                Optional<Identity> identity = authenticator.createAuthenticatedIdentity(name -> lowerCasedHeaders.get(name.toLowerCase(Locale.ENGLISH)));
+                if (identity.isPresent()) {
+                    return tryMapUser(userMapping, identity.get());
+                }
                 Principal principal = authenticator.createAuthenticatedPrincipal(name -> lowerCasedHeaders.get(name.toLowerCase(Locale.ENGLISH)));
-                String authenticatedUser = this.userMapping.mapUser(principal.toString());
-
-                return Identity.forUser(authenticatedUser)
+                return tryMapUser(userMapping, Identity.forUser(principal.toString())
                         .withPrincipal(principal)
-                        .build();
+                        .build());
             }
             catch (UserMappingException | AccessDeniedException e) {
                 if (exception == null) {
