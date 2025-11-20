@@ -40,7 +40,7 @@ import static java.util.Objects.requireNonNull;
  * Thread-safety: the implementations is not thread-safe
  *
  * Note: The implementation is internally not thread-safe but also {@link ConnectorSplitSource} is
- * not required to be thread-safe.
+ * not required to be thread-safe, except the close() method which may be called concurrently.
  */
 @NotThreadSafe
 public class ConnectorAwareSplitSource
@@ -95,7 +95,7 @@ public class ConnectorAwareSplitSource
         closeSource();
     }
 
-    private void closeSource()
+    private synchronized void closeSource()
     {
         if (source != null) {
             try {
