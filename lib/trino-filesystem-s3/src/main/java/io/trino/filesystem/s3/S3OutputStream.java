@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.s3;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
@@ -23,11 +24,15 @@ import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectTaggingResponse;
 import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.StorageClass;
+import software.amazon.awssdk.services.s3.model.Tag;
+import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.model.UploadPartResponse;
 
@@ -43,7 +48,9 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
+import java.util.function.Predicate;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
 import static io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl.getCannedAcl;
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.NONE;
@@ -58,11 +65,14 @@ import static java.lang.System.arraycopy;
 import static java.net.HttpURLConnection.HTTP_PRECON_FAILED;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 final class S3OutputStream
         extends OutputStream
 {
+    private static final String TRINO_CREATION_TAG = "TrinoCreationId";
+
     private final List<CompletedPart> parts = new ArrayList<>();
     private final LocalMemoryContext memoryContext;
     private final Executor uploadExecutor;
@@ -261,7 +271,8 @@ final class S3OutputStream
         }
     }
 
-    private void waitForPreviousUploadFinish()
+    @VisibleForTesting
+    void waitForPreviousUploadFinish()
             throws IOException
     {
         if (inProgressUploadFuture == null) {
@@ -391,6 +402,10 @@ final class S3OutputStream
     {
         checkFromIndexSize(dataOffset, dataLength, data.length);
 
+        // A random unique value identifying this upload attempt, used in exclusive create checks
+        // to workaround AWS SDK limitation: conditional writes and SDK's retries do not work well with each other.
+        String trinoCreationId = randomUUID().toString();
+
         PutObjectRequest request = PutObjectRequest.builder()
                 .overrideConfiguration(context::applyCredentialProviderOverride)
                 .acl(getCannedAcl(context.cannedAcl()))
@@ -401,6 +416,7 @@ final class S3OutputStream
                 .contentLength((long) dataLength)
                 .applyMutation(builder -> {
                     if (exclusiveCreate) {
+                        builder.tagging(trinoCreationTag(trinoCreationId));
                         builder.ifNoneMatch("*");
                     }
                     key.ifPresent(encryption -> {
@@ -417,15 +433,75 @@ final class S3OutputStream
         try {
             client.putObject(request, RequestBody.fromByteBuffer(bytes));
         }
-        catch (S3Exception e) {
-            // when `location` already exists, the operation will fail with `412 Precondition Failed`
-            if (e.statusCode() == HTTP_PRECON_FAILED) {
-                throw new FileAlreadyExistsException(location.toString());
+        catch (SdkException putObjectException) {
+            // When `location` already exists, the operation will fail with `412 Precondition Failed`
+            // This is possible when
+            // - object already existed
+            // - object was created by us in a request, but then client side retry logic retried the request
+            boolean objectAlreadyExists = putObjectException instanceof S3Exception s3Exception &&
+                    s3Exception.statusCode() == HTTP_PRECON_FAILED;
+            if (objectAlreadyExists) {
+                UncertainBoolean createdByUs = UncertainBoolean.FALSE;
+                if (exclusiveCreate && firstNonNull(putObjectException.numAttempts(), 0) > 1) {
+                    // Check if the object was actually created by a previous attempt of AWS SDK's implicit retries
+                    // This is workaround for AWS SDK limitation: https://github.com/aws/aws-sdk-java-v2/issues/6580
+                    try {
+                        if (isCreatedByUs(client, context, location, trinoCreationId)) {
+                            createdByUs = UncertainBoolean.TRUE;
+                        }
+                    }
+                    catch (Exception getObjectTaggingException) {
+                        createdByUs = UncertainBoolean.MAYBE;
+                        if (putObjectException != getObjectTaggingException) {
+                            putObjectException.addSuppressed(getObjectTaggingException);
+                        }
+                    }
+                }
+                switch (createdByUs) {
+                    case TRUE -> {
+                        return;
+                    }
+                    case FALSE -> throw new FileAlreadyExistsException(location.toString());
+                    case MAYBE ->
+                            throw new IOException("Put failed for bucket [%s] key [%s] but provenance could not be verified".formatted(location.bucket(), location.key()), putObjectException);
+                }
             }
-            throw new IOException("Put failed for bucket [%s] key [%s]: %s".formatted(location.bucket(), location.key(), e), e);
+            throw new IOException("Put failed for bucket [%s] key [%s]: %s".formatted(location.bucket(), location.key(), putObjectException), putObjectException);
         }
-        catch (SdkException e) {
-            throw new IOException("Put failed for bucket [%s] key [%s]: %s".formatted(location.bucket(), location.key(), e), e);
-        }
+    }
+
+    private static boolean isCreatedByUs(S3Client client, S3Context context, S3Location location, String trinoCreationId)
+    {
+        GetObjectTaggingResponse tagging = client.getObjectTagging(GetObjectTaggingRequest.builder()
+                .overrideConfiguration(context::applyCredentialProviderOverride)
+                .requestPayer(context.requestPayer())
+                .bucket(location.bucket())
+                .key(location.key())
+                .build());
+        List<Tag> tags = firstNonNull(tagging.tagSet(), List.of());
+        return tags.stream().anyMatch(isOurTrinoCreationTag(trinoCreationId));
+    }
+
+    private static Tagging trinoCreationTag(String trinoCreationId)
+    {
+        return Tagging.builder()
+                .tagSet(Tag.builder()
+                        .key(TRINO_CREATION_TAG)
+                        .value(trinoCreationId)
+                        .build())
+                .build();
+    }
+
+    private static Predicate<Tag> isOurTrinoCreationTag(String trinoCreationId)
+    {
+        return tag -> tag.key().equals(TRINO_CREATION_TAG) &&
+                tag.value().equals(trinoCreationId);
+    }
+
+    enum UncertainBoolean
+    {
+        TRUE,
+        FALSE,
+        MAYBE,
     }
 }
