@@ -899,26 +899,27 @@ public abstract class BaseIcebergConnectorSmokeTest
     public void testAnalyze()
             throws Exception
     {
-        String tableName = "test_analyze_" + randomNameSuffix();
-        createSchema(tableName);
         String catalog = getSession().getCatalog().orElseThrow();
         Session noStatsOnWrite = Session.builder(getSession())
                 .setCatalogSessionProperty(catalog, COLLECT_EXTENDED_STATISTICS_ON_WRITE, "false")
                 .build();
-        TestTable runner = new TestTable(
+
+        try (TestTable table = new TestTable(
                 sql -> getQueryRunner().execute(noStatsOnWrite, sql),
-                tableName,
-                "(id,int)");
-
-        try {
-            assertThat(query("ANALYZE ", ));
-
+                "test_analyze",
+                "(id int, name varchar)")) {
+            assertUpdate(noStatsOnWrite, "INSERT INTO " + table.getName() + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+            assertUpdate("ANALYZE " + table.getName());
+            assertQuery("SHOW STATS FOR " + table.getName(),
+                    "VALUES " +
+                            "('id', null, 3e0, 0e0, null, '1', '3'), " +
+                            "('name', 126e0, 3e0, 0e0, null, null, null), " +
+                            "(null, null, null, null, 3e0, null, null)");
         }
         catch (Exception e) {
             errorMessageForAnalyze();
         }
     }
-
 
     protected void dropSchema(String schema)
             throws Exception
@@ -971,6 +972,12 @@ public abstract class BaseIcebergConnectorSmokeTest
             return location;
         }
         throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
+    }
+
+    protected String errorMessageForAnalyze()
+            throws Exception
+    {
+        throw new UnsupportedOperationException("This Operation is not supported");
     }
 
     protected abstract void dropTableFromMetastore(String tableName);

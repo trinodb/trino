@@ -749,9 +749,6 @@ public abstract class BaseConnectorSmokeTest
             assertUpdate("DROP MATERIALIZED VIEW " + viewName);
         }
     }
-    protected String errorMessageForAnalyze() throws Exception{
-        throw new UnsupportedOperationException("This Operation is not supported");
-    }
 
     protected String getColumnComment(String tableName, String columnName)
     {
