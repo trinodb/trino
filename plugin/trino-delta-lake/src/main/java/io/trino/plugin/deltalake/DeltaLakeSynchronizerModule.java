@@ -18,7 +18,6 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.plugin.deltalake.transactionlog.writer.AzureTransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.GcsTransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.S3ConditionalWriteLogSynchronizer;
@@ -49,7 +48,7 @@ public class DeltaLakeSynchronizerModule
         binder.bind(S3LockBasedTransactionLogSynchronizer.class).in(Scopes.SINGLETON);
         binder.bind(S3ConditionalWriteLogSynchronizer.class).in(Scopes.SINGLETON);
 
-        install(conditionalModule(S3FileSystemConfig.class, S3FileSystemConfig::isSupportsExclusiveCreate,
+        install(conditionalModule(DeltaLakeConfig.class, DeltaLakeConfig::isS3TransactionLogConditionalWritesEnabled,
                 s3SynchronizerModule(S3ConditionalWriteLogSynchronizer.class),
                 s3SynchronizerModule(S3LockBasedTransactionLogSynchronizer.class)));
     }

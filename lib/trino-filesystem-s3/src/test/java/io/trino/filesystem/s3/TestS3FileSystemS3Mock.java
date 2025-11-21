@@ -72,8 +72,7 @@ public class TestS3FileSystemS3Mock
                         .setRegion(Region.US_EAST_1.id())
                         .setPathStyleAccess(true)
                         .setStreamingPartSize(streamingPartSize)
-                        .setSignerType(S3FileSystemConfig.SignerType.AwsS3V4Signer)
-                        .setSupportsExclusiveCreate(true),
+                        .setSignerType(S3FileSystemConfig.SignerType.AwsS3V4Signer),
                 new S3FileSystemStats());
     }
 

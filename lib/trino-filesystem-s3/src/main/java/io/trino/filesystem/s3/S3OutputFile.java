@@ -59,10 +59,6 @@ final class S3OutputFile
     public void createExclusive(byte[] data)
             throws IOException
     {
-        if (!context.exclusiveWriteSupported()) {
-            throw new UnsupportedOperationException("createExclusive not supported by " + getClass());
-        }
-
         try (OutputStream out = create(newSimpleAggregatedMemoryContext(), true)) {
             out.write(data);
         }

@@ -93,7 +93,6 @@ public class TestS3FileSystemAwsS3
                         .setAwsSecretKey(secretKey)
                         .setRegion(region)
                         .setEndpoint(endpoint)
-                        .setSupportsExclusiveCreate(true)
                         .setSignerType(S3FileSystemConfig.SignerType.AwsS3V4Signer)
                         .setStreamingPartSize(streamingPartSize),
                 new S3FileSystemStats());

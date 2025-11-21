@@ -96,7 +96,7 @@ public class TestDeltaLakeMinioAndLockBasedSynchronizerSmokeTest
                     .put("s3.endpoint", minio.getMinioAddress())
                     .put("s3.path-style-access", "true")
                     .put("s3.streaming.part-size", "5MB") // minimize memory usage
-                    .put("s3.exclusive-create", "false") // disable so we can test our own locking scheme
+                    .put("delta.s3.transaction-log-conditional-writes.enabled", "false") // disable so we can test our own locking scheme
                     .put("delta.metastore.store-table-metadata", "true")
                     .put("delta.enable-non-concurrent-writes", "true")
                     .put("delta.register-table-procedure.enabled", "true")

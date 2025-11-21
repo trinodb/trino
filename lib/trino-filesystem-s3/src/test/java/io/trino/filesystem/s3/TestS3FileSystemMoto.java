@@ -68,7 +68,6 @@ public class TestS3FileSystemMoto
                         .setPathStyleAccess(true)
                         .setAwsAccessKey(MOTO_ACCESS_KEY)
                         .setAwsSecretKey(MOTO_SECRET_KEY)
-                        .setSupportsExclusiveCreate(true)
                         .setStreamingPartSize(streamingPartSize),
                 new S3FileSystemStats());
     }
