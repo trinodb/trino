@@ -28,6 +28,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.DBRef;
 import com.mongodb.MongoCommandException;
 import com.mongodb.MongoNamespace;
+import com.mongodb.client.AggregateIterable;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
@@ -533,15 +534,57 @@ public class MongoSession
 
         MongoCollection<Document> collection = getCollection(tableHandle.remoteTableName());
         Document filter = buildFilter(tableHandle);
-        FindIterable<Document> iterable = collection.find(filter).projection(projection).collation(SIMPLE_COLLATION);
-        tableHandle.limit().ifPresent(iterable::limit);
+
         log.debug("Find documents: collection: %s, filter: %s, projection: %s", tableHandle.schemaTableName(), filter, projection);
 
-        if (cursorBatchSize != 0) {
-            iterable.batchSize(cursorBatchSize);
-        }
+        boolean useFind = tableHandle.sort().isEmpty() ||
+                (tableHandle.sort().get().size() == 1 && tableHandle.sort().get().getFirst().sortNullFields().isEmpty());
 
-        return iterable.iterator();
+        if (useFind) {
+            FindIterable<Document> iterable = collection.find(filter).projection(projection).collation(SIMPLE_COLLATION);
+            tableHandle.sort().ifPresent(sortList -> {
+                iterable.sort(sortList.getFirst().sort());
+                iterable.limit(toIntExact(sortList.getFirst().limit()));
+            });
+            tableHandle.limit().ifPresent(iterable::limit);
+
+            if (cursorBatchSize != 0) {
+                iterable.batchSize(cursorBatchSize);
+            }
+
+            return iterable.iterator();
+        }
+        else {
+            // MongoDB considers null values to be less than any other value.
+            // We can handle sort items with SortOrder.ASC_NULLS_LAST or SortOrder.DESC_NULLS_FIRST
+            // with an aggregation pipeline.
+            List<MongoTableSort> tableSortList = tableHandle.sort().get();
+            for (MongoTableSort tableSort : tableSortList) {
+                for (String sortField : tableSort.sort().keySet()) {
+                    // Sorting on the field does not work unless we add it to the projection
+                    if (!projection.containsKey(sortField)) {
+                        projection.append(sortField, MongoMetadata.MONGO_SORT_ASC);
+                    }
+                }
+            }
+
+            ImmutableList.Builder<Document> aggregatePipeline = ImmutableList.builder();
+            aggregatePipeline.add(new Document("$match", filter));
+            for (MongoTableSort tableSort : tableSortList) {
+                tableSort.sortNullFields().ifPresent(sortNullFields -> aggregatePipeline.add(new Document("$addFields", sortNullFields)));
+                aggregatePipeline.add(new Document("$sort", tableSort.sort()));
+                aggregatePipeline.add(new Document("$limit", tableSort.limit()));
+            }
+            tableHandle.limit().ifPresent(limit -> aggregatePipeline.add(new Document("$limit", limit)));
+            aggregatePipeline.add(new Document("$project", projection));
+            AggregateIterable<Document> aggregateIterable = collection.aggregate(aggregatePipeline.build()).collation(SIMPLE_COLLATION);
+
+            if (cursorBatchSize != 0) {
+                aggregateIterable.batchSize(cursorBatchSize);
+            }
+
+            return aggregateIterable.iterator();
+        }
     }
 
     @VisibleForTesting
