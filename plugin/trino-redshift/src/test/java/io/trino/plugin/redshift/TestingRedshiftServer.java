@@ -63,7 +63,7 @@ public final class TestingRedshiftServer
         return Jdbi.create(JDBC_URL, JDBC_USER, JDBC_PASSWORD).withHandle(callback);
     }
 
-    private static boolean isExceptionRecoverable(Throwable exception)
+    public static boolean isExceptionRecoverable(Throwable exception)
     {
         return exception != null && (
                 exception.getMessage().matches(".* concurrent transaction .*")

@@ -56,6 +56,12 @@ final class TestRedshiftCastPushdown
         return TestingRedshiftServer::executeInRedshift;
     }
 
+    @Override
+    protected TestTable newTrinoTable(String namePrefix, String tableDefinition, List<String> rowsToInsert)
+    {
+        return new TestTable(new TrinoSqlExecutorWithRetries(getQueryRunner()), namePrefix, tableDefinition, rowsToInsert);
+    }
+
     @BeforeAll
     void setupTable()
     {
