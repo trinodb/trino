@@ -84,6 +84,7 @@ import static io.trino.sql.planner.PathNodes.keyValue;
 import static io.trino.sql.planner.PathNodes.last;
 import static io.trino.sql.planner.PathNodes.lessThan;
 import static io.trino.sql.planner.PathNodes.lessThanOrEqual;
+import static io.trino.sql.planner.PathNodes.likeRegex;
 import static io.trino.sql.planner.PathNodes.literal;
 import static io.trino.sql.planner.PathNodes.memberAccessor;
 import static io.trino.sql.planner.PathNodes.minus;
@@ -1269,6 +1270,116 @@ public class TestJsonPathEvaluator
                 true,
                 isUnknown(equal(literal(BIGINT, 1L), literal(BOOLEAN, true))))) // unknown
                 .isEqualTo(TRUE);
+    }
+
+    @Test
+    void testLikeRegexPredicate()
+    {
+        assertThat(predicateResult(
+                TextNode.valueOf("abc"),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(contextVariable(), "[a-z]+")))
+                .isEqualTo(TRUE);
+
+        assertThat(predicateResult(
+                TextNode.valueOf("abc"),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(jsonVariable("json_text_parameter"), "^[A-Z]+\\stext$")))
+                .isEqualTo(TRUE);
+
+        assertThat(predicateResult(
+                TextNode.valueOf("abc"),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(literal(VARCHAR, utf8Slice("XYZ")), "^[A-Z]{4}$")))
+                .isEqualTo(FALSE);
+
+        assertThat(predicateResult(
+                TextNode.valueOf("abc"),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(literal(VARCHAR, utf8Slice("abc")), "^a b c$", "x")))
+                .isEqualTo(TRUE);
+
+        assertThat(predicateResult(
+                TextNode.valueOf("abc"),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(literal(VARCHAR, utf8Slice("ab\nc")), "^.{4}$", "s")))
+                .isEqualTo(TRUE);
+
+        assertThat(predicateResult(
+                TextNode.valueOf("abc"),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(literal(VARCHAR, utf8Slice("abc\ndefg")), "^defg$", "m")))
+                .isEqualTo(TRUE);
+
+        // multiple inputs - returning true if any match is found
+        assertThat(predicateResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("aBC"), TextNode.valueOf("abc"), TextNode.valueOf("Abc"))),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(wildcardArrayAccessor(contextVariable()), "[a-z]+")))
+                .isEqualTo(TRUE);
+
+        // multiple inputs - returning true if any match is found. array is automatically unwrapped in lax mode
+        assertThat(predicateResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("aBC"), TextNode.valueOf("abc"), TextNode.valueOf("Abc"))),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(contextVariable(), "[a-z]+")))
+                .isEqualTo(TRUE);
+
+        // lax mode: true is returned on the first match, even if there is an uncomparable item
+        assertThat(predicateResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("Abc"), NullNode.instance)),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(contextVariable(), "[a-zA-Z]+")))
+                .isEqualTo(TRUE);
+
+        // strict mode: unknown is returned because there is an uncomparable item, even if match is found first
+        assertThat(predicateResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("Abc"), NullNode.instance)),
+                TextNode.valueOf("abc"),
+                false,
+                likeRegex(contextVariable(), "[a-zA-Z]+")))
+                .isEqualTo(null);
+
+        // lax mode: unknown is returned because the uncomparable item is before the matching item
+        assertThat(predicateResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(NullNode.instance, TextNode.valueOf("Abc"))),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(contextVariable(), "[a-zA-Z]+")))
+                .isEqualTo(null);
+
+        // error while evaluating the path (floor method called on a text value) -> result unknown
+        assertThat(predicateResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(NullNode.instance, TextNode.valueOf("Abc"))),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(floor(literal(VARCHAR, utf8Slice("x"))), ".*")))
+                .isEqualTo(null);
+
+        // the path is not text -> result unknown
+        assertThat(predicateResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(NullNode.instance, TextNode.valueOf("Abc"))),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(literal(BIGINT, 1L), "[a-zA-Z0-9]+")))
+                .isEqualTo(null);
+
+        // the path returns empty sequence -> result false
+        assertThat(predicateResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(NullNode.instance, TextNode.valueOf("Abc"))),
+                TextNode.valueOf("abc"),
+                true,
+                likeRegex(arrayAccessor(contextVariable(), at(literal(BIGINT, 100L))), "[a-zA-Z]+")))
+                .isEqualTo(FALSE);
     }
 
     @Test

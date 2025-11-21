@@ -33,6 +33,7 @@ import io.trino.json.ir.IrIsUnknownPredicate;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrKeyValueMethod;
 import io.trino.json.ir.IrLastIndexVariable;
+import io.trino.json.ir.IrLikeRegexPredicate;
 import io.trino.json.ir.IrLiteral;
 import io.trino.json.ir.IrMemberAccessor;
 import io.trino.json.ir.IrNamedJsonVariable;
@@ -44,6 +45,7 @@ import io.trino.json.ir.IrPredicateCurrentItemVariable;
 import io.trino.json.ir.IrSizeMethod;
 import io.trino.json.ir.IrStartsWithPredicate;
 import io.trino.json.ir.IrTypeMethod;
+import io.trino.json.regex.XQuerySqlRegex;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -269,6 +271,16 @@ public class PathNodes
     public static IrPredicate isUnknown(IrPredicate predicate)
     {
         return new IrIsUnknownPredicate(predicate);
+    }
+
+    public static IrPredicate likeRegex(IrPathNode path, String pattern)
+    {
+        return new IrLikeRegexPredicate(path, XQuerySqlRegex.compile(pattern, Optional.empty()));
+    }
+
+    public static IrPredicate likeRegex(IrPathNode path, String pattern, String flags)
+    {
+        return new IrLikeRegexPredicate(path, XQuerySqlRegex.compile(pattern, Optional.of(flags)));
     }
 
     public static IrPredicate negation(IrPredicate predicate)
