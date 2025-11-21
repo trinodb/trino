@@ -36,14 +36,8 @@ public class TestS3FileSystemS3Mock
     private static final String BUCKET = "test-bucket";
 
     @Container
-    private static final S3MockContainer S3_MOCK = new S3MockContainer("3.0.1")
+    private static final S3MockContainer S3_MOCK = new S3MockContainer("4.10.0")
             .withInitialBuckets(BUCKET);
-
-    @Override
-    protected boolean supportsCreateExclusive()
-    {
-        return false; // not supported by s3-mock
-    }
 
     @Override
     protected String bucket()
@@ -79,8 +73,21 @@ public class TestS3FileSystemS3Mock
                         .setPathStyleAccess(true)
                         .setStreamingPartSize(streamingPartSize)
                         .setSignerType(S3FileSystemConfig.SignerType.AwsS3V4Signer)
-                        .setSupportsExclusiveCreate(false),
+                        .setSupportsExclusiveCreate(true),
                 new S3FileSystemStats());
+    }
+
+    @Test
+    @Override
+    public void testOutputFile()
+    {
+        // this is S3Mock bug, see https://github.com/adobe/S3Mock/issues/2790
+        assertThatThrownBy(super::testOutputFile)
+                .hasMessageContaining("""
+                        Expecting actual throwable to be an instance of:
+                          java.nio.file.FileAlreadyExistsException
+                        but was:
+                          java.io.IOException: software.amazon.awssdk.services.s3.model.S3Exception: (Service: S3, Status Code: 304""");
     }
 
     @Test
@@ -90,5 +97,23 @@ public class TestS3FileSystemS3Mock
         // S3 mock doesn't expire pre-signed URLs
         assertThatThrownBy(super::testPreSignedUris)
                 .hasMessageContaining("Expecting code to raise a throwable");
+    }
+
+    @Test
+    @Override
+    public void testPaths()
+    {
+        // this is S3Mock bug, see https://github.com/adobe/S3Mock/issues/2788
+        assertThatThrownBy(super::testPaths)
+                .hasMessageContaining("S3 HEAD request failed for file: s3://test-bucket/test/.././/file");
+    }
+
+    @Test
+    @Override
+    public void testReadingEmptyFile()
+    {
+        // this is S3Mock bug, see https://github.com/adobe/S3Mock/issues/2789
+        assertThatThrownBy(super::testReadingEmptyFile)
+                .hasMessageContaining("Failed to open S3 file: s3://test-bucket/inputStream/");
     }
 }

@@ -35,6 +35,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -44,6 +45,7 @@ import java.util.Set;
 
 import static java.util.Collections.emptySet;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Testcontainers
 public class TestHdfsFileSystemS3Mock
@@ -52,7 +54,7 @@ public class TestHdfsFileSystemS3Mock
     private static final String BUCKET = "test-bucket";
 
     @Container
-    private static final S3MockContainer S3_MOCK = new S3MockContainer("3.0.1")
+    private static final S3MockContainer S3_MOCK = new S3MockContainer("4.10.0")
             .withInitialBuckets(BUCKET);
 
     private HdfsEnvironment hdfsEnvironment;
@@ -146,5 +148,14 @@ public class TestHdfsFileSystemS3Mock
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    @Test
+    @Override
+    public void testPaths()
+    {
+        // this is S3Mock bug, see https://github.com/adobe/S3Mock/issues/2788
+        assertThatThrownBy(super::testPaths)
+                .hasMessageFindingMatch("Status Code: 400; Error Code: 400 .*\\Q(Bucket: test-bucket, Key: test/.././/file)");
     }
 }
