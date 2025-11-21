@@ -16,16 +16,11 @@ package io.trino.plugin.teradata.integration.clearscape;
 public class BaseException
         extends RuntimeException
 {
-    private final int statusCode;
+    protected final int statusCode;
 
     public BaseException(int statusCode, String body)
     {
         super(body);
         this.statusCode = statusCode;
-    }
-
-    public int getStatusCode()
-    {
-        return statusCode;
     }
 }

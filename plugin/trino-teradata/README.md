@@ -37,6 +37,6 @@ Once the environment variables are set, run the integration tests with:
 
 ⚠️ **Note:** Run the following command from the Trino parent directory.
 
-  ```
+```
  ./mvnw clean install -pl :trino-teradata
 ```

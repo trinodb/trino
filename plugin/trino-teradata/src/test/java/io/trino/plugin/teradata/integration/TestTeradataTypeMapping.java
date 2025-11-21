@@ -33,6 +33,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.datatype.SqlDataTypeTest.create;
+import static java.lang.String.format;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 final class TestTeradataTypeMapping
@@ -275,7 +276,7 @@ final class TestTeradataTypeMapping
 
     private DataSetup teradataJDBCCreateAndInsert(String tableNamePrefix)
     {
-        String prefix = String.format("%s.%s", database.getDatabaseName(), tableNamePrefix);
+        String prefix = format("%s.%s", database.getDatabaseName(), tableNamePrefix);
         return new CreateAndInsertDataSetup(database, prefix);
     }
 }

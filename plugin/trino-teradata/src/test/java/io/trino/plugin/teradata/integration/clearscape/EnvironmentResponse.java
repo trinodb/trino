@@ -19,13 +19,12 @@ import static java.util.Objects.requireNonNull;
 public record EnvironmentResponse(
         State state,
         String region,
-        String name,
         String ip)
 {
-    public EnvironmentResponse {
+    public EnvironmentResponse
+    {
         requireNonNull(state, "state must not be null");
-        requireNonNull(region, "name must not be null");
-        requireNonNull(name, "name must not be null");
+        requireNonNull(region, "region must not be null");
         region = region.toUpperCase(ENGLISH);
     }
 
