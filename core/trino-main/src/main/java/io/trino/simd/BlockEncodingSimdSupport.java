@@ -46,8 +46,8 @@ public final class BlockEncodingSimdSupport
     }
 
     private static final int MINIMUM_SIMD_LENGTH = 256;
-    private static final SimdSupport AUTO_DETECTED_SUPPORT = detectSimd();
     private static final int PREFERRED_BIT_WIDTH = VectorShape.preferredShape().vectorBitSize();
+    private static final SimdSupport AUTO_DETECTED_SUPPORT = detectSimd();
 
     private final SimdSupport simdSupport;
 
