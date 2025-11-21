@@ -36,6 +36,7 @@
 - {func}`array_agg`
 - {func}`array_distinct`
 - {func}`array_except`
+- {func}`array_histogram`
 - {func}`array_intersect`
 - {func}`array_join`
 - {func}`array_max`
