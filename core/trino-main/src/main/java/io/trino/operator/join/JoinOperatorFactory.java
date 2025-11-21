@@ -13,6 +13,7 @@
  */
 package io.trino.operator.join;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.OperatorFactory;
 
 import java.util.Optional;
@@ -20,4 +21,10 @@ import java.util.Optional;
 public interface JoinOperatorFactory
 {
     Optional<OperatorFactory> createOuterOperatorFactory();
+
+    /**
+     * Future that indicates when the build side of the join has been completed and probe processing
+     * can begin. Used by {@link OperatorFactory#pipelineDependenciesSatisfied()}.
+     */
+    ListenableFuture<Void> buildPipelineReady();
 }
