@@ -17,10 +17,13 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+
+import static java.lang.Math.max;
 
 public class AzureFileSystemConfig
 {
@@ -38,6 +41,10 @@ public class AzureFileSystemConfig
     private int maxWriteConcurrency = 8;
     private DataSize maxSingleUploadSize = DataSize.of(4, Unit.MEGABYTE);
     private Integer maxHttpRequests = 2 * Runtime.getRuntime().availableProcessors();
+    /**
+     * Matches {@link reactor.netty.resources.ConnectionProvider#DEFAULT_POOL_MAX_CONNECTIONS}
+     */
+    private int maxHttpConnections = 2 * max(Runtime.getRuntime().availableProcessors(), 8);
     private String applicationId = "Trino";
     private boolean multipartWriteEnabled;
 
@@ -129,6 +136,21 @@ public class AzureFileSystemConfig
     public AzureFileSystemConfig setMaxHttpRequests(int maxHttpRequests)
     {
         this.maxHttpRequests = maxHttpRequests;
+        return this;
+    }
+
+    @Min(16)
+    @Max(1024)
+    public int getMaxHttpConnections()
+    {
+        return maxHttpConnections;
+    }
+
+    @Config("azure.max-http-connections")
+    @ConfigDescription("Maximum number of pooled HTTP connections")
+    public AzureFileSystemConfig setMaxHttpConnections(int maxHttpConnections)
+    {
+        this.maxHttpConnections = maxHttpConnections;
         return this;
     }
 
