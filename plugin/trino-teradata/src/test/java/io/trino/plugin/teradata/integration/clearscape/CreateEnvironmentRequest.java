@@ -13,8 +13,17 @@
  */
 package io.trino.plugin.teradata.integration.clearscape;
 
+import static java.util.Objects.requireNonNull;
+
 public record CreateEnvironmentRequest(
         String name,
         String region,
-        String password
-) {}
+        String password)
+{
+    public CreateEnvironmentRequest
+    {
+        requireNonNull(name, "name should not be null");
+        requireNonNull(region, "region should not be null");
+        requireNonNull(password, "password should not be null");
+    }
+}
