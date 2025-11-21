@@ -625,6 +625,12 @@ public class RedshiftClient
                     RedshiftClient::readTime,
                     RedshiftClient::writeTime));
         }
+        if ("binary varying".equals(type.jdbcTypeName().orElse(""))) {
+            return Optional.of(ColumnMapping.sliceMapping(
+                    VARBINARY,
+                    varbinaryReadFunction(),
+                    varbinaryWriteFunction()));
+        }
 
         switch (type.jdbcType()) {
             case Types.BIT: // Redshift uses this for booleans
@@ -681,12 +687,6 @@ public class RedshiftClient
                                 : createUnboundedVarcharType(),
                         true));
             }
-
-            case Types.LONGVARBINARY:
-                return Optional.of(ColumnMapping.sliceMapping(
-                        VARBINARY,
-                        varbinaryReadFunction(),
-                        varbinaryWriteFunction()));
 
             case Types.DATE:
                 return Optional.of(ColumnMapping.longMapping(
