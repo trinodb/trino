@@ -16,7 +16,13 @@ package io.trino.plugin.lance;
 import io.trino.plugin.lance.metadata.Fragment;
 import io.trino.spi.connector.ConnectorSplit;
 
+import static java.util.Objects.requireNonNull;
+
 public record LanceSplit(Fragment fragment, long startRowPosition, long endRowPosition)
         implements ConnectorSplit
 {
+    public LanceSplit
+    {
+        requireNonNull(fragment, "fragment is null");
+    }
 }

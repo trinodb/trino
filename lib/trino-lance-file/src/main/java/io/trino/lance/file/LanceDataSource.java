@@ -29,17 +29,9 @@ public interface LanceDataSource
 
     long getEstimatedSize();
 
-    long getRetainedSize();
-
     Slice readTail(int length)
             throws IOException;
 
     Slice readFully(long position, int length)
             throws IOException;
-
-    @Override
-    default void close()
-            throws IOException
-    {
-    }
 }

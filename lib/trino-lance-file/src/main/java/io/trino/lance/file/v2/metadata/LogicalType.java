@@ -13,6 +13,10 @@
  */
 package io.trino.lance.file.v2.metadata;
 
+import com.google.common.base.Splitter;
+
+import java.util.List;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -36,8 +40,8 @@ public sealed interface LogicalType
     {
         requireNonNull(type, "type is null");
         checkArgument(!type.isEmpty(), "type is empty");
-        String[] components = type.toUpperCase(ENGLISH).split(":");
-        LogicalTypeKind kind = LogicalTypeKind.valueOf(components[0]);
+        List<String> components = Splitter.on(':').splitToList(type.toUpperCase(ENGLISH));
+        LogicalTypeKind kind = LogicalTypeKind.valueOf(components.getFirst());
         return switch (kind) {
             case INT8 -> Int8Type.INT8_TYPE;
             case INT16 -> Int16Type.INT16_TYPE;
@@ -48,16 +52,16 @@ public sealed interface LogicalType
             case STRING -> StringType.STRING_TYPE;
             case BINARY -> BinaryType.BINARY_TYPE;
             case FIXED_SIZE_LIST -> {
-                checkArgument(components.length == 3, "FixedSizeList type signature must have exactly 3 components");
-                int size = Integer.parseInt(components[components.length - 1]);
-                LogicalTypeKind dataType = LogicalTypeKind.valueOf(components[1]);
+                checkArgument(components.size() == 3, "FixedSizeList type signature must have exactly 3 components");
+                int size = Integer.parseInt(components.getLast());
+                LogicalTypeKind dataType = LogicalTypeKind.valueOf(components.get(1));
                 yield new FixedSizeListType(dataType, size);
             }
             case LIST -> new ListType();
             case STRUCT -> new StructType();
             case DATE32 -> {
-                checkArgument(components.length == 2, "DATE32 signature must have exactly 2 components");
-                checkArgument(components[1].toLowerCase(ENGLISH).equals("day"), "only supports date32:day");
+                checkArgument(components.size() == 2, "DATE32 signature must have exactly 2 components");
+                checkArgument(components.get(1).toLowerCase(ENGLISH).equals("day"), "only supports date32:day");
                 yield new DateType();
             }
         };

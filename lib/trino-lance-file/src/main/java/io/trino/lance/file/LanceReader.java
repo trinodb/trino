@@ -28,7 +28,6 @@ import io.trino.lance.file.v2.reader.Range;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.connector.SourcePage;
 import jakarta.annotation.Nullable;
 
@@ -58,9 +57,7 @@ public class LanceReader
     public static final int MAX_BATCH_SIZE = 8 * 1024;
 
     private final Footer footer;
-    private final FileVersion fileVersion;
     private final Map<Integer, ColumnMetadata> columnMetadata;
-    private final List<Field> fields;
     private final ColumnReader[] columnReaders;
     private final long numRows;
 
@@ -77,33 +74,33 @@ public class LanceReader
         // read footer
         Slice data = dataSource.readTail(FOOTER_LEN);
         this.footer = Footer.from(data);
-        this.fileVersion = FileVersion.fromMajorMinor(footer.getMajorVersion(), footer.getMinorVersion());
+        FileVersion.fromMajorMinor(footer.majorVersion(), footer.minorVersion());
 
         // read Global Buffer Offset Table
-        Slice bufferOffsetTableSlice = dataSource.readFully(footer.getGlobalBuffOffsetStart(), footer.getNumGlobalBuffers() * BUFFER_DESCRIPTOR_SIZE);
-        List<DiskRange> bufferOffsets = IntStream.range(0, footer.getNumGlobalBuffers()).boxed()
+        Slice bufferOffsetTableSlice = dataSource.readFully(footer.globalBuffOffsetStart(), footer.numGlobalBuffers() * BUFFER_DESCRIPTOR_SIZE);
+        List<DiskRange> bufferOffsets = IntStream.range(0, footer.numGlobalBuffers()).boxed()
                 .map(i -> new DiskRange(bufferOffsetTableSlice.getLong(BUFFER_DESCRIPTOR_SIZE * i), bufferOffsetTableSlice.getLong(BUFFER_DESCRIPTOR_SIZE * i + 8)))
                 .collect(toImmutableList());
-        if (bufferOffsets.size() == 0) {
+        if (bufferOffsets.isEmpty()) {
             throw new RuntimeException("File did not contain any buffers");
         }
 
         // read global schema
-        DiskRange schemaBufferLocation = bufferOffsets.get(0);
+        DiskRange schemaBufferLocation = bufferOffsets.getFirst();
         // prefetch all metadata
         Slice metadataSlice = dataSource.readTail(toIntExact(dataSource.getEstimatedSize() - schemaBufferLocation.position()));
         // read file descriptor
         Slice schemaSlice = metadataSlice.slice(0, toIntExact(schemaBufferLocation.length()));
         build.buf.gen.lance.file.FileDescriptor fileDescriptor = build.buf.gen.lance.file.FileDescriptor.parseFrom(schemaSlice.toByteBuffer());
         checkArgument(fileDescriptor.hasSchema(), "FileDescriptor does not contain a schema");
-        this.fields = toFields(fileDescriptor.getSchema());
+        List<Field> fields = toFields(fileDescriptor.getSchema());
         List<Range> ranges = requestRanges.orElse(ImmutableList.of(new Range(0, fileDescriptor.getLength())));
         this.numRows = ranges.stream()
                 .mapToLong(Range::length)
                 .sum();
         // read Column Metadata Offset Table
-        Slice columnMetadataOffsetsSlice = metadataSlice.slice(toIntExact(footer.getColumnMetadataOffsetsStart() - schemaBufferLocation.position()), toIntExact(footer.getGlobalBuffOffsetStart() - footer.getColumnMetadataOffsetsStart()));
-        List<DiskRange> columnMetadataOffsets = IntStream.range(0, footer.getNumColumns()).boxed()
+        Slice columnMetadataOffsetsSlice = metadataSlice.slice(toIntExact(footer.columnMetadataOffsetsStart() - schemaBufferLocation.position()), toIntExact(footer.globalBuffOffsetStart() - footer.columnMetadataOffsetsStart()));
+        List<DiskRange> columnMetadataOffsets = IntStream.range(0, footer.numColumns()).boxed()
                 .map(i -> {
                     long position = columnMetadataOffsetsSlice.getLong(i * BUFFER_DESCRIPTOR_SIZE);
                     return new DiskRange(position, columnMetadataOffsetsSlice.getLong(i * BUFFER_DESCRIPTOR_SIZE + 8));
@@ -111,11 +108,11 @@ public class LanceReader
                 .collect(toImmutableList());
 
         // read Column Metadata
-        Slice columnMetadataSlice = metadataSlice.slice(toIntExact(footer.getColumnMetadataStart() - schemaBufferLocation.position()), toIntExact(footer.getColumnMetadataOffsetsStart() - footer.getColumnMetadataStart()));
-        List<ColumnMetadata> metadata = IntStream.range(0, footer.getNumColumns()).boxed()
+        Slice columnMetadataSlice = metadataSlice.slice(toIntExact(footer.columnMetadataStart() - schemaBufferLocation.position()), toIntExact(footer.columnMetadataOffsetsStart() - footer.columnMetadataStart()));
+        List<ColumnMetadata> metadata = IntStream.range(0, footer.numColumns()).boxed()
                 .map(i -> {
                     DiskRange offset = columnMetadataOffsets.get(i);
-                    Slice message = columnMetadataSlice.slice(toIntExact(offset.position() - footer.getColumnMetadataStart()), toIntExact(offset.length()));
+                    Slice message = columnMetadataSlice.slice(toIntExact(offset.position() - footer.columnMetadataStart()), toIntExact(offset.length()));
                     return ColumnMetadata.from(i, message);
                 })
                 .collect(toImmutableList());
@@ -186,31 +183,16 @@ public class LanceReader
         return new LanceSourcePage(toIntExact(currentBatchSize));
     }
 
-    public List<Field> getFields()
-    {
-        return fields;
-    }
-
-    public Footer getFooter()
-    {
-        return footer;
-    }
-
     @Override
     public void close()
             throws IOException
     {
     }
 
-    public FileVersion getFileVersion()
-    {
-        return fileVersion;
-    }
-
-    private record SelectedPositions(int positionCount, @Nullable int[] positions)
+    private record SelectedPositions(int positionCount, @SuppressWarnings("ArrayRecordComponent") @Nullable int[] positions)
     {
         @CheckReturnValue
-        public Block apply(Block block)
+        private Block apply(Block block)
         {
             if (positions == null) {
                 return block;
@@ -218,18 +200,8 @@ public class LanceReader
             return block.getPositions(positions, 0, positionCount);
         }
 
-        public Block createRowNumberBlock(long filePosition)
-        {
-            long[] rowNumbers = new long[positionCount];
-            for (int i = 0; i < positionCount; i++) {
-                int position = positions == null ? i : positions[i];
-                rowNumbers[i] = filePosition + position;
-            }
-            return new LongArrayBlock(positionCount, Optional.empty(), rowNumbers);
-        }
-
         @CheckReturnValue
-        public SelectedPositions selectPositions(int[] positions, int offset, int size)
+        private SelectedPositions selectPositions(int[] positions, int offset, int size)
         {
             if (this.positions == null) {
                 for (int i = 0; i < size; i++) {
@@ -255,7 +227,7 @@ public class LanceReader
         private long sizeInBytes;
         private long retainedSizeInBytes;
 
-        public LanceSourcePage(int positionCount)
+        private LanceSourcePage(int positionCount)
         {
             selectedPositions = new SelectedPositions(positionCount, null);
         }

@@ -29,6 +29,7 @@ import java.util.List;
 
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.lance.catalog.BaseTable.LANCE_SUFFIX;
+import static io.trino.plugin.lance.catalog.namespace.DirectoryNamespace.DEFAULT_NAMESPACE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
@@ -56,7 +57,7 @@ public class LanceQueryRunner
 
         protected Builder(String warehousePath)
         {
-            super(testSessionBuilder().setCatalog(LANCE_CATALOG).build());
+            super(testSessionBuilder().setCatalog(LANCE_CATALOG).setSchema(DEFAULT_NAMESPACE).build());
             this.warehousePath = requireNonNull(warehousePath, "warehousePath is null");
         }
 
@@ -110,12 +111,12 @@ public class LanceQueryRunner
     }
 
     // LanceQueryRunner requires the following additional JVM options:
-    //   - --add-opens=java.base/java.nio=ALL-UNNAMED
-    //   - --sun-misc-unsafe-memory-access=allow
-    public static void main(String[] args)
+    // --add-opens=java.base/java.nio=ALL-UNNAMED --sun-misc-unsafe-memory-access=allow
+    static void main()
             throws Exception
     {
         Path warehousePath = createTempDirectory(null);
+        //noinspection resource
         QueryRunner queryRunner = LanceQueryRunner.builder(warehousePath.toString())
                 .addCoordinatorProperty("http-server.http.port", "8080")
                 .setInitialTables(TpchTable.getTables())

@@ -36,7 +36,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -74,7 +73,7 @@ public class BenchmarkColumnReaders
     }
 
     @Benchmark
-    public Object readBigInt(BigIntBenchmarkData data)
+    public static Object readBigInt(BigIntBenchmarkData data)
             throws Exception
     {
         try (LanceReader reader = data.createReader()) {
@@ -92,7 +91,7 @@ public class BenchmarkColumnReaders
     }
 
     @Benchmark
-    public Object readVarchar(VarcharBenchmarkData data)
+    public static Object readVarchar(VarcharBenchmarkData data)
             throws Exception
     {
         try (LanceReader reader = data.createReader()) {
@@ -110,7 +109,7 @@ public class BenchmarkColumnReaders
     }
 
     @Benchmark
-    public Object readList(ListBenchmarkData data)
+    public static Object readList(ListBenchmarkData data)
             throws Exception
     {
         try (LanceReader reader = data.createReader()) {
@@ -128,7 +127,7 @@ public class BenchmarkColumnReaders
     }
 
     @Benchmark
-    public Object readStruct(StructBenchmarkData data)
+    public static Object readStruct(StructBenchmarkData data)
             throws Exception
     {
         try (LanceReader reader = data.createReader()) {
@@ -136,8 +135,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    private Object readColumn(LanceReader reader)
-            throws IOException
+    private static Object readColumn(LanceReader reader)
     {
         List<Block> blocks = new ArrayList<>();
         for (SourcePage page = reader.nextSourcePage(); page != null; page = reader.nextSourcePage()) {
@@ -146,7 +144,7 @@ public class BenchmarkColumnReaders
         return blocks;
     }
 
-    private Object readColumnJNI(LanceJNIReader reader)
+    private static Object readColumnJNI(LanceJNIReader reader)
             throws IOException
     {
         List<Block> blocks = new ArrayList<>();
@@ -160,7 +158,7 @@ public class BenchmarkColumnReaders
     public static class ListBenchmarkData
             extends BenchmarkData
     {
-        public static final Type LIST_TYPE = LanceTester.arrayType(BIGINT);
+        public static final Type LIST_TYPE = TestingLanceUtil.arrayType(BIGINT);
         public static final int MAX_LIST_SIZE = 32;
 
         @Setup
@@ -170,7 +168,7 @@ public class BenchmarkColumnReaders
             setup(LIST_TYPE, createValues(), true);
         }
 
-        private Iterator<?> createValues()
+        private static Iterator<?> createValues()
         {
             List<List<Long>> values = new ArrayList<>();
             for (int i = 0; i < ROWS; i++) {
@@ -199,7 +197,7 @@ public class BenchmarkColumnReaders
             extends BenchmarkData
     {
         public static final int NUM_FILEDS = 3;
-        public static final Type STRUCT_TYPE = LanceTester.rowType(BIGINT, BIGINT, BIGINT);
+        public static final Type STRUCT_TYPE = TestingLanceUtil.rowType(BIGINT, BIGINT, BIGINT);
 
         @Setup
         public void setup()
@@ -208,7 +206,7 @@ public class BenchmarkColumnReaders
             setup(STRUCT_TYPE, createValues(), true);
         }
 
-        private Iterator<?> createValues()
+        private static Iterator<?> createValues()
         {
             List<List<Long>> values = new ArrayList<>();
             for (int i = 0; i < ROWS; i++) {
@@ -234,7 +232,7 @@ public class BenchmarkColumnReaders
             setup(BIGINT, createValues(), true);
         }
 
-        private Iterator<?> createValues()
+        private static Iterator<?> createValues()
         {
             List<Long> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -261,7 +259,7 @@ public class BenchmarkColumnReaders
             setup(VARCHAR, createValues(), true);
         }
 
-        private Iterator<?> createValues()
+        private static Iterator<?> createValues()
         {
             List<String> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -279,7 +277,6 @@ public class BenchmarkColumnReaders
 
     public abstract static class BenchmarkData
     {
-        protected final Random random = new Random(0);
         private Type type;
         private Path temporaryDirectory;
         private File lanceFile;
@@ -291,7 +288,7 @@ public class BenchmarkColumnReaders
             this.type = type;
             temporaryDirectory = createTempDirectory(null);
             lanceFile = temporaryDirectory.resolve(randomUUID().toString()).toFile();
-            LanceTester.writeLanceColumnJNI(lanceFile, type, newArrayList(values), nullable);
+            TestingLanceUtil.writeLanceColumnJNI(lanceFile, type, newArrayList(values), nullable);
             dataSource = new FileLanceDataSource(lanceFile);
         }
 
@@ -315,7 +312,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         benchmark(BenchmarkColumnReaders.class).run();

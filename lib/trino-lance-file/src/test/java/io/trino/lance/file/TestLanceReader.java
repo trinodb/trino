@@ -23,6 +23,8 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Lists.newArrayList;
+import static io.trino.lance.file.TestingLanceUtil.testLongListRoundTrip;
+import static io.trino.lance.file.TestingLanceUtil.testRoundTrip;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -35,30 +37,6 @@ import static java.util.stream.Collectors.toList;
 
 final class TestLanceReader
 {
-    private final LanceTester tester = new LanceTester();
-
-    private static List<Double> doubleSequence(double start, double step, int items)
-    {
-        List<Double> values = new ArrayList<>(items);
-        double nextValue = start;
-        for (int i = 0; i < items; i++) {
-            values.add(nextValue);
-            nextValue += step;
-        }
-        return values;
-    }
-
-    private static List<Float> floatSequence(float start, float step, int items)
-    {
-        ImmutableList.Builder<Float> values = ImmutableList.builder();
-        float nextValue = start;
-        for (int i = 0; i < items; i++) {
-            values.add(nextValue);
-            nextValue += step;
-        }
-        return values.build();
-    }
-
     @Test
     void testSmallNumericShortSequence()
             throws Exception
@@ -84,49 +62,49 @@ final class TestLanceReader
     void testDoubleSequence()
             throws Exception
     {
-        tester.testRoundTrip(DOUBLE, doubleSequence(0, 0.1, 30_000));
+        testRoundTrip(DOUBLE, doubleSequence(0, 0.1, 30_000));
     }
 
     @Test
     void testFloatSequence()
             throws Exception
     {
-        tester.testRoundTrip(REAL, floatSequence(0.0f, 0.1f, 30_000));
+        testRoundTrip(REAL, floatSequence(0.0f, 0.1f, 30_000));
     }
 
     @Test
     void testStringLargeDictionary()
             throws Exception
     {
-        tester.testRoundTrip(VARCHAR, newArrayList(limit(cycle(doubleSequence(1.0, 0.001, 257)), 30_000)).stream().map(Object::toString).collect(toList()));
+        testRoundTrip(VARCHAR, newArrayList(limit(cycle(doubleSequence(1.0, 0.001, 257)), 30_000)).stream().map(Object::toString).collect(toList()));
     }
 
     @Test
     void testStringSequence()
             throws Exception
     {
-        tester.testRoundTrip(VARCHAR, newArrayList(doubleSequence(1.0, 10.01, 30_000)).stream().map(Object::toString).collect(toList()));
+        testRoundTrip(VARCHAR, newArrayList(doubleSequence(1.0, 10.01, 30_000)).stream().map(Object::toString).collect(toList()));
     }
 
     @Test
     void testStringDictionarySequence()
             throws Exception
     {
-        tester.testRoundTrip(VARCHAR, newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream().map(Object::toString).collect(toList()));
+        testRoundTrip(VARCHAR, newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream().map(Object::toString).collect(toList()));
     }
 
     @Test
     void testStringStrideDictionary()
             throws Exception
     {
-        tester.testRoundTrip(VARCHAR, newArrayList(concat(ImmutableList.of("a"), nCopies(9999, "123"), ImmutableList.of("b"), nCopies(9999, "123"))));
+        testRoundTrip(VARCHAR, newArrayList(concat(ImmutableList.of("a"), nCopies(9999, "123"), ImmutableList.of("b"), nCopies(9999, "123"))));
     }
 
     @Test
     void testStringConstant()
             throws Exception
     {
-        tester.testRoundTrip(VARCHAR, newArrayList(nCopies(99999, "123")));
+        testRoundTrip(VARCHAR, newArrayList(nCopies(99999, "123")));
     }
 
     @Test
@@ -134,23 +112,42 @@ final class TestLanceReader
             throws Exception
     {
         // test preamble only chunks
-        tester.testLongListRoundTrip(BIGINT, newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 10_000)).stream().map(Number::longValue).collect(toList()));
+        testLongListRoundTrip(BIGINT, newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 10_000)).stream().map(Number::longValue).collect(toList()));
     }
 
-    private void testRoundTripNumeric(Iterable<? extends Number> values)
+    private static List<Double> doubleSequence(double start, double step, int items)
+    {
+        List<Double> values = new ArrayList<>(items);
+        double nextValue = start;
+        for (int i = 0; i < items; i++) {
+            values.add(nextValue);
+            nextValue += step;
+        }
+        return values;
+    }
+
+    private static List<Float> floatSequence(float start, float step, int items)
+    {
+        ImmutableList.Builder<Float> values = ImmutableList.builder();
+        float nextValue = start;
+        for (int i = 0; i < items; i++) {
+            values.add(nextValue);
+            nextValue += step;
+        }
+        return values.build();
+    }
+
+    private static void testRoundTripNumeric(Iterable<? extends Number> values)
             throws Exception
     {
         List<Long> writeValues = ImmutableList.copyOf(values).stream().map(Number::longValue).collect(toList());
 
-        tester.testRoundTrip(TINYINT, writeValues.stream().map(Long::byteValue)
-                .collect(toList()));
+        testRoundTrip(TINYINT, writeValues.stream().map(Long::byteValue).collect(toList()));
 
-        tester.testRoundTrip(SMALLINT, writeValues.stream().map(Long::shortValue)
-                .collect(toList()));
+        testRoundTrip(SMALLINT, writeValues.stream().map(Long::shortValue).collect(toList()));
 
-        tester.testRoundTrip(INTEGER, writeValues.stream().map(Long::intValue)
-                .collect(toList()));
+        testRoundTrip(INTEGER, writeValues.stream().map(Long::intValue).collect(toList()));
 
-        tester.testRoundTrip(BIGINT, writeValues);
+        testRoundTrip(BIGINT, writeValues);
     }
 }

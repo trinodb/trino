@@ -101,27 +101,26 @@ public class BaseUnraveler
 
         RepDefLayer currentMeaning = layers[currentLayer];
         switch (currentMeaning) {
-            case NULLABLE_LIST:
+            case NULLABLE_LIST -> {
                 currentDefinitionLevel++;
                 nullLevel = validLevel + 1;
                 emptyLevel = 0;
-                break;
-            case EMPTYABLE_LIST:
+            }
+            case EMPTYABLE_LIST -> {
                 currentDefinitionLevel++;
                 nullLevel = 0;
                 emptyLevel = validLevel + 1;
-                break;
-            case NULLABLE_AND_EMPTYABLE_LIST:
+            }
+            case NULLABLE_AND_EMPTYABLE_LIST -> {
                 currentDefinitionLevel += 2;
                 nullLevel = validLevel + 1;
                 emptyLevel = validLevel + 2;
-                break;
-            case ALL_VALID_LIST:
+            }
+            case ALL_VALID_LIST -> {
                 nullLevel = 0;
                 emptyLevel = 0;
-                break;
-            default:
-                throw new IllegalStateException("Unexpected layer for list");
+            }
+            default -> throw new IllegalStateException("Unexpected layer for list");
         }
         currentLayer++;
 
@@ -131,14 +130,9 @@ public class BaseUnraveler
         for (int i = currentLayer; i < layers.length; i++) {
             RepDefLayer level = layers[i];
             switch (level) {
-                case NULLABLE_ITEM:
-                    maxLevel++;
-                    break;
-                case ALL_VALID_ITEM:
-                    break;
-                default:
-                    i = layers.length;
-                    break;
+                case NULLABLE_ITEM -> maxLevel++;
+                case ALL_VALID_ITEM -> { /* noop */ }
+                default -> i = layers.length;
             }
         }
 

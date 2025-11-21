@@ -88,9 +88,9 @@ public class LanceLoader
         public void addResults(QueryStatusInfo statusInfo, ResultRows rows)
         {
             if (schema.get() == null && statusInfo.getColumns() != null) {
-                types.set(statusInfo.getColumns().stream().map(LanceLoader.this::getTrinoType).collect(toImmutableList()));
+                types.set(statusInfo.getColumns().stream().map(LanceLoader.this::toTrinoType).collect(toImmutableList()));
                 data.set(new ArrayList<>());
-                schema.set(getArrowSchema(statusInfo.getColumns()));
+                schema.set(toArrowSchema(statusInfo.getColumns()));
             }
 
             if (rows.isNull()) {
@@ -149,7 +149,7 @@ public class LanceLoader
             private final VectorSchemaRoot root;
             private boolean batchLoaded;
 
-            public SimpleArrowReader(VectorSchemaRoot root, BufferAllocator allocator)
+            private SimpleArrowReader(VectorSchemaRoot root, BufferAllocator allocator)
             {
                 super(allocator);
                 this.root = root;
@@ -191,20 +191,20 @@ public class LanceLoader
         }
     }
 
-    private Schema getArrowSchema(List<Column> columns)
+    private Schema toArrowSchema(List<Column> columns)
     {
-        List<Field> fields = columns.stream().map(column -> new Field(column.getName(), FieldType.notNullable(getArrowType(column)), null)).collect(toImmutableList());
+        List<Field> fields = columns.stream().map(column -> new Field(column.getName(), FieldType.notNullable(toArrowType(column)), null)).collect(toImmutableList());
         return new Schema(fields);
     }
 
-    private Type getTrinoType(Column column)
+    private Type toTrinoType(Column column)
     {
         return getServer().getPlannerContext().getTypeManager().fromSqlType(column.getType());
     }
 
-    private ArrowType getArrowType(Column column)
+    private ArrowType toArrowType(Column column)
     {
-        Type trinoType = getTrinoType(column);
+        Type trinoType = toTrinoType(column);
         return switch (trinoType) {
             case IntegerType _ -> new ArrowType.Int(32, true);
             case BigintType _ -> new ArrowType.Int(64, true);

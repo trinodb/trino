@@ -23,7 +23,6 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
 
-import static io.trino.plugin.lance.LanceTransactionHandle.INSTANCE;
 import static java.util.Objects.requireNonNull;
 
 public class LanceConnector
@@ -46,7 +45,7 @@ public class LanceConnector
     @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
-        return INSTANCE;
+        return LanceTransactionHandle.INSTANCE;
     }
 
     @Override

@@ -24,15 +24,13 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RealType;
-import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.arrow.memory.BufferAllocator;
@@ -76,71 +74,13 @@ import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class LanceTester
+public final class TestingLanceUtil
 {
     public static final int MAX_LIST_SIZE = 256;
 
     private static final Random random = new Random();
 
-    private static void assertFileContentsTrino(Type type, TempFile tempFile, List<?> expectedValues)
-            throws IOException
-    {
-        try (LanceReader lanceReader = createLanceReader(tempFile)) {
-            Iterator<?> iterator = expectedValues.iterator();
-
-            int rowsProcessed = 0;
-            for (SourcePage page = lanceReader.nextSourcePage(); page != null; page = lanceReader.nextSourcePage()) {
-                int batchSize = page.getPositionCount();
-                Block block = page.getBlock(0);
-                List<Object> data = new ArrayList<>(block.getPositionCount());
-                for (int position = 0; position < block.getPositionCount(); position++) {
-                    data.add(type.getObjectValue(block, position));
-                }
-                for (int i = 0; i < batchSize; i++) {
-                    assertThat(iterator.hasNext()).isTrue();
-                    Object expected = iterator.next();
-                    Object actual = data.get(i);
-                    assertColumnValueEquals(type, actual, expected);
-                }
-                rowsProcessed += batchSize;
-            }
-            assertThat(iterator.hasNext()).isFalse();
-            assertThat(lanceReader.nextSourcePage()).isNull();
-            assertThat(rowsProcessed).isEqualTo(expectedValues.size());
-        }
-    }
-
-    private static void assertColumnValueEquals(Type type, Object actual, Object expected)
-    {
-        if (expected == null) {
-            assertThat(actual).isNull();
-            return;
-        }
-
-        if (type instanceof RowType) {
-            List<Type> fieldTypes = type.getTypeParameters();
-            List<?> actualRow = (List<?>) actual;
-            List<?> expectedRow = (List<?>) expected;
-            assertThat(actualRow).hasSize(fieldTypes.size());
-            assertThat(actualRow).hasSize(expectedRow.size());
-            for (int fieldId = 0; fieldId < actualRow.size(); fieldId++) {
-                Type fieldType = fieldTypes.get(fieldId);
-                Object actualElement = actualRow.get(fieldId);
-                Object expectedElement = expectedRow.get(fieldId);
-                assertColumnValueEquals(fieldType, actualElement, expectedElement);
-            }
-        }
-        else if (!Objects.equals(actual, expected)) {
-            assertThat(actual).isEqualTo(expected);
-        }
-    }
-
-    private static LanceReader createLanceReader(TempFile tempFile)
-            throws IOException
-    {
-        LanceDataSource dataSource = new FileLanceDataSource(tempFile.getFile());
-        return new LanceReader(dataSource, ImmutableList.of(0), Optional.empty(), newSimpleAggregatedMemoryContext());
-    }
+    private TestingLanceUtil() {}
 
     public static void writeLanceColumnJNI(File outputFile, Type type, List<?> values, boolean nullable)
             throws Exception
@@ -188,6 +128,49 @@ public class LanceTester
         };
     }
 
+    public static void testRoundTrip(Type type, List<?> readValues)
+            throws Exception
+    {
+        testRoundTripType(type, true, insertNullEvery(5, readValues));
+        testRoundTripType(type, false, readValues);
+        testSimpleStructRoundTrip(type, readValues);
+        testSimpleListRoundTrip(type, readValues);
+    }
+
+    public static void testRoundTripType(Type type, boolean nullable, List<?> readValues)
+            throws Exception
+    {
+        // For non-nullable tests, filter out null values
+        List<?> filteredValues = nullable ? readValues : readValues.stream().filter(Objects::nonNull).collect(toList());
+        assertRoundTrip(type, type, filteredValues, filteredValues, nullable);
+    }
+
+    private static void testSimpleListRoundTrip(Type type, List<?> values)
+            throws Exception
+    {
+        Type arrayType = arrayType(type);
+        List<?> data = values.stream().filter(Objects::nonNull).map(value -> insertNullEvery(9, nCopies(random.nextInt(MAX_LIST_SIZE), value))).collect(toImmutableList());
+        testRoundTripType(arrayType, false, data);
+        testRoundTripType(arrayType, true, insertNullEvery(7, data));
+    }
+
+    public static void testLongListRoundTrip(Type type, List<?> values)
+            throws Exception
+    {
+        Type arrayType = arrayType(type);
+        List<?> data = values.stream().filter(Objects::nonNull).map(value -> insertNullEvery(9, nCopies(random.nextInt(2048, 10000), value))).collect(toImmutableList());
+        testRoundTripType(arrayType, false, data);
+        testRoundTripType(arrayType, true, insertNullEvery(7, data));
+    }
+
+    private static void testSimpleStructRoundTrip(Type type, List<?> values)
+            throws Exception
+    {
+        Type rowType = rowType(type, type, type);
+        testRoundTripType(rowType, false, values.stream().map(value -> List.of(value, value, value)).collect(toList()));
+        testRoundTripType(rowType, true, insertNullEvery(7, values.stream().map(value -> List.of(value, value, value)).collect(toList())));
+    }
+
     private static <T> List<T> insertNullEvery(int n, List<T> iterable)
     {
         return newArrayList(() -> new AbstractIterator<T>()
@@ -213,50 +196,7 @@ public class LanceTester
         });
     }
 
-    public void testRoundTrip(Type type, List<?> readValues)
-            throws Exception
-    {
-        testRoundTripType(type, true, insertNullEvery(5, readValues));
-        testRoundTripType(type, false, readValues);
-        testSimpleStructRoundTrip(type, readValues);
-        testSimpleListRoundTrip(type, readValues);
-    }
-
-    public void testRoundTripType(Type type, boolean nullable, List<?> readValues)
-            throws Exception
-    {
-        // For non-nullable tests, filter out null values
-        List<?> filteredValues = nullable ? readValues : readValues.stream().filter(Objects::nonNull).collect(toList());
-        assertRoundTrip(type, type, filteredValues, filteredValues, nullable);
-    }
-
-    private void testSimpleListRoundTrip(Type type, List<?> values)
-            throws Exception
-    {
-        Type arrayType = arrayType(type);
-        List<?> data = values.stream().filter(Objects::nonNull).map(value -> insertNullEvery(9, nCopies(random.nextInt(MAX_LIST_SIZE), value))).collect(toImmutableList());
-        testRoundTripType(arrayType, false, data);
-        testRoundTripType(arrayType, true, insertNullEvery(7, data));
-    }
-
-    public void testLongListRoundTrip(Type type, List<?> values)
-            throws Exception
-    {
-        Type arrayType = arrayType(type);
-        List<?> data = values.stream().filter(Objects::nonNull).map(value -> insertNullEvery(9, nCopies(random.nextInt(2048, 10000), value))).collect(toImmutableList());
-        testRoundTripType(arrayType, false, data);
-        testRoundTripType(arrayType, true, insertNullEvery(7, data));
-    }
-
-    private void testSimpleStructRoundTrip(Type type, List<?> values)
-            throws Exception
-    {
-        Type rowType = rowType(type, type, type);
-        testRoundTripType(rowType, false, values.stream().map(value -> List.of(value, value, value)).collect(toList()));
-        testRoundTripType(rowType, true, insertNullEvery(7, values.stream().map(value -> List.of(value, value, value)).collect(toList())));
-    }
-
-    private void assertRoundTrip(Type writeType, Type readType, List<?> writeValues, List<?> readValues, boolean nullable)
+    private static void assertRoundTrip(Type writeType, Type readType, List<?> writeValues, List<?> readValues, boolean nullable)
             throws Exception
     {
         // write w/ JNI writer, read w/ LanceReader
@@ -266,20 +206,74 @@ public class LanceTester
         }
     }
 
+    private static void assertFileContentsTrino(Type type, TempFile tempFile, List<?> expectedValues)
+            throws IOException
+    {
+        try (LanceDataSource dataSource = new FileLanceDataSource(tempFile.getFile());
+                LanceReader lanceReader = new LanceReader(dataSource, ImmutableList.of(0), Optional.empty(), newSimpleAggregatedMemoryContext())) {
+            Iterator<?> iterator = expectedValues.iterator();
+
+            int rowsProcessed = 0;
+            for (SourcePage page = lanceReader.nextSourcePage(); page != null; page = lanceReader.nextSourcePage()) {
+                int batchSize = page.getPositionCount();
+                Block block = page.getBlock(0);
+                List<Object> data = new ArrayList<>(block.getPositionCount());
+                for (int position = 0; position < block.getPositionCount(); position++) {
+                    data.add(type.getObjectValue(block, position));
+                }
+                for (int i = 0; i < batchSize; i++) {
+                    assertThat(iterator.hasNext()).isTrue();
+                    Object expected = iterator.next();
+                    Object actual = data.get(i);
+                    assertColumnValueEquals(type, actual, expected);
+                }
+                rowsProcessed += batchSize;
+            }
+            assertThat(iterator.hasNext()).isFalse();
+            assertThat(lanceReader.nextSourcePage()).isNull();
+            assertThat(rowsProcessed).isEqualTo(expectedValues.size());
+        }
+    }
+
+    private static void assertColumnValueEquals(Type type, Object actual, Object expected)
+    {
+        if (expected == null) {
+            assertThat(actual).isNull();
+            return;
+        }
+
+        if (type instanceof RowType rowType) {
+            List<Type> fieldTypes = rowType.getFieldTypes();
+            List<?> actualRow = (List<?>) actual;
+            List<?> expectedRow = (List<?>) expected;
+            assertThat(actualRow).hasSize(fieldTypes.size());
+            assertThat(actualRow).hasSize(expectedRow.size());
+            for (int fieldId = 0; fieldId < actualRow.size(); fieldId++) {
+                Type fieldType = fieldTypes.get(fieldId);
+                Object actualElement = actualRow.get(fieldId);
+                Object expectedElement = expectedRow.get(fieldId);
+                assertColumnValueEquals(fieldType, actualElement, expectedElement);
+            }
+        }
+        else if (!Objects.equals(actual, expected)) {
+            assertThat(actual).isEqualTo(expected);
+        }
+    }
+
     public static Type arrayType(Type elementType)
     {
-        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.typeParameter(elementType.getTypeSignature())));
+        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeParameter.typeParameter(elementType.getTypeSignature())));
     }
 
     public static Type rowType(Type... fieldTypes)
     {
-        ImmutableList.Builder<TypeSignatureParameter> typeSignatureParameters = ImmutableList.builder();
+        ImmutableList.Builder<TypeParameter> typeParameters = ImmutableList.builder();
         for (int i = 0; i < fieldTypes.length; i++) {
             String fieldName = "field_" + i;
             Type fieldType = fieldTypes[i];
-            typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(fieldName)), fieldType.getTypeSignature())));
+            typeParameters.add(TypeParameter.typeParameter(Optional.of(fieldName), fieldType.getTypeSignature()));
         }
-        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
+        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeParameters.build());
     }
 
     public static VectorSchemaRoot writeVectorSchemaRoot(Schema schema, List<List<?>> data, BufferAllocator allocator)
@@ -335,20 +329,11 @@ public class LanceTester
             else {
                 Number num = (Number) value;
                 switch (bitWidth) {
-                    case 8:
-                        ((TinyIntVector) vector).setSafe(i, num.byteValue());
-                        break;
-                    case 16:
-                        ((SmallIntVector) vector).setSafe(i, num.shortValue());
-                        break;
-                    case 32:
-                        ((IntVector) vector).setSafe(i, num.intValue());
-                        break;
-                    case 64:
-                        ((BigIntVector) vector).setSafe(i, num.longValue());
-                        break;
-                    default:
-                        throw new UnsupportedOperationException("Unsupported bit width: " + bitWidth);
+                    case 8 -> ((TinyIntVector) vector).setSafe(i, num.byteValue());
+                    case 16 -> ((SmallIntVector) vector).setSafe(i, num.shortValue());
+                    case 32 -> ((IntVector) vector).setSafe(i, num.intValue());
+                    case 64 -> ((BigIntVector) vector).setSafe(i, num.longValue());
+                    default -> throw new UnsupportedOperationException("Unsupported bit width: " + bitWidth);
                 }
             }
         }
@@ -366,14 +351,9 @@ public class LanceTester
             else {
                 Number num = (Number) value;
                 switch (precision) {
-                    case SINGLE:
-                        ((Float4Vector) vector).setSafe(i, num.floatValue());
-                        break;
-                    case DOUBLE:
-                        ((Float8Vector) vector).setSafe(i, num.doubleValue());
-                        break;
-                    default:
-                        throw new UnsupportedOperationException("Unsupported precision: " + precision);
+                    case SINGLE -> ((Float4Vector) vector).setSafe(i, num.floatValue());
+                    case DOUBLE -> ((Float8Vector) vector).setSafe(i, num.doubleValue());
+                    default -> throw new UnsupportedOperationException("Unsupported precision: " + precision);
                 }
             }
         }
@@ -452,33 +432,19 @@ public class LanceTester
             case ArrowType.Int intType -> {
                 Number num = (Number) value;
                 switch (intType.getBitWidth()) {
-                    case 8:
-                        ((TinyIntVector) childVector).setSafe(index, num.byteValue());
-                        break;
-                    case 16:
-                        ((SmallIntVector) childVector).setSafe(index, num.shortValue());
-                        break;
-                    case 32:
-                        ((IntVector) childVector).setSafe(index, num.intValue());
-                        break;
-                    case 64:
-                        ((BigIntVector) childVector).setSafe(index, num.longValue());
-                        break;
-                    default:
-                        throw new UnsupportedOperationException("Unsupported bit width: " + intType.getBitWidth());
+                    case 8 -> ((TinyIntVector) childVector).setSafe(index, num.byteValue());
+                    case 16 -> ((SmallIntVector) childVector).setSafe(index, num.shortValue());
+                    case 32 -> ((IntVector) childVector).setSafe(index, num.intValue());
+                    case 64 -> ((BigIntVector) childVector).setSafe(index, num.longValue());
+                    default -> throw new UnsupportedOperationException("Unsupported bit width: " + intType.getBitWidth());
                 }
             }
             case ArrowType.FloatingPoint floatType -> {
                 Number num = (Number) value;
                 switch (floatType.getPrecision()) {
-                    case SINGLE:
-                        ((Float4Vector) childVector).setSafe(index, num.floatValue());
-                        break;
-                    case DOUBLE:
-                        ((Float8Vector) childVector).setSafe(index, num.doubleValue());
-                        break;
-                    default:
-                        throw new UnsupportedOperationException("Unsupported precision: " + floatType.getPrecision());
+                    case SINGLE -> ((Float4Vector) childVector).setSafe(index, num.floatValue());
+                    case DOUBLE -> ((Float8Vector) childVector).setSafe(index, num.doubleValue());
+                    default -> throw new UnsupportedOperationException("Unsupported precision: " + floatType.getPrecision());
                 }
             }
             case ArrowType.Utf8 _ -> {

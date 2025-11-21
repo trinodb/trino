@@ -99,7 +99,7 @@ public class PrimitiveColumnReader
 
             // find all ranges in current page
             ImmutableList.Builder<Range> builder = ImmutableList.builder();
-            long remaining = nextBatchSize - rowCount;
+            long remaining = (long) nextBatchSize - rowCount;
             while (remaining > 0 && currentPage.numRows() + globalRowOffset > currentRange.start() + rangeOffset) {
                 long start = max(currentRange.start() + rangeOffset, globalRowOffset);
                 long startInPage = start - globalRowOffset;
@@ -164,7 +164,7 @@ public class PrimitiveColumnReader
         PageLayout layout = pageMetadata.layout();
         return switch (layout) {
             case MiniBlockLayout miniBlockLayout ->
-                    new MiniBlockPageReader(dataSource, type, miniBlockLayout, pageMetadata.bufferOffsets(), pageMetadata.numRows(), aggregatedMemoryContext);
+                    new MiniBlockPageReader(dataSource, miniBlockLayout, pageMetadata.bufferOffsets(), pageMetadata.numRows(), aggregatedMemoryContext);
             default -> throw new IllegalArgumentException("Unsupported PageLayout: " + layout);
         };
     }

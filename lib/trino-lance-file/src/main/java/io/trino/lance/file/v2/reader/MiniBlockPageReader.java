@@ -27,7 +27,6 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ValueBlock;
-import io.trino.spi.type.Type;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -49,11 +48,8 @@ public class MiniBlockPageReader
     private final LanceDataSource dataSource;
     private final Optional<LanceEncoding> repetitionEncoding;
     private final Optional<LanceEncoding> definitionEncoding;
-    private final Optional<LanceEncoding> dictionaryEncoding;
-    private final Optional<Long> numDictionaryItems;
     private final Optional<Block> dictionaryBlock;
     private final LanceEncoding valueEncoding;
-    private final int repetitionIndexDepth;
     private final List<RepIndexBlock> repetitionIndex;
     private final List<RepDefLayer> layers;
     private final int maxVisibleDefinition;
@@ -69,8 +65,8 @@ public class MiniBlockPageReader
 
     private long levelOffset;
 
-    public MiniBlockPageReader(LanceDataSource dataSource,
-            Type type,
+    public MiniBlockPageReader(
+            LanceDataSource dataSource,
             MiniBlockLayout layout,
             List<DiskRange> bufferOffsets,
             long numRows,
@@ -79,10 +75,10 @@ public class MiniBlockPageReader
         this.dataSource = dataSource;
         this.repetitionEncoding = layout.repetitionEncoding();
         this.definitionEncoding = layout.definitionEncoding();
-        this.dictionaryEncoding = layout.dictionaryEncoding();
-        this.numDictionaryItems = layout.numDictionaryItems();
+        Optional<LanceEncoding> dictionaryEncoding = layout.dictionaryEncoding();
+        Optional<Long> numDictionaryItems = layout.numDictionaryItems();
         this.valueEncoding = layout.valueEncoding();
-        this.repetitionIndexDepth = layout.repIndexDepth();
+        int repetitionIndexDepth = layout.repIndexDepth();
         this.layers = layout.layers();
         this.maxVisibleDefinition = layers.stream().takeWhile(layer -> !layer.isList()).mapToInt(RepDefLayer::numDefLevels).sum();
         this.numBuffers = layout.numBuffers();
@@ -232,7 +228,7 @@ public class MiniBlockPageReader
                 blockIndex++;
             }
         }
-        memoryUsage.setBytes(getRetainedBytes());
+        var unused = memoryUsage.setBytes(getRetainedBytes());
         return valuesBuffer.createDecodedPage(definitionBuffer.getMergedValues(), repetitionBuffer.getMergedValues(), layers, dictionaryBlock);
     }
 
@@ -256,7 +252,7 @@ public class MiniBlockPageReader
         int itemsInPreamble = 0;
         int firstRowStart = -1;
         switch (preambleAction) {
-            case SKIP, TAKE: {
+            case SKIP, TAKE -> {
                 if (def != null) {
                     for (int i = 0; i < rep.length; i++) {
                         if (rep[i] == maxRepetitionLevel) {
@@ -281,11 +277,9 @@ public class MiniBlockPageReader
                 if (firstRowStart == -1) {
                     return new SelectedRanges(new Range(0, numItems), new Range(0, rep.length));
                 }
-                break;
             }
-            case ABSENT: {
+            case ABSENT -> {
                 firstRowStart = 0;
-                break;
             }
         }
 

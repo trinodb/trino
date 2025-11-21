@@ -37,13 +37,6 @@ public class TrinoLanceDataSource
     }
 
     @Override
-    public void close()
-            throws IOException
-    {
-        input.close();
-    }
-
-    @Override
     protected Slice readTailInternal(int length)
             throws IOException
     {
@@ -60,5 +53,12 @@ public class TrinoLanceDataSource
         long readStart = System.nanoTime();
         input.readFully(position, buffer, bufferOffset, bufferLength);
         stats.readDataBytesPerSecond(bufferLength, System.nanoTime() - readStart);
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        input.close();
     }
 }

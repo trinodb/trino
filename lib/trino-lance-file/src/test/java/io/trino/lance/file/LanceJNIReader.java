@@ -212,5 +212,7 @@ public class LanceJNIReader
     public void close()
             throws IOException
     {
+        arrowReader.close();
+        allocator.close();
     }
 }

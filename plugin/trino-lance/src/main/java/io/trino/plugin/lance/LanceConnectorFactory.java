@@ -32,12 +32,10 @@ import static java.util.Objects.requireNonNull;
 public class LanceConnectorFactory
         implements ConnectorFactory
 {
-    public static final String NAME = "lance";
-
     @Override
     public String getName()
     {
-        return NAME;
+        return "lance";
     }
 
     @Override

@@ -17,7 +17,7 @@ import java.util.Optional;
 
 public interface RepetitionDefinitionUnraveler
 {
-    record BlockPositions(Optional<boolean[]> nulls, int[] offsets) {}
+    record BlockPositions(Optional<boolean[]> nulls, @SuppressWarnings("ArrayRecordComponent") int[] offsets) {}
 
     BlockPositions calculateOffsets();
 

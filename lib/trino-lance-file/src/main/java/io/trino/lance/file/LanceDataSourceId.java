@@ -13,36 +13,13 @@
  */
 package io.trino.lance.file;
 
-import java.util.Objects;
-
 import static java.util.Objects.requireNonNull;
 
-public final class LanceDataSourceId
+public record LanceDataSourceId(String id)
 {
-    private final String id;
-
-    public LanceDataSourceId(String id)
+    public LanceDataSourceId
     {
-        this.id = requireNonNull(id, "id is null");
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        LanceDataSourceId that = (LanceDataSourceId) o;
-        return Objects.equals(id, that.id);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(id);
+        requireNonNull(id, "id is null");
     }
 
     @Override

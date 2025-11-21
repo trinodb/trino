@@ -23,7 +23,7 @@ import java.util.function.Function;
 import static io.trino.lance.file.v2.reader.MiniBlockPageReader.mapRange;
 import static org.assertj.core.api.Assertions.assertThat;
 
-final class TestMiniblockMapRange
+final class TestMiniBlockMapRange
 {
     @Test
     void testMiddleNull()

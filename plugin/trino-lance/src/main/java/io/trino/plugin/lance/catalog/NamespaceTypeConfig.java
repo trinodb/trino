@@ -32,7 +32,7 @@ public class NamespaceTypeConfig
     }
 
     @Config("lance.namespace.type")
-    public NamespaceTypeConfig setNamespaceType(NamespaceTypeConfig.NamespaceType namespaceType)
+    public NamespaceTypeConfig setNamespaceType(NamespaceType namespaceType)
     {
         this.namespaceType = namespaceType;
         return this;
