@@ -16,24 +16,29 @@ package io.trino.plugin.opa.schema;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.security.Identity;
 
+import java.security.Principal;
+import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
 public record TrinoIdentity(
         String user,
-        Set<String> groups)
+        Set<String> groups,
+        Optional<Principal> principal)
 {
-    public static TrinoIdentity fromTrinoIdentity(Identity identity)
+    public static TrinoIdentity fromTrinoIdentity(Identity identity, boolean includeUserPrincipal)
     {
         return new TrinoIdentity(
                 identity.getUser(),
-                identity.getGroups());
+                identity.getGroups(),
+                includeUserPrincipal ? identity.getPrincipal() : Optional.empty());
     }
 
     public TrinoIdentity
     {
         requireNonNull(user, "user is null");
         groups = ImmutableSet.copyOf(requireNonNull(groups, "groups is null"));
+        requireNonNull(principal, "principal is null");
     }
 }
