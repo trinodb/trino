@@ -71,6 +71,7 @@ public class DeltaLakeConfig
     private DataSize maxSplitSize = DataSize.of(128, MEGABYTE);
     private double minimumAssignedSplitWeight = 0.05;
     private int maxPartitionsPerWriter = 100;
+    private boolean s3TransactionLogConditionalWritesEnabled = true;
     private boolean unsafeWritesEnabled;
     private boolean checkpointRowStatisticsWritingEnabled = true;
     private long defaultCheckpointWritingInterval = 10;
@@ -245,6 +246,20 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setMaxPartitionsPerWriter(int maxPartitionsPerWriter)
     {
         this.maxPartitionsPerWriter = maxPartitionsPerWriter;
+        return this;
+    }
+
+    public boolean isS3TransactionLogConditionalWritesEnabled()
+    {
+        return s3TransactionLogConditionalWritesEnabled;
+    }
+
+    @Config("delta.s3.transaction-log-conditional-writes.enabled")
+    @LegacyConfig("s3.exclusive-create")
+    @ConfigDescription("Whether to use conditional writes when writing Delta table transaction log files on S3. If false, lock-file based synchronization will be used.")
+    public DeltaLakeConfig setS3TransactionLogConditionalWritesEnabled(boolean s3TransactionLogConditionalWritesEnabled)
+    {
+        this.s3TransactionLogConditionalWritesEnabled = s3TransactionLogConditionalWritesEnabled;
         return this;
     }
 
