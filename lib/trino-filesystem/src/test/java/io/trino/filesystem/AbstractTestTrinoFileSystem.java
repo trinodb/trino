@@ -580,7 +580,7 @@ public abstract class AbstractTestTrinoFileSystem
     }
 
     @Test
-    void testOutputFile()
+    public void testOutputFile()
             throws IOException
     {
         // an output file cannot be created at the root of the file system
