@@ -26,7 +26,6 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import io.trino.testing.sql.TrinoSqlExecutor;
 import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
@@ -901,7 +900,7 @@ public class TestRedshiftTypeMapping
 
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutorWithRetries(getQueryRunner(), session), tableNamePrefix);
     }
 
     private static DataSetup redshiftCreateAndInsert(String tableNamePrefix)
@@ -921,7 +920,7 @@ public class TestRedshiftTypeMapping
 
     private SqlExecutor getTrinoExecutor()
     {
-        return new TrinoSqlExecutor(getQueryRunner());
+        return new TrinoSqlExecutorWithRetries(getQueryRunner());
     }
 
     private static SqlExecutor getRedshiftExecutor()
