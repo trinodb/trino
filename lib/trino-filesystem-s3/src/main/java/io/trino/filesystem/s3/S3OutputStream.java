@@ -56,6 +56,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.System.arraycopy;
 import static java.net.HttpURLConnection.HTTP_PRECON_FAILED;
+import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 
@@ -216,44 +217,21 @@ final class S3OutputStream
     {
         // skip multipart upload if there would only be one part
         if (finished && !multipartUploadStarted) {
-            PutObjectRequest request = PutObjectRequest.builder()
-                    .overrideConfiguration(context::applyCredentialProviderOverride)
-                    .acl(cannedAcl)
-                    .requestPayer(requestPayer)
-                    .bucket(location.bucket())
-                    .key(location.key())
-                    .storageClass(storageClass)
-                    .contentLength((long) bufferSize)
-                    .applyMutation(builder -> {
-                        if (exclusiveCreate) {
-                            builder.ifNoneMatch("*");
-                        }
-                        key.ifPresent(encryption -> {
-                            builder.sseCustomerKey(encoded(encryption));
-                            builder.sseCustomerAlgorithm(encryption.algorithm());
-                            builder.sseCustomerKeyMD5(md5Checksum(encryption));
-                        });
-                        setEncryptionSettings(builder, context.s3SseContext());
-                    })
-                    .build();
-
-            ByteBuffer bytes = ByteBuffer.wrap(buffer, 0, bufferSize);
-
             try {
-                client.putObject(request, RequestBody.fromByteBuffer(bytes));
+                putObject(
+                        client,
+                        context,
+                        location,
+                        key,
+                        exclusiveCreate,
+                        buffer,
+                        0,
+                        bufferSize);
                 return;
             }
-            catch (S3Exception e) {
+            catch (Throwable e) {
                 failed = true;
-                // when `location` already exists, the operation will fail with `412 Precondition Failed`
-                if (e.statusCode() == HTTP_PRECON_FAILED) {
-                    throw new FileAlreadyExistsException(location.toString());
-                }
-                throw new IOException("Put failed for bucket [%s] key [%s]: %s".formatted(location.bucket(), location.key(), e), e);
-            }
-            catch (SdkException e) {
-                failed = true;
-                throw new IOException("Put failed for bucket [%s] key [%s]: %s".formatted(location.bucket(), location.key(), e), e);
+                throw e;
             }
         }
 
@@ -404,6 +382,57 @@ final class S3OutputStream
             if (throwable != t) {
                 throwable.addSuppressed(t);
             }
+        }
+    }
+
+    private static void putObject(
+            S3Client client,
+            S3Context context,
+            S3Location location,
+            Optional<EncryptionKey> key,
+            boolean exclusiveCreate,
+            byte[] data,
+            int dataOffset,
+            int dataLength)
+            throws IOException
+    {
+        checkFromIndexSize(dataOffset, dataLength, data.length);
+
+        PutObjectRequest request = PutObjectRequest.builder()
+                .overrideConfiguration(context::applyCredentialProviderOverride)
+                .acl(getCannedAcl(context.cannedAcl()))
+                .requestPayer(context.requestPayer())
+                .bucket(location.bucket())
+                .key(location.key())
+                .storageClass(toStorageClass(context.storageClass()))
+                .contentLength((long) dataLength)
+                .applyMutation(builder -> {
+                    if (exclusiveCreate) {
+                        builder.ifNoneMatch("*");
+                    }
+                    key.ifPresent(encryption -> {
+                        builder.sseCustomerKey(encoded(encryption));
+                        builder.sseCustomerAlgorithm(encryption.algorithm());
+                        builder.sseCustomerKeyMD5(md5Checksum(encryption));
+                    });
+                    setEncryptionSettings(builder, context.s3SseContext());
+                })
+                .build();
+
+        ByteBuffer bytes = ByteBuffer.wrap(data, dataOffset, dataLength);
+
+        try {
+            client.putObject(request, RequestBody.fromByteBuffer(bytes));
+        }
+        catch (S3Exception e) {
+            // when `location` already exists, the operation will fail with `412 Precondition Failed`
+            if (e.statusCode() == HTTP_PRECON_FAILED) {
+                throw new FileAlreadyExistsException(location.toString());
+            }
+            throw new IOException("Put failed for bucket [%s] key [%s]: %s".formatted(location.bucket(), location.key(), e), e);
+        }
+        catch (SdkException e) {
+            throw new IOException("Put failed for bucket [%s] key [%s]: %s".formatted(location.bucket(), location.key(), e), e);
         }
     }
 }
