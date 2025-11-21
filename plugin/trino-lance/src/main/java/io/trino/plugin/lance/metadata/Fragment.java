@@ -34,6 +34,7 @@ public record Fragment(long id, List<DataFile> files, long physicalRows)
         if (proto.hasDeletionFile()) {
             throw new UnsupportedOperationException("Deletion files are not supported");
         }
+
         List<DataFile> files = proto.getFilesList().stream()
                 .map(DataFile::from)
                 .collect(toImmutableList());

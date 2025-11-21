@@ -95,7 +95,7 @@ public class DirectoryNamespace
         try {
             Optional<Boolean> tableExists = fileSystem.directoryExists(tableLocation);
             if (tableExists.isPresent() && tableExists.get()) {
-                return Optional.of(new BaseTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), fileSystem, tableLocation));
+                return Optional.of(new BaseTable(fileSystem, tableLocation));
             }
             return Optional.empty();
         }

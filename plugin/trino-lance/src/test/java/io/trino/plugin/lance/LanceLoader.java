@@ -149,7 +149,7 @@ public class LanceLoader
             private final VectorSchemaRoot root;
             private boolean batchLoaded;
 
-            public SimpleArrowReader(VectorSchemaRoot root, BufferAllocator allocator)
+            private SimpleArrowReader(VectorSchemaRoot root, BufferAllocator allocator)
             {
                 super(allocator);
                 this.root = root;

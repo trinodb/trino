@@ -13,18 +13,15 @@
  */
 package io.trino.plugin.lance;
 
-import io.trino.Session;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static io.trino.plugin.lance.LanceQueryRunner.LANCE_CATALOG;
-import static io.trino.plugin.lance.catalog.namespace.DirectoryNamespace.DEFAULT_NAMESPACE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static java.lang.String.format;
@@ -33,6 +30,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 final class TestLanceConnectorTest
         extends BaseConnectorTest
 {
+    @TempDir
+    private static Path catalogDir;
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return LanceQueryRunner.builder(catalogDir.toString())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
+    }
+
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -65,22 +74,10 @@ final class TestLanceConnectorTest
         };
     }
 
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    @Override // Lance only supports unbounded varchar
+    protected MaterializedResult getDescribeOrdersResult()
     {
-        Path catalogDir = Files.createTempDirectory("lance-catalog");
-        return LanceQueryRunner.builder(catalogDir.toString())
-                .setInitialTables(REQUIRED_TPCH_TABLES)
-                .build();
-    }
-
-    @Test
-    @Override
-    public void testDescribeTable()
-    {
-        // Lance only supports variable width VARCHAR
-        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -91,17 +88,12 @@ final class TestLanceConnectorTest
                 .row("shippriority", "integer", "", "")
                 .row("comment", "varchar", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertThat(actualColumns).isEqualTo(expectedColumns);
     }
 
     @Test
-    @Override
+    @Override // Lance only supports unbounded varchar
     public void testShowCreateTable()
     {
-        String catalog = getSession().getCatalog().orElseThrow();
-        String schema = getSession().getSchema().orElseThrow();
-        // Lance only supports variable width VARCHAR
         assertThat(computeScalar("SHOW CREATE TABLE orders"))
                 .isEqualTo(format(
                         """
@@ -117,16 +109,7 @@ final class TestLanceConnectorTest
                            comment varchar
                         )\
                         """,
-                        catalog,
-                        schema));
-    }
-
-    @Override
-    protected Session getSession() {
-        // Lance only supports variable width VARCHAR
-        return Session.builder(super.getSession())
-                .setCatalog(LANCE_CATALOG)
-                .setSchema(DEFAULT_NAMESPACE)
-                .build();
+                        getSession().getCatalog().orElseThrow(),
+                        getSession().getSchema().orElseThrow()));
     }
 }

@@ -48,11 +48,13 @@ public record Manifest(List<Field> fields, List<Fragment> fragments, long versio
         if (!Arrays.equals(MAGIC, magic)) {
             throw new TrinoException(LANCE_INVALID_METADATA, "Invalid MAGIC in manifest footer");
         }
+
         long position = slice.getLong(toIntExact(length - 16));
         int recordedLength = slice.getInt(toIntExact(position));
         if (recordedLength != length - position - 20) {
             throw new TrinoException(LANCE_INVALID_METADATA, "Invalid manifest proto message length: " + recordedLength);
         }
+
         build.buf.gen.lance.table.Manifest proto;
         try {
             proto = build.buf.gen.lance.table.Manifest.parseFrom(slice.slice(toIntExact(position + 4), recordedLength).toByteBuffer());

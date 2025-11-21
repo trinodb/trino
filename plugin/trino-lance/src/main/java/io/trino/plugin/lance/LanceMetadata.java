@@ -110,7 +110,7 @@ public class LanceMetadata
             return null;
         }
         BaseTable baseTable = loadedTable.get();
-        return new LanceTableHandle(tableName, baseTable.loadManifest(Optional.empty()), baseTable.getTableLocation().toString());
+        return new LanceTableHandle(tableName, baseTable.loadManifest(Optional.empty()), baseTable.tableLocation().toString());
     }
 
     @Override

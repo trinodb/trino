@@ -18,6 +18,7 @@ import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.lance.metadata.Manifest;
 import io.trino.spi.TrinoException;
@@ -44,15 +45,11 @@ public class BaseTable
     public static final int MANIFEST_V2_FILE_NAME_LENGTH = 20 + MANIFEST_SUFFIX.length();
     private static final BigInteger U64_MAX = BigInteger.valueOf(2).pow(64).subtract(BigInteger.ONE);
 
-    private final String schema;
-    private final String name;
     private final TrinoFileSystem fileSystem;
     private final Location tableLocation;
 
-    public BaseTable(String schema, String name, TrinoFileSystem fileSystem, Location tableLocation)
+    public BaseTable(TrinoFileSystem fileSystem, Location tableLocation)
     {
-        this.schema = requireNonNull(schema, "schema is null");
-        this.name = requireNonNull(name, "name is null");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.tableLocation = requireNonNull(tableLocation, "location is null");
     }
@@ -67,11 +64,12 @@ public class BaseTable
         return Long.parseLong(version);
     }
 
-    public Location getTableLocation()
+    public Location tableLocation()
     {
         return tableLocation;
     }
 
+    // TODO Remove version parameter since it's always empty now
     public Manifest loadManifest(Optional<Long> version)
     {
         Optional<Location> manifestLocation = findManifest(version);
@@ -80,8 +78,8 @@ public class BaseTable
         }
         TrinoInputFile file = fileSystem.newInputFile(manifestLocation.get());
         Slice slice;
-        try {
-            slice = file.newInput().readFully(0, toIntExact(file.length()));
+        try (TrinoInput input = file.newInput()) {
+            slice = input.readFully(0, toIntExact(file.length()));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -97,10 +95,7 @@ public class BaseTable
             while (files.hasNext()) {
                 FileEntry file = files.next();
                 String fileName = file.location().fileName();
-                checkState(
-                        fileName.endsWith(MANIFEST_SUFFIX),
-                        "Manifest file [%s] does not endRowPosition with .manifest",
-                        file.location().toString());
+                checkState(fileName.endsWith(MANIFEST_SUFFIX), "Manifest file [%s] does not end with .manifest", file.location());
                 long manifestVersion = parseManifestVersion(fileName);
                 if (version.isPresent() && manifestVersion > version.get()) {
                     continue;
@@ -118,15 +113,5 @@ public class BaseTable
             return Optional.empty();
         }
         return Optional.of(tableLocation.appendPath(VERSIONS_DIR).appendPath(current + MANIFEST_SUFFIX));
-    }
-
-    public String getSchema()
-    {
-        return schema;
-    }
-
-    public String getName()
-    {
-        return name;
     }
 }
