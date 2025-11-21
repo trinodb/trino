@@ -36,6 +36,7 @@ import jakarta.ws.rs.core.FeatureContext;
 
 import java.util.Optional;
 
+import static io.trino.server.InternalAuthenticationManager.unauthorizedResponse;
 import static io.trino.server.ServletSecurityUtils.authenticatedIdentity;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
@@ -188,12 +189,9 @@ public class ResourceSecurityDynamicFeature
         @Override
         public void filter(ContainerRequestContext request)
         {
-            if (InternalAuthenticationManager.isInternalRequest(request)) {
-                internalAuthenticationManager.handleInternalRequest(request);
-                return;
+            if (!internalAuthenticationManager.handleInternalRequest(request)) {
+                request.abortWith(unauthorizedResponse(request, "internal requests only"));
             }
-
-            throw new ForbiddenException("Internal only resource");
         }
     }
 
