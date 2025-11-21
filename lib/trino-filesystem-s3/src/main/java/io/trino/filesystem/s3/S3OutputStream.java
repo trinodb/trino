@@ -73,7 +73,6 @@ final class S3OutputStream
     private final RequestPayer requestPayer;
     private final StorageClass storageClass;
     private final ObjectCannedACL cannedAcl;
-    private final boolean exclusiveCreate;
     private final Optional<EncryptionKey> key;
 
     private int currentPartNumber;
@@ -91,13 +90,12 @@ final class S3OutputStream
     // Visibility is ensured by calling get() on inProgressUploadFuture.
     private Optional<String> uploadId = Optional.empty();
 
-    public S3OutputStream(AggregatedMemoryContext memoryContext, Executor uploadExecutor, S3Client client, S3Context context, S3Location location, boolean exclusiveCreate, Optional<EncryptionKey> key)
+    public S3OutputStream(AggregatedMemoryContext memoryContext, Executor uploadExecutor, S3Client client, S3Context context, S3Location location, Optional<EncryptionKey> key)
     {
         this.memoryContext = memoryContext.newLocalMemoryContext(S3OutputStream.class.getSimpleName());
         this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
         this.client = requireNonNull(client, "client is null");
         this.location = requireNonNull(location, "location is null");
-        this.exclusiveCreate = exclusiveCreate;
         this.context = requireNonNull(context, "context is null");
         this.partSize = context.partSize();
         this.requestPayer = context.requestPayer();
@@ -223,7 +221,7 @@ final class S3OutputStream
                         context,
                         location,
                         key,
-                        exclusiveCreate,
+                        false,
                         buffer,
                         0,
                         bufferSize);
@@ -344,17 +342,12 @@ final class S3OutputStream
                 .key(location.key())
                 .uploadId(uploadId)
                 .multipartUpload(x -> x.parts(parts))
-                .applyMutation(builder -> {
-                    key.ifPresentOrElse(
-                            encryption ->
-                                    builder.sseCustomerKey(encoded(encryption))
-                                            .sseCustomerAlgorithm(encryption.algorithm())
-                                            .sseCustomerKeyMD5(md5Checksum(encryption)),
-                            () -> setEncryptionSettings(builder, context.s3SseContext()));
-                    if (exclusiveCreate) {
-                        builder.ifNoneMatch("*");
-                    }
-                })
+                .applyMutation(builder -> key.ifPresentOrElse(
+                        encryption ->
+                                builder.sseCustomerKey(encoded(encryption))
+                                        .sseCustomerAlgorithm(encryption.algorithm())
+                                        .sseCustomerKeyMD5(md5Checksum(encryption)),
+                        () -> setEncryptionSettings(builder, context.s3SseContext())))
                 .build();
 
         client.completeMultipartUpload(request);
@@ -385,7 +378,7 @@ final class S3OutputStream
         }
     }
 
-    private static void putObject(
+    static void putObject(
             S3Client client,
             S3Context context,
             S3Location location,
