@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.crypto;
 
 import org.apache.parquet.hadoop.metadata.ColumnPath;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Base64;
 import java.util.Optional;
