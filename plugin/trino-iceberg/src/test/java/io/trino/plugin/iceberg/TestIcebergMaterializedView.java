@@ -134,4 +134,77 @@ public class TestIcebergMaterializedView
         assertUpdate(defaultIceberg, "DROP TABLE common_base_table");
         assertUpdate("DROP MATERIALIZED VIEW mv_on_iceberg2");
     }
+
+    /**
+     * Test CREATE OR REPLACE MATERIALIZED VIEW and with all configurations for
+     * unique table location and hiding storage table.
+     */
+    @Test
+    public void testReplaceAndDropMaterializedView() {
+        testReplaceAndDropMaterializedView(false, false);
+        testReplaceAndDropMaterializedView(false, true);
+        testReplaceAndDropMaterializedView(true, false);
+        testReplaceAndDropMaterializedView(true, true);
+    }
+
+    /**
+     * Test CREATE OR REPLACE MATERIALIZED VIEW and DROP MATERIALIZED VIEW statements.
+     * The test creates an Iceberg table and a materialized view on top of it,
+     * then replaces the materialized view definition twice, and finally drops the materialized view.
+     */
+    private void testReplaceAndDropMaterializedView(boolean uniqueTableLocation, boolean hideStorageTable) {
+        QueryRunner queryRunner = getQueryRunner();
+        String catalog = String.format("iceberg_%s_%s", uniqueTableLocation ? "unique" : "not_unique",
+                hideStorageTable ? "storage" : "not_storage");
+        queryRunner.createCatalog(catalog, "iceberg", Map.of(
+                "iceberg.catalog.type", "TESTING_FILE_METASTORE",
+                "iceberg.unique-table-location", uniqueTableLocation ? "true" : "false",
+                "hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve(catalog + "-catalog").toString(),
+                "iceberg.hive-catalog-name", "hive",
+                "iceberg.materialized-views.hide-storage-table", hideStorageTable ? "true" : "false",
+                "fs.hadoop.enabled", "true"));
+        Session session = Session.builder(queryRunner.getDefaultSession())
+                .setCatalog(catalog)
+                .setSchema("default")
+                .build();
+        assertUpdate(session, "CREATE SCHEMA default");
+
+        assertUpdate(session, "CREATE TABLE replace_base_table AS SELECT 10 value", 1);
+
+        // A new materialized view is created and fresh results are stored in its storage table
+        // Test that the materialized view works as expected (one row with proper value)
+        assertUpdate(session, "CREATE OR REPLACE MATERIALIZED VIEW replace_view" +
+                " AS SELECT sum(value) AS s FROM replace_base_table");
+        assertUpdate(session, "REFRESH MATERIALIZED VIEW replace_view", 1);
+        assertQuery(session, "SELECT count(*) FROM replace_view", "VALUES 1");
+        assertQuery(session, "SELECT * FROM replace_view", "VALUES 10");
+
+        // The materialized view is replaced with a new definition and fresh results are stored in its storage table
+        // Test that the materialized view works as expected (one row with proper value)
+        assertUpdate(session, "CREATE OR REPLACE MATERIALIZED VIEW replace_view" +
+                " AS SELECT 2 * sum(value) AS t FROM replace_base_table");
+        assertUpdate(session, "REFRESH MATERIALIZED VIEW replace_view", 1);
+        assertQuery(session, "SELECT count(*) FROM replace_view", "VALUES 1");
+        assertQuery(session, "SELECT * FROM replace_view", "VALUES 20");
+
+        // The materialized view is replaced again and tested
+        assertUpdate(session, "CREATE OR REPLACE MATERIALIZED VIEW replace_view" +
+                " AS SELECT 3 * sum(value) AS v FROM replace_base_table");
+        assertUpdate(session, "REFRESH MATERIALIZED VIEW replace_view", 1);
+        assertQuery(session, "SELECT count(*) FROM replace_view", "VALUES 1");
+        assertQuery(session, "SELECT * FROM replace_view", "VALUES 30");
+
+        // The materialized view is dropped and tested for absence
+        assertUpdate(session, "DROP MATERIALIZED VIEW replace_view");
+        assertQueryFails(session, "SELECT count(*) FROM replace_view", "line 1:22: Table '" + catalog +".default.replace_view' does not exist");
+
+        // Re-create the materialized view after dropping and test it again
+        assertUpdate(session, "CREATE OR REPLACE MATERIALIZED VIEW replace_view" +
+                " AS SELECT 4 * sum(value) AS v FROM replace_base_table");
+        assertUpdate(session, "REFRESH MATERIALIZED VIEW replace_view", 1);
+        assertQuery(session, "SELECT count(*) FROM replace_view", "VALUES 1");
+        assertQuery(session, "SELECT * FROM replace_view", "VALUES 40");
+
+        assertUpdate(session, "DROP MATERIALIZED VIEW replace_view");
+    }
 }
