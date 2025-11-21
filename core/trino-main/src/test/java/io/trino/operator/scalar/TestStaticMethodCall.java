@@ -14,6 +14,7 @@
 package io.trino.operator.scalar;
 
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -52,11 +53,18 @@ public class TestStaticMethodCall
                 .hasType(DoubleType.DOUBLE)
                 .isEqualTo(1.0);
 
+        assertThat(assertions.expression("1::varchar"))
+                .hasType(VarcharType.VARCHAR)
+                .isEqualTo("1");
+
         assertThat(assertions.expression("(a + b)::double")
                 .binding("a", "1")
                 .binding("b", "2"))
                 .hasType(DoubleType.DOUBLE)
                 .isEqualTo(3.0);
+
+        assertThatThrownBy(() -> assertions.expression("1::decimal(3, 2)").evaluate())
+                .hasMessage("line 1:13: Static method calls are not supported");
     }
 
     @Test
@@ -73,5 +81,9 @@ public class TestStaticMethodCall
 
         assertThatThrownBy(() -> assertions.expression("integer::foo(1, 2)").evaluate())
                 .hasMessage("line 1:19: Static method calls are not supported");
+
+        assertThat(assertions.query("SELECT bigint::real FROM (VALUES 1) AS t(bigint)"))
+                .failure()
+                .hasMessage("line 1:14: Static method calls are not supported");
     }
 }

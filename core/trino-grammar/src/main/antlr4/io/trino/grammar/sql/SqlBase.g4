@@ -607,7 +607,7 @@ primaryExpression
     | TRY_CAST '(' expression AS type ')'                                                   #cast
     // the target is a primaryExpression to support PostgreSQL-style casts
     // of the form <complex expression>::<type>, which are syntactically ambiguous with
-    // static method calls
+    // static method calls defined by the SQL spec (and we reserve it for future use)
     | primaryExpression DOUBLE_COLON identifier ('(' (expression (',' expression)*)? ')')?  #staticMethodCall
     | ARRAY '[' (expression (',' expression)*)? ']'                                         #arrayConstructor
     | '[' (expression (',' expression)*)? ']'                                               #arrayConstructor

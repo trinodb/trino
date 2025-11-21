@@ -850,6 +850,16 @@ public class TestSqlParser
                                 new Identifier(location(1, 6), "b", false)),
                         new Identifier(location(1, 10), "double", false),
                         emptyList()));
+
+
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("1::double precision"))
+                .hasMessageMatching(".*mismatched input.*");
+
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("'abc'::timestamp with time zone"))
+                .hasMessageMatching(".*mismatched input.*");
+
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("'abc'::interval year to month"))
+                .hasMessageMatching(".*mismatched input.*");
     }
 
     @Test
