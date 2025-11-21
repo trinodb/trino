@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TestingTicker;
 import io.trino.cache.EvictableCacheBuilder.DisabledCacheImplementation;
-import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -265,28 +264,31 @@ public class TestEvictableCache
     public void testLoadStats()
             throws Exception
     {
-        Cache<Integer, String> cache = EvictableCacheBuilder.newBuilder()
+        record CacheKey(int value) {}
+
+        Cache<CacheKey, String> cache = EvictableCacheBuilder.newBuilder()
                 .maximumSize(10_000)
                 .recordStats()
                 .build();
 
         assertThat(cache.stats()).isEqualTo(new CacheStats(0, 0, 0, 0, 0, 0));
 
+        CacheKey key = new CacheKey(42);
         String value = assertCacheStats(cache)
                 .misses(1)
                 .loads(1)
-                .calling(() -> cache.get(42, () -> "abc"));
+                .calling(() -> cache.get(key, () -> "abc"));
         assertThat(value).isEqualTo("abc");
 
         value = assertCacheStats(cache)
                 .hits(1)
-                .calling(() -> cache.get(42, () -> "xyz"));
+                .calling(() -> cache.get(key, () -> "xyz"));
         assertThat(value).isEqualTo("abc");
 
         // with equal, but not the same key
         value = assertCacheStats(cache)
                 .hits(1)
-                .calling(() -> cache.get(newInteger(42), () -> "xyz"));
+                .calling(() -> cache.get(new CacheKey(42), () -> "xyz"));
         assertThat(value).isEqualTo("abc");
     }
 
@@ -349,16 +351,6 @@ public class TestEvictableCache
             executor.shutdownNow();
             assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
         }
-    }
-
-    @SuppressModernizer
-    private static Integer newInteger(int value)
-    {
-        Integer integer = value;
-        @SuppressWarnings({"UnnecessaryBoxing", "BoxedPrimitiveConstructor", "CachedNumberConstructorCall", "removal", "deprecation"})
-        Integer newInteger = new Integer(value);
-        assertThat(integer).isNotSameAs(newInteger);
-        return newInteger;
     }
 
     /**
