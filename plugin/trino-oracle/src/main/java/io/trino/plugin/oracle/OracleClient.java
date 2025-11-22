@@ -32,6 +32,7 @@ import io.trino.plugin.jdbc.DoubleWriteFunction;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
@@ -101,9 +102,11 @@ import java.util.Set;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.function.BiFunction;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -164,6 +167,7 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.stream.Collectors.joining;
 
 public class OracleClient
         extends BaseJdbcClient
@@ -221,6 +225,17 @@ public class OracleClient
             .put(DATE, WriteMapping.longMapping("date", trinoDateToOracleDateWriteFunction()))
             .put(TIMESTAMP_TZ_MILLIS, WriteMapping.longMapping("timestamp(3) with time zone", oracleTimestampWithTimeZoneWriteFunction()))
             .buildOrThrow();
+
+    private static final Set<String> ORACLE_COLLATABLE_TYPES = ImmutableSet.<String>builder()
+            .add("char")
+            .add("nchar")
+            .add("varchar")
+            .add("varchar2")
+            .add("nvarchar")
+            .add("nvarchar2")
+            .add("clob")
+            .add("nclob")
+            .build();
 
     private final boolean synonymsEnabled;
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
@@ -625,6 +640,71 @@ public class OracleClient
 
     @Override
     public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        return true;
+    }
+
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
+    {
+        for (JdbcSortItem sortItem : sortOrder) {
+            if (isCollatableInTrino(sortItem.column()) && !isCollatableInOracle(sortItem.column())) {
+                // If it is a Trino text type but its Oracle type is NOT collatable,
+                // we cannot guarantee correct sorting and must prevent pushdown.
+                return false;
+            }
+            // Non-textual types (numbers, dates, etc.) are safe for TopN pushdown
+            // as their sorting is same in Trino and Oracle
+        }
+        return true;
+    }
+
+    @Override
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.of((query, sortItems, limit) -> {
+            String orderBy = sortItems.stream()
+                    .flatMap(sortItem -> {
+                        String collation = "";
+                        if (isCollatableInTrino(sortItem.column())) {
+                            checkState(
+                                    isCollatableInOracle(sortItem.column()),
+                                    "Column '%s' is collatable in Trino but not in Oracle. Check database configuration.",
+                                    sortItem.column().getColumnName());
+                            // Trino encodes all text as UTF-8, and sorts text as Unicode codepoints.
+                            // In Oracle BINARY collation provides unsigned byte-by-byte comparison.
+                            // If the Oracle DB uses UTF8 or AL32UTF8 charset, then BINARY collation will match Trino's sorting.
+                            // If the Oracle DB uses a non UTF8 charset, like WE8ISO8859P1 or WE8MSWIN1252,
+                            // then Oracle will not sort the same way as in Trino.
+                            collation = "COLLATE BINARY";
+                        }
+                        String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
+                        String nullsHandling = switch (sortItem.sortOrder()) {
+                            // In Oracle both ASC and DESC imply NULLS LAST, but we'll be explicit
+                            case ASC_NULLS_FIRST, DESC_NULLS_FIRST -> "NULLS FIRST";
+                            case ASC_NULLS_LAST, DESC_NULLS_LAST -> "NULLS LAST";
+                        };
+                        return Stream.of(format("%s %s %s %s", quoted(sortItem.column().getColumnName()), collation, ordering, nullsHandling));
+                    })
+                    .collect(joining(", "));
+            return format("%s ORDER BY %s FETCH FIRST %s ROWS ONLY", query, orderBy, limit);
+        });
+    }
+
+    private boolean isCollatableInTrino(JdbcColumnHandle column)
+    {
+        return column.getColumnType() instanceof CharType || column.getColumnType() instanceof VarcharType;
+    }
+
+    private boolean isCollatableInOracle(JdbcColumnHandle column)
+    {
+        String jdbcTypeName = column.getJdbcTypeHandle().jdbcTypeName()
+                .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + column.getJdbcTypeHandle()));
+        return ORACLE_COLLATABLE_TYPES.contains(jdbcTypeName.toLowerCase(ENGLISH));
+    }
+
+    @Override
+    public boolean isTopNGuaranteed(ConnectorSession session)
     {
         return true;
     }
