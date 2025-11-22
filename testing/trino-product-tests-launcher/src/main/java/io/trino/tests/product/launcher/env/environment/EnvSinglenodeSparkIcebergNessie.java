@@ -75,7 +75,7 @@ public class EnvSinglenodeSparkIcebergNessie
     @SuppressWarnings("resource")
     private DockerContainer createSparkContainer()
     {
-        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark3-iceberg:" + hadoopImagesVersion, SPARK)
+        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark4-iceberg:" + hadoopImagesVersion, SPARK)
                 .withEnv("HADOOP_USER_NAME", "hive")
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-iceberg-nessie/spark-defaults.conf")),
