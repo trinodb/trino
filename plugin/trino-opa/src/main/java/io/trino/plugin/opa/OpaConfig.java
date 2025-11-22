@@ -15,8 +15,10 @@ package io.trino.plugin.opa;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.validation.FileExists;
 import jakarta.validation.constraints.NotNull;
 
+import java.io.File;
 import java.net.URI;
 import java.util.Optional;
 
@@ -31,6 +33,7 @@ public class OpaConfig
     private Optional<URI> opaRowFiltersUri = Optional.empty();
     private Optional<URI> opaColumnMaskingUri = Optional.empty();
     private Optional<URI> opaBatchColumnMaskingUri = Optional.empty();
+    private Optional<File> additionalContextFile = Optional.empty();
 
     @NotNull
     public URI getOpaUri()
@@ -138,6 +141,19 @@ public class OpaConfig
     public OpaConfig setOpaBatchColumnMaskingUri(URI opaBatchColumnMaskingUri)
     {
         this.opaBatchColumnMaskingUri = Optional.ofNullable(opaBatchColumnMaskingUri);
+        return this;
+    }
+
+    public Optional<@FileExists File> getAdditionalContextFile()
+    {
+        return additionalContextFile;
+    }
+
+    @Config("opa.additional-context-properties")
+    @ConfigDescription("Properties file containing additional user-specified properties (e.g. tenant namespace, tier, cluster) to be added to the OPA query context")
+    public OpaConfig setAdditionalContextFile(File additionalContextFile)
+    {
+        this.additionalContextFile = Optional.ofNullable(additionalContextFile);
         return this;
     }
 }
