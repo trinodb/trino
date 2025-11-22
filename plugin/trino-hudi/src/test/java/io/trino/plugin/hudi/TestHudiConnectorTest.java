@@ -25,13 +25,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestHudiConnectorTest
         extends BaseConnectorTest
 {
+    private static final long COMMIT_TIMESTAMP = 20251027183851494L;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         return HudiQueryRunner.builder()
                 .addConnectorProperty("hudi.columns-to-hide", COLUMNS_TO_HIDE)
-                .setDataLoader(new TpchHudiTablesInitializer(REQUIRED_TPCH_TABLES))
+                .setDataLoader(new TpchHudiTablesInitializer(REQUIRED_TPCH_TABLES, String.valueOf(COMMIT_TIMESTAMP)))
                 .build();
     }
 
@@ -87,5 +89,25 @@ public class TestHudiConnectorTest
     {
         assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain("sys");
         assertQueryFails("SHOW TABLES IN hudi.sys", ".*Schema 'sys' does not exist");
+    }
+
+    @Override
+    protected void verifyVersionedQueryFailurePermissible(Exception e)
+    {
+        assertThat(e)
+                .hasMessageMatching("Read table with start version is not supported|" +
+                        "Cannot read 'TIMESTAMP' of Hudi table, use 'VERSION' instead|" +
+                        "Provided read version must be a string");
+    }
+
+    @Test
+    public void testSelectTableUsingTargetIdVersion()
+    {
+        String expectedValues = "VALUES 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24";
+        assertThat(query("SELECT CAST(nationkey AS INT) FROM hudi.tests.nation")).matches(expectedValues);
+        assertThat(query("SELECT CAST(nationkey AS INT) FROM hudi.tests.nation FOR VERSION AS OF '" + COMMIT_TIMESTAMP + "'")).matches(expectedValues);
+        assertThat(query("SELECT CAST(nationkey AS INT) FROM hudi.tests.nation FOR VERSION AS OF '" + (COMMIT_TIMESTAMP - 1) + "'")).returnsEmptyResult();
+        assertQueryFails("SELECT CAST(nationkey AS INT) FROM hudi.tests.nation FOR VERSION AS OF 0", "Provided read version must be a string");
+        assertQueryFails("SELECT CAST(nationkey AS INT) FROM hudi.tests.nation FOR TIMESTAMP AS OF TIMESTAMP '2025-10-29 15:00:00'", "Cannot read 'TIMESTAMP' of Hudi table, use 'VERSION' instead");
     }
 }
