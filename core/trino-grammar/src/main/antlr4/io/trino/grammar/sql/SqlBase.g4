@@ -586,58 +586,62 @@ valueExpression
     ;
 
 primaryExpression
-    : literal                                                                             #literals
-    | QUESTION_MARK                                                                       #parameter
-    | POSITION '(' valueExpression IN valueExpression ')'                                 #position
-    | '(' expression (',' expression)+ ')'                                                #rowConstructor
-    | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
+    : literal                                                                               #literals
+    | QUESTION_MARK                                                                         #parameter
+    | POSITION '(' valueExpression IN valueExpression ')'                                   #position
+    | '(' expression (',' expression)+ ')'                                                  #rowConstructor
+    | ROW '(' expression (',' expression)* ')'                                              #rowConstructor
     | name=LISTAGG '(' setQuantifier? expression (',' string)?
         (ON OVERFLOW listAggOverflowBehavior)? ')'
         (WITHIN GROUP '(' orderBy ')')
-        filter? over?                                                                     #listagg
+        filter? over?                                                                       #listagg
     | processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
-        filter? over?                                                                     #functionCall
+        filter? over?                                                                       #functionCall
     | processingMode? qualifiedName '(' (setQuantifier? expression (',' expression)*)?
-        orderBy? ')' filter? (nullTreatment? over)?                                       #functionCall
-    | identifier over                                                                     #measure
-    | identifier '->' expression                                                          #lambda
-    | '(' (identifier (',' identifier)*)? ')' '->' expression                             #lambda
-    | '(' query ')'                                                                       #subqueryExpression
+        orderBy? ')' filter? (nullTreatment? over)?                                         #functionCall
+    | identifier over                                                                       #measure
+    | identifier '->' expression                                                            #lambda
+    | '(' (identifier (',' identifier)*)? ')' '->' expression                               #lambda
+    | '(' query ')'                                                                         #subqueryExpression
     // This is an extension to ANSI SQL, which considers EXISTS to be a <boolean expression>
-    | EXISTS '(' query ')'                                                                #exists
-    | CASE operand=expression whenClause+ (ELSE elseExpression=expression)? END           #simpleCase
-    | CASE whenClause+ (ELSE elseExpression=expression)? END                              #searchedCase
-    | CAST '(' expression AS type ')'                                                     #cast
-    | TRY_CAST '(' expression AS type ')'                                                 #cast
-    | ARRAY '[' (expression (',' expression)*)? ']'                                       #arrayConstructor
-    | '[' (expression (',' expression)*)? ']'                                             #arrayConstructor
-    | value=primaryExpression '[' index=valueExpression ']'                               #subscript
-    | identifier                                                                          #columnReference
-    | base=primaryExpression '.' fieldName=identifier                                     #dereference
-    | name=CURRENT_DATE                                                                   #currentDate
-    | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?                                #currentTime
-    | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?                           #currentTimestamp
-    | name=LOCALTIME ('(' precision=INTEGER_VALUE ')')?                                   #localTime
-    | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?                              #localTimestamp
-    | name=CURRENT_USER                                                                   #currentUser
-    | name=CURRENT_CATALOG                                                                #currentCatalog
-    | name=CURRENT_SCHEMA                                                                 #currentSchema
-    | name=CURRENT_PATH                                                                   #currentPath
-    | TRIM '(' (trimsSpecification? trimChar=valueExpression? FROM)?
-        trimSource=valueExpression ')'                                                    #trim
-    | TRIM '(' trimSource=valueExpression ',' trimChar=valueExpression ')'                #trim
-    | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'       #substring
-    | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
-    | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
-    | '(' expression ')'                                                                  #parenthesizedExpression
-    | GROUPING '(' (qualifiedName (',' qualifiedName)*)? ')'                              #groupingOperation
-    | JSON_EXISTS '(' jsonPathInvocation (jsonExistsErrorBehavior ON ERROR)? ')'          #jsonExists
+    | EXISTS '(' query ')'                                                                  #exists
+    | CASE operand=expression whenClause+ (ELSE elseExpression=expression)? END             #simpleCase
+    | CASE whenClause+ (ELSE elseExpression=expression)? END                                #searchedCase
+    | CAST '(' expression AS type ')'                                                       #cast
+    | TRY_CAST '(' expression AS type ')'                                                   #cast
+    // the target is a primaryExpression to support PostgreSQL-style casts
+    // of the form <complex expression>::<type>, which are syntactically ambiguous with
+    // static method calls defined by the SQL spec (and we reserve it for future use)
+    | primaryExpression DOUBLE_COLON identifier ('(' (expression (',' expression)*)? ')')?  #staticMethodCall
+    | ARRAY '[' (expression (',' expression)*)? ']'                                         #arrayConstructor
+    | '[' (expression (',' expression)*)? ']'                                               #arrayConstructor
+    | value=primaryExpression '[' index=valueExpression ']'                                 #subscript
+    | identifier                                                                            #columnReference
+    | base=primaryExpression '.' fieldName=identifier                                       #dereference
+    | name=CURRENT_DATE                                                                     #currentDate
+    | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')?                                  #currentTime
+    | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')?                             #currentTimestamp
+    | name=LOCALTIME ('(' precision=INTEGER_VALUE ')')?                                     #localTime
+    | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?                                #localTimestamp
+    | name=CURRENT_USER                                                                     #currentUser
+    | name=CURRENT_CATALOG                                                                  #currentCatalog
+    | name=CURRENT_SCHEMA                                                                   #currentSchema
+    | name=CURRENT_PATH                                                                     #currentPath
+    | TRIM '(' (trimsSpecification? trimChar=valueExpression? FROM)?                        
+        trimSource=valueExpression ')'                                                      #trim
+    | TRIM '(' trimSource=valueExpression ',' trimChar=valueExpression ')'                  #trim
+    | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'         #substring
+    | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                   #normalize
+    | EXTRACT '(' identifier FROM valueExpression ')'                                       #extract
+    | '(' expression ')'                                                                    #parenthesizedExpression
+    | GROUPING '(' (qualifiedName (',' qualifiedName)*)? ')'                                #groupingOperation
+    | JSON_EXISTS '(' jsonPathInvocation (jsonExistsErrorBehavior ON ERROR)? ')'            #jsonExists
     | JSON_VALUE '('
         jsonPathInvocation
         (RETURNING type)?
         (emptyBehavior=jsonValueBehavior ON EMPTY)?
         (errorBehavior=jsonValueBehavior ON ERROR)?
-      ')'                                                                                 #jsonValue
+      ')'                                                                                  #jsonValue
     | JSON_QUERY '('
         jsonPathInvocation
         (RETURNING type (FORMAT jsonRepresentation)?)?
@@ -645,7 +649,7 @@ primaryExpression
         ((KEEP | OMIT) QUOTES (ON SCALAR TEXT_STRING)?)?
         (emptyBehavior=jsonQueryBehavior ON EMPTY)?
         (errorBehavior=jsonQueryBehavior ON ERROR)?
-      ')'                                                                                 #jsonQuery
+      ')'                                                                                   #jsonQuery
     | JSON_OBJECT '('
         (
           jsonObjectMember (',' jsonObjectMember)*
@@ -1123,6 +1127,7 @@ DISTINCT: 'DISTINCT';
 DISTRIBUTED: 'DISTRIBUTED';
 DO: 'DO';
 DOUBLE: 'DOUBLE';
+DOUBLE_COLON: '::';
 DROP: 'DROP';
 ELSE: 'ELSE';
 EMPTY: 'EMPTY';
