@@ -34,6 +34,7 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.function.Consumer;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public interface QueryExecution
@@ -99,22 +100,27 @@ public interface QueryExecution
      */
     class QueryOutputInfo
     {
-        private final List<String> columnNames;
+        private final List<ColumnInfo> columnInfos;
         private final List<Type> columnTypes;
         private final Queue<ExchangeInput> inputsQueue;
         private final boolean noMoreInputs;
 
-        public QueryOutputInfo(List<String> columnNames, List<Type> columnTypes, Queue<ExchangeInput> inputsQueue, boolean noMoreInputs)
+        public QueryOutputInfo(List<ColumnInfo> columnInfos, List<Type> columnTypes, Queue<ExchangeInput> inputsQueue, boolean noMoreInputs)
         {
-            this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
+            this.columnInfos = ImmutableList.copyOf(requireNonNull(columnInfos, "columnInfos is null"));
             this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
             this.inputsQueue = requireNonNull(inputsQueue, "inputsQueue is null");
             this.noMoreInputs = noMoreInputs;
         }
 
+        public List<ColumnInfo> getColumnInfos()
+        {
+            return columnInfos;
+        }
+
         public List<String> getColumnNames()
         {
-            return columnNames;
+            return columnInfos.stream().map(ColumnInfo::name).collect(toImmutableList());
         }
 
         public List<Type> getColumnTypes()

@@ -524,7 +524,7 @@ public class SqlQueryExecution
         // record output field
         PlanFragment rootFragment = plan.getRoot().getFragment();
         stateMachine.setColumns(
-                ((OutputNode) rootFragment.getRoot()).getColumnNames(),
+                ((OutputNode) rootFragment.getRoot()).getColumnInfos(),
                 rootFragment.getTypes());
 
         RetryPolicy retryPolicy = getRetryPolicy(getSession());

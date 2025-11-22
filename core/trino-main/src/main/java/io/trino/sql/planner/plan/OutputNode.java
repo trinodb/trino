@@ -18,11 +18,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.execution.ColumnInfo;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -30,24 +32,24 @@ public class OutputNode
         extends PlanNode
 {
     private final PlanNode source;
-    private final List<String> columnNames;
+    private final List<ColumnInfo> columnInfos;
     private final List<Symbol> outputs; // column name = symbol
 
     @JsonCreator
     public OutputNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("columns") List<String> columnNames,
+            @JsonProperty("columns") List<ColumnInfo> columnInfos,
             @JsonProperty("outputs") List<Symbol> outputs)
     {
         super(id);
 
         requireNonNull(source, "source is null");
-        requireNonNull(columnNames, "columnNames is null");
+        requireNonNull(columnInfos, "columnInfos is null");
         requireNonNull(outputs, "outputs is null");
-        checkArgument(columnNames.size() == outputs.size(), "columnNames and assignments sizes don't match");
+        checkArgument(columnInfos.size() == outputs.size(), "columnInfos and assignments sizes don't match");
 
         this.source = source;
-        this.columnNames = ImmutableList.copyOf(columnNames);
+        this.columnInfos = ImmutableList.copyOf(columnInfos);
         this.outputs = ImmutableList.copyOf(outputs);
     }
 
@@ -65,9 +67,14 @@ public class OutputNode
     }
 
     @JsonProperty("columns")
+    public List<ColumnInfo> getColumnInfos()
+    {
+        return columnInfos;
+    }
+
     public List<String> getColumnNames()
     {
-        return columnNames;
+        return columnInfos.stream().map(ColumnInfo::name).collect(toImmutableList());
     }
 
     @JsonProperty
@@ -85,6 +92,6 @@ public class OutputNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new OutputNode(getId(), Iterables.getOnlyElement(newChildren), columnNames, outputs);
+        return new OutputNode(getId(), Iterables.getOnlyElement(newChildren), columnInfos, outputs);
     }
 }

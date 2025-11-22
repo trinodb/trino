@@ -33,6 +33,7 @@ import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.cost.TableStatsProvider;
+import io.trino.execution.ColumnInfo;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzeMetadata;
@@ -341,7 +342,7 @@ public class LogicalPlanner
                 statement instanceof RefreshMaterializedView && analysis.isSkipMaterializedViewRefresh()) {
             Symbol symbol = symbolAllocator.newSymbol("rows", BIGINT);
             PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbol), ImmutableList.of(new Row(ImmutableList.of(new Constant(BIGINT, 0L)))));
-            return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(symbol));
+            return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of(new ColumnInfo(Optional.of("catalogs"), Optional.of("schemas"), Optional.of("tables"), "rows", Optional.of("labels"))), ImmutableList.of(symbol));
         }
         return createOutputPlan(planStatementWithoutOutput(analysis, statement), analysis);
     }
@@ -898,13 +899,22 @@ public class LogicalPlanner
     private PlanNode createOutputPlan(RelationPlan plan, Analysis analysis)
     {
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
-        ImmutableList.Builder<String> names = ImmutableList.builder();
+        ImmutableList.Builder<ColumnInfo> columns = ImmutableList.builder();
 
         int columnNumber = 0;
         RelationType outputDescriptor = analysis.getOutputDescriptor();
         for (Field field : outputDescriptor.getVisibleFields()) {
             String name = field.getName().orElse("_col" + columnNumber);
-            names.add(name);
+            String label = field.getOriginColumnName().orElse(name);
+            if (field.getOriginTable().isPresent()) {
+                String catalog = field.getOriginTable().get().catalogName();
+                String schema = field.getOriginTable().get().schemaName();
+                String table = field.getOriginTable().get().objectName();
+                columns.add(new ColumnInfo(Optional.of(catalog), Optional.of(schema), Optional.of(table), name, Optional.of(label)));
+            }
+            else {
+                columns.add(new ColumnInfo(Optional.empty(), Optional.empty(), Optional.empty(), name, Optional.of(label)));
+            }
 
             int fieldIndex = outputDescriptor.indexOf(field);
             Symbol symbol = plan.getSymbol(fieldIndex);
@@ -912,7 +922,7 @@ public class LogicalPlanner
 
             columnNumber++;
         }
-        return new OutputNode(idAllocator.getNextId(), plan.getRoot(), names.build(), outputs.build());
+        return new OutputNode(idAllocator.getNextId(), plan.getRoot(), columns.build(), outputs.build());
     }
 
     private RelationPlan createRelationPlan(Analysis analysis, Query query)
