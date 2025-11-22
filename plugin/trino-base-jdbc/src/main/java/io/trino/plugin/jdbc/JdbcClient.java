@@ -23,6 +23,7 @@ import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.RelationColumnsMetadata;
@@ -63,7 +64,7 @@ public interface JdbcClient
 
     List<SchemaTableName> getTableNames(ConnectorSession session, Optional<String> schema);
 
-    Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName);
+    Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName, Optional<ConnectorTableVersion> endVersion);
 
     JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery);
 
