@@ -390,7 +390,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     public void testCreateTableWithTrailingSpaceInLocation()
     {
         String tableName = "test_create_table_with_trailing_space_" + randomNameSuffix();
-        String tableLocationWithTrailingSpace = schemaPath() + tableName + " ";
+        String tableLocationWithTrailingSpace = schemaPath() + "/" + tableName + " ";
 
         assertQuerySucceeds(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace));
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'INDIA', true)");
