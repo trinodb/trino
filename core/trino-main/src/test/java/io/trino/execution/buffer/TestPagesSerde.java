@@ -218,13 +218,13 @@ public class TestPagesSerde
         pageSize = 44; // Now we have moved to the normal block implementation so the page size overhead is 44
         page = new Page(builder.build());
         int firstValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - pageSize;
-        assertThat(firstValueSize).isEqualTo(8 + 5); // length + nonNullsCount + "alice"
+        assertThat(firstValueSize).isEqualTo(8 + 5); // ending offsets + nonNullsCount + "alice"
 
         // page with two values
         VARCHAR.writeString(builder, "bob");
         page = new Page(builder.build());
         int secondValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - (pageSize + firstValueSize);
-        assertThat(secondValueSize).isEqualTo(4 + 3); // length + "bob" (null shared with first entry)
+        assertThat(secondValueSize).isEqualTo(4 + 3); // one additional ending offset + "bob" (null shared with first entry)
     }
 
     private int serializedSize(List<? extends Type> types, Page expectedPage)
