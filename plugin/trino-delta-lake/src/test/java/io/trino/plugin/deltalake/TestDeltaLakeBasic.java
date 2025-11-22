@@ -2766,6 +2766,24 @@ public class TestDeltaLakeBasic
         return transactionLog.getMetaData();
     }
 
+    @Test
+    public void testClonedTableWithCheckpointVersionZero()
+            throws Exception
+    {
+        String resource = "databricks154/clone_checkpoint_version_zero/checkpoint_v2/cloned_table";
+        String tableName = "test_cloned_table" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource(resource).toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertThat(query("SELECT * FROM " + tableName + " ORDER BY id"))
+                .matches("VALUES " +
+                        "(1, VARCHAR 'Alice', 25), " +
+                        "(2, VARCHAR 'Bob', 30), " +
+                        "(3, VARCHAR 'Charlie', 28)");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private static ProtocolEntry loadProtocolEntry(long entryNumber, Path tableLocation)
             throws IOException
     {
