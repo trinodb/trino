@@ -56,6 +56,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
@@ -885,11 +886,38 @@ public abstract class BaseIcebergConnectorSmokeTest
             assertThat(query("SELECT * FROM iceberg.system.iceberg_tables WHERE table_schema = '%s'".formatted(firstSchema)))
                     .matches("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema='%s'".formatted(firstSchema));
             assertThat(query("SELECT * FROM iceberg.system.iceberg_tables WHERE table_schema in ('%s', '%s')".formatted(firstSchema, secondSchema)))
-                    .matches("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema IN ('%s', '%s')".formatted(firstSchema, secondSchema));
+                    .matches("SELECT table_schema, table_name FROM iceber createSchema(tableName);\n" +
+                            "            createTable(tableName,\"schema_table1\",\"(id,int)\");g.information_schema.tables WHERE table_schema IN ('%s', '%s')".formatted(firstSchema, secondSchema));
         }
         finally {
             dropSchema(firstSchema);
             dropSchema(secondSchema);
+        }
+    }
+
+    @Test
+    public void testAnalyze()
+            throws Exception
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session noStatsOnWrite = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, COLLECT_EXTENDED_STATISTICS_ON_WRITE, "false")
+                .build();
+
+        try (TestTable table = new TestTable(
+                sql -> getQueryRunner().execute(noStatsOnWrite, sql),
+                "test_analyze",
+                "(id int, name varchar)")) {
+            assertUpdate(noStatsOnWrite, "INSERT INTO " + table.getName() + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+            assertUpdate("ANALYZE " + table.getName());
+            assertQuery("SHOW STATS FOR " + table.getName(),
+                    "VALUES " +
+                            "('id', null, 3e0, 0e0, null, '1', '3'), " +
+                            "('name', 126e0, 3e0, 0e0, null, null, null), " +
+                            "(null, null, null, null, 3e0, null, null)");
+        }
+        catch (Exception e) {
+            errorMessageForAnalyze();
         }
     }
 
@@ -944,6 +972,12 @@ public abstract class BaseIcebergConnectorSmokeTest
             return location;
         }
         throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
+    }
+
+    protected String errorMessageForAnalyze()
+            throws Exception
+    {
+        throw new UnsupportedOperationException("This Operation is not supported");
     }
 
     protected abstract void dropTableFromMetastore(String tableName);
