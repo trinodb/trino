@@ -53,6 +53,7 @@ import static java.util.concurrent.Executors.newSingleThreadExecutor;
 public class ProtobufDeserializerFactory
         implements LineDeserializerFactory
 {
+    public static final String SERIALIZATION_CLASS = "serialization.class";
     private LoadingCache<String, Descriptor> cache;
 
     public ProtobufDeserializerFactory(Path descriptorsDirectory, Duration updateInterval, long maximumSize)
@@ -80,7 +81,7 @@ public class ProtobufDeserializerFactory
             throw new TrinoException(CONFIGURATION_INVALID, "No \"hive.protobufs.descriptors\" set in hive configuration");
         }
 
-        String serializationClass = serdeProperties.get("serialization.class");
+        String serializationClass = serdeProperties.get(SERIALIZATION_CLASS);
         if (serializationClass == null) {
             throw new TrinoException(HIVE_INVALID_METADATA, "Missing serdeproperties key \"serialization.class\"");
         }
@@ -88,7 +89,12 @@ public class ProtobufDeserializerFactory
             throw new TrinoException(HIVE_INVALID_METADATA, String.format("Expected serialization.class to contain {package}${protoname}, but was %s", serializationClass));
         }
 
-        return new ProtobufDeserializer(columns, cache.getUnchecked(serializationClass));
+        return new ProtobufDeserializer(columns, getDescriptor(serializationClass));
+    }
+
+    public Descriptor getDescriptor(String serializationClass)
+    {
+        return cache.getUnchecked(serializationClass);
     }
 
     private static class DescriptorCacheLoader
