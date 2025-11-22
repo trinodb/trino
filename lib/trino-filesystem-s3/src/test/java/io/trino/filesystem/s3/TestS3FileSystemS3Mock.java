@@ -78,19 +78,6 @@ public class TestS3FileSystemS3Mock
 
     @Test
     @Override
-    public void testOutputFile()
-    {
-        // this is S3Mock bug, see https://github.com/adobe/S3Mock/issues/2790
-        assertThatThrownBy(super::testOutputFile)
-                .hasMessageContaining("""
-                        Expecting actual throwable to be an instance of:
-                          java.nio.file.FileAlreadyExistsException
-                        but was:
-                          java.io.IOException: software.amazon.awssdk.services.s3.model.S3Exception: (Service: S3, Status Code: 304""");
-    }
-
-    @Test
-    @Override
     public void testPreSignedUris()
     {
         // S3 mock doesn't expire pre-signed URLs
