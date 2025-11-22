@@ -94,7 +94,7 @@ final class TestCassandraSplitManager
         CassandraSplitManager splitManager = new CassandraSplitManager(config, session, null, partitionManager, CASSANDRA_TYPE_MANAGER);
 
         CassandraTableHandle tableHandle = new CassandraTableHandle(
-                new CassandraNamedRelationHandle(KEYSPACE, tableName, Optional.of(partitions.build()), ""));
+                new CassandraNamedRelationHandle(KEYSPACE, tableName, Optional.of(partitions.build()), "", null));
         try (ConnectorSplitSource splitSource = splitManager.getSplits(null, null, tableHandle, null, null)) {
             List<ConnectorSplit> splits = splitSource.getNextBatch(100).get().getSplits();
             assertThat(splits).hasSize(2);
