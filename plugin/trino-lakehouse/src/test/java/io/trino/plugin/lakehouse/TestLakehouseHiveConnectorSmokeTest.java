@@ -13,11 +13,13 @@
  */
 package io.trino.plugin.lakehouse;
 
+import io.trino.Session;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.lakehouse.TableType.HIVE;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLakehouseHiveConnectorSmokeTest
@@ -65,5 +67,29 @@ public class TestLakehouseHiveConnectorSmokeTest
                    format = 'ORC',
                    type = 'HIVE'
                 )""");
+    }
+
+    @Test
+    public void testOptimize()
+    {
+        String tableName = "test_optimize_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar)");
+        try {
+            assertThat(query("ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')"))
+                    .failure().hasMessage("OPTIMIZE procedure must be explicitly enabled via non_transactional_optimize_enabled session property");
+
+            Session session = optimizeEnabledSession();
+            assertThat(query(session, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')")).succeeds();
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    private Session optimizeEnabledSession()
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "non_transactional_optimize_enabled", "true")
+                .build();
     }
 }
