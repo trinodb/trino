@@ -49,6 +49,7 @@ public class DeltaLakeTableHandle
     private final String location;
     private final MetadataEntry metadataEntry;
     private final ProtocolEntry protocolEntry;
+    private final Optional<List<String>> clusteredColumns;
     private final TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint;
     private final TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint;
     private final Optional<WriteType> writeType;
@@ -79,6 +80,7 @@ public class DeltaLakeTableHandle
             @JsonProperty("location") String location,
             @JsonProperty("metadataEntry") MetadataEntry metadataEntry,
             @JsonProperty("protocolEntry") ProtocolEntry protocolEntry,
+            @JsonProperty("clusteredColumns") Optional<List<String>> clusteredColumns,
             @JsonProperty("enforcedPartitionConstraint") TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint,
             @JsonProperty("nonPartitionConstraint") TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint,
             @JsonProperty("writeType") Optional<WriteType> writeType,
@@ -96,6 +98,7 @@ public class DeltaLakeTableHandle
                 location,
                 metadataEntry,
                 protocolEntry,
+                clusteredColumns,
                 enforcedPartitionConstraint,
                 nonPartitionConstraint,
                 ImmutableSet.of(),
@@ -118,6 +121,7 @@ public class DeltaLakeTableHandle
             String location,
             MetadataEntry metadataEntry,
             ProtocolEntry protocolEntry,
+            Optional<List<String>> clusteredColumns,
             TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint,
             TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint,
             Set<DeltaLakeColumnHandle> constraintColumns,
@@ -138,6 +142,7 @@ public class DeltaLakeTableHandle
         this.location = requireNonNull(location, "location is null");
         this.metadataEntry = requireNonNull(metadataEntry, "metadataEntry is null");
         this.protocolEntry = requireNonNull(protocolEntry, "protocolEntry is null");
+        this.clusteredColumns = requireNonNull(clusteredColumns, "clusteredColumns is null");
         this.enforcedPartitionConstraint = requireNonNull(enforcedPartitionConstraint, "enforcedPartitionConstraint is null");
         this.nonPartitionConstraint = requireNonNull(nonPartitionConstraint, "nonPartitionConstraint is null");
         this.writeType = requireNonNull(writeType, "writeType is null");
@@ -164,6 +169,7 @@ public class DeltaLakeTableHandle
                 location,
                 metadataEntry,
                 protocolEntry,
+                clusteredColumns,
                 enforcedPartitionConstraint,
                 nonPartitionConstraint,
                 constraintColumns,
@@ -188,6 +194,7 @@ public class DeltaLakeTableHandle
                 location,
                 metadataEntry,
                 protocolEntry,
+                clusteredColumns,
                 enforcedPartitionConstraint,
                 nonPartitionConstraint,
                 constraintColumns,
@@ -266,6 +273,12 @@ public class DeltaLakeTableHandle
     public ProtocolEntry getProtocolEntry()
     {
         return protocolEntry;
+    }
+
+    @JsonProperty
+    public Optional<List<String>> getClusteredColumns()
+    {
+        return clusteredColumns;
     }
 
     @JsonProperty
@@ -371,6 +384,7 @@ public class DeltaLakeTableHandle
                 Objects.equals(location, that.location) &&
                 Objects.equals(metadataEntry, that.metadataEntry) &&
                 Objects.equals(protocolEntry, that.protocolEntry) &&
+                Objects.equals(clusteredColumns, that.clusteredColumns) &&
                 Objects.equals(enforcedPartitionConstraint, that.enforcedPartitionConstraint) &&
                 Objects.equals(nonPartitionConstraint, that.nonPartitionConstraint) &&
                 Objects.equals(writeType, that.writeType) &&
@@ -394,6 +408,7 @@ public class DeltaLakeTableHandle
                 location,
                 metadataEntry,
                 protocolEntry,
+                clusteredColumns,
                 enforcedPartitionConstraint,
                 nonPartitionConstraint,
                 writeType,
