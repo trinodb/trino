@@ -155,6 +155,8 @@ import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.ERROR;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.OMIT;
 import static io.trino.type.JsonType.JSON;
+import static io.trino.type.LikeFunctions.ILIKE_FUNCTION_NAME;
+import static io.trino.type.LikeFunctions.ILIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
@@ -918,23 +920,27 @@ public class TranslationMap
         io.trino.sql.ir.Expression pattern = translateExpression(node.getPattern());
         Optional<io.trino.sql.ir.Expression> escape = node.getEscape().map(this::translateExpression);
 
+        boolean caseInsensitive = node.isCaseInsensitive();
+        String patternFunctionName = caseInsensitive ? ILIKE_PATTERN_FUNCTION_NAME : LIKE_PATTERN_FUNCTION_NAME;
+        String likeFunctionName = caseInsensitive ? ILIKE_FUNCTION_NAME : LIKE_FUNCTION_NAME;
+
         Call patternCall;
         if (escape.isPresent()) {
             patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                    .setName(LIKE_PATTERN_FUNCTION_NAME)
+                    .setName(patternFunctionName)
                     .addArgument(VARCHAR, new io.trino.sql.ir.Cast(pattern, VARCHAR))
                     .addArgument(VARCHAR, new io.trino.sql.ir.Cast(escape.get(), VARCHAR))
                     .build();
         }
         else {
             patternCall = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                    .setName(LIKE_PATTERN_FUNCTION_NAME)
+                    .setName(patternFunctionName)
                     .addArgument(VARCHAR, new io.trino.sql.ir.Cast(pattern, VARCHAR))
                     .build();
         }
 
         Call call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
-                .setName(LIKE_FUNCTION_NAME)
+                .setName(likeFunctionName)
                 .addArgument(value.type(), value)
                 .addArgument(LIKE_PATTERN, patternCall)
                 .build();

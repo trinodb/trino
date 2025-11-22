@@ -1064,22 +1064,23 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitLikePredicate(LikePredicate node, Context context)
         {
+            String operatorName = node.isCaseInsensitive() ? "ILIKE" : "LIKE";
             Type valueType = process(node.getValue(), context);
             if (!(valueType instanceof CharType) && !(valueType instanceof VarcharType)) {
-                coerceType(context, node.getValue(), VARCHAR, "Left side of LIKE expression");
+                coerceType(context, node.getValue(), VARCHAR, "Left side of " + operatorName + " expression");
             }
 
             Type patternType = process(node.getPattern(), context);
             if (!(patternType instanceof VarcharType)) {
                 // TODO can pattern be of char type?
-                coerceType(context, node.getPattern(), VARCHAR, "Pattern for LIKE expression");
+                coerceType(context, node.getPattern(), VARCHAR, "Pattern for " + operatorName + " expression");
             }
             if (node.getEscape().isPresent()) {
                 Expression escape = node.getEscape().get();
                 Type escapeType = process(escape, context);
                 if (!(escapeType instanceof VarcharType)) {
                     // TODO can escape be of char type?
-                    coerceType(context, escape, VARCHAR, "Escape for LIKE expression");
+                    coerceType(context, escape, VARCHAR, "Escape for " + operatorName + " expression");
                 }
             }
 
