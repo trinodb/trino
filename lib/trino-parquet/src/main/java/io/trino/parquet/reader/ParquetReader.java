@@ -109,6 +109,7 @@ public class ParquetReader
     private static final int BATCH_SIZE_GROWTH_FACTOR = 2;
     public static final String PARQUET_CODEC_METRIC_PREFIX = "ParquetReaderCompressionFormat_";
     public static final String COLUMN_INDEX_ROWS_FILTERED = "ParquetColumnIndexRowsFiltered";
+    public static final String PARQUET_READER_DICTIONARY_FILTERED_ROWGROUPS = "ParquetReaderDictionaryFilteredRowGroups";
 
     private final Optional<String> fileCreatedBy;
     private final List<RowGroupInfo> rowGroups;
@@ -151,6 +152,7 @@ public class ParquetReader
     private int currentPageId;
 
     private long columnIndexRowsFiltered = -1;
+    private long dictionaryFilteredRowGroups;
     private final Optional<FileDecryptionContext> decryptionContext;
 
     public ParquetReader(
@@ -467,38 +469,67 @@ public class ParquetReader
     private boolean advanceToNextRowGroup()
             throws IOException
     {
-        currentRowGroupMemoryContext.close();
-        currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
-        freeCurrentRowGroupBuffers();
+        while (currentRowGroup < rowGroups.size()) {
+            currentRowGroupMemoryContext.close();
+            currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
+            freeCurrentRowGroupBuffers();
 
-        if (currentRowGroup >= 0 && rowGroupStatisticsValidation.isPresent()) {
-            StatisticsValidation statisticsValidation = rowGroupStatisticsValidation.get();
-            writeValidation.orElseThrow().validateRowGroupStatistics(dataSource.getId(), currentBlockMetadata, statisticsValidation.build());
-            statisticsValidation.reset();
-        }
-
-        currentRowGroup++;
-        if (currentRowGroup == rowGroups.size()) {
-            return false;
-        }
-        RowGroupInfo rowGroupInfo = rowGroups.get(currentRowGroup);
-        currentBlockMetadata = rowGroupInfo.prunedBlockMetadata();
-        firstRowIndexInGroup = rowGroupInfo.fileRowOffset();
-        currentGroupRowCount = currentBlockMetadata.getRowCount();
-        FilteredRowRanges currentGroupRowRanges = blockRowRanges[currentRowGroup];
-        log.debug("advanceToNextRowGroup dataSource %s, currentRowGroup %d, rowRanges %s, currentBlockMetadata %s", dataSource.getId(), currentRowGroup, currentGroupRowRanges, currentBlockMetadata);
-        if (currentGroupRowRanges != null) {
-            long rowCount = currentGroupRowRanges.getRowCount();
-            columnIndexRowsFiltered += currentGroupRowCount - rowCount;
-            if (rowCount == 0) {
-                // Filters on multiple columns with page indexes may yield non-overlapping row ranges and eliminate the entire row group.
-                // Advance to next row group to ensure that we don't return a null Page and close the page source before all row groups are processed
-                return advanceToNextRowGroup();
+            if (currentRowGroup >= 0 && rowGroupStatisticsValidation.isPresent()) {
+                StatisticsValidation statisticsValidation = rowGroupStatisticsValidation.get();
+                writeValidation.orElseThrow().validateRowGroupStatistics(dataSource.getId(), currentBlockMetadata, statisticsValidation.build());
+                statisticsValidation.reset();
             }
-            currentGroupRowCount = rowCount;
+
+            currentRowGroup++;
+            if (currentRowGroup == rowGroups.size()) {
+                return false;
+            }
+            RowGroupInfo rowGroupInfo = rowGroups.get(currentRowGroup);
+            currentBlockMetadata = rowGroupInfo.prunedBlockMetadata();
+            firstRowIndexInGroup = rowGroupInfo.fileRowOffset();
+            currentGroupRowCount = currentBlockMetadata.getRowCount();
+            FilteredRowRanges currentGroupRowRanges = blockRowRanges[currentRowGroup];
+            log.debug("advanceToNextRowGroup dataSource %s, currentRowGroup %d, rowRanges %s, currentBlockMetadata %s", dataSource.getId(), currentRowGroup, currentGroupRowRanges, currentBlockMetadata);
+            if (currentGroupRowRanges != null) {
+                long rowCount = currentGroupRowRanges.getRowCount();
+                columnIndexRowsFiltered += currentGroupRowCount - rowCount;
+                if (rowCount == 0) {
+                    // Filters on multiple columns with page indexes may yield non-overlapping row ranges and eliminate the entire row group.
+                    // Advance to next row group to ensure that we don't return a null Page and close the page source before all row groups are processed
+                    continue;
+                }
+                currentGroupRowCount = rowCount;
+            }
+            nextRowInGroup = 0L;
+            initializeColumnReaders();
+
+            // check dictionary predicate matches, or skip row group
+            if (!dictionaryPredicateMatch(rowGroupInfo)) {
+                dictionaryFilteredRowGroups++;
+                continue;
+            }
+            return true;
         }
-        nextRowInGroup = 0L;
-        initializeColumnReaders();
+        return false;
+    }
+
+    private boolean dictionaryPredicateMatch(RowGroupInfo rowGroupInfo)
+    {
+        for (PrimitiveField field : primitiveFields) {
+            // check presence of indexPredicate and don't eagerly initializePageReader if it's not present
+            if (rowGroupInfo.indexPredicate().isPresent()) {
+                try {
+                    initializePageReader(field);
+                    boolean match = columnReaders.get(field.getId()).dictionaryPredicateMatch(rowGroupInfo);
+                    if (!match) {
+                        return false;
+                    }
+                }
+                catch (Exception e) {
+                    log.error(e, "Error while matching dictionary predicate for field " + field);
+                }
+            }
+        }
         return true;
     }
 
@@ -654,29 +685,10 @@ public class ParquetReader
     private ColumnChunk readPrimitive(PrimitiveField field)
             throws IOException
     {
-        ColumnDescriptor columnDescriptor = field.getDescriptor();
         int fieldId = field.getId();
         ColumnReader columnReader = columnReaders.get(fieldId);
         if (!columnReader.hasPageReader()) {
-            validateParquet(currentBlockMetadata.getRowCount() > 0, dataSource.getId(), "Row group has 0 rows");
-            ColumnChunkMetadata metadata = currentBlockMetadata.getColumnChunkMetaData(columnDescriptor);
-            FilteredRowRanges rowRanges = blockRowRanges[currentRowGroup];
-            OffsetIndex offsetIndex = null;
-            if (rowRanges != null) {
-                offsetIndex = getFilteredOffsetIndex(rowRanges, currentRowGroup, currentBlockMetadata.getRowCount(), metadata.getPath());
-            }
-            ChunkedInputStream columnChunkInputStream = chunkReaders.get(new ChunkKey(fieldId, currentRowGroup));
-            columnReader.setPageReader(
-                    createPageReader(
-                            dataSource.getId(),
-                            columnChunkInputStream,
-                            metadata,
-                            columnDescriptor,
-                            offsetIndex,
-                            fileCreatedBy,
-                            decryptionContext,
-                            options.getMaxPageReadSize().toBytes()),
-                    Optional.ofNullable(rowRanges));
+            initializePageReader(field);
         }
         ColumnChunk columnChunk = columnReader.readPrimitive();
 
@@ -692,6 +704,34 @@ public class ParquetReader
         return columnChunk;
     }
 
+    private void initializePageReader(PrimitiveField field)
+            throws ParquetCorruptionException
+    {
+        ColumnDescriptor columnDescriptor = field.getDescriptor();
+        int fieldId = field.getId();
+        ColumnReader columnReader = columnReaders.get(fieldId);
+        checkState(!columnReader.hasPageReader(), "Page reader already initialized");
+        validateParquet(currentBlockMetadata.getRowCount() > 0, dataSource.getId(), "Row group has 0 rows");
+        ColumnChunkMetadata metadata = currentBlockMetadata.getColumnChunkMetaData(columnDescriptor);
+        FilteredRowRanges rowRanges = blockRowRanges[currentRowGroup];
+        OffsetIndex offsetIndex = null;
+        if (rowRanges != null) {
+            offsetIndex = getFilteredOffsetIndex(rowRanges, currentRowGroup, currentBlockMetadata.getRowCount(), metadata.getPath());
+        }
+        ChunkedInputStream columnChunkInputStream = chunkReaders.get(new ChunkKey(fieldId, currentRowGroup));
+        columnReader.setPageReader(
+                createPageReader(
+                        dataSource.getId(),
+                        columnChunkInputStream,
+                        metadata,
+                        columnDescriptor,
+                        offsetIndex,
+                        fileCreatedBy,
+                        decryptionContext,
+                        options.getMaxPageReadSize().toBytes()),
+                Optional.ofNullable(rowRanges));
+    }
+
     public List<Column> getColumnFields()
     {
         return columnFields;
@@ -704,6 +744,7 @@ public class ParquetReader
         if (columnIndexRowsFiltered >= 0) {
             metrics.put(COLUMN_INDEX_ROWS_FILTERED, new LongCount(columnIndexRowsFiltered));
         }
+        metrics.put(PARQUET_READER_DICTIONARY_FILTERED_ROWGROUPS, new LongCount(dictionaryFilteredRowGroups));
         metrics.putAll(dataSource.getMetrics().getMetrics());
 
         return new Metrics(metrics.buildOrThrow());

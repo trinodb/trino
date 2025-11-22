@@ -18,6 +18,10 @@ import io.airlift.slice.Slice;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.metadata.ColumnChunkMetadata;
+import io.trino.parquet.metadata.PrunedBlockMetadata;
+import io.trino.parquet.predicate.DictionaryDescriptor;
+import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.decoders.ValueDecoder;
 import io.trino.parquet.reader.flat.ColumnAdapter;
 import io.trino.parquet.reader.flat.DictionaryDecoder;
@@ -28,13 +32,19 @@ import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.io.ParquetDecodingException;
 
+import java.io.IOException;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
+import static io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages;
 import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
 import static io.trino.parquet.reader.flat.DictionaryDecoder.DictionaryDecoderProvider;
 import static io.trino.parquet.reader.flat.RowRangesIterator.createRowRangesIterator;
@@ -56,6 +66,8 @@ public abstract class AbstractColumnReader<BufferType>
     @Nullable
     protected DictionaryDecoder<BufferType> dictionaryDecoder;
     private boolean produceDictionaryBlock;
+    @Nullable
+    private DictionaryPage dictionaryPage;
 
     public AbstractColumnReader(
             PrimitiveField field,
@@ -77,6 +89,7 @@ public abstract class AbstractColumnReader<BufferType>
         // if it is partly or completely dictionary encoded. At most one dictionary page
         // can be placed in a column chunk.
         DictionaryPage dictionaryPage = pageReader.readDictionaryPage();
+        this.dictionaryPage = dictionaryPage;
 
         // For dictionary based encodings - https://github.com/apache/parquet-format/blob/master/Encodings.md
         if (dictionaryPage != null) {
@@ -85,6 +98,29 @@ public abstract class AbstractColumnReader<BufferType>
             produceDictionaryBlock = shouldProduceDictionaryBlock(rowRanges);
         }
         this.rowRanges = createRowRangesIterator(rowRanges);
+    }
+
+    @Override
+    public boolean dictionaryPredicateMatch(RowGroupInfo rowGroupInfo)
+            throws IOException
+    {
+        checkState(hasPageReader(), "Don't have a pageReader yet, invoke setPageReader() first");
+        Optional<TupleDomainParquetPredicate> indexPredicate = rowGroupInfo.indexPredicate();
+        Optional<Set<ColumnDescriptor>> candidateColumnsForDictionaryMatching = rowGroupInfo.candidateColumnsForDictionaryMatching();
+        if (indexPredicate.isPresent() && candidateColumnsForDictionaryMatching.isPresent()) {
+            ColumnDescriptor descriptor = field.getDescriptor();
+            PrunedBlockMetadata prunedBlockMetadata = rowGroupInfo.prunedBlockMetadata();
+            ColumnChunkMetadata columnMetaData = prunedBlockMetadata.getColumnChunkMetaData(descriptor);
+            if (candidateColumnsForDictionaryMatching.get().contains(descriptor) && isOnlyDictionaryEncodingPages(columnMetaData)) {
+                Statistics<?> columnStatistics = columnMetaData.getStatistics();
+                boolean nullAllowed = columnStatistics == null || columnStatistics.getNumNulls() != 0;
+                return indexPredicate.get().matches(new DictionaryDescriptor(
+                        descriptor,
+                        nullAllowed,
+                        Optional.ofNullable(dictionaryPage)));
+            }
+        }
+        return true;
     }
 
     protected abstract boolean isNonNull();
