@@ -197,7 +197,7 @@
         <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
         <dep.gib.version>4.5.6</dep.gib.version>
         <dep.httpcore5.version>5.3.6</dep.httpcore5.version>
-        <dep.iceberg.version>1.10.0</dep.iceberg.version>
+        <dep.iceberg.version>1.11.0-SNAPSHOT</dep.iceberg.version>
         <dep.jna.version>5.18.1</dep.jna.version>
         <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
@@ -2439,6 +2439,13 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <repositories>
+        <repository>
+            <id>apache-snapshots</id>
+            <url>https://repository.apache.org/content/repositories/snapshots</url>
+        </repository>
+    </repositories>
 
     <build>
         <pluginManagement>
