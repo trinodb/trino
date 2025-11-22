@@ -637,12 +637,12 @@ public class TestRedshiftTypeMapping
     public void testTimestampWithTimeZoneOverflow()
     {
         // The min timestamp with time zone value in Trino is smaller than Redshift
-        try (TestTable table = new TestTable(getTrinoExecutor(), "timestamp_tz_min", "(ts timestamp(3) with time zone)")) {
+        try (TestTable table = new TestTable(new TrinoSqlExecutorWithRetries(getQueryRunner()), "timestamp_tz_min", "(ts timestamp(3) with time zone)")) {
             assertQueryFails(
                     format("INSERT INTO %s VALUES (TIMESTAMP '-69387-04-22 03:45:14.752 UTC')", table.getName()),
                     "\\QMinimum timestamp with time zone in Redshift is -4712-01-01 00:00:00.000000: -69387-04-22 03:45:14.752000");
         }
-        try (TestTable table = new TestTable(getTrinoExecutor(), "timestamp_tz_min", "(ts timestamp(6) with time zone)")) {
+        try (TestTable table = new TestTable(new TrinoSqlExecutorWithRetries(getQueryRunner()), "timestamp_tz_min", "(ts timestamp(6) with time zone)")) {
             assertQueryFails(
                     format("INSERT INTO %s VALUES (TIMESTAMP '-69387-04-22 03:45:14.752000 UTC')", table.getName()),
                     "\\QMinimum timestamp with time zone in Redshift is -4712-01-01 00:00:00.000000: -69387-04-22 03:45:14.752000");
@@ -901,7 +901,7 @@ public class TestRedshiftTypeMapping
 
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutorWithRetries(getQueryRunner(), session), tableNamePrefix);
     }
 
     private static DataSetup redshiftCreateAndInsert(String tableNamePrefix)
