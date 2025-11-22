@@ -893,6 +893,26 @@ public abstract class BaseIcebergConnectorSmokeTest
         }
     }
 
+    @Test
+    public void testCreateTableWithIdentifierFields()
+    {
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            return;
+        }
+        try (TestTable table = newTrinoTable(
+                "test_identifier_fields",
+                " (id BIGINT NOT NULL, name VARCHAR NOT NULL) WITH (identifier_fields = ARRAY['id'])"))
+        {
+
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("identifier_fields = ARRAY['id']");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES identifier_fields = ARRAY['name']");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("identifier_fields = ARRAY['name']");
+        }
+    }
+
     protected void dropSchema(String schema)
             throws Exception
     {
