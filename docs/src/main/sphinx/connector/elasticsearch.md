@@ -239,7 +239,7 @@ For example, you can have an Elasticsearch index that contains documents with th
     "array_string_field": ["trino","the","lean","machine-ohs"],
     "long_field": 314159265359,
     "id_field": "564e6982-88ee-4498-aa98-df9e3f6b6109",
-    "timestamp_field": "1987-09-17T06:22:48.000Z",
+    "timestamp_field": "2025-09-17T06:22:48.000Z",
     "object_field": {
         "array_int_field": [86,75,309],
         "int_field": 2
