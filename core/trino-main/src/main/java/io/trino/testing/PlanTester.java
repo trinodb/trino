@@ -479,7 +479,7 @@ public class PlanTester
 
         exchangeManagerRegistry = new ExchangeManagerRegistry(noop(), noopTracer(), secretsResolver, new ExchangeManagerConfig());
         spoolingManagerRegistry = new SpoolingManagerRegistry(
-                new InternalNode("nodeId", URI.create("http://localhost:8080"), NodeVersion.UNKNOWN, false),
+                new InternalNode("nodeId", URI.create("http://localhost:8080"), NodeVersion.UNKNOWN, false, true),
                 new ServerConfig(),
                 new SpoolingEnabledConfig(),
                 noop(),

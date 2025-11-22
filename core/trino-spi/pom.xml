@@ -291,6 +291,12 @@
                                     <new>method void io.trino.spi.block.ShortArrayBlockEncoding::&lt;init&gt;(boolean)</new>
                                     <justification>ShortArrayBlockEncoding need to accept a parameter to enable SIMD support</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method boolean io.trino.spi.Node::isWorker()</new>
+                                    <justification>Added the boolean method isWorker</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

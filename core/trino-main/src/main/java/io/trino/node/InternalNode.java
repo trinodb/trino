@@ -13,6 +13,7 @@
  */
 package io.trino.node;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.XxHash64;
 import io.trino.client.NodeVersion;
 import io.trino.spi.HostAddress;
@@ -41,15 +42,23 @@ public class InternalNode
     private final URI internalUri;
     private final NodeVersion nodeVersion;
     private final boolean coordinator;
+    private final boolean worker;
     private final long longHashCode;
 
-    public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
+    @VisibleForTesting
+    InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
+    {
+        this(nodeIdentifier, internalUri, nodeVersion, coordinator, !coordinator);
+    }
+
+    public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator, boolean worker)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
         this.internalUri = requireNonNull(internalUri, "internalUri is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.coordinator = coordinator;
+        this.worker = worker;
         this.longHashCode = new XxHash64(coordinator ? 1 : 0)
                 .update(nodeIdentifier.getBytes(UTF_8))
                 .update(internalUri.toString().getBytes(UTF_8))
@@ -100,6 +109,12 @@ public class InternalNode
     public boolean isCoordinator()
     {
         return coordinator;
+    }
+
+    @Override
+    public boolean isWorker()
+    {
+        return worker;
     }
 
     public NodeVersion getNodeVersion()
