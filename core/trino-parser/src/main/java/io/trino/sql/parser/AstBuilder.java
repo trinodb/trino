@@ -379,6 +379,7 @@ import static io.trino.sql.tree.TableFunctionDescriptorArgument.descriptorArgume
 import static io.trino.sql.tree.TableFunctionDescriptorArgument.nullDescriptorArgument;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
@@ -2471,7 +2472,8 @@ class AstBuilder
     public Node visitCast(SqlBaseParser.CastContext context)
     {
         boolean isTryCast = context.TRY_CAST() != null;
-        return new Cast(getLocation(context), (Expression) visit(context.expression()), (DataType) visit(context.type()), isTryCast);
+        Expression expression = (Expression) visit(requireNonNullElse(context.expression(), context.primaryExpression()));
+        return new Cast(getLocation(context), expression, (DataType) visit(context.type()), isTryCast);
     }
 
     @Override
