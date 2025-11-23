@@ -57,4 +57,10 @@ class TestingNode
     {
         return false;
     }
+
+    @Override
+    public boolean isWorker()
+    {
+        return true;
+    }
 }
