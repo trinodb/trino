@@ -236,7 +236,9 @@ public final class CoordinatorNodeManager
                 .filter(InternalNode::isCoordinator)
                 .collect(toImmutableSet());
 
-        AllNodes allNodes = new AllNodes(activeNodes, inactiveNodes, drainingNodes, drainedNodes, shuttingDownNodes, coordinators);
+        int workerCount = activeNodes.size() - coordinators.size();
+
+        AllNodes allNodes = new AllNodes(activeNodes, inactiveNodes, drainingNodes, drainedNodes, shuttingDownNodes, coordinators, workerCount);
         // only update if all nodes actually changed (note: this does not include the connectors registered with the nodes)
         if (!allNodes.equals(this.allNodes)) {
             // assign allNodes to a local variable for use in the callback below
@@ -282,6 +284,18 @@ public final class CoordinatorNodeManager
     public int getShuttingDownNodeCount()
     {
         return getAllNodes().shuttingDownNodes().size();
+    }
+
+    @Managed
+    public int getActiveCoordinatorCount()
+    {
+        return getAllNodes().activeCoordinators().size();
+    }
+
+    @Managed
+    public long getActiveWorkerCount()
+    {
+        return getAllNodes().activeWorkerCount();
     }
 
     @VisibleForTesting

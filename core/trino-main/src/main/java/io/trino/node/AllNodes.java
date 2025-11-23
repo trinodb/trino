@@ -25,7 +25,8 @@ public record AllNodes(
         Set<InternalNode> drainingNodes,
         Set<InternalNode> drainedNodes,
         Set<InternalNode> shuttingDownNodes,
-        Set<InternalNode> activeCoordinators)
+        Set<InternalNode> activeCoordinators,
+        int activeWorkerCount)
 {
     public AllNodes
     {
