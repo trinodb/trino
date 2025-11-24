@@ -252,7 +252,7 @@
                                     <groupId>org.apache.hive</groupId>
                                     <artifactId>hive-jdbc</artifactId>
                                     <classifier>standalone</classifier>
-                                    <version>4.1.0</version>
+                                    <version>4.2.0</version>
                                     <type>jar</type>
                                     <outputDirectory>${project.build.directory}</outputDirectory>
                                     <destFileName>hive-jdbc.jar</destFileName>
