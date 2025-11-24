@@ -16,7 +16,7 @@ package io.trino.metastore;
 import io.trino.metastore.MeasuredHiveMetastore.MeasuredMetastoreFactory;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
 class TestMeasuredHiveMetastore
 {
