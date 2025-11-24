@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.block;
+package io.trino.testing.connector;
 
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -26,7 +26,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Locale.ENGLISH;
 
-public final class TestingSession
+public final class TestingConnectorSession
 {
     public static final ConnectorSession SESSION = new ConnectorSession()
     {
@@ -79,5 +79,5 @@ public final class TestingSession
         }
     };
 
-    private TestingSession() {}
+    private TestingConnectorSession() {}
 }
