@@ -211,14 +211,14 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(VARCHAR), page);
-        assertThat(pageSize).isEqualTo(48);
+        assertThat(pageSize).isEqualTo(44);
 
         // page with one value
         VARCHAR.writeString(builder, "alice");
         pageSize = 44; // Now we have moved to the normal block implementation so the page size overhead is 44
         page = new Page(builder.build());
         int firstValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - pageSize;
-        assertThat(firstValueSize).isEqualTo(8 + 5); // ending offsets + nonNullsCount + "alice"
+        assertThat(firstValueSize).isEqualTo(4 + 5); // ending offset + nonNullsCount + "alice"
 
         // page with two values
         VARCHAR.writeString(builder, "bob");

@@ -60,9 +60,7 @@ public class VariableWidthBlockEncoding
         int startingOffset = rawOffsets[arrayBaseOffset];
         int totalLength = rawOffsets[positionCount + arrayBaseOffset] - startingOffset;
 
-        sliceOutput
-                .appendInt(totalLength)
-                .writeBytes(variableWidthBlock.getRawSlice(), startingOffset, totalLength);
+        sliceOutput.writeBytes(variableWidthBlock.getRawSlice(), startingOffset, totalLength);
     }
 
     @Override
@@ -73,8 +71,8 @@ public class VariableWidthBlockEncoding
 
         int[] offsets = readOffsetsWithNullsCompacted(sliceInput, valueIsNull, positionCount);
 
-        int blockSize = sliceInput.readInt();
-        Slice slice = Slices.allocate(blockSize);
+        int sliceSize = offsets[offsets.length - 1];
+        Slice slice = Slices.allocate(sliceSize);
         sliceInput.readBytes(slice);
 
         return new VariableWidthBlock(0, positionCount, slice, offsets, valueIsNull);
