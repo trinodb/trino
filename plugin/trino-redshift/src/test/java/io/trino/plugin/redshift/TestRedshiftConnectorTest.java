@@ -862,7 +862,7 @@ public class TestRedshiftConnectorTest
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return TestingRedshiftServer::executeInRedshift;
+        return TestingRedshiftServer::executeInRedshiftWithRetry;
     }
 
     private SqlExecutor onRemoteDatabaseWithSchema(String schema)
