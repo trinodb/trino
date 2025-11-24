@@ -26,7 +26,7 @@ import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestChars
+final class TestChars
 {
     @Test
     public void testPadSpaces()

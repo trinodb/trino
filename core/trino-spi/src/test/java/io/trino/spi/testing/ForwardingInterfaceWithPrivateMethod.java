@@ -15,7 +15,7 @@ package io.trino.spi.testing;
 
 import static java.util.Objects.requireNonNull;
 
-public class ForwardingInterfaceWithPrivateMethod
+final class ForwardingInterfaceWithPrivateMethod
         implements InterfaceWithPrivateMethod
 {
     // Declared as field for brevity. In a typical Forwarding class this would be delegate() abstract method

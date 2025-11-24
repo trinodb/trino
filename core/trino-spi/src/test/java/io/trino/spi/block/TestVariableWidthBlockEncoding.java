@@ -20,7 +20,7 @@ import java.util.Random;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
-public class TestVariableWidthBlockEncoding
+final class TestVariableWidthBlockEncoding
         extends BaseBlockEncodingTest<String>
 {
     @Override

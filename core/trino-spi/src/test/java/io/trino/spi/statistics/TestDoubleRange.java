@@ -19,7 +19,7 @@ import static io.trino.spi.statistics.DoubleRange.union;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestDoubleRange
+class TestDoubleRange
 {
     @Test
     public void testRange()

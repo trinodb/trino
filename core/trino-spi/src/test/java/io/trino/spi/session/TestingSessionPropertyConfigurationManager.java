@@ -17,7 +17,7 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public class TestingSessionPropertyConfigurationManager
+final class TestingSessionPropertyConfigurationManager
         implements SessionPropertyConfigurationManager
 {
     private final Map<String, String> systemProperties;

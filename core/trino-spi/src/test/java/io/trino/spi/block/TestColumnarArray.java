@@ -33,7 +33,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestColumnarArray
+final class TestColumnarArray
 {
     private static final int[] ARRAY_SIZES = new int[] {16, 0, 13, 1, 2, 11, 4, 7};
     private static final ArrayType ARRAY_TYPE = new ArrayType(VARCHAR);

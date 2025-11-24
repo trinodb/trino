@@ -33,7 +33,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestColumnarMap
+final class TestColumnarMap
 {
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
     private static final MapType MAP_TYPE = new MapType(VARCHAR, VARCHAR, TYPE_OPERATORS);

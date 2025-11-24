@@ -26,7 +26,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestRowBlockBuilder
+final class TestRowBlockBuilder
         extends AbstractTestBlockBuilder<TestRowBlockBuilder.TestRow>
 {
     @Test

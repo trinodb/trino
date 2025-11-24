@@ -35,7 +35,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestRowBlockFieldExtraction
+final class TestRowBlockFieldExtraction
 {
     @Test
     public void testBlockFieldExtraction()
