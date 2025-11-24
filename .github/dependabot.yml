@@ -8,6 +8,4 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
-    assignees:
-      - wendigo
     open-pull-requests-limit: 10
