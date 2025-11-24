@@ -58,7 +58,6 @@ public final class FilesTableSplitSource
         this.partitionSpecsByIdJson = requireNonNull(partitionSpecsByIdJson, "partitionSpecsByIdJson is null");
         this.partitionColumnType = requireNonNull(partitionColumnType, "partitionColumnType is null");
         this.fileIoProperties = requireNonNull(fileIoProperties, "fileIoProperties is null");
-        this.finished = false;
     }
 
     @Override
