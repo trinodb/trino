@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeTable;
-import io.trino.plugin.deltalake.TestingComplexTypeManager;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.spi.connector.ColumnMetadata;
@@ -29,6 +28,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
 import org.junit.jupiter.api.Test;
@@ -72,7 +72,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 
 public class TestDeltaLakeSchemaSupport
 {
-    private static final TestingComplexTypeManager typeManager = new TestingComplexTypeManager();
+    private static final TestingTypeManager typeManager = new TestingTypeManager();
 
     @Test
     public void testSinglePrimitiveFieldSchema()

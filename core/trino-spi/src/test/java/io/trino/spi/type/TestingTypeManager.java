@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -29,7 +30,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
-public class TestingTypeManager
+public final class TestingTypeManager
         implements TypeManager
 {
     private static final List<Type> TYPES = ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, INTEGER, VARCHAR, VARBINARY, TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS, DATE, ID, HYPER_LOG_LOG);
@@ -44,7 +45,18 @@ public class TestingTypeManager
                 return type;
             }
         }
-        throw new TypeNotFoundException(signature);
+
+        return switch (signature.getBase()) {
+            case StandardTypes.MAP -> new MapType(
+                    getType(signature.getTypeParametersAsTypeSignatures().get(0)),
+                    getType(signature.getTypeParametersAsTypeSignatures().get(1)),
+                    typeOperators);
+            case StandardTypes.ARRAY -> new ArrayType(getType(signature.getTypeParametersAsTypeSignatures().get(0)));
+            case StandardTypes.ROW -> RowType.from(signature.getParameters().stream()
+                    .map(namedType -> new RowType.Field(namedType.getNamedTypeSignature().getName(), getType(namedType.getNamedTypeSignature().getTypeSignature())))
+                    .collect(toImmutableList()));
+            default -> throw new TypeNotFoundException(signature);
+        };
     }
 
     @Override
