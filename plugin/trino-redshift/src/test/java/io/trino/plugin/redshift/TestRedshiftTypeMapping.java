@@ -23,7 +23,6 @@ import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
-import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
@@ -36,16 +35,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.plugin.redshift.RedshiftClient.REDSHIFT_MAX_VARCHAR;
-import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_PASSWORD;
-import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_URL;
-import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_USER;
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
 import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshift;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -925,10 +920,7 @@ public class TestRedshiftTypeMapping
 
     private static SqlExecutor getRedshiftExecutor()
     {
-        Properties properties = new Properties();
-        properties.setProperty("user", JDBC_USER);
-        properties.setProperty("password", JDBC_PASSWORD);
-        return new JdbcSqlExecutor(JDBC_URL, properties);
+        return TestingRedshiftServer::executeInRedshiftWithRetry;
     }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)

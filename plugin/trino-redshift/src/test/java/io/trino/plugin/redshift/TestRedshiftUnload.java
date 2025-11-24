@@ -228,6 +228,6 @@ final class TestRedshiftUnload
 
     private static SqlExecutor onRemoteDatabase()
     {
-        return TestingRedshiftServer::executeInRedshift;
+        return TestingRedshiftServer::executeInRedshiftWithRetry;
     }
 }
