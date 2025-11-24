@@ -46,7 +46,7 @@ Trino supports [reproducible builds](https://reproducible-builds.org) as of vers
   * Note that some npm packages used to build the web UI are only available
     for x86 architectures, so if you're building on Apple Silicon, you need 
     to have Rosetta 2 installed
-* Java 24.0.1+, 64-bit
+* Java 25.0.1+, 64-bit
 * Docker
   * Turn SELinux or other systems disabling write access to the local checkout
     off, to allow containers to mount parts of the Trino source tree
