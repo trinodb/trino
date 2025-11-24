@@ -11,9 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.testing;
+package io.trino.testing;
 
 import com.google.common.collect.ImmutableSet;
+import org.assertj.core.api.Assertions;
+import org.assertj.core.api.Fail;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -26,8 +28,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.reflect.Reflection.newProxy;
 import static java.lang.String.format;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Fail.fail;
 
 public final class InterfaceTestUtils
 {
@@ -52,7 +52,7 @@ public final class InterfaceTestUtils
             try {
                 Method override = clazz.getDeclaredMethod(method.getName(), method.getParameterTypes());
                 if (!method.getReturnType().isAssignableFrom(override.getReturnType())) {
-                    fail(format("%s is not assignable from %s for method %s", method.getReturnType(), override.getReturnType(), method));
+                    Fail.fail(format("%s is not assignable from %s for method %s", method.getReturnType(), override.getReturnType(), method));
                 }
             }
             catch (NoSuchMethodException e) {
@@ -60,13 +60,13 @@ public final class InterfaceTestUtils
                     // ignored
                 }
                 else {
-                    fail(format("%s does not override [%s]", clazz.getName(), method));
+                    Fail.fail(format("%s does not override [%s]", clazz.getName(), method));
                 }
             }
         }
 
         if (!exclusions.isEmpty()) {
-            fail("Following exclusions are redundant: " + exclusions);
+            Fail.fail("Following exclusions are redundant: " + exclusions);
         }
     }
 
@@ -86,7 +86,7 @@ public final class InterfaceTestUtils
             }
             C forwardingInstance = forwardingInstanceFactory.apply(
                     newProxy(iface, (proxy, expectedMethod, expectedArguments) -> {
-                        assertThat(actualMethod.getName()).isEqualTo(expectedMethod.getName());
+                        Assertions.assertThat(actualMethod.getName()).isEqualTo(expectedMethod.getName());
                         // TODO assert arguments
 
                         if (actualMethod.getReturnType().isPrimitive()) {

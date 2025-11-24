@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.testing;
+package io.trino.testing;
 
 import org.junit.jupiter.api.Test;
 
@@ -26,8 +26,8 @@ class TestInterfaceTestUtils
     {
         assertThatThrownBy(() -> InterfaceTestUtils.assertAllMethodsOverridden(Interface.class, Implementation.class))
                 .isInstanceOf(AssertionError.class)
-                .hasMessage("io.trino.spi.testing.TestInterfaceTestUtils$Implementation does not override " +
-                        "[public default void io.trino.spi.testing.TestInterfaceTestUtils$Interface.foo(java.lang.String)]");
+                .hasMessage("io.trino.testing.TestInterfaceTestUtils$Implementation does not override " +
+                        "[public default void io.trino.testing.TestInterfaceTestUtils$Interface.foo(java.lang.String)]");
     }
 
     private interface Interface

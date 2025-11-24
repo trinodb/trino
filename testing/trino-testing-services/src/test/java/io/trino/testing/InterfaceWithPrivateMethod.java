@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.testing;
+package io.trino.testing;
 
 // Must be defined in separate compilation unit from the test to effectively test private methods access
 interface InterfaceWithPrivateMethod
