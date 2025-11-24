@@ -19,7 +19,7 @@ import java.util.Random;
 
 import static io.trino.spi.type.SmallintType.SMALLINT;
 
-public class TestShortArrayBlockEncoding
+final class TestShortArrayBlockEncoding
         extends BaseBlockEncodingTest<Short>
 {
     @Override

@@ -28,7 +28,7 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static java.lang.Math.signum;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestLongDecimalType
+final class TestLongDecimalType
 {
     private static final LongDecimalType TYPE = (LongDecimalType) LongDecimalType.createDecimalType(20, 10);
     private static final MethodHandle TYPE_COMPARISON = new TypeOperators().getComparisonUnorderedLastOperator(TYPE, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));

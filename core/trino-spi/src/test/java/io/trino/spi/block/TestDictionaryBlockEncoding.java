@@ -20,7 +20,7 @@ import static io.trino.spi.block.BlockTestUtils.assertBlockEquals;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestDictionaryBlockEncoding
+final class TestDictionaryBlockEncoding
 {
     private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
     private final Block dictionary = buildTestDictionary();

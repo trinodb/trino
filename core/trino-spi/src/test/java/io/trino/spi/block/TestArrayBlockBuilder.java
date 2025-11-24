@@ -26,7 +26,7 @@ import static java.lang.Long.BYTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestArrayBlockBuilder
+final class TestArrayBlockBuilder
         extends AbstractTestBlockBuilder<List<String>>
 {
     // ArrayBlockBuilder: isNull, offset, 3 * value (FixedWidthBlockBuilder: isNull, value)

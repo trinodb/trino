@@ -19,7 +19,7 @@ import java.util.Random;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 
-public class TestLongArrayBlockEncoding
+final class TestLongArrayBlockEncoding
         extends BaseBlockEncodingTest<Long>
 {
     @Override

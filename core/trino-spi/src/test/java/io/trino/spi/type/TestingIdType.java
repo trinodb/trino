@@ -15,7 +15,7 @@ package io.trino.spi.type;
 
 import io.trino.spi.block.Block;
 
-public class TestingIdType
+public final class TestingIdType
         extends AbstractLongType
 {
     public static final TestingIdType ID = new TestingIdType();

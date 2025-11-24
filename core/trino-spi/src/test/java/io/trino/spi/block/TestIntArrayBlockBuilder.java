@@ -16,7 +16,7 @@ package io.trino.spi.block;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TestIntArrayBlockBuilder
+final class TestIntArrayBlockBuilder
         extends AbstractTestBlockBuilder<Integer>
 {
     @Override

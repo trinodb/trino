@@ -24,7 +24,7 @@ import static io.trino.spi.type.Varchars.truncateToLength;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestVarchars
+final class TestVarchars
 {
     @Test
     public void testShortLengthEncoding()

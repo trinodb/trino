@@ -14,7 +14,7 @@
 package io.trino.spi.testing;
 
 // Must be defined in separate compilation unit from the test to effectively test private methods access
-public interface InterfaceWithPrivateMethod
+interface InterfaceWithPrivateMethod
 {
     void foo();
 

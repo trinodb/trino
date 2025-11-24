@@ -19,7 +19,7 @@ import java.util.Random;
 
 import static io.trino.spi.type.TinyintType.TINYINT;
 
-public class TestByteArrayBlockEncoding
+final class TestByteArrayBlockEncoding
         extends BaseBlockEncodingTest<Byte>
 {
     @Override

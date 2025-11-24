@@ -20,7 +20,7 @@ import java.math.BigInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestInt128
+final class TestInt128
 {
     @Test
     public void testFromBigEndian()

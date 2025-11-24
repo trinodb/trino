@@ -19,7 +19,7 @@ import java.io.Serializable;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestInterfaceTestUtils
+class TestInterfaceTestUtils
 {
     @Test
     public void testReportUnimplementedInterfaceMethod()

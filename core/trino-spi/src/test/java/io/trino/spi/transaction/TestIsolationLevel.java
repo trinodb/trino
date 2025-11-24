@@ -21,7 +21,7 @@ import static io.trino.spi.transaction.IsolationLevel.REPEATABLE_READ;
 import static io.trino.spi.transaction.IsolationLevel.SERIALIZABLE;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestIsolationLevel
+class TestIsolationLevel
 {
     @Test
     public void testMeetsRequirementOf()

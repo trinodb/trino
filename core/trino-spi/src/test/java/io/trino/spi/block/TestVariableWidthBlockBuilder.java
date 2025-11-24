@@ -29,7 +29,7 @@ import static java.lang.Math.ceil;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestVariableWidthBlockBuilder
+final class TestVariableWidthBlockBuilder
         extends AbstractTestBlockBuilder<String>
 {
     private static final int BLOCK_BUILDER_INSTANCE_SIZE = instanceSize(VariableWidthBlockBuilder.class);

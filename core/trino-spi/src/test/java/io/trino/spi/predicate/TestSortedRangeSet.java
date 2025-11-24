@@ -53,7 +53,7 @@ import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestSortedRangeSet
+class TestSortedRangeSet
 {
     @Test
     public void testEmptySet()
