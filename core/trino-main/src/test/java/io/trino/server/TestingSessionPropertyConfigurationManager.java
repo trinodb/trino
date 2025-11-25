@@ -11,7 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.session;
+package io.trino.server;
+
+import io.trino.spi.session.SessionConfigurationContext;
+import io.trino.spi.session.SessionPropertyConfigurationManager;
 
 import java.util.Map;
 
