@@ -653,6 +653,16 @@ public abstract class AbstractTestQueryFramework
                 });
     }
 
+    protected String getJsonExplainPlan(@Language("SQL") String query, ExplainType.Type planType)
+    {
+        QueryExplainer explainer = queryRunner.getQueryExplainer();
+        return newTransaction()
+                .singleStatement()
+                .execute(queryRunner.getDefaultSession(), session -> {
+                    return explainer.getJsonPlan(session, SQL_PARSER.createStatement(query), planType, emptyList(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                });
+    }
+
     protected final QueryRunner getQueryRunner()
     {
         checkState(queryRunner != null, "queryRunner not set");
