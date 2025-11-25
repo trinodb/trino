@@ -21,7 +21,7 @@ import io.trino.sql.tree.DateTimeDataType;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.IntervalDayTimeDataType;
+import io.trino.sql.tree.IntervalDataType;
 import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.NumericParameter;
@@ -55,9 +55,9 @@ class TreeNodes
         return new GenericDataType(location, new Identifier(location, identifier, false), ImmutableList.of());
     }
 
-    public static IntervalDayTimeDataType intervalType(NodeLocation location, IntervalDayTimeDataType.Field from, IntervalDayTimeDataType.Field to)
+    public static IntervalDataType intervalType(NodeLocation location, IntervalDataType.Field from, IntervalDataType.Field to)
     {
-        return new IntervalDayTimeDataType(location, from, to);
+        return new IntervalDataType(location, from, to);
     }
 
     public static DateTimeDataType dateTimeType(NodeLocation location, DateTimeDataType.Type kind, boolean withTimeZone)

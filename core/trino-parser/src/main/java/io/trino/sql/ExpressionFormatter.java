@@ -56,7 +56,7 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.IntervalDayTimeDataType;
+import io.trino.sql.tree.IntervalDataType;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
@@ -766,7 +766,7 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitIntervalDataType(IntervalDayTimeDataType node, Void context)
+        protected String visitIntervalDataType(IntervalDataType node, Void context)
         {
             StringBuilder builder = new StringBuilder();
 

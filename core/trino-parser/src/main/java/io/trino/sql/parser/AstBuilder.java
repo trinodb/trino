@@ -136,7 +136,7 @@ import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.Intersect;
-import io.trino.sql.tree.IntervalDayTimeDataType;
+import io.trino.sql.tree.IntervalDataType;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
@@ -3560,10 +3560,10 @@ class AstBuilder
                 .map(ParseTree::getText)
                 .orElse(from);
 
-        return new IntervalDayTimeDataType(
+        return new IntervalDataType(
                 getLocation(context),
-                IntervalDayTimeDataType.Field.valueOf(from.toUpperCase(ENGLISH)),
-                IntervalDayTimeDataType.Field.valueOf(to.toUpperCase(ENGLISH)));
+                IntervalDataType.Field.valueOf(from.toUpperCase(ENGLISH)),
+                IntervalDataType.Field.valueOf(to.toUpperCase(ENGLISH)));
     }
 
     @Override

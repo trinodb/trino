@@ -1011,7 +1011,7 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        protected Expression visitIntervalDataType(IntervalDayTimeDataType node, Context<C> context)
+        protected Expression visitIntervalDataType(IntervalDataType node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
                 Expression result = rewriter.rewriteIntervalDayTimeDataType(node, context.get(), ExpressionTreeRewriter.this);

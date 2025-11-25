@@ -45,7 +45,7 @@ import io.trino.sql.analyzer.TypeSignatureTranslator;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.DateTimeDataType;
 import io.trino.sql.tree.GenericDataType;
-import io.trino.sql.tree.IntervalDayTimeDataType;
+import io.trino.sql.tree.IntervalDataType;
 import io.trino.sql.tree.NumericParameter;
 import io.trino.sql.tree.RowDataType;
 
@@ -122,7 +122,7 @@ public final class ProtocolUtil
                         })
                         .collect(Collectors.joining(", ", dataType.getName().getValue() + "(", ")"));
             }
-            case IntervalDayTimeDataType _ -> ExpressionFormatter.formatExpression(type);
+            case IntervalDataType _ -> ExpressionFormatter.formatExpression(type);
         };
     }
 

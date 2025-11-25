@@ -31,7 +31,7 @@ import io.trino.sql.tree.DataTypeParameter;
 import io.trino.sql.tree.DateTimeDataType;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.IntervalDayTimeDataType;
+import io.trino.sql.tree.IntervalDataType;
 import io.trino.sql.tree.NumericParameter;
 import io.trino.sql.tree.RowDataType;
 
@@ -101,7 +101,7 @@ public final class TypeSignatureTranslator
     {
         return switch (type) {
             case DateTimeDataType dateTimeDataType -> toTypeSignature(dateTimeDataType, typeVariables);
-            case IntervalDayTimeDataType intervalDayTimeDataType -> toTypeSignature(intervalDayTimeDataType);
+            case IntervalDataType intervalDataType -> toTypeSignature(intervalDataType);
             case RowDataType rowDataType -> toTypeSignature(rowDataType, typeVariables);
             case GenericDataType genericDataType -> toTypeSignature(genericDataType, typeVariables);
         };
@@ -169,13 +169,13 @@ public final class TypeSignatureTranslator
         return new TypeSignature(ROW, parameters);
     }
 
-    private static TypeSignature toTypeSignature(IntervalDayTimeDataType type)
+    private static TypeSignature toTypeSignature(IntervalDataType type)
     {
-        if (type.getFrom() == IntervalDayTimeDataType.Field.YEAR && type.getTo() == IntervalDayTimeDataType.Field.MONTH) {
+        if (type.getFrom() == IntervalDataType.Field.YEAR && type.getTo() == IntervalDataType.Field.MONTH) {
             return INTERVAL_YEAR_MONTH.getTypeSignature();
         }
 
-        if (type.getFrom() == IntervalDayTimeDataType.Field.DAY && type.getTo() == IntervalDayTimeDataType.Field.SECOND) {
+        if (type.getFrom() == IntervalDataType.Field.DAY && type.getTo() == IntervalDataType.Field.SECOND) {
             return INTERVAL_DAY_TIME.getTypeSignature();
         }
 
@@ -229,8 +229,8 @@ public final class TypeSignatureTranslator
     static DataType toDataType(TypeSignature typeSignature)
     {
         return switch (typeSignature.getBase()) {
-            case INTERVAL_YEAR_TO_MONTH -> new IntervalDayTimeDataType(Optional.empty(), IntervalDayTimeDataType.Field.YEAR, IntervalDayTimeDataType.Field.MONTH);
-            case INTERVAL_DAY_TO_SECOND -> new IntervalDayTimeDataType(Optional.empty(), IntervalDayTimeDataType.Field.DAY, IntervalDayTimeDataType.Field.SECOND);
+            case INTERVAL_YEAR_TO_MONTH -> new IntervalDataType(Optional.empty(), IntervalDataType.Field.YEAR, IntervalDataType.Field.MONTH);
+            case INTERVAL_DAY_TO_SECOND -> new IntervalDataType(Optional.empty(), IntervalDataType.Field.DAY, IntervalDataType.Field.SECOND);
             case TIMESTAMP_WITH_TIME_ZONE -> new DateTimeDataType(
                     Optional.empty(),
                     DateTimeDataType.Type.TIMESTAMP,
