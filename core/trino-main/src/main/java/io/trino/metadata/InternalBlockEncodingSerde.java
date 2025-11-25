@@ -16,6 +16,7 @@ package io.trino.metadata;
 import com.google.inject.Inject;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.trino.simd.BlockEncodingSimdSupport;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.block.BlockEncodingSerde;
@@ -28,12 +29,15 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public final class InternalBlockEncodingSerde
         implements BlockEncodingSerde
 {
+    public static final BlockEncodingSerde TESTING_BLOCK_ENCODING_SERDE = new InternalBlockEncodingSerde(new BlockEncodingManager(new BlockEncodingSimdSupport(true)), TESTING_TYPE_MANAGER);
+
     private final Function<String, BlockEncoding> nameToEncoding; // for deserialization
     private final Function<Class<? extends Block>, BlockEncoding> blockToEncoding; // for serialization
     private final Function<TypeId, Type> types;

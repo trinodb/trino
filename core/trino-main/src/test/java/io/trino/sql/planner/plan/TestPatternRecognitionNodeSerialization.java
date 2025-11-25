@@ -24,7 +24,6 @@ import io.trino.block.BlockJsonSerde;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
@@ -55,6 +54,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
 import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -91,10 +91,10 @@ public class TestPatternRecognitionNodeSerialization
 
         provider.setJsonDeserializers(ImmutableMap.of(
                 Type.class, new TypeDeserializer(new TestingTypeManager()),
-                Block.class, new BlockJsonSerde.Deserializer(new TestingBlockEncodingSerde())));
+                Block.class, new BlockJsonSerde.Deserializer(TESTING_BLOCK_ENCODING_SERDE)));
 
         provider.setJsonSerializers(ImmutableMap.of(
-                Block.class, new BlockJsonSerde.Serializer(new TestingBlockEncodingSerde())));
+                Block.class, new BlockJsonSerde.Serializer(TESTING_BLOCK_ENCODING_SERDE)));
 
         VALUE_POINTER_CODEC = new JsonCodecFactory(provider).jsonCodec(ValuePointer.class);
         EXPRESSION_AND_VALUE_POINTERS_CODEC = new JsonCodecFactory(provider).jsonCodec(ExpressionAndValuePointers.class);

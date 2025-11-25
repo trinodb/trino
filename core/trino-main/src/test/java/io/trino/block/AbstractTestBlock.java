@@ -20,12 +20,10 @@ import io.airlift.slice.SliceOutput;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
-import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.MapHashTables;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 
@@ -42,7 +40,7 @@ import java.util.stream.IntStream;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,8 +48,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class AbstractTestBlock
 {
-    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new TestingBlockEncodingSerde(TESTING_TYPE_MANAGER::getType);
-
     protected <T> void assertBlock(Block block, T[] expectedValues)
     {
         assertBlockSize(block);
@@ -281,8 +277,8 @@ public abstract class AbstractTestBlock
     private static Block copyBlockViaBlockSerde(Block block)
     {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        BLOCK_ENCODING_SERDE.writeBlock(sliceOutput, block);
-        return BLOCK_ENCODING_SERDE.readBlock(sliceOutput.slice().getInput());
+        TESTING_BLOCK_ENCODING_SERDE.writeBlock(sliceOutput, block);
+        return TESTING_BLOCK_ENCODING_SERDE.readBlock(sliceOutput.slice().getInput());
     }
 
     protected static Slice[] createExpectedValues(int positionCount)

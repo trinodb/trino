@@ -28,7 +28,6 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.PageAssertions;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -55,6 +54,7 @@ import static io.trino.execution.buffer.PagesSerdeUtil.isSerializedPageCompresse
 import static io.trino.execution.buffer.PagesSerdeUtil.isSerializedPageEncrypted;
 import static io.trino.execution.buffer.PagesSerdes.createSpillingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -150,7 +150,7 @@ public class TestFileSingleStreamSpiller
         try {
             FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
                     executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                    new TestingBlockEncodingSerde(),
+                    TESTING_BLOCK_ENCODING_SERDE,
                     new SpillerStats(),
                     ImmutableList.of(spillPath.toPath()),
                     1,
@@ -220,7 +220,7 @@ public class TestFileSingleStreamSpiller
         try {
             // Set up serializer and memory tracking objects
             SpillerStats stats = new SpillerStats();
-            PagesSerdeFactory serdeFactory = createSpillingPagesSerdeFactory(new TestingBlockEncodingSerde(), NONE);
+            PagesSerdeFactory serdeFactory = createSpillingPagesSerdeFactory(TESTING_BLOCK_ENCODING_SERDE, NONE);
             LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
             PageSerializer serializer = serdeFactory.createSerializer(Optional.empty());
             PageDeserializer deserializer = serdeFactory.createDeserializer(Optional.empty());

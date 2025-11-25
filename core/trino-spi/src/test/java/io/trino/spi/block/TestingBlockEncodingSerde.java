@@ -29,7 +29,11 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
-// This class is exactly the same as BlockEncodingManager. They are in SPI and don't have access to InternalBlockEncodingSerde.
+/**
+ * This class is only meant to be used within the trino-spi module. For all other modules, use InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE
+ * <p>
+ * This class is does a similar job to BlockEncodingManager and InternalBlockEncodingSerde, but the latter is not accessible from this module.
+ */
 public final class TestingBlockEncodingSerde
         implements BlockEncodingSerde
 {
