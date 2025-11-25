@@ -24,7 +24,6 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
@@ -50,6 +49,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
+import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -628,7 +628,7 @@ class TestSqlFunctions
         }
 
         // verify routine hash does not fail
-        SqlRoutineHash.hash(routine, Hashing.sha256().newHasher(), new TestingBlockEncodingSerde());
+        SqlRoutineHash.hash(routine, Hashing.sha256().newHasher(), TESTING_BLOCK_ENCODING_SERDE);
 
         SqlRoutineCompiler compiler = new SqlRoutineCompiler(createTestingFunctionManager());
         SpecializedSqlScalarFunction sqlScalarFunction = compiler.compile(routine);

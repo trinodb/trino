@@ -39,7 +39,6 @@ import io.trino.json.ir.IrSizeMethod;
 import io.trino.json.ir.IrTypeMethod;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.RecursiveComparisonAssert;
@@ -56,6 +55,7 @@ import static io.trino.json.ir.IrArithmeticUnary.Sign.PLUS;
 import static io.trino.json.ir.IrConstantJsonSequence.EMPTY_SEQUENCE;
 import static io.trino.json.ir.IrConstantJsonSequence.singletonSequence;
 import static io.trino.json.ir.IrJsonNull.JSON_NULL;
+import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -71,7 +71,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJsonPath2016TypeSerialization
 {
-    public static final Type JSON_PATH_2016 = new JsonPath2016Type(new TypeDeserializer(TESTING_TYPE_MANAGER), new TestingBlockEncodingSerde());
+    public static final Type JSON_PATH_2016 = new JsonPath2016Type(new TypeDeserializer(TESTING_TYPE_MANAGER), TESTING_BLOCK_ENCODING_SERDE);
     private static final RecursiveComparisonConfiguration COMPARISON_CONFIGURATION = RecursiveComparisonConfiguration.builder().withStrictTypeChecking(true).build();
 
     @Test
