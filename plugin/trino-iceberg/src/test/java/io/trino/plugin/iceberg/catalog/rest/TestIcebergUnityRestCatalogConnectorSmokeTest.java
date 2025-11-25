@@ -22,10 +22,10 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -37,14 +37,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 final class TestIcebergUnityRestCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
-    private final Path warehouseLocation;
+    @TempDir
+    private static Path warehouseLocation;
+
     private UnityCatalogContainer unityCatalog;
 
     public TestIcebergUnityRestCatalogConnectorSmokeTest()
-            throws IOException
     {
         super(new IcebergConfig().getFileFormat().toIceberg());
-        warehouseLocation = Files.createTempDirectory(null);
     }
 
     @Override
@@ -62,7 +62,6 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        closeAfterClass(() -> deleteRecursively(warehouseLocation, ALLOW_INSECURE));
         unityCatalog = closeAfterClass(new UnityCatalogContainer("unity", "tpch"));
 
         DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()

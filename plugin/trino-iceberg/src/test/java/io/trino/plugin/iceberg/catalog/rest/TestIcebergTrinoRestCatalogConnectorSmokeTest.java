@@ -32,10 +32,10 @@ import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -56,7 +56,8 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestIcebergTrinoRestCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
-    private Path warehouseLocation;
+    @TempDir
+    private static Path warehouseLocation;
 
     private JdbcCatalog backend;
 
@@ -80,9 +81,6 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        warehouseLocation = Files.createTempDirectory(null);
-        closeAfterClass(() -> deleteRecursively(warehouseLocation, ALLOW_INSECURE));
-
         backend = closeAfterClass((JdbcCatalog) backendCatalog(warehouseLocation));
 
         DelegatingRestSessionCatalog delegatingCatalog = DelegatingRestSessionCatalog.builder()

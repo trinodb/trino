@@ -405,8 +405,6 @@ public abstract class BaseTrinoCatalogTest
             throws IOException
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
-        Path tmpDirectory = Files.createTempDirectory("iceberg_catalog_test_create_view_");
-        tmpDirectory.toFile().deleteOnExit();
 
         String namespace = "test_create_view_" + randomNameSuffix();
         String viewName = "viewName";

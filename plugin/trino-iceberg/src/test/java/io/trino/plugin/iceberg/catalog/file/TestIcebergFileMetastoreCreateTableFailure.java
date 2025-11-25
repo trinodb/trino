@@ -29,15 +29,13 @@ import io.trino.testing.DistributedQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,7 +51,9 @@ public class TestIcebergFileMetastoreCreateTableFailure
     private static final String ICEBERG_CATALOG = "iceberg";
     private static final String SCHEMA_NAME = "test_schema";
 
-    private Path dataDirectory;
+    @TempDir
+    private static Path dataDirectory;
+
     private HiveMetastore metastore;
     private final AtomicReference<RuntimeException> testException = new AtomicReference<>();
 
@@ -61,7 +61,6 @@ public class TestIcebergFileMetastoreCreateTableFailure
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        this.dataDirectory = Files.createTempDirectory("test_iceberg_create_table_failure");
         // Using FileHiveMetastore as approximation of HMS
         this.metastore = new FileHiveMetastore(
                 new NodeVersion("testversion"),
@@ -98,9 +97,6 @@ public class TestIcebergFileMetastoreCreateTableFailure
     {
         if (metastore != null) {
             metastore.dropDatabase(SCHEMA_NAME, true);
-        }
-        if (dataDirectory != null) {
-            deleteRecursively(dataDirectory, ALLOW_INSECURE);
         }
     }
 

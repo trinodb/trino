@@ -39,12 +39,12 @@ import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -72,8 +72,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestIcebergRegisterTableProcedure
         extends AbstractTestQueryFramework
 {
+    @TempDir
+    private static File metastoreDir;
+
     private HiveMetastore metastore;
-    private File metastoreDir;
     private TrinoFileSystem fileSystem;
     private Path dataDir;
 
@@ -81,8 +83,6 @@ public class TestIcebergRegisterTableProcedure
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        metastoreDir = Files.createTempDirectory("test_iceberg_register_table").toFile();
-        metastoreDir.deleteOnExit();
         metastore = createTestingFileHiveMetastore(HDFS_FILE_SYSTEM_FACTORY, Location.of(metastoreDir.getAbsolutePath()));
 
         // TODO: convert to IcebergQueryRunner when there is a replacement for HadoopTables that works with TrinoFileSystem

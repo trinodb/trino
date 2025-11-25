@@ -27,11 +27,11 @@ import org.apache.iceberg.BaseTable;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Isolated;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -52,8 +52,10 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 final class TestIcebergPolarisCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
+    @TempDir
+    private static Path warehouseLocation;
+
     private TestingPolarisCatalog polarisCatalog;
-    private Path warehouseLocation;
 
     public TestIcebergPolarisCatalogConnectorSmokeTest()
     {
@@ -74,7 +76,6 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        warehouseLocation = Files.createTempDirectory(null);
         polarisCatalog = closeAfterClass(new TestingPolarisCatalog(warehouseLocation.toString()));
 
         return IcebergQueryRunner.builder()

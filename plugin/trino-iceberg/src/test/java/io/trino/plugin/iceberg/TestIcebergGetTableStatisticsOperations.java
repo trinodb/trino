@@ -25,9 +25,9 @@ import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -45,7 +45,8 @@ public class TestIcebergGetTableStatisticsOperations
         extends AbstractTestQueryFramework
 {
     private QueryRunner queryRunner;
-    private Path metastoreDir;
+    @TempDir
+    private static Path metastoreDir;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -57,7 +58,6 @@ public class TestIcebergGetTableStatisticsOperations
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
 
-        metastoreDir = Files.createTempDirectory("test_iceberg_get_table_statistics_operations");
         queryRunner.installPlugin(new TestingIcebergPlugin(metastoreDir));
         queryRunner.createCatalog("iceberg", "iceberg", ImmutableMap.of());
 

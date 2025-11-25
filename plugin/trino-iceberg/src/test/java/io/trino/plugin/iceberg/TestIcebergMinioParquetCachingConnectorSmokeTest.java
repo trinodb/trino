@@ -14,39 +14,24 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Closer;
 import io.trino.filesystem.Location;
 import org.apache.iceberg.FileFormat;
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.io.TempDir;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 
 public class TestIcebergMinioParquetCachingConnectorSmokeTest
         extends BaseIcebergMinioConnectorSmokeTest
 {
-    private final Path cacheDirectory;
-    private final Closer closer = Closer.create();
+    @TempDir
+    private static Path cacheDirectory;
 
     TestIcebergMinioParquetCachingConnectorSmokeTest()
-            throws IOException
     {
         super(FileFormat.PARQUET);
-        cacheDirectory = Files.createTempDirectory("cache");
-        closer.register(() -> deleteRecursively(cacheDirectory, ALLOW_INSECURE));
-    }
-
-    @AfterAll
-    public void tearDown()
-            throws Exception
-    {
-        closer.close();
     }
 
     @Override

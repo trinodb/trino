@@ -25,6 +25,7 @@ import org.apache.iceberg.io.FileIO;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.GetTableVersionsResponse;
 import software.amazon.awssdk.services.glue.model.Table;
@@ -32,7 +33,6 @@ import software.amazon.awssdk.services.glue.model.TableInput;
 import software.amazon.awssdk.services.glue.model.TableVersion;
 
 import java.io.File;
-import java.nio.file.Files;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -59,6 +59,9 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestIcebergGlueCatalogSkipArchive
         extends AbstractTestQueryFramework
 {
+    @TempDir
+    private static File schemaDirectory;
+
     private final String schemaName = "test_iceberg_skip_archive_" + randomNameSuffix();
     private GlueClient glueClient;
 
@@ -67,9 +70,6 @@ public class TestIcebergGlueCatalogSkipArchive
             throws Exception
     {
         glueClient = GlueClient.create();
-        File schemaDirectory = Files.createTempDirectory("test_iceberg").toFile();
-        schemaDirectory.deleteOnExit();
-
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()

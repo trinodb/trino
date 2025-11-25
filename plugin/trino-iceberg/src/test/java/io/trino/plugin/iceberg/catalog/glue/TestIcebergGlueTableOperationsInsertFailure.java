@@ -33,12 +33,12 @@ import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.core.interceptor.Context;
 import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
 import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.services.glue.model.UpdateTableRequest;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -62,6 +62,8 @@ public class TestIcebergGlueTableOperationsInsertFailure
     private static final Logger LOG = Logger.get(TestIcebergGlueTableOperationsInsertFailure.class);
 
     private static final String ICEBERG_CATALOG = "iceberg";
+    @TempDir
+    private static Path dataDirectory;
 
     private final String schemaName = "test_iceberg_glue_" + randomNameSuffix();
 
@@ -76,9 +78,6 @@ public class TestIcebergGlueTableOperationsInsertFailure
                 .setSchema(schemaName)
                 .build();
         QueryRunner queryRunner = new StandaloneQueryRunner(session);
-
-        Path dataDirectory = Files.createTempDirectory("iceberg_data");
-        dataDirectory.toFile().deleteOnExit();
 
         queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory, Optional.of(new TestingGlueCatalogModule())));
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.<String, String>builder()

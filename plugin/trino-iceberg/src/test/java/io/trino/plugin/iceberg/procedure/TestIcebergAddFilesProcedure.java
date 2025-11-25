@@ -20,6 +20,7 @@ import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,13 +31,13 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 final class TestIcebergAddFilesProcedure
         extends AbstractTestQueryFramework
 {
-    private Path dataDirectory;
+    @TempDir
+    private static Path dataDirectory;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        dataDirectory = Files.createTempDirectory("_test_hidden");
         QueryRunner queryRunner = IcebergQueryRunner.builder()
                 .setMetastoreDirectory(dataDirectory.toFile())
                 .addIcebergProperty("iceberg.add-files-procedure.enabled", "true")

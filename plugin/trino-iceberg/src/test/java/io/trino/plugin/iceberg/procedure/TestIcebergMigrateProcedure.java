@@ -21,6 +21,7 @@ import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -39,13 +40,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestIcebergMigrateProcedure
         extends AbstractTestQueryFramework
 {
-    private Path dataDirectory;
+    @TempDir
+    private static Path dataDirectory;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        dataDirectory = Files.createTempDirectory("_test_hidden");
         QueryRunner queryRunner = IcebergQueryRunner.builder().setMetastoreDirectory(dataDirectory.toFile()).build();
         queryRunner.installPlugin(new TestingHivePlugin(dataDirectory));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()

@@ -21,12 +21,12 @@ import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.GetTablesResponse;
 import software.amazon.awssdk.services.glue.model.Table;
 
 import java.io.File;
-import java.nio.file.Files;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -41,15 +41,13 @@ public class TestIcebergGlueCatalogMaterializedView
 {
     private final String schemaName = "test_iceberg_materialized_view_" + randomNameSuffix();
 
-    private File schemaDirectory;
+    @TempDir
+    private static File schemaDirectory;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.schemaDirectory = Files.createTempDirectory("test_iceberg").toFile();
-        schemaDirectory.deleteOnExit();
-
         DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.of(

@@ -81,6 +81,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -8409,7 +8410,7 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testDropCorruptedTableWithHiveRedirection()
+    public void testDropCorruptedTableWithHiveRedirection(@TempDir File dataDirectory)
             throws Exception
     {
         String hiveRedirectionCatalog = "hive_with_redirections";
@@ -8418,9 +8419,6 @@ public abstract class BaseIcebergConnectorTest
         String tableName = "test_drop_corrupted_table_with_hive_redirection_" + randomNameSuffix();
         String hiveTableName = "%s.%s.%s".formatted(hiveRedirectionCatalog, schema, tableName);
         String icebergTableName = "%s.%s.%s".formatted(icebergCatalog, schema, tableName);
-
-        File dataDirectory = Files.createTempDirectory("test_corrupted_iceberg_table").toFile();
-        dataDirectory.deleteOnExit();
 
         Session icebergSession = testSessionBuilder()
                 .setCatalog(icebergCatalog)

@@ -25,11 +25,9 @@ import io.trino.sql.planner.assertions.BasePushdownPlanTest;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -46,7 +44,8 @@ public class TestMetadataQueryOptimization
 {
     private static final String ICEBERG_CATALOG = "iceberg";
     private static final String SCHEMA_NAME = "test_schema";
-    private File baseDir;
+    @TempDir
+    private static File baseDir;
 
     @Override
     protected PlanTester createPlanTester()
@@ -58,12 +57,6 @@ public class TestMetadataQueryOptimization
                 .setSystemProperty(TASK_MAX_WRITER_COUNT, "1")
                 .build();
 
-        try {
-            baseDir = Files.createTempDirectory(null).toFile();
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
         PlanTester planTester = PlanTester.create(session);
         planTester.installPlugin(new TestingIcebergPlugin(baseDir.toPath()));
         planTester.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of());

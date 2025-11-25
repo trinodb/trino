@@ -22,19 +22,19 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.testcontainers.containers.Network;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-
 public class TestIcebergNessieCatalogWithBearerAuth
         extends AbstractTestQueryFramework
 {
+    @TempDir
+    private static Path tempDir;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -53,9 +53,6 @@ public class TestIcebergNessieCatalogWithBearerAuth
 
         NessieContainer nessieContainer = closeAfterClass(NessieContainer.builder().withEnvVars(envVars).withNetwork(network).build());
         nessieContainer.start();
-
-        Path tempDir = Files.createTempDirectory("test_trino_nessie_catalog");
-        closeAfterClass(() -> deleteRecursively(tempDir, ALLOW_INSECURE));
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("iceberg.catalog.type", "nessie")

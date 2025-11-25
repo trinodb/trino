@@ -60,16 +60,14 @@ import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.Closeable;
 import java.io.File;
-import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -78,8 +76,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
@@ -109,7 +105,9 @@ public class TestIcebergSplitSource
                     .getSessionProperties())
             .build();
 
-    private File metastoreDir;
+    @TempDir
+    private static File metastoreDir;
+
     private TrinoFileSystemFactory fileSystemFactory;
     private TrinoCatalog catalog;
 
@@ -117,9 +115,6 @@ public class TestIcebergSplitSource
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        File tempDir = Files.createTempDirectory("test_iceberg_split_source").toFile();
-        this.metastoreDir = new File(tempDir, "iceberg_data");
-
         QueryRunner queryRunner = IcebergQueryRunner.builder()
                 .setInitialTables(NATION)
                 .setMetastoreDirectory(metastoreDir)
@@ -144,13 +139,6 @@ public class TestIcebergSplitSource
                 directExecutor());
 
         return queryRunner;
-    }
-
-    @AfterAll
-    public void tearDown()
-            throws IOException
-    {
-        deleteRecursively(metastoreDir.getParentFile().toPath(), ALLOW_INSECURE);
     }
 
     @Test

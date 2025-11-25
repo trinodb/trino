@@ -25,6 +25,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.nio.file.Path;
@@ -47,6 +48,8 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestSharedHiveThriftMetastore
         extends BaseSharedMetastoreTest
 {
+    @TempDir
+    private static Path dataDirectory;
     private static final String HIVE_CATALOG = "hive";
     private String bucketName;
 
@@ -71,9 +74,6 @@ public class TestSharedHiveThriftMetastore
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
-
-        Path dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
-        dataDirectory.toFile().deleteOnExit();
 
         queryRunner.installPlugin(new IcebergPlugin());
         queryRunner.createCatalog(

@@ -23,18 +23,15 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.io.File;
 import java.util.Map;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.getFileLocation;
 import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.isTrinoSchemaOrPermissions;
-import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.DATA;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.MANIFEST;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METADATA_JSON;
@@ -46,18 +43,18 @@ import static java.util.stream.Collectors.toCollection;
 public class TestIcebergMemoryCacheFileOperations
         extends AbstractTestQueryFramework
 {
+    @TempDir
+    private static File metastoreDirectory;
+
     private static final String TEST_SCHEMA = "test_memory_schema";
 
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        Path metastoreDirectory = Files.createTempDirectory(ICEBERG_CATALOG);
-        closeAfterClass(() -> deleteRecursively(metastoreDirectory, ALLOW_INSECURE));
-
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .put("iceberg.metadata-cache.enabled", "true")
-                .put("hive.metastore.catalog.dir", metastoreDirectory.toUri().toString())
+                .put("hive.metastore.catalog.dir", metastoreDirectory.getPath())
                 .buildOrThrow();
 
         DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()

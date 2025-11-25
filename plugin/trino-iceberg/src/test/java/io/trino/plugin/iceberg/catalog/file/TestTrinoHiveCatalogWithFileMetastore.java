@@ -33,22 +33,18 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TestingTypeManager;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
@@ -69,7 +65,9 @@ public class TestTrinoHiveCatalogWithFileMetastore
 {
     private static final Logger log = Logger.get(TestTrinoHiveCatalogWithFileMetastore.class);
 
-    private Path tempDir;
+    @TempDir
+    private static Path tempDir;
+
     private TrinoFileSystemFactory fileSystemFactory;
     private HiveMetastore metastore;
 
@@ -77,18 +75,10 @@ public class TestTrinoHiveCatalogWithFileMetastore
     public void setUp()
             throws Exception
     {
-        tempDir = Files.createTempDirectory("test_trino_hive_catalog");
         File metastoreDir = tempDir.resolve("iceberg_data").toFile();
         metastoreDir.mkdirs();
         fileSystemFactory = new LocalFileSystemFactory(metastoreDir.toPath());
         metastore = createTestingFileHiveMetastore(fileSystemFactory, Location.of("local:///"));
-    }
-
-    @AfterAll
-    public void tearDown()
-            throws IOException
-    {
-        deleteRecursively(tempDir, ALLOW_INSECURE);
     }
 
     @Override

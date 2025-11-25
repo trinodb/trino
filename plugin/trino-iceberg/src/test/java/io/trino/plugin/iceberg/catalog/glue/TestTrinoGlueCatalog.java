@@ -36,11 +36,11 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TestingTypeManager;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import software.amazon.awssdk.services.glue.GlueClient;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -219,12 +219,9 @@ public class TestTrinoGlueCatalog
     }
 
     @Test
-    public void testDefaultLocation()
+    public void testDefaultLocation(@TempDir Path tmpDirectory)
             throws IOException
     {
-        Path tmpDirectory = Files.createTempDirectory("test_glue_catalog_default_location_");
-        tmpDirectory.toFile().deleteOnExit();
-
         TrinoFileSystemFactory fileSystemFactory = HDFS_FILE_SYSTEM_FACTORY;
         GlueClient glueClient = GlueClient.create();
         IcebergGlueCatalogConfig catalogConfig = new IcebergGlueCatalogConfig();

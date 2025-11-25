@@ -27,19 +27,17 @@ import org.apache.iceberg.view.ViewBuilder;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -56,6 +54,8 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
     private static final String SCHEMA = "LeVeL1_" + randomNameSuffix();
     private static final String LOWERCASE_SCHEMA = SCHEMA.toLowerCase(ENGLISH);
     private static final Namespace NAMESPACE = Namespace.of(SCHEMA);
+    @TempDir
+    private static Path warehouseLocation;
 
     private JdbcCatalog backend;
 
@@ -63,9 +63,6 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Path warehouseLocation = Files.createTempDirectory(null);
-        closeAfterClass(() -> deleteRecursively(warehouseLocation, ALLOW_INSECURE));
-
         backend = closeAfterClass((JdbcCatalog) backendCatalog(warehouseLocation));
 
         DelegatingRestSessionCatalog delegatingCatalog = DelegatingRestSessionCatalog.builder()

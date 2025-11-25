@@ -54,11 +54,10 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -92,7 +91,9 @@ public class TestConnectorPushdownRulesWithIceberg
 
     private static final Type ROW_TYPE = RowType.from(asList(field("a", BIGINT), field("b", BIGINT)));
 
-    private File baseDir;
+    @TempDir
+    private static File baseDir;
+
     private HiveMetastore metastore;
     private CatalogHandle catalogHandle;
 
@@ -104,12 +105,6 @@ public class TestConnectorPushdownRulesWithIceberg
     @Override
     protected Optional<PlanTester> createPlanTester()
     {
-        try {
-            baseDir = Files.createTempDirectory("metastore").toFile();
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
         PlanTester planTester = PlanTester.create(ICEBERG_SESSION);
 
         InternalFunctionBundle.InternalFunctionBundleBuilder functions = InternalFunctionBundle.builder();

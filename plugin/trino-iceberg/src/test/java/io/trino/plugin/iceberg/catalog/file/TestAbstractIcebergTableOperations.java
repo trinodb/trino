@@ -20,12 +20,11 @@ import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import org.apache.iceberg.io.InputFile;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Optional;
 
 import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
@@ -36,13 +35,12 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 
 public class TestAbstractIcebergTableOperations
 {
+    @TempDir
+    private static File metastoreDir;
+
     @Test
     public void testS3ErrorReporting()
-            throws IOException
     {
-        Path tempDir = Files.createTempDirectory("test_s3_error_reporting");
-        File metastoreDir = tempDir.resolve("iceberg_data").toFile();
-        metastoreDir.mkdirs();
         TrinoFileSystemFactory fileSystemFactory = new LocalFileSystemFactory(metastoreDir.toPath());
         HiveMetastore metastore = createTestingFileHiveMetastore(fileSystemFactory, Location.of("local:///"));
 

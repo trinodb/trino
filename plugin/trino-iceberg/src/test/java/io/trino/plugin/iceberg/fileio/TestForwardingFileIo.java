@@ -18,12 +18,11 @@ import io.trino.filesystem.local.LocalFileSystemFactory;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.SupportsBulkOperations;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,10 +37,9 @@ public class TestForwardingFileIo
     }
 
     @Test
-    public void testUseFileSizeFromMetadata()
+    public void testUseFileSizeFromMetadata(@TempDir Path tempDir)
             throws Exception
     {
-        Path tempDir = Files.createTempDirectory("test_forwarding_fileio");
         Path filePath = tempDir.resolve("data.txt");
         Files.writeString(filePath, "test-data");
 
@@ -59,6 +57,5 @@ public class TestForwardingFileIo
             assertThat(usingFileIo.newInputFile("file:///data.txt", 1).getLength())
                     .isEqualTo(1);
         }
-        deleteRecursively(tempDir, ALLOW_INSECURE);
     }
 }

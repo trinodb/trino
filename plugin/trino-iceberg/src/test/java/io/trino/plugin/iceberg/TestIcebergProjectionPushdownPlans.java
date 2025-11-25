@@ -41,11 +41,9 @@ import io.trino.sql.planner.assertions.BasePushdownPlanTest;
 import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -78,7 +76,8 @@ public class TestIcebergProjectionPushdownPlans
 
     private static final String CATALOG = "iceberg";
     private static final String SCHEMA = "schema";
-    private File metastoreDir;
+    @TempDir
+    private static File metastoreDir;
 
     @Override
     protected PlanTester createPlanTester()
@@ -88,12 +87,6 @@ public class TestIcebergProjectionPushdownPlans
                 .setSchema(SCHEMA)
                 .build();
 
-        try {
-            metastoreDir = Files.createTempDirectory(null).toFile();
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
         PlanTester planTester = PlanTester.create(session);
         planTester.installPlugin(new TestingIcebergPlugin(metastoreDir.toPath()));
         planTester.createCatalog(CATALOG, "iceberg", ImmutableMap.of());

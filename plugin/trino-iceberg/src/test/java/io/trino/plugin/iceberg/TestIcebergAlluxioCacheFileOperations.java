@@ -23,18 +23,15 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.getCacheOperationSpans;
 import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.getFileLocation;
-import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.DATA;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.MANIFEST;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METADATA_JSON;
@@ -48,17 +45,15 @@ public class TestIcebergAlluxioCacheFileOperations
         extends AbstractTestQueryFramework
 {
     public static final String TEST_SCHEMA = "test_alluxio_schema";
-    private Path cacheDirectory;
+    @TempDir
+    private static Path cacheDirectory;
+    @TempDir
+    private static Path metastoreDirectory;
 
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        cacheDirectory = Files.createTempDirectory("cache");
-        closeAfterClass(() -> deleteRecursively(cacheDirectory, ALLOW_INSECURE));
-        Path metastoreDirectory = Files.createTempDirectory(ICEBERG_CATALOG);
-        closeAfterClass(() -> deleteRecursively(metastoreDirectory, ALLOW_INSECURE));
-
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .put("fs.cache.enabled", "true")
                 .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())

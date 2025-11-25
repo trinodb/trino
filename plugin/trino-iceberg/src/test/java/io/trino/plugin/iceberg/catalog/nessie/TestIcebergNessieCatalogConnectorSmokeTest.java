@@ -35,6 +35,7 @@ import org.apache.iceberg.nessie.NessieCatalog;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
@@ -64,7 +65,8 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 public class TestIcebergNessieCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
-    private Path tempDir;
+    @TempDir
+    private static Path tempDir;
     private NessieCatalog catalog;
 
     public TestIcebergNessieCatalogConnectorSmokeTest()
@@ -85,8 +87,6 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
     {
         NessieContainer nessieContainer = closeAfterClass(NessieContainer.builder().build());
         nessieContainer.start();
-
-        tempDir = Files.createTempDirectory("test_trino_nessie_catalog");
 
         catalog = (NessieCatalog) buildIcebergCatalog("tpch", ImmutableMap.<String, String>builder()
                         .put(CATALOG_IMPL, NessieCatalog.class.getName())

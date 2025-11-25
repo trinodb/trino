@@ -31,6 +31,7 @@ import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
@@ -61,8 +62,10 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestIcebergJdbcCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
+    @TempDir
+    private static File warehouseLocation;
+
     private JdbcCatalog jdbcCatalog;
-    private File warehouseLocation;
 
     public TestIcebergJdbcCatalogConnectorSmokeTest()
     {
@@ -84,8 +87,6 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        warehouseLocation = Files.createTempDirectory("test_iceberg_jdbc_catalog_smoke_test").toFile();
-        closeAfterClass(() -> deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE));
         TestingIcebergJdbcServer server = closeAfterClass(new TestingIcebergJdbcServer());
         jdbcCatalog = (JdbcCatalog) buildIcebergCatalog("tpch", ImmutableMap.<String, String>builder()
                         .put(CATALOG_IMPL, JdbcCatalog.class.getName())

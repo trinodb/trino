@@ -30,10 +30,10 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.jdbc.JdbcCatalog;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
@@ -55,7 +55,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
-    private Path warehouseLocation;
+    @TempDir
+    private static Path warehouseLocation;
+
     private JdbcCatalog backend;
 
     public TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest()
@@ -76,9 +78,6 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        warehouseLocation = Files.createTempDirectory(null);
-        closeAfterClass(() -> deleteRecursively(warehouseLocation, ALLOW_INSECURE));
-
         backend = closeAfterClass((JdbcCatalog) backendCatalog(warehouseLocation));
 
         DelegatingRestSessionCatalog delegatingCatalog = DelegatingRestSessionCatalog.builder()
