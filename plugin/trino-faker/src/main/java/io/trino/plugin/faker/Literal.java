@@ -39,7 +39,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.tree.IntervalLiteral;
+import io.trino.sql.tree.IntervalField;
 import io.trino.type.IntervalDayTimeType;
 import io.trino.type.IntervalYearMonthType;
 import io.trino.type.IpAddressType;
@@ -51,6 +51,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.time.LocalDate;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
@@ -130,10 +131,10 @@ public class Literal
         }
         // not supported: HYPER_LOG_LOG, QDIGEST, TDIGEST, P4_HYPER_LOG_LOG
         if (INTERVAL_DAY_TIME.equals(type)) {
-            return parseDayTimeInterval(value, IntervalLiteral.IntervalField.SECOND, Optional.empty());
+            return parseDayTimeInterval(value, new IntervalField.Second(OptionalInt.empty()), Optional.empty());
         }
         if (INTERVAL_YEAR_MONTH.equals(type)) {
-            return parseYearMonthInterval(value, IntervalLiteral.IntervalField.MONTH, Optional.empty());
+            return parseYearMonthInterval(value, new IntervalField.Month(), Optional.empty());
         }
         if (type instanceof TimestampType timestampType) {
             return parseTimestamp(timestampType.getPrecision(), value);
