@@ -8859,6 +8859,57 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testPartitionFilterRequiredSchemasWithRegex()
+    {
+        String schemaPrefix = "test_regex_filter_";
+        String schema1 = schemaPrefix + "schema1_" + randomNameSuffix();
+        String schema2 = schemaPrefix + "schema2_" + randomNameSuffix();
+        String otherSchema = "other_schema_" + randomNameSuffix();
+
+        Session session = Session.builder(withPartitionFilterRequired(getSession()))
+                .setCatalogSessionProperty("iceberg", "query_partition_filter_required_schemas", "[\"" + schemaPrefix + ".*\"]")
+                .build();
+
+        // Create schemas
+        assertUpdate(session, "CREATE SCHEMA " + schema1);
+        assertUpdate(session, "CREATE SCHEMA " + schema2);
+        assertUpdate(session, "CREATE SCHEMA " + otherSchema);
+
+        try {
+            // Create tables in schemas matching the regex pattern
+            assertUpdate(session, format("CREATE TABLE %s.test_table (id, a, ds) WITH (partitioning = ARRAY['ds']) AS SELECT 1, '1', '1'", schema1), 1);
+            assertUpdate(session, format("CREATE TABLE %s.test_table (id, a, ds) WITH (partitioning = ARRAY['ds']) AS SELECT 2, '2', '2'", schema2), 1);
+
+            // Create table in schema NOT matching the regex pattern
+            assertUpdate(session, format("CREATE TABLE %s.test_table (id, a, ds) WITH (partitioning = ARRAY['ds']) AS SELECT 3, '3', '3'", otherSchema), 1);
+
+            // Queries on tables in schemas matching regex should require partition filter
+            assertQueryFails(
+                    session,
+                    format("SELECT id FROM %s.test_table WHERE a = '1'", schema1),
+                    format("Filter required for %s\\.test_table on at least one of the partition columns: ds", schema1));
+
+            assertQueryFails(
+                    session,
+                    format("SELECT id FROM %s.test_table WHERE a = '2'", schema2),
+                    format("Filter required for %s\\.test_table on at least one of the partition columns: ds", schema2));
+
+            // Queries on tables in schemas NOT matching regex should succeed without partition filter
+            assertQuerySucceeds(session, format("SELECT id FROM %s.test_table WHERE a = '3'", otherSchema));
+
+            // Queries with partition filter should succeed
+            assertQuery(session, format("SELECT id FROM %s.test_table WHERE ds = '1'", schema1), "SELECT 1");
+            assertQuery(session, format("SELECT id FROM %s.test_table WHERE ds = '2'", schema2), "SELECT 2");
+        }
+        finally {
+            // Cleanup
+            assertUpdate(session, "DROP SCHEMA " + schema1 + " CASCADE");
+            assertUpdate(session, "DROP SCHEMA " + schema2 + " CASCADE");
+            assertUpdate(session, "DROP SCHEMA " + otherSchema + " CASCADE");
+        }
+    }
+
+    @Test
     public void testIgnorePartitionFilterRequiredSchemas()
     {
         String tableName = "test_partition_" + randomNameSuffix();

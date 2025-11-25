@@ -628,6 +628,65 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testQueryPartitionFilterRequiredSchemasWithRegex()
+    {
+        String schemaPrefix = "test_regex_filter_";
+        String schema1 = schemaPrefix + "schema1_" + randomNameSuffix();
+        String schema2 = schemaPrefix + "schema2_" + randomNameSuffix();
+        String otherSchema = "other_schema_" + randomNameSuffix();
+
+        Session session = Session.builder(getSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "true")
+                .setCatalogSessionProperty("hive", "query_partition_filter_required_schemas", format("[\"%s.*\"]", schemaPrefix))
+                .build();
+
+        // Create schemas
+        getQueryRunner().execute("CREATE SCHEMA " + schema1);
+        getQueryRunner().execute("CREATE SCHEMA " + schema2);
+        getQueryRunner().execute("CREATE SCHEMA " + otherSchema);
+
+        try {
+            // Create tables in schemas matching the regex pattern
+            assertUpdate(session, format("CREATE TABLE %s.test_table (id integer, ds varchar) WITH (partitioned_by = ARRAY['ds'])", schema1));
+            assertUpdate(session, format("INSERT INTO %s.test_table VALUES (1, 'a')", schema1), 1);
+
+            assertUpdate(session, format("CREATE TABLE %s.test_table (id integer, ds varchar) WITH (partitioned_by = ARRAY['ds'])", schema2));
+            assertUpdate(session, format("INSERT INTO %s.test_table VALUES (2, 'b')", schema2), 1);
+
+            // Create table in schema NOT matching the regex pattern
+            assertUpdate(session, format("CREATE TABLE %s.test_table (id integer, ds varchar) WITH (partitioned_by = ARRAY['ds'])", otherSchema));
+            assertUpdate(session, format("INSERT INTO %s.test_table VALUES (3, 'c')", otherSchema), 1);
+
+            // Queries on tables in schemas matching regex should require partition filter
+            assertQueryFails(
+                    session,
+                    format("SELECT id FROM %s.test_table WHERE id = 1", schema1),
+                    format("Filter required on %s\\.test_table for at least one partition column: ds", schema1));
+
+            assertQueryFails(
+                    session,
+                    format("SELECT id FROM %s.test_table WHERE id = 2", schema2),
+                    format("Filter required on %s\\.test_table for at least one partition column: ds", schema2));
+
+            // Queries on tables in schemas NOT matching regex should succeed without partition filter
+            assertQuery(session, format("SELECT id FROM %s.test_table WHERE id = 3", otherSchema), "SELECT 3");
+
+            // Queries with partition filter should succeed
+            assertQuery(session, format("SELECT id FROM %s.test_table WHERE ds = 'a'", schema1), "SELECT 1");
+            assertQuery(session, format("SELECT id FROM %s.test_table WHERE ds = 'b'", schema2), "SELECT 2");
+        }
+        finally {
+            // Cleanup
+            getQueryRunner().execute("DROP SCHEMA " + schema1 + " CASCADE");
+            getQueryRunner().execute("DROP SCHEMA " + schema2 + " CASCADE");
+            getQueryRunner().execute("DROP SCHEMA " + otherSchema + " CASCADE");
+        }
+    }
+
+    @Test
     public void testInvalidValueForQueryPartitionFilterRequiredSchemas()
     {
         assertQueryFails(
