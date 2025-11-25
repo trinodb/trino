@@ -17,7 +17,7 @@ import io.trino.spi.type.Type;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public final class BlockTestUtils
+final class BlockTestUtils
 {
     private BlockTestUtils() {}
 
