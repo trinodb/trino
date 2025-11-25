@@ -11,15 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.session;
+package io.trino.server;
 
 import io.trino.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
+import io.trino.spi.session.SessionPropertyConfigurationManager;
+import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
 
 import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public class TestingSessionPropertyConfigurationManagerFactory
+final class TestingSessionPropertyConfigurationManagerFactory
         implements SessionPropertyConfigurationManagerFactory
 {
     private final Map<String, String> systemProperties;
