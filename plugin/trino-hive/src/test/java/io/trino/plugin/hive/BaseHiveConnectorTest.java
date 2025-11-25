@@ -47,6 +47,7 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
@@ -1658,6 +1659,33 @@ public abstract class BaseHiveConnectorTest
 
             assertUpdate("DROP TABLE " + tableName);
         }
+    }
+
+    @Test
+    public void testIoExplainWithStructuralTypes()
+    {
+        assertUpdate("CREATE TABLE io_explain_test_structural_type(array_col ARRAY(int)) WITH (format='PARQUET')");
+        EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(0.0, 0.0, 0.0, 0.0, 0.0);
+        assertThat(getIoPlanCodec().fromJson((String) getOnlyElement(computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM io_explain_test_structural_type WHERE array_col = ARRAY[1]").getOnlyColumnAsSet())))
+                .isEqualTo(new IoPlan(
+                        ImmutableSet.of(new TableColumnInfo(
+                                new CatalogSchemaTableName(catalog, "tpch", "io_explain_test_structural_type"),
+                                new IoPlanPrinter.Constraint(
+                                        false,
+                                        ImmutableSet.of(
+                                                new ColumnConstraint(
+                                                        "array_col",
+                                                        new ArrayType(INTEGER),
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("<UNREPRESENTABLE VALUE>"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("<UNREPRESENTABLE VALUE>"), EXACTLY))))))),
+                                estimate)),
+                        Optional.empty(),
+                        estimate));
+        assertUpdate("DROP TABLE io_explain_test_structural_type");
     }
 
     @Test
