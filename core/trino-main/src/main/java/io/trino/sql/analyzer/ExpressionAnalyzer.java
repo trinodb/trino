@@ -79,6 +79,7 @@ import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentDate;
 import io.trino.sql.tree.CurrentPath;
@@ -103,7 +104,9 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
+import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
+import io.trino.sql.tree.IntervalQualifier;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.JsonArray;
@@ -142,6 +145,7 @@ import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
+import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SortItem.Ordering;
@@ -172,6 +176,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -225,6 +230,7 @@ import static io.trino.spi.StandardErrorCode.NESTED_WINDOW;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
@@ -1266,13 +1272,18 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitIntervalLiteral(IntervalLiteral node, Context context)
         {
-            Type type;
-            if (node.isYearToMonth()) {
-                type = INTERVAL_YEAR_MONTH;
-            }
-            else {
-                type = INTERVAL_DAY_TIME;
-            }
+            validateIntervalQualifier(node.qualifier());
+
+            IntervalField field = switch (node.qualifier()) {
+                case SimpleIntervalQualifier simple -> simple.getField();
+                case CompositeIntervalQualifier composite -> composite.getTo(); // we only need to check one. The other one is validated in validateIntervalQualifier
+            };
+
+            Type type = switch (field) {
+                case IntervalField.Year(), IntervalField.Month() -> INTERVAL_YEAR_MONTH;
+                case IntervalField.Day(), IntervalField.Hour(), IntervalField.Minute(), IntervalField.Second(OptionalInt _) -> INTERVAL_DAY_TIME;
+            };
+
             try {
                 literalInterpreter.evaluate(node, type);
             }
@@ -3425,6 +3436,37 @@ public class ExpressionAnalyzer
         private void addOrReplaceExpressionsCoercion(Collection<NodeRef<Expression>> expressions, Type superType)
         {
             expressions.forEach(expression -> expressionCoercions.put(expression, superType));
+        }
+    }
+
+    private static void validateIntervalQualifier(IntervalQualifier qualifier)
+    {
+        if (qualifier instanceof CompositeIntervalQualifier composite) {
+            boolean valid = (composite.getFrom() instanceof IntervalField.Year() && composite.getTo() instanceof IntervalField.Month()) ||
+                    (composite.getFrom() instanceof IntervalField.Day() && (
+                            composite.getTo() instanceof IntervalField.Hour() ||
+                            composite.getTo() instanceof IntervalField.Minute() ||
+                            composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
+                    (composite.getFrom() instanceof IntervalField.Hour() && (
+                            composite.getTo() instanceof IntervalField.Minute() ||
+                            composite.getTo() instanceof IntervalField.Second(OptionalInt _))) ||
+                    (composite.getFrom() instanceof IntervalField.Minute() && composite.getTo() instanceof IntervalField.Second(OptionalInt _));
+
+            if (!valid) {
+                throw semanticException(SYNTAX_ERROR, qualifier, "Invalid INTERVAL qualifier");
+            }
+        }
+
+        if (qualifier instanceof SimpleIntervalQualifier simple && (
+                simple.getPrecision().isPresent() ||
+                        (simple.getField() instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()))) {
+            throw semanticException(NOT_SUPPORTED, qualifier, "Only INTERVAL literals with default precision are supported");
+        }
+
+        if (qualifier instanceof CompositeIntervalQualifier composite && (
+                composite.getPrecision().isPresent() ||
+                        (composite.getTo() instanceof IntervalField.Second(OptionalInt fractionalPrecision) && fractionalPrecision.isPresent()))) {
+            throw semanticException(NOT_SUPPORTED, qualifier, "Only INTERVAL literals with default precision are supported");
         }
     }
 
