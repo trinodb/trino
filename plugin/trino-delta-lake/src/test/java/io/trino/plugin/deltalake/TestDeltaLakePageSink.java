@@ -32,7 +32,6 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSink;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.tpch.LineItem;
@@ -71,6 +70,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.round;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
@@ -192,7 +192,7 @@ public class TestDeltaLakePageSink
                 new FileFormatDataSourceStats(),
                 deltaLakeConfig,
                 new ParquetReaderConfig(),
-                new TestingTypeManager(),
+                TESTING_TYPE_MANAGER,
                 new NodeVersion("test-version"));
 
         return provider.createPageSink(transaction, SESSION, tableHandle, TESTING_PAGE_SINK_ID);

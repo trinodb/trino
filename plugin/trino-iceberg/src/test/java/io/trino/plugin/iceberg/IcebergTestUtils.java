@@ -54,7 +54,6 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SourcePage;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
@@ -240,7 +239,7 @@ public final class IcebergTestUtils
                 new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
                 fileSystemFactory,
                 FILE_IO_FACTORY,
-                new TestingTypeManager(),
+                TESTING_TYPE_MANAGER,
                 tableOperationsProvider,
                 false,
                 false,

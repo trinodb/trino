@@ -30,6 +30,9 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
+/**
+ * This class is only meant to be used within the trino-spi module. For all other modules, use InternalTypeManager.TESTING_TYPE_MANAGER
+ */
 public final class TestingTypeManager
         implements TypeManager
 {

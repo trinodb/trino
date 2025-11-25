@@ -28,7 +28,6 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
 import org.junit.jupiter.api.Test;
@@ -65,6 +64,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_SECONDS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -72,8 +72,6 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 
 public class TestDeltaLakeSchemaSupport
 {
-    private static final TestingTypeManager typeManager = new TestingTypeManager();
-
     @Test
     public void testSinglePrimitiveFieldSchema()
     {
@@ -111,7 +109,7 @@ public class TestDeltaLakeSchemaSupport
 
     private void testSinglePrimitiveFieldSchema(String json, ColumnMetadata metadata)
     {
-        List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE, List.of()).stream()
+        List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, TESTING_TYPE_MANAGER, ColumnMappingMode.NONE, List.of()).stream()
                 .map(DeltaLakeColumnMetadata::columnMetadata)
                 .collect(toImmutableList());
         assertThat(schema).hasSize(1);
@@ -141,7 +139,7 @@ public class TestDeltaLakeSchemaSupport
         URL expected = getResource("io/trino/plugin/deltalake/transactionlog/schema/complex_schema.json");
         String json = Files.readString(Path.of(expected.toURI()));
 
-        List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE, List.of()).stream()
+        List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, TESTING_TYPE_MANAGER, ColumnMappingMode.NONE, List.of()).stream()
                 .map(DeltaLakeColumnMetadata::columnMetadata)
                 .collect(toImmutableList());
         assertThat(schema).hasSize(5);
@@ -252,7 +250,7 @@ public class TestDeltaLakeSchemaSupport
         URL expected = getResource("io/trino/plugin/deltalake/transactionlog/schema/complex_schema.json");
         String json = Files.readString(Path.of(expected.toURI()));
 
-        List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE, List.of()).stream()
+        List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, TESTING_TYPE_MANAGER, ColumnMappingMode.NONE, List.of()).stream()
                 .map(DeltaLakeColumnMetadata::columnMetadata)
                 .collect(toImmutableList());
 

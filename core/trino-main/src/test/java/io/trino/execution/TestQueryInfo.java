@@ -42,8 +42,6 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.SelectedRole;
-import io.trino.spi.type.TestingTypeManager;
-import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolKeyDeserializer;
@@ -63,14 +61,13 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryState.FINISHED;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestQueryInfo
 {
-    private static final TypeManager TYPE_MANAGER = new TestingTypeManager();
-
     @Test
     public void testQueryInfoRoundTrip()
     {
@@ -83,7 +80,7 @@ public class TestQueryInfo
                                 TypeSignature.class, new TypeSignatureDeserializer()))
                         .withKeyDeserializers(Map.of(
                                 TypeSignature.class, new TypeSignatureKeyDeserializer(),
-                                Symbol.class, new SymbolKeyDeserializer(TYPE_MANAGER))))
+                                Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER))))
                 .jsonCodec(QueryInfo.class);
 
         QueryInfo expected = createQueryInfo(Optional.empty());

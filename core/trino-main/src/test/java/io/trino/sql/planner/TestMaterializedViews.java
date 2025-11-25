@@ -36,9 +36,7 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.transaction.IsolationLevel;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeParameter;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
@@ -84,6 +82,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingMetadata.STALE_MV_STALENESS;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMaterializedViews
@@ -106,8 +105,6 @@ public class TestMaterializedViews
 
         PlanTester planTester = PlanTester.create(sessionBuilder.build());
         planTester.createCatalog(TEST_CATALOG_NAME, new StaticConnectorFactory("test", new TestMaterializedViewConnector(testingConnectorMetadata)), ImmutableMap.of());
-
-        TypeManager typeManager = new TestingTypeManager();
 
         Metadata metadata = planTester.getPlannerContext().getMetadata();
         SchemaTableName testTable = new SchemaTableName(SCHEMA, "test_table");
@@ -152,7 +149,7 @@ public class TestMaterializedViews
             return null;
         });
 
-        Type timestampWithTimezone3 = TIMESTAMP_WITH_TIME_ZONE.createType(typeManager, ImmutableList.of(TypeParameter.of(3)));
+        Type timestampWithTimezone3 = TIMESTAMP_WITH_TIME_ZONE.createType(TESTING_TYPE_MANAGER, ImmutableList.of(TypeParameter.of(3)));
         SchemaTableName timestampTest = new SchemaTableName(SCHEMA, "timestamp_test");
         planTester.inTransaction(session -> {
             metadata.createTable(

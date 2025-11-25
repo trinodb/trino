@@ -28,7 +28,6 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
-import io.trino.spi.type.TestingTypeManager;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.nessie.NessieIcebergClient;
 import org.junit.jupiter.api.AfterAll;
@@ -55,6 +54,7 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -116,7 +116,7 @@ public class TestTrinoNessieCatalog
         NessieIcebergClient nessieClient = new NessieIcebergClient(nessieApi, icebergNessieCatalogConfig.getDefaultReferenceName(), null, ImmutableMap.of());
         return new TrinoNessieCatalog(
                 new CatalogName("catalog_name"),
-                new TestingTypeManager(),
+                TESTING_TYPE_MANAGER,
                 fileSystemFactory,
                 FILE_IO_FACTORY,
                 new IcebergNessieTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, nessieClient),
@@ -141,7 +141,7 @@ public class TestTrinoNessieCatalog
         NessieIcebergClient nessieClient = new NessieIcebergClient(nessieApi, icebergNessieCatalogConfig.getDefaultReferenceName(), null, ImmutableMap.of());
         TrinoCatalog catalogWithDefaultLocation = new TrinoNessieCatalog(
                 new CatalogName("catalog_name"),
-                new TestingTypeManager(),
+                TESTING_TYPE_MANAGER,
                 fileSystemFactory,
                 FILE_IO_FACTORY,
                 new IcebergNessieTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY, nessieClient),

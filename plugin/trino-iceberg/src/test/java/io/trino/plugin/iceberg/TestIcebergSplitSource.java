@@ -40,7 +40,6 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
@@ -91,6 +90,7 @@ import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDele
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -135,7 +135,7 @@ public class TestIcebergSplitSource
                 new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
                 fileSystemFactory,
                 FILE_IO_FACTORY,
-                new TestingTypeManager(),
+                TESTING_TYPE_MANAGER,
                 new FileMetastoreTableOperationsProvider(fileSystemFactory, FILE_IO_FACTORY),
                 false,
                 false,
@@ -205,7 +205,7 @@ public class TestIcebergSplitSource
                 },
                 new Duration(2, SECONDS),
                 alwaysTrue(),
-                new TestingTypeManager(),
+                TESTING_TYPE_MANAGER,
                 false,
                 new IcebergConfig().getMinimumAssignedSplitWeight(),
                 new DefaultCachingHostAddressProvider(),
@@ -431,7 +431,7 @@ public class TestIcebergSplitSource
                 dynamicFilter,
                 new Duration(0, SECONDS),
                 alwaysTrue(),
-                new TestingTypeManager(),
+                TESTING_TYPE_MANAGER,
                 false,
                 0,
                 new DefaultCachingHostAddressProvider(),
