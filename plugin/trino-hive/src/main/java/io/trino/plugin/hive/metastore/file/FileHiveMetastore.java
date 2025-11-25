@@ -27,6 +27,7 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveBasicStatistics;
@@ -59,7 +60,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.RoleGrant;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -83,7 +83,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -1400,14 +1399,15 @@ public class FileHiveMetastore
     private <T> Optional<T> readFile(String type, Location file, JsonCodec<T> codec)
     {
         try {
-            try (InputStream inputStream = fileSystem.newInputFile(file).newStream()) {
+            TrinoInputFile inputFile = fileSystem.newInputFile(file);
+            if (!inputFile.exists()) {
+                return Optional.empty();
+            }
+            try (InputStream inputStream = inputFile.newStream()) {
                 return Optional.of(codec.fromJson(inputStream));
             }
         }
         catch (Exception e) {
-            if (getCausalChain(e).stream().anyMatch(FileNotFoundException.class::isInstance)) {
-                return Optional.empty();
-            }
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not read %s from %s".formatted(type, file), e);
         }
     }
