@@ -366,6 +366,7 @@ jobs:
             !:trino-filesystem-gcs,
             !:trino-filesystem-manager,
             !:trino-filesystem-s3,
+            !:trino-firebird,
             !:trino-geospatial,
             !:trino-google-sheets,
             !:trino-hdfs,
@@ -488,6 +489,7 @@ jobs:
             - { modules: plugin/trino-duckdb }
             - { modules: plugin/trino-elasticsearch }
             - { modules: plugin/trino-exasol }
+            - { modules: plugin/trino-firebird }
             - { modules: plugin/trino-google-sheets }
             - { modules: plugin/trino-hive }
             - { modules: plugin/trino-hive, profile: fte-tests }

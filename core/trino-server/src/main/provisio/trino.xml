@@ -85,6 +85,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/firebird">
+        <artifact id="${project.groupId}:trino-firebird:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/google-sheets">
         <artifact id="${project.groupId}:trino-google-sheets:zip:${project.version}">
             <unpack />

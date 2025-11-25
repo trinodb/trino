@@ -70,7 +70,8 @@ public enum TestingConnectorBehavior
 
     SUPPORTS_DEREFERENCE_PUSHDOWN(SUPPORTS_ROW_TYPE),
 
-    SUPPORTS_CREATE_SCHEMA,
+    SUPPORTS_SCHEMA(true),
+    SUPPORTS_CREATE_SCHEMA(SUPPORTS_SCHEMA),
     // Expect rename to be supported when create schema is supported, to help make connector implementations coherent.
     SUPPORTS_RENAME_SCHEMA(SUPPORTS_CREATE_SCHEMA),
     SUPPORTS_DROP_SCHEMA_CASCADE(SUPPORTS_CREATE_SCHEMA),
