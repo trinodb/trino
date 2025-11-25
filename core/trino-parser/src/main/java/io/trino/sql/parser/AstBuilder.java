@@ -50,6 +50,7 @@ import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.CommentCharacteristic;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.CompoundStatement;
 import io.trino.sql.tree.ControlStatement;
 import io.trino.sql.tree.Corresponding;
@@ -137,7 +138,9 @@ import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.Intersect;
 import io.trino.sql.tree.IntervalDataType;
+import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
+import io.trino.sql.tree.IntervalQualifier;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.Isolation;
@@ -274,6 +277,7 @@ import io.trino.sql.tree.ShowStats;
 import io.trino.sql.tree.ShowTables;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SimpleGroupBy;
+import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.SingleColumn;
 import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
@@ -320,7 +324,6 @@ import io.trino.sql.tree.ZeroOrOneQuantifier;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RuleContext;
 import org.antlr.v4.runtime.Token;
-import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.ArrayDeque;
@@ -329,6 +332,7 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.IntStream;
@@ -338,6 +342,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.grammar.sql.SqlBaseLexer.DAY;
+import static io.trino.grammar.sql.SqlBaseLexer.HOUR;
+import static io.trino.grammar.sql.SqlBaseLexer.MINUTE;
+import static io.trino.grammar.sql.SqlBaseLexer.MONTH;
+import static io.trino.grammar.sql.SqlBaseLexer.SECOND;
+import static io.trino.grammar.sql.SqlBaseLexer.YEAR;
 import static io.trino.grammar.sql.SqlBaseParser.TIME;
 import static io.trino.grammar.sql.SqlBaseParser.TIMESTAMP;
 import static io.trino.sql.tree.AnchorPattern.Type.PARTITION_END;
@@ -3458,17 +3468,14 @@ class AstBuilder
     @Override
     public Node visitInterval(SqlBaseParser.IntervalContext context)
     {
+        IntervalQualifier qualifier = (IntervalQualifier) visit(context.intervalQualifier());
         return new IntervalLiteral(
                 getLocation(context),
                 visitString(context.string()).getValue(),
                 Optional.ofNullable(context.sign)
                         .map(AstBuilder::getIntervalSign)
                         .orElse(IntervalLiteral.Sign.POSITIVE),
-                getIntervalFieldType((Token) context.from.getChild(0).getPayload()),
-                Optional.ofNullable(context.to)
-                        .map((x) -> x.getChild(0).getPayload())
-                        .map(Token.class::cast)
-                        .map(AstBuilder::getIntervalFieldType));
+                qualifier);
     }
 
     @Override
@@ -3555,15 +3562,89 @@ class AstBuilder
     @Override
     public Node visitIntervalType(SqlBaseParser.IntervalTypeContext context)
     {
-        String from = context.from.getText();
-        String to = Optional.ofNullable((ParserRuleContext) context.to)
-                .map(ParseTree::getText)
-                .orElse(from);
-
         return new IntervalDataType(
                 getLocation(context),
-                IntervalDataType.Field.valueOf(from.toUpperCase(ENGLISH)),
-                IntervalDataType.Field.valueOf(to.toUpperCase(ENGLISH)));
+                (IntervalQualifier) visit(context.intervalQualifier()));
+    }
+
+    @Override
+    public Node visitCompositeYearToMonthInterval(SqlBaseParser.CompositeYearToMonthIntervalContext context)
+    {
+        return new CompositeIntervalQualifier(
+                getLocation(context),
+                context.precision != null ? OptionalInt.of(Integer.parseInt(context.precision.getText())) : OptionalInt.empty(),
+                new IntervalField.Year(),
+                new IntervalField.Month());
+    }
+
+    @Override
+    public Node visitSimpleYearMonthInterval(SqlBaseParser.SimpleYearMonthIntervalContext context)
+    {
+        return new SimpleIntervalQualifier(
+                getLocation(context),
+                context.precision != null ? OptionalInt.of(Integer.parseInt(context.precision.getText())) : OptionalInt.empty(),
+                switch (context.field.getType()) {
+                    case YEAR -> new IntervalField.Year();
+                    case MONTH -> new IntervalField.Month();
+                    default -> throw parseError("Unexpected year-month interval field: " + context.field.getText(), context);
+                });
+    }
+
+    @Override
+    public Node visitSimpleDayTimeInterval(SqlBaseParser.SimpleDayTimeIntervalContext context)
+    {
+        return new SimpleIntervalQualifier(
+                getLocation(context),
+                context.precision != null ? OptionalInt.of(Integer.parseInt(context.precision.getText())) : OptionalInt.empty(),
+                switch (context.field.getType()) {
+                    case DAY -> new IntervalField.Day();
+                    case HOUR -> new IntervalField.Hour();
+                    case MINUTE -> new IntervalField.Minute();
+                    default -> throw parseError("Unexpected day-time interval field: " + context.field.getText(), context);
+                });
+    }
+
+    @Override
+    public Node visitSecondsDayTimeInterval(SqlBaseParser.SecondsDayTimeIntervalContext context)
+    {
+        return new SimpleIntervalQualifier(
+                getLocation(context),
+                context.leadingPrecision != null ? OptionalInt.of(Integer.parseInt(context.leadingPrecision.getText())) : OptionalInt.empty(),
+                new IntervalField.Second(
+                        context.fractionalPrecision != null ? OptionalInt.of(Integer.parseInt(context.fractionalPrecision.getText())) : OptionalInt.empty()));
+    }
+
+    @Override
+    public Node visitCompositeDayTimeInterval(SqlBaseParser.CompositeDayTimeIntervalContext context)
+    {
+        IntervalField from = switch (context.start.getType()) {
+            case DAY -> new IntervalField.Day();
+            case HOUR -> new IntervalField.Hour();
+            case MINUTE -> new IntervalField.Minute();
+            default -> throw parseError("Unexpected day-time interval start field: " + context.start.getText(), context);
+        };
+
+        IntervalField to = switch (context.end.getType()) {
+            case HOUR -> new IntervalField.Hour();
+            case MINUTE -> new IntervalField.Minute();
+            case SECOND -> new IntervalField.Second(
+                    context.fractionalPrecision != null ? OptionalInt.of(Integer.parseInt(context.fractionalPrecision.getText())) : OptionalInt.empty());
+            default -> throw parseError("Unexpected day-time interval end field: " + context.end.getText(), context);
+        };
+
+        boolean valid = from instanceof IntervalField.Day ||
+                from instanceof IntervalField.Hour && (to instanceof IntervalField.Minute || to instanceof IntervalField.Second) ||
+                from instanceof IntervalField.Minute && to instanceof IntervalField.Second;
+
+        if (!valid) {
+            throw parseError("Invalid interval qualifier: " + context.start.getText() + " TO " + context.end.getText(), context);
+        }
+
+        return new CompositeIntervalQualifier(
+                getLocation(context),
+                context.leadingPrecision != null ? OptionalInt.of(Integer.parseInt(context.leadingPrecision.getText())) : OptionalInt.empty(),
+                from,
+                to);
     }
 
     @Override
@@ -3967,7 +4048,7 @@ class AstBuilder
     {
         return new PropertiesCharacteristic(
                 getLocation(context),
-                 visit(context.properties().propertyAssignments().property(), Property.class));
+                visit(context.properties().propertyAssignments().property(), Property.class));
     }
 
     @Override
@@ -4303,19 +4384,6 @@ class AstBuilder
             case SqlBaseLexer.GT -> ComparisonExpression.Operator.GREATER_THAN;
             case SqlBaseLexer.GTE -> ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
             default -> throw new IllegalArgumentException("Unsupported operator: " + symbol.getText());
-        };
-    }
-
-    private static IntervalLiteral.IntervalField getIntervalFieldType(Token token)
-    {
-        return switch (token.getType()) {
-            case SqlBaseLexer.YEAR -> IntervalLiteral.IntervalField.YEAR;
-            case SqlBaseLexer.MONTH -> IntervalLiteral.IntervalField.MONTH;
-            case SqlBaseLexer.DAY -> IntervalLiteral.IntervalField.DAY;
-            case SqlBaseLexer.HOUR -> IntervalLiteral.IntervalField.HOUR;
-            case SqlBaseLexer.MINUTE -> IntervalLiteral.IntervalField.MINUTE;
-            case SqlBaseLexer.SECOND -> IntervalLiteral.IntervalField.SECOND;
-            default -> throw new IllegalArgumentException("Unsupported interval field: " + token.getText());
         };
     }
 

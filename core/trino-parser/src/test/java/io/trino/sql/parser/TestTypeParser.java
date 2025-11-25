@@ -13,7 +13,12 @@
  */
 package io.trino.sql.parser;
 
+import io.trino.sql.tree.CompositeIntervalQualifier;
+import io.trino.sql.tree.IntervalField;
+import io.trino.sql.tree.SimpleIntervalQualifier;
 import org.junit.jupiter.api.Test;
+
+import java.util.OptionalInt;
 
 import static io.trino.sql.parser.ParserAssert.type;
 import static io.trino.sql.parser.TreeNodes.dateTimeType;
@@ -27,10 +32,6 @@ import static io.trino.sql.parser.TreeNodes.rowType;
 import static io.trino.sql.parser.TreeNodes.simpleType;
 import static io.trino.sql.tree.DateTimeDataType.Type.TIME;
 import static io.trino.sql.tree.DateTimeDataType.Type.TIMESTAMP;
-import static io.trino.sql.tree.IntervalDataType.Field.DAY;
-import static io.trino.sql.tree.IntervalDataType.Field.MONTH;
-import static io.trino.sql.tree.IntervalDataType.Field.SECOND;
-import static io.trino.sql.tree.IntervalDataType.Field.YEAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTypeParser
@@ -161,14 +162,11 @@ public class TestTypeParser
     @Test
     public void testIntervalTypes()
     {
-        assertThat(type("INTERVAL YEAR TO DAY"))
-                .isEqualTo(intervalType(location(1, 1), YEAR, DAY));
-
         assertThat(type("INTERVAL YEAR TO MONTH"))
-                .isEqualTo(intervalType(location(1, 1), YEAR, MONTH));
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.empty(), new IntervalField.Year(), new IntervalField.Month())));
 
         assertThat(type("INTERVAL SECOND"))
-                .isEqualTo(intervalType(location(1, 1), SECOND, SECOND));
+                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), OptionalInt.empty(), new IntervalField.Second(OptionalInt.empty()))));
     }
 
     @Test
@@ -337,5 +335,60 @@ public class TestTypeParser
                                         "MAP",
                                         parameter(simpleType(location(1, 5), "BIGINT")),
                                         parameter(simpleType(location(1, 13), "VARCHAR"))))));
+    }
+
+    @Test
+    void testInverval()
+    {
+        assertThat(type("INTERVAL YEAR(1)"))
+                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Year())));
+
+        assertThat(type("INTERVAL YEAR(1) TO MONTH"))
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Year(), new IntervalField.Month())));
+
+        assertThat(type("INTERVAL MONTH(1)"))
+                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Month())));
+
+        assertThat(type("INTERVAL DAY(1)"))
+                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Day())));
+
+        assertThat(type("INTERVAL DAY(1) TO HOUR"))
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Hour())));
+
+        assertThat(type("INTERVAL DAY(1) TO MINUTE"))
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Minute())));
+
+        assertThat(type("INTERVAL DAY(1) TO SECOND"))
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Second(OptionalInt.empty()))));
+
+        assertThat(type("INTERVAL DAY(1) TO SECOND(2)"))
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Day(), new IntervalField.Second(OptionalInt.of(2)))));
+
+        assertThat(type("INTERVAL HOUR(1)"))
+                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Hour())));
+
+        assertThat(type("INTERVAL HOUR(1) TO MINUTE"))
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Hour(), new IntervalField.Minute())));
+
+        assertThat(type("INTERVAL HOUR(1) TO SECOND"))
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Hour(), new IntervalField.Second(OptionalInt.empty()))));
+
+        assertThat(type("INTERVAL HOUR(1) TO SECOND(2)"))
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Hour(), new IntervalField.Second(OptionalInt.of(2)))));
+
+        assertThat(type("INTERVAL MINUTE(1)"))
+                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Minute())));
+
+        assertThat(type("INTERVAL MINUTE(1) TO SECOND"))
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Minute(), new IntervalField.Second(OptionalInt.empty()))));
+
+        assertThat(type("INTERVAL MINUTE(1) TO SECOND(2)"))
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Minute(), new IntervalField.Second(OptionalInt.of(2)))));
+
+        assertThat(type("INTERVAL SECOND(1)"))
+                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Second(OptionalInt.empty()))));
+
+        assertThat(type("INTERVAL SECOND(1, 2)"))
+                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), OptionalInt.of(1), new IntervalField.Second(OptionalInt.of(2)))));
     }
 }

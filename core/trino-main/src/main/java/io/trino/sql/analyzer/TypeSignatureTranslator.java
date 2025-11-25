@@ -26,18 +26,22 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ReservedIdentifiers;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.DataTypeParameter;
 import io.trino.sql.tree.DateTimeDataType;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IntervalDataType;
+import io.trino.sql.tree.IntervalField;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.NumericParameter;
 import io.trino.sql.tree.RowDataType;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -171,15 +175,22 @@ public final class TypeSignatureTranslator
 
     private static TypeSignature toTypeSignature(IntervalDataType type)
     {
-        if (type.getFrom() == IntervalDataType.Field.YEAR && type.getTo() == IntervalDataType.Field.MONTH) {
+        if (type.qualifier() instanceof CompositeIntervalQualifier qualifier &&
+                qualifier.getFrom() instanceof IntervalField.Year() &&
+                qualifier.getTo() instanceof IntervalField.Month &&
+                qualifier.getPrecision().isEmpty()) {
             return INTERVAL_YEAR_MONTH.getTypeSignature();
         }
 
-        if (type.getFrom() == IntervalDataType.Field.DAY && type.getTo() == IntervalDataType.Field.SECOND) {
+        if (type.qualifier() instanceof CompositeIntervalQualifier qualifier &&
+                qualifier.getFrom() instanceof IntervalField.Day() &&
+                qualifier.getTo() instanceof IntervalField.Second(OptionalInt fractionalPrecision) &&
+                qualifier.getPrecision().isEmpty() &&
+                fractionalPrecision.isEmpty()) {
             return INTERVAL_DAY_TIME.getTypeSignature();
         }
 
-        throw new TrinoException(NOT_SUPPORTED, format("INTERVAL %s TO %s type not supported", type.getFrom(), type.getTo()));
+        throw new TrinoException(NOT_SUPPORTED, format("INTERVAL %s type not supported", type.qualifier()));
     }
 
     private static TypeSignature toTypeSignature(DateTimeDataType type, Set<String> typeVariables)
@@ -229,8 +240,20 @@ public final class TypeSignatureTranslator
     static DataType toDataType(TypeSignature typeSignature)
     {
         return switch (typeSignature.getBase()) {
-            case INTERVAL_YEAR_TO_MONTH -> new IntervalDataType(Optional.empty(), IntervalDataType.Field.YEAR, IntervalDataType.Field.MONTH);
-            case INTERVAL_DAY_TO_SECOND -> new IntervalDataType(Optional.empty(), IntervalDataType.Field.DAY, IntervalDataType.Field.SECOND);
+            case INTERVAL_YEAR_TO_MONTH -> new IntervalDataType(
+                    Optional.empty(),
+                    new CompositeIntervalQualifier(
+                            new NodeLocation(1, 1),
+                            OptionalInt.empty(),
+                            new IntervalField.Year(),
+                            new IntervalField.Month()));
+            case INTERVAL_DAY_TO_SECOND -> new IntervalDataType(
+                    Optional.empty(),
+                    new CompositeIntervalQualifier(
+                            new NodeLocation(1, 1),
+                            OptionalInt.empty(),
+                            new IntervalField.Day(),
+                            new IntervalField.Second(OptionalInt.empty())));
             case TIMESTAMP_WITH_TIME_ZONE -> new DateTimeDataType(
                     Optional.empty(),
                     DateTimeDataType.Type.TIMESTAMP,
