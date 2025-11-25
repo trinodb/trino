@@ -15,6 +15,8 @@ package io.trino.plugin.jdbc;
 
 import com.google.inject.Inject;
 import dev.failsafe.RetryPolicy;
+import io.trino.plugin.base.mapping.IdentifierMapping;
+import io.trino.plugin.base.mapping.RemoteIdentifiers;
 import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.AggregateFunction;
@@ -208,6 +210,13 @@ public class RetryingJdbcClient
     {
         // we do a nested retry as opening a connection is already retried, however it is better to retry on intermittent issue than fail
         retry(policy, () -> delegate.execute(session, query));
+    }
+
+    @Override
+    public void execute(ConnectorSession session, Connection connection, String query)
+            throws SQLException
+    {
+        retry(policy, () -> delegate.execute(session, connection, query));
     }
 
     @Override
@@ -458,6 +467,14 @@ public class RetryingJdbcClient
     }
 
     @Override
+    public Connection getConnection(ConnectorSession session, boolean readOnly)
+            throws SQLException
+    {
+        // retry already implemented by RetryingConnectionFactory
+        return delegate.getConnection(session, readOnly);
+    }
+
+    @Override
     public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException
     {
@@ -519,6 +536,37 @@ public class RetryingJdbcClient
     {
         // there should be no remote database interaction
         return delegate.quoted(remoteTableName);
+    }
+
+    @Override
+    public IdentifierMapping getIdentifierMapping()
+    {
+        return delegate.getIdentifierMapping();
+    }
+
+    @Override
+    public RemoteIdentifiers getRemoteIdentifiers(Connection connection)
+    {
+        return delegate.getRemoteIdentifiers(connection);
+    }
+
+    @Override
+    public Optional<String> getRemoteSchemaName(Optional<String> remoteSchemaName)
+    {
+        return delegate.getRemoteSchemaName(remoteSchemaName);
+    }
+
+    @Override
+    public RemoteTableName getRemoteTableName(RemoteTableName remoteTableName)
+    {
+        return delegate.getRemoteTableName(remoteTableName);
+    }
+
+    @Override
+    public String getTableRemoteSchemaName(ResultSet resultSet)
+            throws SQLException
+    {
+        return delegate.getTableRemoteSchemaName(resultSet);
     }
 
     @Override

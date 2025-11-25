@@ -152,7 +152,8 @@ public abstract class BaseJdbcClient
         this.supportsRetries = supportsRetries;
     }
 
-    protected IdentifierMapping getIdentifierMapping()
+    @Override
+    public IdentifierMapping getIdentifierMapping()
     {
         return identifierMapping;
     }
@@ -336,6 +337,7 @@ public abstract class BaseJdbcClient
                 Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
                 log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
+                Optional<String> defaultValue = getColumnDefaultValue(resultSet, typeHandle);
                 // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
                 Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
                 // skip unsupported column types
@@ -344,6 +346,7 @@ public abstract class BaseJdbcClient
                         .setJdbcTypeHandle(typeHandle)
                         .setColumnType(mapping.getType())
                         .setNullable(nullable)
+                        .setDefaultValue(defaultValue)
                         .setComment(comment)
                         .build()));
                 if (columnMapping.isEmpty()) {
@@ -365,6 +368,12 @@ public abstract class BaseJdbcClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    protected Optional<String> getColumnDefaultValue(ResultSet resultSet, JdbcTypeHandle typeHandle)
+            throws SQLException
+    {
+        return Optional.empty();
     }
 
     @Override
@@ -652,12 +661,12 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session)
+    public Connection getConnection(ConnectorSession session, boolean readOnly)
             throws SQLException
     {
         Connection connection = connectionFactory.openConnection(session);
         try {
-            connection.setReadOnly(true);
+            connection.setReadOnly(readOnly);
         }
         catch (SQLException e) {
             connection.close();
@@ -911,14 +920,14 @@ public abstract class BaseJdbcClient
         ImmutableList.Builder<String> columnNames = ImmutableList.builderWithExpectedSize(columns.size());
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builderWithExpectedSize(columns.size());
         // columnList is only used for createTableSql - the extraColumns are not included on the JdbcOutputTableHandle
-        ImmutableList.Builder<String> columnList = ImmutableList.builderWithExpectedSize(columns.size() + (pageSinkIdColumn.isPresent() ? 1 : 0));
+        ImmutableList.Builder<String> columnDefinitions = ImmutableList.builderWithExpectedSize(columns.size() + (pageSinkIdColumn.isPresent() ? 1 : 0));
 
         for (ColumnMetadata column : columns) {
             String columnName = identifierMapping.toRemoteColumnName(remoteIdentifiers, column.getName());
             verifyColumnName(connection.getMetaData(), columnName);
             columnNames.add(columnName);
             columnTypes.add(column.getType());
-            columnList.add(getColumnDefinitionSql(session, column, columnName));
+            columnDefinitions.add(getColumnDefinitionSql(session, column, columnName));
         }
 
         Optional<String> pageSinkIdColumnName = Optional.empty();
@@ -926,11 +935,11 @@ public abstract class BaseJdbcClient
             String columnName = identifierMapping.toRemoteColumnName(remoteIdentifiers, pageSinkIdColumn.get().getName());
             pageSinkIdColumnName = Optional.of(columnName);
             verifyColumnName(connection.getMetaData(), columnName);
-            columnList.add(getColumnDefinitionSql(session, pageSinkIdColumn.get(), columnName));
+            columnDefinitions.add(getColumnDefinitionSql(session, pageSinkIdColumn.get(), columnName));
         }
 
-        RemoteTableName remoteTableName = new RemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), remoteTargetTableName);
-        for (String sql : createTableSqls(remoteTableName, columnList.build(), tableMetadata)) {
+        RemoteTableName remoteTableName = getRemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), remoteTargetTableName);
+        for (String sql : createTableSqls(remoteTableName, columnNames.build(), columnDefinitions.build(), tableMetadata)) {
             execute(session, connection, sql);
         }
 
@@ -943,13 +952,13 @@ public abstract class BaseJdbcClient
                 pageSinkIdColumnName);
     }
 
-    protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
+    protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columnNames, List<String> columnDefinitions, ConnectorTableMetadata tableMetadata)
     {
         if (tableMetadata.getComment().isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
         }
         checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
-        return ImmutableList.of(format("CREATE TABLE %s (%s)", quoted(remoteTableName), join(", ", columns)));
+        return ImmutableList.of(format("CREATE TABLE %s (%s)", quoted(remoteTableName), join(", ", columnDefinitions)));
     }
 
     protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
@@ -1119,7 +1128,7 @@ public abstract class BaseJdbcClient
     {
         verify(handle.getPageSinkIdColumnName().isPresent(), "Output table handle's pageSinkIdColumn is empty");
 
-        RemoteTableName pageSinkTable = new RemoteTableName(
+        RemoteTableName pageSinkTable = getRemoteTableName(
                 handle.getRemoteTableName().getCatalogName(),
                 handle.getRemoteTableName().getSchemaName(),
                 generateTemporaryTableName(session));
@@ -1171,7 +1180,7 @@ public abstract class BaseJdbcClient
             return;
         }
 
-        RemoteTableName temporaryTable = new RemoteTableName(
+        RemoteTableName temporaryTable = getRemoteTableName(
                 handle.getRemoteTableName().getCatalogName(),
                 handle.getRemoteTableName().getSchemaName(),
                 handle.getTemporaryTableName().orElseThrow());
@@ -1188,7 +1197,7 @@ public abstract class BaseJdbcClient
 
             String insertSql = format(
                     "INSERT INTO %s (%s) SELECT %s FROM %s temp_table",
-                    postProcessInsertTableNameClause(session, quoted(handle.getRemoteTableName())),
+                    postProcessInsertTableNameClause(session, quoted(getRemoteTableName(handle.getRemoteTableName()))),
                     columns,
                     columns,
                     quoted(temporaryTable));
@@ -1216,6 +1225,11 @@ public abstract class BaseJdbcClient
                 throw new TrinoException(JDBC_ERROR, e);
             }
         }
+    }
+
+    protected RemoteTableName getRemoteTableName(Optional<String> catalog, Optional<String> schema, String table)
+    {
+        return new RemoteTableName(catalog, schema, table);
     }
 
     @Override
@@ -1469,7 +1483,7 @@ public abstract class BaseJdbcClient
         if (handle.getTemporaryTableName().isPresent()) {
             dropTable(
                     session,
-                    new RemoteTableName(
+                    getRemoteTableName(
                             handle.getRemoteTableName().getCatalogName(),
                             handle.getRemoteTableName().getSchemaName(),
                             handle.getTemporaryTableName().get()),
@@ -1538,12 +1552,6 @@ public abstract class BaseJdbcClient
     protected Optional<List<String>> getTableTypes()
     {
         return Optional.of(ImmutableList.of("TABLE", "VIEW"));
-    }
-
-    protected String getTableRemoteSchemaName(ResultSet resultSet)
-            throws SQLException
-    {
-        return resultSet.getString("TABLE_SCHEM");
     }
 
     @Override
@@ -1632,7 +1640,8 @@ public abstract class BaseJdbcClient
         }
     }
 
-    protected void execute(ConnectorSession session, Connection connection, String query)
+    @Override
+    public void execute(ConnectorSession session, Connection connection, String query)
             throws SQLException
     {
         try (Statement statement = connection.createStatement()) {
@@ -1935,6 +1944,7 @@ public abstract class BaseJdbcClient
         return columnName;
     }
 
+    @Override
     public RemoteIdentifiers getRemoteIdentifiers(Connection connection)
     {
         return jdbcRemoteIdentifiersFactory.createJdbcRemoteIdentifies(connection);
