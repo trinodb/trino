@@ -19,15 +19,19 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
+import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.parquet.crypto.DecryptionKeyRetriever;
+import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
+import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.NodeVersion;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.SelectedRole;
@@ -42,6 +46,7 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -57,6 +62,7 @@ import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
+import static java.nio.file.Files.createDirectory;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -235,10 +241,24 @@ public final class HiveQueryRunner
 
                 Optional<HiveMetastore> metastore = this.metastore.map(factory -> factory.apply(queryRunner));
                 Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data");
+                createDirectory(dataDir);
 
                 if (metastore.isEmpty() && !hiveProperties.buildOrThrow().containsKey("hive.metastore")) {
-                    hiveProperties.put("hive.metastore", "file");
-                    hiveProperties.put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toString());
+                    // Share instance of FileHiveMetastore between connector instances across workers.
+                    // File metastore requires synchronization to be fully thread-safe wrt. all operations.
+                    metastore = Optional.of(new FileHiveMetastore(
+                            new NodeVersion("test"),
+                            new LocalFileSystemFactory(dataDir),
+                            false,
+                            new FileHiveMetastoreConfig()
+                                    .setCatalogDirectory("local:///")));
+                }
+                else if (Objects.equals(hiveProperties.buildOrThrow().get("hive.metastore"), "file") && this.workerCount > 1) {
+                    throw new IllegalStateException("""
+                            File metastore relies on Java synchronization and therefore can be used \
+                            safely in tests only with a single worker, unless it's configured implicitly by the query builder. \
+                            Decrease worker count or avoid configuring 'hive.metastore' property. \
+                            Failure to do say may lead to test flakiness.""");
                 }
                 if (hiveProperties.buildOrThrow().keySet().stream().noneMatch(key ->
                         key.equals("fs.hadoop.enabled") || key.startsWith("fs.native-"))) {

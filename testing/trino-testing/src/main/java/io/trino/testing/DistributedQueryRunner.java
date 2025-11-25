@@ -730,7 +730,7 @@ public final class DistributedQueryRunner
     {
         private Session defaultSession;
         private boolean withTracing;
-        private int workerCount = 2;
+        protected int workerCount = 2;
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private Optional<Map<String, String>> backupCoordinatorProperties = Optional.empty();
