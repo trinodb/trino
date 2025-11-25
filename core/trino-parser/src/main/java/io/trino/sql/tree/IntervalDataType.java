@@ -21,7 +21,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public final class IntervalDayTimeDataType
+public final class IntervalDataType
         extends DataType
 {
     public enum Field
@@ -37,12 +37,12 @@ public final class IntervalDayTimeDataType
     private final Field from;
     private final Field to;
 
-    public IntervalDayTimeDataType(NodeLocation location, Field from, Field to)
+    public IntervalDataType(NodeLocation location, Field from, Field to)
     {
         this(Optional.of(location), from, to);
     }
 
-    public IntervalDayTimeDataType(Optional<NodeLocation> location, Field from, Field to)
+    public IntervalDataType(Optional<NodeLocation> location, Field from, Field to)
     {
         super(location);
         this.from = requireNonNull(from, "from is null");
@@ -80,7 +80,7 @@ public final class IntervalDayTimeDataType
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        IntervalDayTimeDataType that = (IntervalDayTimeDataType) o;
+        IntervalDataType that = (IntervalDataType) o;
         return from == that.from &&
                 to == that.to;
     }
@@ -98,7 +98,7 @@ public final class IntervalDayTimeDataType
             return false;
         }
 
-        IntervalDayTimeDataType otherType = (IntervalDayTimeDataType) other;
+        IntervalDataType otherType = (IntervalDataType) other;
         return from.equals(otherType.from) &&
                 to == otherType.to;
     }

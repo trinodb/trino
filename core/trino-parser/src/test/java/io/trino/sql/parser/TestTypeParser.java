@@ -27,10 +27,10 @@ import static io.trino.sql.parser.TreeNodes.rowType;
 import static io.trino.sql.parser.TreeNodes.simpleType;
 import static io.trino.sql.tree.DateTimeDataType.Type.TIME;
 import static io.trino.sql.tree.DateTimeDataType.Type.TIMESTAMP;
-import static io.trino.sql.tree.IntervalDayTimeDataType.Field.DAY;
-import static io.trino.sql.tree.IntervalDayTimeDataType.Field.MONTH;
-import static io.trino.sql.tree.IntervalDayTimeDataType.Field.SECOND;
-import static io.trino.sql.tree.IntervalDayTimeDataType.Field.YEAR;
+import static io.trino.sql.tree.IntervalDataType.Field.DAY;
+import static io.trino.sql.tree.IntervalDataType.Field.MONTH;
+import static io.trino.sql.tree.IntervalDataType.Field.SECOND;
+import static io.trino.sql.tree.IntervalDataType.Field.YEAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTypeParser
