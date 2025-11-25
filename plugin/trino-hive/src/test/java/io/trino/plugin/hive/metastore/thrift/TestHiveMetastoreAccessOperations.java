@@ -47,6 +47,8 @@ public class TestHiveMetastoreAccessOperations
     {
         return HiveQueryRunner.builder()
                 .addHiveProperty("hive.dynamic-filtering.wait-timeout", "1h")
+                .addHiveProperty("hive.metastore", "file")
+                .setWorkerCount(0)
                 .build();
     }
 

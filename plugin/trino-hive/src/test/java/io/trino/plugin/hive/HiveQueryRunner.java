@@ -253,7 +253,7 @@ public final class HiveQueryRunner
                             new FileHiveMetastoreConfig()
                                     .setCatalogDirectory("local:///")));
                 }
-                else if (Objects.equals(hiveProperties.buildOrThrow().get("hive.metastore"), "file") && this.workerCount > 1) {
+                else if (Objects.equals(hiveProperties.buildOrThrow().get("hive.metastore"), "file") && this.workerCount != 0) {
                     throw new IllegalStateException("""
                             File metastore relies on Java synchronization and therefore can be used \
                             safely in tests only with a single worker, unless it's configured implicitly by the query builder. \
