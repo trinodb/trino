@@ -753,7 +753,7 @@ jobs:
           echo "ARTIFACT_NAME=${name:0:100}" >> $GITHUB_ENV
       - name: Upload test results
         uses: ./.github/actions/process-test-results
-        if: always()
+        if: false
         with:
           artifact-name: ${{ env.ARTIFACT_NAME }}
           has-failed-tests: >-
