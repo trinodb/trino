@@ -25,7 +25,6 @@ import io.trino.plugin.kafka.KafkaTopicFieldGroup;
 import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.avro.SchemaBuilder;
@@ -36,6 +35,7 @@ import java.util.Optional;
 
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -193,7 +193,7 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
     {
         return new ConfluentSchemaRegistryTableDescriptionSupplier(
                 SCHEMA_REGISTRY_CLIENT,
-                ImmutableMap.of("AVRO", new AvroSchemaParser(new TestingTypeManager())),
+                ImmutableMap.of("AVRO", new AvroSchemaParser(TESTING_TYPE_MANAGER)),
                 DEFAULT_NAME,
                 new Duration(1, SECONDS));
     }

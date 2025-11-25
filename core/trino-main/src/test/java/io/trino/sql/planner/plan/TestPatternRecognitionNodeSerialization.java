@@ -25,7 +25,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.ir.Call;
@@ -68,6 +67,7 @@ import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
 import static io.trino.sql.planner.plan.SkipToPosition.LAST;
 import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPatternRecognitionNodeSerialization
@@ -86,11 +86,11 @@ public class TestPatternRecognitionNodeSerialization
         ObjectMapperProvider provider = new ObjectMapperProvider();
         provider.setKeyDeserializers(ImmutableMap.<Class<?>, KeyDeserializer>builder()
                 .put(TypeSignature.class, new TypeSignatureKeyDeserializer())
-                .put(Symbol.class, new SymbolKeyDeserializer(new TestingTypeManager()))
+                .put(Symbol.class, new SymbolKeyDeserializer(TESTING_TYPE_MANAGER))
                 .buildOrThrow());
 
         provider.setJsonDeserializers(ImmutableMap.of(
-                Type.class, new TypeDeserializer(new TestingTypeManager()),
+                Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER),
                 Block.class, new BlockJsonSerde.Deserializer(TESTING_BLOCK_ENCODING_SERDE)));
 
         provider.setJsonSerializers(ImmutableMap.of(

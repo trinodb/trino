@@ -34,7 +34,6 @@ import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
-import io.trino.spi.type.TestingTypeManager;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.glue.GlueClient;
 
@@ -91,7 +90,7 @@ public class TestTrinoGlueCatalog
                 new CatalogName("catalog_name"),
                 HDFS_FILE_SYSTEM_FACTORY,
                 FILE_IO_FACTORY,
-                new TestingTypeManager(),
+                TESTING_TYPE_MANAGER,
                 catalogConfig.isCacheTableMetadata(),
                 new GlueIcebergTableOperationsProvider(
                         HDFS_FILE_SYSTEM_FACTORY,
@@ -232,7 +231,7 @@ public class TestTrinoGlueCatalog
                 new CatalogName("catalog_name"),
                 fileSystemFactory,
                 FILE_IO_FACTORY,
-                new TestingTypeManager(),
+                TESTING_TYPE_MANAGER,
                 catalogConfig.isCacheTableMetadata(),
                 new GlueIcebergTableOperationsProvider(
                         fileSystemFactory,

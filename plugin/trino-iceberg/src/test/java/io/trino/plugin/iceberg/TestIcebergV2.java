@@ -40,8 +40,6 @@ import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.TestingTypeManager;
-import io.trino.spi.type.TypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
@@ -105,6 +103,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -952,10 +951,9 @@ public class TestIcebergV2
             assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (200, 10), (300, 20)", 2);
 
             Optional<Long> snapshotId = Optional.of((long) computeScalar("SELECT snapshot_id FROM \"" + testTable.getName() + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES"));
-            TypeManager typeManager = new TestingTypeManager();
             Table table = loadTable(testTable.getName());
             TableStatistics withNoFilter = TableStatisticsReader.makeTableStatistics(
-                    typeManager,
+                    TESTING_TYPE_MANAGER,
                     table,
                     snapshotId,
                     TupleDomain.all(),
@@ -967,7 +965,7 @@ public class TestIcebergV2
             assertThat(withNoFilter.getRowCount().getValue()).isEqualTo(4.0);
 
             TableStatistics withPartitionFilter = TableStatisticsReader.makeTableStatistics(
-                    typeManager,
+                    TESTING_TYPE_MANAGER,
                     table,
                     snapshotId,
                     TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -982,7 +980,7 @@ public class TestIcebergV2
 
             IcebergColumnHandle column = IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(1, "a")).columnType(INTEGER).build();
             TableStatistics withUnenforcedFilter = TableStatisticsReader.makeTableStatistics(
-                    typeManager,
+                    TESTING_TYPE_MANAGER,
                     table,
                     snapshotId,
                     TupleDomain.all(),
@@ -1005,10 +1003,9 @@ public class TestIcebergV2
             assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (200, 10), (300, 20)", 2);
 
             Optional<Long> snapshotId = Optional.of((long) computeScalar("SELECT snapshot_id FROM \"" + testTable.getName() + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES"));
-            TypeManager typeManager = new TestingTypeManager();
             Table table = loadTable(testTable.getName());
             TableStatistics withNoProjectedColumns = TableStatisticsReader.makeTableStatistics(
-                    typeManager,
+                    TESTING_TYPE_MANAGER,
                     table,
                     snapshotId,
                     TupleDomain.all(),
@@ -1022,7 +1019,7 @@ public class TestIcebergV2
 
             IcebergColumnHandle column = IcebergColumnHandle.optional(ColumnIdentity.primitiveColumnIdentity(1, "a")).columnType(INTEGER).build();
             TableStatistics withProjectedColumns = TableStatisticsReader.makeTableStatistics(
-                    typeManager,
+                    TESTING_TYPE_MANAGER,
                     table,
                     snapshotId,
                     TupleDomain.all(),
@@ -1041,7 +1038,7 @@ public class TestIcebergV2
                             .build());
 
             TableStatistics withPartitionFilterAndProjectedColumn = TableStatisticsReader.makeTableStatistics(
-                    typeManager,
+                    TESTING_TYPE_MANAGER,
                     table,
                     snapshotId,
                     TupleDomain.all(),

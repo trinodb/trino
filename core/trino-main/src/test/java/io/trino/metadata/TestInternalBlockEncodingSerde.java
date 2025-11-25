@@ -22,7 +22,6 @@ import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockEncoding;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
@@ -30,14 +29,14 @@ import java.util.Map;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestInternalBlockEncodingSerde
 {
-    private final TestingTypeManager testingTypeManager = new TestingTypeManager();
     private final Map<String, BlockEncoding> blockEncodings = ImmutableMap.of(VariableWidthBlockEncoding.NAME, new VariableWidthBlockEncoding());
     private final Map<Class<? extends Block>, BlockEncoding> blockNames = ImmutableMap.of(VariableWidthBlock.class, new VariableWidthBlockEncoding());
-    private final BlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodings::get, blockNames::get, testingTypeManager::getType);
+    private final BlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodings::get, blockNames::get, TESTING_TYPE_MANAGER::getType);
 
     @Test
     public void blockRoundTrip()
