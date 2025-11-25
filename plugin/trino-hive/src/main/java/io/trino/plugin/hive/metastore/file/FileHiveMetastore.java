@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
@@ -146,6 +147,7 @@ public class FileHiveMetastore
 
     private final String currentVersion;
     private final VersionCompatibility versionCompatibility;
+    @GuardedBy("this") // filesystem is thread safe, but file system access needs to be synchronized to avoid dirty reads
     private final TrinoFileSystem fileSystem;
     private final Location catalogDirectory;
     private final boolean disableLocationChecks;
@@ -742,6 +744,7 @@ public class FileHiveMetastore
         });
     }
 
+    @GuardedBy("this")
     private void alterTable(String databaseName, String tableName, Function<TableMetadata, TableMetadata> alterFunction)
     {
         requireNonNull(databaseName, "databaseName is null");
@@ -817,6 +820,7 @@ public class FileHiveMetastore
         }
     }
 
+    @GuardedBy("this")
     private void verifiedPartition(Table table, Partition partition)
     {
         Location partitionMetadataDirectory = getPartitionMetadataDirectory(table, partition.getValues());
@@ -1016,11 +1020,13 @@ public class FileHiveMetastore
         return result.build();
     }
 
+    @GuardedBy("this")
     private Set<RoleGrant> readRoleGrantsFile()
     {
         return ImmutableSet.copyOf(readFile("roleGrants", getRoleGrantsFile(), roleGrantsCodec).orElse(ImmutableList.of()));
     }
 
+    @GuardedBy("this")
     private void writeRoleGrantsFile(Set<RoleGrant> roleGrants)
     {
         writeFile("roleGrants", getRoleGrantsFile(), roleGrantsCodec, ImmutableList.copyOf(roleGrants), true);
@@ -1041,14 +1047,18 @@ public class FileHiveMetastore
 
         List<List<String>> partitions = listPartitions(tableMetadataDirectory, table.getPartitionColumns());
 
-        List<String> partitionNames = partitions.stream()
-                .map(partitionValues -> makePartitionName(table.getPartitionColumns(), ImmutableList.copyOf(partitionValues)))
-                .filter(partitionName -> isValidPartition(table, partitionName))
-                .collect(toImmutableList());
+        ImmutableList.Builder<String> partitionNames = ImmutableList.builder();
+        for (List<String> partitionValues : partitions) {
+            String partitionName = makePartitionName(table.getPartitionColumns(), ImmutableList.copyOf(partitionValues));
+            if (isValidPartition(table, partitionName)) {
+                partitionNames.add(partitionName);
+            }
+        }
 
-        return Optional.of(partitionNames);
+        return Optional.of(partitionNames.build());
     }
 
+    @GuardedBy("this")
     private boolean isValidPartition(Table table, String partitionName)
     {
         Location location = getSchemaFile(PARTITION, getPartitionMetadataDirectory(table, partitionName));
@@ -1060,6 +1070,7 @@ public class FileHiveMetastore
         }
     }
 
+    @GuardedBy("this")
     private List<List<String>> listPartitions(Location directory, List<io.trino.metastore.Column> partitionColumns)
     {
         if (partitionColumns.isEmpty()) {
@@ -1311,6 +1322,7 @@ public class FileHiveMetastore
         }
     }
 
+    @GuardedBy("this")
     private Set<HivePrivilegeInfo> readPermissionsFile(Location permissionFilePath)
     {
         return readFile("permissions", permissionFilePath, permissionsCodec).orElse(ImmutableList.of()).stream()
@@ -1318,6 +1330,7 @@ public class FileHiveMetastore
                 .collect(toImmutableSet());
     }
 
+    @GuardedBy("this")
     private Set<HivePrivilegeInfo> readAllPermissions(Location permissionsDirectory)
     {
         try {
@@ -1336,6 +1349,7 @@ public class FileHiveMetastore
         }
     }
 
+    @GuardedBy("this")
     private void deleteDirectoryAndSchema(SchemaType type, Location metadataDirectory)
     {
         try {
@@ -1376,11 +1390,13 @@ public class FileHiveMetastore
                 UNSAFE_ASSUME_COMPATIBILITY));
     }
 
+    @GuardedBy("this")
     private <T> Optional<T> readSchemaFile(SchemaType type, Location metadataDirectory, JsonCodec<T> codec)
     {
         return readFile(type + " schema", getSchemaFile(type, metadataDirectory), codec);
     }
 
+    @GuardedBy("this")
     private <T> Optional<T> readFile(String type, Location file, JsonCodec<T> codec)
     {
         try {
@@ -1396,11 +1412,13 @@ public class FileHiveMetastore
         }
     }
 
+    @GuardedBy("this")
     private <T> void writeSchemaFile(SchemaType type, Location directory, JsonCodec<T> codec, T value, boolean overwrite)
     {
         writeFile(type + " schema", getSchemaFile(type, directory), codec, value, overwrite);
     }
 
+    @GuardedBy("this")
     private <T> void writeFile(String type, Location location, JsonCodec<T> codec, T value, boolean overwrite)
     {
         try {
@@ -1431,6 +1449,7 @@ public class FileHiveMetastore
         }
     }
 
+    @GuardedBy("this")
     private void renameSchemaFile(SchemaType type, Location oldMetadataDirectory, Location newMetadataDirectory)
     {
         try {
@@ -1441,6 +1460,7 @@ public class FileHiveMetastore
         }
     }
 
+    @GuardedBy("this")
     private void deleteSchemaFile(SchemaType type, Location metadataDirectory)
     {
         try {
