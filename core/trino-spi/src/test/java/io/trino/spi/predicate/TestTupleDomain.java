@@ -26,7 +26,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.block.TestingBlockJsonSerde;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.type.TestingTypeDeserializer;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
@@ -51,6 +50,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TestTupleDomain
 {
+    public record TestingColumnHandle(String name) implements ColumnHandle {}
+
     private static final ColumnHandle A = new TestingColumnHandle("a");
     private static final ColumnHandle B = new TestingColumnHandle("b");
     private static final ColumnHandle C = new TestingColumnHandle("c");
