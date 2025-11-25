@@ -697,6 +697,52 @@ public class TestRedshiftConnectorTest
     }
 
     @Test
+    @Override
+    public void testCreateTableWithLongTableName()
+    {
+        String baseTableName = "test_create_" + randomNameSuffix();
+
+        int maxLength = maxTableNameLength().getAsInt();
+
+        String validTableName = baseTableName + "z".repeat(maxLength - baseTableName.length());
+        assertUpdate("CREATE TABLE " + validTableName + " (a bigint)");
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).contains(validTableName);
+        // TODO (https://github.com/aws/amazon-redshift-jdbc-driver/issues/148) Use base class test when the AWS Redshift table existence check regression is fixed
+        assertThat(getQueryRunner().tableExists(getSession(), validTableName)).isFalse();
+        executeInRedshift("DROP TABLE " + TEST_SCHEMA + "." + validTableName);
+        String invalidTableName = validTableName + "z";
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + invalidTableName + " (a bigint)"))
+                .satisfies(this::verifyTableNameLengthFailurePermissible);
+        assertThat(getQueryRunner().tableExists(getSession(), validTableName)).isFalse();
+    }
+
+    @Test
+    @Override
+    public void testRenameTableToLongTableName()
+    {
+        String sourceTableName = "test_rename_source_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
+
+        String baseTableName = "test_rename_target_" + randomNameSuffix();
+
+        int maxLength = maxTableRenameLength().getAsInt();
+
+        String validTargetTableName = baseTableName + "z".repeat(maxLength - baseTableName.length());
+        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + validTargetTableName);
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).contains(validTargetTableName);
+        // TODO (https://github.com/aws/amazon-redshift-jdbc-driver/issues/148) Use base class test when the AWS Redshift table existence check regression is fixed
+        assertThat(getQueryRunner().tableExists(getSession(), validTargetTableName)).isFalse();
+        executeInRedshift("DROP TABLE " + TEST_SCHEMA + "." + validTargetTableName);
+
+        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
+        String invalidTargetTableName = validTargetTableName + "z";
+        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + invalidTargetTableName))
+                .satisfies(this::verifyTableNameLengthFailurePermissible);
+        assertThat(getQueryRunner().tableExists(getSession(), invalidTargetTableName)).isFalse();
+        assertUpdate("DROP TABLE " + sourceTableName);
+    }
+
+    @Test
     public void testJoinPushdownWithImplicitCast()
     {
         try (TestTable leftTable = newTrinoTable(
