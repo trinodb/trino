@@ -16,7 +16,6 @@ package io.trino.plugin.base.filter;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
-import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -62,6 +61,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestUtcConstraintExtractor
 {
+    record TestingColumnHandle(String name) implements ColumnHandle {}
+
     private static final ColumnHandle A_BIGINT = new TestingColumnHandle("a_bigint");
 
     @Test
