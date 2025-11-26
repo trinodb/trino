@@ -1,62 +1,63 @@
 {
-  "name": "webapp-preview",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
-    "package": "npm install && npm run build",
-    "package:clean": "npm clean-install && npm run build",
-    "preview": "vite preview",
-    "prettier:format": "prettier --write \"./src/**/*.{ts,tsx}\"",
-    "prettier:check": "prettier --check \"./src/**/*.{ts,tsx}\"",
-    "check": "npm install && npm run lint && npm run prettier:check",
-    "check:clean": "npm clean-install && npm run lint && npm run prettier:check"
-  },
-  "dependencies": {
-    "@dagrejs/dagre": "^1.1.5",
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.1",
-    "@fontsource/roboto": "^5.2.8",
-    "@monaco-editor/react": "^4.7.0",
-    "@mui/icons-material": "^7.3.2",
-    "@mui/material": "^7.3.2",
-    "@mui/material-pigment-css": "^7.3.2",
-    "@mui/x-charts": "^8.11.3",
-    "@xyflow/react": "^12.8.5",
-    "axios": "^1.12.2",
-    "lodash": "^4.17.21",
-    "react": "^19.1.1",
-    "react-calendar-timeline": "^0.30.0-beta.3",
-    "react-dom": "^19.1.1",
-    "react-router-dom": "^7.9.1",
-    "sass": "^1.93.2",
-    "zustand": "^5.0.8"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.36.0",
-    "@types/lodash": "^4.17.20",
-    "@types/lodash.merge": "^4.6.9",
-    "@types/react": "^19.1.13",
-    "@types/react-dom": "^19.1.9",
-    "@typescript-eslint/eslint-plugin": "^8.44.1",
-    "@typescript-eslint/parser": "^8.44.1",
-    "@vitejs/plugin-react": "^5.0.3",
-    "eslint": "^9.36.0",
-    "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.21",
-    "globals": "^16.4.0",
-    "prettier": "^3.6.2",
-    "typescript": "^5.9.2",
-    "typescript-eslint": "^8.44.1",
-    "vite": "^7.1.7"
-  },
-  "overrides": {
-    "refractor": {
-      "prismjs": "^1.30.0"
+    "name": "webapp-preview",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc -b && vite build",
+        "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
+        "package": "pnpm install && pnpm run build",
+        "package:clean": "pnpm install && pnpm run build",
+        "preview": "vite preview",
+        "prettier:format": "prettier --write \"./src/**/*.{ts,tsx}\"",
+        "prettier:check": "prettier --check \"./src/**/*.{ts,tsx}\"",
+        "check": "pnpm install && pnpm run lint && pnpm run prettier:check",
+        "check:clean": "pnpm install && pnpm run lint && pnpm run prettier:check"
+    },
+    "dependencies": {
+        "@dagrejs/dagre": "^1.1.5",
+        "@emotion/react": "^11.14.0",
+        "@emotion/styled": "^11.14.1",
+        "@fontsource/roboto": "^5.2.8",
+        "@monaco-editor/react": "^4.7.0",
+        "@mui/icons-material": "^7.3.2",
+        "@mui/material": "^7.3.2",
+        "@mui/material-pigment-css": "^7.3.2",
+        "@mui/x-charts": "^8.11.3",
+        "@xyflow/react": "^12.8.5",
+        "axios": "^1.12.2",
+        "lodash": "^4.17.21",
+        "monaco-editor": "0.55.1",
+        "react": "^19.1.1",
+        "react-calendar-timeline": "^0.30.0-beta.3",
+        "react-dom": "^19.1.1",
+        "react-router-dom": "^7.9.1",
+        "sass": "^1.93.2",
+        "zustand": "^5.0.8"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.36.0",
+        "@types/lodash": "^4.17.20",
+        "@types/lodash.merge": "^4.6.9",
+        "@types/react": "^19.1.13",
+        "@types/react-dom": "^19.1.9",
+        "@typescript-eslint/eslint-plugin": "^8.44.1",
+        "@typescript-eslint/parser": "^8.44.1",
+        "@vitejs/plugin-react": "^5.0.3",
+        "eslint": "^9.36.0",
+        "eslint-plugin-react": "^7.37.5",
+        "eslint-plugin-react-hooks": "^5.2.0",
+        "eslint-plugin-react-refresh": "^0.4.21",
+        "globals": "^16.4.0",
+        "prettier": "^3.6.2",
+        "typescript": "^5.9.2",
+        "typescript-eslint": "^8.44.1",
+        "vite": "^7.1.7"
+    },
+    "overrides": {
+        "refractor": {
+            "prismjs": "^1.30.0"
+        }
     }
-  }
 }

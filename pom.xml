@@ -194,7 +194,7 @@
         <dep.flyway.version>11.17.1</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.4</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
-        <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
+        <dep.frontend-pnpm.version>10.23.0</dep.frontend-pnpm.version>
         <dep.gib.version>4.5.6</dep.gib.version>
         <dep.httpcore5.version>5.3.6</dep.httpcore5.version>
         <dep.iceberg.version>1.10.0</dep.iceberg.version>
@@ -2449,7 +2449,7 @@
                     <version>${dep.frontend-maven-plugin.version}</version>
                     <configuration>
                         <nodeVersion>${dep.frontend-node.version}</nodeVersion>
-                        <npmVersion>${dep.frontend-npm.version}</npmVersion>
+                        <pnpmVersion>${dep.frontend-pnpm.version}</pnpmVersion>
                     </configuration>
                 </plugin>
                 <plugin>

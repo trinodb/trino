@@ -84,9 +84,9 @@
                 </configuration>
                 <executions>
                     <execution>
-                        <id>install node and npm</id>
+                        <id>install node and pnpm</id>
                         <goals>
-                            <goal>install-node-and-npm</goal>
+                            <goal>install-node-and-pnpm</goal>
                         </goals>
                         <phase>generate-resources</phase>
                         <configuration>
@@ -96,7 +96,7 @@
                     <execution>
                         <id>package (webapp)</id>
                         <goals>
-                            <goal>npm</goal>
+                            <goal>pnpm</goal>
                         </goals>
                         <phase>generate-resources</phase>
                         <configuration>
@@ -107,7 +107,7 @@
                     <execution>
                         <id>check (webapp)</id>
                         <goals>
-                            <goal>npm</goal>
+                            <goal>pnpm</goal>
                         </goals>
                         <phase>verify</phase>
                         <configuration>
@@ -118,7 +118,7 @@
                     <execution>
                         <id>check (webapp-preview)</id>
                         <goals>
-                            <goal>npm</goal>
+                            <goal>pnpm</goal>
                         </goals>
                         <phase>verify</phase>
                         <configuration>
@@ -129,7 +129,7 @@
                     <execution>
                         <id>package (webapp-preview)</id>
                         <goals>
-                            <goal>npm</goal>
+                            <goal>pnpm</goal>
                         </goals>
                         <phase>generate-resources</phase>
                         <configuration>

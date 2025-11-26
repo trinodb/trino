@@ -59,7 +59,11 @@ export const nodeTypes = {
     stageOperatorNode: StageOperatorNode,
 }
 
-export const getLayoutedPlanFlowElements = (nodes: Node[], edges: Edge[], options: { direction: string }) => {
+export const getLayoutedPlanFlowElements = (
+    nodes: Node[],
+    edges: Edge[],
+    options: { direction: string }
+): { nodes: Node[]; edges: Edge[] } => {
     const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}))
     g.setGraph({ rankdir: options.direction })
 
