@@ -356,7 +356,8 @@ public class TestServer
 
         try (StatementClient client = StatementClientFactory.newStatementClient(httpClient, session, "SELECT * FROM tpch.sf1.nation")) {
             client.advance();
-            Thread.sleep(2000); // client timeout exceeded
+            // heartbeat is expected every 1 second, the check runs every second, plus one second padding
+            Thread.sleep(3000);
             client.advance();
             assertThat(client.currentStatusInfo().getError().getMessage())
                     .contains("was abandoned by the client, as it may have exited or stopped checking for query results");
