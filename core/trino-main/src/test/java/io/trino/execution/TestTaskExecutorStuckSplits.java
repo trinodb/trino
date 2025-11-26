@@ -26,7 +26,6 @@ import io.airlift.tracing.Tracing;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
-import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.ConnectorServices;
 import io.trino.connector.ConnectorServicesProvider;
@@ -162,7 +161,7 @@ public class TestTaskExecutorStuckSplits
         public void loadInitialCatalogs() {}
 
         @Override
-        public void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs) {}
+        public void ensureCatalogsLoaded(List<CatalogProperties> catalogs) {}
 
         @Override
         public void pruneCatalogs(Set<CatalogHandle> catalogsInUse)

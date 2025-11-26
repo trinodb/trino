@@ -25,7 +25,6 @@ import io.airlift.tracing.Tracing;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
-import io.trino.Session;
 import io.trino.connector.CatalogConnector;
 import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogHandle;
@@ -102,7 +101,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
         public void loadInitialCatalogs() {}
 
         @Override
-        public void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs) {}
+        public void ensureCatalogsLoaded(List<CatalogProperties> catalogs) {}
 
         @Override
         public void pruneCatalogs(Set<CatalogHandle> catalogsInUse) {}
