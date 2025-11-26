@@ -140,12 +140,12 @@ public abstract class BaseConnectorSmokeTest
     @Test
     public void testCreateTable()
     {
+        String tableName = "test_create_" + randomNameSuffix();
         if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
-            assertQueryFails("CREATE TABLE xxxx (a bigint, b double)", "This connector does not support creating tables");
+            assertQueryFails("CREATE TABLE %s (a bigint, b double)".formatted(tableName), "This connector does not support creating tables");
             return;
         }
 
-        String tableName = "test_create_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " " + getCreateTableDefaultDefinition());
         assertThat(query("SELECT a, b FROM " + tableName))
                 .returnsEmptyResult();
@@ -170,12 +170,12 @@ public abstract class BaseConnectorSmokeTest
     @Test
     public void testCreateTableAsSelect()
     {
+        String tableName = "test_create_" + randomNameSuffix();
         if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)) {
-            assertQueryFails("CREATE TABLE xxxx AS SELECT BIGINT '42' a, DOUBLE '-38.5' b", "This connector does not support creating tables with data");
+            assertQueryFails("CREATE TABLE %s AS SELECT BIGINT '42' a, DOUBLE '-38.5' b".formatted(tableName), "This connector does not support creating tables with data");
             return;
         }
 
-        String tableName = "test_create_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b", 1);
         assertThat(query("SELECT CAST(a AS bigint), b FROM " + tableName))
                 .matches("VALUES (BIGINT '42', -385e-1)");
