@@ -110,6 +110,21 @@ support:
     Trino on Amazon EKS and using [IAM roles for service accounts
     (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)
     Defaults to `false`.
+* - `s3.web-identity-token-credentials-prefetch-time`
+  - Configure the amount of time, relative to STS token expiration, that the
+    cached credentials are considered close to stale and should be updated.
+    Prefetch updates will occur between the specified time and the stale time
+    of the provider. Prefetch updates are asynchronous.
+    By default, [AWS SDK v2
+    defaults](https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/services/sts/auth/StsCredentialsProvider.BaseBuilder.html)
+    are used.
+* - `s3.web-identity-token-credentials-stale-time`
+  - Configure the amount of time, relative to STS token expiration, that the
+    cached credentials are considered stale and must be updated. All threads
+    using S3 client will block until the value is updated.
+    By default, [AWS SDK v2
+    defaults](https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/services/sts/auth/StsCredentialsProvider.BaseBuilder.html)
+    are used.
 * - `s3.application-id`
   - Specify the application identifier appended to the `User-Agent` header 
     for all requests sent to S3. Defaults to `Trino`.
