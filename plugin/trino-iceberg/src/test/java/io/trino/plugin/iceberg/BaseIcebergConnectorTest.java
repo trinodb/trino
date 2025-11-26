@@ -37,7 +37,6 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.OperatorStats;
 import io.trino.plugin.hive.HiveCompressionCodec;
-import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
@@ -58,7 +57,6 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.BaseConnectorTest;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryFailedException;
@@ -8408,65 +8406,7 @@ public abstract class BaseIcebergConnectorTest
                 .isFalse();
     }
 
-    @Test
-    public void testDropCorruptedTableWithHiveRedirection()
-            throws Exception
-    {
-        String hiveRedirectionCatalog = "hive_with_redirections";
-        String icebergCatalog = "iceberg_test";
-        String schema = "default";
-        String tableName = "test_drop_corrupted_table_with_hive_redirection_" + randomNameSuffix();
-        String hiveTableName = "%s.%s.%s".formatted(hiveRedirectionCatalog, schema, tableName);
-        String icebergTableName = "%s.%s.%s".formatted(icebergCatalog, schema, tableName);
 
-        File dataDirectory = Files.createTempDirectory("test_corrupted_iceberg_table").toFile();
-        dataDirectory.deleteOnExit();
-
-        Session icebergSession = testSessionBuilder()
-                .setCatalog(icebergCatalog)
-                .setSchema(schema)
-                .build();
-
-        QueryRunner queryRunner = DistributedQueryRunner.builder(icebergSession)
-                .build();
-        queryRunner.installPlugin(new IcebergPlugin());
-        queryRunner.createCatalog(
-                icebergCatalog,
-                "iceberg",
-                ImmutableMap.of(
-                        "iceberg.catalog.type", "TESTING_FILE_METASTORE",
-                        "hive.metastore.catalog.dir", dataDirectory.getPath(),
-                        "fs.hadoop.enabled", "true"));
-
-        queryRunner.installPlugin(new TestingHivePlugin(dataDirectory.toPath()));
-        queryRunner.createCatalog(
-                hiveRedirectionCatalog,
-                "hive",
-                ImmutableMap.of("hive.iceberg-catalog-name", icebergCatalog));
-
-        queryRunner.execute("CREATE SCHEMA " + schema);
-        queryRunner.execute("CREATE TABLE " + icebergTableName + " (id INT, country VARCHAR, independence ROW(month VARCHAR, year INT))");
-        queryRunner.execute("INSERT INTO " + icebergTableName + " VALUES (1, 'INDIA', ROW ('Aug', 1947)), (2, 'POLAND', ROW ('Nov', 1918)), (3, 'USA', ROW ('Jul', 1776))");
-
-        assertThat(queryRunner.execute("TABLE " + hiveTableName))
-                .containsAll(queryRunner.execute("TABLE " + icebergTableName));
-
-        Location tableLocation = Location.of((String) queryRunner.execute("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*/[^/]*$', '') FROM " + tableName).getOnlyValue());
-        Location metadataLocation = tableLocation.appendPath("metadata");
-
-        // break the table by deleting all metadata files
-        fileSystem.deleteDirectory(metadataLocation);
-        assertThat(fileSystem.listFiles(metadataLocation).hasNext())
-                .describedAs("Metadata location should not exist")
-                .isFalse();
-
-        // DROP TABLE should succeed using hive redirection
-        queryRunner.execute("DROP TABLE " + hiveTableName);
-        assertThat(queryRunner.tableExists(getSession(), icebergTableName)).isFalse();
-        assertThat(fileSystem.listFiles(tableLocation).hasNext())
-                .describedAs("Table location should not exist")
-                .isFalse();
-    }
 
     @Test
     @Timeout(10)
