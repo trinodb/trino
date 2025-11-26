@@ -1,3 +1,2 @@
 io.trino.testing.services.junit.LogTestDurationListener
 io.trino.testing.services.junit.ReportOverriddenMethods
-io.trino.testing.services.junit.DiskUsageTestListener
