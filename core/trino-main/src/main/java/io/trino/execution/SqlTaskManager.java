@@ -554,7 +554,7 @@ public class SqlTaskManager
                         ReentrantReadWriteLock.ReadLock catalogInitLock = catalogsLock.readLock();
                         catalogInitLock.lock();
                         try {
-                            connectorServicesProvider.ensureCatalogsLoaded(session, activeCatalogs);
+                            connectorServicesProvider.ensureCatalogsLoaded(activeCatalogs);
                             sqlTask.setCatalogsLoaded();
                         }
                         finally {
