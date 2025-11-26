@@ -482,7 +482,7 @@ jobs:
         timeout-minutes: 15
         with:
           cache: restore
-          cleanup-node: ${{ format('{0}', matrix.modules == 'plugin/trino-singlestore' || matrix.modules == 'plugin/trino-exasol' || matrix.modules == 'plugin/trino-oracle') }}
+          cleanup-node: ${{ format('{0}', matrix.modules == 'plugin/trino-singlestore' || matrix.modules == 'plugin/trino-exasol' || matrix.modules == 'plugin/trino-oracle' || matrix.modules == 'plugin/trino-iceberg') }}
           java-version: ${{ matrix.jdk != '' && matrix.jdk || '25.0.1' }}
       - name: Maven Install
         run: |
