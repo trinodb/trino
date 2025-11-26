@@ -200,7 +200,7 @@ public class NodeStateManager
 
     private void requestGracefulShutdown()
     {
-        log.info("Shutdown requested");
+        log.info("Shutdown requested, wait %s for the coordinator to notice the shutdown", gracePeriod);
 
         VersionedState expectedState = nodeState.getVersion();
         // wait for a grace period (so that shutting down state is observed by the coordinator) to start the shutdown sequence
@@ -263,16 +263,18 @@ public class NodeStateManager
         // Wait for all remaining tasks to finish.
         while (nodeState.getVersion() == expectedState) {
             List<TaskInfo> activeTasks = getActiveTasks();
-            log.info("Waiting for %s active tasks to finish", activeTasks.size());
             if (activeTasks.isEmpty()) {
                 break;
             }
 
+            log.info("Waiting for %s active tasks to finish", activeTasks.size());
             waitTasksToFinish(activeTasks, expectedState);
         }
+        log.info("All active tasks are finished");
 
         // wait for another grace period for all task states to be observed by the coordinator
         if (nodeState.getVersion() == expectedState) {
+            log.info("Waiting for a grace period of %s for all task states to be observed by the coordinator", gracePeriod);
             sleepUninterruptibly(gracePeriod.toMillis(), MILLISECONDS);
         }
     }
