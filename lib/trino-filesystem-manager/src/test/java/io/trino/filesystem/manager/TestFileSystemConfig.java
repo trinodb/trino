@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.manager;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
@@ -38,6 +39,7 @@ public class TestFileSystemConfig
                 .setNativeGcsEnabled(false)
                 .setNativeLocalEnabled(false)
                 .setCacheEnabled(false)
+                .setCacheIncludeTables(ImmutableList.of())
                 .setTrackingEnabled(RUNNING_IN_CI));
     }
 
@@ -52,6 +54,7 @@ public class TestFileSystemConfig
                 .put("fs.native-gcs.enabled", "true")
                 .put("fs.native-local.enabled", "true")
                 .put("fs.cache.enabled", "true")
+                .put("fs.cache.include-tables", "schema1.table1,schema2.*,*")
                 .put("fs.tracking.enabled", Boolean.toString(!RUNNING_IN_CI))
                 .buildOrThrow();
 
@@ -63,6 +66,7 @@ public class TestFileSystemConfig
                 .setNativeGcsEnabled(true)
                 .setNativeLocalEnabled(true)
                 .setCacheEnabled(true)
+                .setCacheIncludeTables(ImmutableList.of("schema1.table1", "schema2.*", "*"))
                 .setTrackingEnabled(!RUNNING_IN_CI);
 
         assertFullMapping(properties, expected);
