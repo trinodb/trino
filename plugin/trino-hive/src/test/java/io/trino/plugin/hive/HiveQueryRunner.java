@@ -42,7 +42,6 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -237,10 +236,6 @@ public final class HiveQueryRunner
                 Optional<HiveMetastore> metastore = this.metastore.map(factory -> factory.apply(queryRunner));
                 Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data");
 
-                if (metastore.isEmpty() && !hiveProperties.buildOrThrow().containsKey("hive.metastore")) {
-                    hiveProperties.put("hive.metastore", "file");
-                    hiveProperties.put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toString());
-                }
                 if (hiveProperties.buildOrThrow().keySet().stream().noneMatch(key ->
                         key.equals("fs.hadoop.enabled") || key.startsWith("fs.native-"))) {
                     hiveProperties.put("fs.hadoop.enabled", "true");
@@ -270,11 +265,6 @@ public final class HiveQueryRunner
                             .buildOrThrow();
                     hiveBucketedProperties = new HashMap<>(hiveBucketedProperties);
                     hiveBucketedProperties.put("hive.compression-codec", "NONE"); // so that the file is splittable
-                    if (Objects.equals(hiveBucketedProperties.get("hive.metastore"), "file")) {
-                        // Use separate file metastore location from the non-bucketed catalog. File metastore relies on Java synchronization.
-                        // Two catalogs having separate file metastore instances but sharing disk location may encounter spurious errors which lead to test failures.
-                        hiveBucketedProperties.put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_bucketed_data").toString());
-                    }
                     queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, "hive", hiveBucketedProperties);
                 }
 
