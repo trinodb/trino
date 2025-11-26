@@ -19,7 +19,11 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.spi.block.SqlRow;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.Symbol;
@@ -29,12 +33,15 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ValuesNode;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getPushFilterIntoValuesMaxRowCount;
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -114,16 +121,17 @@ public class PushFilterIntoValues
         boolean optimized = false;
         boolean keepFilter = false;
         for (Expression expression : valuesNode.getRows().orElseThrow()) {
-            Row row = (Row) expression;
-            ImmutableMap.Builder<Symbol, Expression> mapping = ImmutableMap.builder();
-            for (int i = 0; i < valuesNode.getOutputSymbols().size(); i++) {
-                mapping.put(valuesNode.getOutputSymbols().get(i), row.items().get(i));
-            }
-            Expression rewrittenPredicate = inlineSymbols(mapping.buildOrThrow(), predicate);
+            Map<Symbol, Expression> mapping = switch (expression) {
+                case Row row -> buildMappings(valuesNode.getOutputSymbols(), row);
+                case Constant constant -> buildMappings(valuesNode.getOutputSymbols(), constant);
+                default -> throw new IllegalStateException("Unexpected expression type in ValuesNode: " + expression.getClass().getName());
+            };
+
+            Expression rewrittenPredicate = inlineSymbols(mapping, predicate);
             Optional<Expression> optimizedPredicate = newOptimizer(plannerContext).process(rewrittenPredicate, context.getSession(), ImmutableMap.of());
 
             if (optimizedPredicate.isPresent() && optimizedPredicate.get().equals(TRUE)) {
-                filteredRows.add(row);
+                filteredRows.add(expression);
             }
             else if (optimizedPredicate.isPresent() && (optimizedPredicate.get().equals(FALSE) || optimizedPredicate.get().equals(NULL_BOOLEAN))) {
                 // skip row
@@ -131,7 +139,7 @@ public class PushFilterIntoValues
             }
             else {
                 // could not evaluate the predicate for the row
-                filteredRows.add(row);
+                filteredRows.add(expression);
                 keepFilter = true;
             }
         }
@@ -159,6 +167,33 @@ public class PushFilterIntoValues
         // so we don't need to handle this case here.
         // Also, do not optimize if any values row is not a Row instance, because we cannot easily inline
         // the columns of non-row expressions in the filter predicate.
-        return valuesNode.getRows().isPresent() && valuesNode.getRows().get().stream().allMatch(Row.class::isInstance);
+        return valuesNode.getRows().isPresent() &&
+                valuesNode.getRows().get().stream().allMatch(row -> row instanceof Row || row instanceof Constant);
+    }
+
+    private Map<Symbol, Expression> buildMappings(List<Symbol> symbols, Row row)
+    {
+        ImmutableMap.Builder<Symbol, Expression> mappingBuilder = ImmutableMap.builder();
+        for (int i = 0; i < row.items().size(); i++) {
+            mappingBuilder.put(symbols.get(i), row.items().get(i));
+        }
+        return mappingBuilder.buildOrThrow();
+    }
+
+    private Map<Symbol, Expression> buildMappings(List<Symbol> symbols, Constant row)
+    {
+        ImmutableMap.Builder<Symbol, Expression> mappingBuilder = ImmutableMap.builder();
+
+        RowType type = (RowType) row.type();
+        SqlRow rowValue = (SqlRow) row.value();
+        for (int field = 0; field < type.getFields().size(); field++) {
+            Type fieldType = type.getFields().get(field).getType();
+
+            mappingBuilder.put(symbols.get(field), new Constant(
+                    fieldType,
+                    readNativeValue(fieldType, rowValue.getRawFieldBlock(field), rowValue.getRawIndex())));
+        }
+
+        return mappingBuilder.buildOrThrow();
     }
 }
