@@ -23,12 +23,15 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
 import io.trino.execution.StagesInfo;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInputStream;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
@@ -42,8 +45,10 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -56,9 +61,11 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.TestingSession;
 import io.trino.testing.sql.TestTable;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
@@ -114,6 +121,7 @@ import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterrup
 import static io.trino.SystemSessionProperties.DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
+import static io.trino.SystemSessionProperties.ITERATIVE_OPTIMIZER_TIMEOUT;
 import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.MAX_WRITER_TASK_COUNT;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
@@ -180,6 +188,7 @@ import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.offset;
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseIcebergConnectorTest
@@ -219,6 +228,29 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @BeforeAll
+    public void initMockMetricsCatalog()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String mockConnector = "mock_metrics";
+        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                .withName(mockConnector)
+                .withListSchemaNames(_ -> ImmutableList.of("default"))
+                .withGetTableStatistics(_ -> {
+                    try {
+                        Thread.sleep(110);
+                    }
+                    catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException(e);
+                    }
+                    return TableStatistics.empty();
+                })
+                .build()));
+
+        queryRunner.createCatalog("mock_metrics", mockConnector);
+    }
+
+    @BeforeAll
     public void initFileSystem()
     {
         fileSystem = getFileSystemFactory(getDistributedQueryRunner()).create(SESSION);
@@ -247,6 +279,7 @@ public abstract class BaseIcebergConnectorTest
                  SUPPORTS_REPORTING_WRITTEN_BYTES -> true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
                  SUPPORTS_DEFAULT_COLUMN_VALUE,
+                 SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_REFRESH_VIEW,
                  SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS,
                  SUPPORTS_TOPN_PUSHDOWN -> false;
@@ -3288,6 +3321,10 @@ public abstract class BaseIcebergConnectorTest
 
         // year()
         assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE year(d) = 2015"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE year(d) IS DISTINCT FROM 2015"))
+                .isNotFullyPushedDown(FilterNode.class);
+        assertThat(query("SELECT * FROM test_year_transform_timestamptz WHERE year(d) IS NOT DISTINCT FROM 2015"))
                 .isFullyPushedDown();
 
         // date_trunc
@@ -6561,6 +6598,94 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testExpireSnapshotsRetainLast()
+            throws Exception
+    {
+        String tableName = "test_expiring_snapshots_" + randomNameSuffix();
+        Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('three', 3)", 1);
+        assertThat(query("SELECT sum(value), listagg(key, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
+                .matches("VALUES (BIGINT '6', VARCHAR 'one three two')");
+
+        List<Long> initialSnapshots = getSnapshotIds(tableName);
+        String tableLocation = getTableLocation(tableName);
+        List<String> initialFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
+        assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s', retain_last => 2)");
+
+        assertThat(query("SELECT sum(value), listagg(key, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
+                .matches("VALUES (BIGINT '6', VARCHAR 'one three two')");
+        List<String> updatedFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
+        List<Long> updatedSnapshots = getSnapshotIds(tableName);
+        assertThat(updatedFiles).hasSize(initialFiles.size() - 2);
+        assertThat(updatedSnapshots.size()).isLessThan(initialSnapshots.size());
+        assertThat(updatedSnapshots).hasSize(2);
+        assertThat(initialSnapshots).containsAll(updatedSnapshots);
+    }
+
+    @Test
+    public void testExpireSnapshotsCleanExpiredMetadata()
+            throws Exception
+    {
+        String tableName = "test_expiring_snapshots_" + randomNameSuffix();
+        Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN value");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 'two'", 1);
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES VARCHAR 'one', 'two'");
+
+        List<Long> initialSnapshots = getSnapshotIds(tableName);
+        String tableLocation = getTableLocation(tableName);
+        List<String> initialFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
+        assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS(retention_threshold => '0s', clean_expired_metadata => true)");
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES VARCHAR 'one', 'two'");
+        List<String> updatedFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
+        List<Long> updatedSnapshots = getSnapshotIds(tableName);
+        assertThat(updatedFiles).hasSize(initialFiles.size() - 2);
+        assertThat(updatedSnapshots.size()).isLessThan(initialSnapshots.size());
+        assertThat(updatedSnapshots).hasSize(1);
+        assertThat(initialSnapshots).containsAll(updatedSnapshots);
+
+        for (String updateFile : updatedFiles) {
+            if (!updateFile.endsWith(".metadata.json")) {
+                continue;
+            }
+
+            String fileName = updateFile.substring(updateFile.lastIndexOf('/') + 1);
+            String metadata = readFile(updateFile);
+            if (fileName.startsWith("00000") || fileName.startsWith("00001")) {
+                // CREATE TABLE and first INSERT only have schema-id 0
+                assertThat(metadata).contains("\"schema-id\":0").doesNotContain("\"schema-id\":1");
+            }
+            else if (fileName.startsWith("00002") || fileName.startsWith("00003")) {
+                // DROP COLUMN and second INSERT have both schema-id 0 and 1
+                assertThat(metadata).contains("\"schema-id\":0", "\"schema-id\":1");
+            }
+            else if (fileName.startsWith("00004")) {
+                // Final metadata only has schema-id 1 after cleaning expired metadata
+                assertThat(metadata).contains("\"schema-id\":1").doesNotContain("\"schema-id\":0");
+            }
+            else {
+                throw new IllegalStateException("Unexpected metadata file: " + updateFile);
+            }
+        }
+    }
+
+    private String readFile(String location)
+            throws IOException
+    {
+        try (TrinoInputStream inputStream = fileSystem.newInputFile(Location.of(location)).newStream()) {
+            return new String(inputStream.readAllBytes(), UTF_8);
+        }
+    }
+
+    @Test
     public void testExpireSnapshotsOnSnapshot()
     {
         String tableName = "test_expire_snapshots_on_snapshot_" + randomNameSuffix();
@@ -6594,7 +6719,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
 
         assertExplain("EXPLAIN ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')",
-                "SimpleTableExecute\\[table = iceberg:schemaTableName:tpch.test_expiring_snapshots.*\\[retentionThreshold=0\\.00s].*");
+                "SimpleTableExecute\\[table = iceberg:schemaTableName:tpch.test_expiring_snapshots.*\\[retentionThreshold=0\\.00s, retainLast=1, cleanExpiredMetadata=false].*");
     }
 
     @Test
@@ -6612,6 +6737,13 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '33s')",
                 "\\QRetention specified (33.00s) is shorter than the minimum retention configured in the system (7.00d). Minimum retention can be changed with iceberg.expire-snapshots.min-retention configuration property or iceberg.expire_snapshots_min_retention session property");
+
+        assertQueryFails(
+                "ALTER TABLE nation EXECUTE EXPIRE_SNAPSHOTS (retain_last => 0)",
+                ".* Number of snapshots to retain must be at least 1");
+        assertQueryFails(
+                "ALTER TABLE nation EXECUTE EXPIRE_SNAPSHOTS (retain_last => -1)",
+                ".* Number of snapshots to retain must be at least 1");
     }
 
     @Test
@@ -8522,6 +8654,11 @@ public abstract class BaseIcebergConnectorTest
             expectedQuery = "SELECT a.custkey, b.orderkey FROM orders a JOIN orders b on a.orderkey = b.custkey";
             assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(1));
             assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(2));
+
+            // optimize should not require a remote exchange between the scan and the execute nodes
+            query = "ALTER TABLE test_bucketed_select EXECUTE OPTIMIZE";
+            assertUpdate(planWithTableNodePartitioning, query, assertRemoteExchangesCount(1));
+            assertUpdate(planWithoutTableNodePartitioning, query, assertRemoteExchangesCount(2));
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_bucketed_select");
@@ -9244,6 +9381,38 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails(
                 "CREATE TABLE test_data_location WITH (data_location = 'local:///data-location/xyz') AS SELECT 1 AS val",
                 "Data location can only be set when object store layout is enabled");
+    }
+
+    @Test
+    public void testCatalogMetadataMetrics()
+    {
+        MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(
+                getSession(),
+                "SELECT count(*) FROM region r, nation n WHERE r.regionkey = n.regionkey");
+        Map<String, Metrics> metrics = getCatalogMetadataMetrics(result.queryId());
+        assertCountMetricExists(metrics, "iceberg", "metastore.all.time.total");
+        assertDistributionMetricExists(metrics, "iceberg", "metastore.all.time.distribution");
+        assertCountMetricExists(metrics, "iceberg", "metastore.getTable.time.total");
+        assertDistributionMetricExists(metrics, "iceberg", "metastore.getTable.time.distribution");
+    }
+
+    @Test
+    public void testCatalogMetadataMetricsWithOptimizerTimeoutExceeded()
+    {
+        String query = "SELECT count(*) FROM region r, nation n, mock_metrics.default.mock_table m WHERE r.regionkey = n.regionkey";
+        try {
+            Session smallOptimizerTimeout = TestingSession.testSessionBuilder(getSession())
+                    .setSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, "100ms")
+                    .build();
+            MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(smallOptimizerTimeout, query);
+            fail(format("Expected query to fail: %s [QueryId: %s]", query, result.queryId()));
+        }
+        catch (QueryFailedException e) {
+            assertThat(e.getMessage()).contains("The optimizer exhausted the time limit");
+            Map<String, Metrics> metrics = getCatalogMetadataMetrics(e.getQueryId());
+            assertCountMetricExists(metrics, "iceberg", "metastore.all.time.total");
+            assertCountMetricExists(metrics, "iceberg", "metastore.getTable.time.total");
+        }
     }
 
     @Test

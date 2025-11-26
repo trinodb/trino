@@ -24,7 +24,7 @@ import java.util.Map;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
-public class TestMapBlockBuilder
+final class TestMapBlockBuilder
         extends AbstractTestBlockBuilder<Map<String, Integer>>
 {
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();

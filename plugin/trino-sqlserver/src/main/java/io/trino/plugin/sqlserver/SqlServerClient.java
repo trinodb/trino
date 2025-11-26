@@ -77,6 +77,8 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
+import io.trino.spi.connector.RelationColumnsMetadata;
+import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
@@ -121,6 +123,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -426,6 +429,30 @@ public class SqlServerClient
     protected boolean isTableLockNeeded(ConnectorSession session)
     {
         return isBulkCopyForWrite(session) && isBulkCopyForWriteLockDestinationTable(session);
+    }
+
+    @Override
+    public List<RelationCommentMetadata> getAllTableComments(ConnectorSession session, Optional<String> schema)
+    {
+        return retryOnDeadlock(() -> super.getAllTableComments(session, schema), "error when getting all table comments for '%s'".formatted(schema));
+    }
+
+    @Override
+    public Iterator<RelationColumnsMetadata> getAllTableColumns(ConnectorSession session, Optional<String> schema)
+    {
+        return retryOnDeadlock(() -> super.getAllTableColumns(session, schema), "error when getting all table columns for '%s'".formatted(schema));
+    }
+
+    @Override
+    public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        return retryOnDeadlock(() -> super.getTableHandle(session, schemaTableName), "error when getting table handle for '%s'".formatted(schemaTableName));
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
+    {
+        return retryOnDeadlock(() -> super.getColumns(session, schemaTableName, remoteTableName), "error when getting columns for table '%s'".formatted(remoteTableName));
     }
 
     @Override

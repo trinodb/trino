@@ -24,7 +24,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 import static java.lang.String.format;
-import static org.testcontainers.containers.PostgreSQLContainer.POSTGRESQL_PORT;
+import static org.testcontainers.postgresql.PostgreSQLContainer.POSTGRESQL_PORT;
 
 public class TestingIcebergJdbcServer
         implements Closeable

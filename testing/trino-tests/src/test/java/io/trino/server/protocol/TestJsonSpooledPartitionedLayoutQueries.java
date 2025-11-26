@@ -11,30 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.testing;
+package io.trino.server.protocol;
 
-import static java.util.Objects.requireNonNull;
+import com.google.common.collect.ImmutableMap;
 
-public class ForwardingInterfaceWithPrivateMethod
-        implements InterfaceWithPrivateMethod
+import java.util.Map;
+
+public class TestJsonSpooledPartitionedLayoutQueries
+        extends AbstractSpooledQueryDataDistributedQueries
 {
-    // Declared as field for brevity. In a typical Forwarding class this would be delegate() abstract method
-    private final InterfaceWithPrivateMethod delegate;
-
-    public ForwardingInterfaceWithPrivateMethod(InterfaceWithPrivateMethod delegate)
+    @Override
+    protected String encoding()
     {
-        this.delegate = requireNonNull(delegate, "delegate is null");
+        return "json";
     }
 
     @Override
-    public void foo()
+    protected Map<String, String> spoolingFileSystemConfig()
     {
-        delegate.foo();
+        return ImmutableMap.of("fs.layout", "partitioned");
     }
 
     @Override
-    public void bar()
+    protected Map<String, String> spoolingConfig()
     {
-        delegate.bar();
+        return ImmutableMap.of("protocol.spooling.inlining.enabled", "false");
     }
 }

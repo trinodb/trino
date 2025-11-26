@@ -40,8 +40,6 @@ support:
   - AWS signing protocol to use for authenticating S3 requests. Supported values are: 
     `AwsS3V4Signer`, `Aws4Signer`, `AsyncAws4Signer`, `Aws4UnsignedPayloadSigner`, 
     `EventStreamAws4Signer`.
-* - `s3.exclusive-create`
-  - Whether conditional write is supported by the S3-compatible storage. Defaults to `true`.
 * - `s3.canned-acl`
   - [Canned ACL](https://docs.aws.amazon.com/AmazonS3/latest/userguide/acl-overview.html#canned-acl)
     to use when uploading files to S3. Defaults to `NONE`, which has the same

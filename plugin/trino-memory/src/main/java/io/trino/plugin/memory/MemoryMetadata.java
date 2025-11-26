@@ -165,32 +165,40 @@ public class MemoryMetadata
         }
         schemas.add(target);
 
-        for (Map.Entry<SchemaTableName, Long> table : tableIds.entrySet()) {
+        Map<SchemaTableName, Long> newTableIds = new HashMap<>();
+        for (Iterator<Map.Entry<SchemaTableName, Long>> iterator = tableIds.entrySet().iterator(); iterator.hasNext(); ) {
+            Map.Entry<SchemaTableName, Long> table = iterator.next();
             if (table.getKey().getSchemaName().equals(source)) {
-                tableIds.remove(table.getKey());
-                tableIds.put(new SchemaTableName(target, table.getKey().getTableName()), table.getValue());
+                iterator.remove();
+                newTableIds.put(new SchemaTableName(target, table.getKey().getTableName()), table.getValue());
             }
         }
+        tableIds.putAll(newTableIds);
 
-        for (TableInfo table : tables.values()) {
-            if (table.schemaName().equals(source)) {
-                tables.put(table.id(), new TableInfo(table.id(), target, table.tableName(), table.columns(), false, table.dataFragments(), table.comment()));
-            }
-        }
+        tables.replaceAll((tableId, table) ->
+                table.schemaName().equals(source)
+                        ? new TableInfo(tableId, target, table.tableName(), table.columns(), table.truncated(), table.dataFragments(), table.comment())
+                        : table);
 
-        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> view : views.entrySet()) {
+        Map<SchemaTableName, ConnectorViewDefinition> newViews = new HashMap<>();
+        for (Iterator<Map.Entry<SchemaTableName, ConnectorViewDefinition>> iterator = views.entrySet().iterator(); iterator.hasNext(); ) {
+            Map.Entry<SchemaTableName, ConnectorViewDefinition> view = iterator.next();
             if (view.getKey().getSchemaName().equals(source)) {
-                views.remove(view.getKey());
-                views.put(new SchemaTableName(target, view.getKey().getTableName()), view.getValue());
+                iterator.remove();
+                newViews.put(new SchemaTableName(target, view.getKey().getTableName()), view.getValue());
             }
         }
+        views.putAll(newViews);
 
-        for (Map.Entry<SchemaFunctionName, Map<String, LanguageFunction>> function : functions.entrySet()) {
+        Map<SchemaFunctionName, Map<String, LanguageFunction>> newFunctions = new HashMap<>();
+        for (Iterator<Map.Entry<SchemaFunctionName, Map<String, LanguageFunction>>> iterator = functions.entrySet().iterator(); iterator.hasNext(); ) {
+            Map.Entry<SchemaFunctionName, Map<String, LanguageFunction>> function = iterator.next();
             if (function.getKey().getSchemaName().equals(source)) {
-                functions.remove(function.getKey());
-                functions.put(new SchemaFunctionName(target, function.getKey().getFunctionName()), function.getValue());
+                iterator.remove();
+                newFunctions.put(new SchemaFunctionName(target, function.getKey().getFunctionName()), function.getValue());
             }
         }
+        functions.putAll(newFunctions);
     }
 
     @GuardedBy("this")
@@ -469,6 +477,36 @@ public class MemoryMetadata
         List<ColumnInfo> columns = new ArrayList<>(table.columns());
         ColumnInfo columnInfo = columns.get(column.columnIndex());
         columns.set(column.columnIndex(), new ColumnInfo(newColumn, columnInfo.defaultValue(), columnInfo.nullable(), columnInfo.comment()));
+
+        tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.truncated(), table.dataFragments(), table.comment()));
+    }
+
+    @Override
+    public synchronized void setDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, String defaultValue)
+    {
+        MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
+        MemoryColumnHandle column = (MemoryColumnHandle) columnHandle;
+        long tableId = handle.id();
+        TableInfo table = tables.get(handle.id());
+
+        List<ColumnInfo> columns = new ArrayList<>(table.columns());
+        ColumnInfo columnInfo = columns.get(column.columnIndex());
+        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), Optional.of(defaultValue), columnInfo.nullable(), columnInfo.comment()));
+
+        tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.truncated(), table.dataFragments(), table.comment()));
+    }
+
+    @Override
+    public synchronized void dropDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
+        MemoryColumnHandle column = (MemoryColumnHandle) columnHandle;
+        long tableId = handle.id();
+        TableInfo table = tables.get(handle.id());
+
+        List<ColumnInfo> columns = new ArrayList<>(table.columns());
+        ColumnInfo columnInfo = columns.get(column.columnIndex());
+        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), Optional.empty(), columnInfo.nullable(), columnInfo.comment()));
 
         tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.truncated(), table.dataFragments(), table.comment()));
     }

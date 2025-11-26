@@ -11,27 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.base;
+package io.trino.testing;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import io.trino.spi.catalog.CatalogName;
-
-import static java.util.Objects.requireNonNull;
-
-public class CatalogNameModule
-        implements Module
+// Must be defined in separate compilation unit from the test to effectively test private methods access
+interface InterfaceWithPrivateMethod
 {
-    private final String catalogName;
+    void foo();
 
-    public CatalogNameModule(String catalogName)
+    default void bar()
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        defaultBar();
     }
 
-    @Override
-    public void configure(Binder binder)
+    private static void defaultBar()
     {
-        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
+        throw new UnsupportedOperationException("bar not implemented");
     }
 }

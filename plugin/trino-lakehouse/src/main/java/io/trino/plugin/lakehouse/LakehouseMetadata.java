@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.lakehouse;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import io.airlift.slice.Slice;
 import io.trino.metastore.Table;
@@ -87,6 +88,8 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
+import io.trino.spi.metrics.Metric;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
@@ -252,6 +255,25 @@ public class LakehouseMetadata
     }
 
     @Override
+    public Metrics getMetrics(ConnectorSession session)
+    {
+        ImmutableMap.Builder<String, Metric<?>> metrics = ImmutableMap.<String, Metric<?>>builder();
+        hiveMetadata.getMetrics(session).getMetrics().forEach((metricName, metric) -> {
+            metrics.put("hive." + metricName, metric);
+        });
+        icebergMetadata.getMetrics(session).getMetrics().forEach((metricName, metric) -> {
+            metrics.put("iceberg." + metricName, metric);
+        });
+        deltaMetadata.getMetrics(session).getMetrics().forEach((metricName, metric) -> {
+            metrics.put("delta." + metricName, metric);
+        });
+        hudiMetadata.getMetrics(session).getMetrics().forEach((metricName, metric) -> {
+            metrics.put("hudi." + metricName, metric);
+        });
+        return new Metrics(metrics.buildOrThrow());
+    }
+
+    @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         return hiveMetadata.listTables(session, schemaName);
@@ -408,6 +430,18 @@ public class LakehouseMetadata
     public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
     {
         forHandle(tableHandle).addField(session, tableHandle, parentPath, fieldName, type, ignoreExisting);
+    }
+
+    @Override
+    public void setDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, String defaultValue)
+    {
+        forHandle(tableHandle).setDefaultValue(session, tableHandle, column, defaultValue);
+    }
+
+    @Override
+    public void dropDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        forHandle(tableHandle).dropDefaultValue(session, tableHandle, columnHandle);
     }
 
     @Override

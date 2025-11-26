@@ -24,6 +24,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import static io.trino.testing.containers.MotoContainer.MOTO_ACCESS_KEY;
 import static io.trino.testing.containers.MotoContainer.MOTO_REGION;
 import static io.trino.testing.containers.MotoContainer.MOTO_SECRET_KEY;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Testcontainers
@@ -56,14 +57,19 @@ public class TestS3FileSystemMoto
     @Override
     protected S3FileSystemFactory createS3FileSystemFactory()
     {
-        return new S3FileSystemFactory(OpenTelemetry.noop(), new S3FileSystemConfig()
-                .setEndpoint(MOTO.getEndpoint().toString())
-                .setRegion(MOTO_REGION)
-                .setPathStyleAccess(true)
-                .setAwsAccessKey(MOTO_ACCESS_KEY)
-                .setAwsSecretKey(MOTO_SECRET_KEY)
-                .setSupportsExclusiveCreate(true)
-                .setStreamingPartSize(DataSize.valueOf("5.5MB")), new S3FileSystemStats());
+        DataSize streamingPartSize = DataSize.valueOf("5.5MB");
+        assertThat(streamingPartSize).describedAs("Configured part size should be less than test's larger file size")
+                .isLessThan(LARGER_FILE_DATA_SIZE);
+        return new S3FileSystemFactory(
+                OpenTelemetry.noop(),
+                new S3FileSystemConfig()
+                        .setEndpoint(MOTO.getEndpoint().toString())
+                        .setRegion(MOTO_REGION)
+                        .setPathStyleAccess(true)
+                        .setAwsAccessKey(MOTO_ACCESS_KEY)
+                        .setAwsSecretKey(MOTO_SECRET_KEY)
+                        .setStreamingPartSize(streamingPartSize),
+                new S3FileSystemStats());
     }
 
     @Test

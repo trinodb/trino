@@ -26,17 +26,13 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.spi.security.ConnectorIdentity;
+import io.trino.testing.containers.Alluxio;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
-import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
-import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -44,11 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestAlluxioFileSystem
         extends AbstractTestTrinoFileSystem
 {
-    private static final String IMAGE_NAME = "alluxio/alluxio:2.9.5";
-    private static final DockerImageName ALLUXIO_IMAGE = DockerImageName.parse(IMAGE_NAME);
-
-    private GenericContainer<?> alluxioMaster;
-    private GenericContainer<?> alluxioWorker;
+    private Alluxio alluxio;
     private TrinoFileSystem fileSystem;
     private Location rootLocation;
     private FileSystem alluxioFs;
@@ -57,10 +49,8 @@ public class TestAlluxioFileSystem
     @BeforeAll
     void setup()
     {
-        alluxioMaster = createAlluxioMasterContainer();
-        alluxioMaster.start();
-        alluxioWorker = createAlluxioWorkerContainer();
-        alluxioWorker.start();
+        this.alluxio = new Alluxio();
+        alluxio.start();
         this.rootLocation = Location.of("alluxio:///");
         InstancedConfiguration conf = Configuration.copyGlobal();
         FileSystemContext fsContext = FileSystemContext.create(conf);
@@ -74,13 +64,9 @@ public class TestAlluxioFileSystem
             throws Exception
     {
         try (AutoCloseableCloser closer = AutoCloseableCloser.create()) {
-            if (alluxioMaster != null) {
-                closer.register(alluxioMaster);
-                alluxioMaster = null;
-            }
-            if (alluxioWorker != null) {
-                closer.register(alluxioWorker);
-                alluxioWorker = null;
+            if (alluxio != null) {
+                closer.register(alluxio);
+                alluxio = null;
             }
             fileSystem = null;
             if (alluxioFs != null) {
@@ -144,40 +130,5 @@ public class TestAlluxioFileSystem
     protected boolean supportsIncompleteWriteNoClobber()
     {
         return false;
-    }
-
-    private static GenericContainer<?> createAlluxioMasterContainer()
-    {
-        return new GenericContainer<>(ALLUXIO_IMAGE).withCommand("master-only")
-                .withEnv("ALLUXIO_JAVA_OPTS",
-                        "-Dalluxio.security.authentication.type=NOSASL "
-                                + "-Dalluxio.master.hostname=localhost "
-                                + "-Dalluxio.worker.hostname=localhost "
-                                + "-Dalluxio.master.mount.table.root.ufs=/opt/alluxio/underFSStorage "
-                                + "-Dalluxio.master.journal.type=NOOP "
-                                + "-Dalluxio.security.authorization.permission.enabled=false "
-                                + "-Dalluxio.security.authorization.plugins.enabled=false ")
-                .withNetworkMode("host")
-                .withAccessToHost(true)
-                .waitingFor(new LogMessageWaitStrategy()
-                        .withRegEx(".*Primary started*\n")
-                        .withStartupTimeout(Duration.ofMinutes(5)));
-    }
-
-    private static GenericContainer<?> createAlluxioWorkerContainer()
-    {
-        return new GenericContainer<>(ALLUXIO_IMAGE).withCommand("worker-only")
-                .withNetworkMode("host")
-                .withEnv("ALLUXIO_JAVA_OPTS",
-                        "-Dalluxio.security.authentication.type=NOSASL "
-                                + "-Dalluxio.worker.ramdisk.size=128MB "
-                                + "-Dalluxio.worker.hostname=localhost "
-                                + "-Dalluxio.worker.tieredstore.level0.alias=HDD "
-                                + "-Dalluxio.worker.tieredstore.level0.dirs.path=/tmp "
-                                + "-Dalluxio.master.hostname=localhost "
-                                + "-Dalluxio.security.authorization.permission.enabled=false "
-                                + "-Dalluxio.security.authorization.plugins.enabled=false ")
-                .withAccessToHost(true)
-                .waitingFor(Wait.forLogMessage(".*Alluxio worker started.*\n", 1));
     }
 }

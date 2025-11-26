@@ -19,7 +19,7 @@ import java.util.Random;
 
 import static io.trino.spi.type.IntegerType.INTEGER;
 
-public class TestIntegerArrayBlockEncoding
+final class TestIntegerArrayBlockEncoding
         extends BaseBlockEncodingTest<Integer>
 {
     @Override

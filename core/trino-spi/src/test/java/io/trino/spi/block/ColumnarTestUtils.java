@@ -25,7 +25,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public final class ColumnarTestUtils
+final class ColumnarTestUtils
 {
     private ColumnarTestUtils() {}
 

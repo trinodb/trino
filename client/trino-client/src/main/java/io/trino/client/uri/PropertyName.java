@@ -31,6 +31,7 @@ public enum PropertyName
     CLIENT_INFO("clientInfo"),
     CLIENT_TAGS("clientTags"),
     DISABLE_COMPRESSION("disableCompression"),
+    EXTRA_HEADERS("extraHeaders"),
     DNS_RESOLVER("dnsResolver"),
     DNS_RESOLVER_CONTEXT("dnsResolverContext"),
     ENCODING("encoding"),

@@ -28,6 +28,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Privilege;
@@ -112,7 +113,11 @@ public interface ConnectorMetadata
             Optional<ConnectorTableVersion> startVersion,
             Optional<ConnectorTableVersion> endVersion)
     {
-        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is not implemented");
+        if (listTables(session, Optional.of(tableName.getSchemaName())).isEmpty()) {
+            // This is a correct default implementation meant primarily for connectors that do not have any tables.
+            return null;
+        }
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata listTables() is implemented without getTableHandle()");
     }
 
     /**
@@ -247,6 +252,14 @@ public interface ConnectorMetadata
     default Optional<Object> getInfo(ConnectorSession session, ConnectorTableHandle table)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Return connector-specific, metadata operations metrics for the given session.
+     */
+    default Metrics getMetrics(ConnectorSession session)
+    {
+        return Metrics.EMPTY;
     }
 
     /**
@@ -575,6 +588,22 @@ public interface ConnectorMetadata
     default void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding fields");
+    }
+
+    /**
+     * Set the specified default value
+     */
+    default void setDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, String defaultValue)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting default values");
+    }
+
+    /**
+     * Drop a default value on the specified column
+     */
+    default void dropDefaultValue(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping default values");
     }
 
     /**

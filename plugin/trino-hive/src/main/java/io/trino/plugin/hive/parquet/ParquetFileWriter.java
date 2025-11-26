@@ -147,13 +147,14 @@ public final class ParquetFileWriter
             parquetWriter.close();
         }
         catch (IOException | UncheckedIOException e) {
+            TrinoException trinoException = new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Parquet file", e);
             try {
                 rollbackAction.close();
             }
-            catch (Exception _) {
-                // ignore
+            catch (Exception rollbackException) {
+                trinoException.addSuppressed(rollbackException);
             }
-            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write parquet to Hive", e);
+            throw trinoException;
         }
 
         if (validationInputFactory.isPresent()) {

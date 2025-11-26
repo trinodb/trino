@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.system.files;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.type.Type;
@@ -55,10 +56,9 @@ public final class FilesTableSplitSource
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
         this.schemaJson = requireNonNull(schemaJson, "schemaJson is null");
         this.metadataSchemaJson = requireNonNull(metadataSchemaJson, "metadataSchemaJson is null");
-        this.partitionSpecsByIdJson = requireNonNull(partitionSpecsByIdJson, "partitionSpecsByIdJson is null");
+        this.partitionSpecsByIdJson = ImmutableMap.copyOf(partitionSpecsByIdJson);
         this.partitionColumnType = requireNonNull(partitionColumnType, "partitionColumnType is null");
-        this.fileIoProperties = requireNonNull(fileIoProperties, "fileIoProperties is null");
-        this.finished = false;
+        this.fileIoProperties = ImmutableMap.copyOf(fileIoProperties);
     }
 
     @Override

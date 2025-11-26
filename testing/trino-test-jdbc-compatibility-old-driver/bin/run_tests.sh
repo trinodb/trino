@@ -8,7 +8,7 @@ maven_run_tests="${maven} clean test ${MAVEN_TEST:--B} -pl :trino-test-jdbc-comp
 
 "${maven}" -version
 
-current_version=$(${maven} help:evaluate -Dexpression=project.version -q -DforceStdout)
+current_version=$(${maven} help:evaluate -Dexpression=project.version -q -DforceStdout --raw-streams)
 previous_released_version=$((${current_version%-SNAPSHOT}-1))
 first_tested_version=352
 # test n-th version only
@@ -18,8 +18,8 @@ echo "Current version: ${current_version}"
 echo "Testing every ${version_step}. version between ${first_tested_version} and ${previous_released_version}"
 
 # 404 was skipped
-# 422-424 depend on the incompatible version of the open-telemetry semantic conventions used while invoking tests
-tested_versions=$(seq "${first_tested_version}" ${version_step} "${previous_released_version}" | grep -vx '404\|42[234]')
+# 422-424 and 442 depend on the incompatible version of the open-telemetry semantic conventions used while invoking tests
+tested_versions=$(seq "${first_tested_version}" ${version_step} "${previous_released_version}" | grep -vx '404\|42[234]\|442')
 
 if (( (previous_released_version - first_tested_version) % version_step != 0 )); then
     tested_versions="${tested_versions} ${previous_released_version}"

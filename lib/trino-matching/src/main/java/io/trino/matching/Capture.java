@@ -15,24 +15,12 @@ package io.trino.matching;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static java.util.Objects.requireNonNull;
-
-public record Capture<T>(String description)
+public record Capture<T>(int number)
 {
     private static final AtomicInteger sequenceCounter = new AtomicInteger();
 
-    public Capture
-    {
-        requireNonNull(description, "description is null");
-    }
-
     public static <T> Capture<T> newCapture()
     {
-        return newCapture("");
-    }
-
-    public static <T> Capture<T> newCapture(String description)
-    {
-        return new Capture<>(description + "@" + sequenceCounter.incrementAndGet());
+        return new Capture<>(sequenceCounter.incrementAndGet());
     }
 }

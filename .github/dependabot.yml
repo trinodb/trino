@@ -4,10 +4,19 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      # Apply 7 day cooldown to avoid updating dependencies right away. This reduces the opportunity window
+      # when supply chain is compromised.
+      default-days: 7
   - package-ecosystem: "maven"
     directory: "/"
     schedule:
       interval: "daily"
-    assignees:
-      - wendigo
     open-pull-requests-limit: 10
+    cooldown:
+      # Apply 7 day cooldown to avoid updating dependencies right away. This reduces the opportunity window
+      # when supply chain is compromised. This doesn't apply to the dependencies that we own and release.
+      default-days: 7
+      exclude:
+        - io.airlift:*
+        - io.trino:*

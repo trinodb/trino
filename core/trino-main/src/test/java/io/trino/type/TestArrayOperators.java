@@ -2162,6 +2162,140 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testArrayFirst()
+    {
+        assertThat(assertions.function("array_first", "ARRAY[]"))
+                .isNull(UNKNOWN);
+
+        assertThat(assertions.function("array_first", "ARRAY[NULL]"))
+                .isNull(UNKNOWN);
+
+        assertThat(assertions.function("array_first", "ARRAY[2, 1, 3]"))
+                .isEqualTo(2);
+
+        assertThat(assertions.function("array_first", "ARRAY[NULL, 1]"))
+                .isNull(INTEGER);
+
+        assertThat(assertions.function("array_first", "ARRAY[BIGINT '2', 1, 3]"))
+                .isEqualTo(2L);
+
+        assertThat(assertions.function("array_first", "ARRAY[1.0E0, 2.5E0, 3.5E0]"))
+                .isEqualTo(1.0);
+
+        assertThat(assertions.function("array_first", "ARRAY[ARRAY[1, 2], ARRAY[3]]"))
+                .hasType(new ArrayType(INTEGER))
+                .isEqualTo(ImmutableList.of(1, 2));
+
+        assertThat(assertions.function("array_first", "ARRAY[NULL, ARRAY[1, 2], ARRAY[3]]"))
+                .isNull(new ArrayType(INTEGER));
+
+        assertThat(assertions.function("array_first", "array_first(ARRAY[ARRAY[1, 2], ARRAY[3, 4]]) "))
+                .isEqualTo(1);
+
+        assertThat(assertions.function("array_first", "ARRAY['puppies', 'kittens']"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("puppies");
+
+        assertThat(assertions.function("array_first", "ARRAY[NULL, 'puppies', 'kittens']"))
+                .isNull(createVarcharType(7));
+
+        assertThat(assertions.function("array_first", "ARRAY[TRUE, FALSE]"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("array_first", "ARRAY[NULL, FALSE]"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.function("array_first", "ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01']"))
+                .hasType(createTimestampType(0))
+                .isEqualTo(sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0));
+
+        assertThat(assertions.function("array_first", "ARRAY[infinity()]"))
+                .isEqualTo(POSITIVE_INFINITY);
+
+        assertThat(assertions.function("array_first", "ARRAY[-infinity()]"))
+                .isEqualTo(NEGATIVE_INFINITY);
+
+        assertThat(assertions.function("array_first", "ARRAY[sqrt(-1)]"))
+                .isEqualTo(NaN);
+
+        assertThat(assertions.function("array_first", "ARRAY[2.1, 2.2, 2.3]"))
+                .isEqualTo(decimal("2.1", createDecimalType(2, 1)));
+
+        assertThat(assertions.function("array_first", "ARRAY[2.111111222111111114111, 2.22222222222222222, 2.222222222222223]"))
+                .isEqualTo(decimal("2.111111222111111114111", createDecimalType(22, 21)));
+
+        assertThat(assertions.function("array_first", "ARRAY[1.9, 2, 2.3]"))
+                .isEqualTo(decimal("0000000001.9", createDecimalType(11, 1)));
+    }
+
+    @Test
+    public void testArrayLast()
+    {
+        assertThat(assertions.function("array_last", "ARRAY[]"))
+                .isNull(UNKNOWN);
+
+        assertThat(assertions.function("array_last", "ARRAY[NULL]"))
+                .isNull(UNKNOWN);
+
+        assertThat(assertions.function("array_last", "ARRAY[2, 1, 3]"))
+                .isEqualTo(3);
+
+        assertThat(assertions.function("array_last", "ARRAY[1, NULL]"))
+                .isNull(INTEGER);
+
+        assertThat(assertions.function("array_last", "ARRAY[BIGINT '2', 1, 3]"))
+                .isEqualTo(3L);
+
+        assertThat(assertions.function("array_last", "ARRAY[1.0E0, 2.5E0, 3.5E0]"))
+                .isEqualTo(3.5);
+
+        assertThat(assertions.function("array_last", "ARRAY[ARRAY[1, 2], ARRAY[3]]"))
+                .hasType(new ArrayType(INTEGER))
+                .isEqualTo(ImmutableList.of(3));
+
+        assertThat(assertions.function("array_last", "ARRAY[ARRAY[1, 2], ARRAY[3], NULL]"))
+                .isNull(new ArrayType(INTEGER));
+
+        assertThat(assertions.function("array_last", "array_last(ARRAY[ARRAY[1, 2], ARRAY[3, 4]]) "))
+                .isEqualTo(4);
+
+        assertThat(assertions.function("array_last", "ARRAY['puppies', 'kittens']"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("kittens");
+
+        assertThat(assertions.function("array_last", "ARRAY['puppies', 'kittens', NULL]"))
+                .isNull(createVarcharType(7));
+
+        assertThat(assertions.function("array_last", "ARRAY[TRUE, FALSE]"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("array_last", "ARRAY[FALSE, NULL]"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.function("array_last", "ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01']"))
+                .hasType(createTimestampType(0))
+                .isEqualTo(sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0));
+
+        assertThat(assertions.function("array_last", "ARRAY[infinity()]"))
+                .isEqualTo(POSITIVE_INFINITY);
+
+        assertThat(assertions.function("array_last", "ARRAY[-infinity()]"))
+                .isEqualTo(NEGATIVE_INFINITY);
+
+        assertThat(assertions.function("array_last", "ARRAY[sqrt(-1)]"))
+                .isEqualTo(NaN);
+
+        assertThat(assertions.function("array_last", "ARRAY[2.1, 2.2, 2.3]"))
+                .isEqualTo(decimal("2.3", createDecimalType(2, 1)));
+
+        assertThat(assertions.function("array_last", "ARRAY[2.111111222111111114111, 2.22222222222222222, 2.222222222222223]"))
+                .isEqualTo(decimal("2.222222222222223000000", createDecimalType(22, 21)));
+
+        assertThat(assertions.function("array_last", "ARRAY[1.9, 2, 2.3]"))
+                .isEqualTo(decimal("0000000002.3", createDecimalType(11, 1)));
+    }
+
+    @Test
     public void testSort()
     {
         assertThat(assertions.function("array_sort", "ARRAY[2, 3, 4, 1]"))
@@ -4231,10 +4365,10 @@ public class TestArrayOperators
         assertTrinoExceptionThrownBy(assertions.function("repeat", "1", "1000000")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(assertions.function("repeat", "'loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongvarchar'", "9999")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.function("repeat", "'loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooongvarchar'", "99999")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(assertions.function("repeat", "array[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]", "9999")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.function("repeat", "array[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]", "99999")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 

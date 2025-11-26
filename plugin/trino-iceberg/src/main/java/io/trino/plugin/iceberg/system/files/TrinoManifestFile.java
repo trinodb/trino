@@ -42,93 +42,9 @@ public record TrinoManifestFile(
     private static final long INSTANCE_SIZE = instanceSize(TrinoManifestFile.class);
 
     @Override
-    public String path()
-    {
-        return path;
-    }
-
-    @Override
-    public long length()
-    {
-        return length;
-    }
-
-    @Override
-    public int partitionSpecId()
-    {
-        return partitionSpecId;
-    }
-
-    @Override
-    public ManifestContent content()
-    {
-        return content;
-    }
-
-    @Override
-    public long sequenceNumber()
-    {
-        return sequenceNumber;
-    }
-
-    @Override
-    public long minSequenceNumber()
-    {
-        return minSequenceNumber;
-    }
-
-    @Override
-    public Long snapshotId()
-    {
-        return snapshotId;
-    }
-
-    @Override
-    public Integer addedFilesCount()
-    {
-        return addedFilesCount;
-    }
-
-    @Override
-    public Long addedRowsCount()
-    {
-        return addedRowsCount;
-    }
-
-    @Override
-    public Integer existingFilesCount()
-    {
-        return existingFilesCount;
-    }
-
-    @Override
-    public Long existingRowsCount()
-    {
-        return existingRowsCount;
-    }
-
-    @Override
-    public Integer deletedFilesCount()
-    {
-        return deletedFilesCount;
-    }
-
-    @Override
-    public Long deletedRowsCount()
-    {
-        return deletedRowsCount;
-    }
-
-    @Override
     public List<PartitionFieldSummary> partitions()
     {
         throw new UnsupportedOperationException("Not implemented");
-    }
-
-    @Override
-    public Long firstRowId()
-    {
-        return firstRowId;
     }
 
     @Override

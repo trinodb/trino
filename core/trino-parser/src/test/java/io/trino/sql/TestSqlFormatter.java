@@ -28,6 +28,7 @@ import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.DropBranch;
+import io.trino.sql.tree.DropDefaultValue;
 import io.trino.sql.tree.ExecuteImmediate;
 import io.trino.sql.tree.FastForwardBranch;
 import io.trino.sql.tree.GenericDataType;
@@ -41,6 +42,7 @@ import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.RefreshView;
+import io.trino.sql.tree.SetDefaultValue;
 import io.trino.sql.tree.ShowBranches;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
@@ -535,6 +537,52 @@ public class TestSqlFormatter
                         false,
                         false)))
                 .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR AFTER b");
+    }
+
+    @Test
+    public void testAlterColumnSetDefault()
+    {
+        assertThat(formatSql(new SetDefaultValue(
+                new NodeLocation(1, 1),
+                QualifiedName.of(ImmutableList.of(
+                        new Identifier(new NodeLocation(1, 13), "foo", false),
+                        new Identifier(new NodeLocation(1, 17), "t", false))),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 32), "a", false))),
+                new LongLiteral(new NodeLocation(1, 46), "123"),
+                false)))
+                .isEqualTo("ALTER TABLE foo.t ALTER COLUMN a SET DEFAULT 123");
+
+        assertThat(formatSql(new SetDefaultValue(
+                new NodeLocation(1, 1),
+                QualifiedName.of(ImmutableList.of(
+                        new Identifier(new NodeLocation(1, 23), "foo", false),
+                        new Identifier(new NodeLocation(1, 27), "t", false))),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 42), "b", false))),
+                new LongLiteral(new NodeLocation(1, 56), "123"),
+                true)))
+                .isEqualTo("ALTER TABLE IF EXISTS foo.t ALTER COLUMN b SET DEFAULT 123");
+    }
+
+    @Test
+    public void testAlterColumnDropDefault()
+    {
+        assertThat(formatSql(new DropDefaultValue(
+                new NodeLocation(1, 1),
+                QualifiedName.of(ImmutableList.of(
+                        new Identifier(new NodeLocation(1, 13), "foo", false),
+                        new Identifier(new NodeLocation(1, 17), "t", false))),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 32), "a", false))),
+                false)))
+                .isEqualTo("ALTER TABLE foo.t ALTER COLUMN a DROP DEFAULT");
+
+        assertThat(formatSql(new DropDefaultValue(
+                new NodeLocation(1, 1),
+                QualifiedName.of(ImmutableList.of(
+                        new Identifier(new NodeLocation(1, 23), "foo", false),
+                        new Identifier(new NodeLocation(1, 27), "t", false))),
+                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 42), "b", false))),
+                true)))
+                .isEqualTo("ALTER TABLE IF EXISTS foo.t ALTER COLUMN b DROP DEFAULT");
     }
 
     @Test

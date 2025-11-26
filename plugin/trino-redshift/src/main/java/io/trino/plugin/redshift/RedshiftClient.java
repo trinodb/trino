@@ -625,7 +625,7 @@ public class RedshiftClient
                     RedshiftClient::readTime,
                     RedshiftClient::writeTime));
         }
-        if ("binary varying".equals(type.jdbcTypeName().orElse(""))) {
+        if ("binary varying".equals(type.jdbcTypeName().orElse("")) || type.jdbcType() == Types.LONGVARBINARY) {
             return Optional.of(ColumnMapping.sliceMapping(
                     VARBINARY,
                     varbinaryReadFunction(),
@@ -677,6 +677,10 @@ public class RedshiftClient
                     throw new TrinoException(REDSHIFT_INVALID_TYPE, "column size not present");
                 }
                 int length = type.requiredColumnSize();
+                if (length == -1) {
+                    // CHARACTER VARYING returns -1. Treat the type as varchar(0) for the empty string.
+                    length = 0;
+                }
                 return Optional.of(varcharColumnMapping(
                         length < VarcharType.MAX_LENGTH
                                 ? createVarcharType(length)

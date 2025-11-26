@@ -24,7 +24,7 @@ import static io.trino.spi.type.Decimals.overflows;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestDecimals
+final class TestDecimals
 {
     @Test
     public void testParse()

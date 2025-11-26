@@ -184,9 +184,7 @@ public class FunctionManager
             return globalFunctionCatalog;
         }
 
-        FunctionProvider functionProvider = functionProviders.getService(resolvedFunction.catalogHandle());
-        checkArgument(functionProvider != null, "No function provider for catalog: '%s' (function '%s')", resolvedFunction.catalogHandle(), resolvedFunction.signature().getName());
-        return functionProvider;
+        return functionProviders.getService(resolvedFunction.catalogHandle());
     }
 
     private static void verifyMethodHandleSignature(BoundSignature boundSignature, ScalarFunctionImplementation scalarFunctionImplementation, InvocationConvention convention)

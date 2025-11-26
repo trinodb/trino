@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 import static io.trino.spi.ErrorType.USER_ERROR;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestTrinoException
+final class TestTrinoException
 {
     @Test
     public void testMessage()

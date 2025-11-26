@@ -19,9 +19,7 @@ import io.trino.block.BlockAssertions;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
@@ -558,23 +556,21 @@ public class TestPositionsAppender
 
     private static void assertBlockIsValid(Block actual, long sizeInBytes, Type type, List<BlockView> inputs)
     {
-        PageBuilderStatus pageBuilderStatus = new PageBuilderStatus();
-        BlockBuilderStatus blockBuilderStatus = pageBuilderStatus.createBlockBuilderStatus();
-        Block expected = buildBlock(type, inputs, blockBuilderStatus);
+        Block expected = buildBlock(type, inputs, sizeInBytes);
 
         assertBlockEquals(type, actual, expected);
-        assertThat(sizeInBytes).isEqualTo(pageBuilderStatus.getSizeInBytes());
     }
 
-    private static Block buildBlock(Type type, List<BlockView> inputs, BlockBuilderStatus blockBuilderStatus)
+    private static Block buildBlock(Type type, List<BlockView> inputs, long sizeInBytes)
     {
-        BlockBuilder blockBuilder = type.createBlockBuilder(blockBuilderStatus, 10);
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 10);
         for (BlockView input : inputs) {
             ValueBlock valueBlock = input.block().getUnderlyingValueBlock();
             for (int position : input.positions()) {
                 blockBuilder.append(valueBlock, input.block().getUnderlyingValuePosition(position));
             }
         }
+        assertThat(sizeInBytes).isEqualTo(blockBuilder.getSizeInBytes());
         return blockBuilder.build();
     }
 

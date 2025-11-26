@@ -154,7 +154,7 @@ public class TestScaledWriterScheduler
     {
         TaskStatus taskStatus1 = buildTaskStatus(1, DataSize.of(32, DataSize.Unit.MEGABYTE));
         TaskStatus taskStatus2 = buildTaskStatus(2, DataSize.of(100, DataSize.Unit.MEGABYTE));
-        TaskStatus taskStatus3 = buildTaskStatus(true, 12345L, Optional.empty(), DataSize.of(0, DataSize.Unit.MEGABYTE));
+        TaskStatus taskStatus3 = buildTaskStatus(true, 12345L, OptionalInt.empty(), DataSize.of(0, DataSize.Unit.MEGABYTE));
 
         try (ScaledWriterScheduler scaledWriterScheduler = buildScaleWriterSchedulerWithInitialTasks(taskStatus1, taskStatus2, taskStatus3)) {
             // Scale up will not happen because one of the existing writer task isn't initialized yet with maxWriterCount.
@@ -219,15 +219,15 @@ public class TestScaledWriterScheduler
 
     private static TaskStatus buildTaskStatus(boolean isOutputBufferOverUtilized, long outputDataSize)
     {
-        return buildTaskStatus(isOutputBufferOverUtilized, outputDataSize, Optional.of(1), DataSize.of(32, DataSize.Unit.MEGABYTE));
+        return buildTaskStatus(isOutputBufferOverUtilized, outputDataSize, OptionalInt.of(1), DataSize.of(32, DataSize.Unit.MEGABYTE));
     }
 
     private static TaskStatus buildTaskStatus(int maxWriterCount, DataSize writerInputDataSize)
     {
-        return buildTaskStatus(true, 12345L, Optional.of(maxWriterCount), writerInputDataSize);
+        return buildTaskStatus(true, 12345L, OptionalInt.of(maxWriterCount), writerInputDataSize);
     }
 
-    private static TaskStatus buildTaskStatus(boolean isOutputBufferOverUtilized, long outputDataSize, Optional<Integer> maxWriterCount, DataSize writerInputDataSize)
+    private static TaskStatus buildTaskStatus(boolean isOutputBufferOverUtilized, long outputDataSize, OptionalInt maxWriterCount, DataSize writerInputDataSize)
     {
         return new TaskStatus(
                 new TaskId(new StageId(new QueryId("query_id"), 0), 0, 0),
@@ -408,7 +408,7 @@ public class TestScaledWriterScheduler
                 tableScan,
                 ImmutableSet.of(symbol),
                 SOURCE_DISTRIBUTION,
-                Optional.empty(),
+                OptionalInt.empty(),
                 ImmutableList.of(TABLE_SCAN_NODE_ID),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
                 OptionalInt.empty(),

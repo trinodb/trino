@@ -86,6 +86,7 @@ import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
+import io.trino.sql.tree.DropDefaultValue;
 import io.trino.sql.tree.DropFunction;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropNotNullConstraint;
@@ -251,6 +252,7 @@ import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.SessionProperty;
 import io.trino.sql.tree.SetAuthorizationStatement;
 import io.trino.sql.tree.SetColumnType;
+import io.trino.sql.tree.SetDefaultValue;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
@@ -868,6 +870,27 @@ class AstBuilder
         }
 
         return Optional.empty();
+    }
+
+    @Override
+    public Node visitSetDefaultValue(SqlBaseParser.SetDefaultValueContext context)
+    {
+        return new SetDefaultValue(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                getQualifiedName(context.columnName),
+                (Expression) visit(context.literal()),
+                context.EXISTS() != null);
+    }
+
+    @Override
+    public Node visitDropDefaultValue(SqlBaseParser.DropDefaultValueContext context)
+    {
+        return new DropDefaultValue(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                getQualifiedName(context.columnName),
+                context.EXISTS() != null);
     }
 
     @Override

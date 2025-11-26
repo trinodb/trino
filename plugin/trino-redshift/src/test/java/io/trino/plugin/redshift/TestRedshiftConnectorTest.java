@@ -116,6 +116,12 @@ public class TestRedshiftConnectorTest
         };
     }
 
+    @Override
+    protected TestTable newTrinoTable(String namePrefix, String tableDefinition, List<String> rowsToInsert)
+    {
+        return new TestTable(new TrinoSqlExecutorWithRetries(getQueryRunner()), namePrefix, tableDefinition, rowsToInsert);
+    }
+
     @Test
     public void testSuperColumnType()
     {
@@ -856,7 +862,7 @@ public class TestRedshiftConnectorTest
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return TestingRedshiftServer::executeInRedshift;
+        return TestingRedshiftServer::executeInRedshiftWithRetry;
     }
 
     private SqlExecutor onRemoteDatabaseWithSchema(String schema)

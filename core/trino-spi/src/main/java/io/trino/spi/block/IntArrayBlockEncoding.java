@@ -17,16 +17,24 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import jakarta.annotation.Nullable;
 
+import static io.trino.spi.block.EncoderUtil.compactIntsWithNullsScalar;
+import static io.trino.spi.block.EncoderUtil.compactIntsWithNullsVectorized;
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
 import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
 import static java.lang.System.arraycopy;
-import static java.util.Objects.checkFromIndexSize;
 
 public class IntArrayBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "INT_ARRAY";
+
+    private final boolean enableVectorizedNullSuppression;
+
+    public IntArrayBlockEncoding(boolean enableVectorizedNullSuppression)
+    {
+        this.enableVectorizedNullSuppression = enableVectorizedNullSuppression;
+    }
 
     @Override
     public String getName()
@@ -51,7 +59,6 @@ public class IntArrayBlockEncoding
         @Nullable
         boolean[] isNull = intArrayBlock.getRawValueIsNull();
         int[] rawValues = intArrayBlock.getRawValues();
-        checkFromIndexSize(rawOffset, positionCount, rawValues.length);
 
         encodeNullsAsBits(sliceOutput, isNull, rawOffset, positionCount);
 
@@ -59,15 +66,12 @@ public class IntArrayBlockEncoding
             sliceOutput.writeInts(rawValues, rawOffset, positionCount);
         }
         else {
-            int[] valuesWithoutNull = new int[positionCount];
-            int nonNullPositionCount = 0;
-            for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = rawValues[i + rawOffset];
-                nonNullPositionCount += isNull[i + rawOffset] ? 0 : 1;
+            if (enableVectorizedNullSuppression) {
+                compactIntsWithNullsVectorized(sliceOutput, rawValues, isNull, rawOffset, positionCount);
             }
-
-            sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeInts(valuesWithoutNull, 0, nonNullPositionCount);
+            else {
+                compactIntsWithNullsScalar(sliceOutput, rawValues, isNull, rawOffset, positionCount);
+            }
         }
     }
 

@@ -983,7 +983,7 @@ public class TestBinPackingNodeAllocator
     }
 
     @Test
-    @Timeout(value = TEST_TIMEOUT + 3000, unit = MILLISECONDS)
+    @Timeout(value = TEST_TIMEOUT + 5000, unit = MILLISECONDS)
     public void testFailover()
     {
         TestingInternalNodeManager nodeManager = TestingInternalNodeManager.createDefault(NODE_1, NODE_2);

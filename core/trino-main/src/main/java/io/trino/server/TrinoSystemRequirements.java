@@ -53,6 +53,7 @@ final class TrinoSystemRequirements
         verifyOsArchitecture();
         verifyByteOrder();
         verifyUsingG1Gc();
+        verifyVectorApiEnabled();
         verifyUnixOperatingMBeans();
         verifyFileDescriptor();
         verifySlice();
@@ -106,7 +107,7 @@ final class TrinoSystemRequirements
 
     private static void verifyJavaVersion()
     {
-        Version required = Version.parse("24.0.1");
+        Version required = Version.parse("25");
         if (Runtime.version().compareTo(required) < 0) {
             failRequirement("Trino requires Java %s at minimum (found %s)", required, Runtime.version());
         }
@@ -126,6 +127,13 @@ final class TrinoSystemRequirements
         catch (RuntimeException e) {
             // This should never happen since we have verified the OS and JVM above
             failRequirement("Cannot read garbage collector information: %s", e);
+        }
+    }
+
+    private static void verifyVectorApiEnabled()
+    {
+        if (ModuleLayer.boot().findModule("jdk.incubator.vector").isEmpty()) {
+            failRequirement("Trino requires the Vector API to be enabled/linked at runtime");
         }
     }
 

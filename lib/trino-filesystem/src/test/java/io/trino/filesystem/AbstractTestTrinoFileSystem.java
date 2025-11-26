@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.filesystem.encryption.EncryptionEnforcingFileSystem;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,8 +54,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
@@ -73,6 +76,10 @@ public abstract class AbstractTestTrinoFileSystem
 {
     protected static final String TEST_BLOB_CONTENT_PREFIX = "test blob content for ";
     private static final int MEGABYTE = 1024 * 1024;
+
+    // A size large enough that could trigger different code paths in file system implementations.
+    // The test subclasses are encouraged to use this constant in their configurations.
+    protected static final DataSize LARGER_FILE_DATA_SIZE = DataSize.of(10, DataSize.Unit.MEGABYTE);
 
     protected abstract boolean isHierarchical();
 
@@ -573,7 +580,7 @@ public abstract class AbstractTestTrinoFileSystem
     }
 
     @Test
-    void testOutputFile()
+    public void testOutputFile()
             throws IOException
     {
         // an output file cannot be created at the root of the file system
@@ -598,26 +605,12 @@ public abstract class AbstractTestTrinoFileSystem
                 outputStream.write("initial".getBytes(UTF_8));
             }
 
-            if (isCreateExclusive()) {
+            boolean isCreateExclusive = isCreateExclusive();
+            if (isCreateExclusive) {
                 // re-create without overwrite is an error
                 assertThatThrownBy(() -> outputFile.create().close())
                         .isInstanceOf(FileAlreadyExistsException.class)
                         .hasMessageContaining(tempBlob.location().toString());
-
-                // verify nothing changed
-                assertThat(tempBlob.read()).isEqualTo("initial");
-
-                // re-create exclusive is an error
-                if (supportsCreateExclusive()) {
-                    assertThatThrownBy(() -> outputFile.createExclusive(new byte[0]))
-                            .isInstanceOf(FileAlreadyExistsException.class)
-                            .hasMessageContaining(tempBlob.location().toString());
-                }
-                else {
-                    assertThatThrownBy(() -> outputFile.createExclusive(new byte[0]))
-                            .isInstanceOf(UnsupportedOperationException.class)
-                            .hasMessageStartingWith("createExclusive not supported");
-                }
 
                 // verify nothing changed
                 assertThat(tempBlob.read()).isEqualTo("initial");
@@ -630,19 +623,29 @@ public abstract class AbstractTestTrinoFileSystem
 
                 // verify contents changed
                 assertThat(tempBlob.read()).isEqualTo("replaced");
-
-                // create exclusive is an error
-                if (supportsCreateExclusive()) {
-                    assertThatThrownBy(() -> outputFile.createExclusive(new byte[0]))
-                            .isInstanceOf(FileAlreadyExistsException.class)
-                            .hasMessageContaining(tempBlob.location().toString());
-                }
-                else {
-                    assertThatThrownBy(() -> outputFile.createExclusive(new byte[0]))
-                            .isInstanceOf(UnsupportedOperationException.class)
-                            .hasMessageStartingWith("createExclusive not supported");
-                }
             }
+
+            // re-create exclusive is an error
+            if (supportsCreateExclusive()) {
+                assertThatThrownBy(() -> outputFile.createExclusive(new byte[0]))
+                        .isInstanceOf(FileAlreadyExistsException.class)
+                        .hasMessageContaining(tempBlob.location().toString());
+
+                // likely larger than any internal buffering or potential multipart threshold a filesystem may have
+                byte[] largerData = new byte[toIntExact(LARGER_FILE_DATA_SIZE.toBytes())];
+                assertThatThrownBy(() -> outputFile.createExclusive(largerData))
+                        .isInstanceOf(FileAlreadyExistsException.class)
+                        .hasMessageContaining(tempBlob.location().toString());
+            }
+            else {
+                assertThatThrownBy(() -> outputFile.createExclusive(new byte[0]))
+                        .isInstanceOf(UnsupportedOperationException.class)
+                        .hasMessageStartingWith("createExclusive not supported");
+            }
+
+            // verify re-create did not change the file
+            assertThat(tempBlob.read())
+                    .isEqualTo(isCreateExclusive ? "initial" : "replaced");
 
             // overwrite file
             outputFile.createOrOverwrite("overwrite".getBytes(UTF_8));
@@ -1237,8 +1240,8 @@ public abstract class AbstractTestTrinoFileSystem
             List<TempBlob> blobs = randomBlobs(closer, 100);
 
             List<Location> sortedLocations = blobs.stream()
-                        .map(TempBlob::location)
-                        .sorted(comparing(Location::fileName))
+                    .map(TempBlob::location)
+                    .sorted(comparing(Location::fileName))
                     .toList();
 
             assertThat(listPath("")).isEqualTo(sortedLocations);

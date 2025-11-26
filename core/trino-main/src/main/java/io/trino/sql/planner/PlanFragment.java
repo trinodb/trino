@@ -38,7 +38,6 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -48,10 +47,9 @@ public class PlanFragment
     private final PlanNode root;
     private final Set<Symbol> symbols;
     private final PartitioningHandle partitioning;
-    private final Optional<Integer> partitionCount;
+    private final OptionalInt partitionCount;
     private final List<PlanNodeId> partitionedSources;
     private final Set<PlanNodeId> partitionedSourcesSet;
-    private final List<Type> types;
     private final Set<PlanNode> partitionedSourceNodes;
     private final List<RemoteSourceNode> remoteSourceNodes;
     private final PartitioningScheme outputPartitioningScheme;
@@ -68,10 +66,9 @@ public class PlanFragment
             PlanNode root,
             Set<Symbol> symbols,
             PartitioningHandle partitioning,
-            Optional<Integer> partitionCount,
+            OptionalInt partitionCount,
             List<PlanNodeId> partitionedSources,
             Set<PlanNodeId> partitionedSourcesSet,
-            List<Type> types,
             Set<PlanNode> partitionedSourceNodes,
             List<RemoteSourceNode> remoteSourceNodes,
             PartitioningScheme outputPartitioningScheme,
@@ -87,7 +84,6 @@ public class PlanFragment
         this.partitionCount = requireNonNull(partitionCount, "partitionCount is null");
         this.partitionedSources = requireNonNull(partitionedSources, "partitionedSources is null");
         this.partitionedSourcesSet = requireNonNull(partitionedSourcesSet, "partitionedSourcesSet is null");
-        this.types = requireNonNull(types, "types is null");
         this.partitionedSourceNodes = requireNonNull(partitionedSourceNodes, "partitionedSourceNodes is null");
         this.remoteSourceNodes = requireNonNull(remoteSourceNodes, "remoteSourceNodes is null");
         this.outputPartitioningScheme = requireNonNull(outputPartitioningScheme, "outputPartitioningScheme is null");
@@ -105,7 +101,7 @@ public class PlanFragment
             @JsonProperty("root") PlanNode root,
             @JsonProperty("symbols") Set<Symbol> symbols,
             @JsonProperty("partitioning") PartitioningHandle partitioning,
-            @JsonProperty("partitionCount") Optional<Integer> partitionCount,
+            @JsonProperty("partitionCount") OptionalInt partitionCount,
             @JsonProperty("partitionedSources") List<PlanNodeId> partitionedSources,
             @JsonProperty("outputPartitioningScheme") PartitioningScheme outputPartitioningScheme,
             @JsonProperty("outputSkewedBucketCount") OptionalInt outputSkewedBucketCount,
@@ -134,10 +130,6 @@ public class PlanFragment
         checkArgument(partitionedSourcesSet.size() == partitionedSources.size(), "partitionedSources contains duplicates");
         checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(outputPartitioningScheme.getOutputLayout()),
                 "Root node outputs (%s) does not include all fragment outputs (%s)", root.getOutputSymbols(), outputPartitioningScheme.getOutputLayout());
-
-        types = outputPartitioningScheme.getOutputLayout().stream()
-                .map(Symbol::type)
-                .collect(toImmutableList());
 
         this.partitionedSourceNodes = findSources(root, partitionedSources);
 
@@ -174,7 +166,7 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public Optional<Integer> getPartitionCount()
+    public OptionalInt getPartitionCount()
     {
         return partitionCount;
     }
@@ -241,7 +233,6 @@ public class PlanFragment
                 this.partitionCount,
                 this.partitionedSources,
                 this.partitionedSourcesSet,
-                this.types,
                 this.partitionedSourceNodes,
                 this.remoteSourceNodes,
                 this.outputPartitioningScheme,
@@ -253,7 +244,7 @@ public class PlanFragment
 
     public List<Type> getTypes()
     {
-        return types;
+        return outputPartitioningScheme.getOutputTypes();
     }
 
     public Set<PlanNode> getPartitionedSourceNodes()
@@ -310,7 +301,6 @@ public class PlanFragment
                 partitionCount,
                 partitionedSources,
                 partitionedSourcesSet,
-                types,
                 partitionedSourceNodes,
                 remoteSourceNodes,
                 outputPartitioningScheme,

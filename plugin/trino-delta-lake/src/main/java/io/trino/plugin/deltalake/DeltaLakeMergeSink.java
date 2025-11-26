@@ -134,6 +134,7 @@ public class DeltaLakeMergeSink
     private final Map<String, DeletionVectorEntry> deletionVectors;
     private final int randomPrefixLength;
     private final Optional<String> shallowCloneSourceTableLocation;
+    private long writtenBytes;
 
     @Nullable
     private DeltaLakeCdfPageSink cdfPageSink;
@@ -213,6 +214,9 @@ public class DeltaLakeMergeSink
 
         mergePage.deletionsPage().ifPresent(deletions -> processDeletion(deletions, DELETE_CDF_LABEL));
         mergePage.updateDeletionsPage().ifPresent(deletions -> processDeletion(deletions, UPDATE_PREIMAGE_CDF_LABEL));
+
+        writtenBytes = insertPageSink.getCompletedBytes();
+        writtenBytes += cdfPageSink == null ? 0 : cdfPageSink.getCompletedBytes();
     }
 
     private void processInsertions(Optional<Page> optionalInsertionPage, String cdfOperation)
@@ -331,6 +335,12 @@ public class DeltaLakeMergeSink
     }
 
     @Override
+    public long getCompletedBytes()
+    {
+        return writtenBytes;
+    }
+
+    @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
         List<Slice> fragments = new ArrayList<>();
@@ -342,6 +352,7 @@ public class DeltaLakeMergeSink
                 .map(mergeResultJsonCodec::toJsonBytes)
                 .map(Slices::wrappedBuffer)
                 .forEach(fragments::add);
+        writtenBytes = insertPageSink.getCompletedBytes();
 
         fileDeletions.forEach((path, deletion) -> {
             if (deletionVectorEnabled) {
@@ -360,6 +371,7 @@ public class DeltaLakeMergeSink
                     .map(mergeResultJsonCodec::toJsonBytes)
                     .map(Slices::wrappedBuffer)
                     .forEach(fragments::add);
+            writtenBytes += cdfPageSink.getCompletedBytes();
         }
 
         return completedFuture(fragments);
@@ -424,6 +436,7 @@ public class DeltaLakeMergeSink
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Unable to write deletion vector file", e);
         }
+        writtenBytes += deletionVectorEntry.sizeInBytes();
 
         try {
             DataFileInfo newFileInfo = new DataFileInfo(
@@ -489,6 +502,7 @@ public class DeltaLakeMergeSink
                     DATA);
 
             Optional<DataFileInfo> newFileInfo = rewriteParquetFile(sourceLocation, deletion, writer);
+            writtenBytes += writer.getWrittenBytes();
 
             DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceReferencePath), Optional.empty(), newFileInfo);
             return ImmutableList.of(utf8Slice(mergeResultJsonCodec.toJson(result)));

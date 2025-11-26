@@ -16,7 +16,7 @@ package io.trino.plugin.hudi.storage;
 import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.local.LocalFileSystemFactory;
-import io.trino.spi.block.TestingSession;
+import io.trino.testing.connector.TestingConnectorSession;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.io.storage.TestHoodieStorageBase;
 import org.apache.hudi.io.util.IOUtils;
@@ -52,7 +52,7 @@ final class TestTrinoHudiStorage
     static void setUp()
     {
         fileSystem = new LocalFileSystemFactory(Path.of("/tmp"))
-                .create(TestingSession.SESSION);
+                .create(TestingConnectorSession.SESSION);
     }
 
     @Override

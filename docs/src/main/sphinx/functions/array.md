@@ -98,6 +98,12 @@ Returns an array of the elements in the union of `x` and `y`, without duplicates
 Returns an array of elements in `x` but not in `y`, without duplicates.
 :::
 
+:::{function} array_first(array(E)) -> E
+Returns the first element of an `array`.
+If the array is empty, the function returns `NULL`, whereas
+the subscript operator would fail in such a case.
+:::
+
 :::{function} array_histogram(x) -> map<K, bigint>
 Returns a map where the keys are the unique elements in the input array
 `x` and the values are the number of times that each element appears in
@@ -125,6 +131,12 @@ Null elements are omitted in the result.
 :noindex: true
 
 Concatenates the elements of the given array using the delimiter and an optional string to replace nulls.
+:::
+
+:::{function} array_last(array(E)) -> E
+Returns the last element of an `array`.
+If the array is empty, the function returns `NULL`, whereas
+the subscript operator would fail in such a case.
 :::
 
 :::{function} array_max(x) -> x

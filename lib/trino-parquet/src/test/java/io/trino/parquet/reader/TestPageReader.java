@@ -111,6 +111,16 @@ public class TestPageReader
                 Slices.wrappedBuffer(Arrays.copyOf(bytes, headerSize + 1)),
                 Slices.wrappedBuffer(Arrays.copyOfRange(bytes, headerSize + 1, headerSize + 2)),
                 Slices.wrappedBuffer(Arrays.copyOfRange(bytes, headerSize + 2, bytes.length))));
+
+        // verify page size limit - should fail when page size exceeds limit
+        long pageSize = pageHeader.getUncompressed_page_size();
+        assertThatThrownBy(() -> {
+            PageReader pageReader = createPageReader(valueCount, compressionCodec, false, ImmutableList.of(Slices.wrappedBuffer(bytes)), pageSize - 1);
+            pageReader.readPage();
+        })
+                .isInstanceOf(RuntimeException.class)
+                .hasRootCauseInstanceOf(io.trino.parquet.ParquetCorruptionException.class)
+                .hasMessageContaining("exceeds maximum allowed size");
     }
 
     @Test(dataProvider = "pageParameters")
@@ -151,6 +161,16 @@ public class TestPageReader
                 Slices.wrappedBuffer(Arrays.copyOf(bytes, pageSize - 2)),
                 Slices.wrappedBuffer(Arrays.copyOfRange(bytes, pageSize - 2, pageSize * 2)),
                 Slices.wrappedBuffer(Arrays.copyOfRange(bytes, pageSize * 2, bytes.length))));
+
+        // verify page size limit - should fail when page size exceeds limit
+        long uncompressedPageSize = pageHeader.getUncompressed_page_size();
+        assertThatThrownBy(() -> {
+            PageReader pageReader = createPageReader(totalValueCount, compressionCodec, false, ImmutableList.of(Slices.wrappedBuffer(bytes)), uncompressedPageSize - 1);
+            pageReader.readPage();
+        })
+                .isInstanceOf(RuntimeException.class)
+                .hasRootCauseInstanceOf(io.trino.parquet.ParquetCorruptionException.class)
+                .hasMessageContaining("exceeds maximum allowed size");
     }
 
     @Test(dataProvider = "pageParameters")
@@ -204,6 +224,17 @@ public class TestPageReader
                 Slices.wrappedBuffer(Arrays.copyOfRange(bytes, dictionaryHeaderSize - 1, dictionaryPageSize - 1)),
                 Slices.wrappedBuffer(Arrays.copyOfRange(bytes, dictionaryPageSize - 1, dictionaryPageSize + 1)),
                 Slices.wrappedBuffer(Arrays.copyOfRange(bytes, dictionaryPageSize + 1, bytes.length))));
+
+        // verify page size limit - should fail when page size exceeds limit
+        long uncompressedPageSize = pageHeader.getUncompressed_page_size();
+        assertThatThrownBy(() -> {
+            PageReader limitedReader = createPageReader(totalValueCount, compressionCodec, true, ImmutableList.of(Slices.wrappedBuffer(bytes)), uncompressedPageSize - 1);
+            limitedReader.readDictionaryPage();
+            limitedReader.readPage();
+        })
+                .isInstanceOf(RuntimeException.class)
+                .hasRootCauseInstanceOf(io.trino.parquet.ParquetCorruptionException.class)
+                .hasMessageContaining("exceeds maximum allowed size");
     }
 
     @Test
@@ -385,6 +416,11 @@ public class TestPageReader
 
     private static PageReader createPageReader(int valueCount, CompressionCodec compressionCodec, boolean hasDictionary, List<Slice> slices)
     {
+        return createPageReader(valueCount, compressionCodec, hasDictionary, slices, Long.MAX_VALUE);
+    }
+
+    private static PageReader createPageReader(int valueCount, CompressionCodec compressionCodec, boolean hasDictionary, List<Slice> slices, long maxPageSize)
+    {
         EncodingStats.Builder encodingStats = new EncodingStats.Builder();
         if (hasDictionary) {
             encodingStats.addDictEncoding(PLAIN);
@@ -409,7 +445,8 @@ public class TestPageReader
                 new ColumnDescriptor(new String[] {}, new PrimitiveType(REQUIRED, INT32, ""), 0, 0),
                 null,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                maxPageSize);
     }
 
     private static void assertDataPageEquals(PageHeader pageHeader, byte[] dataPage, byte[] compressedDataPage, DataPage decompressedPage)

@@ -44,6 +44,6 @@ public final class ConcurrencyLimitHttpPipelinePolicy
             Thread.currentThread().interrupt();
             return Mono.error(e);
         }
-        return next.process().doAfterTerminate(semaphore::release);
+        return next.process().doFinally(_ -> semaphore.release());
     }
 }

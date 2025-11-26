@@ -14,33 +14,28 @@
 package io.trino.filesystem.gcs;
 
 import com.google.auth.Credentials;
+import com.google.cloud.NoCredentials;
 import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.StorageOptions;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.filesystem.gcs.GcsFileSystemConfig.AuthType;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestGcsStorageFactory
 {
     @Test
-    void testDefaultCredentials()
+    void testApplicationDefaultCredentials()
             throws Exception
     {
-        Credentials expectedCredentials = StorageOptions.newBuilder().build().getCredentials();
-
-        // No credentials options are set
-        GcsFileSystemConfig config = new GcsFileSystemConfig();
-
-        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new GcsServiceAccountAuth(config));
+        GcsFileSystemConfig config = new GcsFileSystemConfig().setAuthType(AuthType.APPLICATION_DEFAULT);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config, new ApplicationDefaultAuth());
 
         Credentials actualCredentials;
         try (Storage storage = storageFactory.create(ConnectorIdentity.ofUser("test"))) {
             actualCredentials = storage.getOptions().getCredentials();
         }
 
-        assertThat(actualCredentials)
-                .as("if credentials are not explicitly configured, should have same behavior as the GCS client")
-                .isEqualTo(expectedCredentials);
+        assertThat(actualCredentials).isEqualTo(NoCredentials.getInstance());
     }
 }

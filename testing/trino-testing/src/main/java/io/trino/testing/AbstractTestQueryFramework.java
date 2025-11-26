@@ -431,6 +431,11 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.of(count), Optional.of(planAssertion));
     }
 
+    protected void assertUpdate(Session session, @Language("SQL") String sql, Consumer<Plan> planAssertion)
+    {
+        QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.empty(), Optional.of(planAssertion));
+    }
+
     protected void assertQuerySucceeds(@Language("SQL") String sql)
     {
         assertQuerySucceeds(getSession(), sql);
@@ -645,6 +650,16 @@ public abstract class AbstractTestQueryFramework
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
                     return explainer.getGraphvizPlan(session, SQL_PARSER.createStatement(query), planType, emptyList(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                });
+    }
+
+    protected String getJsonExplainPlan(@Language("SQL") String query, ExplainType.Type planType)
+    {
+        QueryExplainer explainer = queryRunner.getQueryExplainer();
+        return newTransaction()
+                .singleStatement()
+                .execute(queryRunner.getDefaultSession(), session -> {
+                    return explainer.getJsonPlan(session, SQL_PARSER.createStatement(query), planType, emptyList(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 });
     }
 

@@ -29,6 +29,7 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
+import io.trino.NotInTransactionException;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.exchange.ExchangeInput;
@@ -36,6 +37,7 @@ import io.trino.execution.QueryExecution.QueryOutputInfo;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.Metadata;
 import io.trino.operator.BlockedReason;
 import io.trino.operator.OperatorStats;
@@ -47,6 +49,7 @@ import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
+import io.trino.spi.eventlistener.ColumnLineageInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.eventlistener.TableInfo;
@@ -109,6 +112,7 @@ import static io.trino.execution.StagesInfo.getAllStages;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
 import static io.trino.spi.connector.StandardWarningCode.SPOOLING_NOT_SUPPORTED;
 import static io.trino.spi.resourcegroups.QueryType.SELECT;
@@ -180,8 +184,10 @@ public class QueryStateMachine
 
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
+    private final AtomicReference<Optional<List<ColumnLineageInfo>>> selectColumnsLineageInfo = new AtomicReference<>(Optional.empty());
     private final AtomicReference<List<TableInfo>> referencedTables = new AtomicReference<>(ImmutableList.of());
     private final AtomicReference<List<RoutineInfo>> routines = new AtomicReference<>(ImmutableList.of());
+    private final AtomicReference<Map<String, Metrics>> catalogMetadataMetrics = new AtomicReference<>(ImmutableMap.of());
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
 
     private final WarningCollector warningCollector;
@@ -386,6 +392,40 @@ public class QueryStateMachine
         return queryStateMachine;
     }
 
+    private void collectCatalogMetadataMetrics()
+    {
+        try {
+            if (session.getTransactionId().filter(transactionManager::transactionExists).isEmpty()) {
+                // The metrics collection depends on active transaction as the metrics
+                // are stored in the transactional ConnectorMetadata, but the collection can be
+                // run after the query has failed e.g., via cancel.
+                return;
+            }
+
+            ImmutableMap.Builder<String, Metrics> catalogMetadataMetrics = ImmutableMap.builder();
+            List<CatalogInfo> activeCatalogs = metadata.listActiveCatalogs(session);
+            for (CatalogInfo activeCatalog : activeCatalogs) {
+                Metrics metrics = metadata.getMetrics(session, activeCatalog.catalogName());
+                if (!metrics.getMetrics().isEmpty()) {
+                    catalogMetadataMetrics.put(activeCatalog.catalogName(), metrics);
+                }
+            }
+
+            this.catalogMetadataMetrics.set(catalogMetadataMetrics.buildOrThrow());
+        }
+        catch (NotInTransactionException e) {
+            // Ignore, The metrics collection depends on an active transaction and should be skipped
+            // if there is no one running.
+            // The exception can be thrown even though there is a check for transaction at the top of the method, because
+            // the transaction can be committed or aborted concurrently, after the check is done.
+        }
+        catch (RuntimeException e) {
+            if (!(e instanceof TrinoException trinoException && TRANSACTION_ALREADY_ABORTED.toErrorCode().equals(trinoException.getErrorCode()))) {
+                QUERY_STATE_LOG.error(e, "Error collecting query catalog metadata metrics: %s", queryId);
+            }
+        }
+    }
+
     public QueryId getQueryId()
     {
         return queryId;
@@ -567,6 +607,7 @@ public class QueryStateMachine
                 queryStateTimer.getCreateTime(),
                 getEndTime().orElse(null),
                 queryStateTimer.getQueuedTime(),
+                queryStateTimer.getResourceWaitingTime(),
                 queryStateTimer.getElapsedTime(),
                 queryStateTimer.getExecutionTime(),
 
@@ -658,6 +699,7 @@ public class QueryStateMachine
                 warningCollector.getWarnings(),
                 inputs.get(),
                 output.get(),
+                selectColumnsLineageInfo.get(),
                 referencedTables.get(),
                 routines.get(),
                 finalInfo,
@@ -863,6 +905,10 @@ public class QueryStateMachine
             }
         }
 
+        // Try to collect the catalog metadata metrics.
+        // The collection will fail, and we will use metrics collected earlier if
+        // the query is already committed or aborted and metadata is not available.
+        collectCatalogMetadataMetrics();
         return new QueryStats(
                 queryStateTimer.getCreateTime(),
                 getExecutionStartTime().orElse(null),
@@ -948,7 +994,7 @@ public class QueryStateMachine
                 stageGcStatistics.build(),
 
                 getDynamicFiltersStats(),
-
+                catalogMetadataMetrics.get(),
                 operatorStatsSummary.build(),
                 planOptimizersStatsCollector.getTopRuleStats());
     }
@@ -988,6 +1034,12 @@ public class QueryStateMachine
     {
         requireNonNull(output, "output is null");
         this.output.set(output);
+    }
+
+    public void setSelectColumnsLineageInfo(Optional<List<ColumnLineageInfo>> selectOutputColumnsLineage)
+    {
+        requireNonNull(selectOutputColumnsLineage, "selectOutputColumnsLineage is null");
+        this.selectColumnsLineageInfo.set(selectOutputColumnsLineage);
     }
 
     public void setReferencedTables(List<TableInfo> tables)
@@ -1179,6 +1231,7 @@ public class QueryStateMachine
             transitionToFailed(e);
             return true;
         }
+        collectCatalogMetadataMetrics();
 
         Optional<TransactionInfo> transaction = session.getTransactionId().flatMap(transactionManager::getTransactionInfoIfExist);
         if (transaction.isPresent() && transaction.get().isAutoCommitContext()) {
@@ -1256,6 +1309,7 @@ public class QueryStateMachine
             }
             return false;
         }
+        collectCatalogMetadataMetrics();
 
         try {
             if (log) {
@@ -1458,6 +1512,7 @@ public class QueryStateMachine
                 queryInfo.getWarnings(),
                 queryInfo.getInputs(),
                 queryInfo.getOutput(),
+                Optional.empty(),
                 queryInfo.getReferencedTables(),
                 queryInfo.getRoutines(),
                 queryInfo.isFinalQueryInfo(),
@@ -1561,6 +1616,7 @@ public class QueryStateMachine
                 queryStats.getFailedPhysicalWrittenDataSize(),
                 queryStats.getStageGcStatistics(),
                 queryStats.getDynamicFiltersStats(),
+                ImmutableMap.of(),
                 ImmutableList.of(), // Remove the operator summaries as OperatorInfo (especially DirectExchangeClientStatus) can hold onto a large amount of memory
                 ImmutableList.of());
     }

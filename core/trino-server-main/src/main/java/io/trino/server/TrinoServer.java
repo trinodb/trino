@@ -13,11 +13,12 @@
  */
 package io.trino.server;
 
-import com.google.common.base.StandardSystemProperty;
-import com.google.common.primitives.Ints;
+import com.google.common.io.Resources;
+
+import java.io.InputStream;
+import java.util.Properties;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Strings.nullToEmpty;
 
 public final class TrinoServer
 {
@@ -25,15 +26,26 @@ public final class TrinoServer
 
     public static void main(String[] args)
     {
-        String javaVersion = nullToEmpty(StandardSystemProperty.JAVA_VERSION.value());
-        String majorVersion = javaVersion.split("\\D", 2)[0];
-        Integer major = Ints.tryParse(majorVersion);
-        if (major == null || major < 22) {
-            System.err.printf("ERROR: Trino requires Java 22+ (found %s)%n", javaVersion);
+        Runtime.Version javaVersion = Runtime.version();
+        int requiredVersion = requiredJavaVersion();
+        if (javaVersion.feature() < requiredVersion) {
+            System.err.printf("ERROR: Trino requires Java %d+ (found %s)%n", requiredVersion, javaVersion);
             System.exit(100);
         }
 
-        String version = TrinoServer.class.getPackage().getImplementationVersion();
-        new Server().start(firstNonNull(version, "unknown"));
+        String trinoVersion = TrinoServer.class.getPackage().getImplementationVersion();
+        new Server().start(firstNonNull(trinoVersion, "unknown"));
+    }
+
+    private static int requiredJavaVersion()
+    {
+        Properties properties = new Properties();
+        try (InputStream inputStream = Resources.getResource("io/trino/server/build.properties").openStream()) {
+            properties.load(inputStream);
+            return Integer.parseInt(properties.getProperty("target.jdk"));
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to load required Java version from properties file", e);
+        }
     }
 }

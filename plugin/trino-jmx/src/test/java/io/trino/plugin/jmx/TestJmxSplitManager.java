@@ -23,7 +23,6 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -33,6 +32,7 @@ import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.testing.TestingConnectorContext;
 import io.trino.testing.TestingNodeManager;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -85,14 +85,7 @@ public class TestJmxSplitManager
                             "jmx.dump-period", format("%dms", JMX_STATS_DUMP.toMillis()),
                             "jmx.max-entries", "1000",
                             "bootstrap.quiet", "true"),
-                            new ConnectorContext()
-                            {
-                                @Override
-                                public NodeManager getNodeManager()
-                                {
-                                    return nodeManager;
-                                }
-                            });
+                            new TestingConnectorContext(nodeManager));
 
     private final JmxColumnHandle columnHandle = new JmxColumnHandle("node", createUnboundedVarcharType());
 

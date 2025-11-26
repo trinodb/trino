@@ -11,22 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive;
+package io.trino.filesystem.gcs;
 
-import static java.util.Objects.requireNonNull;
+import com.google.inject.Binder;
+import com.google.inject.Scopes;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 
-public final class NodeVersion
+import static io.airlift.configuration.ConfigBinder.configBinder;
+
+public class GcsServiceAccountModule
+        extends AbstractConfigurationAwareModule
 {
-    private final String version;
-
-    public NodeVersion(String version)
-    {
-        this.version = requireNonNull(version, "version is null");
-    }
-
     @Override
-    public String toString()
+    protected void setup(Binder binder)
     {
-        return version;
+        configBinder(binder).bindConfig(GcsServiceAccountAuthConfig.class);
+        binder.bind(GcsAuth.class).to(GcsServiceAccountAuth.class).in(Scopes.SINGLETON);
     }
 }

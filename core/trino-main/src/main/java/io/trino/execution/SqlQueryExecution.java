@@ -93,6 +93,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.trino.execution.ParameterExtractor.bindParameters;
@@ -104,7 +105,7 @@ import static io.trino.sql.planner.sanity.PlanSanityChecker.DISTRIBUTED_PLAN_SAN
 import static io.trino.tracing.ScopedSpan.scopedSpan;
 import static java.lang.Thread.currentThread;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThreadSafe
 public class SqlQueryExecution
@@ -289,6 +290,7 @@ public class SqlQueryExecution
         stateMachine.setUpdateType(analysis.getUpdateType());
         stateMachine.setReferencedTables(analysis.getReferencedTables());
         stateMachine.setRoutines(analysis.getRoutines());
+        stateMachine.setSelectColumnsLineageInfo(analysis.getSelectColumnsLineageInfo());
 
         stateMachine.endAnalysis();
 
@@ -374,7 +376,7 @@ public class SqlQueryExecution
             return finalQueryInfo.get().getQueryStats().getTotalCpuTime();
         }
         if (scheduler == null) {
-            return new Duration(0, SECONDS);
+            return succinctDuration(0, MILLISECONDS);
         }
         return scheduler.getTotalCpuTime();
     }

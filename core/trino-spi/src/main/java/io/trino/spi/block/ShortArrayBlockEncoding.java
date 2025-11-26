@@ -17,16 +17,24 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import jakarta.annotation.Nullable;
 
+import static io.trino.spi.block.EncoderUtil.compactShortsWithNullsScalar;
+import static io.trino.spi.block.EncoderUtil.compactShortsWithNullsVectorized;
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
 import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
 import static java.lang.System.arraycopy;
-import static java.util.Objects.checkFromIndexSize;
 
 public class ShortArrayBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "SHORT_ARRAY";
+
+    private final boolean enableVectorizedNullSuppression;
+
+    public ShortArrayBlockEncoding(boolean enableVectorizedNullSuppression)
+    {
+        this.enableVectorizedNullSuppression = enableVectorizedNullSuppression;
+    }
 
     @Override
     public String getName()
@@ -51,7 +59,6 @@ public class ShortArrayBlockEncoding
         @Nullable
         boolean[] isNull = shortArrayBlock.getRawValueIsNull();
         short[] rawValues = shortArrayBlock.getRawValues();
-        checkFromIndexSize(rawOffset, positionCount, rawValues.length);
 
         encodeNullsAsBits(sliceOutput, isNull, rawOffset, positionCount);
 
@@ -59,15 +66,12 @@ public class ShortArrayBlockEncoding
             sliceOutput.writeShorts(rawValues, rawOffset, positionCount);
         }
         else {
-            short[] valuesWithoutNull = new short[positionCount];
-            int nonNullPositionCount = 0;
-            for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = rawValues[i + rawOffset];
-                nonNullPositionCount += isNull[i + rawOffset] ? 0 : 1;
+            if (enableVectorizedNullSuppression) {
+                compactShortsWithNullsVectorized(sliceOutput, rawValues, isNull, rawOffset, positionCount);
             }
-
-            sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeShorts(valuesWithoutNull, 0, nonNullPositionCount);
+            else {
+                compactShortsWithNullsScalar(sliceOutput, rawValues, isNull, rawOffset, positionCount);
+            }
         }
     }
 

@@ -11,20 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.testing;
+package io.trino.metastore;
 
-// Must be defined in separate compilation unit from the test to effectively test private methods access
-public interface InterfaceWithPrivateMethod
+import io.trino.metastore.MeasuredHiveMetastore.MeasuredMetastoreFactory;
+import org.junit.jupiter.api.Test;
+
+import static io.trino.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+
+class TestMeasuredHiveMetastore
 {
-    void foo();
-
-    default void bar()
+    @Test
+    public void testAllMethodsImplemented()
     {
-        defaultBar();
+        assertAllMethodsOverridden(HiveMetastore.class, MeasuredHiveMetastore.class);
     }
 
-    private static void defaultBar()
+    @Test
+    public void testAllFactoryMethodsImplemented()
     {
-        throw new UnsupportedOperationException("bar not implemented");
+        assertAllMethodsOverridden(HiveMetastoreFactory.class, MeasuredMetastoreFactory.class);
     }
 }

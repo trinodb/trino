@@ -13,7 +13,7 @@ data.
 To connect to Databricks Delta Lake, you need:
 
 - Tables written by Databricks Runtime 7.3 LTS, 9.1 LTS, 10.4 LTS, 11.3 LTS,
-  12.2 LTS, 13.3 LTS, 14.3 LTS, 15.4 LTS and 16.4 LTS are supported.
+  12.2 LTS, 13.3 LTS, 14.3 LTS, 15.4 LTS, 16.4 LTS and 17.3 LTS are supported.
 - Deployments using AWS, HDFS, Azure Storage, and Google Cloud Storage (GCS) are
   fully supported.
 - Network access from the coordinator and workers to the Delta Lake storage.
@@ -603,12 +603,24 @@ Write operations are supported for tables stored on the following systems:
 
 - S3 and S3-compatible storage
 
-  Writes to Amazon S3 and S3-compatible storage must be enabled
-  with the `delta.enable-non-concurrent-writes` property. Writes to S3 can
-  safely be made from multiple Trino clusters; however, write collisions are not
-  detected when writing concurrently from other Delta Lake engines. You must
-  make sure that no concurrent data modifications are run to avoid data
+  Writes to Amazon S3 and S3-compatible storage are controlled by following
+  configuration properties. When
+  `delta.s3.transaction-log-conditional-writes.enabled` is set to `true`
+  (default), the connector uses S3 conditional writes to detect log write
+  collisions.  This is compatible with any other engines that also use
+  conditional writes.
+
+  When `delta.s3.transaction-log-conditional-writes.enabled` is false, then
+  writes to Amazon S3 and S3-compatible storage must be enabled with the
+  `delta.enable-non-concurrent-writes` property.  In this mode, the connector
+  leverages S3 strong consistency guarantees combined with Trino specific naming
+  strategy to orchestrate creation of new log files.  In this mode, writes to S3
+  can safely be made from multiple Trino clusters using same writing mode;
+  however, write collisions are not detected when writing concurrently from other
+  Delta Lake engines, or from Trino clusters using S3 conditional writes. You
+  must make sure that no concurrent data modifications are run to avoid data
   corruption.
+
 
 (delta-lake-schema-table-management)=
 ### Schema and table management

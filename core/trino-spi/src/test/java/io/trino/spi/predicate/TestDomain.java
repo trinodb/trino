@@ -38,7 +38,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestDomain
+class TestDomain
 {
     @Test
     public void testOrderableNone()

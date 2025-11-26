@@ -22,6 +22,7 @@ import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.cost.StatsAndCosts;
+import io.trino.exchange.ExchangeManagerConfig;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.BaseTestSqlTaskManager.MockDirectExchangeClientSupplier;
 import io.trino.execution.buffer.OutputBuffers;
@@ -99,7 +100,7 @@ public final class TaskTestUtils
                     Optional.empty()),
             ImmutableSet.of(SYMBOL),
             SOURCE_DISTRIBUTION,
-            Optional.empty(),
+            OptionalInt.empty(),
             ImmutableList.of(TABLE_SCAN_NODE_ID),
             new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(SYMBOL))
                     .withBucketToPartition(Optional.of(new int[1])),
@@ -127,7 +128,7 @@ public final class TaskTestUtils
                     ImmutableMap.of(DYNAMIC_FILTER_SOURCE_ID, SYMBOL)),
             ImmutableSet.of(SYMBOL),
             SOURCE_DISTRIBUTION,
-            Optional.empty(),
+            OptionalInt.empty(),
             ImmutableList.of(TABLE_SCAN_NODE_ID),
             new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(SYMBOL))
                     .withBucketToPartition(Optional.of(new int[1])),
@@ -180,7 +181,7 @@ public final class TaskTestUtils
                 blockTypeOperators,
                 PLANNER_CONTEXT.getTypeOperators(),
                 new TableExecuteContextManager(),
-                new ExchangeManagerRegistry(noop(), noopTracer(), new SecretsResolver(ImmutableMap.of())),
+                new ExchangeManagerRegistry(noop(), noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
                 new NodeVersion("test"),
                 new CompilerConfig());
     }

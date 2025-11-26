@@ -13,8 +13,9 @@
  */
 package io.trino.operator.scalar;
 
+import io.airlift.units.DataSize;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
@@ -23,6 +24,7 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.Failures.checkCondition;
@@ -32,8 +34,8 @@ import static java.lang.Math.toIntExact;
 @Description("Repeat an element for a given number of times")
 public final class RepeatFunction
 {
-    private static final long MAX_RESULT_ENTRIES = 10_000;
-    private static final long MAX_SIZE_IN_BYTES = 1_000_000;
+    private static final long MAX_RESULT_ENTRIES = 100_000;
+    private static final long MAX_SIZE_IN_BYTES = DataSize.of(4, MEGABYTE).toBytes();
 
     private RepeatFunction() {}
 
@@ -43,8 +45,8 @@ public final class RepeatFunction
             @SqlType(StandardTypes.BIGINT) long count)
     {
         checkCondition(element == null, INVALID_FUNCTION_ARGUMENT, "expect null values");
-        BlockBuilder blockBuilder = createBlockBuilder(UNKNOWN, count);
-        return repeatNullValues(blockBuilder, count);
+        checkCountConditions(count);
+        return repeatNullValues(UNKNOWN, count);
     }
 
     @TypeParameter("T")
@@ -54,18 +56,9 @@ public final class RepeatFunction
             @SqlNullable @SqlType("T") Object element,
             @SqlType(StandardTypes.BIGINT) long count)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(type, count);
-        if (element == null) {
-            return repeatNullValues(blockBuilder, count);
-        }
-        if (count > 0) {
-            type.writeObject(blockBuilder, element);
-            checkMaxSize(blockBuilder.getSizeInBytes(), count);
-        }
-        for (int i = 1; i < count; i++) {
-            type.writeObject(blockBuilder, element);
-        }
-        return blockBuilder.build();
+        Block result = repeatValue(type, element, count);
+        checkMaxSize(result);
+        return result;
     }
 
     @TypeParameter("T")
@@ -75,14 +68,7 @@ public final class RepeatFunction
             @SqlNullable @SqlType("T") Long element,
             @SqlType(StandardTypes.BIGINT) long count)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(type, count);
-        if (element == null) {
-            return repeatNullValues(blockBuilder, count);
-        }
-        for (int i = 0; i < count; i++) {
-            type.writeLong(blockBuilder, element);
-        }
-        return blockBuilder.build();
+        return repeatValue(type, element, count);
     }
 
     @TypeParameter("T")
@@ -92,14 +78,7 @@ public final class RepeatFunction
             @SqlNullable @SqlType("T") Boolean element,
             @SqlType(StandardTypes.BIGINT) long count)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(type, count);
-        if (element == null) {
-            return repeatNullValues(blockBuilder, count);
-        }
-        for (int i = 0; i < count; i++) {
-            type.writeBoolean(blockBuilder, element);
-        }
-        return blockBuilder.build();
+        return repeatValue(type, element, count);
     }
 
     @TypeParameter("T")
@@ -109,36 +88,35 @@ public final class RepeatFunction
             @SqlNullable @SqlType("T") Double element,
             @SqlType(StandardTypes.BIGINT) long count)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(type, count);
+        return repeatValue(type, element, count);
+    }
+
+    private static Block repeatValue(Type type, Object element, long count)
+    {
+        checkCountConditions(count);
         if (element == null) {
-            return repeatNullValues(blockBuilder, count);
+            return repeatNullValues(type, count);
         }
-        for (int i = 0; i < count; i++) {
-            type.writeDouble(blockBuilder, element);
-        }
-        return blockBuilder.build();
+        return RunLengthEncodedBlock.create(type, element, toIntExact(count));
     }
 
-    private static BlockBuilder createBlockBuilder(Type type, long count)
+    private static void checkCountConditions(long count)
     {
-        checkCondition(count <= MAX_RESULT_ENTRIES, INVALID_FUNCTION_ARGUMENT, "count argument of repeat function must be less than or equal to 10000");
+        checkCondition(count <= MAX_RESULT_ENTRIES, INVALID_FUNCTION_ARGUMENT, "count argument of repeat function must be less than or equal to %s", MAX_RESULT_ENTRIES);
         checkCondition(count >= 0, INVALID_FUNCTION_ARGUMENT, "count argument of repeat function must be greater than or equal to 0");
-        return type.createBlockBuilder(null, toIntExact(count));
     }
 
-    private static Block repeatNullValues(BlockBuilder blockBuilder, long count)
+    private static Block repeatNullValues(Type type, long count)
     {
-        for (int i = 0; i < count; i++) {
-            blockBuilder.appendNull();
-        }
-        return blockBuilder.build();
+        return RunLengthEncodedBlock.create(type, null, toIntExact(count));
     }
 
-    private static void checkMaxSize(long bytes, long count)
+    private static void checkMaxSize(Block block)
     {
         checkCondition(
-                bytes <= (MAX_SIZE_IN_BYTES + count) / count,
+                block.getSizeInBytes() <= MAX_SIZE_IN_BYTES,
                 INVALID_FUNCTION_ARGUMENT,
-                "result of repeat function must not take more than 1000000 bytes");
+                "result of repeat function must not take more than %s bytes",
+                MAX_SIZE_IN_BYTES);
     }
 }

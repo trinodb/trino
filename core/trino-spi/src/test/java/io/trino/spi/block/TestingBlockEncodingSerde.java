@@ -47,10 +47,10 @@ public final class TestingBlockEncodingSerde
         this.types = requireNonNull(types, "types is null");
         // add the built-in BlockEncodings
         addBlockEncoding(new VariableWidthBlockEncoding());
-        addBlockEncoding(new ByteArrayBlockEncoding());
-        addBlockEncoding(new ShortArrayBlockEncoding());
-        addBlockEncoding(new IntArrayBlockEncoding());
-        addBlockEncoding(new LongArrayBlockEncoding());
+        addBlockEncoding(new ByteArrayBlockEncoding(true));
+        addBlockEncoding(new ShortArrayBlockEncoding(true));
+        addBlockEncoding(new IntArrayBlockEncoding(true));
+        addBlockEncoding(new LongArrayBlockEncoding(true));
         addBlockEncoding(new Fixed12BlockEncoding());
         addBlockEncoding(new Int128ArrayBlockEncoding());
         addBlockEncoding(new DictionaryBlockEncoding());

@@ -14,6 +14,7 @@
 
 package io.trino.plugin.eventlistener.kafka;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
@@ -118,6 +119,7 @@ public final class TestUtils
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 0L,
                 0L,
                 0L,
@@ -144,6 +146,7 @@ public final class TestUtils
                 Collections.emptyList(),
                 Collections.emptyList(),
                 Collections.emptyList(),
+                ImmutableMap.of(),
                 Optional.empty());
 
         queryFailureInfo = Optional.of(
@@ -165,6 +168,7 @@ public final class TestUtils
                 queryStatistics,
                 queryContext,
                 queryIOMetadata,
+                Optional.empty(),
                 queryFailureInfo,
                 List.of(new TrinoWarning(new WarningCode(101, "TestCode"), "Test error message")),
                 Instant.now(),

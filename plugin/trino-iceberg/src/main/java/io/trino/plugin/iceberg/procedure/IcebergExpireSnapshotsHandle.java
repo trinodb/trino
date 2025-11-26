@@ -15,13 +15,15 @@ package io.trino.plugin.iceberg.procedure;
 
 import io.airlift.units.Duration;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public record IcebergExpireSnapshotsHandle(Duration retentionThreshold)
+public record IcebergExpireSnapshotsHandle(Duration retentionThreshold, int retainLast, boolean cleanExpiredMetadata)
         implements IcebergProcedureHandle
 {
     public IcebergExpireSnapshotsHandle
     {
         requireNonNull(retentionThreshold, "retentionThreshold is null");
+        checkArgument(retainLast >= 1, "Number of snapshots to retain must be at least 1");
     }
 }

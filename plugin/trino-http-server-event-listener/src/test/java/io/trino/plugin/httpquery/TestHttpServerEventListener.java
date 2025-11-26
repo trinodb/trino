@@ -141,6 +141,7 @@ final class TestHttpServerEventListener
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 0L,
                 0L,
                 0L,
@@ -167,6 +168,7 @@ final class TestHttpServerEventListener
                 Collections.emptyList(),
                 Collections.emptyList(),
                 Collections.emptyList(),
+                ImmutableMap.of(),
                 Optional.empty());
 
         queryCompleteEvent = new QueryCompletedEvent(
@@ -174,6 +176,7 @@ final class TestHttpServerEventListener
                 queryStatistics,
                 queryContext,
                 queryIOMetadata,
+                Optional.empty(),
                 Optional.empty(),
                 Collections.emptyList(),
                 Instant.now(),
@@ -185,6 +188,7 @@ final class TestHttpServerEventListener
                 queryStatistics,
                 queryContext,
                 queryIOMetadata,
+                Optional.empty(),
                 Optional.empty(),
                 Collections.emptyList(),
                 Instant.now(),

@@ -667,7 +667,15 @@ public class ParquetReader
             }
             ChunkedInputStream columnChunkInputStream = chunkReaders.get(new ChunkKey(fieldId, currentRowGroup));
             columnReader.setPageReader(
-                    createPageReader(dataSource.getId(), columnChunkInputStream, metadata, columnDescriptor, offsetIndex, fileCreatedBy, decryptionContext),
+                    createPageReader(
+                            dataSource.getId(),
+                            columnChunkInputStream,
+                            metadata,
+                            columnDescriptor,
+                            offsetIndex,
+                            fileCreatedBy,
+                            decryptionContext,
+                            options.getMaxPageReadSize().toBytes()),
                     Optional.ofNullable(rowRanges));
         }
         ColumnChunk columnChunk = columnReader.readPrimitive();

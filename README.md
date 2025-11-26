@@ -9,7 +9,7 @@
 </p>
 <p align="center">
   <a href="https://trino.io/download.html" style="text-decoration: none"><img
-    src="https://img.shields.io/maven-central/v/io.trino/trino-server.svg?label=Trino"
+    src="https://img.shields.io/github/v/release/trinodb/trino"
     alt="Trino download"
   /></a>
   <a href="https://github.com/jvm-repo-rebuild/reproducible-central/blob/master/content/io/trino/README.md" style="text-decoration: none"><img
@@ -28,23 +28,8 @@
 
 ## Development
 
-Learn about development for all Trino organization projects:
-
-* [Vision](https://trino.io/development/vision)
-* [Contribution process](https://trino.io/development/process#contribution-process)
-* [Pull request and commit guidelines](https://trino.io/development/process#pull-request-and-commit-guidelines-)
-* [Release note guidelines](https://trino.io/development/process#release-note-guidelines-)
-
-Further information in the [development section of the
-website](https://trino.io/development) includes different roles, like
-contributors, reviewers, and maintainers, related processes, and other aspects.
-
-See [the Trino developer guide](https://trino.io/docs/current/develop.html) for
-information about the SPI, implementing connectors and other plugins plugins,
-the client protocol, writing tests and other lower level details.
-
-See [DEVELOPMENT](.github/DEVELOPMENT.md) for information about code style,
-development process, and guidelines.
+See [DEVELOPMENT](.github/DEVELOPMENT.md) for information about development and release process,
+code style and guidelines for implementors of Trino plugins.
 
 See [CONTRIBUTING](.github/CONTRIBUTING.md) for contribution requirements.
 
@@ -61,7 +46,7 @@ Trino supports [reproducible builds](https://reproducible-builds.org) as of vers
   * Note that some npm packages used to build the web UI are only available
     for x86 architectures, so if you're building on Apple Silicon, you need 
     to have Rosetta 2 installed
-* Java 24.0.1+, 64-bit
+* Java 25.0.1+, 64-bit
 * Docker
   * Turn SELinux or other systems disabling write access to the local checkout
     off, to allow containers to mount parts of the Trino source tree
@@ -114,7 +99,7 @@ Trino comes with sample configuration that should work out-of-the-box for
 development. Use the following options to create a run configuration:
 
 * Main Class: `io.trino.server.DevelopmentServer`
-* VM Options: `-ea -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -Djdk.attach.allowAttachSelf=true --sun-misc-unsafe-memory-access=allow`
+* VM Options: `-ea -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -Djdk.attach.allowAttachSelf=true --sun-misc-unsafe-memory-access=allow --add-modules jdk.incubator.vector`
 * Working directory: `$MODULE_DIR$`
 * Use classpath of module: `trino-server-dev`
 

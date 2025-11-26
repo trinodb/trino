@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class TestingColumnHandle
+public final class TestingColumnHandle
         implements ColumnHandle
 {
     private final String name;

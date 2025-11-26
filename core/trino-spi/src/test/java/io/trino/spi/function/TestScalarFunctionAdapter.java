@@ -77,7 +77,7 @@ import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestScalarFunctionAdapter
+class TestScalarFunctionAdapter
 {
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
     private static final ArrayType ARRAY_TYPE = new ArrayType(BIGINT);

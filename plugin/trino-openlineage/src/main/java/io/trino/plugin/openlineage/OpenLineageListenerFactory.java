@@ -35,6 +35,7 @@ public class OpenLineageListenerFactory
         Bootstrap app = new Bootstrap("io.trino.bootstrap.listener." + getName(), new OpenLineageListenerModule());
         Injector injector = app
                 .doNotInitializeLogging()
+                .disableSystemProperties()
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 

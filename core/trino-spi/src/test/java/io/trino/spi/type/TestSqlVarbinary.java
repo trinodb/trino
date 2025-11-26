@@ -20,7 +20,7 @@ import java.util.Base64;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestSqlVarbinary
+final class TestSqlVarbinary
 {
     @Test
     public void testToHexString()
