@@ -125,7 +125,7 @@ public class FileSystemConfig
     }
 
     @Config("fs.cache.include-tables")
-    @ConfigDescription("List of tables to include in file system cache (schema.table format, supports wildcards like schema.* or *)")
+    @ConfigDescription("List of tables to include in file system cache, use * to cache listings for all tables in all schemas")
     public FileSystemConfig setCacheIncludeTables(List<String> tables)
     {
         this.cacheIncludeTables = ImmutableList.copyOf(tables);
