@@ -17,12 +17,13 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.plugin.hive.TestingHivePlugin;
+import io.trino.plugin.hive.HivePlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 
@@ -34,7 +35,9 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@Execution(SAME_THREAD) // Uses file metastore sharing location between catalogs
 public class TestIcebergHiveRedirection
         extends AbstractTestQueryFramework
 {
@@ -65,14 +68,20 @@ public class TestIcebergHiveRedirection
                 "iceberg",
                 ImmutableMap.of(
                         "iceberg.catalog.type", "TESTING_FILE_METASTORE",
+                        // Intentionally sharing the file metastore directory with Hive
                         "hive.metastore.catalog.dir", dataDirectory.getPath(),
                         "fs.hadoop.enabled", "true"));
 
-        queryRunner.installPlugin(new TestingHivePlugin(dataDirectory.toPath()));
+        queryRunner.installPlugin(new HivePlugin());
         queryRunner.createCatalog(
                 hiveCatalog,
                 "hive",
-                ImmutableMap.of("hive.iceberg-catalog-name", icebergCatalog));
+                ImmutableMap.of(
+                        "hive.iceberg-catalog-name", icebergCatalog,
+                        "hive.metastore", "file",
+                        // Intentionally sharing the file metastore directory with Iceberg
+                        "hive.metastore.catalog.dir", dataDirectory.getPath(),
+                        "fs.hadoop.enabled", "true"));
 
         queryRunner.execute("CREATE SCHEMA " + schema);
 

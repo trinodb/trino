@@ -84,7 +84,6 @@ public final class IcebergQueryRunner
     public static class Builder
             extends DistributedQueryRunner.Builder<Builder>
     {
-        private Optional<File> metastoreDirectory = Optional.empty();
         private ImmutableMap.Builder<String, String> icebergProperties = ImmutableMap.builder();
         private Optional<SchemaInitializer> schemaInitializer = Optional.of(SchemaInitializer.builder().build());
         private boolean tpcdsCatalogEnabled;
@@ -103,12 +102,6 @@ public final class IcebergQueryRunner
                     .setCatalog(ICEBERG_CATALOG)
                     .setSchema(schema)
                     .build());
-        }
-
-        public Builder setMetastoreDirectory(File metastoreDirectory)
-        {
-            this.metastoreDirectory = Optional.of(metastoreDirectory);
-            return self();
         }
 
         public Builder setIcebergProperties(Map<String, String> icebergProperties)
@@ -173,7 +166,7 @@ public final class IcebergQueryRunner
                     icebergProperties.put("fs.hadoop.enabled", "true");
                 }
 
-                Path dataDir = metastoreDirectory.map(File::toPath).orElseGet(() -> queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data"));
+                Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
                 queryRunner.installPlugin(new TestingIcebergPlugin(dataDir));
                 queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties.buildOrThrow());
                 schemaInitializer.ifPresent(initializer -> initializer.accept(queryRunner));
