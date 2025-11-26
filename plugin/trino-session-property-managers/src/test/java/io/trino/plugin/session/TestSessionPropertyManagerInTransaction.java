@@ -27,7 +27,7 @@ import static io.trino.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
 public class TestSessionPropertyManagerInTransaction
         extends AbstractTestQueryFramework
 {
-    public static final File CONFIG_FILE = new File("src/test/resources/io/trino/plugin/session/file/session-property-config.properties");
+    private static final File CONFIG_FILE = new File("src/test/resources/io/trino/plugin/session/file/session-property-config.properties");
 
     @Override
     protected QueryRunner createQueryRunner()
