@@ -27,9 +27,10 @@ import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Storage;
+import io.trino.plugin.hive.HivePlugin;
 import io.trino.plugin.hive.HiveStorageFormat;
-import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -43,6 +44,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
@@ -73,10 +75,12 @@ import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -88,10 +92,12 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
@@ -103,7 +109,9 @@ import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDele
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tpch.TpchTable.NATION;
 import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
@@ -121,8 +129,10 @@ import static org.apache.iceberg.TableUtil.formatVersion;
 import static org.apache.iceberg.mapping.NameMappingParser.toJson;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(PER_CLASS)
+@Execution(SAME_THREAD) // Uses file metastore sharing location between catalogs
 public class TestIcebergV2
         extends AbstractTestQueryFramework
 {
@@ -134,18 +144,39 @@ public class TestIcebergV2
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = IcebergQueryRunner.builder()
-                .setInitialTables(NATION)
+        Session icebergSession = testSessionBuilder()
+                .setCatalog(ICEBERG_CATALOG)
+                .setSchema("tpch")
                 .build();
+
+        QueryRunner queryRunner = DistributedQueryRunner.builder(icebergSession).build();
+
+        queryRunner.installPlugin(new TpchPlugin());
+        queryRunner.createCatalog("tpch", "tpch");
+
+        Path dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
+        verify(dataDirectory.toFile().mkdirs());
+
+        queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory));
+        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", Map.of(
+                "iceberg.catalog.type", "TESTING_FILE_METASTORE",
+                "hive.metastore.catalog.dir", dataDirectory.toString(),
+                "fs.hadoop.enabled", "true"));
 
         metastore = getHiveMetastore(queryRunner);
         fileSystemFactory = getFileSystemFactory(queryRunner);
         catalog = getTrinoCatalog(metastore, fileSystemFactory, "iceberg");
 
-        queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data")));
-        queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
-                .put("hive.security", "allow-all")
-                .buildOrThrow());
+        queryRunner.installPlugin(new HivePlugin());
+        queryRunner.createCatalog("hive", "hive", Map.of(
+                "hive.security", "allow-all",
+                "hive.metastore", "file",
+                // Intentionally sharing the file metastore directory with Iceberg
+                "hive.metastore.catalog.dir", dataDirectory.toString(),
+                "fs.hadoop.enabled", "true"));
+
+        queryRunner.execute("CREATE SCHEMA tpch");
+        copyTpchTables(queryRunner, "tpch", "tiny", List.of(NATION));
 
         return queryRunner;
     }

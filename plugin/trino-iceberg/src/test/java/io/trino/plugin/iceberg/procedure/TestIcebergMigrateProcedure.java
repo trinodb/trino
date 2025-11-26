@@ -14,32 +14,36 @@
 
 package io.trino.plugin.iceberg.procedure;
 
-import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.iceberg.IcebergFileFormat;
-import io.trino.plugin.iceberg.IcebergQueryRunner;
+import io.trino.plugin.iceberg.TestingIcebergPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.MoreCollectors.onlyElement;
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@Execution(SAME_THREAD) // Uses file metastore sharing location between catalogs
 public class TestIcebergMigrateProcedure
         extends AbstractTestQueryFramework
 {
@@ -49,20 +53,33 @@ public class TestIcebergMigrateProcedure
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        dataDirectory = Files.createTempDirectory("_test_hidden");
-        QueryRunner queryRunner = IcebergQueryRunner.builder().setMetastoreDirectory(dataDirectory.toFile()).build();
-        queryRunner.installPlugin(new TestingHivePlugin(dataDirectory));
-        queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
-                .put("hive.security", "allow-all")
-                .buildOrThrow());
-        return queryRunner;
-    }
+        Session icebergSession = testSessionBuilder()
+                .setCatalog(ICEBERG_CATALOG)
+                .setSchema("tpch")
+                .build();
 
-    @AfterAll
-    public void tearDown()
-            throws IOException
-    {
-        deleteRecursively(dataDirectory, ALLOW_INSECURE);
+        QueryRunner queryRunner = DistributedQueryRunner.builder(icebergSession).build();
+
+        Path baseDataDir = queryRunner.getCoordinator().getBaseDataDir();
+        dataDirectory = baseDataDir.resolve("iceberg_data");
+        verify(dataDirectory.toFile().mkdirs());
+
+        queryRunner.installPlugin(new TestingIcebergPlugin(baseDataDir));
+        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", Map.of(
+                "iceberg.catalog.type", "TESTING_FILE_METASTORE",
+                // Intentionally sharing the file metastore directory with Hive
+                "hive.metastore.catalog.dir", "local:///iceberg_data"));
+
+        queryRunner.installPlugin(new TestingHivePlugin(baseDataDir));
+        queryRunner.createCatalog("hive", "hive", Map.of(
+                "hive.security", "allow-all",
+                "hive.metastore", "file",
+                // Intentionally sharing the file metastore directory with Iceberg
+                "hive.metastore.catalog.dir", "local:///iceberg_data"));
+
+        queryRunner.execute("CREATE SCHEMA tpch");
+
+        return queryRunner;
     }
 
     @ParameterizedTest

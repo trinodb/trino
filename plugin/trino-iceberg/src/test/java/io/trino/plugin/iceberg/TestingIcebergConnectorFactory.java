@@ -34,8 +34,8 @@ import static java.util.Objects.requireNonNull;
 public class TestingIcebergConnectorFactory
         implements ConnectorFactory
 {
+    private final Path localFileSystemRootPath;
     private final Optional<Module> icebergCatalogModule;
-    private final Module module;
 
     public TestingIcebergConnectorFactory(Path localFileSystemRootPath)
     {
@@ -47,13 +47,9 @@ public class TestingIcebergConnectorFactory
             Path localFileSystemRootPath,
             Optional<Module> icebergCatalogModule)
     {
+        this.localFileSystemRootPath = requireNonNull(localFileSystemRootPath, "localFileSystemRootPath is null");
         boolean ignored = localFileSystemRootPath.toFile().mkdirs();
         this.icebergCatalogModule = requireNonNull(icebergCatalogModule, "icebergCatalogModule is null");
-        this.module = binder -> {
-            newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
-                    .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
-            configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, config -> config.setCatalogDirectory("local:///"));
-        };
     }
 
     @Override
@@ -71,6 +67,13 @@ public class TestingIcebergConnectorFactory
                     .put("iceberg.catalog.type", "TESTING_FILE_METASTORE")
                     .buildOrThrow();
         }
+        Module module = binder -> {
+            newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
+                    .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
+            configBinder(binder).bindConfigDefaults(
+                    FileHiveMetastoreConfig.class,
+                    metastoreConfig -> metastoreConfig.setCatalogDirectory("local:///" + catalogName));
+        };
         return createConnector(catalogName, config, context, module, icebergCatalogModule);
     }
 }
