@@ -640,7 +640,7 @@ public abstract class BaseSingleStoreTypeMapping
                 .addRoundTrip("time(0)", "TIME '00:00:00'", TIME_SECONDS, "TIME '00:00:00'")
                 .addRoundTrip("time(0)", "TIME '01:02:03'", TIME_SECONDS, "TIME '01:02:03'")
                 .addRoundTrip("time(0)", "TIME '23:59:59'", TIME_SECONDS, "TIME '23:59:59'")
-                // Removed: TIME '23:59:59.9' rounds to 24:00:00 which overflows; SingleStore JDBC 1.2.9+ throws exception on overflow
+                .addRoundTrip("time(0)", "TIME '23:59:59.9'", TIME_SECONDS, "TIME '00:00:00'") // round by engine
                 .addRoundTrip("time(6)", "NULL", TIME_MICROS, "CAST(NULL AS time(6))")
                 .addRoundTrip("time(6)", "TIME '00:00:00'", TIME_MICROS, "TIME '00:00:00.000000'")
                 .addRoundTrip("time(6)", "TIME '01:02:03'", TIME_MICROS, "TIME '01:02:03.000000'")

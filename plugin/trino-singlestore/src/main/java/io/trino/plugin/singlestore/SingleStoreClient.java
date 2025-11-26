@@ -709,8 +709,7 @@ public class SingleStoreClient
         requireNonNull(timeType, "timeType is null");
         checkArgument(timeType.getPrecision() <= 9, "Unsupported type precision: %s", timeType);
         return (resultSet, columnIndex) -> {
-            // SingleStore JDBC driver 1.2.9+ throws exception on overflow time values (e.g., when rounding causes 24:00:00)
-            // For earlier versions, the driver wrapped time to be within LocalTime range
+            // SingleStore JDBC driver wraps time to be within LocalTime range, which results in values which differ from what is stored, so we verify them
             String timeString = resultSet.getString(columnIndex);
             try {
                 long nanosOfDay = LocalTime.from(ISO_LOCAL_TIME.parse(timeString)).toNanoOfDay();
