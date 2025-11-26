@@ -42,6 +42,7 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -269,6 +270,11 @@ public final class HiveQueryRunner
                             .buildOrThrow();
                     hiveBucketedProperties = new HashMap<>(hiveBucketedProperties);
                     hiveBucketedProperties.put("hive.compression-codec", "NONE"); // so that the file is splittable
+                    if (Objects.equals(hiveBucketedProperties.get("hive.metastore"), "file")) {
+                        // Use separate file metastore location from the non-bucketed catalog. File metastore relies on Java synchronization.
+                        // Two catalogs having separate file metastore instances but sharing disk location may encounter spurious errors which lead to test failures.
+                        hiveBucketedProperties.put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_bucketed_data").toString());
+                    }
                     queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, "hive", hiveBucketedProperties);
                 }
 
@@ -295,10 +301,15 @@ public final class HiveQueryRunner
                 copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);
             }
 
-            if (tpchBucketedCatalogEnabled && metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isEmpty()) {
-                metastore.createDatabase(createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA, initialSchemasLocationBase));
-                Session session = createBucketedSession(Optional.empty());
-                copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, session, initialTables, tpchColumnNaming);
+            if (tpchBucketedCatalogEnabled) {
+                metastore = ((HiveConnector) queryRunner.getCoordinator().getConnector(HiveQueryRunner.HIVE_BUCKETED_CATALOG))
+                        .getInjector().getInstance(HiveMetastoreFactory.class)
+                        .createMetastore(Optional.of(SESSION.getIdentity()));
+                if (metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isEmpty()) {
+                    metastore.createDatabase(createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA, initialSchemasLocationBase));
+                    Session session = createBucketedSession(Optional.empty());
+                    copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, session, initialTables, tpchColumnNaming);
+                }
             }
         }
     }
