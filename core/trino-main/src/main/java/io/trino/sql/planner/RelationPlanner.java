@@ -1757,24 +1757,12 @@ class RelationPlanner
         TranslationMap translationMap = new TranslationMap(outerContext, analysis.getScope(node), analysis, lambdaDeclarationToSymbolMap, outputSymbols, session, plannerContext);
 
         ImmutableList.Builder<Expression> rows = ImmutableList.builder();
-        for (io.trino.sql.tree.Expression rowExpression : node.getRows()) {
-            if (rowExpression instanceof io.trino.sql.tree.Row row) {
-                ImmutableList.Builder<Expression> rowValues = ImmutableList.builder();
-                ImmutableList.Builder<RowType.Field> fieldTypes = ImmutableList.builder();
-                for (int i = 0; i < row.getFields().size(); i++) {
-                    io.trino.sql.tree.Row.Field field = row.getFields().get(i);
-                    Expression expression = coerceIfNecessary(analysis, field.getExpression(), translationMap.rewrite(field.getExpression()));
-                    rowValues.add(expression);
-                    fieldTypes.add(new RowType.Field(field.getName().map(Identifier::getCanonicalValue), expression.type()));
-                }
-                rows.add(new Row(rowValues.build(), RowType.from(fieldTypes.build())));
+        for (io.trino.sql.tree.Expression row : node.getRows()) {
+            Expression rewritten = coerceIfNecessary(analysis, row, translationMap.rewrite(row));
+            if (!(analysis.getType(row) instanceof RowType)) {
+                rewritten = new Row(ImmutableList.of(rewritten));
             }
-            else if (analysis.getType(rowExpression) instanceof RowType) {
-                rows.add(coerceIfNecessary(analysis, rowExpression, translationMap.rewrite(rowExpression)));
-            }
-            else {
-                rows.add(new Row(ImmutableList.of(coerceIfNecessary(analysis, rowExpression, translationMap.rewrite(rowExpression)))));
-            }
+            rows.add(rewritten);
         }
 
         ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), outputSymbols, rows.build());
