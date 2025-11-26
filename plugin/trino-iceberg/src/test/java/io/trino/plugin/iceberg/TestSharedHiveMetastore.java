@@ -62,7 +62,6 @@ public class TestSharedHiveMetastore
         queryRunner.createCatalog("tpch", "tpch");
 
         this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
-        this.dataDirectory.toFile().deleteOnExit();
 
         queryRunner.installPlugin(new IcebergPlugin());
         queryRunner.createCatalog(
