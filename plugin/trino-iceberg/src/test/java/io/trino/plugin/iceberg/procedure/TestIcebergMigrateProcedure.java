@@ -20,15 +20,19 @@ import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
@@ -52,6 +56,13 @@ public class TestIcebergMigrateProcedure
                 .put("hive.security", "allow-all")
                 .buildOrThrow());
         return queryRunner;
+    }
+
+    @AfterAll
+    public void tearDown()
+            throws IOException
+    {
+        deleteRecursively(dataDirectory, ALLOW_INSECURE);
     }
 
     @ParameterizedTest
