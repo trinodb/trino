@@ -189,6 +189,8 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_UPDATE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
@@ -290,7 +292,9 @@ public abstract class BaseHiveConnectorTest
                  SUPPORTS_DEFAULT_COLUMN_VALUE,
                  SUPPORTS_DROP_FIELD,
                  SUPPORTS_LIMIT_PUSHDOWN,
+                 // MERGE, UPDATE are supported only on transactional tables, so not supported in current setup
                  SUPPORTS_MERGE,
+                 SUPPORTS_UPDATE,
                  SUPPORTS_NOT_NULL_CONSTRAINT,
                  SUPPORTS_REFRESH_VIEW,
                  SUPPORTS_RENAME_FIELD,
@@ -306,6 +310,9 @@ public abstract class BaseHiveConnectorTest
     @Override
     public void verifySupportsUpdateDeclaration()
     {
+        // otherwise we wouldn't need to override the test from superclass
+        assertThat(hasBehavior(SUPPORTS_UPDATE)).isFalse();
+
         try (TestTable table = newTrinoTable("test_row_update", "AS SELECT * FROM nation")) {
             assertQueryFails("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
         }
@@ -315,6 +322,9 @@ public abstract class BaseHiveConnectorTest
     @Override
     public void verifySupportsRowLevelUpdateDeclaration()
     {
+        // otherwise we wouldn't need to override the test from superclass
+        assertThat(hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)).isFalse();
+
         try (TestTable table = newTrinoTable("test_supports_update", "AS SELECT * FROM nation")) {
             assertQueryFails("UPDATE " + table.getName() + " SET nationkey = nationkey * 100 WHERE regionkey = 2", MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
         }
@@ -371,82 +381,6 @@ public abstract class BaseHiveConnectorTest
     {
         assertThatThrownBy(super::testDeleteWithSubquery)
                 .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
-    }
-
-    @Test
-    @Override
-    public void testUpdate()
-    {
-        assertThatThrownBy(super::testUpdate)
-                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
-    }
-
-    @Test
-    @Override
-    public void testUpdateMultipleCondition()
-    {
-        assertThatThrownBy(super::testUpdateMultipleCondition)
-                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
-    }
-
-    @Test
-    @Override
-    public void testUpdateWithNullValues()
-    {
-        assertThatThrownBy(super::testUpdateWithNullValues)
-                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
-    }
-
-    @Test
-    @Override
-    public void testRowLevelUpdate()
-    {
-        assertThatThrownBy(super::testRowLevelUpdate)
-                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
-    }
-
-    @Test
-    @Override
-    public void testUpdateCaseSensitivity()
-    {
-        assertThatThrownBy(super::testUpdateCaseSensitivity)
-                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
-    }
-
-    @Test
-    @Override
-    public void testUpdateRowConcurrently()
-            throws Exception
-    {
-        // TODO (https://github.com/trinodb/trino/issues/10518) test this with a TestHiveConnectorTest version that creates ACID tables by default, or in some other way
-        assertThatThrownBy(super::testUpdateRowConcurrently)
-                .hasMessage("Unexpected concurrent update failure")
-                .cause()
-                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
-    }
-
-    @Test
-    @Override
-    public void testUpdateWithPredicates()
-    {
-        assertThatThrownBy(super::testUpdateWithPredicates)
-                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
-    }
-
-    @Test
-    @Override
-    public void testUpdateRowType()
-    {
-        assertThatThrownBy(super::testUpdateRowType)
-                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
-    }
-
-    @Test
-    @Override
-    public void testUpdateAllValues()
-    {
-        assertThatThrownBy(super::testUpdateAllValues)
-                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Test
@@ -3264,8 +3198,7 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
-    @Override
-    public void testInsert()
+    public void testInsertHiveSpecific()
     {
         testWithAllStorageFormats(this::testInsert);
     }
@@ -3549,15 +3482,7 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
-    @Override
-    public void testInsertHighestUnicodeCharacter()
-    {
-        abort("Covered by testInsertUnicode");
-    }
-
-    @Test
-    @Override
-    public void testInsertUnicode()
+    public void testInsertUnicodeHiveSpecific()
     {
         testWithAllStorageFormats(this::testInsertUnicode);
     }
@@ -5178,11 +5103,8 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
-    @Override
-    public void testRenameColumn()
+    public void testRenameColumnHiveSpecific()
     {
-        super.testRenameColumn();
-
         // Additional tests for hive partition columns invariants
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_rename_column\n" +
@@ -5202,11 +5124,8 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
-    @Override
-    public void testDropColumn()
+    public void testDropColumnHiveSpecific()
     {
-        super.testDropColumn();
-
         // Additional tests for hive partition columns invariants
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_drop_column\n" +
