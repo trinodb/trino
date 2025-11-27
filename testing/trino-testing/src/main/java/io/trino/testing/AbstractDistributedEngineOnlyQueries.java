@@ -302,14 +302,14 @@ public abstract class AbstractDistributedEngineOnlyQueries
         assertThat(query("SELECT min(row_number) FROM tpch.tiny.nation"))
                 .matches("VALUES BIGINT '0'");
 
-        assertUpdate(getSession(), "CREATE TABLE n AS TABLE tpch.tiny.nation", 25);
-        assertThat(query("SELECT * FROM n"))
+        assertUpdate(getSession(), "CREATE TABLE create_table_as_table AS TABLE tpch.tiny.nation", 25);
+        assertThat(query("SELECT * FROM create_table_as_table"))
                 .matches("SELECT * FROM tpch.tiny.nation");
 
         // Verify that hidden column is not present in the created table
-        assertThat(query("SELECT min(row_number) FROM n"))
+        assertThat(query("SELECT min(row_number) FROM create_table_as_table"))
                 .failure().hasMessage("line 1:12: Column 'row_number' cannot be resolved");
-        assertUpdate(getSession(), "DROP TABLE n");
+        assertUpdate(getSession(), "DROP TABLE create_table_as_table");
     }
 
     @Test
@@ -324,20 +324,20 @@ public abstract class AbstractDistributedEngineOnlyQueries
                 .matches("VALUES BIGINT '0'");
 
         // Create empty target table for INSERT
-        assertUpdate(getSession(), "CREATE TABLE n AS TABLE tpch.tiny.nation WITH NO DATA", 0);
-        assertThat(query("SELECT * FROM n"))
+        assertUpdate(getSession(), "CREATE TABLE test_insert_table_into_table AS TABLE tpch.tiny.nation WITH NO DATA", 0);
+        assertThat(query("SELECT * FROM test_insert_table_into_table"))
                 .matches("SELECT * FROM tpch.tiny.nation LIMIT 0");
 
         // Verify that the hidden column is not present in the created table
-        assertThat(query("SELECT row_number FROM n"))
+        assertThat(query("SELECT row_number FROM test_insert_table_into_table"))
                 .failure().hasMessage("line 1:8: Column 'row_number' cannot be resolved");
 
         // Insert values from the original table into the created table
-        assertUpdate(getSession(), "INSERT INTO n TABLE tpch.tiny.nation", 25);
-        assertThat(query("SELECT * FROM n"))
+        assertUpdate(getSession(), "INSERT INTO test_insert_table_into_table TABLE tpch.tiny.nation", 25);
+        assertThat(query("SELECT * FROM test_insert_table_into_table"))
                 .matches("SELECT * FROM tpch.tiny.nation");
 
-        assertUpdate(getSession(), "DROP TABLE n");
+        assertUpdate(getSession(), "DROP TABLE test_insert_table_into_table");
     }
 
     @Test
