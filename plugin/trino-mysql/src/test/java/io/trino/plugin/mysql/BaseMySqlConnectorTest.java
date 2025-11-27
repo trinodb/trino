@@ -24,6 +24,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
@@ -790,7 +791,7 @@ public abstract class BaseMySqlConnectorTest
     }
 
     @Override
-    protected void createTableForWrites(String createTable, String tableName, Optional<String> primaryKey, OptionalInt updateCount)
+    protected void createTableForWrites(@Language("SQL") String createTable, String tableName, Optional<String> primaryKey, OptionalInt updateCount)
     {
         super.createTableForWrites(createTable, tableName, primaryKey, updateCount);
         primaryKey.ifPresent(key -> addPrimaryKey(createTable, tableName, key));
