@@ -76,7 +76,7 @@ public final class ExampleQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Logging logger = Logging.initialize();

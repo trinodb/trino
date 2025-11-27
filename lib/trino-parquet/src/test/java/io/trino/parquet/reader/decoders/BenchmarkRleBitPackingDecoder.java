@@ -129,7 +129,7 @@ public class BenchmarkRleBitPackingDecoder
         return Slices.wrappedBuffer(data, Integer.BYTES, data.length - Integer.BYTES);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         benchmark(BenchmarkRleBitPackingDecoder.class, WarmupMode.BULK)

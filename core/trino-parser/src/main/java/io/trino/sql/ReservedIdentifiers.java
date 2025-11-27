@@ -48,7 +48,7 @@ public final class ReservedIdentifiers
             .collect(toImmutableSet());
 
     @SuppressWarnings("CallToPrintStackTrace")
-    public static void main(String[] args)
+    static void main(String[] args)
     {
         if ((args.length == 2) && args[0].equals("validateDocs")) {
             try {

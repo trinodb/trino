@@ -27,7 +27,7 @@ public final class UpdateExpectedPlans
 {
     private UpdateExpectedPlans() {}
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         String[] noArgs = new String[0];

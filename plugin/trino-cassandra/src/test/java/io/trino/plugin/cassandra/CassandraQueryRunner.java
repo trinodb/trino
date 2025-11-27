@@ -111,7 +111,7 @@ public final class CassandraQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         QueryRunner queryRunner = builder(new CassandraServer())

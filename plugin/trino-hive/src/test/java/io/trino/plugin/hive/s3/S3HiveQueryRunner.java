@@ -171,7 +171,7 @@ public final class S3HiveQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Hive3MinioDataLake hiveMinioDataLake = new Hive3MinioDataLake("tpch");
@@ -190,7 +190,7 @@ public final class S3HiveQueryRunner
 
     public static class S3Hive4QueryRunner
     {
-        public static void main(String[] args)
+        static void main()
                 throws Exception
         {
             Hive4MinioDataLake hiveMinioDataLake = new Hive4MinioDataLake("tpch");

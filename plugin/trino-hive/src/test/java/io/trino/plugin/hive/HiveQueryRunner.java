@@ -389,7 +389,7 @@ public final class HiveQueryRunner
 
     public static final class DefaultHiveQueryRunnerMain
     {
-        public static void main(String[] args)
+        static void main(String[] args)
                 throws Exception
         {
             Optional<Path> baseDataDir = Optional.empty();
@@ -425,7 +425,7 @@ public final class HiveQueryRunner
     {
         private HiveGlueQueryRunnerMain() {}
 
-        public static void main(String[] args)
+        static void main()
                 throws Exception
         {
             // Requires AWS credentials, which can be provided any way supported by the DefaultProviderChain

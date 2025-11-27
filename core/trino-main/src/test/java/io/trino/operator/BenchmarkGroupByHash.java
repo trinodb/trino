@@ -269,7 +269,7 @@ public class BenchmarkGroupByHash
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         // assure the benchmarks are valid before running

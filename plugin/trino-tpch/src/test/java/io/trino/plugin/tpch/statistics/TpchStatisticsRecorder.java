@@ -41,7 +41,7 @@ public class TpchStatisticsRecorder
 {
     private static final List<String> SUPPORTED_SCHEMAS = ImmutableList.of("sf0.01", "sf1.0");
 
-    public static void main(String[] args)
+    static void main()
     {
         TpchStatisticsRecorder tool = new TpchStatisticsRecorder(new TableStatisticsRecorder(), new TableStatisticsDataRepository(createObjectMapper()));
 

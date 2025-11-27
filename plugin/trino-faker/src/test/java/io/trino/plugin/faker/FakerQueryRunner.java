@@ -83,7 +83,7 @@ public class FakerQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Logging logger = Logging.initialize();
@@ -103,7 +103,7 @@ public class FakerQueryRunner
     {
         private FakerQueryRunnerWithTaskRetries() {}
 
-        public static void main(String[] args)
+        static void main()
                 throws Exception
         {
             Logger log = Logger.get(FakerQueryRunnerWithTaskRetries.class);

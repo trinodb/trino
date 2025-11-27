@@ -223,7 +223,7 @@ public class BenchmarkInCodeGenerator
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         Benchmarks.benchmark(BenchmarkInCodeGenerator.class).run();

@@ -342,7 +342,7 @@ public class BenchmarkJsonFunctions
         new BenchmarkJsonFunctions().benchmarkJsonExtractFunction(data);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Benchmarks.benchmark(BenchmarkJsonFunctions.class, WarmupMode.BULK_INDI).run();

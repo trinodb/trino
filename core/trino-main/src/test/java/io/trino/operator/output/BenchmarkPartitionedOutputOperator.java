@@ -570,7 +570,7 @@ public class BenchmarkPartitionedOutputOperator
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Benchmarks.benchmark(BenchmarkPartitionedOutputOperator.class)

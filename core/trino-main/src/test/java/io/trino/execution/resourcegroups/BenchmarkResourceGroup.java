@@ -99,7 +99,7 @@ public class BenchmarkResourceGroup
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Benchmarks.benchmark(BenchmarkResourceGroup.class).run();

@@ -189,7 +189,7 @@ public final class DeltaLakeQueryRunner
     {
         private DefaultDeltaLakeQueryRunnerMain() {}
 
-        public static void main(String[] args)
+        static void main()
                 throws Exception
         {
             File metastoreDir = createTempDirectory("delta_query_runner").toFile();
@@ -212,7 +212,7 @@ public final class DeltaLakeQueryRunner
     {
         private DeltaLakeExternalQueryRunnerMain() {}
 
-        public static void main(String[] args)
+        static void main()
                 throws Exception
         {
             // Please set Delta Lake connector properties via VM options. e.g. -Dhive.metastore=glue -D..
@@ -231,7 +231,7 @@ public final class DeltaLakeQueryRunner
     {
         private DeltaLakeSparkQueryRunnerMain() {}
 
-        public static void main(String[] args)
+        static void main()
                 throws Exception
         {
             String bucketName = "test-bucket";
@@ -254,7 +254,7 @@ public final class DeltaLakeQueryRunner
     {
         private S3DeltaLakeQueryRunnerMain() {}
 
-        public static void main(String[] args)
+        static void main()
                 throws Exception
         {
             String bucketName = "test-bucket";

@@ -55,7 +55,7 @@ public final class DevelopmentServer
         }
     }
 
-    public static void main(String[] args)
+    static void main()
     {
         new DevelopmentServer().start("dev");
     }

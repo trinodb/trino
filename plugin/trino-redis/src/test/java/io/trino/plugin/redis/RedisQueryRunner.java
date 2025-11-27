@@ -158,7 +158,7 @@ public final class RedisQueryRunner
         return tableDescriptions.buildOrThrow();
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         QueryRunner queryRunner = RedisQueryRunner.builder(new RedisServer())

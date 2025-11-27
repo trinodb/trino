@@ -219,7 +219,7 @@ public final class BigQueryQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         QueryRunner queryRunner = BigQueryQueryRunner.builder()

@@ -380,7 +380,7 @@ public class TestingHydraIdentityProvider
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Logging logging = Logging.initialize();

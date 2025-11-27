@@ -242,7 +242,7 @@ public class BenchmarkBinPackingNodeAllocator
         benchmark.benchmarkProcessPendingAllocations(data);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Benchmarks.benchmark(BenchmarkBinPackingNodeAllocator.class)

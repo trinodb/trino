@@ -153,7 +153,7 @@ public class BenchmarkEqualsConjunctsOperator
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkEqualsConjunctsOperator.class).run();

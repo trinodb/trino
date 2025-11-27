@@ -104,7 +104,7 @@ public class BenchmarkEvictableCache
         public int cacheValueLoadTimeMillis;
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkEvictableCache.class).run();

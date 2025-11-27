@@ -85,7 +85,7 @@ public final class SheetsQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Logging.initialize();

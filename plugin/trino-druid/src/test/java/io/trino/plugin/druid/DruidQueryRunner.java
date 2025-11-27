@@ -183,7 +183,7 @@ public final class DruidQueryRunner
                 .collect(Collectors.joining("\t"));
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         QueryRunner queryRunner = builder(new TestingDruidServer())

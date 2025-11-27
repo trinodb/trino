@@ -100,7 +100,7 @@ public final class OracleQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         TestingOracleServer server = new TestingOracleServer();
