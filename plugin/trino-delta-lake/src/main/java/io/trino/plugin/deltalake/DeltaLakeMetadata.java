@@ -3814,7 +3814,7 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean tableReplace)
     {
         if (!isCollectExtendedStatisticsColumnStatisticsOnWrite(session)) {
             return TableStatisticsMetadata.empty();
@@ -3840,6 +3840,12 @@ public class DeltaLakeMetadata
                 analyzeColumnNames.orElse(allColumnNames),
                 existingStatistics.isPresent(),
                 true);
+    }
+
+    @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        throw new UnsupportedOperationException("This variant of getStatisticsCollectionMetadataForWrite is unsupported");
     }
 
     private TableStatisticsMetadata getStatisticsCollectionMetadata(
