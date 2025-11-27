@@ -15,7 +15,9 @@ package io.trino.client;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.base.StandardSystemProperty;
+import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
+import com.google.common.net.InetAddresses;
 import io.trino.client.auth.kerberos.DelegatedConstrainedContextProvider;
 import io.trino.client.auth.kerberos.DelegatedUnconstrainedContextProvider;
 import io.trino.client.auth.kerberos.GSSContextProvider;
@@ -33,7 +35,11 @@ import org.ietf.jgss.GSSCredential;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SNIHostName;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
@@ -44,8 +50,10 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.CookieManager;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
+import java.net.Socket;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.SecureRandom;
@@ -287,7 +295,7 @@ public final class OkHttpUtil
             SSLContext sslContext = SSLContext.getInstance("TLS");
             sslContext.init(keyManagers, new TrustManager[] {trustManager}, null);
 
-            clientBuilder.sslSocketFactory(sslContext.getSocketFactory(), trustManager);
+            clientBuilder.sslSocketFactory(new SingleLabelDomainSNISSLSocketFactory(sslContext.getSocketFactory()), trustManager);
             clientBuilder.hostnameVerifier(LegacyHostnameVerifier.INSTANCE);
         }
         catch (GeneralSecurityException | IOException e) {
@@ -409,5 +417,94 @@ public final class OkHttpUtil
         return gssCredential.map(DelegatedConstrainedContextProvider::new)
                 .map(gssCred -> (GSSContextProvider) gssCred)
                 .orElse(new DelegatedUnconstrainedContextProvider());
+    }
+
+    private static class SingleLabelDomainSNISSLSocketFactory
+            extends SSLSocketFactory
+    {
+        private final SSLSocketFactory delegate;
+
+        public SingleLabelDomainSNISSLSocketFactory(SSLSocketFactory delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public String[] getDefaultCipherSuites()
+        {
+            return delegate.getDefaultCipherSuites();
+        }
+
+        @Override
+        public String[] getSupportedCipherSuites()
+        {
+            return delegate.getSupportedCipherSuites();
+        }
+
+        @Override
+        public Socket createSocket(Socket s, String host, int port, boolean autoClose)
+                throws IOException
+        {
+            Socket socket = delegate.createSocket(s, host, port, autoClose);
+            setSniHostName(socket, host);
+            return socket;
+        }
+
+        @Override
+        public Socket createSocket(Socket s, InputStream consumed, boolean autoClose)
+                throws IOException
+        {
+            return delegate.createSocket(s, consumed, autoClose);
+        }
+
+        @Override
+        public Socket createSocket()
+                throws IOException
+        {
+            return delegate.createSocket();
+        }
+
+        @Override
+        public Socket createSocket(String host, int port)
+                throws IOException
+        {
+            Socket socket = delegate.createSocket(host, port);
+            setSniHostName(socket, host);
+            return socket;
+        }
+
+        @Override
+        public Socket createSocket(String host, int port, InetAddress localHost, int localPort)
+                throws IOException
+        {
+            Socket socket = delegate.createSocket(host, port, localHost, localPort);
+            setSniHostName(socket, host);
+            return socket;
+        }
+
+        @Override
+        public Socket createSocket(InetAddress host, int port)
+                throws IOException
+        {
+            return delegate.createSocket(host, port);
+        }
+
+        @Override
+        public Socket createSocket(InetAddress address, int port, InetAddress localAddress, int localPort)
+                throws IOException
+        {
+            return delegate.createSocket(address, port, localAddress, localPort);
+        }
+
+        private void setSniHostName(Socket socket, String host)
+        {
+            // work around the JDK TLS implementation not allowing single label domains
+            // see: sun.security.ssl.Utilities.rawToSNIHostName
+            if (socket instanceof SSLSocket && host != null && !InetAddresses.isInetAddress(host) && !host.contains(".")) {
+                SSLParameters params = ((SSLSocket) socket).getSSLParameters();
+                params.setServerNames(ImmutableList.of(new SNIHostName(host)));
+                ((SSLSocket) socket).setSSLParameters(params);
+            }
+        }
     }
 }
