@@ -38,7 +38,7 @@ public final class ValuePrinter
         this.session = requireNonNull(session, "session is null");
     }
 
-    public String castToVarchar(Type type, Object value)
+    public String render(Type type, Object value)
     {
         try {
             if (value == null) {
