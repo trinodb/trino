@@ -2914,12 +2914,6 @@ public class IcebergMetadata
     }
 
     @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
-    {
-        throw new UnsupportedOperationException("This variant of getStatisticsCollectionMetadataForWrite is unsupported");
-    }
-
-    @Override
     public ConnectorAnalyzeMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> analyzeProperties)
     {
         IcebergTableHandle handle = checkValidTableHandle(tableHandle);
