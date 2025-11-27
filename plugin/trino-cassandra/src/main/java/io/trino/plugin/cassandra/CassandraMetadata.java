@@ -80,6 +80,7 @@ import static io.trino.spi.connector.RelationCommentMetadata.forRelation;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -87,6 +88,10 @@ import static java.util.stream.Collectors.toList;
 public class CassandraMetadata
         implements ConnectorMetadata
 {
+    // Column names above this value cause issues in Cassandra.
+    // Above this number, it's possible that the table creation fails, but the table is still created.
+    private static final int COLUMN_NAME_BYTES_LIMIT = 65535;
+
     public static final String PRESTO_COMMENT_METADATA = "Presto Metadata:";
 
     private final CassandraSession cassandraSession;
@@ -368,6 +373,9 @@ public class CassandraMetadata
         ImmutableList.Builder<ExtraColumnMetadata> columnExtra = ImmutableList.builder();
         columnExtra.add(new ExtraColumnMetadata(ID_COLUMN_NAME, true));
         for (ColumnMetadata column : tableMetadata.getColumns()) {
+            if (column.getName().getBytes(UTF_8).length > COLUMN_NAME_BYTES_LIMIT) {
+                throw new TrinoException(NOT_SUPPORTED, "Column name is too long. The maximum supported length is %s bytes: %s".formatted(COLUMN_NAME_BYTES_LIMIT, column.getName()));
+            }
             if (column.getComment() != null) {
                 throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
             }
