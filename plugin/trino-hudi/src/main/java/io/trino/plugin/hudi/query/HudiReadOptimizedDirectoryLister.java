@@ -35,11 +35,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.util.Objects.requireNonNull;
 import static org.apache.hudi.common.table.view.HoodieTableFileSystemView.fileListingBasedFileSystemView;
 
 public class HudiReadOptimizedDirectoryLister
@@ -51,6 +53,7 @@ public class HudiReadOptimizedDirectoryLister
     private final HoodieTableFileSystemView fileSystemView;
     private final List<Column> partitionColumns;
     private final Map<String, HudiPartitionInfo> allPartitionInfoMap;
+    private final HudiTableHandle tableHandle;
 
     public HudiReadOptimizedDirectoryLister(
             HudiTableHandle tableHandle,
@@ -76,13 +79,17 @@ public class HudiReadOptimizedDirectoryLister
                                 tableHandle.getPartitionPredicates(),
                                 hiveTable,
                                 hiveMetastore)));
+        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
     }
 
     @Override
     public List<HudiFileStatus> listStatus(HudiPartitionInfo partitionInfo)
     {
         LOG.debug("List partition: partitionInfo=%s", partitionInfo);
-        return fileSystemView.getLatestBaseFiles(partitionInfo.getRelativePartitionPath())
+        Stream<HoodieBaseFile> baseFileStream = tableHandle.getReadVersion().isEmpty()
+                ? fileSystemView.getLatestBaseFiles(partitionInfo.getRelativePartitionPath())
+                : fileSystemView.getLatestBaseFilesBeforeOrOn(partitionInfo.getRelativePartitionPath(), tableHandle.getReadVersion().get());
+        return baseFileStream
                 .map(HudiReadOptimizedDirectoryLister::getStoragePathInfo)
                 .map(fileEntry -> new HudiFileStatus(
                         Location.of(fileEntry.getPath().toString()),

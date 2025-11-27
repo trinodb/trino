@@ -82,7 +82,7 @@ final class TestHudiSharedMetastore
 
         queryRunner.execute("CREATE SCHEMA hive.default");
 
-        TpchHudiTablesInitializer tpchHudiTablesInitializer = new TpchHudiTablesInitializer(List.of(NATION));
+        TpchHudiTablesInitializer tpchHudiTablesInitializer = new TpchHudiTablesInitializer(List.of(NATION), "0");
         tpchHudiTablesInitializer.initializeTables(queryRunner, Location.of(dataDirectory.toString()), "default");
 
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, hiveSession, ImmutableList.of(TpchTable.REGION));
