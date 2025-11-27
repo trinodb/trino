@@ -16,6 +16,7 @@ package io.trino.filesystem.manager;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import jakarta.validation.constraints.NotEmpty;
 
 import java.util.List;
 
@@ -30,7 +31,7 @@ public class FileSystemConfig
     private boolean nativeGcsEnabled;
     private boolean nativeLocalEnabled;
     private boolean cacheEnabled;
-    private List<String> cacheIncludeTables = ImmutableList.of();
+    private List<String> cacheIncludeTables = ImmutableList.of("*");
 
     // Enable leak detection if configured or if running in a CI environment
     private boolean trackingEnabled = getenv("CONTINUOUS_INTEGRATION") != null;
@@ -119,6 +120,7 @@ public class FileSystemConfig
         return this;
     }
 
+    @NotEmpty
     public List<String> getCacheIncludeTables()
     {
         return cacheIncludeTables;

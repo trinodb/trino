@@ -15,6 +15,7 @@ package io.trino.filesystem.manager;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import jakarta.validation.constraints.NotEmpty;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -22,6 +23,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static java.lang.System.getenv;
 
 public class TestFileSystemConfig
@@ -39,7 +41,7 @@ public class TestFileSystemConfig
                 .setNativeGcsEnabled(false)
                 .setNativeLocalEnabled(false)
                 .setCacheEnabled(false)
-                .setCacheIncludeTables(ImmutableList.of())
+                .setCacheIncludeTables(ImmutableList.of("*"))
                 .setTrackingEnabled(RUNNING_IN_CI));
     }
 
@@ -70,5 +72,16 @@ public class TestFileSystemConfig
                 .setTrackingEnabled(!RUNNING_IN_CI);
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testValidation()
+    {
+        assertFailsValidation(
+                new FileSystemConfig()
+                        .setCacheIncludeTables(ImmutableList.of()),
+                "cacheIncludeTables",
+                "must not be empty",
+                NotEmpty.class);
     }
 }
