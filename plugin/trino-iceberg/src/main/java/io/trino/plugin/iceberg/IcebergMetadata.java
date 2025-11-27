@@ -2413,7 +2413,7 @@ public class IcebergMetadata
         UpdateProperties updateProperties = transaction.updateProperties();
 
         if (properties.containsKey(EXTRA_PROPERTIES_PROPERTY)) {
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             Map<String, String> extraProperties = (Map<String, String>) properties.get(EXTRA_PROPERTIES_PROPERTY)
                     .orElseThrow(() -> new IllegalArgumentException("The extra_properties property cannot be empty"));
             verifyExtraProperties(properties.keySet(), extraProperties, allowedExtraProperties);
@@ -2422,7 +2422,7 @@ public class IcebergMetadata
 
         if (properties.containsKey(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)) {
             checkFormatForProperty(getFileFormat(icebergTable).toIceberg(), FileFormat.PARQUET, PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             List<String> parquetBloomFilterColumns = (List<String>) properties.get(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)
                     .orElseThrow(() -> new IllegalArgumentException("The parquet_bloom_filter_columns property cannot be empty"));
             validateParquetBloomFilterColumns(getColumnMetadatas(SchemaParser.fromJson(table.getTableSchemaJson()), typeManager), parquetBloomFilterColumns);
@@ -2438,7 +2438,7 @@ public class IcebergMetadata
 
         if (properties.containsKey(ORC_BLOOM_FILTER_COLUMNS_PROPERTY)) {
             checkFormatForProperty(getFileFormat(icebergTable).toIceberg(), FileFormat.ORC, ORC_BLOOM_FILTER_COLUMNS_PROPERTY);
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             List<String> orcBloomFilterColumns = (List<String>) properties.get(ORC_BLOOM_FILTER_COLUMNS_PROPERTY)
                     .orElseThrow(() -> new IllegalArgumentException("The orc_bloom_filter_columns property cannot be empty"));
             if (orcBloomFilterColumns.isEmpty()) {
