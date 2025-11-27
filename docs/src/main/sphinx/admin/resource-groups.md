@@ -181,6 +181,8 @@ documentation](https://docs.oracle.com/en/java/javase/24/docs/api/java.base/java
 
 - `source` (optional): Java regex to match against source string.
 
+- `queryText` (optional): regex to match against the SQL query string.
+
 - `queryType` (optional): string to match against the type of the query submitted:
 
   - `SELECT`: [SELECT](/sql/select) queries.
@@ -251,7 +253,7 @@ Templates allow administrators to construct resource group trees dynamically. Fo
 the `pipeline_${USER}` group, `${USER}` is expanded to the name of the user that submitted
 the query. `${SOURCE}` is also supported, which is expanded to the source that submitted the
 query. You may also use custom named variables in the regular expressions for `user`, `source`,
-`originalUser`, and `authenticatedUser`.
+`originalUser`, `authenticatedUser` and `queryText`.
 
 There are six selectors, that define which queries run in which resource group:
 
