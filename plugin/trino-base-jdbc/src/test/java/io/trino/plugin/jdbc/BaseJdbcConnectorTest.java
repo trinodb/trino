@@ -147,21 +147,21 @@ public abstract class BaseJdbcConnectorTest
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        return switch (connectorBehavior) {
-            case SUPPORTS_UPDATE -> true;
-            case SUPPORTS_ADD_COLUMN_WITH_POSITION,
-                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                 SUPPORTS_CREATE_VIEW,
-                 SUPPORTS_DEFAULT_COLUMN_VALUE,
-                 SUPPORTS_MERGE,
-                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
-                 SUPPORTS_ROW_LEVEL_UPDATE -> false;
+        switch (connectorBehavior) {
+            case SUPPORTS_CREATE_VIEW: // not supported by DefaultJdbcMetadata
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW: // not supported by DefaultJdbcMetadata
+            case SUPPORTS_DEFAULT_COLUMN_VALUE: // not supported by DefaultJdbcMetadata
+                return false;
+
             // Dynamic filters can be pushed down only if predicate push down is supported.
             // It is possible for a connector to have predicate push down support but not push down dynamic filters.
             // TODO default SUPPORTS_DYNAMIC_FILTER_PUSHDOWN to SUPPORTS_PREDICATE_PUSHDOWN
-            case SUPPORTS_DYNAMIC_FILTER_PUSHDOWN -> super.hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN);
-            default -> super.hasBehavior(connectorBehavior);
-        };
+            case SUPPORTS_DYNAMIC_FILTER_PUSHDOWN:
+                return super.hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN);
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 
     @Test

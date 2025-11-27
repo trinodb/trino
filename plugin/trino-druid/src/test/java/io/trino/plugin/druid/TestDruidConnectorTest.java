@@ -78,6 +78,7 @@ public class TestDruidConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
+                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_COMMENT_ON_TABLE,
                  SUPPORTS_CREATE_SCHEMA,
@@ -90,7 +91,8 @@ public class TestDruidConnectorTest
                  SUPPORTS_ROW_TYPE,
                  SUPPORTS_SET_COLUMN_TYPE,
                  SUPPORTS_TOPN_PUSHDOWN,
-                 SUPPORTS_UPDATE -> false;
+                 SUPPORTS_UPDATE,
+                 SUPPORTS_MERGE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
