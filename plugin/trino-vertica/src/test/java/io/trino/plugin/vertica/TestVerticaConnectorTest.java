@@ -69,6 +69,7 @@ public class TestVerticaConnectorTest
             case SUPPORTS_JOIN_PUSHDOWN -> true;
             case SUPPORTS_ARRAY,
                  SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                 SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_COMMENT_ON_TABLE,

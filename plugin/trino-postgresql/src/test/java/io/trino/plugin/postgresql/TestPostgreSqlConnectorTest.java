@@ -58,7 +58,6 @@ import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.stream.Stream;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -120,21 +119,13 @@ public class TestPostgreSqlConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN -> {
-                // TODO remove once super has this set to true
-                verify(!super.hasBehavior(connectorBehavior));
-                yield true;
-            }
             // Arrays are supported conditionally. Check the defaults.
             case SUPPORTS_ARRAY -> new PostgreSqlConfig().getArrayMapping() != PostgreSqlConfig.ArrayMapping.DISABLED;
             case SUPPORTS_CANCELLATION,
                     SUPPORTS_JOIN_PUSHDOWN,
-                    SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_ROW_LEVEL_UPDATE,
-                    SUPPORTS_TOPN_PUSHDOWN,
                     SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                    SUPPORTS_ADD_COLUMN_WITH_POSITION,
                     SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                     SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
                     SUPPORTS_MAP_TYPE,
