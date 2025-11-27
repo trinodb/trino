@@ -17,7 +17,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.plugin.base.security.TestingSystemAccessControlContext;
+import io.trino.plugin.base.security.testing.TestingSystemAccessControlContext;
 import io.trino.plugin.opa.AccessControlMethodHelpers.MethodWrapper;
 import io.trino.plugin.opa.AccessControlMethodHelpers.ReturningMethodWrapper;
 import io.trino.plugin.opa.AccessControlMethodHelpers.ThrowingMethodWrapper;

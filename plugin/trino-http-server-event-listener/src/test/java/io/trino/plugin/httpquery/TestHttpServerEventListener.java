@@ -20,7 +20,7 @@ import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.trino.operator.RetryPolicy;
-import io.trino.plugin.base.eventlistener.TestingEventListenerContext;
+import io.trino.plugin.base.eventlistener.testing.TestingEventListenerContext;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryContext;
 import io.trino.spi.eventlistener.QueryIOMetadata;

@@ -15,7 +15,7 @@ package io.trino.plugin.opa;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.plugin.base.security.TestingSystemAccessControlContext;
+import io.trino.plugin.base.security.testing.TestingSystemAccessControlContext;
 import io.trino.spi.security.Identity;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;

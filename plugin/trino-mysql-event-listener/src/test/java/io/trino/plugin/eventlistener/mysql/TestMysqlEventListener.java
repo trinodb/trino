@@ -16,7 +16,7 @@ package io.trino.plugin.eventlistener.mysql;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodecFactory;
-import io.trino.plugin.base.eventlistener.TestingEventListenerContext;
+import io.trino.plugin.base.eventlistener.testing.TestingEventListenerContext;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.connector.StandardWarningCode;

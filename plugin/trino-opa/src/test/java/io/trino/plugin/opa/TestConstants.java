@@ -15,7 +15,7 @@ package io.trino.plugin.opa;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.execution.QueryIdGenerator;
-import io.trino.plugin.base.security.TestingSystemAccessControlContext;
+import io.trino.plugin.base.security.testing.TestingSystemAccessControlContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.security.Identity;
