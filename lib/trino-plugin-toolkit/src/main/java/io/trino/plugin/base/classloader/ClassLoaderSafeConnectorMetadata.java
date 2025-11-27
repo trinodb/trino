@@ -164,14 +164,6 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
-    {
-        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getStatisticsCollectionMetadataForWrite(session, tableMetadata);
-        }
-    }
-
-    @Override
     public ConnectorAnalyzeMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> analyzeProperties)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
