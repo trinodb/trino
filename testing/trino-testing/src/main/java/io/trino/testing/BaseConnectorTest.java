@@ -6595,12 +6595,12 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP TABLE " + source);
     }
 
-    protected void createTableForWrites(String createTable, String tableName, Optional<String> primaryKey)
+    protected void createTableForWrites(@Language("SQL") String createTable, String tableName, Optional<String> primaryKey)
     {
         createTableForWrites(createTable, tableName, primaryKey, OptionalInt.empty());
     }
 
-    protected void createTableForWrites(String createTable, String tableName, Optional<String> primaryKey, OptionalInt updateCount)
+    protected void createTableForWrites(@Language("SQL") String createTable, String tableName, Optional<String> primaryKey, OptionalInt updateCount)
     {
         updateCount.ifPresentOrElse(count -> assertUpdate(format(createTable, tableName), count), () -> assertUpdate(format(createTable, tableName)));
     }
