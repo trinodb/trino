@@ -68,7 +68,6 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.JoinApplicationResult;
-import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.MaterializedViewFreshness;
@@ -480,12 +479,12 @@ public class MockConnector
                 JoinType joinType,
                 ConnectorTableHandle left,
                 ConnectorTableHandle right,
-                List<JoinCondition> joinConditions,
+                ConnectorExpression joinCondition,
                 Map<String, ColumnHandle> leftAssignments,
                 Map<String, ColumnHandle> rightAssignments,
                 JoinStatistics statistics)
         {
-            return applyJoin.apply(session, joinType, left, right, joinConditions, leftAssignments, rightAssignments);
+            return applyJoin.apply(session, joinType, left, right, joinCondition, leftAssignments, rightAssignments, statistics);
         }
 
         @Override
