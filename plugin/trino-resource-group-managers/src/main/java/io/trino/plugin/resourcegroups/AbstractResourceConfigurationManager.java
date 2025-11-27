@@ -107,6 +107,7 @@ public abstract class AbstractResourceConfigurationManager
                     spec.getSourceRegex(),
                     spec.getClientTags(),
                     spec.getResourceEstimate(),
+                    spec.getQueryText(),
                     spec.getQueryType(),
                     spec.getGroup()));
         }
