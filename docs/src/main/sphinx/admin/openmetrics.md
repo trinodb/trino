@@ -272,7 +272,7 @@ configuration:
       - source_labels: [__meta_kubernetes_pod_container_name]
         action: replace
         target_label: container
-      - action: replace  # overide the address to the https ingress address 
+      - action: replace  # override the address to the https ingress address 
         target_label: __address__
         replacement: {{ .Values.trinourl }} 
       metric_relabel_configs:
