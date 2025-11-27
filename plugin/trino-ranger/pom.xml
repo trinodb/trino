@@ -17,7 +17,7 @@
     <properties>
         <dep.graalvm.version>25.0.1</dep.graalvm.version>
         <!-- TODO: remove once Ranger upgrades to Jetty 12 -->
-        <dep.jetty11.version>11.0.26</dep.jetty11.version>
+        <dep.jetty11.version>12.1.4</dep.jetty11.version>
         <dep.ranger.version>2.7.0</dep.ranger.version>
     </properties>
 
