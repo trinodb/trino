@@ -81,4 +81,12 @@ public class ClearScapeSetup
         }
         manager.stop();
     }
+
+    public EnvironmentResponse.State status()
+    {
+        if (manager == null) {
+            throw new IllegalStateException("ClearScape manager is not initialized");
+        }
+        return manager.status();
+    }
 }

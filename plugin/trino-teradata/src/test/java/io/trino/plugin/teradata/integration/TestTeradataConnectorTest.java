@@ -25,7 +25,10 @@ import io.trino.testing.sql.TestTable;
 import org.assertj.core.api.AssertProvider;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceAccessMode;
+import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.util.List;
 import java.util.Optional;
@@ -475,5 +478,77 @@ final class TestTeradataConnectorTest
             assertThat(query(format("SELECT char_large FROM %s WHERE id = 1", table.getName()))).matches("VALUES CAST('TERADATA' AS CHAR(100))");
             assertThat(query(format("SELECT char_col FROM %s WHERE id = 3", table.getName()))).matches("VALUES CAST('' AS CHAR(5))");
         }
+    }
+
+    @Override
+    // Overriding to add ResourceLock to run sequential this test along with other tests labeled with TERADATA_SCHEMA to avoid issue Concurrent change conflict on database
+    @Test
+    @ResourceLock(value = "TERADATA_SCHEMA", mode = ResourceAccessMode.READ_WRITE)
+    public void testShowCreateSchema()
+    {
+        super.testShowCreateSchema();
+    }
+
+    @Override
+    // Overriding to add ResourceLock to run sequential this test along with other tests labeled with TERADATA_SCHEMA to avoid issue Concurrent change conflict on database
+    @Test
+    @ResourceLock(value = "TERADATA_SCHEMA", mode = ResourceAccessMode.READ_WRITE)
+    public void testCreateSchema()
+    {
+        super.testCreateSchema();
+    }
+
+    @Override
+    // Overriding to add ResourceLock to run sequential this test along with other tests labeled with TERADATA_SCHEMA to avoid issue Concurrent change conflict on database
+    @Test
+    @ResourceLock(value = "TERADATA_SCHEMA", mode = ResourceAccessMode.READ_WRITE)
+    public void testCreateSchemaWithLongName()
+    {
+        super.testCreateSchemaWithLongName();
+    }
+
+    @Override
+    // Overriding to add ResourceLock to run sequential this test along with other tests labeled with TERADATA_SCHEMA to avoid issue Concurrent change conflict on database
+    @Test
+    @ResourceLock(value = "TERADATA_SCHEMA", mode = ResourceAccessMode.READ_WRITE)
+    public void testRenameSchemaToLongName()
+    {
+        super.testRenameSchemaToLongName();
+    }
+
+    @Override
+    // Overriding to add ResourceLock to run sequential this test along with other tests labeled with TERADATA_SCHEMA to avoid issue Concurrent change conflict on database
+    @Test
+    @ResourceLock(value = "TERADATA_SCHEMA", mode = ResourceAccessMode.READ_WRITE)
+    public void testRenameTableAcrossSchema()
+            throws Exception
+    {
+        super.testRenameTableAcrossSchema();
+    }
+
+    @Override
+    // Overriding to add ResourceLock to run sequential this test along with other tests labeled with TERADATA_SCHEMA to avoid issue Concurrent change conflict on database
+    @Test
+    @ResourceLock(value = "TERADATA_SCHEMA", mode = ResourceAccessMode.READ_WRITE)
+    public void testRenameTableToUnqualifiedPreservesSchema()
+            throws Exception
+    {
+        super.testRenameTableToUnqualifiedPreservesSchema();
+    }
+
+    @Override // Overriding to tag this test as long_run test case to avoid running in clearscape_tests profile
+    @Test
+    @Tag("long_run")
+    public void testSelectInformationSchemaColumns()
+    {
+        super.testSelectInformationSchemaColumns();
+    }
+
+    @Override  // Overriding to tag this test as long_run test case to avoid running in clearscape_tests profile
+    @Test
+    @Tag("long_run")
+    public void testCaseSensitiveDataMapping()
+    {
+        super.testCaseSensitiveDataMapping();
     }
 }

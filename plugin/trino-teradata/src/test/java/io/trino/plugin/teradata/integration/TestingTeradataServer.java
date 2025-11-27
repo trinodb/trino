@@ -14,6 +14,7 @@
 package io.trino.plugin.teradata.integration;
 
 import io.trino.plugin.teradata.integration.clearscape.ClearScapeSetup;
+import io.trino.plugin.teradata.integration.clearscape.EnvironmentResponse;
 import io.trino.plugin.teradata.integration.clearscape.Model;
 import io.trino.testing.sql.SqlExecutor;
 
@@ -181,7 +182,15 @@ public final class TestingTeradataServer
     public void close()
     {
         try {
-            dropTestDatabaseIfExists();
+            if (config.isUseClearScape()) {
+                EnvironmentResponse.State state = clearScapeSetup.status();
+                if (state == EnvironmentResponse.State.RUNNING) {
+                    dropTestDatabaseIfExists();
+                }
+            }
+            else {
+                dropTestDatabaseIfExists();
+            }
         }
         finally {
             try {

@@ -32,5 +32,7 @@ public record EnvironmentResponse(
     {
         RUNNING,
         STOPPED,
+        TERMINATED,
+        STOPPING
     }
 }

@@ -58,9 +58,41 @@ public class ClearScapeManager
         stopClearScapeInstance();
     }
 
+    public EnvironmentResponse.State status()
+    {
+        return getClearScapeInstanceStatus();
+    }
+
     public void teardown()
     {
         shutdownAndDestroyClearScapeInstance();
+    }
+
+    private EnvironmentResponse.State getClearScapeInstanceStatus()
+    {
+        try {
+            TeradataHttpClient teradataHttpClient = getTeradataHttpClient();
+
+            String token = this.model.getToken();
+            String name = this.model.getEnvName();
+            EnvironmentResponse response = null;
+            try {
+                response = teradataHttpClient.getEnvironment(new GetEnvironmentRequest(name), token);
+            }
+            catch (BaseException be) {
+                return EnvironmentResponse.State.TERMINATED;
+            }
+
+            if (response != null) {
+                return response.state();
+            }
+            else {
+                return EnvironmentResponse.State.TERMINATED;
+            }
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to get status of ClearScape instance", e);
+        }
     }
 
     private void createAndStartClearScapeInstance()

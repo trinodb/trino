@@ -84,18 +84,16 @@ public class TeradataHttpClient
         return handleHttpResponse(httpResponse, new TypeReference<>() {});
     }
 
-    // Deleting an environment is a blocking operation by default, and it takes ~1.5min to finish
     public CompletableFuture<Void> deleteEnvironment(DeleteEnvironmentRequest deleteEnvironmentRequest, String token)
     {
-        var httpRequest = HttpRequest.newBuilder(URI.create(baseUrl
-                        .concat("/environments/")
-                        .concat(deleteEnvironmentRequest.name())))
+        var httpRequest = HttpRequest.newBuilder(URI.create(baseUrl + "/environments/" + deleteEnvironmentRequest.name()))
                 .headers(AUTHORIZATION, BEARER + token)
                 .DELETE()
                 .build();
 
-        return httpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.ofString())
-                .thenApply(httpResponse -> handleHttpResponse(httpResponse, new TypeReference<>() {}));
+        // start async and ignore returned future
+        httpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.ofString());
+        return CompletableFuture.completedFuture(null);
     }
 
     public void startEnvironment(EnvironmentRequest environmentRequest, String token)
@@ -113,16 +111,12 @@ public class TeradataHttpClient
     private void getVoidCompletableFuture(String name, String token, String jsonPayLoadString)
     {
         HttpRequest.BodyPublisher publisher = HttpRequest.BodyPublishers.ofString(jsonPayLoadString);
-        var httpRequest = HttpRequest.newBuilder(URI.create(baseUrl
-                        .concat("/environments/")
-                        .concat(name)))
-                .headers(AUTHORIZATION, BEARER + token,
-                        CONTENT_TYPE, APPLICATION_JSON)
+        var httpRequest = HttpRequest.newBuilder(URI.create(baseUrl + "/environments/" + name))
+                .headers(AUTHORIZATION, BEARER + token, CONTENT_TYPE, APPLICATION_JSON)
                 .method("PATCH", publisher)
                 .build();
-        var httpResponse =
-                handleCheckedException(() -> httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString()));
-        handleHttpResponse(httpResponse, new TypeReference<>() {});
+
+        httpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.ofString());
     }
 
     private <T> T handleHttpResponse(HttpResponse<String> httpResponse, TypeReference<T> typeReference)

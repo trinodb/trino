@@ -317,6 +317,26 @@
                                 <include>**/TestTeradataConnectorTest.java</include>
                                 <include>**/TestTeradataTypeMapping.java</include>
                             </includes>
+                            <excludedGroups>long_run</excludedGroups>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>run-only-long-tests</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <!-- This profile configures Surefire to run only tests tagged with @Tag("long_run") -->
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <groups>long_run</groups>
                         </configuration>
                     </plugin>
                 </plugins>
