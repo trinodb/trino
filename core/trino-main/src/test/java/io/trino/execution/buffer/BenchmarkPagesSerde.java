@@ -204,7 +204,7 @@ public class BenchmarkPagesSerde
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         BenchmarkData data = new BenchmarkData();

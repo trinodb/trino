@@ -62,7 +62,7 @@ public class Launcher
     @Option(names = "--version", versionHelp = true, description = "Print version information and exit")
     public boolean versionInfoRequested;
 
-    public static void main(String[] args)
+    static void main(String[] args)
     {
         Launcher launcher = new Launcher();
         // write directly to System.out, bypassing logging & io.airlift.log.Logging#rewireStdStreams

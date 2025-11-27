@@ -140,7 +140,7 @@ public class BenchmarkPagesIndexPageSorter
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkPagesIndexPageSorter.class).run();

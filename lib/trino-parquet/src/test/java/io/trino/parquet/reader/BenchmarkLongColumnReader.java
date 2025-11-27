@@ -97,7 +97,7 @@ public class BenchmarkLongColumnReader
         return batch;
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         run(BenchmarkLongColumnReader.class);

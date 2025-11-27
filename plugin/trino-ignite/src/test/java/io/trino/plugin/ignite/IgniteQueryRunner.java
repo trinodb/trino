@@ -95,7 +95,7 @@ public final class IgniteQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Logging.initialize();

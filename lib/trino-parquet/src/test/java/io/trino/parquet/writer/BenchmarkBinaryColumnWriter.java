@@ -110,7 +110,7 @@ public class BenchmarkBinaryColumnWriter
 
     record Range(int from, int to) {}
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         run(BenchmarkBinaryColumnWriter.class);

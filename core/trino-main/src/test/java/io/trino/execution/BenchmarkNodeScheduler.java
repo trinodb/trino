@@ -222,7 +222,7 @@ public class BenchmarkNodeScheduler
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Benchmarks.benchmark(BenchmarkNodeScheduler.class).run();

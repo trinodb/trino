@@ -123,7 +123,7 @@ public class BenchmarkRoundFunction
         return Math.floor(num * factor + 0.5) / factor;
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         benchmark(BenchmarkRoundFunction.class).run();

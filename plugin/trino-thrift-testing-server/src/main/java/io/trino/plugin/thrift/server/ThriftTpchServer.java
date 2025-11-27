@@ -38,7 +38,7 @@ public final class ThriftTpchServer
         app.initialize();
     }
 
-    public static void main(String[] args)
+    static void main()
     {
         Logger log = Logger.get(ThriftTpchServer.class);
         try {

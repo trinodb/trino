@@ -304,7 +304,7 @@ public class BenchmarkParquetFormat
         public abstract TestData createTestData();
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         Collection<RunResult> results = benchmark(BenchmarkParquetFormat.class)

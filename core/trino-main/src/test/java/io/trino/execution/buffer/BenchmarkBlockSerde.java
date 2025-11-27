@@ -446,7 +446,7 @@ public class BenchmarkBlockSerde
         deserializeLineitem(data);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         benchmark(BenchmarkBlockSerde.class).run();

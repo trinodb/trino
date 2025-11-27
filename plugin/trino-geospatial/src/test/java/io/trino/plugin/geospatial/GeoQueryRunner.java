@@ -23,7 +23,7 @@ public final class GeoQueryRunner
 {
     private GeoQueryRunner() {}
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build())

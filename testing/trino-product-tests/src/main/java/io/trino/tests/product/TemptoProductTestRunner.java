@@ -18,7 +18,7 @@ import io.trino.tempto.runner.TemptoRunnerCommandLineParser;
 
 public final class TemptoProductTestRunner
 {
-    public static void main(String[] args)
+    static void main(String[] args)
     {
         TemptoRunnerCommandLineParser parser = TemptoRunnerCommandLineParser.builder("Trino product tests")
                 .setTestsPackage("io.trino.tests.product.*", false)

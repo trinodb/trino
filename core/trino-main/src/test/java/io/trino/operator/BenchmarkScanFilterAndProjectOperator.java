@@ -285,7 +285,7 @@ public class BenchmarkScanFilterAndProjectOperator
         context.cleanup();
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         benchmark(BenchmarkScanFilterAndProjectOperator.class).run();

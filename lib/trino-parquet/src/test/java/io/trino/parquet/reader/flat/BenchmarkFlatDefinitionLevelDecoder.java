@@ -161,7 +161,7 @@ public class BenchmarkFlatDefinitionLevelDecoder
         DataGenerator() {}
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         benchmark(BenchmarkFlatDefinitionLevelDecoder.class)

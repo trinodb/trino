@@ -110,7 +110,7 @@ public final class OpenLineageListenerQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         MarquezServer server = new MarquezServer();

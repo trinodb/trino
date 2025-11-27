@@ -24,7 +24,7 @@ public final class AiQueryRunner
 {
     private AiQueryRunner() {}
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build())

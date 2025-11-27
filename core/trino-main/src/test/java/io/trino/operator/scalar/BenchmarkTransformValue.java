@@ -184,7 +184,7 @@ public class BenchmarkTransformValue
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         // assure the benchmarks are valid before running

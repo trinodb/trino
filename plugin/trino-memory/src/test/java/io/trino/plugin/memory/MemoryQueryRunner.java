@@ -105,7 +105,7 @@ public final class MemoryQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         QueryRunner queryRunner = builder()
@@ -124,7 +124,7 @@ public final class MemoryQueryRunner
     {
         private MemoryQueryRunnerWithTaskRetries() {}
 
-        public static void main(String[] args)
+        static void main()
                 throws Exception
         {
             Path exchangeManagerDirectory = createTempDirectory(null);

@@ -226,7 +226,7 @@ public class BenchmarkDynamicPageFilter
         return value < chance;
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Throwable
     {
         benchmark(BenchmarkDynamicPageFilter.class, WarmupMode.BULK)

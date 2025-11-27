@@ -52,7 +52,7 @@ public class PluginReader
     @Option(names = {"-r", "--root-pom"}, description = "Trino root module pom.xml")
     private File rootPom = new File("pom.xml");
 
-    public static void main(String... args)
+    static void main(String... args)
     {
         int exitCode = new CommandLine(new PluginReader()).execute(args);
         System.exit(exitCode);

@@ -61,7 +61,7 @@ public class BenchmarkBingTilesAround
         new BenchmarkBingTilesAround().benchmark(data);
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         Benchmarks.benchmark(BenchmarkBingTilesAround.class).run();

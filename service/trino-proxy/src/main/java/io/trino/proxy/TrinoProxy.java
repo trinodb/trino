@@ -60,7 +60,7 @@ public final class TrinoProxy
         }
     }
 
-    public static void main(String[] args)
+    static void main()
     {
         start();
     }

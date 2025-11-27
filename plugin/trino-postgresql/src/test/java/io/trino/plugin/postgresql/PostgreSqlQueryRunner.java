@@ -108,7 +108,7 @@ public final class PostgreSqlQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         QueryRunner queryRunner = builder(new TestingPostgreSqlServer(System.getProperty("testing.postgresql-image-name", DEFAULT_IMAGE_NAME), true))

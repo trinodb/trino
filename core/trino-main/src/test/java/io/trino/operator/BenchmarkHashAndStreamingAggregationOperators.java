@@ -365,7 +365,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
         context.cleanup();
     }
 
-    public static void main(String[] args)
+    static void main()
             throws RunnerException
     {
         Benchmarks.benchmark(BenchmarkHashAndStreamingAggregationOperators.class).run();

@@ -95,7 +95,7 @@ public final class LakehouseQueryRunner
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         File metastoreDir = createTempDirectory("delta_query_runner").toFile();

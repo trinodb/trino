@@ -1231,7 +1231,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    public static void main(String[] args)
+    static void main()
             throws Exception
     {
         benchmark(BenchmarkColumnReaders.class).run();
