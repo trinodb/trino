@@ -25,7 +25,9 @@ RUN \
     # Install JDK from the provided archive link \
     echo "Downloading JDK from ${JDK_DOWNLOAD_LINK}" && \
     mkdir -p "${JAVA_HOME}" && \
-    curl -#LfS "${JDK_DOWNLOAD_LINK}" | tar -zx --strip 1 -C "${JAVA_HOME}"
+    curl -#LfS --retry 8 "${JDK_DOWNLOAD_LINK}" -o /jdktarfile && \
+    tar -zxf /jdktarfile --strip 1 -C "${JAVA_HOME}" && \
+    echo "Done"
 
 FROM redhat/ubi10 AS packages
 
