@@ -783,7 +783,7 @@ public class IoPlanPrinter
                                     .collect(toImmutableSet())),
                     discreteValues -> formattedRanges.addAll(
                             discreteValues.getValues().stream()
-                                    .map(value -> valuePrinter.castToVarchar(type, value))
+                                    .map(value -> valuePrinter.render(type, value))
                                     .map(value -> new FormattedMarker(Optional.of(value), Bound.EXACTLY))
                                     .map(marker -> new FormattedRange(marker, marker))
                                     .collect(toImmutableSet())),
@@ -799,13 +799,13 @@ public class IoPlanPrinter
             FormattedMarker low = range.isLowUnbounded()
                     ? new FormattedMarker(Optional.empty(), Bound.ABOVE)
                     : new FormattedMarker(
-                    Optional.of(valuePrinter.castToVarchar(range.getType(), range.getLowBoundedValue())),
+                    Optional.of(valuePrinter.render(range.getType(), range.getLowBoundedValue())),
                     range.isLowInclusive() ? Bound.EXACTLY : Bound.ABOVE);
 
             FormattedMarker high = range.isHighUnbounded()
                     ? new FormattedMarker(Optional.empty(), Bound.BELOW)
                     : new FormattedMarker(
-                    Optional.of(valuePrinter.castToVarchar(range.getType(), range.getHighBoundedValue())),
+                    Optional.of(valuePrinter.render(range.getType(), range.getHighBoundedValue())),
                     range.isHighInclusive() ? Bound.EXACTLY : Bound.BELOW);
 
             return new FormattedRange(low, high);

@@ -597,7 +597,7 @@ public class PlanPrinter
                 .map(argument -> {
                     if (argument.isConstant()) {
                         NullableValue constant = argument.getConstant();
-                        String printableValue = valuePrinter.castToVarchar(constant.getType(), constant.getValue());
+                        String printableValue = valuePrinter.render(constant.getType(), constant.getValue());
                         return constant.getType().getDisplayName() + "(" + anonymizer.anonymize(constant.getType(), printableValue) + ")";
                     }
                     return anonymizer.anonymize(argument.getColumn());
@@ -1905,7 +1905,7 @@ public class PlanPrinter
                     argument.getType().getDisplayName(),
                     anonymizer.anonymize(
                             argument.getType(),
-                            valuePrinter.castToVarchar(argument.getType(), argument.getValue())));
+                            valuePrinter.render(argument.getType(), argument.getValue())));
         }
 
         private String formatDescriptorArgument(String argumentName, DescriptorArgument argument)
@@ -2065,7 +2065,7 @@ public class PlanPrinter
                         for (Range range : ranges.getOrderedRanges()) {
                             StringBuilder builder = new StringBuilder();
                             if (range.isSingleValue()) {
-                                String value = anonymizer.anonymize(type, valuePrinter.castToVarchar(type, range.getSingleValue()));
+                                String value = anonymizer.anonymize(type, valuePrinter.render(type, range.getSingleValue()));
                                 builder.append('[').append(value).append(']');
                             }
                             else {
@@ -2075,7 +2075,7 @@ public class PlanPrinter
                                     builder.append("<min>");
                                 }
                                 else {
-                                    builder.append(anonymizer.anonymize(type, valuePrinter.castToVarchar(type, range.getLowBoundedValue())));
+                                    builder.append(anonymizer.anonymize(type, valuePrinter.render(type, range.getLowBoundedValue())));
                                 }
 
                                 builder.append(", ");
@@ -2084,7 +2084,7 @@ public class PlanPrinter
                                     builder.append("<max>");
                                 }
                                 else {
-                                    builder.append(anonymizer.anonymize(type, valuePrinter.castToVarchar(type, range.getHighBoundedValue())));
+                                    builder.append(anonymizer.anonymize(type, valuePrinter.render(type, range.getHighBoundedValue())));
                                 }
 
                                 builder.append(range.isHighInclusive() ? ']' : ')');
@@ -2093,7 +2093,7 @@ public class PlanPrinter
                         }
                     },
                     discreteValues -> discreteValues.getValues().stream()
-                            .map(value -> anonymizer.anonymize(type, valuePrinter.castToVarchar(type, value)))
+                            .map(value -> anonymizer.anonymize(type, valuePrinter.render(type, value)))
                             .sorted() // Sort so the values will be printed in predictable order
                             .forEach(parts::add),
                     allOrNone -> {
