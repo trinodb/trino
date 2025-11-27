@@ -70,7 +70,6 @@ import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
@@ -115,7 +114,6 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Map.entry;
 import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.FileFormat.ORC;
@@ -1466,17 +1464,6 @@ public class TestIcebergV2
             assertUpdate("UPDATE " + tableName + " SET comment = 'test'", 20);
             assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, 'test' FROM nation WHERE regionkey != 1");
             assertUpdate("DROP TABLE " + tableName);
-        }
-    }
-
-    @Test
-    @Disabled // TODO https://github.com/trinodb/trino/issues/24539 Fix flaky test
-    void testEnvironmentContext()
-    {
-        try (TestTable table = newTrinoTable("test_environment_context", "(x int)")) {
-            Table icebergTable = loadTable(table.getName());
-            assertThat(icebergTable.currentSnapshot().summary())
-                    .contains(entry("engine-name", "trino"), entry("engine-version", "testversion"));
         }
     }
 
