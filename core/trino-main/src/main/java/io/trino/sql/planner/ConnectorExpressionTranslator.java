@@ -587,11 +587,20 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
+            io.trino.spi.expression.Constant uselessArgument = switch (node.operator()) {
+                case AND -> io.trino.spi.expression.Constant.TRUE;
+                case OR -> io.trino.spi.expression.Constant.FALSE;
+            };
+
             ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builderWithExpectedSize(node.terms().size());
             for (Expression argument : node.terms()) {
                 Optional<ConnectorExpression> translated = process(argument);
                 if (translated.isEmpty()) {
                     return Optional.empty();
+                }
+                // Skip useless components.
+                if (translated.get().equals(uselessArgument)) {
+                    continue;
                 }
                 arguments.add(translated.get());
             }

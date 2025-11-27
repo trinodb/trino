@@ -200,6 +200,26 @@ public class TestConnectorExpressionTranslator
     }
 
     @Test
+    public void testTranslateTrivialLogicalExpression()
+    {
+        assertTranslationToConnectorExpression(
+                TEST_SESSION,
+                new Logical(
+                        Logical.Operator.AND,
+                        List.of(
+                                new Constant(BOOLEAN, true),
+                                new Comparison(Comparison.Operator.EQUAL, new Reference(DOUBLE, "double_symbol_1"), new Reference(DOUBLE, "double_symbol_2")))),
+                new io.trino.spi.expression.Call(
+                        BOOLEAN,
+                        StandardFunctions.AND_FUNCTION_NAME,
+                        List.of(
+                                new io.trino.spi.expression.Call(
+                                        BOOLEAN,
+                                        StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME,
+                                        List.of(new Variable("double_symbol_1", DOUBLE), new Variable("double_symbol_2", DOUBLE))))));
+    }
+
+    @Test
     public void testTranslateComparisonExpression()
     {
         for (Comparison.Operator operator : Comparison.Operator.values()) {
