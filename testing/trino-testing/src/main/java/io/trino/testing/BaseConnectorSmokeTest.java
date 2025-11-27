@@ -16,6 +16,7 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.spi.security.Identity;
+import io.trino.testing.sql.TemporaryRelation;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import io.trino.tpch.TpchTable;
@@ -152,7 +153,7 @@ public abstract class BaseConnectorSmokeTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    protected TestTable createTestTableForWrites(String tablePrefix)
+    protected TemporaryRelation createTestTableForWrites(String tablePrefix)
     {
         return newTrinoTable(tablePrefix, getCreateTableDefaultDefinition());
     }
@@ -322,7 +323,7 @@ public abstract class BaseConnectorSmokeTest
             throw new AssertionError("Cannot test UPDATE without INSERT");
         }
 
-        try (TestTable table = createTestTableForWrites("test_update_")) {
+        try (TemporaryRelation table = createTestTableForWrites("test_update_")) {
             assertUpdate("INSERT INTO " + table.getName() + " (a, b) SELECT regionkey, regionkey * 2.5 FROM region", "SELECT count(*) FROM region");
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches(expectedValues("(0, 0.0), (1, 2.5), (2, 5.0), (3, 7.5), (4, 10.0)"));
@@ -348,7 +349,7 @@ public abstract class BaseConnectorSmokeTest
             throw new AssertionError("Cannot test MERGE without INSERT");
         }
 
-        try (TestTable table = createTestTableForWrites("test_merge_")) {
+        try (TemporaryRelation table = createTestTableForWrites("test_merge_")) {
             assertUpdate("INSERT INTO " + table.getName() + " (a, b) SELECT regionkey, regionkey * 2.5 FROM region", "SELECT count(*) FROM region");
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches(expectedValues("(0, 0.0), (1, 2.5), (2, 5.0), (3, 7.5), (4, 10.0)"));
