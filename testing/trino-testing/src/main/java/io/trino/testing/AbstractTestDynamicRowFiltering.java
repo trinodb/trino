@@ -26,6 +26,8 @@ import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
@@ -202,15 +204,24 @@ public abstract class AbstractTestDynamicRowFiltering
     private OperatorStats getScanFilterAndProjectOperatorStats(QueryId queryId, String tableName)
     {
         Plan plan = getDistributedQueryRunner().getQueryPlan(queryId);
-        FilterNode planNode = (FilterNode) PlanNodeSearcher.searchFrom(plan.getRoot())
+        PlanNode planNode = PlanNodeSearcher.searchFrom(plan.getRoot())
+                .recurseOnlyWhen(node -> !(node instanceof ProjectNode))
                 .where(node -> {
-                    if (!(node instanceof FilterNode filterNode)) {
+                    if (!(node instanceof FilterNode) && !(node instanceof ProjectNode)) {
                         return false;
                     }
-                    if (!(filterNode.getSource() instanceof TableScanNode tableScanNode)) {
-                        return false;
+
+                    // Find TableScanNode recursively
+                    while (node != null && !(node instanceof TableScanNode)) {
+                        if (node instanceof FilterNode filterNode
+                                && extractDynamicFilters(filterNode.getPredicate())
+                                        .getDynamicConjuncts().isEmpty()) {
+                            return false;
+                        }
+                        node = node.getSources().getFirst();
                     }
-                    if (extractDynamicFilters(filterNode.getPredicate()).getDynamicConjuncts().isEmpty()) {
+
+                    if (!(node instanceof TableScanNode tableScanNode)) {
                         return false;
                     }
                     return getSchemaTableName(tableScanNode.getTable().connectorHandle())
