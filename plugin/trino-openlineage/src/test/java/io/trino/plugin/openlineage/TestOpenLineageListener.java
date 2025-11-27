@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.openlineage.client.OpenLineage.Job;
 import io.openlineage.client.OpenLineage.Run;
 import io.openlineage.client.OpenLineage.RunEvent;
-import io.trino.plugin.base.evenlistener.TestingEventListenerContext;
+import io.trino.plugin.base.eventlistener.TestingEventListenerContext;
 import io.trino.spi.eventlistener.EventListener;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
