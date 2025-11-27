@@ -13,8 +13,10 @@
  */
 package io.trino.filesystem.gcs;
 
+import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.testing.RemoteStorageHelper;
@@ -71,7 +73,11 @@ public abstract class AbstractTestGcsFileSystem
     void tearDown()
     {
         try {
-            storage.delete(rootLocation.host().get());
+            Bucket bucket = storage.get(new GcsLocation(rootLocation).bucket());
+            for (Blob blob : bucket.list().iterateAll()) {
+                storage.delete(blob.getBlobId());
+            }
+            bucket.delete();
         }
         finally {
             fileSystem = null;
