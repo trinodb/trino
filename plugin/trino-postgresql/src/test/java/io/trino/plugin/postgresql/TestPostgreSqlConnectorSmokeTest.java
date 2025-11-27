@@ -53,10 +53,6 @@ public class TestPostgreSqlConnectorSmokeTest
             }
             case SUPPORTS_CANCELLATION,
                  SUPPORTS_JOIN_PUSHDOWN,
-                 SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY,
-                 SUPPORTS_MERGE,
-                 SUPPORTS_ROW_LEVEL_UPDATE,
-                 SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
