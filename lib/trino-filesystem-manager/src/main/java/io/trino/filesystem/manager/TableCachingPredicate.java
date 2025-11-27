@@ -40,13 +40,7 @@ public class TableCachingPredicate
     public TableCachingPredicate(List<String> includeTables)
     {
         requireNonNull(includeTables, "includeTables is null");
-
-        if (includeTables.isEmpty()) {
-            this.predicate = _ -> true;
-        }
-        else {
-            this.predicate = matches(includeTables);
-        }
+        this.predicate = buildPredicate(includeTables);
     }
 
     public boolean test(SchemaTableName table)
@@ -54,7 +48,7 @@ public class TableCachingPredicate
         return predicate.test(table);
     }
 
-    private static Predicate<SchemaTableName> matches(List<String> tables)
+    private static Predicate<SchemaTableName> buildPredicate(List<String> tables)
     {
         return tables.stream()
                 .map(TableCachingPredicate::parseTableName)
