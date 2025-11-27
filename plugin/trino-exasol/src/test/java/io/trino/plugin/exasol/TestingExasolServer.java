@@ -47,9 +47,10 @@ public class TestingExasolServer
 
     public TestingExasolServer()
     {
-        container = new ExasolContainer<>("8.34.0")
+        container = new ExasolContainer<>("2025.1.3")
                 .withExposedPorts(8563)
-                .withRequiredServices(ExasolService.JDBC);
+                .withRequiredServices(ExasolService.JDBC)
+                .withEnv("COSLWD_ENABLED", "1"); //Disables rsyslogd, cleans up log clutter and speeds up database startup
         cleanup = startOrReuse(container);
         executeAsSys(format("CREATE USER %s IDENTIFIED BY \"%s\"", TEST_USER, TEST_PASSWORD));
         executeAsSys("GRANT CREATE SESSION TO " + TEST_USER);
