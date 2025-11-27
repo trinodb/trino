@@ -27,7 +27,9 @@ public class TestRedshiftConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS -> false;
+            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_ROW_LEVEL_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
