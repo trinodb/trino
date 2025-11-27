@@ -11,10 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.base.mapping;
+package io.trino.plugin.base.mapping.testing;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.mapping.IdentifierMappingRules;
+import io.trino.plugin.base.mapping.SchemaMappingRule;
+import io.trino.plugin.base.mapping.TableMappingRule;
 
 import java.nio.file.Path;
 import java.util.List;
