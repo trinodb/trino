@@ -36,7 +36,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.trino.plugin.base.mapping.MappingConfig.CASE_INSENSITIVE_NAME_MATCHING;
-import static io.trino.plugin.base.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
+import static io.trino.plugin.base.mapping.testing.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static io.trino.plugin.jdbc.TestingH2JdbcModule.createH2ConnectionUrl;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
