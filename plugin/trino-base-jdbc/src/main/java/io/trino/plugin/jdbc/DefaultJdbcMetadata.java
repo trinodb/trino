@@ -63,6 +63,7 @@ import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
@@ -119,6 +120,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.CHANGE_ONLY_UPDATED_COLUMNS;
 import static io.trino.spi.connector.SaveMode.REPLACE;
+import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -632,12 +634,34 @@ public class DefaultJdbcMetadata
     {
         if (!isComplexJoinPushdownEnabled(session)) {
             // Fallback to the old join pushdown code
-            return JdbcMetadata.super.applyJoin(
+            List<JoinCondition> conditions;
+            if (joinCondition instanceof Call call && AND_FUNCTION_NAME.equals(call.getFunctionName())) {
+                conditions = new ArrayList<>(call.getArguments().size());
+                for (ConnectorExpression argument : call.getArguments()) {
+                    if (Constant.TRUE.equals(argument)) {
+                        continue;
+                    }
+                    Optional<JoinCondition> condition = JoinCondition.from(argument, leftAssignments.keySet(), rightAssignments.keySet());
+                    if (condition.isEmpty()) {
+                        // We would need to add a FilterNode on top of the result
+                        return Optional.empty();
+                    }
+                    conditions.add(condition.get());
+                }
+            }
+            else {
+                Optional<JoinCondition> condition = JoinCondition.from(joinCondition, leftAssignments.keySet(), rightAssignments.keySet());
+                if (condition.isEmpty()) {
+                    return Optional.empty();
+                }
+                conditions = List.of(condition.get());
+            }
+            return applyJoin(
                     session,
                     joinType,
                     left,
                     right,
-                    joinCondition,
+                    conditions,
                     leftAssignments,
                     rightAssignments,
                     statistics);
@@ -738,8 +762,7 @@ public class DefaultJdbcMetadata
     }
 
     @Deprecated
-    @Override
-    public Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(
+    private Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(
             ConnectorSession session,
             JoinType joinType,
             ConnectorTableHandle left,

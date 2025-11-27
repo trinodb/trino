@@ -31,7 +31,6 @@ import io.trino.spi.security.TrinoPrincipal;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -54,7 +53,6 @@ public class TestLakehouseMetadata
                     .add(ConnectorMetadata.class.getMethod("getAggregationFunctionMetadata", ConnectorSession.class, FunctionId.class))
                     .add(ConnectorMetadata.class.getMethod("getFunctionDependencies", ConnectorSession.class, FunctionId.class, BoundSignature.class))
                     .add(ConnectorMetadata.class.getMethod("applyJoin", ConnectorSession.class, JoinType.class, ConnectorTableHandle.class, ConnectorTableHandle.class, ConnectorExpression.class, Map.class, Map.class, JoinStatistics.class))
-                    .add(ConnectorMetadata.class.getMethod("applyJoin", ConnectorSession.class, JoinType.class, ConnectorTableHandle.class, ConnectorTableHandle.class, List.class, Map.class, Map.class, JoinStatistics.class))
                     .add(ConnectorMetadata.class.getMethod("applyTableFunction", ConnectorSession.class, ConnectorTableFunctionHandle.class))
                     .add(ConnectorMetadata.class.getMethod("applyTableScanRedirect", ConnectorSession.class, ConnectorTableHandle.class))
                     .add(ConnectorMetadata.class.getMethod("redirectTable", ConnectorSession.class, SchemaTableName.class))
