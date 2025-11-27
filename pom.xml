@@ -981,13 +981,6 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
-                <artifactId>trino-cache</artifactId>
-                <version>${project.version}</version>
-                <type>test-jar</type>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
                 <artifactId>trino-cli</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -1082,13 +1075,6 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
-                <artifactId>trino-filesystem-cache-alluxio</artifactId>
-                <version>${project.version}</version>
-                <type>test-jar</type>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
                 <artifactId>trino-filesystem-gcs</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -1127,13 +1113,6 @@
                 <groupId>io.trino</groupId>
                 <artifactId>trino-hdfs</artifactId>
                 <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-hdfs</artifactId>
-                <version>${project.version}</version>
-                <type>test-jar</type>
             </dependency>
 
             <dependency>
@@ -1345,13 +1324,6 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
-                <artifactId>trino-plugin-toolkit</artifactId>
-                <version>${project.version}</version>
-                <type>test-jar</type>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
                 <artifactId>trino-postgresql</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -1379,13 +1351,6 @@
                 <groupId>io.trino</groupId>
                 <artifactId>trino-ranger</artifactId>
                 <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-ranger</artifactId>
-                <version>${project.version}</version>
-                <type>test-jar</type>
             </dependency>
 
             <dependency>
@@ -1440,13 +1405,6 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
-                <artifactId>trino-session-property-managers</artifactId>
-                <version>${project.version}</version>
-                <type>test-jar</type>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
                 <artifactId>trino-snowflake</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -1455,13 +1413,6 @@
                 <groupId>io.trino</groupId>
                 <artifactId>trino-spi</artifactId>
                 <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-spi</artifactId>
-                <version>${project.version}</version>
-                <type>test-jar</type>
             </dependency>
 
             <dependency>
@@ -1537,13 +1488,6 @@
                 <groupId>io.trino</groupId>
                 <artifactId>trino-thrift-api</artifactId>
                 <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-thrift-api</artifactId>
-                <version>${project.version}</version>
-                <type>test-jar</type>
             </dependency>
 
             <dependency>
