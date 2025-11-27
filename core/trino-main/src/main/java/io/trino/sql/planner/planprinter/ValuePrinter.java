@@ -41,22 +41,16 @@ public final class ValuePrinter
     public String castToVarchar(Type type, Object value)
     {
         try {
-            return castToVarcharOrFail(type, value);
+            if (value == null) {
+                return "NULL";
+            }
+
+            ResolvedFunction coercion = metadata.getCoercion(type, VARCHAR);
+            Slice coerced = (Slice) new InterpretedFunctionInvoker(functionManager).invoke(coercion, session.toConnectorSession(), value);
+            return coerced.toStringUtf8();
         }
         catch (OperatorNotFoundException e) {
             return "<UNREPRESENTABLE VALUE>";
         }
-    }
-
-    private String castToVarcharOrFail(Type type, Object value)
-            throws OperatorNotFoundException
-    {
-        if (value == null) {
-            return "NULL";
-        }
-
-        ResolvedFunction coercion = metadata.getCoercion(type, VARCHAR);
-        Slice coerced = (Slice) new InterpretedFunctionInvoker(functionManager).invoke(coercion, session.toConnectorSession(), value);
-        return coerced.toStringUtf8();
     }
 }
