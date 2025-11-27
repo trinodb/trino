@@ -1501,6 +1501,72 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testCreateTableWithIdentifierFields()
+    {
+        try (TestTable table = newTrinoTable("test_identifier_fields",
+                "(id BIGINT NOT NULL, name VARCHAR NOT NULL) WITH (identifier_fields = ARRAY['id'])")) {
+
+            BaseTable icebergTable = loadTable(table.getName());
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("identifier_fields = ARRAY['id']");
+            Set<String> identifierFieldNames = icebergTable.schema().identifierFieldNames();
+            assertThat(identifierFieldNames).containsExactlyInAnyOrder("id");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES identifier_fields = ARRAY['name']");
+            icebergTable = loadTable(table.getName());
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("identifier_fields = ARRAY['name']");
+            identifierFieldNames = icebergTable.schema().identifierFieldNames();
+            assertThat(identifierFieldNames).containsExactlyInAnyOrder("name");
+        }
+    }
+
+    @Test
+    public void testCreateTableWithMutilIdentifierFields()
+    {
+        try (TestTable table = newTrinoTable("test_identifier_fields",
+                "(id BIGINT NOT NULL, name VARCHAR NOT NULL, area INT NOT NULL) WITH (identifier_fields = ARRAY['id','name'])")) {
+            BaseTable icebergTable = loadTable(table.getName());
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .containsAnyOf("identifier_fields = ARRAY['id','name']", "identifier_fields = ARRAY['name','id']");
+            Set<String> identifierFieldNames = icebergTable.schema().identifierFieldNames();
+            assertThat(identifierFieldNames).containsExactlyInAnyOrder("id", "name");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES identifier_fields = ARRAY['name','area']");
+            icebergTable = loadTable(table.getName());
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .containsAnyOf("identifier_fields = ARRAY['name','area']", "identifier_fields = ARRAY['area', 'name']");
+            identifierFieldNames = icebergTable.schema().identifierFieldNames();
+            assertThat(identifierFieldNames).containsExactlyInAnyOrder("id", "area");
+        }
+    }
+
+    @Test
+    public void testUpdateIdentifierFields()
+    {
+        try (TestTable table = newTrinoTable("test_identifier_fields",
+                "(id BIGINT NOT NULL, name VARCHAR NOT NULL, area INT)")) {
+            BaseTable icebergTable = loadTable(table.getName());
+
+            Set<String> identifierFieldNames = icebergTable.schema().identifierFieldNames();
+            assertThat(identifierFieldNames).isEmpty();
+
+            assertThat(query("ALTER TABLE " + table.getName() + " SET PROPERTIES identifier_fields = ARRAY['not_exist_col']"))
+                    .failure()
+                    .hasMessage("Field 'not_exist_col' does not exist");
+
+            assertThat(query("ALTER TABLE " + table.getName() + " SET PROPERTIES identifier_fields = ARRAY['area']"))
+                    .failure()
+                    .hasMessage("Identifier field 'area' cannot be optional");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES identifier_fields = ARRAY[]");
+            icebergTable.refresh();
+            identifierFieldNames = icebergTable.schema().identifierFieldNames();
+            assertThat(identifierFieldNames).isEmpty();
+        }
+    }
+
+    @Test
     void testAnalyzeNoSnapshot()
     {
         String table = "test_analyze_no_snapshot" + randomNameSuffix();
