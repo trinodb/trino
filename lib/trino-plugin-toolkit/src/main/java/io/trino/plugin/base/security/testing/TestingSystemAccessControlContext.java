@@ -11,25 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.base.eventlistener;
+package io.trino.plugin.base.security.testing;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.spi.eventlistener.EventListenerFactory;
+import io.trino.spi.security.SystemAccessControlFactory;
 
 import static java.util.Objects.requireNonNull;
 
-public class TestingEventListenerContext
-        implements EventListenerFactory.EventListenerContext
+public final class TestingSystemAccessControlContext
+        implements SystemAccessControlFactory.SystemAccessControlContext
 {
     private final String trinoVersion;
 
-    public TestingEventListenerContext()
+    public TestingSystemAccessControlContext()
     {
         this("trino-version");
     }
 
-    public TestingEventListenerContext(String version)
+    public TestingSystemAccessControlContext(String version)
     {
         this.trinoVersion = requireNonNull(version, "version is null");
     }
