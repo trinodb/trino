@@ -44,6 +44,7 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.fs.Path;
 import org.apache.hudi.client.HoodieJavaWriteClient;
+import org.apache.hudi.client.WriteStatus;
 import org.apache.hudi.client.common.HoodieJavaEngineContext;
 import org.apache.hudi.common.bootstrap.index.NoOpBootstrapIndex;
 import org.apache.hudi.common.config.HoodieMetadataConfig;
@@ -166,9 +167,9 @@ public class TpchHudiTablesInitializer
                     .map(MaterializedRow::getFields)
                     .map(recordConverter::toRecord)
                     .collect(Collectors.toList());
-            String timestamp = "0";
-            writeClient.startCommitWithTime(timestamp);
-            writeClient.insert(records, timestamp);
+            String newCommitTime = writeClient.startCommit();
+            List<WriteStatus> statuses = writeClient.insert(records, newCommitTime);
+            writeClient.commit(newCommitTime, statuses);
         }
     }
 
