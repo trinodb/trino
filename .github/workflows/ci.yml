@@ -325,3 +325,11 @@ jobs:
             --config config-${{ matrix.config }} \
             ${PTL_OPTS:-} \
             --bind=off --logs-dir logs/ --timeout 2h
+
+      - name: Upload product test logs
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: product-tests-logs-${{ matrix.config }}-${{ matrix.suite }}
+          path: logs/
+          retention-days: 7
