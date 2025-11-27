@@ -690,7 +690,7 @@ public abstract class BaseIcebergSystemTables
             assertThat(deleteFile.getField(4)).isEqualTo(1L); // record_count
             assertThat((long) deleteFile.getField(5)).isPositive(); // file_size_in_bytes
 
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             Map<Integer, Long> columnSizes = (Map<Integer, Long>) deleteFile.getField(6);
             switch (format) {
                 case ORC -> assertThat(columnSizes).isNull();
@@ -706,7 +706,7 @@ public abstract class BaseIcebergSystemTables
             assertThat(deleteFile.getField(9)).isEqualTo(value(Map.of(), null)); // nan_value_counts
 
             // lower_bounds
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             Map<Integer, String> lowerBounds = (Map<Integer, String>) deleteFile.getField(10);
             assertThat(lowerBounds)
                     .hasSize(2)
@@ -714,7 +714,7 @@ public abstract class BaseIcebergSystemTables
                     .satisfies(_ -> assertThat(lowerBounds.get(DELETE_FILE_PATH.fieldId())).contains(table.getName()));
 
             // upper_bounds
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             Map<Integer, String> upperBounds = (Map<Integer, String>) deleteFile.getField(11);
             assertThat(upperBounds)
                     .hasSize(2)

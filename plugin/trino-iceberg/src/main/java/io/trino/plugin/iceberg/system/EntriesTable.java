@@ -191,38 +191,38 @@ public class EntriesTable
             Long fileSizeInBytes = dataFile.get(++position, Long.class);
             BIGINT.writeLong(fieldBuilders.get(position), fileSizeInBytes);
 
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             Map<Integer, Long> columnSizes = dataFile.get(++position, Map.class);
             appendIntegerBigintMap((MapBlockBuilder) fieldBuilders.get(position), columnSizes);
 
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             Map<Integer, Long> valueCounts = dataFile.get(++position, Map.class);
             appendIntegerBigintMap((MapBlockBuilder) fieldBuilders.get(position), valueCounts);
 
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             Map<Integer, Long> nullValueCounts = dataFile.get(++position, Map.class);
             appendIntegerBigintMap((MapBlockBuilder) fieldBuilders.get(position), nullValueCounts);
 
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             Map<Integer, Long> nanValueCounts = dataFile.get(++position, Map.class);
             appendIntegerBigintMap((MapBlockBuilder) fieldBuilders.get(position), nanValueCounts);
 
             switch (ContentType.of(content)) {
                 case DATA, EQUALITY_DELETE -> {
-                    //noinspection unchecked
+                    @SuppressWarnings("unchecked")
                     Map<Integer, ByteBuffer> lowerBounds = dataFile.get(++position, Map.class);
                     appendIntegerVarcharMap((MapBlockBuilder) fieldBuilders.get(position), lowerBounds);
 
-                    //noinspection unchecked
+                    @SuppressWarnings("unchecked")
                     Map<Integer, ByteBuffer> upperBounds = dataFile.get(++position, Map.class);
                     appendIntegerVarcharMap((MapBlockBuilder) fieldBuilders.get(position), upperBounds);
                 }
                 case POSITION_DELETE -> {
-                    //noinspection unchecked
+                    @SuppressWarnings("unchecked")
                     Map<Integer, ByteBuffer> lowerBounds = dataFile.get(++position, Map.class);
                     appendBoundsForPositionDelete((MapBlockBuilder) fieldBuilders.get(position), lowerBounds);
 
-                    //noinspection unchecked
+                    @SuppressWarnings("unchecked")
                     Map<Integer, ByteBuffer> upperBounds = dataFile.get(++position, Map.class);
                     appendBoundsForPositionDelete((MapBlockBuilder) fieldBuilders.get(position), upperBounds);
                 }
@@ -236,7 +236,7 @@ public class EntriesTable
                 VARBINARY.writeSlice(fieldBuilders.get(position), wrappedHeapBuffer(keyMetadata));
             }
 
-            //noinspection unchecked
+            @SuppressWarnings("unchecked")
             List<Long> splitOffsets = dataFile.get(++position, List.class);
             appendBigintArray((ArrayBlockBuilder) fieldBuilders.get(position), splitOffsets);
 
@@ -256,7 +256,7 @@ public class EntriesTable
                     fieldBuilders.get(++position).appendNull();
                 }
                 case EQUALITY_DELETE -> {
-                    //noinspection unchecked
+                    @SuppressWarnings("unchecked")
                     List<Integer> equalityIds = dataFile.get(++position, List.class);
                     appendIntegerArray((ArrayBlockBuilder) fieldBuilders.get(position), equalityIds);
 
