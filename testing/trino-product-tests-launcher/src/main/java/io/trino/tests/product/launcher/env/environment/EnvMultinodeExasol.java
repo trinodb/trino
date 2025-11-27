@@ -56,9 +56,10 @@ public class EnvMultinodeExasol
 
     private DockerContainer createExasol()
     {
-        DockerContainer container = new DockerContainer("exasol/docker-db:8.34.0", "exasol")
+        DockerContainer container = new DockerContainer("exasol/docker-db:2025.1.3", "exasol")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(forSelectedPorts(EXASOL_PORT));
+                .waitingFor(forSelectedPorts(EXASOL_PORT))
+                .withEnv("COSLWD_ENABLED", "1"); //Disables rsyslogd, cleans up log clutter and speeds up database startup
         container.setPrivilegedMode(true);
         portBinder.exposePort(container, EXASOL_PORT);
         return container;
