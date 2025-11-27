@@ -18,6 +18,7 @@ import io.trino.spi.TrinoException;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.transforms.Transform;
 import org.apache.iceberg.transforms.Transforms;
 
 import java.util.List;
@@ -79,29 +80,48 @@ public final class PartitionFields
 
     private static void parsePartitionFields(Schema schema, List<String> fields, PartitionSpec.Builder builder, String field, List<PartitionField> existingPartitionFields)
     {
-        for (int i = 1; i < schema.columns().size() + fields.size() + existingPartitionFields.size(); i++) {
-            try {
-                parsePartitionField(builder, field, i == 1 ? "" : "_" + i, existingPartitionFields);
-                return;
-            }
-            catch (IllegalArgumentException e) {
-                if (e.getMessage().contains("Cannot create partition from name that exists in schema")
-                        || e.getMessage().contains("Cannot create identity partition sourced from different field in schema")
-                        || e.getMessage().contains("Cannot create identity partition with name that already exists")) {
-                    continue;
-                }
-                throw e;
-            }
+        int maxTries = schema.columns().size() + fields.size() + existingPartitionFields.size();
+        if (tryParsePartitionField(builder, field, existingPartitionFields, maxTries, false)) {
+            return;
+        }
+        // try again with size-based suffix
+        if (isFieldWithSize(field) && tryParsePartitionField(builder, field, existingPartitionFields, maxTries, true)) {
+            return;
         }
         throw new IllegalArgumentException("Cannot resolve partition field: " + field);
     }
 
-    public static void parsePartitionField(PartitionSpec.Builder builder, String field, String suffix)
+    private static boolean tryParsePartitionField(PartitionSpec.Builder builder, String field, List<PartitionField> existingPartitionFields, int maxTries, boolean useSizeInPartitionNames)
     {
-        parsePartitionField(builder, field, suffix, ImmutableList.of());
+        for (int i = 1; i < maxTries; i++) {
+            try {
+                parsePartitionField(builder, field, i == 1 ? "" : "_" + i, existingPartitionFields, useSizeInPartitionNames);
+                return true;
+            }
+            catch (IllegalArgumentException e) {
+                if (e.getMessage().contains("Cannot create partition from name that exists in schema")
+                        || e.getMessage().contains("Cannot create identity partition sourced from different field in schema")) {
+                    continue;
+                }
+                if (e.getMessage().contains("Cannot create identity partition with name that already exists")) {
+                    if (useSizeInPartitionNames) {
+                        continue;
+                    }
+                    // Switch to size-based naming strategy
+                    return false;
+                }
+                throw e;
+            }
+        }
+        return false;
     }
 
-    public static void parsePartitionField(PartitionSpec.Builder builder, String field, String suffix, List<PartitionField> existingPartitionFields)
+    public static void parsePartitionField(PartitionSpec.Builder builder, String field, String suffix)
+    {
+        parsePartitionField(builder, field, suffix, ImmutableList.of(), false);
+    }
+
+    private static void parsePartitionField(PartitionSpec.Builder builder, String field, String suffix, List<PartitionField> existingPartitionFields, boolean useSizeInPartitionNames)
     {
         boolean matched =
                 tryMatch(field, IDENTITY_PATTERN, match -> {
@@ -126,24 +146,16 @@ public final class PartitionFields
                 }) ||
                 tryMatch(field, BUCKET_PATTERN, match -> {
                     String column = fromIdentifierToColumn(match.group(1));
-                    String targetName = column + "_bucket" + suffix;
                     int numBuckets = parseInt(match.group(2));
-                    if (existingPartitionFields.stream().anyMatch(
-                            partitionField -> partitionField.name().equalsIgnoreCase(targetName)
-                                    && !partitionField.transform().equals(Transforms.bucket(numBuckets)))) {
-                        throw new IllegalArgumentException("Cannot create identity partition with name that already exists: " + targetName);
-                    }
+                    String targetName = geTargetName(column + "_bucket", numBuckets, suffix, useSizeInPartitionNames);
+                    verifyDuplicatePartitionName(existingPartitionFields, targetName, Transforms.bucket(numBuckets));
                     builder.bucket(column, numBuckets, targetName);
                 }) ||
                 tryMatch(field, TRUNCATE_PATTERN, match -> {
                     String column = fromIdentifierToColumn(match.group(1));
-                    String targetName = column + "_trunc" + suffix;
                     int width = parseInt(match.group(2));
-                    if (existingPartitionFields.stream().anyMatch(
-                            partitionField -> partitionField.name().equalsIgnoreCase(targetName)
-                                    && !partitionField.transform().equals(Transforms.truncate(width)))) {
-                        throw new IllegalArgumentException("Cannot create identity partition with name that already exists: " + targetName);
-                    }
+                    String targetName = geTargetName(column + "_trunc", width, suffix, useSizeInPartitionNames);
+                    verifyDuplicatePartitionName(existingPartitionFields, targetName, Transforms.truncate(width));
                     builder.truncate(column, width, targetName);
                 }) ||
                 tryMatch(field, VOID_PATTERN, match -> {
@@ -152,6 +164,24 @@ public final class PartitionFields
                 });
         if (!matched) {
             throw new IllegalArgumentException("Invalid partition field declaration: " + field);
+        }
+    }
+
+    private static String geTargetName(String column, int size, String suffix, boolean useSizeInPartitionNames)
+    {
+        String newSuffix = suffix;
+        if (useSizeInPartitionNames) {
+            newSuffix = "_" + size + suffix;
+        }
+        return column + newSuffix;
+    }
+
+    private static void verifyDuplicatePartitionName(List<PartitionField> existingPartitionFields, String targetName, Transform<?, ?> transform)
+    {
+        if (existingPartitionFields.stream().anyMatch(
+                partitionField -> partitionField.name().equalsIgnoreCase(targetName)
+                        && !partitionField.transform().equals(transform))) {
+            throw new IllegalArgumentException("Cannot create identity partition with name that already exists: " + targetName);
         }
     }
 
@@ -210,6 +240,11 @@ public final class PartitionFields
         }
 
         throw new UnsupportedOperationException("Unsupported partition transform: " + field);
+    }
+
+    private static boolean isFieldWithSize(String field)
+    {
+        return BUCKET_PATTERN.matcher(field).matches() || TRUNCATE_PATTERN.matcher(field).matches();
     }
 
     private static String fromColumnToIdentifier(String column)

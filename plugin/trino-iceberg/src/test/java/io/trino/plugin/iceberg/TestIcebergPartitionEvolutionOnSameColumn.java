@@ -85,8 +85,8 @@ public class TestIcebergPartitionEvolutionOnSameColumn
                     .matches("VALUES (1, VARCHAR 'India'), (2, VARCHAR 'Poland')");
             assertThat(query("SELECT partition FROM \"" + table.getName() + "$files\""))
                     .matches("VALUES " +
-                            "ROW(CAST(ROW('In', null) AS ROW(part_trunc varchar, part_trunc_2 varchar))), " +
-                            "ROW(CAST(ROW(null, 'Pola') AS ROW(part_trunc varchar, part_trunc_2 varchar)))");
+                            "ROW(CAST(ROW('In', null) AS ROW(part_trunc varchar, part_trunc_4 varchar))), " +
+                            "ROW(CAST(ROW(null, 'Pola') AS ROW(part_trunc varchar, part_trunc_4 varchar)))");
         }
     }
 
@@ -107,8 +107,8 @@ public class TestIcebergPartitionEvolutionOnSameColumn
                     .matches("VALUES (1, VARCHAR 'India'), (2, VARCHAR 'Poland')");
             assertThat(query("SELECT partition FROM \"" + table.getName() + "$files\""))
                     .matches("VALUES " +
-                            "ROW(CAST(ROW(0, null) AS ROW(part_bucket int, part_bucket_2 int))), " +
-                            "ROW(CAST(ROW(null, 1) AS ROW(part_bucket int, part_bucket_2 int)))");
+                            "ROW(CAST(ROW(0, null) AS ROW(part_bucket int, part_bucket_4 int))), " +
+                            "ROW(CAST(ROW(null, 1) AS ROW(part_bucket int, part_bucket_4 int)))");
         }
     }
 
@@ -136,30 +136,30 @@ public class TestIcebergPartitionEvolutionOnSameColumn
         assertUpdate("INSERT INTO " + tableName + " VALUES 'abc_123456789'", 1);
         assertThat(query("SELECT partition FROM \"" + tableName + "$files\""))
                 .matches("VALUES " +
-                        "ROW(CAST(ROW('a', null) AS ROW(a_trunc varchar, a_trunc_2 varchar))), " +
-                        "ROW(CAST(ROW(null, 'abcd') AS ROW(a_trunc varchar, a_trunc_2 varchar))), " +
-                        "ROW(CAST(ROW(null, 'abc_123456') AS ROW(a_trunc varchar, a_trunc_2 varchar)))");
+                        "ROW(CAST(ROW('a', null) AS ROW(a_trunc varchar, a_trunc_10 varchar))), " +
+                        "ROW(CAST(ROW(null, 'abcd') AS ROW(a_trunc varchar, a_trunc_10 varchar))), " +
+                        "ROW(CAST(ROW(null, 'abc_123456') AS ROW(a_trunc varchar, a_trunc_10 varchar)))");
 
         // Use new truncation level to verify new partitioning works as expected
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['truncate(a, 5)']");
         assertUpdate("INSERT INTO " + tableName + " VALUES 'mnopqrst'", 1);
         assertThat(query("SELECT partition FROM \"" + tableName + "$files\""))
                 .matches("VALUES " +
-                        "ROW(CAST(ROW('a', null, null) AS ROW(a_trunc varchar, a_trunc_2 varchar, a_trunc_3 varchar))), " +
-                        "ROW(CAST(ROW(null, 'abcd', null) AS ROW(a_trunc varchar, a_trunc_2 varchar, a_trunc_3 varchar))), " +
-                        "ROW(CAST(ROW(null, 'abc_123456', null) AS ROW(a_trunc varchar, a_trunc_2 varchar, a_trunc_3 varchar))), " +
-                        "ROW(CAST(ROW(null, null, 'mnopq') AS ROW(a_trunc varchar, a_trunc_2 varchar, a_trunc_3 varchar)))");
+                        "ROW(CAST(ROW('a', null, null) AS ROW(a_trunc varchar, a_trunc_10 varchar, a_trunc_5 varchar))), " +
+                        "ROW(CAST(ROW(null, 'abcd', null) AS ROW(a_trunc varchar, a_trunc_10 varchar, a_trunc_5 varchar))), " +
+                        "ROW(CAST(ROW(null, 'abc_123456', null) AS ROW(a_trunc varchar, a_trunc_10 varchar, a_trunc_5 varchar))), " +
+                        "ROW(CAST(ROW(null, null, 'mnopq') AS ROW(a_trunc varchar, a_trunc_10 varchar, a_trunc_5 varchar)))");
 
         // Using earlier truncation level (in the generated table) to use same partitioning column name again
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['truncate(a, 1)']");
         assertUpdate("INSERT INTO " + tableName + " VALUES 'abcdef'", 1);
         assertThat(query("SELECT partition FROM \"" + tableName + "$files\""))
                 .matches("VALUES " +
-                        "ROW(CAST(ROW('a', null, null) AS ROW(a_trunc varchar, a_trunc_2 varchar, a_trunc_3 varchar))), " +
-                        "ROW(CAST(ROW(null, 'abcd', null) AS ROW(a_trunc varchar, a_trunc_2 varchar, a_trunc_3 varchar))), " +
-                        "ROW(CAST(ROW(null, 'abc_123456', null) AS ROW(a_trunc varchar, a_trunc_2 varchar, a_trunc_3 varchar))), " +
-                        "ROW(CAST(ROW(null, null, 'mnopq') AS ROW(a_trunc varchar, a_trunc_2 varchar, a_trunc_3 varchar))), " +
-                        "ROW(CAST(ROW('a', null, null) AS ROW(a_trunc varchar, a_trunc_2 varchar, a_trunc_3 varchar)))");
+                        "ROW(CAST(ROW('a', null, null) AS ROW(a_trunc varchar, a_trunc_10 varchar, a_trunc_5 varchar))), " +
+                        "ROW(CAST(ROW(null, 'abcd', null) AS ROW(a_trunc varchar, a_trunc_10 varchar, a_trunc_5 varchar))), " +
+                        "ROW(CAST(ROW(null, 'abc_123456', null) AS ROW(a_trunc varchar, a_trunc_10 varchar, a_trunc_5 varchar))), " +
+                        "ROW(CAST(ROW(null, null, 'mnopq') AS ROW(a_trunc varchar, a_trunc_10 varchar, a_trunc_5 varchar))), " +
+                        "ROW(CAST(ROW('a', null, null) AS ROW(a_trunc varchar, a_trunc_10 varchar, a_trunc_5 varchar)))");
 
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES (VARCHAR 'abc'), (VARCHAR 'abcd'), (VARCHAR 'abc_123456789'), (VARCHAR 'mnopqrst'), (VARCHAR 'abcdef')");

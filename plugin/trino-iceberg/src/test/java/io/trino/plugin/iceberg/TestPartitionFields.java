@@ -145,8 +145,14 @@ public class TestPartitionFields
         assertParseName(List.of("comment"), StringType.get(), exitingPartitionFields, List.of("truncate(comment, 10)"), List.of("comment_trunc"));
 
         // size differs from the existing partition specification
-        assertParseName(List.of("order_key"), TimestampType.withZone(), exitingPartitionFields, List.of("bucket(order_key, 20)"), List.of("order_key_bucket_2"));
-        assertParseName(List.of("comment"), StringType.get(), exitingPartitionFields, List.of("truncate(comment, 20)"), List.of("comment_trunc_2"));
+        assertParseName(List.of("order_key"), TimestampType.withZone(), exitingPartitionFields, List.of("bucket(order_key, 20)"), List.of("order_key_bucket_20"));
+        assertParseName(List.of("comment"), StringType.get(), exitingPartitionFields, List.of("truncate(comment, 20)"), List.of("comment_trunc_20"));
+
+        // conflicts with existing column names
+        assertParseName(List.of("order_key", "order_key_bucket_20"), TimestampType.withZone(), exitingPartitionFields, List.of("bucket(order_key, 20)"), List.of("order_key_bucket_20_2"));
+        assertParseName(List.of("comment", "comment_trunc_20"), StringType.get(), exitingPartitionFields, List.of("truncate(comment, 20)"), List.of("comment_trunc_20_2"));
+        assertParseName(List.of("order_key", "order_key_bucket_20", "order_key_bucket_20_2"), TimestampType.withZone(), exitingPartitionFields, List.of("bucket(order_key, 20)"), List.of("order_key_bucket_20_3"));
+        assertParseName(List.of("comment", "comment_trunc_20", "comment_trunc_20_2"), StringType.get(), exitingPartitionFields, List.of("truncate(comment, 20)"), List.of("comment_trunc_20_3"));
     }
 
     private static void assertParseName(List<String> columnNames, Type type, List<String> partitions, List<String> expected)
