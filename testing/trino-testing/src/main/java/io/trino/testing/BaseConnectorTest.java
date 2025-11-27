@@ -5910,6 +5910,22 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void verifySupportsMergeDeclaration()
+    {
+        if (hasBehavior(SUPPORTS_MERGE)) {
+            // Covered by "testMerge*" tests
+            return;
+        }
+
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+        try (TestTable table = newTrinoTable("test_supports_merge", "(key int, data varchar)")) {
+            assertQueryFails(
+                    "MERGE INTO " + table.getName() + " USING (VALUES 42) t(dummy) ON false WHEN NOT MATCHED THEN INSERT VALUES (1, 'alice')",
+                    MODIFYING_ROWS_MESSAGE);
+        }
+    }
+
+    @Test
     public void testMergeWrittenStats()
     {
         skipTestUnless(hasBehavior(SUPPORTS_MERGE));
