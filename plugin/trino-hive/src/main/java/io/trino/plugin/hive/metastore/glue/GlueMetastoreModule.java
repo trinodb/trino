@@ -58,8 +58,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.google.inject.multibindings.ProvidesIntoOptional.Type.DEFAULT;
+import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 

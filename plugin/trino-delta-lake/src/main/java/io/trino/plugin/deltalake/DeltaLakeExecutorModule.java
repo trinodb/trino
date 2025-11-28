@@ -22,8 +22,8 @@ import io.trino.spi.catalog.CatalogName;
 
 import java.util.concurrent.ExecutorService;
 
+import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class DeltaLakeExecutorModule

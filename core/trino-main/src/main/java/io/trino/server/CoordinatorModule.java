@@ -145,6 +145,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
@@ -154,7 +155,6 @@ import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.TOPOLOGY;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.UNIFORM;
-import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.server.InternalCommunicationHttpClientModule.internalHttpClientModule;
 import static io.trino.util.Executors.decorateWithVersion;
 import static java.util.concurrent.Executors.newCachedThreadPool;
