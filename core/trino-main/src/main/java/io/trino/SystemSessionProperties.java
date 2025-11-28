@@ -127,7 +127,6 @@ public final class SystemSessionProperties
     public static final String PREFER_PARTIAL_AGGREGATION = "prefer_partial_aggregation";
     public static final String OPTIMIZE_TOP_N_RANKING = "optimize_top_n_ranking";
     public static final String MAX_GROUPING_SETS = "max_grouping_sets";
-    public static final String STATISTICS_CPU_TIMER_ENABLED = "statistics_cpu_timer_enabled";
     public static final String ENABLE_STATS_CALCULATOR = "enable_stats_calculator";
     public static final String STATISTICS_PRECALCULATION_FOR_PUSHDOWN_ENABLED = "statistics_precalculation_for_pushdown_enabled";
     public static final String COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES = "collect_plan_statistics_for_all_queries";
@@ -609,11 +608,6 @@ public final class SystemSessionProperties
                         "Maximum number of grouping sets in a GROUP BY",
                         featuresConfig.getMaxGroupingSets(),
                         true),
-                booleanProperty(
-                        STATISTICS_CPU_TIMER_ENABLED,
-                        "Experimental: Enable cpu time tracking for automatic column statistics collection on write",
-                        taskManagerConfig.isStatisticsCpuTimerEnabled(),
-                        false),
                 booleanProperty(
                         ENABLE_STATS_CALCULATOR,
                         "Enable statistics calculator",
@@ -1587,11 +1581,6 @@ public final class SystemSessionProperties
                     format("%s must be in the range [%.2f, %.2f]: %.2f", property, lowerBoundIncluded, upperBoundIncluded, doubleValue));
         }
         return doubleValue;
-    }
-
-    public static boolean isStatisticsCpuTimerEnabled(Session session)
-    {
-        return session.getSystemProperty(STATISTICS_CPU_TIMER_ENABLED, Boolean.class);
     }
 
     public static boolean isEnableStatsCalculator(Session session)

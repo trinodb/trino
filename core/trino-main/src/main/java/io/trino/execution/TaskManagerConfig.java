@@ -45,6 +45,7 @@ import static java.math.BigDecimal.TWO;
         "task.operator-pre-allocated-memory",
         "task.shard.max-threads",
         "task.verbose-stats",
+        "task.statistics-cpu-timer-enabled",
 })
 public class TaskManagerConfig
 {
@@ -53,7 +54,6 @@ public class TaskManagerConfig
     private boolean threadPerDriverSchedulerEnabled = true;
     private boolean perOperatorCpuTimerEnabled = true;
     private boolean taskCpuTimerEnabled = true;
-    private boolean statisticsCpuTimerEnabled = true;
     private DataSize maxPartialAggregationMemoryUsage = DataSize.of(16, Unit.MEGABYTE);
     private DataSize maxPartialTopNMemory = DataSize.of(16, Unit.MEGABYTE);
     private DataSize maxLocalExchangeBufferSize = DataSize.of(128, Unit.MEGABYTE);
@@ -188,18 +188,6 @@ public class TaskManagerConfig
     public TaskManagerConfig setTaskCpuTimerEnabled(boolean taskCpuTimerEnabled)
     {
         this.taskCpuTimerEnabled = taskCpuTimerEnabled;
-        return this;
-    }
-
-    public boolean isStatisticsCpuTimerEnabled()
-    {
-        return statisticsCpuTimerEnabled;
-    }
-
-    @Config("task.statistics-cpu-timer-enabled")
-    public TaskManagerConfig setStatisticsCpuTimerEnabled(boolean statisticsCpuTimerEnabled)
-    {
-        this.statisticsCpuTimerEnabled = statisticsCpuTimerEnabled;
         return this;
     }
 
