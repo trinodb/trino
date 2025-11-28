@@ -516,6 +516,9 @@ jobs:
             - { modules: plugin/trino-snowflake }
             - { modules: plugin/trino-snowflake, profile: cloud-tests }
             - { modules: plugin/trino-sqlserver }
+            - { modules: plugin/trino-teradata }
+            - { modules: plugin/trino-teradata, profile: clearscape-tests }
+            - { modules: plugin/trino-teradata, profile: run-only-long-tests }
             - { modules: plugin/trino-vertica }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
@@ -566,6 +569,8 @@ jobs:
           && ! (contains(matrix.modules, 'trino-filesystem-gcs') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-hdfs') && contains(matrix.profile, 'cloud-tests'))
+          && ! (contains(matrix.modules, 'trino-teradata') && contains(matrix.profile, 'clearscape-tests'))
+          && ! (contains(matrix.modules, 'trino-teradata') && contains(matrix.profile, 'run-only-long-tests'))
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
       - name: HDFS file system cache isolated JVM tests
@@ -791,6 +796,25 @@ jobs:
         # Cancelled workflows may have left the ephemeral cluster running
         if: always()
         run: .github/bin/redshift/delete-aws-redshift.sh
+      - name: Teradata Tests
+        id: tests-teradata
+        env:
+         CLEARSCAPE_TOKEN: ${{ secrets.CLEARSCAPE_TOKEN }}
+         CLEARSCAPE_PASSWORD: ${{ secrets.CLEARSCAPE_PASSWORD }}
+         CLEARSCAPE_REGION: ${{ vars.CLEARSCAPE_REGION }}
+        if: matrix.modules == 'plugin/trino-teradata' && contains(matrix.profile, 'clearscape-tests') && env.CLEARSCAPE_TOKEN != '' && env.CLEARSCAPE_PASSWORD != '' && env.CLEARSCAPE_REGION != ''
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl :trino-teradata -Pclearscape-tests
+      - name: Teradata Long running Tests
+        id: tests-long-run-teradata
+        env:
+         CLEARSCAPE_TOKEN: ${{ secrets.CLEARSCAPE_TOKEN }}
+         CLEARSCAPE_PASSWORD: ${{ secrets.CLEARSCAPE_PASSWORD }}
+         CLEARSCAPE_REGION: ${{ vars.CLEARSCAPE_REGION }}
+         TERADATA_LONG_TESTS: ${{ vars.TERADATA_LONG_TESTS }}
+        if: matrix.modules == 'plugin/trino-teradata' && contains(matrix.profile, 'run-only-long-tests') && env.CLEARSCAPE_TOKEN != '' && env.CLEARSCAPE_PASSWORD != '' && env.CLEARSCAPE_REGION != '' && env.TERADATA_LONG_TESTS == 'true'
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl :trino-teradata -Prun-only-long-tests
       - name: Sanitize artifact name
         if: always()
         run: |
@@ -818,6 +842,8 @@ jobs:
               || steps.tests-bq-smoke.outcome == 'failure'
               || steps.tests-iceberg.outcome == 'failure'
               || steps.tests-redshift.outcome == 'failure'
+              || steps.tests-teradata.outcome == 'failure'
+              || steps.tests-long-run-teradata.outcome == 'failure'
               || steps.tests-snowflake.outcome == 'failure'
             }}
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
