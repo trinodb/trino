@@ -31,17 +31,20 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
+import static java.util.Objects.requireNonNull;
+
 public class TestingHttpServer
         implements Closeable
 {
     private final LifeCycleManager lifeCycleManager;
     private final URI baseUri;
 
-    public TestingHttpServer()
+    public TestingHttpServer(String name)
     {
+        requireNonNull(name, "name is null");
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule(),
-                new TestingHttpServerModule(),
+                new TestingHttpServerModule(name),
                 binder -> {
                     binder.bind(Servlet.class).toInstance(new TestingHttpServlet());
                 });

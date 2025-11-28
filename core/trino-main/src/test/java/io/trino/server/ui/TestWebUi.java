@@ -1248,7 +1248,7 @@ public class TestWebUi
         HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
 
-        return new TestingHttpServer(httpServerInfo, nodeInfo, config, new JwkServlet());
+        return new TestingHttpServer("testing-jwk-server", httpServerInfo, nodeInfo, config, new JwkServlet());
     }
 
     private static class JwkServlet
