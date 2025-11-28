@@ -80,6 +80,4 @@
 
 ## TPC-DS connector
 
-## Vertica connector
-
 ## SPI
