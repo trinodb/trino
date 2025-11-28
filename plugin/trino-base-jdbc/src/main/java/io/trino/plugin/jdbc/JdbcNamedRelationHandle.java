@@ -29,16 +29,19 @@ public class JdbcNamedRelationHandle
     private final SchemaTableName schemaTableName;
     private final RemoteTableName remoteTableName;
     private final Optional<String> comment;
+    private final Optional<String> readVersion;
 
     @JsonCreator
     public JdbcNamedRelationHandle(
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
             @JsonProperty("remoteTableName") RemoteTableName remoteTableName,
-            @JsonProperty("comment") Optional<String> comment)
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("readVersion") Optional<String> readVersion)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.remoteTableName = requireNonNull(remoteTableName, "remoteTableName is null");
         this.comment = requireNonNull(comment, "comment is null");
+        this.readVersion = requireNonNull(readVersion, "readVersion is null");
     }
 
     @JsonProperty
@@ -57,6 +60,12 @@ public class JdbcNamedRelationHandle
     public Optional<String> getComment()
     {
         return comment;
+    }
+
+    @JsonProperty
+    public Optional<String> getReadVersion()
+    {
+        return readVersion;
     }
 
     @Override

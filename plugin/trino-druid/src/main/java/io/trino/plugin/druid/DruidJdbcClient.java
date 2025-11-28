@@ -21,6 +21,7 @@ import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
@@ -41,6 +42,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.security.ConnectorIdentity;
@@ -168,8 +170,11 @@ public class DruidJdbcClient
 
     //Overridden to filter out tables that don't match schemaTableName
     @Override
-    public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+    public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName, Optional<ConnectorTableVersion> endVersion)
     {
+        if (endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
         String jdbcSchemaName = schemaTableName.getSchemaName();
         String jdbcTableName = schemaTableName.getTableName();
         try (Connection connection = connectionFactory.openConnection(session)) {
@@ -207,7 +212,7 @@ public class DruidJdbcClient
      * ends up retrieving metadata for all tables that match the search
      * pattern. For ex - LIKE some_table matches somertable, somextable and some_table.
      *
-     * See {@link DruidJdbcClient#getTableHandle(ConnectorSession, SchemaTableName)} to look at
+     * See {@link JdbcClient#getTableHandle(ConnectorSession, SchemaTableName, Optional)} to look at
      * how tables are filtered.
      */
     @Override
@@ -408,6 +413,7 @@ public class DruidJdbcClient
                                     Optional.empty(),
                                     remoteTableName.getSchemaName(),
                                     remoteTableName.getTableName()),
+                            Optional.empty(),
                             Optional.empty()),
                     table.getConstraint(),
                     table.getConstraintExpressions(),

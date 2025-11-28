@@ -84,6 +84,7 @@ public class TestJdbcTableHandle
                 new JdbcNamedRelationHandle(
                         new SchemaTableName("schema", "table"),
                         new RemoteTableName(Optional.of("catalog"), Optional.of("schema"), "table"),
+                        Optional.empty(),
                         Optional.empty()),
                 TupleDomain.all(),
                 ImmutableList.of(),

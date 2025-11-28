@@ -164,11 +164,11 @@ public class DefaultJdbcMetadata
     @Override
     public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
-        if (startVersion.isPresent() || endVersion.isPresent()) {
+        if (startVersion.isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
         }
 
-        return jdbcClient.getTableHandle(session, tableName)
+        return jdbcClient.getTableHandle(session, tableName, endVersion)
                 .orElse(null);
     }
 
@@ -1094,7 +1094,7 @@ public class DefaultJdbcMetadata
                 .orElseGet(() -> listTables(session, prefix.getSchema()));
         for (SchemaTableName tableName : tables) {
             try {
-                jdbcClient.getTableHandle(session, tableName)
+                jdbcClient.getTableHandle(session, tableName, Optional.empty())
                         .ifPresent(tableHandle -> columns.put(tableName, getColumnMetadata(session, tableHandle)));
             }
             catch (TableNotFoundException | AccessDeniedException e) {
