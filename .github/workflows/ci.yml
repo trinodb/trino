@@ -339,3 +339,37 @@ jobs:
           name: ${{ steps.pt-logs-name.outputs.name }}
           path: logs/
           retention-days: 7
+
+      - name: Collect Exasol logs
+        if: always()
+        run: |
+          mkdir -p exasol-logs
+
+          # Find all containers whose image name contains "exasol"
+          containers="$(docker ps -a --format '{{.ID}} {{.Image}}' | grep -i 'exasol' || true)"
+
+          if [ -z "$containers" ]; then
+            echo "No Exasol containers found."
+            exit 0
+          fi
+
+          echo "$containers" | while read -r cid image; do
+            name="$(docker inspect --format '{{.Name}}' "$cid" | sed 's,^/,,')"
+            echo "Collecting logs from container $name ($cid, image: $image)"
+
+            # Exasol logs are under /exa/logs in the container
+            if docker exec "$cid" test -d /exa/logs; then
+              mkdir -p "exasol-logs/${name}"
+              docker cp "$cid":/exa/logs "exasol-logs/${name}/" || true
+            else
+              echo "No /exa/logs directory in $name, skipping."
+            fi
+          done
+  
+      - name: Upload Exasol logs artifact
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: exasol-logs-${{ steps.pt-logs-name.outputs.name }}
+          path: exasol-logs
+          retention-days: 7
