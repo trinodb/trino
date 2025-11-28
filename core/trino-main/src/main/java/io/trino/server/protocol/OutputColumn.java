@@ -13,15 +13,16 @@
  */
 package io.trino.server.protocol;
 
+import io.trino.execution.ColumnInfo;
 import io.trino.spi.type.Type;
 
 import static java.util.Objects.requireNonNull;
 
-public record OutputColumn(int sourcePageChannel, String columnName, Type type)
+public record OutputColumn(int sourcePageChannel, ColumnInfo columnInfo, Type type)
 {
     public OutputColumn
     {
-        requireNonNull(columnName, "columnName is null");
+        requireNonNull(columnInfo, "columnInfo is null");
         requireNonNull(type, "type is null");
 
         if (sourcePageChannel < 0) {

@@ -36,6 +36,7 @@ import io.trino.SystemSessionProperties;
 import io.trino.cache.NonEvictableCache;
 import io.trino.client.NodeVersion;
 import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.execution.ColumnInfo;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.ExplainAnalyzeContext;
 import io.trino.execution.StageId;
@@ -992,11 +993,11 @@ public class LocalExecutionPlanner
                     .map(encoders::get)
                     .orElseThrow(() -> new IllegalStateException("Spooled query encoding was not found"));
 
-            List<String> columnNames = node.getColumnNames();
+            List<ColumnInfo> columnInfos = node.getColumnInfos();
             List<Symbol> outputSymbols = node.getOutputSymbols();
-            ImmutableList.Builder<OutputColumn> outputColumnBuilder = ImmutableList.builderWithExpectedSize(node.getColumnNames().size());
-            for (int i = 0; i < columnNames.size(); i++) {
-                outputColumnBuilder.add(new OutputColumn(operation.layout.get(outputSymbols.get(i)), columnNames.get(i), outputSymbols.get(i).type()));
+            ImmutableList.Builder<OutputColumn> outputColumnBuilder = ImmutableList.builderWithExpectedSize(node.getColumnInfos().size());
+            for (int i = 0; i < columnInfos.size(); i++) {
+                outputColumnBuilder.add(new OutputColumn(operation.layout.get(outputSymbols.get(i)), columnInfos.get(i), outputSymbols.get(i).type()));
             }
             List<OutputColumn> encodingLayout = outputColumnBuilder.build();
 

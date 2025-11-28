@@ -55,7 +55,7 @@ import static org.assertj.core.api.Fail.fail;
 
 public class TestQueryDataSerialization
 {
-    private static final List<Column> COLUMNS_LIST = ImmutableList.of(new Column("_col0", "bigint", new ClientTypeSignature("bigint")));
+    private static final List<Column> COLUMNS_LIST = ImmutableList.of(new Column("_cat0", "_sch0", "_tab0", "_col0", "_lab0", "bigint", new ClientTypeSignature("bigint")));
     private static final TrinoJsonCodec<QueryResults> CLIENT_CODEC = jsonCodec(QueryResults.class);
     private static final JsonCodec<QueryResults> SERVER_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
             .withModules(Set.of(new ServerQueryDataJacksonModule())))
@@ -229,7 +229,11 @@ public class TestQueryDataSerialization
                   "infoUri": "http://coordinator/query.html?20160128_214710_00012_rk68b",
                   "columns": [
                     {
+                      "catalog": "_cat0",
+                      "schema": "_sch0",
+                      "table": "_tab0",
                       "name": "_col0",
+                      "label": "_lab0",
                       "type": "bigint",
                       "typeSignature": {
                         "rawType": "bigint",
@@ -307,7 +311,7 @@ public class TestQueryDataSerialization
                 URI.create("http://coordinator/query.html?20160128_214710_00012_rk68b"),
                 null,
                 null,
-                ImmutableList.of(new Column("_col0", BIGINT, new ClientTypeSignature(BIGINT))),
+                ImmutableList.of(new Column("_cat0", "_sch0", "_tab0", "_col0", "_lab0", BIGINT, new ClientTypeSignature(BIGINT))),
                 data,
                 StatementStats.builder()
                         .setState("FINISHED")
