@@ -40,8 +40,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfByteArray;
-import static io.trino.execution.buffer.PageCodecMarker.COMPRESSED;
-import static io.trino.execution.buffer.PageCodecMarker.ENCRYPTED;
 import static io.trino.execution.buffer.PagesSerdeUtil.ESTIMATED_AES_CIPHER_RETAINED_SIZE;
 import static io.trino.execution.buffer.PagesSerdeUtil.SERIALIZED_PAGE_CIPHER_NAME;
 import static io.trino.execution.buffer.PagesSerdeUtil.SERIALIZED_PAGE_COMPRESSED_BLOCK_MASK;
@@ -129,7 +127,6 @@ public class CompressingEncryptingPageSerializer
 
         private final Optional<Compressor> compressor;
         private final Optional<SecretKey> encryptionKey;
-        private final int markers;
         private final Optional<Cipher> cipher;
 
         private final WriteBuffer[] buffers;
@@ -149,10 +146,8 @@ public class CompressingEncryptingPageSerializer
                             + (encryptionKey.isPresent() ? 1 : 0) // encryption buffer
                             + 1 // output buffer
                     ];
-            PageCodecMarker.MarkerSet markerSet = PageCodecMarker.MarkerSet.empty();
             if (compressor.isPresent()) {
                 buffers[0] = new WriteBuffer(blockSizeInBytes);
-                markerSet.add(COMPRESSED);
             }
             if (encryptionKey.isPresent()) {
                 int bufferSize = blockSizeInBytes;
@@ -162,7 +157,6 @@ public class CompressingEncryptingPageSerializer
                             + Integer.BYTES;
                 }
                 buffers[buffers.length - 2] = new WriteBuffer(bufferSize);
-                markerSet.add(ENCRYPTED);
 
                 try {
                     cipher = Optional.of(Cipher.getInstance(SERIALIZED_PAGE_CIPHER_NAME));
@@ -174,14 +168,12 @@ public class CompressingEncryptingPageSerializer
             else {
                 cipher = Optional.empty();
             }
-            markers = markerSet.byteValue();
         }
 
         public void startPage(int positionCount, int sizeInBytes)
         {
             WriteBuffer buffer = new WriteBuffer(round(sizeInBytes * 1.2F) + SERIALIZED_PAGE_HEADER_SIZE);
             buffer.writeInt(positionCount);
-            buffer.writeByte(markers);
             // leave space for uncompressed and compressed sizes
             buffer.skip(Integer.BYTES * 2);
 

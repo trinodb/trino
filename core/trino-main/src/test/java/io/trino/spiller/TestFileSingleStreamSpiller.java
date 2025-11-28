@@ -50,8 +50,6 @@ import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.CompressionCodec.NONE;
-import static io.trino.execution.buffer.PagesSerdeUtil.isSerializedPageCompressed;
-import static io.trino.execution.buffer.PagesSerdeUtil.isSerializedPageEncrypted;
 import static io.trino.execution.buffer.PagesSerdes.createSpillingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.metadata.InternalBlockEncodingSerde.TESTING_BLOCK_ENCODING_SERDE;
@@ -190,17 +188,6 @@ public class TestFileSingleStreamSpiller
             assertThatThrownBy(spiller::getSpilledPages)
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessage("Repeated reads are disallowed to prevent potential resource leaks");
-
-            // Assert the spill codec flags match the expected configuration
-            try (InputStream is = newInputStream(listFiles(spillPath.toPath()).get(0))) {
-                Iterator<Slice> serializedPages = PagesSerdeUtil.readSerializedPages(is);
-                assertThat(serializedPages.hasNext())
-                        .describedAs("at least one page should be successfully read back")
-                        .isTrue();
-                Slice serializedPage = serializedPages.next();
-                assertThat(isSerializedPageCompressed(serializedPage)).isEqualTo(compressionCodec == LZ4);
-                assertThat(isSerializedPageEncrypted(serializedPage)).isEqualTo(encryption);
-            }
 
             spiller.close();
             assertThat(listFiles(spillPath.toPath())).isEmpty();
