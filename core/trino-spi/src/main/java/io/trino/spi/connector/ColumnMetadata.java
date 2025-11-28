@@ -43,7 +43,8 @@ public class ColumnMetadata
         this(name, type, Optional.empty(), true, null, null, false, emptyMap());
     }
 
-    private ColumnMetadata(
+    // VisibleForTesting
+    ColumnMetadata(
             String name,
             Type type,
             Optional<String> defaultValue,
@@ -190,6 +191,7 @@ public class ColumnMetadata
         {
             this.name = columnMetadata.getName();
             this.type = columnMetadata.getType();
+            this.defaultValue = columnMetadata.getDefaultValue();
             this.nullable = columnMetadata.isNullable();
             this.comment = Optional.ofNullable(columnMetadata.getComment());
             this.extraInfo = Optional.ofNullable(columnMetadata.getExtraInfo());
