@@ -163,7 +163,7 @@ class TestAnnounceNodeInventory
     {
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
                 .add(new TestingNodeModule())
-                .add(new TestingHttpServerModule())
+                .add(new TestingHttpServerModule("test-announce-server"))
                 .add(new JsonModule())
                 .add(new JaxrsModule())
                 .add(new AnnounceNodeInventoryModule())

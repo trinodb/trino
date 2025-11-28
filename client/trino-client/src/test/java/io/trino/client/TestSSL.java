@@ -67,7 +67,7 @@ public class TestSSL
     {
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule(),
-                new TestingHttpServerModule(),
+                new TestingHttpServerModule("test-ssl"),
                 binder -> binder.bind(Servlet.class).toInstance(new TestingHttpServlet()))
                 .setRequiredConfigurationProperties(
                         ImmutableMap.<String, String>builder()

@@ -67,7 +67,7 @@ public class DelegatingRestSessionCatalog
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
         RestCatalogServlet servlet = new RestCatalogServlet(adapter);
 
-        return new TestingHttpServer(httpServerInfo, nodeInfo, config, servlet, ServerFeature.builder()
+        return new TestingHttpServer("rest-catalog", httpServerInfo, nodeInfo, config, servlet, ServerFeature.builder()
                 // Required due to URIs like: HEAD /v1/namespaces/level_1%1Flevel_2
                 .withLegacyUriCompliance(true)
                 .build());

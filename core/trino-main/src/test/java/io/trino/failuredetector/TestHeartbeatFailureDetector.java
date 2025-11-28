@@ -54,7 +54,7 @@ public class TestHeartbeatFailureDetector
                 new TestingNodeModule(),
                 new TestingJmxModule(),
                 new TestingDiscoveryModule(),
-                new TestingHttpServerModule(),
+                new TestingHttpServerModule("test-heartbeat-failure-detector"),
                 new JsonModule(),
                 new JaxrsModule(),
                 new FailureDetectorModule(),

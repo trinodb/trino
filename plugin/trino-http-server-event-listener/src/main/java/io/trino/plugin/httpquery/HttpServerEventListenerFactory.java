@@ -56,7 +56,7 @@ public class HttpServerEventListenerFactory
                 "io.trino.bootstrap.listener." + getName(),
                 new JsonModule(),
                 new JaxrsModule(),
-                testing ? new TestingHttpServerModule() : new HttpServerModule(),
+                testing ? new TestingHttpServerModule("http-server-event-listener") : new HttpServerModule(),
                 binder -> {
                     binder.bind(Tracer.class).toInstance(context.getTracer());
                     binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
