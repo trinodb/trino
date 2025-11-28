@@ -68,7 +68,6 @@ public final class SystemSessionProperties
     public static final String MAX_HASH_PARTITION_COUNT = "max_hash_partition_count";
     public static final String MIN_HASH_PARTITION_COUNT = "min_hash_partition_count";
     public static final String MIN_HASH_PARTITION_COUNT_FOR_WRITE = "min_hash_partition_count_for_write";
-    public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_MIN_WRITER_COUNT = "task_min_writer_count";
     public static final String TASK_MAX_WRITER_COUNT = "task_max_writer_count";
     public static final String TASK_CONCURRENCY = "task_concurrency";
@@ -299,11 +298,6 @@ public final class SystemSessionProperties
                         "Minimum number of partitions for distributed joins and aggregations in write queries",
                         queryManagerConfig.getMinHashPartitionCountForWrite(),
                         value -> validateIntegerValue(value, MIN_HASH_PARTITION_COUNT_FOR_WRITE, 1, false),
-                        false),
-                booleanProperty(
-                        PREFER_STREAMING_OPERATORS,
-                        "Prefer source table layouts that produce streaming operators",
-                        false,
                         false),
                 integerProperty(
                         TASK_MIN_WRITER_COUNT,
@@ -1200,11 +1194,6 @@ public final class SystemSessionProperties
     public static int getMinHashPartitionCountForWrite(Session session)
     {
         return session.getSystemProperty(MIN_HASH_PARTITION_COUNT_FOR_WRITE, Integer.class);
-    }
-
-    public static boolean preferStreamingOperators(Session session)
-    {
-        return session.getSystemProperty(PREFER_STREAMING_OPERATORS, Boolean.class);
     }
 
     public static int getTaskMinWriterCount(Session session)
