@@ -448,9 +448,8 @@ public abstract class BaseConnectorSmokeTest
             assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
         }
         catch (Throwable e) {
-            try (AutoCloseable ignore = () -> assertUpdate("DROP TABLE " + oldTable)) {
-                throw e;
-            }
+            assertUpdate("DROP TABLE " + oldTable);
+            throw e;
         }
 
         assertThat(query("SHOW TABLES LIKE '" + oldTable + "'"))
@@ -500,9 +499,8 @@ public abstract class BaseConnectorSmokeTest
             assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
         }
         catch (Throwable e) {
-            try (AutoCloseable ignore = () -> assertUpdate("DROP TABLE " + oldTable)) {
-                throw e;
-            }
+            assertUpdate("DROP TABLE " + oldTable);
+            throw e;
         }
 
         assertThat(query("SHOW TABLES LIKE '" + oldTable + "'"))
