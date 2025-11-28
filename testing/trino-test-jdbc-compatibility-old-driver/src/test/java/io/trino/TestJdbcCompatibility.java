@@ -14,7 +14,6 @@
 package io.trino;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
 import io.trino.plugin.mongodb.MongoPlugin;
 import io.trino.server.testing.TestingTrinoServer;
@@ -67,7 +66,6 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestJdbcCompatibility
 {
     private static final Optional<Integer> VERSION_UNDER_TEST = testedVersion();
-    private static final int TIMESTAMP_DEFAULT_PRECISION = 3;
 
     private final TestingTrinoServer server;
     private final String serverUrl;
@@ -428,15 +426,13 @@ public class TestJdbcCompatibility
 
     private void checkDescribeTimestampType(String query, String expectedTypePattern, int precision, boolean withTimeZone)
     {
-        assertDescribeType(query, format(expectedTypePattern, describeTimestampType(precision, true, withTimeZone)), true);
-        assertDescribeType(query, format(expectedTypePattern, describeTimestampType(precision, false, withTimeZone)), false);
-        assertDescribeOutputType(query, format(expectedTypePattern, describeTimestampType(precision, true, withTimeZone)), true);
-        assertDescribeOutputType(query, format(expectedTypePattern, describeTimestampType(precision, false, withTimeZone)), false);
+        assertDescribeType(query, format(expectedTypePattern, describeTimestampType(precision, withTimeZone)));
+        assertDescribeOutputType(query, format(expectedTypePattern, describeTimestampType(precision, withTimeZone)));
     }
 
-    private void assertDescribeType(String query, String expectedType, boolean omitPrecission)
+    private void assertDescribeType(String query, String expectedType)
     {
-        useConnection(omitDateTimeTypePrecision(omitPrecission), connection -> {
+        useConnection(connection -> {
             try {
                 connection.prepareStatement(format("SELECT 1 FROM (%s AS timestamp) WHERE timestamp = ?", query));
 
@@ -451,9 +447,9 @@ public class TestJdbcCompatibility
         });
     }
 
-    private void assertDescribeOutputType(String query, String expectedType, boolean omitPrecision)
+    private void assertDescribeOutputType(String query, String expectedType)
     {
-        useConnection(omitDateTimeTypePrecision(omitPrecision), connection -> {
+        useConnection(connection -> {
             try {
                 connection.prepareStatement(query);
 
@@ -468,16 +464,8 @@ public class TestJdbcCompatibility
         });
     }
 
-    private static String describeTimestampType(int precision, boolean ommitPrecision, boolean withTimezone)
+    private static String describeTimestampType(int precision, boolean withTimezone)
     {
-        if (ommitPrecision && precision == TIMESTAMP_DEFAULT_PRECISION) {
-            if (withTimezone) {
-                return "timestamp with time zone";
-            }
-
-            return "timestamp";
-        }
-
         if (withTimezone) {
             return format("timestamp(%d) with time zone", precision);
         }
@@ -519,37 +507,21 @@ public class TestJdbcCompatibility
     private Connection getConnection()
             throws SQLException
     {
-        return getConnection(ImmutableMap.of());
-    }
-
-    private Connection getConnection(Map<String, String> params)
-            throws SQLException
-    {
         Properties properties = new Properties();
-        properties.putAll(params);
         properties.put("user", "test");
         properties.put("password", "");
 
         return DriverManager.getConnection(serverUrl, properties);
     }
 
-    private void useConnection(Map<String, String> connectionParameters, Consumer<Connection> consumer)
+    private void useConnection(Consumer<Connection> consumer)
     {
-        try (Connection conn = getConnection(connectionParameters)) {
+        try (Connection conn = getConnection()) {
             consumer.accept(conn);
         }
         catch (Exception e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private static Map<String, String> omitDateTimeTypePrecision(boolean omit)
-    {
-        if (!omit) {
-            return ImmutableMap.of();
-        }
-
-        return ImmutableMap.of("sessionProperties", "omit_datetime_type_precision:true");
     }
 
     @FunctionalInterface
