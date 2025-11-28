@@ -39,10 +39,10 @@ import java.util.concurrent.ExecutorService;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;

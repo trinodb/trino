@@ -38,10 +38,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.spooling.filesystem.FileSystemSpoolingConfig.Layout.PARTITIONED;
 import static io.trino.spooling.filesystem.FileSystemSpoolingConfig.Layout.SIMPLE;
 

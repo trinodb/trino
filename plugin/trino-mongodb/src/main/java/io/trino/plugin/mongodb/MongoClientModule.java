@@ -37,9 +37,9 @@ import java.util.Set;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class MongoClientModule

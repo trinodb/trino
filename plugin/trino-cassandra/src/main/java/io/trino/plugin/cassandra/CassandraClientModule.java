@@ -49,11 +49,11 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorUnsafeAllowed;
 import static io.trino.plugin.cassandra.CassandraClientConfig.CassandraAuthenticationType.PASSWORD;
 import static java.util.Objects.requireNonNull;
