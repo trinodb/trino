@@ -35,30 +35,37 @@ public final class CacheFileSystem
     private final TrinoFileSystem delegate;
     private final TrinoFileSystemCache cache;
     private final CacheKeyProvider keyProvider;
+    private final boolean cachingEnabled;
 
     public CacheFileSystem(TrinoFileSystem delegate, TrinoFileSystemCache cache, CacheKeyProvider keyProvider)
+    {
+        this(delegate, cache, keyProvider, true);
+    }
+
+    public CacheFileSystem(TrinoFileSystem delegate, TrinoFileSystemCache cache, CacheKeyProvider keyProvider, boolean cachingEnabled)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.cache = requireNonNull(cache, "cache is null");
         this.keyProvider = requireNonNull(keyProvider, "keyProvider is null");
+        this.cachingEnabled = cachingEnabled;
     }
 
     @Override
     public TrinoInputFile newInputFile(Location location)
     {
-        return new CacheInputFile(delegate.newInputFile(location), cache, keyProvider, OptionalLong.empty(), Optional.empty());
+        return new CacheInputFile(delegate.newInputFile(location), cache, keyProvider, OptionalLong.empty(), Optional.empty(), cachingEnabled);
     }
 
     @Override
     public TrinoInputFile newInputFile(Location location, long length)
     {
-        return new CacheInputFile(delegate.newInputFile(location, length), cache, keyProvider, OptionalLong.of(length), Optional.empty());
+        return new CacheInputFile(delegate.newInputFile(location, length), cache, keyProvider, OptionalLong.of(length), Optional.empty(), cachingEnabled);
     }
 
     @Override
     public TrinoInputFile newInputFile(Location location, long length, Instant lastModified)
     {
-        return new CacheInputFile(delegate.newInputFile(location, length, lastModified), cache, keyProvider, OptionalLong.of(length), Optional.of(lastModified));
+        return new CacheInputFile(delegate.newInputFile(location, length, lastModified), cache, keyProvider, OptionalLong.of(length), Optional.of(lastModified), cachingEnabled);
     }
 
     @Override
