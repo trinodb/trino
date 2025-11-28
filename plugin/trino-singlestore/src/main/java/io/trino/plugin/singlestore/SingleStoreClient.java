@@ -364,7 +364,8 @@ public class SingleStoreClient
     private static ColumnMapping checkNullUsingBytes(ColumnMapping mapping)
     {
         if (mapping.getReadFunction() instanceof SliceReadFunction sliceReadFunction) {
-            SliceReadFunction wrapper = new SliceReadFunction() {
+            SliceReadFunction wrapper = new SliceReadFunction()
+            {
                 @Override
                 public Slice readSlice(ResultSet resultSet, int columnIndex)
                         throws SQLException
