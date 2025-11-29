@@ -27,6 +27,7 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionAdapter;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.function.Signature;
+import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeSignature;
 
@@ -51,6 +52,7 @@ public class AiFunctions
         implements FunctionProvider
 {
     private static final TypeSignature TEXT = VARCHAR.getTypeSignature();
+    private static final TypeSignature DOUBLE = DoubleType.DOUBLE.getTypeSignature();
     private static final List<FunctionMetadata> FUNCTIONS = ImmutableList.<FunctionMetadata>builder()
             .add(function("ai_analyze_sentiment")
                     .description("Perform sentiment analysis on text")
@@ -76,6 +78,10 @@ public class AiFunctions
                     .description("Mask values for the provided labels in text")
                     .signature(signature(TEXT, TEXT, arrayType(TEXT)))
                     .build())
+            .add(function("ai_prompt")
+                    .description("Generate text with model and temperature control")
+                    .signature(signature(TEXT, TEXT, TEXT, DOUBLE))
+                    .build())
             .add(function("ai_translate")
                     .description("Translate text to the specified language")
                     .signature(signature(TEXT, TEXT, TEXT))
@@ -88,6 +94,7 @@ public class AiFunctions
     private static final MethodHandle AI_FIX_GRAMMAR;
     private static final MethodHandle AI_GEN;
     private static final MethodHandle AI_MASK;
+    private static final MethodHandle AI_PROMPT;
     private static final MethodHandle AI_TRANSLATE;
 
     static {
@@ -98,6 +105,7 @@ public class AiFunctions
             AI_FIX_GRAMMAR = lookup().findVirtual(AiFunctions.class, "aiFixGrammar", methodType(Slice.class, Slice.class));
             AI_GEN = lookup().findVirtual(AiFunctions.class, "aiGen", methodType(Slice.class, Slice.class));
             AI_MASK = lookup().findVirtual(AiFunctions.class, "aiMask", methodType(Slice.class, Slice.class, Block.class));
+            AI_PROMPT = lookup().findVirtual(AiFunctions.class, "aiPrompt", methodType(Slice.class, Slice.class, Slice.class, double.class));
             AI_TRANSLATE = lookup().findVirtual(AiFunctions.class, "aiTranslate", methodType(Slice.class, Slice.class, Slice.class));
         }
         catch (ReflectiveOperationException e) {
@@ -133,6 +141,7 @@ public class AiFunctions
             case "ai_fix_grammar" -> AI_FIX_GRAMMAR;
             case "ai_gen" -> AI_GEN;
             case "ai_mask" -> AI_MASK;
+            case "ai_prompt" -> AI_PROMPT;
             case "ai_translate" -> AI_TRANSLATE;
             default -> throw new IllegalArgumentException("Invalid function ID: " + functionId);
         };
@@ -189,6 +198,11 @@ public class AiFunctions
     public Slice aiMask(Slice text, Block labels)
     {
         return utf8Slice(client.mask(text.toStringUtf8(), fromSqlArray(labels)));
+    }
+
+    public Slice aiPrompt(Slice prompt, Slice model, double temperature)
+    {
+        return utf8Slice(client.prompt(prompt.toStringUtf8(), model.toStringUtf8(), temperature));
     }
 
     public Slice aiTranslate(Slice text, Slice language)
