@@ -43,6 +43,7 @@ import io.trino.sql.tree.Corresponding;
 import io.trino.sql.tree.CreateBranch;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
+import io.trino.sql.tree.CreateMaterializedView.WhenStaleBehavior;
 import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
@@ -5893,6 +5894,7 @@ public class TestSqlParser
                         false,
                         false,
                         Optional.empty(),
+                        Optional.empty(),
                         ImmutableList.of(),
                         Optional.empty()));
 
@@ -5935,6 +5937,7 @@ public class TestSqlParser
                         true,
                         false,
                         Optional.empty(),
+                        Optional.empty(),
                         ImmutableList.of(),
                         Optional.of("A simple materialized view")));
 
@@ -5970,6 +5973,79 @@ public class TestSqlParser
                         false,
                         false,
                         Optional.of(new IntervalLiteral(new NodeLocation(1, 41), "2", Sign.POSITIVE, IntervalField.DAY, Optional.empty())),
+                        Optional.empty(),
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        // WHEN STALE FAIL
+        assertThat(statement("CREATE MATERIALIZED VIEW a WHEN STALE FAIL AS SELECT * FROM t"))
+                .isEqualTo(new CreateMaterializedView(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 26), "a", false))),
+                        new Query(
+                                new NodeLocation(1, 47),
+                                ImmutableList.of(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        new NodeLocation(1, 47),
+                                        new Select(
+                                                new NodeLocation(1, 47),
+                                                false,
+                                                ImmutableList.of(new AllColumns(new NodeLocation(1, 54), Optional.empty(), ImmutableList.of()))),
+                                        Optional.of(new Table(
+                                                new NodeLocation(1, 61),
+                                                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 61), "t", false))))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        false,
+                        false,
+                        Optional.empty(),
+                        Optional.of(WhenStaleBehavior.FAIL),
+                        ImmutableList.of(),
+                        Optional.empty()));
+
+        // WHEN STALE INLINE
+        assertThat(statement("CREATE MATERIALIZED VIEW a WHEN STALE INLINE AS SELECT * FROM t"))
+                .isEqualTo(new CreateMaterializedView(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 26), "a", false))),
+                        new Query(
+                                new NodeLocation(1, 49),
+                                ImmutableList.of(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        new NodeLocation(1, 49),
+                                        new Select(
+                                                new NodeLocation(1, 49),
+                                                false,
+                                                ImmutableList.of(new AllColumns(new NodeLocation(1, 56), Optional.empty(), ImmutableList.of()))),
+                                        Optional.of(new Table(
+                                                new NodeLocation(1, 63),
+                                                QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 63), "t", false))))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        false,
+                        false,
+                        Optional.empty(),
+                        Optional.of(WhenStaleBehavior.INLINE),
                         ImmutableList.of(),
                         Optional.empty()));
 
@@ -6015,6 +6091,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         true,
                         false,
+                        Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(new Property(
                                 new NodeLocation(2, 7),
@@ -6111,6 +6188,7 @@ public class TestSqlParser
                                 Optional.empty()),
                         true,
                         false,
+                        Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(new Property(
                                 new NodeLocation(2, 7),

@@ -127,6 +127,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_FEDERATE
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_FUNCTION;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW_GRACE_PERIOD;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW_WHEN_STALE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_OR_REPLACE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
@@ -1595,6 +1596,24 @@ public abstract class BaseConnectorTest
 
             assertUpdate("DROP MATERIALIZED VIEW " + viewName);
         }
+    }
+
+    @Test
+    public void testMaterializedViewWhenStale()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
+
+        String catalog = getSession().getCatalog().orElseThrow();
+        String viewName = "test_mv_when_stale_" + randomNameSuffix();
+
+        if (!hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW_WHEN_STALE)) {
+            assertQueryFails(
+                    "CREATE MATERIALIZED VIEW " + viewName + " WHEN STALE FAIL AS SELECT * FROM nation",
+                    "line 1:1: Catalog '%s' does not support WHEN STALE".formatted(catalog));
+            return;
+        }
+
+        throw new UnsupportedOperationException("Not implemented");
     }
 
     @Test
