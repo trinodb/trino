@@ -40,7 +40,7 @@ import static java.util.concurrent.Executors.newSingleThreadExecutor;
 public class TestingInternalNodeManager
         implements InternalNodeManager
 {
-    public static final InternalNode CURRENT_NODE = new InternalNode("local", URI.create("local://127.0.0.1:8080"), NodeVersion.UNKNOWN, true);
+    public static final InternalNode CURRENT_NODE = new InternalNode("local", URI.create("local://127.0.0.1:8080"), NodeVersion.UNKNOWN, true, true);
 
     private final InternalNode currentNode;
     private final ExecutorService nodeStateEventExecutor;
@@ -63,6 +63,7 @@ public class TestingInternalNodeManager
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
+                ImmutableSet.of(currentNode),
                 ImmutableSet.of(currentNode));
         this.nodeStateEventExecutor = newSingleThreadExecutor(daemonThreadsNamed("node-state-events-%s"));
     }
@@ -100,6 +101,9 @@ public class TestingInternalNodeManager
                 ImmutableSet.of(),
                 newActiveNodes.stream()
                         .filter(InternalNode::isCoordinator)
+                        .collect(toImmutableSet()),
+                newActiveNodes.stream()
+                        .filter(InternalNode::isWorker)
                         .collect(toImmutableSet())));
     }
 
@@ -119,6 +123,9 @@ public class TestingInternalNodeManager
                 ImmutableSet.of(),
                 newActiveNodes.stream()
                         .filter(InternalNode::isCoordinator)
+                        .collect(toImmutableSet()),
+                newActiveNodes.stream()
+                        .filter(InternalNode::isWorker)
                         .collect(toImmutableSet())));
     }
 

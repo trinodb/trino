@@ -486,13 +486,15 @@ public class ServerMainModule
             HttpServerInfo httpServerInfo,
             NodeVersion nodeVersion,
             ServerConfig serverConfig,
+            NodeSchedulerConfig nodeSchedulerConfig,
             InternalCommunicationConfig internalCommunicationConfig)
     {
         return new InternalNode(
                 nodeInfo.getNodeId(),
                 internalCommunicationConfig.isHttpsRequired() ? httpServerInfo.getHttpsUri() : httpServerInfo.getHttpUri(),
                 nodeVersion,
-                serverConfig.isCoordinator());
+                serverConfig.isCoordinator(),
+                !serverConfig.isCoordinator() || nodeSchedulerConfig.isIncludeCoordinator());
     }
 
     private static class RegisterFunctionBundles
