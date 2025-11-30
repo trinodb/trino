@@ -1134,7 +1134,7 @@ public class HiveConfig
     }
 
     @Config("hive.query-partition-filter-required-schemas")
-    @ConfigDescription("List of schemas for which filter on partition column is enforced")
+    @ConfigDescription("List of schema names or regex patterns for which filter on partition column is enforced")
     public HiveConfig setQueryPartitionFilterRequiredSchemas(List<String> queryPartitionFilterRequiredSchemas)
     {
         this.queryPartitionFilterRequiredSchemas = queryPartitionFilterRequiredSchemas.stream()
