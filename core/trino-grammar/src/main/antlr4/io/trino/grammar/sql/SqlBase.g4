@@ -595,10 +595,8 @@ primaryExpression
         (ON OVERFLOW listAggOverflowBehavior)? ')'
         (WITHIN GROUP '(' orderBy ')')
         filter? over?                                                                     #listagg
-    | processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
-        filter? over?                                                                     #functionCall
-    | processingMode? qualifiedName '(' (setQuantifier? expression (',' expression)*)?
-        orderBy? ')' filter? (nullTreatment? over)?                                       #functionCall
+    | function                                                                            #functions
+    | left=primaryExpression '.' right=function                                           #chainedFunctionCalls
     | identifier over                                                                     #measure
     | identifier '->' expression                                                          #lambda
     | '(' (identifier (',' identifier)*)? ')' '->' expression                             #lambda
@@ -661,6 +659,13 @@ primaryExpression
         )?
         (RETURNING type (FORMAT jsonRepresentation)?)?
      ')'                                                                                  #jsonArray
+    ;
+
+function
+    : processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
+        filter? over?                                                                     #functionCall
+    | processingMode? qualifiedName '(' (setQuantifier? expression (',' expression)*)?
+        orderBy? ')' filter? (nullTreatment? over)?                                       #functionCall
     ;
 
 literal
