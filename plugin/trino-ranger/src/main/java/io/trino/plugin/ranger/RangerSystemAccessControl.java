@@ -31,6 +31,7 @@ import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.security.ViewSecurity;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -558,7 +559,7 @@ public class RangerSystemAccessControl
     }
 
     @Override
-    public void checkCanCreateView(SystemSecurityContext context, CatalogSchemaTableName view)
+    public void checkCanCreateView(SystemSecurityContext context, CatalogSchemaTableName view, Optional<ViewSecurity> security)
     {
         if (!hasPermission(createTableResource(view), context, CREATE, "CreateView")) {
             denyCreateView(view.getSchemaTableName().getTableName());

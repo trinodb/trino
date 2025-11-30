@@ -30,6 +30,7 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.security.ViewSecurity;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -436,7 +437,7 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
+    public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName, Optional<ViewSecurity> security)
     {
         // check if user will be an owner of the view after creation
         if (!checkTablePermission(context, viewName, OWNERSHIP)) {

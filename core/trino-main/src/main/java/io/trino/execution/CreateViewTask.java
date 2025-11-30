@@ -26,6 +26,7 @@ import io.trino.metadata.ViewDefinition;
 import io.trino.metadata.ViewPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.ViewSecurity;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.AnalyzerFactory;
@@ -92,8 +93,9 @@ public class CreateViewTask
 
         Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
+        Optional<ViewSecurity> security = statement.getSecurity().map(sec -> ViewSecurity.valueOf(sec.name()));
 
-        accessControl.checkCanCreateView(session.toSecurityContext(), name);
+        accessControl.checkCanCreateView(session.toSecurityContext(), name, security);
 
         if (metadata.isMaterializedView(session, name)) {
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Materialized view already exists: '%s'", name);
