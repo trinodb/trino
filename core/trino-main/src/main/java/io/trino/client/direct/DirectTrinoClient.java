@@ -110,6 +110,8 @@ public class DirectTrinoClient
                             !(dispatchQuery.getState() == FINISHING && dispatchQuery.getFullQueryInfo().getStages().isEmpty());
                     state = queryManager.getQueryState(queryId)) {
                 for (Slice serializedPage = exchangeClient.pollPage(); serializedPage != null; serializedPage = exchangeClient.pollPage()) {
+                    // record heartbeat for each page to avoid query timeout during large result sets
+                    dispatchQuery.recordHeartbeat();
                     Page page = pageDeserializer.deserialize(serializedPage);
                     queryResultsListener.consumeOutputPage(page);
                 }
@@ -146,6 +148,8 @@ public class DirectTrinoClient
         while (!anyCompleteFuture.isDone()) {
             try {
                 anyCompleteFuture.get(heartBeatIntervalMillis, TimeUnit.MILLISECONDS);
+                // some time elapsed, so record a heartbeat
+                dispatchQuery.recordHeartbeat();
             }
             catch (TimeoutException e) {
                 // continue waiting until the query state changes or the exchange client is blocked.
