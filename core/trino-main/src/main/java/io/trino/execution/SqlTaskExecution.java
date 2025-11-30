@@ -105,6 +105,8 @@ public class SqlTaskExecution
     private final List<PlanNodeId> sourceStartOrder;
     @GuardedBy("this")
     private int schedulingPlanNodeOrdinal;
+    @GuardedBy("this")
+    private ListenableFuture<Void> pipelineDependenciesSatisfied = immediateVoidFuture();
 
     @GuardedBy("this")
     private final Map<PlanNodeId, PendingSplitsForPlanNode> pendingSplitsByPlanNode;
@@ -309,7 +311,8 @@ public class SqlTaskExecution
         // update task with new sources
         for (SplitAssignment splitAssignment : unacknowledgedSplitAssignment) {
             if (driverRunnerFactoriesWithSplitLifeCycle.containsKey(splitAssignment.getPlanNodeId())) {
-                schedulePartitionedSource(splitAssignment);
+                mergeIntoPendingSplits(splitAssignment.getPlanNodeId(), splitAssignment.getSplits(), splitAssignment.isNoMoreSplits());
+                schedulePartitionedSourcePendingSplits();
             }
             else {
                 // tell existing drivers about the new splits
@@ -331,23 +334,40 @@ public class SqlTaskExecution
         PendingSplitsForPlanNode pendingSplitsForPlanNode = pendingSplitsByPlanNode.get(planNodeId);
 
         partitionedDriverFactory.splitsAdded(scheduledSplits.size(), SplitWeight.rawValueSum(scheduledSplits, scheduledSplit -> scheduledSplit.getSplit().getSplitWeight()));
-        for (ScheduledSplit scheduledSplit : scheduledSplits) {
-            pendingSplitsForPlanNode.addSplit(scheduledSplit);
-        }
+        pendingSplitsForPlanNode.addSplits(scheduledSplits);
         if (noMoreSplits) {
             pendingSplitsForPlanNode.setNoMoreSplits();
         }
     }
 
-    private synchronized void schedulePartitionedSource(SplitAssignment splitAssignmentUpdate)
+    private synchronized void scheduleSourcePartitionedSplitsAfterPipelineUnblocked()
     {
-        mergeIntoPendingSplits(splitAssignmentUpdate.getPlanNodeId(), splitAssignmentUpdate.getSplits(), splitAssignmentUpdate.isNoMoreSplits());
+        try (SetThreadName _ = new SetThreadName("Task-" + taskId)) {
+            // Enqueue pending splits as split runners after unblocking
+            schedulePartitionedSourcePendingSplits();
+            // Re-check for task completion since we may have just set no more splits
+            checkTaskCompletion();
+        }
+    }
 
+    private synchronized void schedulePartitionedSourcePendingSplits()
+    {
         while (schedulingPlanNodeOrdinal < sourceStartOrder.size()) {
             PlanNodeId schedulingPlanNode = sourceStartOrder.get(schedulingPlanNodeOrdinal);
 
             DriverSplitRunnerFactory partitionedDriverRunnerFactory = driverRunnerFactoriesWithSplitLifeCycle.get(schedulingPlanNode);
 
+            // Avoid creating split runners for pipelines that are awaiting another pipeline completing (e.g. probe side of a join waiting
+            // on the broadcast completion). Otherwise, build side pipelines will have reduced concurrency available.
+            ListenableFuture<Void> pipelineDependenciesSatisfied = partitionedDriverRunnerFactory.getPipelineDependenciesSatisfied();
+            if (!pipelineDependenciesSatisfied.isDone()) {
+                // Only register a single re-schedule listener if we're blocked on pipeline dependencies
+                if (this.pipelineDependenciesSatisfied.isDone()) {
+                    this.pipelineDependenciesSatisfied = pipelineDependenciesSatisfied;
+                    pipelineDependenciesSatisfied.addListener(this::scheduleSourcePartitionedSplitsAfterPipelineUnblocked, notificationExecutor);
+                }
+                break;
+            }
             PendingSplitsForPlanNode pendingSplits = pendingSplitsByPlanNode.get(schedulingPlanNode);
 
             // Enqueue driver runners with split lifecycle for this plan node and driver life cycle combination.
@@ -541,10 +561,10 @@ public class SqlTaskExecution
             return state;
         }
 
-        public void addSplit(ScheduledSplit scheduledSplit)
+        public void addSplits(Set<ScheduledSplit> scheduledSplits)
         {
             checkState(state == ADDING_SPLITS);
-            splits.add(scheduledSplit);
+            splits.addAll(scheduledSplits);
         }
 
         public Set<ScheduledSplit> removeAllSplits()
@@ -600,6 +620,11 @@ public class SqlTaskExecution
                     .setAttribute(TrinoAttributes.TASK_ID, taskId.toString())
                     .setAttribute(TrinoAttributes.PIPELINE_ID, taskId.stageId() + "-" + pipelineContext.getPipelineId())
                     .startSpan();
+        }
+
+        public ListenableFuture<Void> getPipelineDependenciesSatisfied()
+        {
+            return driverFactory.getPipelineDependenciesSatisfied();
         }
 
         public DriverSplitRunner createPartitionedDriverRunner(ScheduledSplit partitionedSplit)
