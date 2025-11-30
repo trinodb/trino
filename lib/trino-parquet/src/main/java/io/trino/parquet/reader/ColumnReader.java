@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.reader;
 
+import java.io.IOException;
 import java.util.Optional;
 
 public interface ColumnReader
@@ -20,6 +21,9 @@ public interface ColumnReader
     boolean hasPageReader();
 
     void setPageReader(PageReader pageReader, Optional<FilteredRowRanges> rowRanges);
+
+    boolean dictionaryPredicateMatch(RowGroupInfo rowGroupInfo)
+            throws IOException;
 
     void prepareNextRead(int batchSize);
 
