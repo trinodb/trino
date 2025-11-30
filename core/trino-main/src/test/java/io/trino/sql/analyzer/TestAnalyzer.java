@@ -141,6 +141,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_COPARTITIONING;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_GRACE_PERIOD;
 import static io.trino.spi.StandardErrorCode.INVALID_LABEL;
 import static io.trino.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
@@ -5831,6 +5832,15 @@ public class TestAnalyzer
                 accessControlManager)
                 .hasErrorCode(PERMISSION_DENIED)
                 .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.fresh_materialized_view");
+    }
+
+    @Test
+    public void testCreateMaterializedViewWithNegativeGracePeriod()
+    {
+        assertFails("CREATE MATERIALIZED VIEW mv_negative_grace_period GRACE PERIOD INTERVAL -'1' HOUR AS SELECT * FROM nation")
+                .hasErrorCode(INVALID_GRACE_PERIOD)
+                .hasMessage("line 1:64: Grace period cannot be negative")
+                .hasLocation(1, 64);
     }
 
     @Test
