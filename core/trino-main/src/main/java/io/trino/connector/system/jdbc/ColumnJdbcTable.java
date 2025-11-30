@@ -64,7 +64,6 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
@@ -83,7 +82,6 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.type.TypeUtils.getDisplayLabel;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
@@ -245,7 +243,6 @@ public class ColumnJdbcTable
         }
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
-        boolean omitDateTimeTypePrecision = isOmitDateTimeTypePrecision(session);
 
         Domain catalogDomain = constraint.getDomain(0, VARCHAR);
         Domain schemaDomain = constraint.getDomain(1, VARCHAR);
@@ -266,7 +263,7 @@ public class ColumnJdbcTable
             if ((schemaDomain.isAll() && tableDomain.isAll()) || schemaFilter.isPresent()) {
                 QualifiedTablePrefix tablePrefix = tablePrefix(catalog, schemaFilter, tableFilter);
                 Map<SchemaTableName, List<ColumnMetadata>> tableColumns = listTableColumns(session, metadata, accessControl, tablePrefix);
-                addColumnsRow(table, catalog, tableColumns, omitDateTimeTypePrecision);
+                addColumnsRow(table, catalog, tableColumns);
             }
             else {
                 Collection<String> schemas = listSchemas(session, metadata, accessControl, catalog, schemaFilter);
@@ -286,7 +283,7 @@ public class ColumnJdbcTable
                         }
 
                         Map<SchemaTableName, List<ColumnMetadata>> tableColumns = listTableColumns(session, metadata, accessControl, new QualifiedTablePrefix(catalog, schema, tableName));
-                        addColumnsRow(table, catalog, tableColumns, omitDateTimeTypePrecision);
+                        addColumnsRow(table, catalog, tableColumns);
                     }
                 }
             }
@@ -294,14 +291,14 @@ public class ColumnJdbcTable
         return table.build().cursor();
     }
 
-    private static void addColumnsRow(Builder builder, String catalog, Map<SchemaTableName, List<ColumnMetadata>> columns, boolean isOmitTimestampPrecision)
+    private static void addColumnsRow(Builder builder, String catalog, Map<SchemaTableName, List<ColumnMetadata>> columns)
     {
         for (Entry<SchemaTableName, List<ColumnMetadata>> entry : columns.entrySet()) {
-            addColumnRows(builder, catalog, entry.getKey(), entry.getValue(), isOmitTimestampPrecision);
+            addColumnRows(builder, catalog, entry.getKey(), entry.getValue());
         }
     }
 
-    private static void addColumnRows(Builder builder, String catalog, SchemaTableName tableName, List<ColumnMetadata> columns, boolean isOmitTimestampPrecision)
+    private static void addColumnRows(Builder builder, String catalog, SchemaTableName tableName, List<ColumnMetadata> columns)
     {
         int ordinalPosition = 1;
         for (ColumnMetadata column : columns) {
@@ -320,7 +317,7 @@ public class ColumnJdbcTable
                     // data_type
                     jdbcDataType(column.getType()),
                     // type_name
-                    getDisplayLabel(column.getType(), isOmitTimestampPrecision),
+                    column.getType().getDisplayName(),
                     // column_size
                     columnSize(column.getType()),
                     // buffer_length
