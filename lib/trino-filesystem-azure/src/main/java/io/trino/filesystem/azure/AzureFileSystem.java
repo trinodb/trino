@@ -600,7 +600,6 @@ public class AzureFileSystem
     }
 
     private boolean isHierarchicalNamespaceEnabled(AzureLocation location)
-            throws IOException
     {
         try {
             BlockBlobClient blockBlobClient = createBlobContainerClient(location, Optional.empty())
@@ -609,7 +608,9 @@ public class AzureFileSystem
             return blockBlobClient.exists();
         }
         catch (RuntimeException e) {
-            throw new IOException("Checking whether hierarchical namespace is enabled for the location %s failed".formatted(location), e);
+            // TODO: This is temporary
+//            throw new IOException("Checking whether hierarchical namespace is enabled for the location %s failed".formatted(location), e);
+            return false;
         }
     }
 
