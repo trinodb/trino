@@ -22,6 +22,7 @@ import java.security.Principal;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Verify.verify;
@@ -54,6 +55,10 @@ public class HeaderAuthenticator
 
         for (io.trino.spi.security.HeaderAuthenticator authenticator : this.authenticatorManager.getAuthenticators()) {
             try {
+                Optional<Identity> identity = authenticator.createAuthenticatedIdentity(name -> lowerCasedHeaders.get(name.toLowerCase(Locale.ENGLISH)));
+                if (identity.isPresent()) {
+                    return identity.get();
+                }
                 Principal principal = authenticator.createAuthenticatedPrincipal(name -> lowerCasedHeaders.get(name.toLowerCase(Locale.ENGLISH)));
                 String authenticatedUser = this.userMapping.mapUser(principal.toString());
 
