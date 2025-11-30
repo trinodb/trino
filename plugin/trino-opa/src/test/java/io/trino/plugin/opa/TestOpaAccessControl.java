@@ -29,6 +29,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.SystemAccessControlFactory;
@@ -223,6 +224,7 @@ final class TestOpaAccessControl
     {
         Identity dummyIdentity = Identity.forUser("dummy-user")
                 .withGroups(ImmutableSet.of("some-group"))
+                .withPrincipal(new BasicPrincipal("basic-principal"))
                 .build();
         ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
                 accessControl -> callable.accept(accessControl, TEST_IDENTITY, dummyIdentity));
@@ -686,6 +688,39 @@ final class TestOpaAccessControl
                     }
                 }\
                 """.formatted(expectedTrinoVersion);
+        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input");
+    }
+
+    @Test
+    void testIncludeUserPrincipal() {
+        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, request -> OK_RESPONSE);
+        OpaAccessControl authorizer = (OpaAccessControl) OpaAccessControlFactory.create(
+                ImmutableMap.of("opa.policy.uri", OPA_SERVER_URI.toString(), "opa.include-user-principal", "true"),
+                Optional.of(mockClient),
+                Optional.empty());
+        Identity sampleIdentityWithGroupsAndPrincipal = Identity.forUser("test_user").withGroups(ImmutableSet.of("some_group")).withPrincipal(new SerializableTestPrincipal("test_principal")).build();
+        authorizer.checkCanExecuteQuery(sampleIdentityWithGroupsAndPrincipal, TEST_QUERY_ID);
+
+        String expectedRequest =
+                """
+                {
+                    "action": {
+                        "operation": "ExecuteQuery"
+                    },
+                    "context": {
+                        "identity": {
+                            "user": "test_user",
+                            "groups": ["some_group"],
+                            "principal": {
+                                "name": "test_principal"
+                            }
+                        },
+                        "softwareStack": {
+                            "trinoVersion": "UNKNOWN"
+                        }
+                    }
+                }\
+                """;
         assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input");
     }
 
