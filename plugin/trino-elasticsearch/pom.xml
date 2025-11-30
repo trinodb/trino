@@ -131,6 +131,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-core</artifactId>
+            <version>8.11.3</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.elasticsearch</groupId>
             <artifactId>elasticsearch</artifactId>
             <version>${dep.elasticsearch.version}</version>
