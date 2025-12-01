@@ -119,6 +119,15 @@ public class OutputSpoolingOperatorFactory
             {
                 return queryDataEncoder.encoding();
             }
+
+            @Override
+            public String toString()
+            {
+                return toStringHelper(this)
+                        .add("queryDataEncoder", queryDataEncoder)
+                        .add("closed", closed)
+                        .toString();
+            }
         };
         return new OutputSpoolingOperator(operatorContext, trackingQueryDataEncoder, spoolingManager);
     }

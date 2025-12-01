@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -93,6 +94,14 @@ public class JsonQueryDataEncoder
     public String encoding()
     {
         return ENCODING;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("encoders", typeEncoders)
+                .toString();
     }
 
     public static class Factory

@@ -14,14 +14,25 @@
 package io.trino.server.protocol;
 
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.client.ClientCapabilities;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ByteArrayBlock;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.IntArrayBlock;
+import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.MapBlock;
+import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ShortArrayBlock;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -48,8 +59,10 @@ import io.trino.type.SqlIntervalYearMonth;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.StandardErrorCode.SERIALIZATION_ERROR;
@@ -64,6 +77,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public final class JsonEncodingUtils
 {
@@ -127,6 +141,9 @@ public final class JsonEncodingUtils
                 for (int i = 0; i < sourcePageChannels.length; i++) {
                     blocks[i] = page.getBlock(sourcePageChannels[i]);
                 }
+
+                validateBlockTypeEncoders(typeEncoders, blocks);
+
                 for (int position = 0; position < page.getPositionCount(); position++) {
                     generator.writeStartArray();
                     for (int column = 0; column < typeEncoders.length; column++) {
@@ -143,10 +160,51 @@ public final class JsonEncodingUtils
         }
     }
 
+    private static String describeBlock(Block block)
+    {
+        return switch (block) {
+            case DictionaryBlock dictionaryBlock -> "DictionaryBlock{%s}".formatted(describeBlock(dictionaryBlock.getDictionary()));
+            case RunLengthEncodedBlock runLengthEncodedBlock -> "RleBlock{%s}".formatted(runLengthEncodedBlock.getValue());
+            case ArrayBlock arrayBlock -> "ArrayBlock{%s}".formatted(describeBlock(arrayBlock.getElementsBlock()));
+            case MapBlock mapBlock -> "MapBlock{keys=%s, values=%s}".formatted(describeBlock(mapBlock.getKeyBlock()), describeBlock(mapBlock.getValueBlock()));
+            case RowBlock rowBlock -> "RowBlock{fields=%s}".formatted(rowBlock.getFieldBlocks().stream().map(JsonEncodingUtils::describeBlock).collect(joining(", ")));
+            default -> block.toString();
+        };
+    }
+
+    private static Block unwrapBlock(Block block)
+    {
+        return block.getUnderlyingValueBlock();
+    }
+
+    private static void validateBlockTypeEncoders(TypeEncoder[] typeEncoders, Block[] blocks)
+    {
+        verify(typeEncoders.length == blocks.length, "Expected type encoders to have the same length as blocks");
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
+
+        for (int i = 0; i < typeEncoders.length; i++) {
+            if (!typeEncoders[i].isSupported(unwrapBlock(blocks[i]))) {
+                builder.add("channel %d: %s tried to encode %s".formatted(i, typeEncoders[i], describeBlock(blocks[i])));
+            }
+        }
+
+        List<String> mismatched = builder.build();
+        if (!mismatched.isEmpty()) {
+            throw new TrinoException(SERIALIZATION_ERROR, "Encoders %s are not matching block types %s during serialization: %s".formatted(
+                    Arrays.toString(typeEncoders),
+                    Arrays.stream(blocks)
+                            .map(JsonEncodingUtils::describeBlock)
+                            .collect(joining(", ")),
+                    mismatched));
+        }
+    }
+
     public sealed interface TypeEncoder
     {
         void encode(JsonGenerator generator, Block block, int position)
                 throws IOException;
+
+        boolean isSupported(Block block);
     }
 
     private static final class BigintEncoder
@@ -161,6 +219,18 @@ public final class JsonEncodingUtils
                 return;
             }
             generator.writeNumber(BIGINT.getLong(block, position));
+        }
+
+        @Override
+        public boolean isSupported(Block block)
+        {
+            return block instanceof LongArrayBlock;
+        }
+
+        @Override
+        public String toString()
+        {
+            return getClass().getSimpleName();
         }
     }
 
@@ -177,6 +247,18 @@ public final class JsonEncodingUtils
             }
             generator.writeNumber(INTEGER.getInt(block, position));
         }
+
+        @Override
+        public boolean isSupported(Block block)
+        {
+            return block instanceof IntArrayBlock;
+        }
+
+        @Override
+        public String toString()
+        {
+            return getClass().getSimpleName();
+        }
     }
 
     private static final class BooleanEncoder
@@ -191,6 +273,18 @@ public final class JsonEncodingUtils
                 return;
             }
             generator.writeBoolean(BOOLEAN.getBoolean(block, position));
+        }
+
+        @Override
+        public boolean isSupported(Block block)
+        {
+            return block instanceof ByteArrayBlock;
+        }
+
+        @Override
+        public String toString()
+        {
+            return getClass().getSimpleName();
         }
     }
 
@@ -207,6 +301,18 @@ public final class JsonEncodingUtils
             }
             generator.writeNumber(SMALLINT.getShort(block, position));
         }
+
+        @Override
+        public boolean isSupported(Block block)
+        {
+            return block instanceof ShortArrayBlock;
+        }
+
+        @Override
+        public String toString()
+        {
+            return getClass().getSimpleName();
+        }
     }
 
     private static final class TinyintEncoder
@@ -221,6 +327,18 @@ public final class JsonEncodingUtils
                 return;
             }
             generator.writeNumber(TINYINT.getByte(block, position));
+        }
+
+        @Override
+        public boolean isSupported(Block block)
+        {
+            return block instanceof ByteArrayBlock;
+        }
+
+        @Override
+        public String toString()
+        {
+            return getClass().getSimpleName();
         }
     }
 
@@ -237,6 +355,18 @@ public final class JsonEncodingUtils
             }
             generator.writeNumber(DOUBLE.getDouble(block, position));
         }
+
+        @Override
+        public boolean isSupported(Block block)
+        {
+            return block instanceof LongArrayBlock;
+        }
+
+        @Override
+        public String toString()
+        {
+            return getClass().getSimpleName();
+        }
     }
 
     private static final class RealEncoder
@@ -251,6 +381,18 @@ public final class JsonEncodingUtils
                 return;
             }
             generator.writeNumber(REAL.getFloat(block, position));
+        }
+
+        @Override
+        public boolean isSupported(Block block)
+        {
+            return block instanceof IntArrayBlock;
+        }
+
+        @Override
+        public String toString()
+        {
+            return getClass().getSimpleName();
         }
     }
 
@@ -267,6 +409,18 @@ public final class JsonEncodingUtils
             }
             Slice slice = VARCHAR.getSlice(block, position);
             generator.writeUTF8String(slice.byteArray(), slice.byteArrayOffset(), slice.length());
+        }
+
+        @Override
+        public boolean isSupported(Block block)
+        {
+            return block instanceof VariableWidthBlock;
+        }
+
+        @Override
+        public String toString()
+        {
+            return getClass().getSimpleName();
         }
     }
 
@@ -291,6 +445,18 @@ public final class JsonEncodingUtils
             Slice slice = padSpaces(VARCHAR.getSlice(block, position), length);
             generator.writeString(slice.toStringUtf8());
         }
+
+        @Override
+        public boolean isSupported(Block block)
+        {
+            return block instanceof VariableWidthBlock;
+        }
+
+        @Override
+        public String toString()
+        {
+            return getClass().getSimpleName();
+        }
     }
 
     private static final class VarbinaryEncoder
@@ -308,6 +474,18 @@ public final class JsonEncodingUtils
             // Optimization: avoid copying Slice to byte array
             Slice slice = VARBINARY.getSlice(block, position);
             generator.writeBinary(slice.byteArray(), slice.byteArrayOffset(), slice.length());
+        }
+
+        @Override
+        public boolean isSupported(Block block)
+        {
+            return block instanceof VariableWidthBlock;
+        }
+
+        @Override
+        public String toString()
+        {
+            return getClass().getSimpleName();
         }
     }
 
@@ -338,6 +516,18 @@ public final class JsonEncodingUtils
                 typeEncoder.encode(generator, arrayBlock, i);
             }
             generator.writeEndArray();
+        }
+
+        @Override
+        public boolean isSupported(Block block)
+        {
+            return block instanceof ArrayBlock arrayBlock && typeEncoder.isSupported(unwrapBlock(arrayBlock.getElementsBlock()));
+        }
+
+        @Override
+        public String toString()
+        {
+            return "ArrayEncoder{elements=%s}".formatted(typeEncoder);
         }
     }
 
@@ -378,6 +568,18 @@ public final class JsonEncodingUtils
             }
             generator.writeEndObject();
         }
+
+        @Override
+        public boolean isSupported(Block block)
+        {
+            return block instanceof MapBlock mapBlock && valueEncoder.isSupported(unwrapBlock(mapBlock.getValueBlock()));
+        }
+
+        @Override
+        public String toString()
+        {
+            return "MapEncoder{keys=%s, values=%s}".formatted(mapType.getKeyType().getDisplayName(), valueEncoder);
+        }
     }
 
     private static final class RowEncoder
@@ -406,6 +608,32 @@ public final class JsonEncodingUtils
                 fieldEncoders[i].encode(generator, row.getRawFieldBlock(i), row.getRawIndex());
             }
             generator.writeEndArray();
+        }
+
+        @Override
+        public boolean isSupported(Block block)
+        {
+            if (!(block instanceof RowBlock rowBlock)) {
+                return false;
+            }
+
+            for (int i = 0; i < fieldEncoders.length; i++) {
+                if (!fieldEncoders[i].isSupported(unwrapBlock(rowBlock.getFieldBlock(i)))) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        @Override
+        public String toString()
+        {
+            String fields = IntStream.range(0, fieldEncoders.length)
+                    .mapToObj(i -> "%s: %s".formatted(rowType.getFields().get(i).getName().orElse("_col" + i), fieldEncoders[i]))
+                    .collect(joining(", "));
+
+            return "RowEncoder{%s}".formatted(fields);
         }
     }
 
@@ -445,6 +673,18 @@ public final class JsonEncodingUtils
                 case SqlVarbinary sqlVarbinary -> generator.writeBinary(sqlVarbinary.getBytes());
                 default -> generator.writePOJO(value);
             }
+        }
+
+        @Override
+        public boolean isSupported(Block block)
+        {
+            return true;
+        }
+
+        @Override
+        public String toString()
+        {
+            return "TypeObjectValueEncoder{type=%s}".formatted(type.getDisplayName());
         }
 
         private Object roundParametricTypes(Object value)
