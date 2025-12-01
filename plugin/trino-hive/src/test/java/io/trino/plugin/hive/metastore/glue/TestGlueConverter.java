@@ -23,10 +23,8 @@ import io.trino.metastore.Partition;
 import io.trino.metastore.Storage;
 import io.trino.metastore.StorageFormat;
 import io.trino.metastore.Table;
-import io.trino.plugin.hive.HiveViewNotSupportedException;
 import io.trino.plugin.hive.TableType;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.security.PrincipalType;
 import org.junit.jupiter.api.Test;
@@ -358,10 +356,8 @@ class TestGlueConverter
                 .build();
 
         assertThatThrownBy(() -> GlueConverter.fromGlueTable(table, table.databaseName()))
-                .isNotInstanceOfAny(
-                        HiveViewNotSupportedException.class,
-                        TableNotFoundException.class,
-                        TrinoException.class);
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Column badhivetype has invalid type: notarealtype");
     }
 
     @Test
@@ -379,10 +375,8 @@ class TestGlueConverter
                 .build();
 
         assertThatThrownBy(() -> GlueConverter.fromGlueTable(table, table.databaseName()))
-                .isNotInstanceOfAny(
-                        HiveViewNotSupportedException.class,
-                        TableNotFoundException.class,
-                        TrinoException.class);
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Column emptyhivetype has invalid type: ");
     }
 
     @Test
@@ -393,10 +387,8 @@ class TestGlueConverter
                 .build();
 
         assertThatThrownBy(() -> GlueConverter.fromGlueTable(table, table.databaseName()))
-                .isNotInstanceOfAny(
-                        HiveViewNotSupportedException.class,
-                        TableNotFoundException.class,
-                        TrinoException.class);
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("StorageDescriptor SerDeInfo is null: %s.%s".formatted(glueTable.databaseName(), glueTable.name()));
     }
 
     @Test

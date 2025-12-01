@@ -99,6 +99,7 @@ import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.decodeFu
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreNullsCount;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class GlueConverter
@@ -291,7 +292,17 @@ public final class GlueConverter
             //TODO(https://github.com/trinodb/trino/issues/7240) Add tests
             return new Column(glueColumn.name(), HiveType.HIVE_STRING, Optional.ofNullable(glueColumn.comment()), glueColumn.parameters());
         }
-        return new Column(glueColumn.name(), HiveType.valueOf(glueColumn.type().toLowerCase(Locale.ROOT)), Optional.ofNullable(glueColumn.comment()), glueColumn.parameters());
+        HiveType hiveType;
+        try {
+            hiveType = HiveType.valueOf(glueColumn.type().toLowerCase(Locale.ROOT));
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(
+                    HIVE_INVALID_METADATA,
+                    format("Column %s has invalid type: %s", glueColumn.name(), glueColumn.type()),
+                    e);
+        }
+        return new Column(glueColumn.name(), hiveType, Optional.ofNullable(glueColumn.comment()), glueColumn.parameters());
     }
 
     private static software.amazon.awssdk.services.glue.model.Column toGlueColumn(Column trinoColumn)
@@ -322,7 +333,10 @@ public final class GlueConverter
             bucketProperty = Optional.of(new HiveBucketProperty(sd.bucketColumns(), sd.numberOfBuckets(), sortBy));
         }
 
-        SerDeInfo serdeInfo = requireNonNull(sd.serdeInfo(), () -> "StorageDescriptor SerDeInfo is null: " + tablePartitionName);
+        SerDeInfo serdeInfo = sd.serdeInfo();
+        if (serdeInfo == null) {
+            throw new TrinoException(HIVE_INVALID_METADATA, "StorageDescriptor SerDeInfo is null: " + tablePartitionName);
+        }
         return new Storage(
                 StorageFormat.createNullable(serdeInfo.serializationLibrary(), sd.inputFormat(), sd.outputFormat()),
                 Optional.ofNullable(sd.location()),
