@@ -1532,6 +1532,8 @@ public abstract class BaseConnectorTest
             assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " " +
                     "GRACE PERIOD INTERVAL '1' HOUR " +
                     "AS SELECT DISTINCT regionkey, format('%s', name) name FROM " + table.getName());
+            assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + viewName))
+                    .matches("(?sm).*^GRACE PERIOD INTERVAL '0 1:00:00' DAY TO SECOND$.*");
 
             String initialResults = "SELECT DISTINCT regionkey, CAST(name AS varchar) FROM region";
 

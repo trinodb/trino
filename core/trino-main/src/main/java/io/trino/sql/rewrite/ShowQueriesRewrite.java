@@ -99,6 +99,7 @@ import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.TableElement;
 import io.trino.sql.tree.Values;
+import io.trino.util.DateTimeUtils;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -561,7 +562,8 @@ public final class ShowQueriesRewrite
                     query,
                     false,
                     false,
-                    Optional.empty(), // TODO support GRACE PERIOD
+                    viewDefinition.flatMap(MaterializedViewDefinition::getGracePeriod)
+                            .map(DateTimeUtils::formatDayTimeInterval),
                     Optional.empty(), // TODO support WHEN STALE
                     propertyNodes,
                     viewDefinition.get().getComment())).trim();
