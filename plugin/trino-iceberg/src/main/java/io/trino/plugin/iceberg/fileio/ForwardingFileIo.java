@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg.fileio;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -43,6 +42,7 @@ import static io.trino.plugin.base.util.ExecutorUtil.processWithAdditionalThread
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Gatherers.windowFixed;
 
 public class ForwardingFileIo
         implements SupportsBulkOperations
@@ -118,7 +118,8 @@ public class ForwardingFileIo
     public void deleteFiles(Iterable<String> pathsToDelete)
             throws BulkDeletionFailureException
     {
-        List<Callable<Void>> tasks = Streams.stream(Iterables.partition(pathsToDelete, DELETE_BATCH_SIZE))
+        List<Callable<Void>> tasks = Streams.stream(pathsToDelete)
+                .gather(windowFixed(DELETE_BATCH_SIZE))
                 .map(batch -> (Callable<Void>) () -> {
                     deleteBatch(batch);
                     return null;

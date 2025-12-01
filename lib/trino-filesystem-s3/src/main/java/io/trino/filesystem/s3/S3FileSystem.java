@@ -57,7 +57,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Multimaps.toMultimap;
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.NONE;
 import static io.trino.filesystem.s3.S3SseCUtils.encoded;
@@ -65,6 +64,7 @@ import static io.trino.filesystem.s3.S3SseCUtils.md5Checksum;
 import static io.trino.filesystem.s3.S3SseRequestConfigurator.setEncryptionSettings;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Gatherers.windowFixed;
 
 final class S3FileSystem
         implements TrinoFileSystem
@@ -190,34 +190,33 @@ final class S3FileSystem
             String bucket = entry.getKey();
             Collection<String> allKeys = entry.getValue();
 
-            for (List<String> keys : partition(allKeys, DELETE_BATCH_SIZE)) {
-                List<ObjectIdentifier> objects = keys.stream()
+            try {
+                allKeys.stream()
                         .map(key -> ObjectIdentifier.builder().key(key).build())
-                        .toList();
+                        .gather(windowFixed(DELETE_BATCH_SIZE))
+                        .forEach(keys -> {
+                            DeleteObjectsRequest request = DeleteObjectsRequest.builder()
+                                    .overrideConfiguration(context::applyCredentialProviderOverride)
+                                    .requestPayer(requestPayer)
+                                    .bucket(bucket)
+                                    .delete(builder -> builder.objects(keys).quiet(true))
+                                    .build();
 
-                DeleteObjectsRequest request = DeleteObjectsRequest.builder()
-                        .overrideConfiguration(context::applyCredentialProviderOverride)
-                        .requestPayer(requestPayer)
-                        .bucket(bucket)
-                        .delete(builder -> builder.objects(objects).quiet(true))
-                        .build();
-
-                try {
-                    DeleteObjectsResponse response = client.deleteObjects(request);
-                    for (S3Error error : response.errors()) {
-                        String filePath = "s3://%s/%s".formatted(bucket, error.key());
-                        if (error.message() == null) {
-                            // If the error message is null, we just use the error code
-                            failures.put(filePath, error.code());
-                        }
-                        else {
-                            failures.put(filePath, "%s (%s)".formatted(error.message(), error.code()));
-                        }
-                    }
-                }
-                catch (SdkException e) {
-                    throw new TrinoFileSystemException("Error while batch deleting files", e);
-                }
+                            DeleteObjectsResponse response = client.deleteObjects(request);
+                            for (S3Error error : response.errors()) {
+                                String filePath = "s3://%s/%s".formatted(bucket, error.key());
+                                if (error.message() == null) {
+                                    // If the error message is null, we just use the error code
+                                    failures.put(filePath, error.code());
+                                }
+                                else {
+                                    failures.put(filePath, "%s (%s)".formatted(error.message(), error.code()));
+                                }
+                            }
+                        });
+            }
+            catch (SdkException e) {
+                throw new TrinoFileSystemException("Error while batch deleting files", e);
             }
         }
 

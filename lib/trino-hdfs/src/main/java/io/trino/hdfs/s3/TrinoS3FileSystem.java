@@ -81,7 +81,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.io.Closer;
 import com.google.common.net.MediaType;
@@ -185,6 +184,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Gatherers.windowFixed;
 import static org.apache.hadoop.fs.FSExceptionMessages.CANNOT_SEEK_PAST_EOF;
 import static org.apache.hadoop.fs.FSExceptionMessages.NEGATIVE_SEEK;
 import static org.apache.hadoop.fs.FSExceptionMessages.STREAM_IS_CLOSED;
@@ -775,10 +775,9 @@ public class TrinoS3FileSystem
             throws IOException
     {
         try {
-            Iterable<List<Path>> partitions = Iterables.partition(paths, DELETE_BATCH_SIZE);
-            for (List<Path> currentBatch : partitions) {
-                deletePaths(currentBatch);
-            }
+            paths.stream()
+                    .gather(windowFixed(DELETE_BATCH_SIZE))
+                    .forEach(this::deletePaths);
         }
         catch (MultiObjectDeleteException e) {
             String errors = e.getErrors().stream()

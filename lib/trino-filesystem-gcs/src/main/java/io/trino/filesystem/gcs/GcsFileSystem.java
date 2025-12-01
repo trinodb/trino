@@ -57,8 +57,8 @@ import static com.google.cloud.storage.Storage.BlobListOption.pageSize;
 import static com.google.cloud.storage.Storage.SignUrlOption.withExtHeaders;
 import static com.google.cloud.storage.Storage.SignUrlOption.withV4Signature;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Iterables.partition;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.filesystem.gcs.GcsUtils.encodedKey;
 import static io.trino.filesystem.gcs.GcsUtils.getBlob;
@@ -66,6 +66,7 @@ import static io.trino.filesystem.gcs.GcsUtils.handleGcsException;
 import static io.trino.filesystem.gcs.GcsUtils.keySha256Checksum;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.stream.Gatherers.windowFixed;
 
 public class GcsFileSystem
         implements TrinoFileSystem
@@ -164,16 +165,19 @@ public class GcsFileSystem
     public void deleteFiles(Collection<Location> locations)
             throws IOException
     {
-        List<ListenableFuture<?>> batchFutures = new ArrayList<>();
+        List<ListenableFuture<?>> batchFutures = locations.stream()
+                .gather(windowFixed(batchSize))
+                .map(locationBatch -> {
+                    StorageBatch batch = storage.batch();
+                    for (Location location : locationBatch) {
+                        GcsLocation gcsLocation = new GcsLocation(location);
+                        batch.delete(BlobId.of(gcsLocation.bucket(), gcsLocation.path()));
+                    }
+                    return executorService.submit(batch::submit);
+                })
+                .collect(toImmutableList());
+
         try {
-            for (List<Location> locationBatch : partition(locations, batchSize)) {
-                StorageBatch batch = storage.batch();
-                for (Location location : locationBatch) {
-                    GcsLocation gcsLocation = new GcsLocation(location);
-                    batch.delete(BlobId.of(gcsLocation.bucket(), gcsLocation.path()));
-                }
-                batchFutures.add(executorService.submit(batch::submit));
-            }
             getFutureValue(Futures.allAsList(batchFutures));
         }
         catch (RuntimeException e) {
@@ -186,16 +190,19 @@ public class GcsFileSystem
             throws IOException
     {
         GcsLocation gcsLocation = new GcsLocation(normalizeToDirectory(location));
-        try {
-            List<ListenableFuture<?>> batchFutures = new ArrayList<>();
 
-            for (List<Blob> blobBatch : partition(getPage(gcsLocation).iterateAll(), batchSize)) {
-                StorageBatch batch = storage.batch();
-                for (Blob blob : blobBatch) {
-                    batch.delete(blob.getBlobId());
-                }
-                batchFutures.add(executorService.submit(batch::submit));
-            }
+        List<ListenableFuture<?>> batchFutures = getPage(gcsLocation).streamAll()
+                .gather(windowFixed(batchSize))
+                .map(blobBatch -> {
+                    StorageBatch batch = storage.batch();
+                    for (Blob blob : blobBatch) {
+                        batch.delete(blob.getBlobId());
+                    }
+                    return executorService.submit(batch::submit);
+                })
+                .collect(toImmutableList());
+
+        try {
             getFutureValue(Futures.allAsList(batchFutures));
         }
         catch (RuntimeException e) {

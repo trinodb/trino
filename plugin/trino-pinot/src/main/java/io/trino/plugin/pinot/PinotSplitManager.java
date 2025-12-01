@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.pinot;
 
-import com.google.common.collect.Iterables;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.plugin.pinot.client.PinotClient;
@@ -46,6 +45,7 @@ import static io.trino.plugin.pinot.PinotSplit.createSegmentSplit;
 import static io.trino.spi.ErrorType.USER_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Gatherers.windowFixed;
 
 public class PinotSplitManager
         implements ConnectorSplitManager
@@ -107,9 +107,10 @@ public class PinotSplitManager
             hostToSegmentsMap.forEach((host, segments) -> {
                 int numSegmentsInThisSplit = Math.min(segments.size(), segmentsPerSplitConfigured);
                 // segments is already shuffled
-                Iterables.partition(segments, numSegmentsInThisSplit).forEach(
-                        segmentsForThisSplit -> splits.add(
-                                createSegmentSplit(tableNameSuffix, segmentsForThisSplit, host, timePredicate)));
+                segments.stream()
+                        .gather(windowFixed(numSegmentsInThisSplit))
+                        .map(segment -> createSegmentSplit(tableNameSuffix, segment, host, timePredicate))
+                        .forEach(splits::add);
             });
         }
     }
