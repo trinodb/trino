@@ -17,14 +17,18 @@ import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Case;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Switch;
 import io.trino.sql.ir.WhenClause;
+import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 
@@ -38,6 +42,7 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
+import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.plan.Patterns.filter;
 
@@ -53,7 +58,7 @@ public class SimplifyFilterPredicate
         implements Rule<FilterNode>
 {
     private static final Pattern<FilterNode> PATTERN = filter();
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
 
     @Override
     public Pattern<FilterNode> getPattern()
@@ -61,9 +66,9 @@ public class SimplifyFilterPredicate
         return PATTERN;
     }
 
-    public SimplifyFilterPredicate(Metadata metadata)
+    public SimplifyFilterPredicate(PlannerContext plannerContext)
     {
-        this.metadata = metadata;
+        this.plannerContext = plannerContext;
     }
 
     @Override
@@ -73,28 +78,20 @@ public class SimplifyFilterPredicate
         ImmutableList.Builder<Expression> newConjuncts = ImmutableList.builder();
 
         boolean simplified = false;
+        Visitor visitor = new Visitor(plannerContext.getMetadata());
         for (Expression conjunct : conjuncts) {
-            Optional<Expression> simplifiedConjunct = switch (conjunct) {
-                case NullIf expression -> Optional.of(Logical.and(expression.first(), isFalseOrNullPredicate(expression.second())));
-                case Case expression -> simplify(expression);
-                case Switch expression -> simplify(expression);
-                case null, default -> Optional.empty();
-            };
-
-            if (simplifiedConjunct.isPresent()) {
+            Expression simplifiedConjunct = visitor.process(conjunct, null);
+            newConjuncts.add(simplifiedConjunct);
+            if (conjunct != simplifiedConjunct) {
                 simplified = true;
-                newConjuncts.add(simplifiedConjunct.get());
-            }
-            else {
-                newConjuncts.add(conjunct);
             }
         }
         if (!simplified) {
             return Result.empty();
         }
 
-        Expression predicate = combineConjuncts(newConjuncts.build());
-        if (predicate instanceof Constant constant && constant.value() == null) {
+        Expression predicate = new IrExpressionInterpreter(combineConjuncts(newConjuncts.build()), plannerContext, context.getSession()).optimize();
+        if (isNotTrue(predicate)) {
             predicate = FALSE;
         }
         return Result.ofPlanNode(new FilterNode(
@@ -103,19 +100,57 @@ public class SimplifyFilterPredicate
                 predicate));
     }
 
-    private Optional<Expression> simplify(Expression condition, Expression trueValue, Expression falseValue)
+    private static boolean isNotTrue(Expression expression)
+    {
+        return expression.equals(FALSE) ||
+                expression instanceof Constant literal && literal.value() == null;
+    }
+
+    private static Expression isFalseOrNullPredicate(Metadata metadata, Expression expression)
+    {
+        if (expression instanceof IsNull) {
+            return not(metadata, expression);
+        }
+        return Logical.or(new IsNull(expression), not(metadata, expression));
+    }
+
+    private static Optional<Expression> simplifyCase(Switch caseExpression)
+    {
+        Optional<Expression> defaultValue = Optional.of(caseExpression.defaultValue());
+
+        if (caseExpression.operand() instanceof Constant literal && literal.value() == null) {
+            return defaultValue;
+        }
+
+        List<Expression> results = caseExpression.whenClauses().stream()
+                .map(WhenClause::getResult)
+                .collect(toImmutableList());
+        if (results.stream().allMatch(result -> result.equals(TRUE)) && defaultValue.get().equals(TRUE)) {
+            return Optional.of(TRUE);
+        }
+        if (results.stream().allMatch(SimplifyFilterPredicate::isNotTrue) && isNotTrue(defaultValue.get())) {
+            return Optional.of(FALSE);
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<Expression> simplifyCase(Metadata metadata, Expression condition, Expression trueValue, Expression falseValue)
     {
         if (trueValue.equals(TRUE) && isNotTrue(falseValue)) {
             return Optional.of(condition);
         }
-        if (isNotTrue(trueValue) && falseValue.equals(TRUE)) {
-            return Optional.of(isFalseOrNullPredicate(condition));
+        if (isNotTrue(trueValue)) {
+            if (falseValue.equals(TRUE)) {
+                return Optional.of(isFalseOrNullPredicate(metadata, condition));
+            }
+            if (isNotTrue(falseValue)) {
+                return Optional.of(FALSE);
+            }
+            return Optional.of(new Logical(AND,
+                    ImmutableList.of(isFalseOrNullPredicate(metadata, condition), falseValue)));
         }
         if (falseValue.equals(trueValue) && isDeterministic(trueValue)) {
             return Optional.of(trueValue);
-        }
-        if (isNotTrue(trueValue) && isNotTrue(falseValue)) {
-            return Optional.of(FALSE);
         }
         if (condition.equals(TRUE)) {
             return Optional.of(trueValue);
@@ -126,11 +161,12 @@ public class SimplifyFilterPredicate
         return Optional.empty();
     }
 
-    private Optional<Expression> simplify(Case caseExpression)
+    private static Optional<Expression> simplifyCase(Metadata metadata, Case caseExpression)
     {
         if (caseExpression.whenClauses().size() == 1) {
             // if-like expression
-            return simplify(
+            return simplifyCase(
+                    metadata,
                     caseExpression.whenClauses().getFirst().getOperand(),
                     caseExpression.whenClauses().getFirst().getResult(),
                     caseExpression.defaultValue());
@@ -164,7 +200,7 @@ public class SimplifyFilterPredicate
                 Expression operand = whenClause.getOperand();
                 Expression result = whenClause.getResult();
                 if (isNotTrue(result)) {
-                    builder.add(isFalseOrNullPredicate(operand));
+                    builder.add(isFalseOrNullPredicate(metadata, operand));
                 }
                 else {
                     builder.add(operand);
@@ -175,7 +211,7 @@ public class SimplifyFilterPredicate
         // all results not true, and default true
         if (notTrueResultsCount == results.size() && caseExpression.defaultValue().equals(TRUE)) {
             ImmutableList.Builder<Expression> builder = ImmutableList.builder();
-            operands.forEach(operand -> builder.add(isFalseOrNullPredicate(operand)));
+            operands.forEach(operand -> builder.add(isFalseOrNullPredicate(metadata, operand)));
             return Optional.of(combineConjuncts(builder.build()));
         }
         // skip clauses with not true conditions
@@ -201,34 +237,78 @@ public class SimplifyFilterPredicate
         return Optional.empty();
     }
 
-    private static Optional<Expression> simplify(Switch caseExpression)
+    private static Expression simplifyCompareCase(Comparison comparison)
     {
-        Optional<Expression> defaultValue = Optional.of(caseExpression.defaultValue());
-
-        if (caseExpression.operand() instanceof Constant literal && literal.value() == null) {
-            return defaultValue;
+        // Simplify Comparison(Case, Constant)
+        if (comparison.left() instanceof Case caseExpression && comparison.right() instanceof Constant) {
+            return new Case(
+                    caseExpression.whenClauses().stream()
+                            .map(whenClause -> new WhenClause(whenClause.getOperand(), new Comparison(comparison.operator(), whenClause.getResult(), comparison.right())))
+                            .collect(toImmutableList()),
+                    new Comparison(comparison.operator(), caseExpression.defaultValue(), comparison.right()));
         }
 
-        List<Expression> results = caseExpression.whenClauses().stream()
-                .map(WhenClause::getResult)
-                .collect(toImmutableList());
-        if (results.stream().allMatch(result -> result.equals(TRUE)) && defaultValue.get().equals(TRUE)) {
-            return Optional.of(TRUE);
+        if (comparison.left() instanceof NullIf nullIf && comparison.right() instanceof Constant right) {
+            return new Case(
+                    ImmutableList.of(
+                            new WhenClause(new Comparison(comparison.operator(), nullIf.first(), nullIf.second()), new IsNull(right))),
+                    new Comparison(comparison.operator(), nullIf.first(), right));
         }
-        if (results.stream().allMatch(SimplifyFilterPredicate::isNotTrue) && isNotTrue(defaultValue.get())) {
-            return Optional.of(FALSE);
-        }
-        return Optional.empty();
+
+        return comparison;
     }
 
-    private static boolean isNotTrue(Expression expression)
+    private static class Visitor
+            extends IrVisitor<Expression, Void>
     {
-        return expression.equals(FALSE) ||
-                expression instanceof Constant literal && literal.value() == null;
-    }
+        private final Metadata metadata;
 
-    private Expression isFalseOrNullPredicate(Expression expression)
-    {
-        return Logical.or(new IsNull(expression), not(metadata, expression));
+        public Visitor(Metadata metadata)
+        {
+            this.metadata = metadata;
+        }
+
+        @Override
+        protected Expression visitExpression(Expression expression, Void context)
+        {
+            return expression;
+        }
+
+        @Override
+        public Expression visitNullIf(NullIf node, Void context)
+        {
+            return Logical.and(
+                    process(node.first(), context),
+                    isFalseOrNullPredicate(metadata, process(node.second(), context)));
+        }
+
+        @Override
+        public Expression visitCase(Case node, Void context)
+        {
+            Expression defaultValue = process(node.defaultValue(), context);
+            Case caseExpression = node;
+            if (defaultValue != node.defaultValue()) {
+                caseExpression = new Case(node.whenClauses(), defaultValue);
+            }
+
+            Optional<Expression> simplified = simplifyCase(metadata, caseExpression);
+            return simplified.orElse(caseExpression);
+        }
+
+        @Override
+        public Expression visitSwitch(Switch node, Void context)
+        {
+            return simplifyCase(node).orElse(node);
+        }
+
+        @Override
+        public Expression visitComparison(Comparison node, Void context)
+        {
+            Expression simplified = simplifyCompareCase(node);
+            if (simplified == node) {
+                return node;
+            }
+            return process(simplified);
+        }
     }
 }
