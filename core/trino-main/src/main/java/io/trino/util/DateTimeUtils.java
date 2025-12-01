@@ -17,11 +17,13 @@ import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimeZoneKey;
+import io.trino.sql.tree.IntervalLiteral;
 import org.assertj.core.util.VisibleForTesting;
 import org.joda.time.DateTime;
 import org.joda.time.DurationFieldType;
 import org.joda.time.MutablePeriod;
 import org.joda.time.Period;
+import org.joda.time.PeriodType;
 import org.joda.time.ReadWritablePeriod;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -34,6 +36,7 @@ import org.joda.time.format.PeriodFormatterBuilder;
 import org.joda.time.format.PeriodParser;
 
 import java.time.DateTimeException;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,6 +49,12 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.sql.tree.IntervalLiteral.IntervalField;
+import static io.trino.sql.tree.IntervalLiteral.IntervalField.DAY;
+import static io.trino.sql.tree.IntervalLiteral.IntervalField.HOUR;
+import static io.trino.sql.tree.IntervalLiteral.IntervalField.MINUTE;
+import static io.trino.sql.tree.IntervalLiteral.IntervalField.SECOND;
+import static io.trino.sql.tree.IntervalLiteral.Sign.NEGATIVE;
+import static io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE;
 import static io.trino.util.DateTimeZoneIndex.getChronology;
 import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static java.lang.Math.toIntExact;
@@ -254,6 +263,69 @@ public final class DateTimeUtils
         throw invalidQualifier(startField, endField.orElse(startField));
     }
 
+    public static IntervalLiteral formatDayTimeInterval(Duration duration)
+    {
+        long millis = duration.toMillis();
+        Period period = new Period(Math.abs(millis)).normalizedStandard(PeriodType.dayTime());
+
+        IntervalLiteral.IntervalField startField;
+        Optional<IntervalLiteral.IntervalField> endField;
+        String value;
+
+        if (period.getDays() > 0) {
+            startField = DAY;
+            if (period.getSeconds() > 0 || period.getMillis() > 0) {
+                endField = Optional.of(SECOND);
+                value = INTERVAL_DAY_SECOND_FORMATTER.print(period);
+            }
+            else if (period.getMinutes() > 0) {
+                endField = Optional.of(MINUTE);
+                value = INTERVAL_DAY_MINUTE_FORMATTER.print(period);
+            }
+            else if (period.getHours() > 0) {
+                endField = Optional.of(HOUR);
+                value = INTERVAL_DAY_HOUR_FORMATTER.print(period);
+            }
+            else {
+                endField = Optional.empty();
+                value = INTERVAL_DAY_FORMATTER.print(period);
+            }
+        }
+        else if (period.getHours() > 0) {
+            startField = HOUR;
+            if (period.getSeconds() > 0 || period.getMillis() > 0) {
+                endField = Optional.of(SECOND);
+                value = INTERVAL_HOUR_SECOND_FORMATTER.print(period);
+            }
+            else if (period.getMinutes() > 0) {
+                endField = Optional.of(MINUTE);
+                value = INTERVAL_HOUR_MINUTE_FORMATTER.print(period);
+            }
+            else {
+                endField = Optional.empty();
+                value = INTERVAL_HOUR_FORMATTER.print(period);
+            }
+        }
+        else if (period.getMinutes() > 0) {
+            startField = MINUTE;
+            if (period.getSeconds() > 0 || period.getMillis() > 0) {
+                endField = Optional.of(SECOND);
+                value = INTERVAL_MINUTE_SECOND_FORMATTER.print(period);
+            }
+            else {
+                endField = Optional.empty();
+                value = INTERVAL_MINUTE_FORMATTER.print(period);
+            }
+        }
+        else {
+            startField = SECOND;
+            endField = Optional.empty();
+            value = INTERVAL_SECOND_FORMATTER.print(period);
+        }
+
+        return new IntervalLiteral(value, millis < 0 ? NEGATIVE : POSITIVE, startField, endField);
+    }
+
     private static long parsePeriodMillis(PeriodFormatter periodFormatter, String value)
     {
         Period period = parsePeriod(periodFormatter, value);
@@ -337,7 +409,8 @@ public final class DateTimeUtils
 
         List<PeriodParser> parsers = new ArrayList<>();
 
-        PeriodFormatterBuilder builder = new PeriodFormatterBuilder();
+        PeriodFormatterBuilder builder = new PeriodFormatterBuilder()
+                .printZeroIfSupported();
         switch (startField) {
             case YEAR:
                 builder.appendYears();
@@ -372,6 +445,7 @@ public final class DateTimeUtils
                     break;
                 }
                 builder.appendLiteral(":");
+                builder.minimumPrintedDigits(2);
                 // fall through
 
             case MINUTE:
@@ -381,6 +455,7 @@ public final class DateTimeUtils
                     break;
                 }
                 builder.appendLiteral(":");
+                builder.minimumPrintedDigits(2);
                 // fall through
 
             case SECOND:
