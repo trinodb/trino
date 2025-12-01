@@ -25,7 +25,6 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.glue.GlueClient;
@@ -125,17 +124,8 @@ public class TestHiveGlueMetadataListing
         assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_BAD_HIVE_TYPE, tpchSchema));
         assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_SERDE, tpchSchema));
 
-        @Language("RegExp") String tableMetadataRegex = format(
-                "Error listing table columns for catalog hive: Failed to construct table metadata for table (%s.%s|%s.%s)",
-                tpchSchema,
-                FAILING_TABLE_WITH_BAD_HIVE_TYPE,
-                tpchSchema,
-                FAILING_TABLE_WITH_NULL_SERDE);
-        assertQueryFails("SELECT table_name, column_name from hive.information_schema.columns WHERE table_schema = '" + tpchSchema + "'", tableMetadataRegex);
-        /* Now broken by these new broken tables. To restore once fixed.
         assertQuery("SELECT table_name, column_name from hive.information_schema.columns WHERE table_schema = '" + tpchSchema + "'",
                 "VALUES ('region', 'regionkey'), ('region', 'name'), ('region', 'comment'), ('nation', 'nationkey'), ('nation', 'name'), ('nation', 'regionkey'), ('nation', 'comment')");
-        */
         assertQuery("SELECT table_name, column_name from hive.information_schema.columns WHERE table_name = 'region' AND table_schema='" + tpchSchema + "'",
                 "VALUES ('region', 'regionkey'), ('region', 'name'), ('region', 'comment')");
         assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME, tpchSchema));
