@@ -15,6 +15,8 @@ package io.trino.sql.planner.sanity;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
@@ -940,7 +942,8 @@ public final class ValidateDependenciesChecker
         }
     }
 
-    private static void checkDependencies(Collection<Symbol> inputs, Collection<Symbol> required, String message, Object... parameters)
+    @FormatMethod
+    private static void checkDependencies(Collection<Symbol> inputs, Collection<Symbol> required, @FormatString String message, Object... parameters)
     {
         checkArgument(ImmutableSet.copyOf(inputs).containsAll(required), message, parameters);
     }

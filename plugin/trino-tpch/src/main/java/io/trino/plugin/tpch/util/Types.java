@@ -13,6 +13,9 @@
  */
 package io.trino.plugin.tpch.util;
 
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
+
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class Types
@@ -24,7 +27,8 @@ public final class Types
         return checkType(object, expectedClass, "Expected an object of type [%s]", expectedClass.getCanonicalName());
     }
 
-    public static <T> T checkType(Object object, Class<T> expectedClass, String messageTemplate, Object... arguments)
+    @FormatMethod
+    public static <T> T checkType(Object object, Class<T> expectedClass, @FormatString String messageTemplate, Object... arguments)
     {
         checkArgument(expectedClass.isInstance(object), messageTemplate, arguments);
         return expectedClass.cast(object);
