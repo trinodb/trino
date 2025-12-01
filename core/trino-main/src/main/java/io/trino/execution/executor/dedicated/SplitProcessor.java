@@ -45,13 +45,15 @@ class SplitProcessor
     private final int splitId;
     private final SplitRunner split;
     private final Tracer tracer;
+    private final SplitBlockedStateChangeListener blockStateChangeListener;
 
-    public SplitProcessor(TaskId taskId, int splitId, SplitRunner split, Tracer tracer)
+    public SplitProcessor(TaskId taskId, int splitId, SplitRunner split, Tracer tracer, SplitBlockedStateChangeListener blockStateChangeListener)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.splitId = splitId;
         this.split = requireNonNull(split, "split is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
+        this.blockStateChangeListener = requireNonNull(blockStateChangeListener, "blockStateChangeListener is null");
     }
 
     @Override
@@ -95,12 +97,14 @@ class SplitProcessor
                             }
                         }
                         else {
+                            blockStateChangeListener.splitBlocked();
                             processSpan.addEvent("blocked");
                             processSpan.end();
                             if (!context.block(blocked)) {
                                 processSpan = null;
                                 return;
                             }
+                            blockStateChangeListener.splitRunning();
                         }
                         processSpan = newSpan(splitSpan, processSpan);
                     }
@@ -135,4 +139,20 @@ class SplitProcessor
 
         return builder.startSpan();
     }
+
+    interface SplitBlockedStateChangeListener
+    {
+        void splitBlocked();
+
+        void splitRunning();
+    }
+
+    public static final SplitBlockedStateChangeListener NOOP_SPLIT_STATE_CHANGE_LISTENER = new SplitBlockedStateChangeListener()
+    {
+        @Override
+        public void splitBlocked() {}
+
+        @Override
+        public void splitRunning() {}
+    };
 }
