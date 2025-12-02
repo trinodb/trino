@@ -222,14 +222,14 @@ public class ParquetReader
                 }
                 if (filteredOffsetIndex == null) {
                     DiskRange range = new DiskRange(startingPosition, totalLength);
-                    totalDataSize = range.getLength();
+                    totalDataSize = range.length();
                     ranges.put(new ChunkKey(columnId, rowGroup), range);
                 }
                 else {
                     List<OffsetRange> offsetRanges = filteredOffsetIndex.calculateOffsetRanges(startingPosition);
                     for (OffsetRange offsetRange : offsetRanges) {
                         DiskRange range = new DiskRange(offsetRange.getOffset(), offsetRange.getLength());
-                        totalDataSize += range.getLength();
+                        totalDataSize += range.length();
                         ranges.put(new ChunkKey(columnId, rowGroup), range);
                     }
                     // Initialize columnIndexRowsFiltered only when column indexes are found and used

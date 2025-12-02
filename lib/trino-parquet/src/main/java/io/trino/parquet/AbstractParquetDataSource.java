@@ -152,7 +152,7 @@ public abstract class AbstractParquetDataSource
         ImmutableListMultimap.Builder<K, DiskRange> smallRangesBuilder = ImmutableListMultimap.builder();
         ImmutableListMultimap.Builder<K, DiskRange> largeRangesBuilder = ImmutableListMultimap.builder();
         for (Map.Entry<K, DiskRange> entry : diskRanges.entries()) {
-            if (entry.getValue().getLength() <= options.getMaxBufferSize().toBytes()) {
+            if (entry.getValue().length() <= options.getMaxBufferSize().toBytes()) {
                 smallRangesBuilder.put(entry);
             }
             else {
@@ -178,8 +178,8 @@ public abstract class AbstractParquetDataSource
         int maxBufferSizeBytes = toIntExact(options.getMaxBufferSize().toBytes());
         checkArgument(maxBufferSizeBytes > 0, "maxBufferSize must by larger than zero but is %s bytes", maxBufferSizeBytes);
         ImmutableList.Builder<DiskRange> ranges = ImmutableList.builder();
-        long endOffset = range.getOffset() + range.getLength();
-        long offset = range.getOffset();
+        long endOffset = range.offset() + range.length();
+        long offset = range.offset();
         while (offset + maxBufferSizeBytes < endOffset) {
             ranges.add(new DiskRange(offset, maxBufferSizeBytes));
             offset += maxBufferSizeBytes;
@@ -215,15 +215,15 @@ public abstract class AbstractParquetDataSource
                         @Override
                         public long getDiskOffset()
                         {
-                            return diskRange.getOffset();
+                            return diskRange.offset();
                         }
 
                         @Override
                         public Slice read()
                                 throws IOException
                         {
-                            int offset = toIntExact(diskRange.getOffset() - mergedRange.getOffset());
-                            return mergedRangeLoader.read().slice(offset, toIntExact(diskRange.getLength()));
+                            int offset = toIntExact(diskRange.offset() - mergedRange.offset());
+                            return mergedRangeLoader.read().slice(offset, toIntExact(diskRange.length()));
                         }
 
                         @Override
@@ -260,7 +260,7 @@ public abstract class AbstractParquetDataSource
     {
         // sort ranges by start offset
         List<DiskRange> ranges = new ArrayList<>(diskRanges);
-        ranges.sort(comparingLong(DiskRange::getOffset));
+        ranges.sort(comparingLong(DiskRange::offset));
 
         long maxReadSizeBytes = maxReadSize.toBytes();
         long maxMergeDistanceBytes = maxMergeDistance.toBytes();
@@ -278,7 +278,7 @@ public abstract class AbstractParquetDataSource
             catch (ArithmeticException e) {
                 blockTooLong = true;
             }
-            if (!blockTooLong && merged.getLength() <= maxReadSizeBytes && last.getEnd() + maxMergeDistanceBytes >= current.getOffset()) {
+            if (!blockTooLong && merged.length() <= maxReadSizeBytes && last.end() + maxMergeDistanceBytes >= current.offset()) {
                 last = merged;
             }
             else {
@@ -304,7 +304,7 @@ public abstract class AbstractParquetDataSource
         public ReferenceCountedReader(DiskRange range, AggregatedMemoryContext memoryContext)
         {
             this.range = range;
-            checkArgument(range.getLength() <= MAX_ARRAY_SIZE, "Cannot read range bigger than %s but got %s", MAX_ARRAY_SIZE, range);
+            checkArgument(range.length() <= MAX_ARRAY_SIZE, "Cannot read range bigger than %s but got %s", MAX_ARRAY_SIZE, range);
             this.readerMemoryUsage = memoryContext.newLocalMemoryContext(ReferenceCountedReader.class.getSimpleName());
         }
 
@@ -317,7 +317,7 @@ public abstract class AbstractParquetDataSource
         @Override
         public long getDiskOffset()
         {
-            return range.getOffset();
+            return range.offset();
         }
 
         @Override
@@ -327,9 +327,9 @@ public abstract class AbstractParquetDataSource
             checkState(referenceCount > 0, "Chunk reader is already closed");
 
             if (data == null) {
-                byte[] buffer = new byte[toIntExact(range.getLength())];
+                byte[] buffer = new byte[toIntExact(range.length())];
                 readerMemoryUsage.setBytes(buffer.length);
-                readFully(range.getOffset(), buffer, 0, buffer.length);
+                readFully(range.offset(), buffer, 0, buffer.length);
                 data = Slices.wrappedBuffer(buffer);
             }
 
