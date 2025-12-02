@@ -82,9 +82,9 @@ public class CachingOrcDataSource
             throws IOException
     {
         DiskRange newCacheRange = regionFinder.getRangeFor(offset);
-        cachePosition = newCacheRange.getOffset();
-        cacheLength = newCacheRange.getLength();
-        cache = dataSource.readFully(newCacheRange.getOffset(), cacheLength);
+        cachePosition = newCacheRange.offset();
+        cacheLength = newCacheRange.length();
+        cache = dataSource.readFully(newCacheRange.offset(), cacheLength);
     }
 
     @Override
@@ -120,7 +120,7 @@ public class CachingOrcDataSource
         // will not result in eviction of cache that otherwise could have served any of the DiskRanges provided.
         for (Map.Entry<K, DiskRange> entry : diskRanges.entrySet()) {
             DiskRange diskRange = entry.getValue();
-            Slice buffer = readFully(diskRange.getOffset(), diskRange.getLength());
+            Slice buffer = readFully(diskRange.offset(), diskRange.length());
             builder.put(entry.getKey(), new MemoryOrcDataReader(dataSource.getId(), buffer, buffer.length()));
         }
         return builder.buildOrThrow();

@@ -145,7 +145,7 @@ public abstract class AbstractOrcDataSource
         ImmutableMap.Builder<K, DiskRange> smallRangesBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<K, DiskRange> largeRangesBuilder = ImmutableMap.builder();
         for (Entry<K, DiskRange> entry : diskRanges.entrySet()) {
-            if (entry.getValue().getLength() <= maxReadSizeBytes) {
+            if (entry.getValue().length() <= maxReadSizeBytes) {
                 smallRangesBuilder.put(entry);
             }
             else {
@@ -188,12 +188,12 @@ public abstract class AbstractOrcDataSource
             Map<DiskRange, Slice> buffers = new LinkedHashMap<>();
             for (DiskRange mergedRange : mergedRanges) {
                 // read full range in one request
-                Slice buffer = readFully(mergedRange.getOffset(), mergedRange.getLength());
+                Slice buffer = readFully(mergedRange.offset(), mergedRange.length());
                 buffers.put(mergedRange, buffer);
             }
 
             for (Entry<K, DiskRange> entry : diskRanges.entrySet()) {
-                slices.put(entry.getKey(), new MemoryOrcDataReader(id, getDiskRangeSlice(entry.getValue(), buffers), entry.getValue().getLength()));
+                slices.put(entry.getKey(), new MemoryOrcDataReader(id, getDiskRangeSlice(entry.getValue(), buffers), entry.getValue().length()));
             }
         }
 
@@ -237,8 +237,8 @@ public abstract class AbstractOrcDataSource
             load();
 
             checkArgument(diskRange.contains(nestedDiskRange));
-            int offset = toIntExact(nestedDiskRange.getOffset() - diskRange.getOffset());
-            return bufferSlice.slice(offset, nestedDiskRange.getLength());
+            int offset = toIntExact(nestedDiskRange.offset() - diskRange.offset());
+            return bufferSlice.slice(offset, nestedDiskRange.length());
         }
 
         private void load()
@@ -247,7 +247,7 @@ public abstract class AbstractOrcDataSource
                 return;
             }
             try {
-                bufferSlice = readFully(diskRange.getOffset(), diskRange.getLength());
+                bufferSlice = readFully(diskRange.offset(), diskRange.length());
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
@@ -279,19 +279,19 @@ public abstract class AbstractOrcDataSource
         @Override
         public long getRetainedSize()
         {
-            return data == null ? 0 : diskRange.getLength();
+            return data == null ? 0 : diskRange.length();
         }
 
         @Override
         public int getSize()
         {
-            return diskRange.getLength();
+            return diskRange.length();
         }
 
         @Override
         public int getMaxBufferSize()
         {
-            return diskRange.getLength();
+            return diskRange.length();
         }
 
         @Override
@@ -303,8 +303,8 @@ public abstract class AbstractOrcDataSource
                 if (data == null) {
                     throw new OrcCorruptionException(id, "Data loader returned null");
                 }
-                if (data.length() != diskRange.getLength()) {
-                    throw new OrcCorruptionException(id, "Expected to load %s bytes, but %s bytes were loaded", diskRange.getLength(), data.length());
+                if (data.length() != diskRange.length()) {
+                    throw new OrcCorruptionException(id, "Expected to load %s bytes, but %s bytes were loaded", diskRange.length(), data.length());
                 }
             }
             return data.slice(newPosition, data.length() - newPosition);
@@ -327,7 +327,7 @@ public abstract class AbstractOrcDataSource
 
         public DiskOrcDataReader(DiskRange diskRange)
         {
-            super(id, diskRange.getLength(), toIntExact(options.getStreamBufferSize().toBytes()));
+            super(id, diskRange.length(), toIntExact(options.getStreamBufferSize().toBytes()));
             this.diskRange = diskRange;
         }
 
@@ -335,7 +335,7 @@ public abstract class AbstractOrcDataSource
         public void read(long position, byte[] buffer, int bufferOffset, int length)
                 throws IOException
         {
-            readFully(diskRange.getOffset() + position, buffer, bufferOffset, length);
+            readFully(diskRange.offset() + position, buffer, bufferOffset, length);
         }
 
         @Override
