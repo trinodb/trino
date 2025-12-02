@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import io.airlift.configuration.secrets.SecretsResolver;
+import io.airlift.log.Level;
+import io.airlift.log.Logging;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
@@ -275,6 +277,12 @@ public class PlanTester
         implements Closeable
 {
     public static final BlockEncodingManager TESTING_BLOCK_ENCODING_MANAGER = new BlockEncodingManager(new BlockEncodingSimdSupport(true));
+
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("io.trino.bootstrap", Level.WARN);
+        logging.setLevel("org.hibernate.validator.internal.util.Version", Level.WARN);
+    }
 
     private final Session defaultSession;
     private final ExecutorService notificationExecutor;
