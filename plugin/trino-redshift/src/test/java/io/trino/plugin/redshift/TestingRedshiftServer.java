@@ -66,7 +66,7 @@ public final class TestingRedshiftServer
     public static boolean isExceptionRecoverable(Throwable exception)
     {
         return exception != null && (
-                exception.getMessage().matches(".* concurrent transaction .*")
+                exception.getMessage().matches(".* concurrent transaction.*")
                         || exception.getMessage().matches(".*deadlock detected.*")
                         || exception.getMessage().matches(".*could not open relation with OID.*")
                         || exception.getMessage().matches(".*The connection attempt failed.*"));
