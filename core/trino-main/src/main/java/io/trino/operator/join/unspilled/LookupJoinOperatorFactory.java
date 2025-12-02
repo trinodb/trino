@@ -15,7 +15,6 @@ package io.trino.operator.join.unspilled;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.JoinOperatorType;
-import io.trino.operator.OperatorFactory;
 import io.trino.operator.ProcessorContext;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessorOperator;
@@ -27,6 +26,7 @@ import io.trino.operator.join.LookupOuterOperator.LookupOuterOperatorFactory;
 import io.trino.operator.join.unspilled.JoinProbe.JoinProbeFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.TypedOperatorFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
@@ -49,7 +49,7 @@ public class LookupJoinOperatorFactory
     private final boolean outputSingleMatch;
     private final boolean waitForBuild;
     private final JoinProbeFactory joinProbeFactory;
-    private final Optional<OperatorFactory> outerOperatorFactory;
+    private final Optional<TypedOperatorFactory> outerOperatorFactory;
     private final JoinBridgeManager<? extends PartitionedLookupSourceFactory> joinBridgeManager;
 
     private boolean closed;
@@ -80,12 +80,16 @@ public class LookupJoinOperatorFactory
             this.outerOperatorFactory = Optional.empty();
         }
         else {
-            this.outerOperatorFactory = Optional.of(new LookupOuterOperatorFactory(
+            LookupOuterOperatorFactory outerOperatorFactory = new LookupOuterOperatorFactory(
                     operatorId,
                     planNodeId,
                     probeOutputTypes,
                     buildOutputTypes,
-                    lookupSourceFactoryManager));
+                    lookupSourceFactoryManager);
+            this.outerOperatorFactory = Optional.of(
+                    new TypedOperatorFactory(
+                            outerOperatorFactory,
+                            outerOperatorFactory.getTypes()));
         }
     }
 
@@ -110,7 +114,7 @@ public class LookupJoinOperatorFactory
     }
 
     @Override
-    public Optional<OperatorFactory> createOuterOperatorFactory()
+    public Optional<TypedOperatorFactory> createOuterOperatorFactory()
     {
         return outerOperatorFactory;
     }

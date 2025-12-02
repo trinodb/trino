@@ -15,9 +15,9 @@ package io.trino.operator.index;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.DriverFactory;
-import io.trino.operator.OperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.TypedOperatorFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
@@ -35,7 +35,7 @@ public class IndexBuildDriverFactoryProvider
     private final int outputOperatorId;
     private final PlanNodeId planNodeId;
     private final boolean inputDriver;
-    private final List<OperatorFactory> coreOperatorFactories;
+    private final List<TypedOperatorFactory> coreOperatorFactories;
     private final List<Type> outputTypes;
     private final Optional<DynamicTupleFilterFactory> dynamicTupleFilterFactory;
 
@@ -45,7 +45,7 @@ public class IndexBuildDriverFactoryProvider
             PlanNodeId planNodeId,
             boolean inputDriver,
             List<Type> outputTypes,
-            List<OperatorFactory> coreOperatorFactories,
+            List<TypedOperatorFactory> coreOperatorFactories,
             Optional<DynamicTupleFilterFactory> dynamicTupleFilterFactory)
     {
         requireNonNull(planNodeId, "planNodeId is null");
@@ -80,16 +80,16 @@ public class IndexBuildDriverFactoryProvider
                 pipelineId,
                 inputDriver,
                 false,
-                ImmutableList.<OperatorFactory>builder()
+                ImmutableList.<TypedOperatorFactory>builder()
                         .addAll(coreOperatorFactories)
-                        .add(new PagesIndexBuilderOperatorFactory(outputOperatorId, planNodeId, indexSnapshotBuilder, "IndexBuilder"))
+                        .add(new TypedOperatorFactory(new PagesIndexBuilderOperatorFactory(outputOperatorId, planNodeId, indexSnapshotBuilder, "IndexBuilder"), outputTypes))
                         .build(),
                 OptionalInt.empty());
     }
 
     public DriverFactory createStreaming(PageBuffer pageBuffer, Page indexKeyTuple)
     {
-        ImmutableList.Builder<OperatorFactory> operatorFactories = ImmutableList.<OperatorFactory>builder()
+        ImmutableList.Builder<TypedOperatorFactory> operatorFactories = ImmutableList.<TypedOperatorFactory>builder()
                 .addAll(coreOperatorFactories);
 
         if (dynamicTupleFilterFactory.isPresent()) {
@@ -97,7 +97,7 @@ public class IndexBuildDriverFactoryProvider
             operatorFactories.add(dynamicTupleFilterFactory.get().filterWithTuple(indexKeyTuple));
         }
 
-        operatorFactories.add(new PageBufferOperatorFactory(outputOperatorId, planNodeId, pageBuffer, "IndexBuilder"));
+        operatorFactories.add(new TypedOperatorFactory(new PageBufferOperatorFactory(outputOperatorId, planNodeId, pageBuffer, "IndexBuilder"), ImmutableList.of()));
 
         return new DriverFactory(pipelineId, inputDriver, false, operatorFactories.build(), OptionalInt.empty());
     }

@@ -18,13 +18,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.trino.operator.FilterAndProjectOperator;
-import io.trino.operator.OperatorFactory;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.PageFilterEvaluator;
+import io.trino.sql.planner.TypedOperatorFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.relational.Expressions;
 import io.trino.type.BlockTypeOperators;
@@ -87,10 +87,10 @@ public class DynamicTupleFilterFactory
                 .collect(toImmutableList());
     }
 
-    public OperatorFactory filterWithTuple(Page tuplePage)
+    public TypedOperatorFactory filterWithTuple(Page tuplePage)
     {
         Supplier<PageProcessor> processor = createPageProcessor(tuplePage.getColumns(tupleFilterChannels), OptionalInt.empty());
-        return FilterAndProjectOperator.createOperatorFactory(filterOperatorId, planNodeId, processor, outputTypes, DataSize.ofBytes(0), 0);
+        return new TypedOperatorFactory(FilterAndProjectOperator.createOperatorFactory(filterOperatorId, planNodeId, processor, outputTypes, DataSize.ofBytes(0), 0), outputTypes);
     }
 
     @VisibleForTesting

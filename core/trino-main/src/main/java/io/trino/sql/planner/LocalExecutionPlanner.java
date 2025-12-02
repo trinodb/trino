@@ -663,12 +663,14 @@ public class LocalExecutionPlanner
         context.addDriverFactory(
                 true,
                 new PhysicalOperation(
-                        outputOperatorFactory.createOutputOperator(
-                                context.getNextOperatorId(),
-                                plan.getId(),
-                                outputTypes,
-                                pagePreprocessor,
-                                createExchangePagesSerdeFactory(plannerContext.getBlockEncodingSerde(), session)),
+                        new TypedOperatorFactory(
+                                outputOperatorFactory.createOutputOperator(
+                                        context.getNextOperatorId(),
+                                        plan.getId(),
+                                        outputTypes,
+                                        pagePreprocessor,
+                                        createExchangePagesSerdeFactory(plannerContext.getBlockEncodingSerde(), session)),
+                                outputTypes),
                         physicalOperation),
                 context);
 
@@ -729,30 +731,31 @@ public class LocalExecutionPlanner
         {
             boolean inputDriver = context.isInputDriver();
             OptionalInt driverInstances = context.getDriverInstanceCount();
-            List<OperatorFactory> operatorFactories = physicalOperation.getOperatorFactories();
+            List<TypedOperatorFactory> operatorFactories = physicalOperation.getOperatorFactories();
             addLookupOuterDrivers(outputDriver, operatorFactories);
             addDriverFactory(inputDriver, outputDriver, operatorFactories, driverInstances);
         }
 
-        private void addLookupOuterDrivers(boolean isOutputDriver, List<OperatorFactory> operatorFactories)
+        private void addLookupOuterDrivers(boolean isOutputDriver, List<TypedOperatorFactory> operatorFactories)
         {
             // For an outer join on the lookup side (RIGHT or FULL) add an additional
             // driver to output the unused rows in the lookup source
             for (int i = 0; i < operatorFactories.size(); i++) {
-                OperatorFactory operatorFactory = operatorFactories.get(i);
+                TypedOperatorFactory typedOperatorFactory = operatorFactories.get(i);
+                OperatorFactory operatorFactory = typedOperatorFactory.operatorFactory();
                 if (!(operatorFactory instanceof JoinOperatorFactory lookupJoin)) {
                     continue;
                 }
 
-                Optional<OperatorFactory> outerOperatorFactoryResult = lookupJoin.createOuterOperatorFactory();
+                Optional<TypedOperatorFactory> outerOperatorFactoryResult = lookupJoin.createOuterOperatorFactory();
                 if (outerOperatorFactoryResult.isPresent()) {
                     // Add a new driver to output the unmatched rows in an outer join.
                     // We duplicate all of the factories above the JoinOperator (the ones reading from the joins),
                     // and replace the JoinOperator with the OuterOperator (the one that produces unmatched rows).
-                    ImmutableList.Builder<OperatorFactory> newOperators = ImmutableList.builder();
+                    ImmutableList.Builder<TypedOperatorFactory> newOperators = ImmutableList.builder();
                     newOperators.add(outerOperatorFactoryResult.get());
                     operatorFactories.subList(i + 1, operatorFactories.size()).stream()
-                            .map(OperatorFactory::duplicate)
+                            .map(TypedOperatorFactory::duplicate)
                             .forEach(newOperators::add);
 
                     addDriverFactory(false, isOutputDriver, newOperators.build(), OptionalInt.of(1));
@@ -760,7 +763,7 @@ public class LocalExecutionPlanner
             }
         }
 
-        private void addDriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
+        private void addDriverFactory(boolean inputDriver, boolean outputDriver, List<TypedOperatorFactory> operatorFactories, OptionalInt driverInstances)
         {
             driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances));
         }
@@ -4285,27 +4288,42 @@ public class LocalExecutionPlanner
      */
     private static class PhysicalOperation
     {
-        private final List<OperatorFactory> operatorFactories;
+        private final List<TypedOperatorFactory> operatorFactories;
         private final Map<Symbol, Integer> layout;
         private final List<Type> types;
 
         public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout)
+        {
+            this(new TypedOperatorFactory(operatorFactory, toTypes(layout)), layout);
+        }
+
+        public PhysicalOperation(TypedOperatorFactory operatorFactory, Map<Symbol, Integer> layout)
         {
             this(operatorFactory, layout, Optional.empty());
         }
 
         public PhysicalOperation(OperatorFactory operatorFactory, Map<Symbol, Integer> layout, PhysicalOperation source)
         {
+            this(new TypedOperatorFactory(operatorFactory, toTypes(layout)), layout, source);
+        }
+
+        public PhysicalOperation(TypedOperatorFactory operatorFactory, Map<Symbol, Integer> layout, PhysicalOperation source)
+        {
             this(operatorFactory, layout, Optional.of(requireNonNull(source, "source is null")));
         }
 
         public PhysicalOperation(OperatorFactory outputOperatorFactory, PhysicalOperation source)
         {
+            this(new TypedOperatorFactory(outputOperatorFactory, ImmutableList.of()), source);
+        }
+
+        public PhysicalOperation(TypedOperatorFactory outputOperatorFactory, PhysicalOperation source)
+        {
             this(outputOperatorFactory, ImmutableMap.of(), Optional.of(requireNonNull(source, "source is null")));
         }
 
         private PhysicalOperation(
-                OperatorFactory operatorFactory,
+                TypedOperatorFactory operatorFactory,
                 Map<Symbol, Integer> layout,
                 Optional<PhysicalOperation> source)
         {
@@ -4314,7 +4332,7 @@ public class LocalExecutionPlanner
             requireNonNull(source, "source is null");
 
             this.types = toTypes(layout);
-            this.operatorFactories = ImmutableList.<OperatorFactory>builder()
+            this.operatorFactories = ImmutableList.<TypedOperatorFactory>builder()
                     .addAll(source.map(PhysicalOperation::getOperatorFactories).orElse(ImmutableList.of()))
                     .add(operatorFactory)
                     .build();
@@ -4352,7 +4370,7 @@ public class LocalExecutionPlanner
             return layout;
         }
 
-        private List<OperatorFactory> getOperatorFactories()
+        private List<TypedOperatorFactory> getOperatorFactories()
         {
             return operatorFactories;
         }
@@ -4363,7 +4381,7 @@ public class LocalExecutionPlanner
     {
         public SpooledPhysicalOperation(OutputSpoolingOperatorFactory outputSpoolingOperatorFactory, PhysicalOperation operation)
         {
-            super(outputSpoolingOperatorFactory, operation.layout, operation);
+            super(new TypedOperatorFactory(outputSpoolingOperatorFactory, operation.getTypes()), operation.layout, operation);
         }
     }
 

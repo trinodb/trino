@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.trino.operator.HashGenerator;
 import io.trino.operator.JoinOperatorType;
-import io.trino.operator.OperatorFactory;
 import io.trino.operator.ProcessorContext;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessorOperator;
@@ -28,6 +27,7 @@ import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.PartitioningSpillerFactory;
+import io.trino.sql.planner.TypedOperatorFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
@@ -61,7 +61,7 @@ public class LookupJoinOperatorFactory
     private final boolean outputSingleMatch;
     private final boolean waitForBuild;
     private final JoinProbeFactory joinProbeFactory;
-    private final Optional<OperatorFactory> outerOperatorFactory;
+    private final Optional<TypedOperatorFactory> outerOperatorFactory;
     private final JoinBridgeManager<? extends LookupSourceFactory> joinBridgeManager;
     private final OptionalInt totalOperatorsCount;
     private final HashGenerator probeHashGenerator;
@@ -99,12 +99,16 @@ public class LookupJoinOperatorFactory
             this.outerOperatorFactory = Optional.empty();
         }
         else {
-            this.outerOperatorFactory = Optional.of(new LookupOuterOperatorFactory(
+            LookupOuterOperatorFactory outerOperatorFactory = new LookupOuterOperatorFactory(
                     operatorId,
                     planNodeId,
                     probeOutputTypes,
                     buildOutputTypes,
-                    lookupSourceFactoryManager));
+                    lookupSourceFactoryManager);
+            this.outerOperatorFactory = Optional.of(
+                    new TypedOperatorFactory(
+                            outerOperatorFactory,
+                            outerOperatorFactory.getTypes()));
         }
         this.totalOperatorsCount = requireNonNull(totalOperatorsCount, "totalOperatorsCount is null");
 
@@ -141,7 +145,7 @@ public class LookupJoinOperatorFactory
     }
 
     @Override
-    public Optional<OperatorFactory> createOuterOperatorFactory()
+    public Optional<TypedOperatorFactory> createOuterOperatorFactory()
     {
         return outerOperatorFactory;
     }

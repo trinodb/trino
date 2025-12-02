@@ -48,6 +48,7 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
+import io.trino.sql.planner.TypedOperatorFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.junit.jupiter.api.Test;
 
@@ -75,6 +76,7 @@ import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePosition
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -114,18 +116,22 @@ public class TestSqlTaskExecution
             //    Scan
             //
             TestingScanOperatorFactory testingScanOperatorFactory = new TestingScanOperatorFactory(0, TABLE_SCAN_NODE_ID);
-            TaskOutputOperatorFactory taskOutputOperatorFactory = new TaskOutputOperatorFactory(
-                    1,
-                    TABLE_SCAN_NODE_ID,
-                    outputBuffer,
-                    Function.identity(),
-                    createTestingPagesSerdeFactory());
+            TypedOperatorFactory testingScanOperatorFactoryTyped = new TypedOperatorFactory(testingScanOperatorFactory, ImmutableList.of(createVarcharType(256)));
+            TypedOperatorFactory taskOutputOperatorFactory =
+                    new TypedOperatorFactory(
+                            new TaskOutputOperatorFactory(
+                                    1,
+                                    TABLE_SCAN_NODE_ID,
+                                    outputBuffer,
+                                    Function.identity(),
+                                    createTestingPagesSerdeFactory()),
+                            ImmutableList.of());
             LocalExecutionPlan localExecutionPlan = new LocalExecutionPlan(
                     ImmutableList.of(new DriverFactory(
                             0,
                             true,
                             true,
-                            ImmutableList.of(testingScanOperatorFactory, taskOutputOperatorFactory),
+                            ImmutableList.of(testingScanOperatorFactoryTyped, taskOutputOperatorFactory),
                             OptionalInt.empty())),
                     ImmutableList.of(TABLE_SCAN_NODE_ID));
             TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, driverTimeoutExecutor, taskStateMachine);

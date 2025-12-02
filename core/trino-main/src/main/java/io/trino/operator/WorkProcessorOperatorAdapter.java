@@ -19,6 +19,7 @@ import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.join.JoinOperatorFactory;
 import io.trino.operator.join.LookupJoinOperatorFactory;
 import io.trino.spi.Page;
+import io.trino.sql.planner.TypedOperatorFactory;
 
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -77,7 +78,7 @@ public class WorkProcessorOperatorAdapter
         }
 
         @Override
-        public Optional<OperatorFactory> createOuterOperatorFactory()
+        public Optional<TypedOperatorFactory> createOuterOperatorFactory()
         {
             if (!(operatorFactory instanceof JoinOperatorFactory lookupJoin)) {
                 return Optional.empty();

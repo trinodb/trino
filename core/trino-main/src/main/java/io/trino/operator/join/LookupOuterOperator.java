@@ -91,6 +91,14 @@ public class LookupOuterOperator
         {
             throw new UnsupportedOperationException("Source operator factories cannot be duplicated");
         }
+
+        public List<Type> getTypes()
+        {
+            ImmutableList.Builder<Type> builder = ImmutableList.builder();
+            builder.addAll(probeOutputTypes);
+            builder.addAll(buildOutputTypes);
+            return builder.build();
+        }
     }
 
     private final OperatorContext operatorContext;

@@ -13,11 +13,11 @@
  */
 package io.trino.operator.join;
 
-import io.trino.operator.OperatorFactory;
+import io.trino.sql.planner.TypedOperatorFactory;
 
 import java.util.Optional;
 
 public interface JoinOperatorFactory
 {
-    Optional<OperatorFactory> createOuterOperatorFactory();
+    Optional<TypedOperatorFactory> createOuterOperatorFactory();
 }

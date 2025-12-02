@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.trino.sql.planner.TypedOperatorFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
 import jakarta.annotation.Nullable;
 
@@ -39,9 +40,9 @@ public class DriverFactory
     // must synchronize between createDriver() and noMoreDrivers(), but isNoMoreDrivers() is safe without synchronizing
     @GuardedBy("this")
     private volatile boolean noMoreDrivers;
-    private volatile List<OperatorFactory> operatorFactories;
+    private volatile List<TypedOperatorFactory> operatorFactories;
 
-    public DriverFactory(int pipelineId, boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
+    public DriverFactory(int pipelineId, boolean inputDriver, boolean outputDriver, List<TypedOperatorFactory> operatorFactories, OptionalInt driverInstances)
     {
         this.pipelineId = pipelineId;
         this.inputDriver = inputDriver;
@@ -51,6 +52,7 @@ public class DriverFactory
         this.driverInstances = requireNonNull(driverInstances, "driverInstances is null");
 
         List<PlanNodeId> sourceIds = operatorFactories.stream()
+                .map(TypedOperatorFactory::operatorFactory)
                 .filter(SourceOperatorFactory.class::isInstance)
                 .map(SourceOperatorFactory.class::cast)
                 .map(SourceOperatorFactory::getSourceId)
@@ -92,7 +94,7 @@ public class DriverFactory
     @Nullable
     public List<OperatorFactory> getOperatorFactories()
     {
-        return operatorFactories;
+        return operatorFactories.stream().map(TypedOperatorFactory::operatorFactory).collect(toImmutableList());
     }
 
     public Driver createDriver(DriverContext driverContext)
@@ -103,8 +105,8 @@ public class DriverFactory
             synchronized (this) {
                 // must check noMoreDrivers after acquiring the lock
                 checkState(!noMoreDrivers, "noMoreDrivers is already set");
-                for (OperatorFactory operatorFactory : operatorFactories) {
-                    Operator operator = operatorFactory.createOperator(driverContext);
+                for (TypedOperatorFactory operatorFactory : operatorFactories) {
+                    Operator operator = operatorFactory.operatorFactory().createOperator(driverContext);
                     operators.add(operator);
                 }
             }
@@ -142,8 +144,8 @@ public class DriverFactory
         if (noMoreDrivers) {
             return;
         }
-        for (OperatorFactory operatorFactory : operatorFactories) {
-            operatorFactory.noMoreOperators();
+        for (TypedOperatorFactory operatorFactory : operatorFactories) {
+            operatorFactory.operatorFactory().noMoreOperators();
         }
         operatorFactories = null;
         noMoreDrivers = true;
