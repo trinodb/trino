@@ -17,7 +17,6 @@ import io.airlift.concurrent.BoundedExecutor;
 
 import java.util.concurrent.Executor;
 
-import static java.lang.ScopedValue.where;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -27,7 +26,7 @@ import static java.util.Objects.requireNonNull;
 public class ReentrantBoundedExecutor
         implements Executor
 {
-    private final ScopedValue<Void> executorThreadMarkers = ScopedValue.newInstance();
+    private final ThreadLocal<Boolean> executorThreadMarkers = ThreadLocal.withInitial(() -> false);
     private final Executor boundedExecutor;
     private final Executor coreExecutor;
 
@@ -40,13 +39,20 @@ public class ReentrantBoundedExecutor
     @Override
     public void execute(Runnable task)
     {
-        // We are just interested whether this is reentrant execution
-        if (executorThreadMarkers.isBound()) {
+        if (executorThreadMarkers.get()) {
             // schedule recursive task immediately as it's being scheduled from currently executed task
             coreExecutor.execute(task);
             return;
         }
 
-        boundedExecutor.execute(() -> where(executorThreadMarkers, null).run(task));
+        boundedExecutor.execute(() -> {
+            executorThreadMarkers.set(true);
+            try {
+                task.run();
+            }
+            finally {
+                executorThreadMarkers.remove();
+            }
+        });
     }
 }
