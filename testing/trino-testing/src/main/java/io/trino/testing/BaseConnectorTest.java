@@ -5497,12 +5497,13 @@ public abstract class BaseConnectorTest
         int threads = 4;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
+        long insertTimeoutMillis = getConcurrentInsertTimeout().toMillis();
         try (TestTable table = createTableWithOneIntegerColumn("test_insert")) {
             String tableName = table.getName();
 
             List<Future<OptionalInt>> futures = IntStream.range(0, threads)
                     .mapToObj(threadNumber -> executor.submit(() -> {
-                        barrier.await(10, SECONDS);
+                        barrier.await(insertTimeoutMillis, MILLISECONDS);
                         try {
                             getQueryRunner().execute("INSERT INTO " + tableName + " VALUES (" + threadNumber + ")");
                             return OptionalInt.of(threadNumber);
@@ -5524,7 +5525,7 @@ public abstract class BaseConnectorTest
                     .collect(toImmutableList());
 
             List<Integer> values = futures.stream()
-                    .map(future -> tryGetFutureValue(future, 10, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
+                    .map(future -> tryGetFutureValue(future, (int) insertTimeoutMillis, MILLISECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
                     .filter(OptionalInt::isPresent)
                     .map(OptionalInt::getAsInt)
                     .collect(toImmutableList());
@@ -5542,7 +5543,7 @@ public abstract class BaseConnectorTest
         }
         finally {
             executor.shutdownNow();
-            executor.awaitTermination(10, SECONDS);
+            executor.awaitTermination(insertTimeoutMillis, MILLISECONDS);
         }
     }
 
@@ -5550,6 +5551,14 @@ public abstract class BaseConnectorTest
     {
         // By default, do not expect INSERT to fail in case of concurrent inserts
         throw new AssertionError("Unexpected concurrent insert failure", e);
+    }
+
+    protected Duration getConcurrentInsertTimeout()
+    {
+        // most often we experienced this test failing due to timeout waiting on the barrier,
+        // the reason behind this for pooled connectors is connection timeout,
+        // making this timeout adjustable according to connection timeout settings
+        return new Duration(10, SECONDS);
     }
 
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
