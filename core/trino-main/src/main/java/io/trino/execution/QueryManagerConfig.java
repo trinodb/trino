@@ -171,6 +171,7 @@ public class QueryManagerConfig
     // above this threshold.
     // TODO: Consider the cost of restarting the stage as part of adaptive planning.
     private DataSize faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold = DataSize.of(5, GIGABYTE);
+    private boolean operatorOutputValidationEnabled = true;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -1251,6 +1252,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold(DataSize faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold)
     {
         this.faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold = faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold;
+        return this;
+    }
+
+    public boolean isOperatorOutputValidationEnabled()
+    {
+        return operatorOutputValidationEnabled;
+    }
+
+    @Config("operator-output-validation-enabled")
+    @ConfigDescription("Runtime validation of blocks produced by operators")
+    public QueryManagerConfig setOperatorOutputValidationEnabled(boolean operatorOutputValidationEnabled)
+    {
+        this.operatorOutputValidationEnabled = operatorOutputValidationEnabled;
         return this;
     }
 }

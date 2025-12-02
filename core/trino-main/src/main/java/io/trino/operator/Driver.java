@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -30,6 +31,9 @@ import io.trino.execution.SplitAssignment;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 
 import java.io.Closeable;
@@ -53,6 +57,7 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static com.google.common.util.concurrent.Futures.withTimeout;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.SystemSessionProperties.isOperatorOutputValidationEnabled;
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.Boolean.TRUE;
@@ -72,6 +77,8 @@ public class Driver
     private static final Logger log = Logger.get(Driver.class);
 
     private static final Duration UNLIMITED_DURATION = new Duration(Long.MAX_VALUE, NANOSECONDS);
+
+    private final boolean operatorOutputValidationEnabled; // todo config
 
     private final DriverContext driverContext;
     private final List<TypedOperator> activeOperators;
@@ -160,6 +167,7 @@ public class Driver
         SettableFuture<Void> future = SettableFuture.create();
         future.set(null);
         driverBlockedFuture.set(future);
+        operatorOutputValidationEnabled = isOperatorOutputValidationEnabled(driverContext.getSession());
     }
 
     private static final class TypedOperator
@@ -448,7 +456,9 @@ public class Driver
 
         boolean movedPage = false;
         for (int i = 0; i < activeOperators.size() - 1 && !driverContext.isTerminatingOrDone(); i++) {
-            Operator current = activeOperators.get(i).operator();
+            TypedOperator currentTyped = activeOperators.get(i);
+            Operator current = currentTyped.operator();
+            Optional<List<Type>> currentOutputTypes = currentTyped.types();
             Operator next = activeOperators.get(i + 1).operator();
 
             // skip blocked operator
@@ -464,6 +474,10 @@ public class Driver
 
                 // if we got an output page, add it to the next operator
                 if (page != null && page.getPositionCount() != 0) {
+                    if (operatorOutputValidationEnabled && currentOutputTypes.isPresent()) {
+                        validateOperatorOutputPage(page, current, currentOutputTypes.get());
+                    }
+
                     next.addInput(page);
                     next.getOperatorContext().recordAddInput(operationTimer, page);
                     movedPage = true;
@@ -542,6 +556,89 @@ public class Driver
         }
 
         return NOT_BLOCKED;
+    }
+
+    private void validateOperatorOutputPage(Page page, Operator operator, List<Type> types)
+    {
+        if (operator instanceof OutputSpoolingOperatorFactory.OutputSpoolingOperator) {
+            // OutputSpoolingOperator requires special handling
+            if (page.getChannelCount() != 1 || !(page.getBlock(0) instanceof RowBlock)) {
+                throw new TrinoException(
+                        GENERIC_INTERNAL_ERROR,
+                        "Expected single row block for OutputSpoolingOperator;  operator=%s; blocks=%s; types=%s".formatted(
+                                operatorDebugInfo(operator),
+                                blocksDebugInfo(page),
+                                types));
+            }
+            return;
+        }
+
+        if (page.getChannelCount() != types.size()) {
+            throw new TrinoException(
+                    GENERIC_INTERNAL_ERROR,
+                    "Invalid number of channels; got %s expected %s; operator=%s; blocks=%s; types=%s".formatted(
+                            page.getChannelCount(),
+                            types.size(),
+                            operatorDebugInfo(operator),
+                            blocksDebugInfo(page),
+                            types));
+        }
+
+        List<String> mismatches = null;
+        for (int channel = 0; channel < types.size(); channel++) {
+            Type type = types.get(channel);
+            Block block = page.getBlock(channel);
+            if (!isBlockValidForType(block, type)) {
+                if (mismatches == null) {
+                    mismatches = new ArrayList<>();
+                }
+                mismatches.add("Bad block %s for channel %s of type %s".formatted(blockDebugInfo(block), channel, type));
+            }
+        }
+        if (mismatches != null) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR,
+                    "Bad block types found for operator %s; blocks=%s; types=%s; mismatches=%s".formatted(
+                            operatorDebugInfo(operator),
+                            blocksDebugInfo(page),
+                            types,
+                            mismatches));
+        }
+    }
+
+    private static String blocksDebugInfo(Page page)
+    {
+        ArrayList<String> debugInfos = new ArrayList<>();
+        for (int i = 0; i < page.getChannelCount(); i++) {
+            debugInfos.add(blockDebugInfo(page.getBlock(i)));
+        }
+        return Joiner.on(",").join(debugInfos);
+    }
+
+    private static String blockDebugInfo(Block block)
+    {
+        ValueBlock underlyingValueBlock = block.getUnderlyingValueBlock();
+        if (block != underlyingValueBlock) {
+            return "%s/%s".formatted(block, underlyingValueBlock);
+        }
+        else {
+            return block.toString();
+        }
+    }
+
+    private boolean isBlockValidForType(Block block, Type type)
+    {
+        ValueBlock underlyingValueBlock = block.getUnderlyingValueBlock();
+        return type.getValueBlockType().isInstance(underlyingValueBlock);
+    }
+
+    private String operatorDebugInfo(Operator operator)
+    {
+        String baseInfo = operator.getOperatorContext().getDriverContext().getTaskId() + "/" + operator.getOperatorContext().getOperatorType() + "/" + operator.getOperatorContext().getOperatorId();
+        String extraInfo = "";
+        if (operator instanceof TableScanOperator tableScanOperator) {
+            extraInfo = "[" + tableScanOperator.getTable() + "/" + tableScanOperator.getColumns() + "]";
+        }
+        return baseInfo + extraInfo;
     }
 
     @GuardedBy("exclusiveLock")

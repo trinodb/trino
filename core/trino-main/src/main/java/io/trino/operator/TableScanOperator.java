@@ -285,4 +285,14 @@ public class TableScanOperator
         operatorContext.setLatestConnectorMetrics(source.getMetrics());
         return page;
     }
+
+    public TableHandle getTable()
+    {
+        return table;
+    }
+
+    public List<ColumnHandle> getColumns()
+    {
+        return columns;
+    }
 }

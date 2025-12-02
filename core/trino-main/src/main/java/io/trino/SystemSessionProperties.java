@@ -220,6 +220,7 @@ public final class SystemSessionProperties
     public static final String COLUMNAR_FILTER_EVALUATION_ENABLED = "columnar_filter_evaluation_enabled";
     public static final String SPOOLING_ENABLED = "spooling_enabled";
     public static final String DEBUG_ADAPTIVE_PLANNER = "debug_adaptive_planner";
+    public static final String OPERATOR_OUTPUT_VALIDATION_ENABLED = "operator_output_validation_enabled";
     public static final String SPOOLING_UNSUPPORTED_WARNING = "spooling_unsupported_warning";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -1139,6 +1140,11 @@ public final class SystemSessionProperties
                         false,
                         true),
                 booleanProperty(
+                        OPERATOR_OUTPUT_VALIDATION_ENABLED,
+                        "Runtime validation of blocks produced by operators",
+                        queryManagerConfig.isOperatorOutputValidationEnabled(),
+                        true),
+                booleanProperty(
                         SPOOLING_UNSUPPORTED_WARNING,
                         "Generate warning when client lacks support for spooling protocol",
                         spoolingEnabledConfig.isEnabled() && spoolingEnabledConfig.isUnsupportedWarningEnabled(),
@@ -2040,6 +2046,11 @@ public final class SystemSessionProperties
     public static boolean isDebugAdaptivePlannerEnabled(Session session)
     {
         return session.getSystemProperty(DEBUG_ADAPTIVE_PLANNER, Boolean.class);
+    }
+
+    public static boolean isOperatorOutputValidationEnabled(Session session)
+    {
+        return session.getSystemProperty(OPERATOR_OUTPUT_VALIDATION_ENABLED, Boolean.class);
     }
 
     public static boolean isSpoolingUnsupportedWarningEnabled(Session session)
