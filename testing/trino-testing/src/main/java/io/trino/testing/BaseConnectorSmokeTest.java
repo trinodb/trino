@@ -607,37 +607,40 @@ public abstract class BaseConnectorSmokeTest
         String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
         String viewName = "test_materialized_view_" + randomNameSuffix();
-        assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+        try {
+            assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
 
-        // reading
-        assertThat(query("SELECT * FROM " + viewName))
-                .skippingTypesCheck()
-                .matches("SELECT * FROM nation");
+            // reading
+            assertThat(query("SELECT * FROM " + viewName))
+                    .skippingTypesCheck()
+                    .matches("SELECT * FROM nation");
 
-        // details
-        assertThat(((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + viewName)))
-                .matches("(?s)" +
-                        "CREATE MATERIALIZED VIEW \\Q" + catalogName + "." + schemaName + "." + viewName + "\\E" +
-                        ".* AS\n" +
-                        "SELECT \\*\n" +
-                        "FROM\n" +
-                        "  nation");
+            // details
+            assertThat(((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + viewName)))
+                    .matches("(?s)" +
+                            "CREATE MATERIALIZED VIEW \\Q" + catalogName + "." + schemaName + "." + viewName + "\\E" +
+                            ".* AS\n" +
+                            "SELECT \\*\n" +
+                            "FROM\n" +
+                            "  nation");
 
-        // information_schema.tables (no filtering on table_name so that ConnectorMetadata.listViews is exercised)
-        assertThat(query("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '" + schemaName + "'"))
-                .containsAll("VALUES (VARCHAR '" + viewName + "', VARCHAR 'BASE TABLE')");
+            // information_schema.tables (no filtering on table_name so that ConnectorMetadata.listViews is exercised)
+            assertThat(query("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '" + schemaName + "'"))
+                    .containsAll("VALUES (VARCHAR '" + viewName + "', VARCHAR 'BASE TABLE')");
 
-        // information_schema.views
-        assertThat(computeActual("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "'").getOnlyColumnAsSet())
-                .doesNotContain(viewName);
-        assertThat(query("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "' AND table_name = '" + viewName + "'"))
-                .returnsEmptyResult();
+            // information_schema.views
+            assertThat(computeActual("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "'").getOnlyColumnAsSet())
+                    .doesNotContain(viewName);
+            assertThat(query("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "' AND table_name = '" + viewName + "'"))
+                    .returnsEmptyResult();
 
-        // materialized view-specific listings
-        assertThat(query("SELECT name FROM system.metadata.materialized_views WHERE catalog_name = '" + catalogName + "' AND schema_name = '" + schemaName + "'"))
-                .containsAll("VALUES VARCHAR '" + viewName + "'");
-
-        assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+            // materialized view-specific listings
+            assertThat(query("SELECT name FROM system.metadata.materialized_views WHERE catalog_name = '" + catalogName + "' AND schema_name = '" + schemaName + "'"))
+                    .containsAll("VALUES VARCHAR '" + viewName + "'");
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + viewName);
+        }
     }
 
     @Test
@@ -714,9 +717,13 @@ public abstract class BaseConnectorSmokeTest
         if (!hasBehavior(SUPPORTS_COMMENT_ON_MATERIALIZED_VIEW_COLUMN)) {
             if (hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW)) {
                 String viewName = "test_materialized_view_" + randomNameSuffix();
-                assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
-                assertQueryFails("COMMENT ON COLUMN " + viewName + ".regionkey IS 'new region key comment'", "This connector does not support setting materialized view column comments");
-                assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+                try {
+                    assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+                    assertQueryFails("COMMENT ON COLUMN " + viewName + ".regionkey IS 'new region key comment'", "This connector does not support setting materialized view column comments");
+                }
+                finally {
+                    assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + viewName);
+                }
                 return;
             }
             abort("Skipping as connector does not support MATERIALIZED VIEW COLUMN COMMENT");
@@ -747,7 +754,7 @@ public abstract class BaseConnectorSmokeTest
             assertThat(getColumnComment(viewName, "regionkey")).isEqualTo(null);
         }
         finally {
-            assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + viewName);
         }
     }
 
