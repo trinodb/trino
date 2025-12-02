@@ -79,14 +79,13 @@ public final class FlatHash
     private int nextGroupId;
     private int maxFill;
 
-    public FlatHash(FlatHashStrategy flatHashStrategy, GroupByHashMode hashMode, int expectedSize, UpdateMemory checkMemoryReservation)
+    public FlatHash(FlatHashStrategy flatHashStrategy, boolean cacheHashValue, int expectedSize, UpdateMemory checkMemoryReservation)
     {
         this.flatHashStrategy = requireNonNull(flatHashStrategy, "flatHashStrategy is null");
         this.checkMemoryReservation = requireNonNull(checkMemoryReservation, "checkMemoryReservation is null");
         boolean hasVariableData = flatHashStrategy.isAnyVariableWidth();
         this.variableWidthData = hasVariableData ? new AppendOnlyVariableWidthData() : null;
-        requireNonNull(hashMode, "hashMode is null");
-        this.cacheHashValue = hashMode.isHashCached();
+        this.cacheHashValue = cacheHashValue;
 
         // the record is laid out as follows:
         // 1. optional raw hash (long)
