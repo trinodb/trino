@@ -98,7 +98,7 @@ public final class JoinTestUtils
         for (int i = 0; i < buildSideSetup.getPartitionCount(); i++) {
             DriverContext buildDriverContext = buildPipeline.addDriverContext();
             HashBuilderOperator buildOperator = buildSideSetup.getBuildOperatorFactory().createOperator(buildDriverContext);
-            Driver driver = Driver.createDriver(
+            Driver driver = Driver.createDriverNoTypes(
                     buildDriverContext,
                     buildSideSetup.getBuildSideSourceOperatorFactory().createOperator(buildDriverContext),
                     buildOperator);
@@ -153,7 +153,7 @@ public final class JoinTestUtils
         DriverContext collectDriverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         ValuesOperator.ValuesOperatorFactory valuesOperatorFactory = new ValuesOperator.ValuesOperatorFactory(0, new PlanNodeId("values"), buildPages.build());
         LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory sinkOperatorFactory = new LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory(localExchange.createSinkFactory(), 1, new PlanNodeId("sink"), Function.identity());
-        Driver sourceDriver = Driver.createDriver(collectDriverContext,
+        Driver sourceDriver = Driver.createDriverNoTypes(collectDriverContext,
                 valuesOperatorFactory.createOperator(collectDriverContext),
                 sinkOperatorFactory.createOperator(collectDriverContext));
         valuesOperatorFactory.noMoreOperators();

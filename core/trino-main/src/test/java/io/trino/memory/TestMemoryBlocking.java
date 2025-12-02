@@ -110,7 +110,7 @@ public class TestMemoryBlocking
                 ImmutableList.of(),
                 DynamicFilter.EMPTY);
         PageConsumerOperator sink = createSinkOperator(types);
-        Driver driver = Driver.createDriver(driverContext, source, sink);
+        Driver driver = Driver.createDriverNoTypes(driverContext, source, sink);
         assertThat(driver.getDriverContext()).isSameAs(driverContext);
         assertThat(driver.isFinished()).isFalse();
         Split testSplit = new Split(TEST_CATALOG_HANDLE, new TestSplit());

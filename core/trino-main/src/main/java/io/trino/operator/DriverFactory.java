@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.trino.spi.type.Type;
 import io.trino.sql.planner.TypedOperatorFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
 import jakarta.annotation.Nullable;
@@ -101,6 +102,7 @@ public class DriverFactory
     {
         requireNonNull(driverContext, "driverContext is null");
         List<Operator> operators = new ArrayList<>(operatorFactories.size());
+        List<List<Type>> outputTypes = new ArrayList<>(operatorFactories.size());
         try {
             synchronized (this) {
                 // must check noMoreDrivers after acquiring the lock
@@ -108,10 +110,11 @@ public class DriverFactory
                 for (TypedOperatorFactory operatorFactory : operatorFactories) {
                     Operator operator = operatorFactory.operatorFactory().createOperator(driverContext);
                     operators.add(operator);
+                    outputTypes.add(operatorFactory.types());
                 }
             }
             // Driver creation can continue without holding the lock
-            return Driver.createDriver(driverContext, operators);
+            return Driver.createDriver(driverContext, operators, outputTypes);
         }
         catch (Throwable failure) {
             for (Operator operator : operators) {

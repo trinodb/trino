@@ -102,7 +102,7 @@ public class TestHashSemiJoinOperator
                 typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
-        Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
+        Driver driver = Driver.createDriverNoTypes(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
             driver.processUntilBlocked();
         }
@@ -164,7 +164,7 @@ public class TestHashSemiJoinOperator
                 typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
-        Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
+        Driver driver = Driver.createDriverNoTypes(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
             driver.processUntilBlocked();
         }
@@ -226,7 +226,7 @@ public class TestHashSemiJoinOperator
                 typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
-        Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
+        Driver driver = Driver.createDriverNoTypes(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
             driver.processUntilBlocked();
         }
@@ -279,7 +279,7 @@ public class TestHashSemiJoinOperator
                 typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
-        Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
+        Driver driver = Driver.createDriverNoTypes(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
             driver.processUntilBlocked();
         }
@@ -336,7 +336,7 @@ public class TestHashSemiJoinOperator
                 typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
-        Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
+        Driver driver = Driver.createDriverNoTypes(driverContext, buildOperator, setBuilderOperator);
         while (!driver.isFinished()) {
             driver.processUntilBlocked();
         }
@@ -392,7 +392,7 @@ public class TestHashSemiJoinOperator
                     typeOperators);
             Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
-            Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
+            Driver driver = Driver.createDriverNoTypes(driverContext, buildOperator, setBuilderOperator);
             while (!driver.isFinished()) {
                 driver.processUntilBlocked();
             }

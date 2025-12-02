@@ -18,6 +18,7 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.FormatMethod;
@@ -29,6 +30,7 @@ import io.trino.execution.SplitAssignment;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.Type;
 
 import java.io.Closeable;
 import java.util.ArrayList;
@@ -46,6 +48,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.Futures.withTimeout;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -71,10 +74,10 @@ public class Driver
     private static final Duration UNLIMITED_DURATION = new Duration(Long.MAX_VALUE, NANOSECONDS);
 
     private final DriverContext driverContext;
-    private final List<Operator> activeOperators;
+    private final List<TypedOperator> activeOperators;
     // this is present only for debugging
     @SuppressWarnings("unused")
-    private final List<Operator> allOperators;
+    private final List<TypedOperator> allOperators;
     private final Optional<SourceOperator> sourceOperator;
 
     // This variable acts as a staging area. When new splits (encapsulated in SplitAssignment) are
@@ -99,17 +102,17 @@ public class Driver
         ALIVE, NEED_DESTRUCTION, DESTROYING, DESTROYED
     }
 
-    public static Driver createDriver(DriverContext driverContext, List<Operator> operators)
+    public static Driver createDriver(DriverContext driverContext, List<Operator> operators, List<List<Type>> operatorTypes)
     {
         requireNonNull(driverContext, "driverContext is null");
         requireNonNull(operators, "operators is null");
-        Driver driver = new Driver(driverContext, operators);
+        Driver driver = new Driver(driverContext, operators, Optional.of(operatorTypes));
         driver.initialize();
         return driver;
     }
 
     @VisibleForTesting
-    public static Driver createDriver(DriverContext driverContext, Operator firstOperator, Operator... otherOperators)
+    public static Driver createDriverNoTypes(DriverContext driverContext, Operator firstOperator, Operator... otherOperators)
     {
         requireNonNull(driverContext, "driverContext is null");
         requireNonNull(firstOperator, "firstOperator is null");
@@ -118,15 +121,29 @@ public class Driver
                 .add(firstOperator)
                 .add(otherOperators)
                 .build();
-        return createDriver(driverContext, operators);
+        Driver driver = new Driver(driverContext, operators, Optional.empty());
+        driver.initialize();
+        return driver;
     }
 
-    private Driver(DriverContext driverContext, List<Operator> operators)
+    private Driver(DriverContext driverContext, List<Operator> operators, Optional<List<List<Type>>> operatorOutputTypes)
     {
+        requireNonNull(operators, "operators is null");
+        requireNonNull(operatorOutputTypes, "operatorOutputTypes is null");
+        if (operatorOutputTypes.isPresent()) {
+            checkArgument(operators.size() == operatorOutputTypes.get().size(), "operators and operatorOutputTypes size mismatch");
+            this.allOperators = Streams.zip(
+                    operators.stream(),
+                    operatorOutputTypes.get().stream(),
+                    TypedOperator::new).collect(toImmutableList());
+        }
+        else {
+            this.allOperators = operators.stream().map(TypedOperator::new).collect(toImmutableList());
+        }
+
         this.driverContext = requireNonNull(driverContext, "driverContext is null");
-        this.allOperators = ImmutableList.copyOf(requireNonNull(operators, "operators is null"));
         checkArgument(allOperators.size() > 1, "At least two operators are required");
-        this.activeOperators = new ArrayList<>(operators);
+        this.activeOperators = new ArrayList<>(allOperators);
         checkArgument(!operators.isEmpty(), "There must be at least one operator");
 
         Optional<SourceOperator> sourceOperator = Optional.empty();
@@ -145,12 +162,53 @@ public class Driver
         driverBlockedFuture.set(future);
     }
 
+    private static final class TypedOperator
+    {
+        private final Operator operator;
+        private final Optional<List<Type>> types;
+
+        public TypedOperator(Operator operator)
+        {
+            this(operator, Optional.empty());
+        }
+
+        public TypedOperator(Operator operator, List<Type> types)
+        {
+            this(operator, Optional.of(types));
+        }
+
+        private TypedOperator(Operator operator, Optional<List<Type>> types)
+        {
+            this.types = requireNonNull(types, "types is null").map(ImmutableList::copyOf);
+            this.operator = requireNonNull(operator, "operator is null");
+        }
+
+        public Operator operator()
+        {
+            return operator;
+        }
+
+        public Optional<List<Type>> types()
+        {
+            return types;
+        }
+
+        @Override
+        public String toString()
+        {
+            return "TypedOperator[" +
+                    "operator=" + operator + ", " +
+                    "types=" + types + ']';
+        }
+    }
+
     // the memory revocation request listeners are added here in a separate initialize() method
     // instead of the constructor to prevent leaking the "this" reference to
     // another thread, which will cause unsafe publication of this instance.
     private void initialize()
     {
         activeOperators.stream()
+                .map(TypedOperator::operator)
                 .map(Operator::getOperatorContext)
                 .forEach(operatorContext -> operatorContext.setMemoryRevocationRequestListener(() -> driverBlockedFuture.get().set(null)));
     }
@@ -195,7 +253,7 @@ public class Driver
     {
         checkLockHeld("Lock must be held to call isTerminatingOrDoneInternal");
 
-        boolean terminatingOrDone = state.get() != State.ALIVE || activeOperators.isEmpty() || activeOperators.getLast().isFinished() || driverContext.isTerminatingOrDone();
+        boolean terminatingOrDone = state.get() != State.ALIVE || activeOperators.isEmpty() || activeOperators.getLast().operator().isFinished() || driverContext.isTerminatingOrDone();
         if (terminatingOrDone) {
             state.compareAndSet(State.ALIVE, State.NEED_DESTRUCTION);
         }
@@ -357,6 +415,7 @@ public class Driver
         // before we update driverBlockedFuture above and we don't want to miss that
         // notification, so we check to see whether that's the case before returning.
         boolean memoryRevokingRequested = activeOperators.stream()
+                .map(TypedOperator::operator)
                 .filter(operator -> !revokingOperators.containsKey(operator))
                 .map(Operator::getOperatorContext)
                 .anyMatch(OperatorContext::isMemoryRevokingRequested);
@@ -382,15 +441,15 @@ public class Driver
         // TODO remove the second part of the if statement, when these operators are fixed
         // Note: finish should not be called on the natural source of the pipeline as this could cause the task to finish early
         if (!activeOperators.isEmpty() && activeOperators.size() != allOperators.size()) {
-            Operator rootOperator = activeOperators.get(0);
+            Operator rootOperator = activeOperators.get(0).operator();
             rootOperator.finish();
             rootOperator.getOperatorContext().recordFinish(operationTimer);
         }
 
         boolean movedPage = false;
         for (int i = 0; i < activeOperators.size() - 1 && !driverContext.isTerminatingOrDone(); i++) {
-            Operator current = activeOperators.get(i);
-            Operator next = activeOperators.get(i + 1);
+            Operator current = activeOperators.get(i).operator();
+            Operator next = activeOperators.get(i + 1).operator();
 
             // skip blocked operator
             if (getBlockedFuture(current).isPresent()) {
@@ -424,9 +483,9 @@ public class Driver
         }
 
         for (int index = activeOperators.size() - 1; index >= 0; index--) {
-            if (activeOperators.get(index).isFinished()) {
+            if (activeOperators.get(index).operator().isFinished()) {
                 // close and remove this operator and all source operators
-                List<Operator> finishedOperators = this.activeOperators.subList(0, index + 1);
+                List<TypedOperator> finishedOperators = this.activeOperators.subList(0, index + 1);
                 Throwable throwable = closeAndDestroyOperators(finishedOperators);
                 finishedOperators.clear();
                 if (throwable != null) {
@@ -435,7 +494,7 @@ public class Driver
                 }
                 // Finish the next operator, which is now the first operator.
                 if (!activeOperators.isEmpty()) {
-                    Operator newRootOperator = activeOperators.get(0);
+                    Operator newRootOperator = activeOperators.get(0).operator();
                     newRootOperator.finish();
                     newRootOperator.getOperatorContext().recordFinish(operationTimer);
                 }
@@ -447,7 +506,8 @@ public class Driver
         if (!movedPage) {
             List<Operator> blockedOperators = new ArrayList<>();
             List<ListenableFuture<Void>> blockedFutures = new ArrayList<>();
-            for (Operator operator : activeOperators) {
+            for (TypedOperator typedOperator : activeOperators) {
+                Operator operator = typedOperator.operator();
                 Optional<ListenableFuture<Void>> blocked = getBlockedFuture(operator);
                 if (blocked.isPresent()) {
                     blockedOperators.add(operator);
@@ -457,8 +517,8 @@ public class Driver
 
             if (!blockedFutures.isEmpty()) {
                 // allow for operators to unblock drivers when they become finished
-                for (Operator operator : activeOperators) {
-                    operator.getOperatorContext().getFinishedFuture().ifPresent(blockedFutures::add);
+                for (TypedOperator typedOperator : activeOperators) {
+                    typedOperator.operator().getOperatorContext().getFinishedFuture().ifPresent(blockedFutures::add);
                 }
 
                 // unblock when the first future is complete
@@ -488,7 +548,7 @@ public class Driver
     private void handleMemoryRevoke()
     {
         for (int i = 0; i < activeOperators.size() && !driverContext.isTerminatingOrDone(); i++) {
-            Operator operator = activeOperators.get(i);
+            Operator operator = activeOperators.get(i).operator();
 
             if (revokingOperators.containsKey(operator)) {
                 checkOperatorFinishedRevoking(operator);
@@ -554,14 +614,15 @@ public class Driver
         }
     }
 
-    private Throwable closeAndDestroyOperators(List<Operator> operators)
+    private Throwable closeAndDestroyOperators(List<TypedOperator> operators)
     {
         // record the current interrupted status (and clear the flag); we'll reset it later
         boolean wasInterrupted = Thread.interrupted();
 
         Throwable inFlightException = null;
         try {
-            for (Operator operator : operators) {
+            for (TypedOperator typedOperator : operators) {
+                Operator operator = typedOperator.operator();
                 try {
                     operator.close();
                 }

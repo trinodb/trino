@@ -104,7 +104,7 @@ class TestMemoryPools
         Operator outputOperator = outputFactory.createOutputOperator(2, new PlanNodeId("output"), ImmutableList.of(), Function.identity(), createTestingPagesSerdeFactory(LZ4)).createOperator(driverContext);
         RevocableMemoryOperator revocableMemoryOperator = new RevocableMemoryOperator(revokableOperatorContext, reservedPerPage, numberOfPages);
 
-        Driver driver = Driver.createDriver(driverContext, revocableMemoryOperator, outputOperator);
+        Driver driver = Driver.createDriverNoTypes(driverContext, revocableMemoryOperator, outputOperator);
         return new RevocableMemoryDriver(driver, revocableMemoryOperator);
     }
 

@@ -104,7 +104,7 @@ public class TestDriver
                 .build());
 
         Operator sink = createSinkOperator(types);
-        Driver driver = Driver.createDriver(driverContext, source, sink);
+        Driver driver = Driver.createDriverNoTypes(driverContext, source, sink);
 
         assertThat(driver.getDriverContext()).isSameAs(driverContext);
 
@@ -129,7 +129,7 @@ public class TestDriver
                 .build());
 
         Operator sink = createSinkOperator(types);
-        Driver driver = Driver.createDriver(driverContext, source, sink);
+        Driver driver = Driver.createDriverNoTypes(driverContext, source, sink);
         // let these threads race
         scheduledExecutor.submit(() -> driver.processForDuration(new Duration(1, TimeUnit.NANOSECONDS))); // don't want to call isFinishedInternal in processFor
         scheduledExecutor.submit(driver::close);
@@ -147,7 +147,7 @@ public class TestDriver
                 .build());
 
         PageConsumerOperator sink = createSinkOperator(types);
-        Driver driver = Driver.createDriver(driverContext, source, sink);
+        Driver driver = Driver.createDriverNoTypes(driverContext, source, sink);
 
         assertThat(driver.getDriverContext()).isSameAs(driverContext);
 
@@ -178,7 +178,7 @@ public class TestDriver
                 DynamicFilter.EMPTY);
 
         PageConsumerOperator sink = createSinkOperator(types);
-        Driver driver = Driver.createDriver(driverContext, source, sink);
+        Driver driver = Driver.createDriverNoTypes(driverContext, source, sink);
 
         assertThat(driver.getDriverContext()).isSameAs(driverContext);
 
@@ -200,7 +200,7 @@ public class TestDriver
     public void testBrokenOperatorCloseWhileProcessing()
     {
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), false);
-        Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
+        Driver driver = Driver.createDriverNoTypes(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
 
         assertThat(driver.getDriverContext()).isSameAs(driverContext);
 
@@ -223,7 +223,7 @@ public class TestDriver
             throws Exception
     {
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), true);
-        Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
+        Driver driver = Driver.createDriverNoTypes(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
 
         assertThat(driver.getDriverContext()).isSameAs(driverContext);
 
@@ -256,7 +256,7 @@ public class TestDriver
                 TEST_TABLE_HANDLE,
                 ImmutableList.of());
 
-        Driver driver = Driver.createDriver(driverContext, source, createSinkOperator(types));
+        Driver driver = Driver.createDriverNoTypes(driverContext, source, createSinkOperator(types));
         // the table scan operator will request memory revocation with requestMemoryRevoking()
         // while the driver is still not done with the processFor() method and before it moves to
         // updateDriverBlockedFuture() method.
@@ -278,7 +278,7 @@ public class TestDriver
 
         MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(driverContext.getSession(), types);
         BlockedSinkOperator sink = new BlockedSinkOperator(driverContext.addOperatorContext(1, new PlanNodeId("test"), "sink"), resultBuilder::page, Function.identity());
-        Driver driver = Driver.createDriver(driverContext, source, sink);
+        Driver driver = Driver.createDriverNoTypes(driverContext, source, sink);
 
         ListenableFuture<Void> blocked = driver.processForDuration(new Duration(100, TimeUnit.MILLISECONDS));
         assertThat(blocked.isDone()).isFalse();
@@ -299,7 +299,7 @@ public class TestDriver
         BlockedOperator operator2 = createBlockedOperator(types, 2, "test2");
         Operator operator3 = createSinkOperator(types, 3, "test3");
         Operator operator4 = createSinkOperator(types, 4, "test3");
-        Driver driver = Driver.createDriver(driverContext, operator1, operator2, operator3, operator4);
+        Driver driver = Driver.createDriverNoTypes(driverContext, operator1, operator2, operator3, operator4);
 
         ListenableFuture<Void> blocked = driver.processForDuration(new Duration(20, SECONDS));
         assertThat(blocked).succeedsWithin(10, SECONDS);
@@ -320,7 +320,7 @@ public class TestDriver
         BlockedOperator operator2 = createBlockedOperator(types, 2, "test2");
         Operator operator3 = createSinkOperator(types, 3, "test3");
         Operator operator4 = createSinkOperator(types, 4, "test3");
-        Driver driver = Driver.createDriver(driverContext, operator1, operator2, operator3, operator4);
+        Driver driver = Driver.createDriverNoTypes(driverContext, operator1, operator2, operator3, operator4);
 
         ListenableFuture<Void> blocked = driver.processForDuration(new Duration(20, SECONDS));
         assertThat(blocked.isDone()).isFalse();
@@ -347,7 +347,7 @@ public class TestDriver
                 ImmutableList.of());
 
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"));
-        Driver driver = Driver.createDriver(driverContext, source, brokenOperator);
+        Driver driver = Driver.createDriverNoTypes(driverContext, source, brokenOperator);
 
         // block thread in operator processing
         Future<Boolean> driverProcessFor = executor.submit(() -> driver.processForDuration(new Duration(1, TimeUnit.MILLISECONDS)).isDone());

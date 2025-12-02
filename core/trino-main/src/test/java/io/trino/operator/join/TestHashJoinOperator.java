@@ -436,7 +436,7 @@ public class TestHashJoinOperator
             PageBuffer pageBuffer = new PageBuffer(10);
             PageBufferOperatorFactory pageBufferOperatorFactory = new PageBufferOperatorFactory(18, new PlanNodeId("pageBuffer"), pageBuffer, "PageBuffer");
 
-            Driver joinDriver = Driver.createDriver(joinDriverContext,
+            Driver joinDriver = Driver.createDriverNoTypes(joinDriverContext,
                     valuesOperatorFactory.createOperator(joinDriverContext),
                     joinOperator,
                     pageBufferOperatorFactory.createOperator(joinDriverContext));
