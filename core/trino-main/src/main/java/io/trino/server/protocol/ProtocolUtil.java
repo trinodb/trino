@@ -29,6 +29,7 @@ import io.trino.client.Warning;
 import io.trino.execution.BasicStageInfo;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.BasicStagesInfo;
+import io.trino.execution.ColumnInfo;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryState;
 import io.trino.execution.StageId;
@@ -53,6 +54,7 @@ import io.trino.sql.tree.TypeParameter;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -76,9 +78,19 @@ public final class ProtocolUtil
 
     public static Column createColumn(String name, Type type, boolean supportsParametricDateTime)
     {
+        return createColumn(Optional.empty(), Optional.empty(), Optional.empty(), name, Optional.of(name), type, supportsParametricDateTime);
+    }
+
+    public static Column createColumn(ColumnInfo columnInfo, Type type, boolean supportsParametricDateTime)
+    {
+        return createColumn(columnInfo.catalog(), columnInfo.schema(), columnInfo.table(), columnInfo.name(), columnInfo.label(), type, supportsParametricDateTime);
+    }
+
+    public static Column createColumn(Optional<String> catalog, Optional<String> schema, Optional<String> table, String name, Optional<String> label, Type type, boolean supportsParametricDateTime)
+    {
         String formatted = formatType(TypeSignatureTranslator.toSqlType(type), supportsParametricDateTime);
 
-        return new Column(name, formatted, toClientTypeSignature(type.getTypeSignature(), supportsParametricDateTime));
+        return new Column(catalog, schema, table, name, label, formatted, toClientTypeSignature(type.getTypeSignature(), supportsParametricDateTime));
     }
 
     private static String formatType(DataType type, boolean supportsParametricDateTime)

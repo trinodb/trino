@@ -935,7 +935,7 @@ public class UnaliasSymbolReferences
             List<Symbol> newOutputs = mapper.map(node.getOutputSymbols());
 
             return new PlanAndMappings(
-                    new OutputNode(node.getId(), rewrittenSource.getRoot(), node.getColumnNames(), newOutputs),
+                    new OutputNode(node.getId(), rewrittenSource.getRoot(), node.getColumnInfos(), newOutputs),
                     mapping);
         }
 
