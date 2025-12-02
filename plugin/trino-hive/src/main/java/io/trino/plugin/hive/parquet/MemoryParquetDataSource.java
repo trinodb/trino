@@ -120,13 +120,13 @@ public class MemoryParquetDataSource
                         @Override
                         public long getDiskOffset()
                         {
-                            return diskRange.getOffset();
+                            return diskRange.offset();
                         }
 
                         @Override
                         public Slice read()
                         {
-                            return data.slice(toIntExact(diskRange.getOffset()), toIntExact(diskRange.getLength()));
+                            return data.slice(toIntExact(diskRange.offset()), toIntExact(diskRange.length()));
                         }
 
                         @Override
