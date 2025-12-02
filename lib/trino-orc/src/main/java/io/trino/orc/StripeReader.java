@@ -264,7 +264,7 @@ public class StripeReader
         ImmutableMap.Builder<StreamId, DiskRange> diskRangesBuilder = ImmutableMap.builder();
         for (Entry<StreamId, DiskRange> entry : diskRanges.entrySet()) {
             DiskRange diskRange = entry.getValue();
-            diskRangesBuilder.put(entry.getKey(), new DiskRange(stripeOffset + diskRange.getOffset(), diskRange.getLength()));
+            diskRangesBuilder.put(entry.getKey(), new DiskRange(stripeOffset + diskRange.offset(), diskRange.length()));
         }
         diskRanges = diskRangesBuilder.buildOrThrow();
 

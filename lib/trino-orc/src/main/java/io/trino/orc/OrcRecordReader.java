@@ -875,8 +875,8 @@ public class OrcRecordReader
             // Assumption: bytes that are not part of any range are never read
             while (index < diskRanges.size()) {
                 DiskRange range = diskRanges.get(index);
-                if (range.getEnd() > desiredOffset) {
-                    checkArgument(range.getOffset() <= desiredOffset);
+                if (range.end() > desiredOffset) {
+                    checkArgument(range.offset() <= desiredOffset);
                     return range;
                 }
                 index++;
