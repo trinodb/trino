@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
@@ -24,7 +25,6 @@ import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskState;
 import io.trino.node.NodeState;
 import io.trino.server.NodeStateManager.CurrentNodeState.VersionedState;
-import org.assertj.core.util.VisibleForTesting;
 
 import java.util.List;
 import java.util.Objects;
