@@ -13,11 +13,11 @@
  */
 package io.trino.util;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimeZoneKey;
-import org.assertj.core.util.VisibleForTesting;
 import org.joda.time.DateTime;
 import org.joda.time.DurationFieldType;
 import org.joda.time.MutablePeriod;

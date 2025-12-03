@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -23,7 +24,6 @@ import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
-import org.assertj.core.util.VisibleForTesting;
 
 import java.util.Optional;
 import java.util.function.Function;
