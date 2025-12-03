@@ -51,9 +51,12 @@ public final class BigQueryUtil
     private static boolean isRetryableInternalError(Throwable t)
     {
         if (t instanceof StatusRuntimeException statusRuntimeException) {
-            return statusRuntimeException.getStatus().getCode() == Status.Code.INTERNAL &&
+            return (statusRuntimeException.getStatus().getCode() == Status.Code.INTERNAL &&
                     INTERNAL_ERROR_MESSAGES.stream()
-                            .anyMatch(message -> statusRuntimeException.getMessage().contains(message));
+                            .anyMatch(message -> statusRuntimeException.getMessage().contains(message))) ||
+                    // from Google documentation: UNAVAILABLE - This is most likely a transient condition, which can be corrected by retrying with a backoff.
+                    // https://docs.cloud.google.com/bigquery/docs/reference/datatransfer/rest/v1/Code
+                    statusRuntimeException.getStatus().getCode() == Status.Code.UNAVAILABLE;
         }
         return false;
     }
