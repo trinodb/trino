@@ -19,14 +19,17 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryAllocation;
 import io.trino.spi.memory.MemoryPoolInfo;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.Object2LongMaps;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import org.weakref.jmx.Managed;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -52,13 +55,10 @@ public class ClusterMemoryPool
 
     // Does not include queries with zero memory usage
     @GuardedBy("this")
-    private final Map<QueryId, Long> queryMemoryReservations = new HashMap<>();
+    private final Object2LongMap<QueryId> queryMemoryReservations = new Object2LongOpenHashMap<>();
 
     @GuardedBy("this")
     private final Map<QueryId, List<MemoryAllocation>> queryMemoryAllocations = new HashMap<>();
-
-    @GuardedBy("this")
-    private final Map<QueryId, Long> queryMemoryRevocableReservations = new HashMap<>();
 
     public synchronized MemoryPoolInfo getInfo()
     {
@@ -68,7 +68,6 @@ public class ClusterMemoryPool
                 reservedRevocableDistributedBytes,
                 ImmutableMap.copyOf(queryMemoryReservations),
                 ImmutableMap.copyOf(queryMemoryAllocations),
-                ImmutableMap.copyOf(queryMemoryRevocableReservations),
                 // not providing per-task memory info for cluster-wide pool
                 ImmutableMap.of(),
                 ImmutableMap.of());
@@ -116,14 +115,9 @@ public class ClusterMemoryPool
         return assignedQueries;
     }
 
-    public synchronized Map<QueryId, Long> getQueryMemoryReservations()
+    public synchronized Object2LongMap<QueryId> getQueryMemoryReservations()
     {
-        return ImmutableMap.copyOf(queryMemoryReservations);
-    }
-
-    public synchronized Map<QueryId, Long> getQueryMemoryRevocableReservations()
-    {
-        return ImmutableMap.copyOf(queryMemoryRevocableReservations);
+        return Object2LongMaps.unmodifiable(queryMemoryReservations);
     }
 
     public synchronized void update(List<MemoryInfo> memoryInfos, int assignedQueries)
@@ -136,7 +130,6 @@ public class ClusterMemoryPool
         this.assignedQueries = assignedQueries;
         this.queryMemoryReservations.clear();
         this.queryMemoryAllocations.clear();
-        this.queryMemoryRevocableReservations.clear();
 
         for (MemoryInfo info : memoryInfos) {
             MemoryPoolInfo poolInfo = info.getPool();
@@ -148,13 +141,10 @@ public class ClusterMemoryPool
             reservedDistributedBytes += poolInfo.getReservedBytes();
             reservedRevocableDistributedBytes += poolInfo.getReservedRevocableBytes();
             for (Map.Entry<QueryId, Long> entry : poolInfo.getQueryMemoryReservations().entrySet()) {
-                queryMemoryReservations.merge(entry.getKey(), entry.getValue(), Long::sum);
+                queryMemoryReservations.mergeLong(entry.getKey(), entry.getValue(), Long::sum);
             }
             for (Map.Entry<QueryId, List<MemoryAllocation>> entry : poolInfo.getQueryMemoryAllocations().entrySet()) {
                 queryMemoryAllocations.merge(entry.getKey(), entry.getValue(), this::mergeQueryAllocations);
-            }
-            for (Map.Entry<QueryId, Long> entry : poolInfo.getQueryMemoryRevocableReservations().entrySet()) {
-                queryMemoryRevocableReservations.merge(entry.getKey(), entry.getValue(), Long::sum);
             }
         }
     }
@@ -164,20 +154,22 @@ public class ClusterMemoryPool
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
 
-        Map<String, MemoryAllocation> mergedAllocations = new HashMap<>();
+        Object2LongMap<String> mergedAllocations = new Object2LongOpenHashMap<>();
 
         for (MemoryAllocation allocation : left) {
-            mergedAllocations.put(allocation.getTag(), allocation);
+            mergedAllocations.put(allocation.tag(), allocation.allocation());
         }
 
         for (MemoryAllocation allocation : right) {
-            mergedAllocations.merge(
-                    allocation.getTag(),
-                    allocation,
-                    (a, b) -> new MemoryAllocation(a.getTag(), a.getAllocation() + b.getAllocation()));
+            mergedAllocations.mergeLong(
+                    allocation.tag(),
+                    allocation.allocation(),
+                    Long::sum);
         }
 
-        return new ArrayList<>(mergedAllocations.values());
+        return mergedAllocations.object2LongEntrySet().stream()
+                .map(entry -> new MemoryAllocation(entry.getKey(), entry.getLongValue()))
+                .collect(toImmutableList());
     }
 
     @Override
@@ -193,7 +185,6 @@ public class ClusterMemoryPool
                 .add("assignedQueries", assignedQueries)
                 .add("queryMemoryReservations", queryMemoryReservations)
                 .add("queryMemoryAllocations", queryMemoryAllocations)
-                .add("queryMemoryRevocableReservations", queryMemoryRevocableReservations)
                 .toString();
     }
 }

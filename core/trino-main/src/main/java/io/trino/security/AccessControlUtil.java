@@ -34,7 +34,7 @@ public final class AccessControlUtil
         accessControl.checkCanViewQueryOwnedBy(identity, queryOwner);
     }
 
-    public static List<BasicQueryInfo> filterQueries(Identity identity, List<BasicQueryInfo> queries, AccessControl accessControl)
+    public static List<BasicQueryInfo> filterQueries(Collection<BasicQueryInfo> queries, Identity identity, AccessControl accessControl)
     {
         Collection<Identity> owners = queries.stream()
                 .map(BasicQueryInfo::getSession)
