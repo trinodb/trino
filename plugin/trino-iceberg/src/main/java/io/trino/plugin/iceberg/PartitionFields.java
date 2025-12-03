@@ -61,7 +61,7 @@ public final class PartitionFields
         try {
             PartitionSpec.Builder builder = PartitionSpec.builderFor(schema);
             for (String field : fields) {
-                parsePartitionFields(schema, fields, builder, field);
+                parsePartitionField(schema, fields, builder, field);
             }
             return builder.build();
         }
@@ -70,7 +70,7 @@ public final class PartitionFields
         }
     }
 
-    private static void parsePartitionFields(Schema schema, List<String> fields, PartitionSpec.Builder builder, String field)
+    private static void parsePartitionField(Schema schema, List<String> fields, PartitionSpec.Builder builder, String field)
     {
         for (int i = 1; i < schema.columns().size() + fields.size(); i++) {
             try {
