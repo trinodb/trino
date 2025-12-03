@@ -33,6 +33,11 @@ public final class PrometheusQueryRunner
 {
     private PrometheusQueryRunner() {}
 
+    public static final Integer QUERY_CHUNK_SIZE_DURATION_DAYS = 1;
+    public static final Integer MAX_QUERY_RANGE_DURATION_DAYS = 21;
+
+    public static final Integer DEFAULT_NUMBER_OF_REQUESTS_WITHOUT_TIME_FILTER = MAX_QUERY_RANGE_DURATION_DAYS / QUERY_CHUNK_SIZE_DURATION_DAYS;
+
     public static Builder builder(PrometheusServer prometheusServer)
     {
         return new Builder()
@@ -80,8 +85,8 @@ public final class PrometheusQueryRunner
     {
         PrometheusConnectorConfig config = new PrometheusConnectorConfig();
         config.setPrometheusURI(server.getUri());
-        config.setQueryChunkSizeDuration(new Duration(1, DAYS));
-        config.setMaxQueryRangeDuration(new Duration(21, DAYS));
+        config.setQueryChunkSizeDuration(new Duration(QUERY_CHUNK_SIZE_DURATION_DAYS, DAYS));
+        config.setMaxQueryRangeDuration(new Duration(MAX_QUERY_RANGE_DURATION_DAYS, DAYS));
         config.setCacheDuration(new Duration(30, SECONDS));
         config.setReadTimeout(new Duration(10, SECONDS));
         return new PrometheusClient(config, METRIC_CODEC, TESTING_TYPE_MANAGER);
