@@ -283,7 +283,6 @@ public class PlanTester
 
     private final SqlParser sqlParser;
     private final PlanFragmenter planFragmenter;
-    private final InternalNodeManager nodeManager;
     private final TypeOperators typeOperators;
     private final BlockTypeOperators blockTypeOperators;
     private final PlannerContext plannerContext;
@@ -310,7 +309,6 @@ public class PlanTester
     private final AnalyzePropertyManager analyzePropertyManager;
 
     private final PageFunctionCompiler pageFunctionCompiler;
-    private final ColumnarFilterCompiler filterCompiler;
     private final ExpressionCompiler expressionCompiler;
     private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
     private final JoinCompiler joinCompiler;
@@ -319,7 +317,6 @@ public class PlanTester
     private final CoordinatorDynamicCatalogManager catalogManager;
     private final PluginManager pluginManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
-    private final SpoolingManagerRegistry spoolingManagerRegistry;
     private final TaskManagerConfig taskManagerConfig;
     private final OptimizerConfig optimizerConfig;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
@@ -349,7 +346,7 @@ public class PlanTester
         this.typeOperators = new TypeOperators();
         this.blockTypeOperators = new BlockTypeOperators(typeOperators);
         this.sqlParser = new SqlParser();
-        this.nodeManager = TestingInternalNodeManager.createDefault();
+        InternalNodeManager nodeManager = TestingInternalNodeManager.createDefault();
         PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig().setIncludeCoordinator(true);
         this.optimizerConfig = new OptimizerConfig();
@@ -439,7 +436,7 @@ public class PlanTester
 
         this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager, languageFunctionManager, tracer);
         this.pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
-        this.filterCompiler = new ColumnarFilterCompiler(functionManager, 0);
+        ColumnarFilterCompiler filterCompiler = new ColumnarFilterCompiler(functionManager, 0);
         this.expressionCompiler = new ExpressionCompiler(pageFunctionCompiler, filterCompiler);
         this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(functionManager);
 
@@ -478,7 +475,7 @@ public class PlanTester
                 ImmutableSet.of(new ExcludeColumnsFunction()));
 
         exchangeManagerRegistry = new ExchangeManagerRegistry(noop(), noopTracer(), secretsResolver, new ExchangeManagerConfig());
-        spoolingManagerRegistry = new SpoolingManagerRegistry(
+        SpoolingManagerRegistry spoolingManagerRegistry = new SpoolingManagerRegistry(
                 new InternalNode("nodeId", URI.create("http://localhost:8080"), NodeVersion.UNKNOWN, false),
                 new ServerConfig(),
                 new SpoolingEnabledConfig(),
