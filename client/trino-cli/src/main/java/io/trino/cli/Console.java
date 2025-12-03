@@ -136,17 +136,18 @@ public class Console
             if (hasQuery) {
                 throw new RuntimeException("both --execute and --file specified");
             }
-            try {
-                StringBuilder fileContents = new StringBuilder();
-                for (String file : clientOptions.files) {
+
+            StringBuilder fileContents = new StringBuilder();
+            for (String file : clientOptions.files) {
+                try {
                     fileContents.append(asCharSource(new File(file), UTF_8).read());
                     fileContents.append("\n");
                 }
+                catch (IOException e) {
+                    throw new RuntimeException(format("Error reading from file '%s': %s",file ,e.getMessage()));
+                }
                 query = fileContents.toString();
                 hasQuery = true;
-            }
-            catch (IOException e) {
-                throw new RuntimeException(format("Error reading from file: %s", e.getMessage()));
             }
         }
 

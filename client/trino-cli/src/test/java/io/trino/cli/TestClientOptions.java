@@ -376,6 +376,22 @@ public class TestClientOptions
     }
 
     @Test
+    public void testMultipleFilesOrder()
+    {
+        Console console = createConsole("--file", "file1.sql", "--file", "file3.sql", "--file", "file2.sql");
+        ClientOptions options = console.clientOptions;
+        assertThat(options.files).isEqualTo(ImmutableList.of("file1.sql", "file3.sql", "file2.sql"));
+    }
+
+    @Test
+    public void testRepeatedFiles()
+    {
+        Console console = createConsole("--file", "file1.sql", "--file", "file1.sql");
+        ClientOptions options = console.clientOptions;
+        assertThat(options.files).isEqualTo(ImmutableList.of("file1.sql", "file1.sql"));
+    }
+
+    @Test
     public void testAllClientOptionsHaveMappingToAConnectionProperty()
     {
         Set<String> fieldsWithoutMapping = Arrays.stream(ClientOptions.class.getDeclaredFields())
