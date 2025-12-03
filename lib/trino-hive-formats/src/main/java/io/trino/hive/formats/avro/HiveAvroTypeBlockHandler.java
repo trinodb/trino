@@ -30,6 +30,7 @@ import io.trino.hive.formats.avro.model.AvroLogicalType.TimeMicrosLogicalType;
 import io.trino.hive.formats.avro.model.AvroLogicalType.TimeMillisLogicalType;
 import io.trino.hive.formats.avro.model.AvroLogicalType.TimestampMicrosLogicalType;
 import io.trino.hive.formats.avro.model.AvroLogicalType.TimestampMillisLogicalType;
+import io.trino.hive.formats.avro.model.AvroLogicalType.TimestampNanosLogicalType;
 import io.trino.hive.formats.avro.model.AvroReadAction;
 import io.trino.hive.formats.avro.model.AvroReadAction.LongIoFunction;
 import io.trino.hive.formats.avro.model.BooleanRead;
@@ -149,7 +150,7 @@ public class HiveAvroTypeBlockHandler
                 case BytesDecimalLogicalType bytesDecimalLogicalType -> getAvroLogicalTypeSpiType(bytesDecimalLogicalType);
                 case TimestampMillisLogicalType _ -> hiveSessionTimestamp;
                 // Other logical types ignored by hive/don't map to hive types
-                case FixedDecimalLogicalType _, TimeMicrosLogicalType _, TimeMillisLogicalType _, TimestampMicrosLogicalType _, StringUUIDLogicalType _ -> baseTypeFor(schema, this);
+                case FixedDecimalLogicalType _, TimeMicrosLogicalType _, TimeMillisLogicalType _, TimestampMicrosLogicalType _, TimestampNanosLogicalType _, StringUUIDLogicalType _ -> baseTypeFor(schema, this);
             };
         };
     }
@@ -191,7 +192,7 @@ public class HiveAvroTypeBlockHandler
                 // Hive only supports Bytes Decimal Type
                 case FixedDecimalLogicalType _ -> baseBlockBuildingDecoderWithUnionCoerceAndErrorDelays(readAction);
                 // Other logical types ignored by hive/don't map to hive types
-                case TimeMicrosLogicalType _, TimeMillisLogicalType _, TimestampMicrosLogicalType _, StringUUIDLogicalType _ -> baseBlockBuildingDecoderWithUnionCoerceAndErrorDelays(readAction);
+                case TimeMicrosLogicalType _, TimeMillisLogicalType _, TimestampMicrosLogicalType _, TimestampNanosLogicalType _, StringUUIDLogicalType _ -> baseBlockBuildingDecoderWithUnionCoerceAndErrorDelays(readAction);
             };
         };
     }
