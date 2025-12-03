@@ -297,6 +297,12 @@
                                     <old>method void io.trino.spi.block.PageBuilderStatus::&lt;init&gt;()</old>
                                     <justification>Method is unnecessary</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method boolean io.trino.spi.Node::isWorker()</new>
+                                    <justification>Added the boolean method isWorker</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

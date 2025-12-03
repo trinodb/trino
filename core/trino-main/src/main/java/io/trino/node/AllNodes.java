@@ -25,7 +25,8 @@ public record AllNodes(
         Set<InternalNode> drainingNodes,
         Set<InternalNode> drainedNodes,
         Set<InternalNode> shuttingDownNodes,
-        Set<InternalNode> activeCoordinators)
+        Set<InternalNode> activeCoordinators,
+        Set<InternalNode> activeWorkers)
 {
     public AllNodes
     {
@@ -35,5 +36,6 @@ public record AllNodes(
         drainingNodes = ImmutableSet.copyOf(requireNonNull(drainingNodes, "drainingNodes is null"));
         shuttingDownNodes = ImmutableSet.copyOf(requireNonNull(shuttingDownNodes, "shuttingDownNodes is null"));
         activeCoordinators = ImmutableSet.copyOf(requireNonNull(activeCoordinators, "activeCoordinators is null"));
+        activeWorkers = ImmutableSet.copyOf(requireNonNull(activeWorkers, "activeWorkers is null"));
     }
 }
