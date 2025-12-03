@@ -186,6 +186,7 @@ public class TestTrinoGlueCatalog
                             ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("col1", INTEGER.getTypeId(), Optional.empty())),
                             Optional.empty(),
                             Optional.empty(),
+                            Optional.empty(),
                             Optional.of("test_owner"),
                             ImmutableList.of()),
                     ImmutableMap.of(FILE_FORMAT_PROPERTY, PARQUET, FORMAT_VERSION_PROPERTY, 1),

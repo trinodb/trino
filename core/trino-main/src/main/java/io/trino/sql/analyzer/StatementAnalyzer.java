@@ -66,6 +66,7 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.MaterializedViewFreshness;
@@ -2306,6 +2307,7 @@ class StatementAnalyzer
             if (optionalMaterializedView.isPresent()) {
                 MaterializedViewDefinition materializedViewDefinition = optionalMaterializedView.get();
                 analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
+                boolean useLogicalViewSemantics = shouldUseLogicalViewSemantics(materializedViewDefinition);
                 if (isMaterializedViewSufficientlyFresh(session, name, materializedViewDefinition)) {
                     // If materialized view is sufficiently fresh with respect to its grace period, answer the query using the storage table
                     QualifiedName storageName = getMaterializedViewStorageTableName(materializedViewDefinition)
@@ -2314,10 +2316,13 @@ class StatementAnalyzer
                     checkStorageTableNotRedirected(storageTableName);
                     TableHandle tableHandle = metadata.getTableHandle(session, storageTableName)
                             .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Storage table '%s' does not exist", storageTableName));
-                    return createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.of(tableHandle));
+                    return createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.of(tableHandle), useLogicalViewSemantics);
+                }
+                else if (!useLogicalViewSemantics) {
+                    throw semanticException(VIEW_IS_STALE, table, "Materialized view '%s' is stale", name);
                 }
                 // This is a stale materialized view and should be expanded like a logical view
-                return createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.empty());
+                return createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.empty(), useLogicalViewSemantics);
             }
 
             // This could be a reference to a logical view or a table
@@ -2404,6 +2409,15 @@ class StatementAnalyzer
             // TODO should we compare lastFreshTime with session.start() or with current time? The freshness is calculated with respect to current state of things.
             Duration staleness = Duration.between(lastFreshTime.get(), sessionTimeProvider.getStart(session));
             return staleness.compareTo(gracePeriod) <= 0;
+        }
+
+        private static boolean shouldUseLogicalViewSemantics(MaterializedViewDefinition materializedViewDefinition)
+        {
+            WhenStaleBehavior whenStale = materializedViewDefinition.getWhenStaleBehavior().orElse(WhenStaleBehavior.INLINE);
+            return switch (whenStale) {
+                case WhenStaleBehavior.INLINE -> true;
+                case WhenStaleBehavior.FAIL -> false;
+            };
         }
 
         private void checkStorageTableNotRedirected(QualifiedObjectName source)
@@ -2550,7 +2564,13 @@ class StatementAnalyzer
             return createAndAssignScope(table, scope, fields);
         }
 
-        private Scope createScopeForMaterializedView(Table table, QualifiedObjectName name, Optional<Scope> scope, MaterializedViewDefinition view, Optional<TableHandle> storageTable)
+        private Scope createScopeForMaterializedView(
+                Table table,
+                QualifiedObjectName name,
+                Optional<Scope> scope,
+                MaterializedViewDefinition view,
+                Optional<TableHandle> storageTable,
+                boolean useLogicalViewSemantics)
         {
             return createScopeForView(
                     table,
@@ -2563,7 +2583,8 @@ class StatementAnalyzer
                     view.getPath(),
                     view.getColumns(),
                     storageTable,
-                    true);
+                    true,
+                    useLogicalViewSemantics);
         }
 
         private Scope createScopeForView(Table table, QualifiedObjectName name, Optional<Scope> scope, ViewDefinition view)
@@ -2578,7 +2599,8 @@ class StatementAnalyzer
                     view.getPath(),
                     view.getColumns(),
                     Optional.empty(),
-                    false);
+                    false,
+                    true);
         }
 
         private Scope createScopeForView(
@@ -2592,7 +2614,8 @@ class StatementAnalyzer
                 List<CatalogSchemaName> path,
                 List<ViewColumn> columns,
                 Optional<TableHandle> storageTable,
-                boolean isMaterializedView)
+                boolean isMaterializedView,
+                boolean useLogicalViewSemantics)
         {
             Statement statement = analysis.getStatement();
             if (statement instanceof CreateView viewStatement) {
@@ -2611,18 +2634,27 @@ class StatementAnalyzer
                 throw semanticException(VIEW_IS_RECURSIVE, table, "View is recursive");
             }
 
-            Query query = parseView(originalSql, name, table);
+            if (useLogicalViewSemantics) {
+                Query query = parseView(originalSql, name, table);
 
-            if (!query.getFunctions().isEmpty()) {
-                throw semanticException(NOT_SUPPORTED, table, "View contains inline function: %s", name);
+                if (!query.getFunctions().isEmpty()) {
+                    throw semanticException(NOT_SUPPORTED, table, "View contains inline function: %s", name);
+                }
+
+                analysis.registerTableForView(table, name, isMaterializedView);
+                RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table);
+                analysis.unregisterTableForView();
+
+                checkViewStaleness(columns, descriptor.getVisibleFields(), name, table)
+                        .ifPresent(explanation -> { throw semanticException(VIEW_IS_STALE, table, "View '%s' is stale or in invalid state: %s", name, explanation); });
+
+                if (storageTable.isEmpty()) {
+                    analysis.registerNamedQuery(table, query);
+                }
             }
-
-            analysis.registerTableForView(table, name, isMaterializedView);
-            RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table);
-            analysis.unregisterTableForView();
-
-            checkViewStaleness(columns, descriptor.getVisibleFields(), name, table)
-                    .ifPresent(explanation -> { throw semanticException(VIEW_IS_STALE, table, "View '%s' is stale or in invalid state: %s", name, explanation); });
+            else {
+                checkArgument(storageTable.isPresent(), "A storage table must be present when query analysis is skipped");
+            }
 
             // Derive the type of the view from the stored definition, not from the analysis of the underlying query.
             // This is needed in case the underlying table(s) changed and the query in the view now produces types that
@@ -2641,9 +2673,6 @@ class StatementAnalyzer
             if (storageTable.isPresent()) {
                 List<Field> storageTableFields = analyzeStorageTable(table, viewFields, storageTable.get());
                 analysis.setMaterializedViewStorageTableFields(table, storageTableFields);
-            }
-            else {
-                analysis.registerNamedQuery(table, query);
             }
 
             Scope accessControlScope = Scope.builder()

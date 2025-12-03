@@ -133,6 +133,7 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId(), Optional.empty())),
                 Optional.of(Duration.ZERO),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 ImmutableList.of());
 
@@ -148,6 +149,7 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId(), Optional.empty())),
                 Optional.of(Duration.ZERO),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 ImmutableList.of());
 
@@ -162,6 +164,7 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId(), Optional.empty()),
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId(), Optional.empty())),
                 Optional.of(Duration.ZERO),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 ImmutableList.of());
