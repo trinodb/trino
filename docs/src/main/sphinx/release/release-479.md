@@ -8,7 +8,7 @@
 * Add lineage support for output columns in `SELECT` queries. ({issue}`26241`)
 * Require JDK 25 to build and run Trino. ({issue}`27153`)
 * Require the JDK Vector API to be enabled at runtime. ({issue}`27340`)
-* Add support for `SET DEFAULT` and `DROP DEFAULT` statements. ({issue}`26162`)
+* Add support for setting and dropping column defaults via ALTER TABLE ... ALTER COLUMN" at current. ({issue}`26162`)
 * Add {func}`array_first` and {func}`array_last` functions. ({issue}`27295`)
 * {{breaking}} The configuration property `task.statistics-cpu-timer-enabled` is now defunct and must be removed. ({issue}`27504`)
 * Allow field name declaration in ROW literal.  For example, `row(1 as a, 2 as b)` is now legal. ({issue}`25261`)
