@@ -32,13 +32,15 @@
 
 ## JDBC driver
 
+* Add a `--extra-header` option to support sending arbitrary HTTP headers. ({issue}`15826`)
+
 ## Docker image
 
 * Update JDK to 25.0.1. ({issue}`27117`)
 
 ## CLI
 
-* Add a `--extra-header` argument to the trino-cli to support sending arbitrary HTTP headers to Trino. ({issue}`15826`)
+* Add a `--extra-header` option to support sending arbitrary HTTP headers. ({issue}`15826`)
 * Fix TLS connection failures when using unqualified (single-label, without ".") hostnames. Default Java TLS does not send Server Name Indication (SNI) for such hostnames, which could cause certificate mismatches during TLS termination. ({issue} `27478`)
 
 ## BigQuery connector
@@ -133,7 +135,7 @@
 ## Memory connector
 
 * Add support for setting and dropping column defaults via `ALTER TABLE ... ALTER COLUMN`. ({issue}`26162`)
-* Fix concurrent modification exception in `RENAME SCHEMA` of the `memory` connector. ({issue}`27205`)
+* Fix concurrent modification exception in `RENAME SCHEMA`. ({issue}`27205`)
 
 ## MongoDB connector
 
