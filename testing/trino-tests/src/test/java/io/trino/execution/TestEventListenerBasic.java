@@ -554,17 +554,8 @@ public class TestEventListenerBasic
         QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
 
         List<TableInfo> tables = event.getMetadata().getTables();
-        assertThat(tables).hasSize(2);
-        TableInfo table = tables.get(0);
-        assertThat(table)
-                .hasCatalogSchemaTable("tpch", "tiny", "nation")
-                .hasAuthorization("alice")
-                .isNotDirectlyReferenced()
-                .hasColumnsWithoutMasking("nationkey", "regionkey", "name", "comment")
-                .hasNoRowFilters()
-                .hasTableReferencesSatisfying(tableRef -> assertThat(tableRef).asMaterializedViewInfo().hasCatalogSchemaView("mock", "default", "test_materialized_view_fresh"));
-
-        table = tables.get(1);
+        assertThat(tables).hasSize(1);
+        TableInfo table = tables.getFirst();
         assertThat(table)
                 .hasCatalogSchemaTable("mock", "default", "test_materialized_view_fresh")
                 .hasAuthorization("user")

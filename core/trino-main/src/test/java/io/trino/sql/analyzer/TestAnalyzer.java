@@ -5798,9 +5798,7 @@ public class TestAnalyzer
     public void testAnalyzeFreshMaterializedView()
     {
         analyze("SELECT * FROM fresh_materialized_view");
-        assertFails("SELECT * FROM fresh_materialized_view_non_existent_table")
-                .hasErrorCode(INVALID_VIEW)
-                .hasMessage("line 1:15: Failed analyzing stored view 'tpch.s1.fresh_materialized_view_non_existent_table': line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
+        analyze("SELECT * FROM fresh_materialized_view_non_existent_table");
         assertFails("REFRESH MATERIALIZED VIEW fresh_materialized_view_non_existent_table")
                 .hasErrorCode(TABLE_NOT_FOUND)
                 .hasMessage("line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
@@ -5855,12 +5853,13 @@ public class TestAnalyzer
 
         // Deny access to the table referenced by the underlying query
         accessControlManager.denyIdentityTable((_, table) -> !"t1".equals(table));
-        assertFails(CLIENT_SESSION, "SELECT * FROM fresh_materialized_view", accessControlManager)
-                .hasErrorCode(PERMISSION_DENIED)
-                .hasMessage("Access Denied: View owner does not have sufficient privileges: View owner 'some user' cannot create view that selects from tpch.s1.t1");
+        // When an MV is fresh or within the grace period, analysis of the underlying query is not performed,
+        // so access control checks on the tables referenced by the query are not executed.
+        analyze(CLIENT_SESSION, "SELECT * FROM fresh_materialized_view", accessControlManager);
         assertFails(CLIENT_SESSION, "REFRESH MATERIALIZED VIEW fresh_materialized_view", accessControlManager)
                 .hasErrorCode(PERMISSION_DENIED)
                 .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.t1");
+        // Now we check that when the MV is stale, access to the underlying tables is checked.
         assertFails(CLIENT_SESSION, "SELECT * FROM stale_materialized_view", accessControlManager)
                 .hasErrorCode(PERMISSION_DENIED)
                 .hasMessage("Access Denied: View owner does not have sufficient privileges: View owner 'some user' cannot create view that selects from tpch.s1.t1");
