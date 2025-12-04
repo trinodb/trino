@@ -99,7 +99,7 @@ public class TestMemoryBlocking
         List<Type> types = ImmutableList.of(VARCHAR);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(1, new PlanNodeId("test"), "values"),
                 sourceId,
-                (_, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
+                (_, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 1)
                         .addSequencePage(10, 1)
                         .addSequencePage(10, 1)
@@ -108,6 +108,7 @@ public class TestMemoryBlocking
                         .build()),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
+                types,
                 DynamicFilter.EMPTY);
         PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);

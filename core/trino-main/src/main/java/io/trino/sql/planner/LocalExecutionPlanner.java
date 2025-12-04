@@ -2061,6 +2061,7 @@ public class LocalExecutionPlanner
             Map<Symbol, Integer> sourceLayout;
             TableHandle table = null;
             List<ColumnHandle> columns = null;
+            ImmutableList.Builder<Type> columnTypes = null;
             PhysicalOperation source = null;
             if (sourceNode instanceof TableScanNode tableScanNode) {
                 table = tableScanNode.getTable();
@@ -2068,10 +2069,11 @@ public class LocalExecutionPlanner
                 // extract the column handles and channel to type mapping
                 sourceLayout = new LinkedHashMap<>();
                 columns = new ArrayList<>();
+                columnTypes = ImmutableList.builder();
                 int channel = 0;
                 for (Symbol symbol : tableScanNode.getOutputSymbols()) {
                     columns.add(tableScanNode.getAssignments().get(symbol));
-
+                    columnTypes.add(symbol.type());
                     Integer input = channel;
                     sourceLayout.put(symbol, input);
 
@@ -2147,6 +2149,7 @@ public class LocalExecutionPlanner
                             pageProcessor,
                             table,
                             columns,
+                            columnTypes.build(),
                             dynamicFilter,
                             getTypes(projections),
                             getFilterAndProjectMinOutputPageSize(session),
@@ -2192,12 +2195,14 @@ public class LocalExecutionPlanner
         private PhysicalOperation visitTableScan(PlanNodeId planNodeId, TableScanNode node, Expression filterExpression, LocalExecutionPlanContext context)
         {
             ImmutableList.Builder<ColumnHandle> columns = ImmutableList.builder();
+            ImmutableList.Builder<Type> types = ImmutableList.builder();
             for (Symbol symbol : node.getOutputSymbols()) {
                 columns.add(node.getAssignments().get(symbol));
+                types.add(symbol.type());
             }
 
             DynamicFilter dynamicFilter = getDynamicFilter(node, filterExpression, context);
-            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), planNodeId, node.getId(), pageSourceManager, node.getTable(), columns.build(), dynamicFilter);
+            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), planNodeId, node.getId(), pageSourceManager, node.getTable(), columns.build(), types.build(), dynamicFilter);
             return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
