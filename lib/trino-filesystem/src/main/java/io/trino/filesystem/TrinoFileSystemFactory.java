@@ -24,4 +24,14 @@ public interface TrinoFileSystemFactory
     {
         return create(session.getIdentity());
     }
+
+    default TrinoFileSystem create(ConnectorSession session, boolean cachingEnabled)
+    {
+        return create(session);
+    }
+
+    default TrinoFileSystem create(ConnectorIdentity identity, boolean cachingEnabled)
+    {
+        return create(identity);
+    }
 }
