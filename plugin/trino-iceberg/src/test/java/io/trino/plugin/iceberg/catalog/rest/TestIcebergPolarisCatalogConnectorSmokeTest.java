@@ -95,7 +95,7 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void dropTableFromCatalog(String tableName)
     {
         polarisCatalog.dropTable(getSession().getSchema().orElseThrow(), tableName);
     }

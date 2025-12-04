@@ -192,7 +192,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void dropTableFromCatalog(String tableName)
     {
         backend.dropTable(toIdentifier(tableName), false);
     }

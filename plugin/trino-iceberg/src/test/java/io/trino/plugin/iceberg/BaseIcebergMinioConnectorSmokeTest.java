@@ -329,7 +329,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void dropTableFromCatalog(String tableName)
     {
         HiveMetastore metastore = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()
