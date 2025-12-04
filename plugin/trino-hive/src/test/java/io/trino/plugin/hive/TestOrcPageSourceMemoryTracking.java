@@ -596,7 +596,7 @@ public class TestOrcPageSourceMemoryTracking
                     0,
                     new PlanNodeId("0"),
                     new PlanNodeId("0"),
-                    catalog -> (session, split, table, columnHandles, dynamicFilter) -> pageSource,
+                    _ -> (_, _, _, _, _) -> pageSource,
                     TEST_TABLE_HANDLE,
                     columns.stream().map(ColumnHandle.class::cast).collect(toImmutableList()),
                     DynamicFilter.EMPTY);
@@ -617,7 +617,7 @@ public class TestOrcPageSourceMemoryTracking
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("0"),
-                    (catalog) -> (session, split, table, columnHandles, dynamicFilter) -> pageSource,
+                    (_) -> (_, _, _, _, _) -> pageSource,
                     (_) -> pageProcessor.get(),
                     TEST_TABLE_HANDLE,
                     columns.stream().map(ColumnHandle.class::cast).collect(toList()),
