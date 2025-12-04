@@ -161,7 +161,7 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void dropTableFromCatalog(String tableName)
     {
         // TODO: Get register table tests working
     }

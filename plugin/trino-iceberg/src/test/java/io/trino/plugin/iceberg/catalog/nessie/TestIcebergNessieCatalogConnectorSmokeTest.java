@@ -148,7 +148,7 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void dropTableFromCatalog(String tableName)
     {
         // used when registering a table, which is not supported by the Nessie catalog
     }

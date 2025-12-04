@@ -201,7 +201,7 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
+    protected void dropTableFromCatalog(String tableName)
     {
         jdbcCatalog.dropTable(toIdentifier(tableName), false);
     }
