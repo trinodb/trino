@@ -24,7 +24,7 @@ public final class TrinoServer
 {
     private TrinoServer() {}
 
-    public static void main()
+    public static void main(String[] args)
     {
         Runtime.Version javaVersion = Runtime.version();
         int requiredVersion = requiredJavaVersion();
