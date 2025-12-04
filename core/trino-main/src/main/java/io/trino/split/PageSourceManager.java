@@ -60,7 +60,8 @@ public class PageSourceManager
         }
 
         @Override
-        public ConnectorPageSource createPageSource(Session session,
+        public ConnectorPageSource createPageSource(
+                Session session,
                 Split split,
                 TableHandle table,
                 List<ColumnHandle> columns,
