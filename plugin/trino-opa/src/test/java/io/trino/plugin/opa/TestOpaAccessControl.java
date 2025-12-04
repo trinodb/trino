@@ -35,6 +35,7 @@ import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.security.ViewSecurity;
 import io.trino.spi.type.VarcharType;
 import org.junit.jupiter.api.Test;
 
@@ -135,7 +136,6 @@ final class TestOpaAccessControl
         testTableResourceActions("InsertIntoTable", OpaAccessControl::checkCanInsertIntoTable);
         testTableResourceActions("DeleteFromTable", OpaAccessControl::checkCanDeleteFromTable);
         testTableResourceActions("TruncateTable", OpaAccessControl::checkCanTruncateTable);
-        testTableResourceActions("CreateView", OpaAccessControl::checkCanCreateView);
         testTableResourceActions("DropView", OpaAccessControl::checkCanDropView);
         testTableResourceActions("RefreshMaterializedView", OpaAccessControl::checkCanRefreshMaterializedView);
         testTableResourceActions("DropMaterializedView", OpaAccessControl::checkCanDropMaterializedView);
@@ -207,6 +207,59 @@ final class TestOpaAccessControl
                     }
                 }
                 """.formatted(actionName);
+        assertAccessControlMethodBehaviour(wrappedMethod, ImmutableSet.of(expectedRequest));
+    }
+
+    @Test
+    public void testCreateViewWithoutSecurity()
+    {
+        CatalogSchemaTableName viewName = new CatalogSchemaTableName("my_catalog", "my_schema", "my_view");
+        ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
+                accessControl -> accessControl.checkCanCreateView(TEST_SECURITY_CONTEXT, viewName, Optional.empty()));
+        String expectedRequest =
+                """
+                {
+                    "operation": "CreateView",
+                    "resource": {
+                        "table": {
+                            "catalogName": "%s",
+                            "schemaName": "%s",
+                            "tableName": "%s"
+                        }
+                    }
+                }
+                """.formatted(
+                        viewName.getCatalogName(),
+                        viewName.getSchemaTableName().getSchemaName(),
+                        viewName.getSchemaTableName().getTableName());
+        assertAccessControlMethodBehaviour(wrappedMethod, ImmutableSet.of(expectedRequest));
+    }
+
+    @Test
+    public void testCreateViewWithInvokerSecurity()
+    {
+        CatalogSchemaTableName viewName = new CatalogSchemaTableName("my_catalog", "my_schema", "my_view");
+        Optional<ViewSecurity> security = Optional.of(ViewSecurity.INVOKER);
+        ThrowingMethodWrapper wrappedMethod = new ThrowingMethodWrapper(
+                accessControl -> accessControl.checkCanCreateView(TEST_SECURITY_CONTEXT, viewName, security));
+        String expectedRequest =
+                """
+                {
+                    "operation": "CreateView",
+                    "resource": {
+                        "table": {
+                            "catalogName": "%s",
+                            "schemaName": "%s",
+                            "tableName": "%s"
+                        },
+                        "security": "%s"
+                    }
+                }
+                """.formatted(
+                        viewName.getCatalogName(),
+                        viewName.getSchemaTableName().getSchemaName(),
+                        viewName.getSchemaTableName().getTableName(),
+                        security.get());
         assertAccessControlMethodBehaviour(wrappedMethod, ImmutableSet.of(expectedRequest));
     }
 

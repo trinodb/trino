@@ -29,6 +29,7 @@ import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.security.ViewSecurity;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -259,10 +260,10 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
-    public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
+    public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName, Optional<ViewSecurity> security)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanCreateView(securityContext, getQualifiedObjectName(viewName));
+        accessControl.checkCanCreateView(securityContext, getQualifiedObjectName(viewName), security);
     }
 
     @Override
