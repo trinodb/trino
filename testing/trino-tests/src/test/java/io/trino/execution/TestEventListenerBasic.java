@@ -38,6 +38,7 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
@@ -91,6 +92,8 @@ import static io.trino.common.assertions.TrinoAssertions.assertThat;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
 import static io.trino.execution.TestQueues.createResourceGroupId;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.metrics.Metrics.EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -137,6 +140,7 @@ public class TestEventListenerBasic
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
         queryRunner.createCatalog("tpch", "tpch");
+        SchemaTableName staleMaterializedViewName = new SchemaTableName("default", "test_materialized_view_stale");
         queryRunner.installPlugin(new Plugin()
         {
             @Override
@@ -240,8 +244,14 @@ public class TestEventListenerBasic
                                     Optional.of("alice"),
                                     ImmutableList.of());
                             return ImmutableMap.of(
-                                    new SchemaTableName("default", "test_materialized_view_stale"), definitionStale,
+                                    staleMaterializedViewName, definitionStale,
                                     new SchemaTableName("default", "test_materialized_view_fresh"), definitionFresh);
+                        })
+                        .withGetMaterializedViewsFreshness((session, materializedViewName) -> {
+                            if (materializedViewName.equals(staleMaterializedViewName)) {
+                                return new MaterializedViewFreshness(STALE, Optional.empty());
+                            }
+                            return new MaterializedViewFreshness(FRESH, Optional.empty());
                         })
                         .withData(schemaTableName -> {
                             if (schemaTableName.equals(new SchemaTableName("tiny", "nation")) || schemaTableName.equals(new SchemaTableName("tiny", "nation_storage"))) {
