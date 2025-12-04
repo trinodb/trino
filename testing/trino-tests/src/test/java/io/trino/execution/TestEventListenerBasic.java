@@ -510,6 +510,8 @@ public class TestEventListenerBasic
                 .hasNoTableReferences();
     }
 
+    // Currently, the storage table for a materialized view is not included anywhere in the set of `tables` in the query event.
+    // See for more details: https://github.com/trinodb/trino/pull/18871#discussion_r1412247513
     @Test
     public void testReferencedTablesWithMaterializedViewsStale()
             throws Exception
@@ -540,8 +542,6 @@ public class TestEventListenerBasic
                 .hasViewText("SELECT nationkey AS test_column FROM tpch.tiny.nation");
     }
 
-    // Currently, the storage table for a materialized view is not included anywhere in the set of `tables` in the query event.
-    // See for more details: https://github.com/trinodb/trino/pull/18871#discussion_r1412247513
     @Test
     public void testReferencedTablesWithMaterializedViewsFresh()
             throws Exception
@@ -551,17 +551,8 @@ public class TestEventListenerBasic
         QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
 
         List<TableInfo> tables = event.getMetadata().getTables();
-        assertThat(tables).hasSize(2);
-        TableInfo table = tables.get(0);
-        assertThat(table)
-                .hasCatalogSchemaTable("tpch", "tiny", "nation")
-                .hasAuthorization("alice")
-                .isNotDirectlyReferenced()
-                .hasColumnsWithoutMasking("nationkey", "regionkey", "name", "comment")
-                .hasNoRowFilters()
-                .hasTableReferencesSatisfying(tableRef -> assertThat(tableRef).asMaterializedViewInfo().hasCatalogSchemaView("mock", "default", "test_materialized_view_fresh"));
-
-        table = tables.get(1);
+        assertThat(tables).hasSize(1);
+        TableInfo table = tables.getFirst();
         assertThat(table)
                 .hasCatalogSchemaTable("mock", "default", "test_materialized_view_fresh")
                 .hasAuthorization("user")

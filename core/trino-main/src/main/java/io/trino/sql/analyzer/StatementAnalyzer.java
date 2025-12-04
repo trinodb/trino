@@ -2610,19 +2610,6 @@ class StatementAnalyzer
                 throw semanticException(VIEW_IS_RECURSIVE, table, "View is recursive");
             }
 
-            Query query = parseView(originalSql, name, table);
-
-            if (!query.getFunctions().isEmpty()) {
-                throw semanticException(NOT_SUPPORTED, table, "View contains inline function: %s", name);
-            }
-
-            analysis.registerTableForView(table, name, isMaterializedView);
-            RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table);
-            analysis.unregisterTableForView();
-
-            checkViewStaleness(columns, descriptor.getVisibleFields(), name, table)
-                    .ifPresent(explanation -> { throw semanticException(VIEW_IS_STALE, table, "View '%s' is stale or in invalid state: %s", name, explanation); });
-
             // Derive the type of the view from the stored definition, not from the analysis of the underlying query.
             // This is needed in case the underlying table(s) changed and the query in the view now produces types that
             // are implicitly coercible to the declared view types.
@@ -2642,6 +2629,19 @@ class StatementAnalyzer
                 analysis.setMaterializedViewStorageTableFields(table, storageTableFields);
             }
             else {
+                Query query = parseView(originalSql, name, table);
+
+                if (!query.getFunctions().isEmpty()) {
+                    throw semanticException(NOT_SUPPORTED, table, "View contains inline function: %s", name);
+                }
+
+                analysis.registerTableForView(table, name, isMaterializedView);
+                RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table);
+                analysis.unregisterTableForView();
+
+                checkViewStaleness(columns, descriptor.getVisibleFields(), name, table)
+                        .ifPresent(explanation -> { throw semanticException(VIEW_IS_STALE, table, "View '%s' is stale or in invalid state: %s", name, explanation); });
+
                 analysis.registerNamedQuery(table, query);
             }
 
