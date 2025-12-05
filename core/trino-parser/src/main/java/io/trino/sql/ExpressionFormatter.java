@@ -591,7 +591,7 @@ public final class ExpressionFormatter
 
             builder.append('(')
                     .append(process(node.getValue(), context))
-                    .append(" LIKE ")
+                    .append(node.isCaseInsensitive() ? " ILIKE " : " LIKE ")
                     .append(process(node.getPattern(), context));
 
             node.getEscape().ifPresent(escape -> builder.append(" ESCAPE ")

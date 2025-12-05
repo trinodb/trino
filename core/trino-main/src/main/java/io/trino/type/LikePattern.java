@@ -15,6 +15,7 @@ package io.trino.type;
 
 import io.trino.likematcher.LikeMatcher;
 
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -29,22 +30,31 @@ public class LikePattern
 {
     private final String pattern;
     private final Optional<Character> escape;
+    private final boolean caseInsensitive;
     private final LikeMatcher matcher;
 
     public static LikePattern compile(String pattern, Optional<Character> escape)
     {
-        return new LikePattern(pattern, escape, LikeMatcher.compile(pattern, escape));
+        return compile(pattern, escape, false, true);
     }
 
     public static LikePattern compile(String pattern, Optional<Character> escape, boolean optimize)
     {
-        return new LikePattern(pattern, escape, LikeMatcher.compile(pattern, escape, optimize));
+        return compile(pattern, escape, false, optimize);
     }
 
-    private LikePattern(String pattern, Optional<Character> escape, LikeMatcher matcher)
+    public static LikePattern compile(String pattern, Optional<Character> escape, boolean caseInsensitive, boolean optimize)
+    {
+        String effectivePattern = caseInsensitive ? pattern.toLowerCase(Locale.ROOT) : pattern;
+        Optional<Character> effectiveEscape = escape.map(ch -> caseInsensitive ? Character.toLowerCase(ch) : ch);
+        return new LikePattern(pattern, escape, caseInsensitive, LikeMatcher.compile(effectivePattern, effectiveEscape, optimize));
+    }
+
+    private LikePattern(String pattern, Optional<Character> escape, boolean caseInsensitive, LikeMatcher matcher)
     {
         this.pattern = requireNonNull(pattern, "pattern is null");
         this.escape = requireNonNull(escape, "escape is null");
+        this.caseInsensitive = caseInsensitive;
         this.matcher = requireNonNull(matcher, "likeMatcher is null");
     }
 
@@ -56,6 +66,11 @@ public class LikePattern
     public Optional<Character> getEscape()
     {
         return escape;
+    }
+
+    public boolean isCaseInsensitive()
+    {
+        return caseInsensitive;
     }
 
     public LikeMatcher getMatcher()
@@ -73,13 +88,15 @@ public class LikePattern
             return false;
         }
         LikePattern that = (LikePattern) o;
-        return Objects.equals(pattern, that.pattern) && Objects.equals(escape, that.escape);
+        return Objects.equals(pattern, that.pattern) &&
+                Objects.equals(escape, that.escape) &&
+                caseInsensitive == that.caseInsensitive;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(pattern, escape);
+        return Objects.hash(pattern, escape, caseInsensitive);
     }
 
     @Override
