@@ -69,7 +69,7 @@ public record MongoColumnHandle(String baseName, List<String> dereferenceNames, 
     public Document getDocument()
     {
         return new Document().append("name", getQualifiedName())
-                .append("type", type.getTypeSignature().toString())
+                .append("type", type.getDisplayName())
                 .append("hidden", hidden)
                 .append("dbRefField", dbRefField)
                 .append("comment", comment.orElse(null));

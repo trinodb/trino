@@ -362,7 +362,7 @@ public class MongoSession
 
         Document newColumn = new Document();
         newColumn.append(FIELDS_NAME_KEY, columnMetadata.getName());
-        newColumn.append(FIELDS_TYPE_KEY, columnMetadata.getType().getTypeSignature().toString());
+        newColumn.append(FIELDS_TYPE_KEY, columnMetadata.getType().getDisplayName());
         newColumn.append(COMMENT_KEY, columnMetadata.getComment());
         newColumn.append(FIELDS_HIDDEN_KEY, false);
         columns.add(newColumn);
@@ -437,7 +437,7 @@ public class MongoSession
         List<Document> columns = getColumnMetadata(metadata).stream()
                 .map(document -> {
                     if (document.getString(FIELDS_NAME_KEY).equals(columnName)) {
-                        document.put(FIELDS_TYPE_KEY, type.getTypeSignature().toString());
+                        document.put(FIELDS_TYPE_KEY, type.getDisplayName());
                         return document;
                     }
                     return document;
@@ -909,7 +909,7 @@ public class MongoSession
             if (fieldType.isPresent()) {
                 Document metadata = new Document();
                 metadata.append(FIELDS_NAME_KEY, key);
-                metadata.append(FIELDS_TYPE_KEY, fieldType.get().toString());
+                metadata.append(FIELDS_TYPE_KEY, fieldType.get().getDisplayName());
                 metadata.append(FIELDS_HIDDEN_KEY,
                         key.equals("_id") && fieldType.get().equals(OBJECT_ID));
 
