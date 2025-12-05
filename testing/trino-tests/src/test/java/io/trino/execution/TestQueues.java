@@ -302,6 +302,20 @@ public class TestQueues
 
     @Test
     @Timeout(240)
+    public void testQueryTextBasedSelection()
+            throws Exception
+    {
+        try (QueryRunner queryRunner = TpchQueryRunner.builder().build()) {
+            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+            queryRunner.getCoordinator().getResourceGroupManager().get()
+                    .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_query_text_based_config.json")));
+            assertResourceGroup(queryRunner, newAdhocSession(), "select 1", createResourceGroupId("global", "select_1"));
+            assertResourceGroup(queryRunner, newAdhocSession(), "select 2", createResourceGroupId("global", "select_2"));
+        }
+    }
+
+    @Test
+    @Timeout(240)
     public void testQueryTypeBasedSelection()
             throws Exception
     {

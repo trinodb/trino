@@ -53,6 +53,7 @@ public class StaticSelector
             Optional<Pattern> sourceRegex,
             Optional<List<String>> clientTags,
             Optional<SelectorResourceEstimate> selectorResourceEstimate,
+            Optional<Pattern> queryTextRegex,
             Optional<String> queryType,
             ResourceGroupIdTemplate group)
     {
@@ -63,6 +64,7 @@ public class StaticSelector
         requireNonNull(sourceRegex, "sourceRegex is null");
         requireNonNull(clientTags, "clientTags is null");
         requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
+        requireNonNull(queryTextRegex, "queryTextRegex is null");
         requireNonNull(queryType, "queryType is null");
         this.group = requireNonNull(group, "group is null");
 
@@ -86,6 +88,7 @@ public class StaticSelector
                 }))
                 .add(userGroupRegex.map(userGroupRegexValue ->
                             new BasicMatcher(criteria -> criteria.getUserGroups().stream().anyMatch(userGroup -> userGroupRegexValue.matcher(userGroup).matches()))))
+                .add(queryTextRegex.map(queryTextRegexValue -> new PatternMatcher(variableNames, queryTextRegexValue, SelectionCriteria::getQueryText)))
                 .add(queryType.map(queryTypeValue ->
                             new BasicMatcher(criteria -> queryTypeValue.equalsIgnoreCase(criteria.getQueryType().orElse("")))))
                 .add(selectorResourceEstimate.map(selectorResourceEstimateValue ->
