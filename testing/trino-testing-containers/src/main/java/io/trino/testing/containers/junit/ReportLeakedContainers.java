@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceConfigurationError;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -76,28 +77,38 @@ public final class ReportLeakedContainers
 
             log.info("Checking for leaked containers");
 
-            @SuppressWarnings("resource") // Throws when close is attempted, as this is a global instance.
-            DockerClient dockerClient = DockerClientFactory.lazyClient();
+            ClassLoader previousContextClassLoader = Thread.currentThread().getContextClassLoader();
+            Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
+            try {
+                @SuppressWarnings("resource") // Throws when close is attempted, as this is a global instance.
+                DockerClient dockerClient = DockerClientFactory.lazyClient();
 
-            List<Container> containers = dockerClient.listContainersCmd()
-                    .withLabelFilter(Map.of(DockerClientFactory.TESTCONTAINERS_SESSION_ID_LABEL, DockerClientFactory.SESSION_ID))
-                    // ignore status "exited" - for example, failed containers after using `withStartupAttempts()`
-                    .withStatusFilter(List.of("created", "restarting", "running", "paused"))
-                    .exec()
-                    .stream()
-                    // testcontainers/sshd is implicitly started by testcontainers and we trust the library to stop if when no longer needed
-                    .filter(container -> !container.getImage().startsWith("testcontainers/sshd:"))
-                    .filter(container -> !ignoredIds.contains(container.getId()))
-                    .collect(toImmutableList());
+                List<Container> containers = dockerClient.listContainersCmd()
+                        .withLabelFilter(Map.of(DockerClientFactory.TESTCONTAINERS_SESSION_ID_LABEL, DockerClientFactory.SESSION_ID))
+                        // ignore status "exited" - for example, failed containers after using `withStartupAttempts()`
+                        .withStatusFilter(List.of("created", "restarting", "running", "paused"))
+                        .exec()
+                        .stream()
+                        // testcontainers/sshd is implicitly started by testcontainers and we trust the library to stop if when no longer needed
+                        .filter(container -> !container.getImage().startsWith("testcontainers/sshd:"))
+                        .filter(container -> !ignoredIds.contains(container.getId()))
+                        .collect(toImmutableList());
 
-            if (!containers.isEmpty()) {
-                reportListenerFailure(getClass(), "Leaked containers: %s", containers.stream()
-                        .map(container -> toStringHelper("container")
-                                .add("id", container.getId())
-                                .add("image", container.getImage())
-                                .add("imageId", container.getImageId())
-                                .toString())
-                        .collect(joining(", ", "[", "]")));
+                if (!containers.isEmpty()) {
+                    reportListenerFailure(getClass(), "Leaked containers: %s", containers.stream()
+                            .map(container -> toStringHelper("container")
+                                    .add("id", container.getId())
+                                    .add("image", container.getImage())
+                                    .add("imageId", container.getImageId())
+                                    .toString())
+                            .collect(joining(", ", "[", "]")));
+                }
+            }
+            catch (ServiceConfigurationError | NoClassDefFoundError e) {
+                log.warn(e, "Docker client unavailable, skipping leaked container check");
+            }
+            finally {
+                Thread.currentThread().setContextClassLoader(previousContextClassLoader);
             }
         }
     }
