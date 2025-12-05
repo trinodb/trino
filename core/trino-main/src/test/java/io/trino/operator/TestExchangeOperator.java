@@ -268,6 +268,7 @@ public class TestExchangeOperator
         ExchangeOperatorFactory operatorFactory = new ExchangeOperatorFactory(
                 0,
                 new PlanNodeId("test"),
+                TYPES,
                 directExchangeClientSupplier,
                 SERDE_FACTORY,
                 RetryPolicy.NONE,

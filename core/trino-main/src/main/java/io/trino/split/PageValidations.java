@@ -14,6 +14,7 @@
 package io.trino.split;
 
 import com.google.common.base.Joiner;
+import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ValueBlock;
@@ -64,6 +65,40 @@ public final class PageValidations
         }
     }
 
+    public static void validateOutputPageTypes(Page page, List<Type> expectedTypes, Supplier<String> debugContextSupplier)
+    {
+        if (page.getChannelCount() != expectedTypes.size()) {
+            throw new TrinoException(
+                    GENERIC_INTERNAL_ERROR,
+                    "Invalid number of channels; got %s expected %s; context=%s; blocks=%s; types=%s".formatted(
+                            page.getChannelCount(),
+                            expectedTypes.size(),
+                            debugContextSupplier.get(),
+                            blocksDebugInfo(page),
+                            expectedTypes));
+        }
+
+        List<String> mismatches = null;
+        for (int channel = 0; channel < expectedTypes.size(); channel++) {
+            Type type = expectedTypes.get(channel);
+            Block block = page.getBlock(channel);
+            if (!isBlockValidForType(block, type)) {
+                if (mismatches == null) {
+                    mismatches = new ArrayList<>();
+                }
+                mismatches.add("Bad block %s for channel %s of type %s".formatted(blockDebugInfo(block), channel, type));
+            }
+        }
+        if (mismatches != null) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR,
+                    "Bad block types found for context %s; blocks=%s; types=%s; mismatches=%s".formatted(
+                            debugContextSupplier.get(),
+                            blocksDebugInfo(page),
+                            expectedTypes,
+                            mismatches));
+        }
+    }
+
     private static boolean isBlockValidForType(Block block, Type type)
     {
         ValueBlock underlyingValueBlock = block.getUnderlyingValueBlock();
@@ -71,6 +106,15 @@ public final class PageValidations
     }
 
     private static String blocksDebugInfo(SourcePage page)
+    {
+        ArrayList<String> debugInfos = new ArrayList<>();
+        for (int i = 0; i < page.getChannelCount(); i++) {
+            debugInfos.add(blockDebugInfo(page.getBlock(i)));
+        }
+        return Joiner.on(",").join(debugInfos);
+    }
+
+    private static String blocksDebugInfo(Page page)
     {
         ArrayList<String> debugInfos = new ArrayList<>();
         for (int i = 0; i < page.getChannelCount(); i++) {

@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.slice.Slice;
@@ -29,14 +30,18 @@ import io.trino.spi.Page;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.exchange.ExchangeId;
+import io.trino.spi.type.Type;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.util.Ciphers;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 
+import java.util.List;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.SystemSessionProperties.isSourcePagesValidationEnabled;
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -51,6 +56,7 @@ public class ExchangeOperator
     {
         private final int operatorId;
         private final PlanNodeId sourceId;
+        private final List<Type> outputTypes;
         private final DirectExchangeClientSupplier directExchangeClientSupplier;
         private final PagesSerdeFactory serdeFactory;
         private final RetryPolicy retryPolicy;
@@ -64,6 +70,7 @@ public class ExchangeOperator
         public ExchangeOperatorFactory(
                 int operatorId,
                 PlanNodeId sourceId,
+                List<Type> outputTypes,
                 DirectExchangeClientSupplier directExchangeClientSupplier,
                 PagesSerdeFactory serdeFactory,
                 RetryPolicy retryPolicy,
@@ -71,6 +78,7 @@ public class ExchangeOperator
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
+            this.outputTypes = ImmutableList.copyOf(requireNonNull(outputTypes, "outputTypes is null"));
             this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
             this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
             this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
@@ -115,6 +123,10 @@ public class ExchangeOperator
                     noMoreSplitsTracker,
                     operatorInstanceId);
             noMoreSplitsTracker.operatorAdded(operatorInstanceId);
+
+            if (isSourcePagesValidationEnabled(taskContext.getSession())) {
+                return new OutputValidatingSourceOperator(exchangeOperator, outputTypes);
+            }
             return exchangeOperator;
         }
 
