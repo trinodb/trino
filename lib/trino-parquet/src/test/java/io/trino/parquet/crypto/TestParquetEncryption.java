@@ -475,20 +475,10 @@ public final class TestParquetEncryption
             TupleDomainParquetPredicate predicateAge = new TupleDomainParquetPredicate(
                     domainAge, ImmutableList.of(age), UTC);
 
-            List<RowGroupInfo> groupsAge = getFilteredRowGroups(
-                    0,
-                    source.getEstimatedSize(),
-                    source,
-                    metadata,
-                    List.of(domainAge),
-                    List.of(predicateAge),
-                    ImmutableMap.of(ImmutableList.of("age"), age),
-                    UTC,
-                    200,
-                    ParquetReaderOptions.builder().build());
+            Map<String, List<Integer>> data = readTwoColumnFile(file, new TestingKeyRetriever(Optional.of(KEY_FOOT), Optional.of(KEY_AGE), Optional.of(KEY_ID)), domainAge, predicateAge);
 
-            // No row-groups should pass after dictionary pruning
-            assertThat(groupsAge).isEmpty();
+            // Should be filtered by dictionary filtering in reader
+            assertThat(data).containsValues(List.of(), List.of());
 
             // ——— Predicate on inaccessible column (id = missingId) → should fail (no column key) ———
             TupleDomain<ColumnDescriptor> domainId = TupleDomain.withColumnDomains(ImmutableMap.of(id, singleValue(INTEGER, (long) missingId)));
@@ -905,11 +895,28 @@ public final class TestParquetEncryption
         }
     }
 
+    private static Map<String, List<Integer>> readTwoColumnFile(
+            File file, DecryptionKeyRetriever retriever)
+            throws IOException
+    {
+        ColumnDescriptor ageDescriptor = new ColumnDescriptor(
+                new String[] {"age"},
+                Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("age"), 0, 0);
+
+        ColumnDescriptor idDescriptor = new ColumnDescriptor(
+                new String[] {"id"},
+                Types.required(PrimitiveType.PrimitiveTypeName.INT32).named("id"), 0, 0);
+
+        TupleDomainParquetPredicate allPredicate = new TupleDomainParquetPredicate(
+                TupleDomain.all(), ImmutableList.of(ageDescriptor, idDescriptor), UTC);
+        return readTwoColumnFile(file, retriever, TupleDomain.all(), allPredicate);
+    }
+
     /**
      * Reads both columns and returns a map “age” → values, “id → values.
      */
     private static Map<String, List<Integer>> readTwoColumnFile(
-            File file, DecryptionKeyRetriever retriever)
+            File file, DecryptionKeyRetriever retriever, TupleDomain<ColumnDescriptor> domain, TupleDomainParquetPredicate predicate)
             throws IOException
     {
         ParquetDataSource source = new FileParquetDataSource(file, ParquetReaderOptions.builder().build());
@@ -931,12 +938,9 @@ public final class TestParquetEncryption
                 ImmutableList.of("age"), ageDescriptor,
                 ImmutableList.of("id"), idDescriptor);
 
-        TupleDomainParquetPredicate predicate = new TupleDomainParquetPredicate(
-                TupleDomain.all(), ImmutableList.of(ageDescriptor, idDescriptor), UTC);
-
         List<RowGroupInfo> groups = getFilteredRowGroups(
                 0, source.getEstimatedSize(), source, metadata,
-                List.of(TupleDomain.all()), List.of(predicate),
+                List.of(domain), List.of(predicate),
                 byPath, UTC, 200, ParquetReaderOptions.builder().build());
 
         PrimitiveField ageField = new PrimitiveField(INTEGER, true, ageDescriptor, 0);
