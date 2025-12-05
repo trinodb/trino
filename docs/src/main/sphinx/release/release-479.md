@@ -92,6 +92,7 @@
 * Harden hierarchical namespace check in Azure with root blob fallback check. ({issue}`27278`)
 * Avoid worker crashes by failing queries attempting to read columns with huge values in parquet files. ({issue}`27148`)
 * Fix potential `FileAlreadyExistsException` failure when network failures occur during writes to S3. ({issue}`27330`)
+* Fix failure when listing tables with invalid table metadata in AWS Glue. ({issue}`27525`)
 
 ## Hudi connector
 
