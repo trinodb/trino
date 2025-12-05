@@ -99,13 +99,13 @@ public class FunctionType
     @Override
     public final Class<?> getJavaType()
     {
-        throw new UnsupportedOperationException(getTypeSignature() + " type does not have a Java type");
+        throw new UnsupportedOperationException(getDisplayName() + " type does not have a Java type");
     }
 
     @Override
     public Class<? extends ValueBlock> getValueBlockType()
     {
-        throw new UnsupportedOperationException(getTypeSignature() + " type does not have a ValueBlock type");
+        throw new UnsupportedOperationException(getDisplayName() + " type does not have a ValueBlock type");
     }
 
     @Override
