@@ -60,6 +60,15 @@ public class PasswordAuthenticator
         AuthenticationException exception = null;
         for (io.trino.spi.security.PasswordAuthenticator authenticator : authenticatorManager.getAuthenticators()) {
             try {
+                Optional<Identity> identityOpt = authenticator.createAuthenticatedIdentity(user, password);
+                if (identityOpt.isPresent()) {
+                    Identity identity = identityOpt.get();
+                    String authenticatedUser = userMapping.mapUser(identity.getUser());
+                    rewriteUserHeaderToMappedUser(basicAuthCredentials, request.getHeaders(), authenticatedUser);
+                    return Identity.from(identity)
+                            .withUser(authenticatedUser)
+                            .build();
+                }
                 Principal principal = authenticator.createAuthenticatedPrincipal(user, password);
                 String authenticatedUser = userMapping.mapUser(principal.toString());
 
