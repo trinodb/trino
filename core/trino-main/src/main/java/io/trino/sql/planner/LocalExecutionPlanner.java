@@ -949,9 +949,11 @@ public class LocalExecutionPlanner
                 context.setDriverInstanceCount(getTaskConcurrency(session));
             }
 
+            List<Type> types = node.getOutputSymbols().stream().map(Symbol::type).collect(toImmutableList());
             OperatorFactory operatorFactory = new ExchangeOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
+                    types,
                     directExchangeClientSupplier,
                     createExchangePagesSerdeFactory(plannerContext.getBlockEncodingSerde(), session),
                     node.getRetryPolicy(),
