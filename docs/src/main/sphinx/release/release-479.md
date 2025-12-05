@@ -49,7 +49,7 @@
 
 ## ClickHouse connector
 
-* Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
 
 ## Delta Lake connector
 
@@ -60,24 +60,22 @@
 * Fix failure when writing to tables created by Databricks 17.3. ({issue}`27100`)
 * Harden hierarchical namespace check in Azure with root blob fallback check. ({issue}`27278`)
 * Avoid worker crashes by failing queries attempting to read columns with huge values in parquet files. ({issue}`27148`)
-* Fix potential `FileAlreadyExistsException` failure when network failures occur during writes to S3. ({issue}`27330`)
-* Prevent log writer from failing with FileAlreadyExistsException when there are network failures during write. 
-  writing to s3 now requires permissions for PutObjectTagging and GetObjectTagging operations (breaking change). ({issue}`27388`)
+* Fix potential `FileAlreadyExistsException` failure when network failures occur during writes to S3. ({issue}`27330`, {issue}`27388`)
 * Fix potential failure when reading [cloned tables](https://docs.databricks.com/aws/en/delta/clone). ({issue}`27098`)
 
 ## Druid connector
 
-* Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
 
 ## DuckDB connector
 
-* Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
 
 ## Elasticsearch connector
 
 ## Exasol connector
 
-* Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
 
 ## Faker connector
 
@@ -101,7 +99,7 @@
 * Harden hierarchical namespace check in Azure with root blob fallback check. ({issue}`27278`)
 * Avoid worker crashes by failing queries attempting to read columns with huge values in parquet files. ({issue}`27148`)
 * Fix potential `FileAlreadyExistsException` failure when network failures occur during writes to S3. ({issue}`27330`)
-* Fix failure when listing empty directories on HDFS. ({issue}`26897`)
+* Fix failure when querying HDFS that includes empty directories. ({issue}`26897`)
 
 ## Iceberg connector
 
@@ -119,7 +117,7 @@
 
 ## Ignite connector
 
-* Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
 
 ## JMX connector
 
@@ -131,7 +129,7 @@
 
 ## MariaDB connector
 
-* Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
 
 ## Memory connector
 
@@ -142,20 +140,20 @@
 
 ## MySQL connector
 
-* Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
 * Fix incorrect results for queries involving `IS NOT DISTINCT FROM`. ({issue}`27213`)
 
 ## OpenSearch connector
 
 ## Oracle connector
 
-* Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
 
 ## Pinot connector
 
 ## PostgreSQL connector
 
-* Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
 * Fix incorrect results for queries involving `IS NOT DISTINCT FROM`. ({issue}`27213`)
 
 ## Prometheus connector
@@ -164,20 +162,20 @@
 
 ## Redshift connector
 
-* Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
 * Fix failure when reading Redshift `character varying` type. ({issue}`27224`)
 
 ## SingleStore connector
 
-* Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
 
 ## Snowflake connector
 
-* Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
 
 ## SQL Server connector
 
-* Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
 * Fix potential failure when listing tables and columns. ({issue}`10846`)
 
 ## TPC-H connector
@@ -186,7 +184,7 @@
 
 ## Vertica connector
 
-* Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
 
 ## SPI
 
