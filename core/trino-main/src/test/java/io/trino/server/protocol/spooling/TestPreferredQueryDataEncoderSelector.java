@@ -13,6 +13,8 @@
  */
 package io.trino.server.protocol.spooling;
 
+import io.airlift.log.Level;
+import io.airlift.log.Logging;
 import io.trino.server.protocol.spooling.QueryDataEncoder.EncoderSelector;
 import io.trino.server.protocol.spooling.encoding.JsonQueryDataEncoder;
 import org.junit.jupiter.api.Test;
@@ -24,6 +26,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class TestPreferredQueryDataEncoderSelector
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("io.trino.server.protocol.spooling", Level.ERROR);
+    }
+
     @Test
     public void testNoEncoderWhenNoneIsMatching()
     {
