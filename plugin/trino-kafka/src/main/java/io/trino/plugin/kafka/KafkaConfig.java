@@ -49,6 +49,12 @@ public class KafkaConfig
     private String tableDescriptionSupplier = FileTableDescriptionSupplier.NAME;
     private List<File> resourceConfigFiles = ImmutableList.of();
     private String internalFieldPrefix = "_";
+    private boolean overrideTopicPartitionOffsets;
+
+    private static HostAddress toHostAddress(String value)
+    {
+        return HostAddress.fromString(value).withDefaultPort(KAFKA_DEFAULT_PORT);
+    }
 
     @Size(min = 1)
     public Set<HostAddress> getNodes()
@@ -120,11 +126,6 @@ public class KafkaConfig
         return this;
     }
 
-    private static HostAddress toHostAddress(String value)
-    {
-        return HostAddress.fromString(value).withDefaultPort(KAFKA_DEFAULT_PORT);
-    }
-
     @Min(1)
     public int getMessagesPerSplit()
     {
@@ -179,6 +180,19 @@ public class KafkaConfig
     public KafkaConfig setInternalFieldPrefix(String internalFieldPrefix)
     {
         this.internalFieldPrefix = internalFieldPrefix;
+        return this;
+    }
+
+    public boolean isOverrideTopicPartitionOffsets()
+    {
+        return overrideTopicPartitionOffsets;
+    }
+
+    @Config("kafka.override-topic-partition-offsets")
+    @ConfigDescription("Whether a user must specify all topic-partition offsets to query from kafka topic")
+    public KafkaConfig setOverrideTopicPartitionOffsets(boolean overrideTopicPartitionOffsets)
+    {
+        this.overrideTopicPartitionOffsets = overrideTopicPartitionOffsets;
         return this;
     }
 }
