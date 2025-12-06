@@ -536,7 +536,8 @@ mode:
 * - `--execute=<execute>`
   - Execute specified statements and exit.
 * - `-f`, `--file=<file>`
-  - Execute statements from file and exit.
+  - Execute statements from file and exit. Can be specified multiple times to
+    execute multiple files sequentially in the specified order.
 * - `--ignore-errors`
   - Continue processing in batch mode when an error occurs. Default is to exit
     immediately.
@@ -610,6 +611,19 @@ and displays an error message (which is unaffected by the output format):
 Query 20200707_170726_00030_2iup9 failed: line 1:25: Column 'region' cannot be resolved
 SELECT nationkey, name, region FROM tpch.sf1.nation LIMIT 3
 ```
+
+You can use the `--file` option multiple times to execute multiple SQL files
+sequentially. Files are executed in the order they are specified:
+
+```text
+trino --catalog iceberg --schema default --file ddls.sql --file inserts.sql
+```
+
+This executes all statements in `ddls.sql` first, followed by all statements
+in `inserts.sql`. If an error occurs during execution, the CLI exits
+immediately unless the `--ignore-errors` option is specified. The specific
+file name is included in any error messages to help identify which file
+caused the problem.
 
 (cli-spooling-protocol)=
 ## Spooling protocol
