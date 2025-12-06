@@ -91,6 +91,7 @@ import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -131,6 +132,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.COMPRESSION_CODEC;
 import static io.trino.plugin.iceberg.IcebergTableProperties.DATA_LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.IDENTIFIER_FIELDS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_COMMIT_RETRY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.OBJECT_STORE_LAYOUT_ENABLED_PROPERTY;
@@ -141,6 +143,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPER
 import static io.trino.plugin.iceberg.IcebergTableProperties.PROTECTED_ICEBERG_NATIVE_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SUPPORTED_PROPERTIES;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getIdentifierFields;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
 import static io.trino.plugin.iceberg.IcebergTableProperties.validateCompression;
@@ -153,6 +156,7 @@ import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
+import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
@@ -328,6 +332,11 @@ public final class IcebergUtil
         validateCompression(fileFormat, compressionCodec);
 
         compressionCodec.ifPresent(hiveCompressionCodec -> properties.put(COMPRESSION_CODEC, HiveCompressionOption.valueOf(hiveCompressionCodec.name())));
+
+        ImmutableList<String> identifierFieldNames = icebergTable.schema().identifierFieldNames().stream().collect(toImmutableList());
+        if (!identifierFieldNames.isEmpty()) {
+            properties.put(IDENTIFIER_FIELDS_PROPERTY, identifierFieldNames);
+        }
 
         SortOrder sortOrder = icebergTable.sortOrder();
         // TODO: Support sort column transforms (https://github.com/trinodb/trino/issues/15088)
@@ -825,9 +834,10 @@ public final class IcebergUtil
         return new DefaultLocationProvider(tableLocation, storageProperties);
     }
 
-    public static Schema schemaFromMetadata(List<ColumnMetadata> columns)
+    public static Schema schemaFromMetadata(List<ColumnMetadata> columns, List<String> identifierFields)
     {
         List<NestedField> icebergColumns = new ArrayList<>();
+        Set<Integer> identifierFieldIds = new HashSet<>();
         int visibleColumnCount = (int) columns.stream().filter(column -> !column.isHidden()).count();
         AtomicInteger nextFieldId = new AtomicInteger(visibleColumnCount + 1);
         for (ColumnMetadata column : columns) {
@@ -842,10 +852,13 @@ public final class IcebergUtil
                         .withDoc(column.getComment())
                         .build();
                 icebergColumns.add(field);
+                if (identifierFields.contains(column.getName())) {
+                    identifierFieldIds.add(index);
+                }
             }
         }
         org.apache.iceberg.types.Type icebergSchema = StructType.of(icebergColumns);
-        return new Schema(icebergSchema.asStructType().fields());
+        return new Schema(icebergSchema.asStructType().fields(), identifierFieldIds);
     }
 
     public static Schema schemaFromViewColumns(TypeManager typeManager, List<ViewColumn> columns)
@@ -872,7 +885,7 @@ public final class IcebergUtil
     public static Transaction newCreateTableTransaction(TrinoCatalog catalog, ConnectorTableMetadata tableMetadata, ConnectorSession session, boolean replace, String tableLocation, Predicate<String> allowedExtraProperties)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
-        Schema schema = schemaFromMetadata(tableMetadata.getColumns());
+        Schema schema = schemaFromMetadata(tableMetadata.getColumns(), getIdentifierFields(tableMetadata.getProperties()));
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
         SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
 
