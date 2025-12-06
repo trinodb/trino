@@ -538,12 +538,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <!-- Allow running tests when locally `aws sso login` is required to access AWS services -->
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>sso</artifactId>
