@@ -33,15 +33,21 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.type.IntervalDayTimeType;
+import io.trino.type.IntervalYearMonthType;
 
+import java.util.Optional;
 import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -157,10 +163,25 @@ public final class LiteralInterpreter
         @Override
         protected Long visitIntervalLiteral(IntervalLiteral node, Void context)
         {
-            if (node.isYearToMonth()) {
-                return node.getSign().multiplier() * parseYearMonthInterval(node.getValue(), node.getStartField(), node.getEndField());
-            }
-            return node.getSign().multiplier() * parseDayTimeInterval(node.getValue(), node.getStartField(), node.getEndField());
+            // TODO: the value should be interpreted according to the analyzed type. However, currently the analyzed type
+            //       is hard-coded to either INTERVAL DAY TO SECOND or INTERVAL YEAR TO MONTH, as arbitrary precision
+            //       invervals are not yet supported in the underlying type system.
+
+            IntervalField start = switch (node.qualifier()) {
+                case SimpleIntervalQualifier simple -> simple.getField();
+                case CompositeIntervalQualifier composite -> composite.getFrom();
+            };
+
+            Optional<IntervalField> end = switch (node.qualifier()) {
+                case SimpleIntervalQualifier _ -> Optional.empty();
+                case CompositeIntervalQualifier composite -> Optional.of(composite.getTo());
+            };
+
+            return switch (type) {
+                case IntervalDayTimeType _ -> node.getSign().multiplier() * parseDayTimeInterval(node.getValue(), start, end);
+                case IntervalYearMonthType _ -> node.getSign().multiplier() * parseYearMonthInterval(node.getValue(), start, end);
+                default -> throw new UnsupportedOperationException("Unhandled interval type: " + type);
+            };
         }
 
         @Override
