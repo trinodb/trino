@@ -24,6 +24,7 @@ import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
+import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.spi.NodeVersion;
@@ -59,6 +60,7 @@ public class TrinoIcebergRestCatalogFactory
     private final Optional<String> prefix;
     private final Optional<String> warehouse;
     private final boolean nestedNamespaceEnabled;
+    private final Security security;
     private final SessionType sessionType;
     private final Duration sessionTimeout;
     private final boolean vendedCredentialsEnabled;
@@ -93,6 +95,7 @@ public class TrinoIcebergRestCatalogFactory
         this.prefix = restConfig.getPrefix();
         this.warehouse = restConfig.getWarehouse();
         this.nestedNamespaceEnabled = restConfig.isNestedNamespaceEnabled();
+        this.security = restConfig.getSecurity();
         this.sessionType = restConfig.getSessionType();
         this.sessionTimeout = restConfig.getSessionTimeout();
         this.vendedCredentialsEnabled = restConfig.isVendedCredentialsEnabled();
@@ -154,6 +157,7 @@ public class TrinoIcebergRestCatalogFactory
         return new TrinoRestCatalog(
                 icebergCatalog,
                 catalogName,
+                security,
                 sessionType,
                 credentials,
                 nestedNamespaceEnabled,
