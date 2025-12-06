@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testcontainers.containers.Network;
 
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.testing.containers.Minio.MINIO_REGION;
@@ -36,16 +38,16 @@ public class IcebergRestCatalogBackendContainer
                 "iceberg-rest",
                 ImmutableSet.of(8181),
                 ImmutableMap.of(),
-                ImmutableMap.of(
-                        "CATALOG_INCLUDE__CREDENTIALS", "true",
-                        "CATALOG_WAREHOUSE", warehouseLocation,
-                        "CATALOG_IO__IMPL", "org.apache.iceberg.aws.s3.S3FileIO",
-                        "AWS_REGION", MINIO_REGION,
-                        "CATALOG_S3_ACCESS__KEY__ID", minioAccessKey,
-                        "CATALOG_S3_SECRET__ACCESS__KEY", minioSecretKey,
-                        "CATALOG_S3_SESSION__TOKEN", minioSessionToken,
-                        "CATALOG_S3_ENDPOINT", "http://minio:4566",
-                        "CATALOG_S3_PATH__STYLE__ACCESS", "true"),
+                toCatalogEnvVars(ImmutableMap.of(
+                        "include-credentials", "true",
+                        "warehouse", warehouseLocation,
+                        "io-impl", "org.apache.iceberg.aws.s3.S3FileIO",
+                        "s3.access-key-id", minioAccessKey,
+                        "s3.secret-access-key", minioSecretKey,
+                        "s3.session-token", minioSessionToken,
+                        "s3.endpoint", "http://minio:4566",
+                        "s3.path-style-access", "true",
+                        "client.region", MINIO_REGION)),
                 network,
                 5);
     }
@@ -53,5 +55,19 @@ public class IcebergRestCatalogBackendContainer
     public String getRestCatalogEndpoint()
     {
         return getMappedHostAndPortForExposedPort(8181).toString();
+    }
+
+    private static Map<String, String> toCatalogEnvVars(Map<String, String> properties)
+    {
+        ImmutableMap.Builder<String, String> envVars = ImmutableMap.builder();
+        properties.forEach((key, value) -> {
+            String envVarName = "CATALOG_" +
+                    key.toUpperCase(Locale.ROOT)
+                            .replaceAll("-", "__")
+                            .replaceAll("\\.", "_");
+
+            envVars.put(envVarName, value);
+        });
+        return envVars.buildOrThrow();
     }
 }
