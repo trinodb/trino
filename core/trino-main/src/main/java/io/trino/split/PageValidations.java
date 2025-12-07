@@ -32,6 +32,14 @@ public final class PageValidations
 
     public static void validateOutputPageTypes(SourcePage page, List<Type> expectedTypes, Supplier<String> debugContextSupplier)
     {
+        if (page.getPositionCount() == 0 && page.getChannelCount() == 0) {
+            // Allow empty pages without blocks. It is valid for connectors/table functions to produce empty pages with empty block list
+            // interleaved with pages with data. Example of such behavior can be found in TableChangesFunctionProcessor (this is not exactly
+            // related to SourcePage, but illustrates the contract, which is the same for Pages and SourcePages).
+            // Empty pages are filtered out by Driver.
+            return;
+        }
+
         if (page.getChannelCount() != expectedTypes.size()) {
             throw new TrinoException(
                     GENERIC_INTERNAL_ERROR,
