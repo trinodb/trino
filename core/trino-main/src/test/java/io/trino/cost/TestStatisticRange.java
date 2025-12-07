@@ -20,6 +20,7 @@ import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.within;
 
 public class TestStatisticRange
 {
@@ -57,6 +58,55 @@ public class TestStatisticRange
         assertOverlap(unboundedRange(0.1), unboundedRange(1), 1);
         assertOverlap(unboundedRange(0.0), unboundedRange(1), 0);
         assertOverlap(unboundedRange(0.0), unboundedRange(0), 0);
+    }
+
+    @Test
+    public void testLowDensityOverlap()
+    {
+        StatisticRange sparseRange = range(1, 3662098119.0, 14);
+        StatisticRange filterRange = range(1, 4, 4);
+
+        double expectedOverlap = 4.0 / 14.0;
+        assertOverlap(sparseRange, filterRange, expectedOverlap);
+    }
+
+    @Test
+    public void testDensityThresholdBoundary()
+    {
+        StatisticRange boundaryRange = range(0, 10000, 10);
+        StatisticRange smallFilter = range(0, 100, 5);
+
+        double overlap = boundaryRange.overlapPercentWith(smallFilter);
+        assertThat(overlap).isBetween(0.01, 0.5);
+    }
+
+    @Test
+    public void testHighDensityOverlap()
+    {
+        StatisticRange denseRange = range(0, 100, 50);
+        StatisticRange filterRange = range(20, 30, 5);
+
+        assertOverlap(denseRange, filterRange, 0.1);
+    }
+
+    @Test
+    public void testVeryLowDensity()
+    {
+        StatisticRange verySparse = range(0, 1e9, 10);
+        StatisticRange filterRange = range(100, 200, 5);
+
+        double expected = 5.0 / 10.0;
+        double actual = verySparse.overlapPercentWith(filterRange);
+        assertThat(actual).isCloseTo(expected, within(0.1));
+    }
+
+    @Test
+    public void testDensityWithZeroDistinctValues()
+    {
+        StatisticRange zeroDistinct = range(0, 1000, 0);
+        StatisticRange filterRange = range(100, 200, 5);
+
+        assertOverlap(zeroDistinct, filterRange, 0);
     }
 
     @Test
