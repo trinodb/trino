@@ -171,12 +171,6 @@ public class RowType
         return anonymous(Arrays.asList(types));
     }
 
-    // Only RowParametricType.createType should call this method
-    public static RowType createWithTypeSignature(TypeSignature typeSignature, List<Field> fields)
-    {
-        return new RowType(typeSignature, fields);
-    }
-
     public static Field field(String name, Type type)
     {
         return new Field(Optional.of(name), type);

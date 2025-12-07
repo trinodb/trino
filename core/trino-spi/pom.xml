@@ -315,6 +315,66 @@
                                     <old>method void io.trino.spi.resourcegroups.SelectionCriteria::&lt;init&gt;(boolean, java.lang.String, java.util.Set&lt;java.lang.String&gt;, java.lang.String, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Set&lt;java.lang.String&gt;, io.trino.spi.session.ResourceEstimates, java.util.Optional&lt;java.lang.String&gt;)</old>
                                     <justification>Added queryText before queryType parameter</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.type.RowType io.trino.spi.type.RowType::createWithTypeSignature(io.trino.spi.type.TypeSignature, java.util.List&lt;io.trino.spi.type.RowType.Field&gt;)</old>
+                                    <justification>TypeParameter not needed</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter io.trino.spi.type.Type io.trino.spi.type.ParametricType::createType(io.trino.spi.type.TypeManager, ===java.util.List&lt;io.trino.spi.type.TypeParameter&gt;===)</old>
+                                    <new>parameter io.trino.spi.type.Type io.trino.spi.type.ParametricType::createType(io.trino.spi.type.TypeManager, ===java.util.List&lt;io.trino.spi.type.TypeSignatureParameter&gt;===)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                    <justification>TypeParameter not needed</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter io.trino.spi.type.Type io.trino.spi.type.QuantileDigestParametricType::createType(io.trino.spi.type.TypeManager, ===java.util.List&lt;io.trino.spi.type.TypeParameter&gt;===)</old>
+                                    <new>parameter io.trino.spi.type.Type io.trino.spi.type.QuantileDigestParametricType::createType(io.trino.spi.type.TypeManager, ===java.util.List&lt;io.trino.spi.type.TypeSignatureParameter&gt;===)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                    <justification>TypeParameter not needed</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter io.trino.spi.type.Type io.trino.spi.type.TimeParametricType::createType(io.trino.spi.type.TypeManager, ===java.util.List&lt;io.trino.spi.type.TypeParameter&gt;===)</old>
+                                    <new>parameter io.trino.spi.type.Type io.trino.spi.type.TimeParametricType::createType(io.trino.spi.type.TypeManager, ===java.util.List&lt;io.trino.spi.type.TypeSignatureParameter&gt;===)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                    <justification>TypeParameter not needed</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter io.trino.spi.type.Type io.trino.spi.type.TimeWithTimeZoneParametricType::createType(io.trino.spi.type.TypeManager, ===java.util.List&lt;io.trino.spi.type.TypeParameter&gt;===)</old>
+                                    <new>parameter io.trino.spi.type.Type io.trino.spi.type.TimeWithTimeZoneParametricType::createType(io.trino.spi.type.TypeManager, ===java.util.List&lt;io.trino.spi.type.TypeSignatureParameter&gt;===)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                    <justification>TypeParameter not needed</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter io.trino.spi.type.Type io.trino.spi.type.TimestampParametricType::createType(io.trino.spi.type.TypeManager, ===java.util.List&lt;io.trino.spi.type.TypeParameter&gt;===)</old>
+                                    <new>parameter io.trino.spi.type.Type io.trino.spi.type.TimestampParametricType::createType(io.trino.spi.type.TypeManager, ===java.util.List&lt;io.trino.spi.type.TypeSignatureParameter&gt;===)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                    <justification>TypeParameter not needed</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter io.trino.spi.type.Type io.trino.spi.type.TimestampWithTimeZoneParametricType::createType(io.trino.spi.type.TypeManager, ===java.util.List&lt;io.trino.spi.type.TypeParameter&gt;===)</old>
+                                    <new>parameter io.trino.spi.type.Type io.trino.spi.type.TimestampWithTimeZoneParametricType::createType(io.trino.spi.type.TypeManager, ===java.util.List&lt;io.trino.spi.type.TypeSignatureParameter&gt;===)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                    <justification>TypeParameter not needed</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.type.TypeParameter</old>
+                                    <justification>TypeParameter not needed</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

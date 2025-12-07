@@ -19,7 +19,7 @@ import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeParameter;
+import io.trino.spi.type.TypeSignatureParameter;
 
 import java.util.List;
 
@@ -39,13 +39,13 @@ public final class ArrayParametricType
     }
 
     @Override
-    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
+    public Type createType(TypeManager typeManager, List<TypeSignatureParameter> parameters)
     {
         checkArgument(parameters.size() == 1, "Array type expects exactly one type as a parameter, got %s", parameters);
         checkArgument(
                 parameters.get(0).getKind() == ParameterKind.TYPE,
                 "Array expects type as a parameter, got %s",
                 parameters);
-        return new ArrayType(parameters.get(0).getType());
+        return new ArrayType(typeManager.getType(parameters.get(0).getTypeSignature()));
     }
 }

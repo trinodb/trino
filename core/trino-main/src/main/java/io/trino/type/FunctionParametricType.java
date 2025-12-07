@@ -17,7 +17,7 @@ import io.trino.spi.type.ParameterKind;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeParameter;
+import io.trino.spi.type.TypeSignatureParameter;
 
 import java.util.List;
 
@@ -38,14 +38,16 @@ public final class FunctionParametricType
     }
 
     @Override
-    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
+    public Type createType(TypeManager typeManager, List<TypeSignatureParameter> parameters)
     {
         checkArgument(parameters.size() >= 1, "Function type must have at least one parameter, got %s", parameters);
         checkArgument(
                 parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.TYPE),
                 "Expected only types as a parameters, got %s",
                 parameters);
-        List<Type> types = parameters.stream().map(TypeParameter::getType).collect(toList());
+        List<Type> types = parameters.stream()
+                .map(parameter -> typeManager.getType(parameter.getTypeSignature()))
+                .collect(toList());
 
         return new FunctionType(types.subList(0, types.size() - 1), types.getLast());
     }

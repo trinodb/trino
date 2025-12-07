@@ -27,7 +27,7 @@ public class TimestampParametricType
     }
 
     @Override
-    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
+    public Type createType(TypeManager typeManager, List<TypeSignatureParameter> parameters)
     {
         if (parameters.isEmpty()) {
             return TimestampType.TIMESTAMP_MILLIS;
@@ -36,7 +36,7 @@ public class TimestampParametricType
             throw new IllegalArgumentException("Expected exactly one parameter for TIMESTAMP");
         }
 
-        TypeParameter parameter = parameters.get(0);
+        TypeSignatureParameter parameter = parameters.get(0);
 
         if (!parameter.isLongLiteral()) {
             throw new IllegalArgumentException("TIMESTAMP precision must be a number");
