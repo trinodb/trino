@@ -27,7 +27,7 @@ public class QuantileDigestParametricType
     }
 
     @Override
-    public Type createType(TypeManager typeManager, List<TypeSignatureParameter> parameters)
+    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
         if (parameters.size() != 1) {
             throw new IllegalArgumentException("QDIGEST type expects exactly one type as a parameter, got " + parameters);

@@ -37,7 +37,7 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
@@ -149,7 +149,7 @@ public class TestMaterializedViews
             return null;
         });
 
-        Type timestampWithTimezone3 = TIMESTAMP_WITH_TIME_ZONE.createType(TESTING_TYPE_MANAGER, ImmutableList.of(TypeSignatureParameter.numericParameter(3)));
+        Type timestampWithTimezone3 = TIMESTAMP_WITH_TIME_ZONE.createType(TESTING_TYPE_MANAGER, ImmutableList.of(TypeParameter.numericParameter(3)));
         SchemaTableName timestampTest = new SchemaTableName(SCHEMA, "timestamp_test");
         planTester.inTransaction(session -> {
             metadata.createTable(

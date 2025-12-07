@@ -55,7 +55,7 @@ public abstract sealed class TimeWithTimeZoneType
 
     protected TimeWithTimeZoneType(int precision, Class<?> javaType, Class<? extends ValueBlock> valueBlockType)
     {
-        super(new TypeSignature(StandardTypes.TIME_WITH_TIME_ZONE, TypeSignatureParameter.numericParameter(precision)), javaType, valueBlockType);
+        super(new TypeSignature(StandardTypes.TIME_WITH_TIME_ZONE, TypeParameter.numericParameter(precision)), javaType, valueBlockType);
         this.precision = precision;
     }
 

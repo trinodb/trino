@@ -17,7 +17,7 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.matching.Property;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 
 import java.util.Objects;
 
@@ -30,17 +30,17 @@ public class TypeParameterCapture
 {
     private final String name;
 
-    private final Capture<TypeSignatureParameter> capture = newCapture();
-    private final Pattern<TypeSignatureParameter> pattern;
+    private final Capture<TypeParameter> capture = newCapture();
+    private final Pattern<TypeParameter> pattern;
 
     public TypeParameterCapture(String name)
     {
         this.name = requireNonNull(name, "name is null");
-        this.pattern = Pattern.typeOf(TypeSignatureParameter.class).with(self().capturedAs(capture));
+        this.pattern = Pattern.typeOf(TypeParameter.class).with(self().capturedAs(capture));
     }
 
     @Override
-    public Pattern<? extends TypeSignatureParameter> getPattern()
+    public Pattern<? extends TypeParameter> getPattern()
     {
         return pattern;
     }
@@ -48,7 +48,7 @@ public class TypeParameterCapture
     @Override
     public void resolve(Captures captures, MatchContext matchContext)
     {
-        TypeSignatureParameter parameter = captures.get(capture);
+        TypeParameter parameter = captures.get(capture);
         switch (parameter.getKind()) {
             case TYPE:
                 matchContext.record(name, parameter.getTypeSignature());
@@ -86,7 +86,7 @@ public class TypeParameterCapture
         return name;
     }
 
-    public static Property<TypeSignatureParameter, ?, TypeSignatureParameter> self()
+    public static Property<TypeParameter, ?, TypeParameter> self()
     {
         return Property.property("self", identity());
     }

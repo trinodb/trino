@@ -19,7 +19,7 @@ import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 
 import java.util.List;
 
@@ -37,11 +37,11 @@ public final class MapParametricType
     }
 
     @Override
-    public Type createType(TypeManager typeManager, List<TypeSignatureParameter> parameters)
+    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
         checkArgument(parameters.size() == 2, "Expected two parameters, got %s", parameters);
-        TypeSignatureParameter firstParameter = parameters.get(0);
-        TypeSignatureParameter secondParameter = parameters.get(1);
+        TypeParameter firstParameter = parameters.get(0);
+        TypeParameter secondParameter = parameters.get(1);
         checkArgument(
                 firstParameter.getKind() == ParameterKind.TYPE && secondParameter.getKind() == ParameterKind.TYPE,
                 "Expected key and type to be types, got %s",

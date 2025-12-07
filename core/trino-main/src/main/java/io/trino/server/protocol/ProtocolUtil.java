@@ -39,8 +39,8 @@ import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.sql.ExpressionFormatter;
 import io.trino.sql.analyzer.TypeSignatureTranslator;
 import io.trino.sql.tree.DataType;
@@ -49,7 +49,6 @@ import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.IntervalDayTimeDataType;
 import io.trino.sql.tree.NumericParameter;
 import io.trino.sql.tree.RowDataType;
-import io.trino.sql.tree.TypeParameter;
 
 import java.util.HashSet;
 import java.util.List;
@@ -115,7 +114,7 @@ public final class ProtocolUtil
                             if (parameter instanceof NumericParameter numericParameter) {
                                 return numericParameter.getValue();
                             }
-                            if (parameter instanceof TypeParameter typeParameter) {
+                            if (parameter instanceof io.trino.sql.tree.TypeParameter typeParameter) {
                                 return formatType(typeParameter.getValue(), supportsParametricDateTime);
                             }
                             throw new IllegalArgumentException("Unsupported parameter type: " + parameter.getClass().getName());
@@ -148,7 +147,7 @@ public final class ProtocolUtil
                 .collect(toImmutableList()));
     }
 
-    private static ClientTypeSignatureParameter toClientTypeSignatureParameter(TypeSignatureParameter parameter, boolean supportsParametricDateTime)
+    private static ClientTypeSignatureParameter toClientTypeSignatureParameter(TypeParameter parameter, boolean supportsParametricDateTime)
     {
         switch (parameter.getKind()) {
             case TYPE:

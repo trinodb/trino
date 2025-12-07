@@ -23,8 +23,8 @@ import io.trino.operator.annotations.OperatorImplementationDependency;
 import io.trino.operator.annotations.TypeImplementationDependency;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.ParameterKind;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 
 import java.util.Map;
 import java.util.Set;
@@ -103,14 +103,14 @@ class TypeSignatureMapping
                         .collect(toImmutableList()));
     }
 
-    private TypeSignatureParameter mapTypeSignatureParameter(TypeSignatureParameter parameter)
+    private TypeParameter mapTypeSignatureParameter(TypeParameter parameter)
     {
         if (parameter.getKind() == ParameterKind.TYPE) {
-            return TypeSignatureParameter.typeParameter(mapTypeSignature(parameter.getTypeSignature()));
+            return TypeParameter.typeParameter(mapTypeSignature(parameter.getTypeSignature()));
         }
         if (parameter.getKind() == ParameterKind.NAMED_TYPE) {
             NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
-            return TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(
+            return TypeParameter.namedTypeParameter(new NamedTypeSignature(
                     namedTypeSignature.getFieldName(),
                     mapTypeSignature(namedTypeSignature.getTypeSignature())));
         }

@@ -75,7 +75,7 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -204,8 +204,8 @@ public final class HiveTestUtils
     public static MapType mapType(Type keyType, Type valueType)
     {
         return (MapType) TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
-                TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
+                TypeParameter.typeParameter(keyType.getTypeSignature()),
+                TypeParameter.typeParameter(valueType.getTypeSignature())));
     }
 
     public static RowType rowType(List<NamedTypeSignature> elementTypeSignatures)
@@ -213,7 +213,7 @@ public final class HiveTestUtils
         return (RowType) TESTING_TYPE_MANAGER.getParameterizedType(
                 StandardTypes.ROW,
                 elementTypeSignatures.stream()
-                        .map(TypeSignatureParameter::namedTypeParameter)
+                        .map(TypeParameter::namedTypeParameter)
                         .collect(toImmutableList()));
     }
 

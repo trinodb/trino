@@ -15,11 +15,11 @@ package io.trino.plugin.jdbc.expression;
 
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 
 public abstract class TypeParameterPattern
 {
-    public abstract Pattern<? extends TypeSignatureParameter> getPattern();
+    public abstract Pattern<? extends TypeParameter> getPattern();
 
     public abstract void resolve(Captures captures, MatchContext matchContext);
 

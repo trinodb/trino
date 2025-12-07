@@ -62,8 +62,8 @@ import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 import org.bson.Document;
 import org.bson.types.Binary;
@@ -979,25 +979,25 @@ public class MongoSession
             Set<TypeSignature> signatures = subTypes.stream().map(Optional::get).collect(toSet());
             if (signatures.size() == 1) {
                 typeSignature = new TypeSignature(StandardTypes.ARRAY, signatures.stream()
-                        .map(TypeSignatureParameter::typeParameter)
+                        .map(TypeParameter::typeParameter)
                         .collect(Collectors.toList()));
             }
             else {
                 // TODO: client doesn't handle empty field name row type yet
                 typeSignature = new TypeSignature(StandardTypes.ROW,
                         IntStream.range(0, subTypes.size())
-                                .mapToObj(idx -> TypeSignatureParameter.namedTypeParameter(
+                                .mapToObj(idx -> TypeParameter.namedTypeParameter(
                                         new NamedTypeSignature(Optional.of(new RowFieldName(format("%s%d", implicitPrefix, idx + 1))), subTypes.get(idx).get())))
                                 .collect(toList()));
             }
         }
         else if (value instanceof Document document) {
-            List<TypeSignatureParameter> parameters = new ArrayList<>();
+            List<TypeParameter> parameters = new ArrayList<>();
 
             for (String key : document.keySet()) {
                 Optional<TypeSignature> fieldType = guessFieldType(document.get(key));
                 if (fieldType.isPresent()) {
-                    parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(key)), fieldType.get())));
+                    parameters.add(TypeParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(key)), fieldType.get())));
                 }
             }
             if (!parameters.isEmpty()) {
@@ -1005,14 +1005,14 @@ public class MongoSession
             }
         }
         else if (value instanceof DBRef dbRef) {
-            List<TypeSignatureParameter> parameters = new ArrayList<>();
+            List<TypeParameter> parameters = new ArrayList<>();
 
             TypeSignature idFieldType = guessFieldType(dbRef.getId())
                     .orElseThrow(() -> new UnsupportedOperationException("Unable to guess $id field type of DBRef from: " + dbRef.getId()));
 
-            parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(DATABASE_NAME)), VARCHAR.getTypeSignature())));
-            parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(COLLECTION_NAME)), VARCHAR.getTypeSignature())));
-            parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(ID)), idFieldType)));
+            parameters.add(TypeParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(DATABASE_NAME)), VARCHAR.getTypeSignature())));
+            parameters.add(TypeParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(COLLECTION_NAME)), VARCHAR.getTypeSignature())));
+            parameters.add(TypeParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(ID)), idFieldType)));
 
             typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
         }
