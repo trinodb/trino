@@ -47,6 +47,7 @@ import java.math.BigDecimal;
 import java.util.function.Consumer;
 
 import static io.trino.SystemSessionProperties.FILTER_CONJUNCTION_INDEPENDENCE_FACTOR;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -834,6 +835,32 @@ public class TestFilterStatsCalculator
                         symbolStats.distinctValuesCount(3.0)
                                 .lowValue(-1.0)
                                 .highValue(1.0)
+                                .nullsFraction(0.0));
+    }
+
+    @Test
+    public void testSparseColumnInPredicateOverlap()
+    {
+        // Statistics for a sparse column: very large value range, but only a few distinct values.
+        SymbolStatsEstimate platformStats = SymbolStatsEstimate.builder()
+                .setDistinctValuesCount(14.0)
+                .setLowValue(1.0)
+                .setHighValue(3662098119.0)
+                .setNullsFraction(0.0)
+                .build();
+
+        // For sparse columns (few distinct values over a large range), range-based estimation makes IN predicates look almost empty.
+        // This causes the optimizer to think that filtering removes all rows, which is incorrect.
+        assertExpression(new In(new Reference(BIGINT, "platform_id"), ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L), new Constant(BIGINT, 3L), new Constant(BIGINT, 4L))),
+                PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(1000000)
+                        .addSymbolStatistics(new Symbol(BIGINT, "platform_id"), platformStats)
+                        .build())
+                .outputRowsCount(1000000)
+                .symbolStats("platform_id", BIGINT, symbolStats ->
+                        symbolStats.distinctValuesCount(4)
+                                .lowValue(1.0)
+                                .highValue(4.0)
                                 .nullsFraction(0.0));
     }
 
