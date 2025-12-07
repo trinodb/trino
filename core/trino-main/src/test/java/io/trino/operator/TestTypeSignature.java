@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.parser.ParsingException;
 import org.junit.jupiter.api.Test;
@@ -31,12 +31,12 @@ import java.util.Set;
 import static com.google.common.collect.Lists.transform;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.TypeParameter.namedField;
+import static io.trino.spi.type.TypeParameter.numericParameter;
+import static io.trino.spi.type.TypeParameter.typeVariable;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.TypeSignature.rowType;
-import static io.trino.spi.type.TypeSignatureParameter.namedField;
-import static io.trino.spi.type.TypeSignatureParameter.numericParameter;
-import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -175,12 +175,12 @@ public class TestTypeSignature
 
     private TypeSignature varchar()
     {
-        return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.numericParameter(VarcharType.UNBOUNDED_LENGTH));
+        return new TypeSignature(StandardTypes.VARCHAR, TypeParameter.numericParameter(VarcharType.UNBOUNDED_LENGTH));
     }
 
     private TypeSignature varchar(long length)
     {
-        return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.numericParameter(length));
+        return new TypeSignature(StandardTypes.VARCHAR, TypeParameter.numericParameter(length));
     }
 
     private TypeSignature decimal(String precisionVariable, String scaleVariable)
@@ -191,7 +191,7 @@ public class TestTypeSignature
 
     private static TypeSignature rowSignature(NamedTypeSignature... columns)
     {
-        return new TypeSignature("row", transform(asList(columns), TypeSignatureParameter::namedTypeParameter));
+        return new TypeSignature("row", transform(asList(columns), TypeParameter::namedTypeParameter));
     }
 
     private static NamedTypeSignature namedParameter(String name, TypeSignature value)
@@ -206,12 +206,12 @@ public class TestTypeSignature
 
     private static TypeSignature array(TypeSignature type)
     {
-        return new TypeSignature(StandardTypes.ARRAY, TypeSignatureParameter.typeParameter(type));
+        return new TypeSignature(StandardTypes.ARRAY, TypeParameter.typeParameter(type));
     }
 
     private static TypeSignature map(TypeSignature keyType, TypeSignature valueType)
     {
-        return new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.typeParameter(keyType), TypeSignatureParameter.typeParameter(valueType));
+        return new TypeSignature(StandardTypes.MAP, TypeParameter.typeParameter(keyType), TypeParameter.typeParameter(valueType));
     }
 
     private TypeSignature signature(String name)

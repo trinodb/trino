@@ -21,8 +21,8 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 
 import java.util.List;
 import java.util.Objects;
@@ -47,16 +47,16 @@ public class FunctionType
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }
 
-    private static List<TypeSignatureParameter> typeParameters(List<Type> argumentTypes, Type returnType)
+    private static List<TypeParameter> typeParameters(List<Type> argumentTypes, Type returnType)
     {
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
-        ImmutableList.Builder<TypeSignatureParameter> builder = ImmutableList.builder();
+        ImmutableList.Builder<TypeParameter> builder = ImmutableList.builder();
         argumentTypes.stream()
                 .map(Type::getTypeSignature)
-                .map(TypeSignatureParameter::typeParameter)
+                .map(TypeParameter::typeParameter)
                 .forEach(builder::add);
-        builder.add(TypeSignatureParameter.typeParameter(returnType.getTypeSignature()));
+        builder.add(TypeParameter.typeParameter(returnType.getTypeSignature()));
         return builder.build();
     }
 

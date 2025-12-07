@@ -17,7 +17,7 @@ import io.trino.spi.type.ParameterKind;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 
 import java.util.List;
 
@@ -35,7 +35,7 @@ public class ClassifierParametricType
     }
 
     @Override
-    public Type createType(TypeManager typeManager, List<TypeSignatureParameter> parameters)
+    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
         checkArgument(parameters.size() == 1, "Expected only one type, got %s", parameters);
         checkArgument(

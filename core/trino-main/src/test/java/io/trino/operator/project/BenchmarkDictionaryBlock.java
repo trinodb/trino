@@ -20,8 +20,8 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -132,7 +132,7 @@ public class BenchmarkDictionaryBlock
 
         private static Block createVarcharMapBlock(int positionCount)
         {
-            MapType mapType = (MapType) TESTING_TYPE_MANAGER.getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature()), TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature())));
+            MapType mapType = (MapType) TESTING_TYPE_MANAGER.getType(new TypeSignature(StandardTypes.MAP, TypeParameter.typeParameter(VARCHAR.getTypeSignature()), TypeParameter.typeParameter(VARCHAR.getTypeSignature())));
             Block keyBlock = createVarcharDictionaryBlock(generateList("key", positionCount));
             Block valueBlock = createVarcharDictionaryBlock(generateList("value", positionCount));
             int[] offsets = new int[positionCount + 1];
@@ -155,7 +155,7 @@ public class BenchmarkDictionaryBlock
 
         private static Block createIntMapBlock(int positionCount)
         {
-            MapType mapType = (MapType) TESTING_TYPE_MANAGER.getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.typeParameter(INTEGER.getTypeSignature()), TypeSignatureParameter.typeParameter(INTEGER.getTypeSignature())));
+            MapType mapType = (MapType) TESTING_TYPE_MANAGER.getType(new TypeSignature(StandardTypes.MAP, TypeParameter.typeParameter(INTEGER.getTypeSignature()), TypeParameter.typeParameter(INTEGER.getTypeSignature())));
             Block keyBlock = createIntDictionaryBlock(positionCount);
             Block valueBlock = createIntDictionaryBlock(positionCount);
             int[] offsets = new int[positionCount + 1];

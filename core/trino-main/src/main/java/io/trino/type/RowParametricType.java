@@ -19,7 +19,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 
 import java.util.List;
 
@@ -40,7 +40,7 @@ public final class RowParametricType
     }
 
     @Override
-    public Type createType(TypeManager typeManager, List<TypeSignatureParameter> parameters)
+    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
         checkArgument(!parameters.isEmpty(), "Row type must have at least one parameter");
         checkArgument(
@@ -49,7 +49,7 @@ public final class RowParametricType
                 parameters);
 
         List<RowType.Field> fields = parameters.stream()
-                .map(TypeSignatureParameter::getNamedTypeSignature)
+                .map(TypeParameter::getNamedTypeSignature)
                 .map(parameter -> new RowType.Field(parameter.getName(), typeManager.getType(parameter.getTypeSignature())))
                 .collect(toList());
 

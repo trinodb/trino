@@ -61,7 +61,7 @@ public abstract sealed class TimestampType
 
     TimestampType(int precision, Class<?> javaType, Class<? extends ValueBlock> valueBlockType)
     {
-        super(new TypeSignature(StandardTypes.TIMESTAMP, TypeSignatureParameter.numericParameter(precision)), javaType, valueBlockType);
+        super(new TypeSignature(StandardTypes.TIMESTAMP, TypeParameter.numericParameter(precision)), javaType, valueBlockType);
         this.precision = precision;
     }
 

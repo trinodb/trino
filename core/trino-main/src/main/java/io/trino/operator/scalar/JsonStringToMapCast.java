@@ -20,8 +20,8 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.TypeSignature;
 
 import static io.trino.operator.scalar.JsonToMapCast.JSON_TO_MAP;
+import static io.trino.spi.type.TypeParameter.typeVariable;
 import static io.trino.spi.type.TypeSignature.mapType;
-import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 
 public final class JsonStringToMapCast
         extends SqlScalarFunction

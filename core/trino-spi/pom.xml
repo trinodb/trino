@@ -375,6 +375,125 @@
                                     <old>class io.trino.spi.type.TypeParameter</old>
                                     <justification>TypeParameter not needed</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter io.trino.spi.type.Type io.trino.spi.type.TypeManager::getParameterizedType(java.lang.String, ===java.util.List&lt;io.trino.spi.type.TypeSignatureParameter&gt;===)</old>
+                                    <new>parameter io.trino.spi.type.Type io.trino.spi.type.TypeManager::getParameterizedType(java.lang.String, ===java.util.List&lt;io.trino.spi.type.TypeParameter&gt;===)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                    <justification>Rename TypeSignatureParameter to TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.type.NamedType io.trino.spi.type.TypeParameter::getNamedType()</old>
+                                    <justification>Rename TypeSignatureParameter to TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.type.Type io.trino.spi.type.TypeParameter::getType()</old>
+                                    <justification>Rename TypeSignatureParameter to TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method &lt;A&gt; A io.trino.spi.type.TypeParameter::getValue(io.trino.spi.type.ParameterKind, java.lang.Class&lt;A&gt;)</old>
+                                    <new>method &lt;A&gt; A io.trino.spi.type.TypeParameter::getValue(io.trino.spi.type.ParameterKind, java.lang.Class&lt;A&gt;)</new>
+                                    <oldVisibility>public</oldVisibility>
+                                    <newVisibility>private</newVisibility>
+                                    <justification>Rename TypeSignatureParameter to TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.type.TypeParameter io.trino.spi.type.TypeParameter::of(io.trino.spi.type.NamedType)</old>
+                                    <justification>Rename TypeSignatureParameter to TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.type.TypeParameter io.trino.spi.type.TypeParameter::of(io.trino.spi.type.Type)</old>
+                                    <justification>Rename TypeSignatureParameter to TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.type.TypeParameter io.trino.spi.type.TypeParameter::of(io.trino.spi.type.TypeSignatureParameter, io.trino.spi.type.TypeManager)</old>
+                                    <justification>Rename TypeSignatureParameter to TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.type.TypeParameter io.trino.spi.type.TypeParameter::of(java.lang.String)</old>
+                                    <justification>Rename TypeSignatureParameter to TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.type.TypeParameter io.trino.spi.type.TypeParameter::of(long)</old>
+                                    <justification>Rename TypeSignatureParameter to TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.nowFinal</code>
+                                    <old>class io.trino.spi.type.TypeParameter</old>
+                                    <new>class io.trino.spi.type.TypeParameter</new>
+                                    <justification>Rename TypeSignatureParameter to TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.type.TypeSignature::&lt;init&gt;(java.lang.String, ===java.util.List&lt;io.trino.spi.type.TypeSignatureParameter&gt;===)</old>
+                                    <new>parameter void io.trino.spi.type.TypeSignature::&lt;init&gt;(java.lang.String, ===java.util.List&lt;io.trino.spi.type.TypeParameter&gt;===)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                    <justification>Rename TypeSignatureParameter to TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter void io.trino.spi.type.TypeSignature::&lt;init&gt;(java.lang.String, ===io.trino.spi.type.TypeSignatureParameter[]===)</old>
+                                    <new>parameter void io.trino.spi.type.TypeSignature::&lt;init&gt;(java.lang.String, ===io.trino.spi.type.TypeParameter[]===)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                    <justification>Rename TypeSignatureParameter to TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter io.trino.spi.type.TypeSignature io.trino.spi.type.TypeSignature::arrayType(===io.trino.spi.type.TypeSignatureParameter===)</old>
+                                    <new>parameter io.trino.spi.type.TypeSignature io.trino.spi.type.TypeSignature::arrayType(===io.trino.spi.type.TypeParameter===)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                    <justification>Rename TypeSignatureParameter to TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.List&lt;io.trino.spi.type.TypeSignatureParameter&gt; io.trino.spi.type.TypeSignature::getParameters()</old>
+                                    <new>method java.util.List&lt;io.trino.spi.type.TypeParameter&gt; io.trino.spi.type.TypeSignature::getParameters()</new>
+                                    <justification>Rename TypeSignatureParameter to TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter io.trino.spi.type.TypeSignature io.trino.spi.type.TypeSignature::rowType(===java.util.List&lt;io.trino.spi.type.TypeSignatureParameter&gt;===)</old>
+                                    <new>parameter io.trino.spi.type.TypeSignature io.trino.spi.type.TypeSignature::rowType(===java.util.List&lt;io.trino.spi.type.TypeParameter&gt;===)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                    <justification>Rename TypeSignatureParameter to TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter io.trino.spi.type.TypeSignature io.trino.spi.type.TypeSignature::rowType(===io.trino.spi.type.TypeSignatureParameter[]===)</old>
+                                    <new>parameter io.trino.spi.type.TypeSignature io.trino.spi.type.TypeSignature::rowType(===io.trino.spi.type.TypeParameter[]===)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                    <justification>Rename TypeSignatureParameter to TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.type.TypeSignatureParameter</old>
+                                    <justification>Rename TypeSignatureParameter to TypeParameter</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

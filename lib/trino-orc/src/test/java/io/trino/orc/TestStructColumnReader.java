@@ -29,7 +29,7 @@ import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -279,19 +279,19 @@ public class TestStructColumnReader
 
     private Type getType(List<String> fieldNames)
     {
-        ImmutableList.Builder<TypeSignatureParameter> typeSignatureParameters = ImmutableList.builder();
+        ImmutableList.Builder<TypeParameter> typeSignatureParameters = ImmutableList.builder();
         for (String fieldName : fieldNames) {
-            typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(fieldName)), VARCHAR.getTypeSignature())));
+            typeSignatureParameters.add(TypeParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(fieldName)), VARCHAR.getTypeSignature())));
         }
         return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
     }
 
     private Type getTypeNullName(int numFields)
     {
-        ImmutableList.Builder<TypeSignatureParameter> typeSignatureParameters = ImmutableList.builder();
+        ImmutableList.Builder<TypeParameter> typeSignatureParameters = ImmutableList.builder();
 
         for (int i = 0; i < numFields; i++) {
-            typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.empty(), VARCHAR.getTypeSignature())));
+            typeSignatureParameters.add(TypeParameter.namedTypeParameter(new NamedTypeSignature(Optional.empty(), VARCHAR.getTypeSignature())));
         }
         return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
     }

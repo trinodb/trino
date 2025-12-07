@@ -24,9 +24,8 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
@@ -52,7 +51,7 @@ public interface ImplementationDependency
 
     static boolean isImplementationDependencyAnnotation(Annotation annotation)
     {
-        return annotation instanceof TypeParameter ||
+        return annotation instanceof io.trino.spi.function.TypeParameter ||
                 annotation instanceof LiteralParameter ||
                 annotation instanceof FunctionDependency ||
                 annotation instanceof OperatorDependency ||
@@ -71,7 +70,7 @@ public interface ImplementationDependency
 
     static void validateImplementationDependencyAnnotation(AnnotatedElement element, Annotation annotation, Set<String> typeParametersNames, Collection<String> literalParameters)
     {
-        if (annotation instanceof TypeParameter typeParameter) {
+        if (annotation instanceof io.trino.spi.function.TypeParameter typeParameter) {
             checkTypeParameters(parseTypeSignature(typeParameter.value(), ImmutableSet.of()), typeParametersNames, element);
         }
         if (annotation instanceof LiteralParameter literalParameter) {
@@ -87,7 +86,7 @@ public interface ImplementationDependency
             return;
         }
 
-        for (TypeSignatureParameter parameter : typeSignature.getParameters()) {
+        for (TypeParameter parameter : typeSignature.getParameters()) {
             Optional<TypeSignature> childTypeSignature = parameter.getTypeSignatureOrNamedTypeSignature();
             if (childTypeSignature.isPresent()) {
                 checkTypeParameters(childTypeSignature.get(), typeParameterNames, element);
@@ -101,7 +100,7 @@ public interface ImplementationDependency
 
         public static ImplementationDependency createDependency(Annotation annotation, Set<String> literalParameters, Class<?> type)
         {
-            if (annotation instanceof TypeParameter typeParameter) {
+            if (annotation instanceof io.trino.spi.function.TypeParameter typeParameter) {
                 return new TypeImplementationDependency(parseTypeSignature(typeParameter.value(), literalParameters));
             }
             if (annotation instanceof LiteralParameter literalParameter) {

@@ -22,42 +22,42 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public final class TypeSignatureParameter
+public final class TypeParameter
 {
     private final ParameterKind kind;
     private final Object value;
 
-    public static TypeSignatureParameter typeParameter(TypeSignature typeSignature)
+    public static TypeParameter typeParameter(TypeSignature typeSignature)
     {
-        return new TypeSignatureParameter(ParameterKind.TYPE, typeSignature);
+        return new TypeParameter(ParameterKind.TYPE, typeSignature);
     }
 
-    public static TypeSignatureParameter numericParameter(long longLiteral)
+    public static TypeParameter numericParameter(long longLiteral)
     {
-        return new TypeSignatureParameter(ParameterKind.LONG, longLiteral);
+        return new TypeParameter(ParameterKind.LONG, longLiteral);
     }
 
-    public static TypeSignatureParameter namedTypeParameter(NamedTypeSignature namedTypeSignature)
+    public static TypeParameter namedTypeParameter(NamedTypeSignature namedTypeSignature)
     {
-        return new TypeSignatureParameter(ParameterKind.NAMED_TYPE, namedTypeSignature);
+        return new TypeParameter(ParameterKind.NAMED_TYPE, namedTypeSignature);
     }
 
-    public static TypeSignatureParameter namedField(String name, TypeSignature type)
+    public static TypeParameter namedField(String name, TypeSignature type)
     {
-        return new TypeSignatureParameter(ParameterKind.NAMED_TYPE, new NamedTypeSignature(Optional.of(new RowFieldName(name)), type));
+        return new TypeParameter(ParameterKind.NAMED_TYPE, new NamedTypeSignature(Optional.of(new RowFieldName(name)), type));
     }
 
-    public static TypeSignatureParameter anonymousField(TypeSignature type)
+    public static TypeParameter anonymousField(TypeSignature type)
     {
-        return new TypeSignatureParameter(ParameterKind.NAMED_TYPE, new NamedTypeSignature(Optional.empty(), type));
+        return new TypeParameter(ParameterKind.NAMED_TYPE, new NamedTypeSignature(Optional.empty(), type));
     }
 
-    public static TypeSignatureParameter typeVariable(String variable)
+    public static TypeParameter typeVariable(String variable)
     {
-        return new TypeSignatureParameter(ParameterKind.VARIABLE, variable);
+        return new TypeParameter(ParameterKind.VARIABLE, variable);
     }
 
-    private TypeSignatureParameter(ParameterKind kind, Object value)
+    private TypeParameter(ParameterKind kind, Object value)
     {
         this.kind = requireNonNull(kind, "kind is null");
         this.value = requireNonNull(value, "value is null");
@@ -168,7 +168,7 @@ public final class TypeSignatureParameter
             return false;
         }
 
-        TypeSignatureParameter other = (TypeSignatureParameter) o;
+        TypeParameter other = (TypeParameter) o;
 
         return this.kind == other.kind &&
                 Objects.equals(this.value, other.value);

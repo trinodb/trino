@@ -25,8 +25,8 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 
 import java.util.List;
@@ -294,7 +294,7 @@ public final class TypeCoercion
     private TypeCompatibility typeCompatibilityForCovariantParametrizedType(Type fromType, Type toType)
     {
         checkState(fromType.getClass().equals(toType.getClass()));
-        ImmutableList.Builder<TypeSignatureParameter> commonParameterTypes = ImmutableList.builder();
+        ImmutableList.Builder<TypeParameter> commonParameterTypes = ImmutableList.builder();
         List<Type> fromTypeParameters = fromType.getTypeParameters();
         List<Type> toTypeParameters = toType.getTypeParameters();
 
@@ -309,7 +309,7 @@ public final class TypeCoercion
                 return TypeCompatibility.incompatible();
             }
             coercible &= compatibility.isCoercible();
-            commonParameterTypes.add(TypeSignatureParameter.typeParameter(compatibility.getCommonSuperType().getTypeSignature()));
+            commonParameterTypes.add(TypeParameter.typeParameter(compatibility.getCommonSuperType().getTypeSignature()));
         }
         String typeBase = fromType.getBaseName();
         return TypeCompatibility.compatible(lookupType.apply(new TypeSignature(typeBase, commonParameterTypes.build())), coercible);

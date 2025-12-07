@@ -16,8 +16,8 @@ package io.trino.type;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -35,8 +35,8 @@ public class TestRowParametricType
     {
         TypeSignature typeSignature = new TypeSignature(
                 ROW,
-                TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName("col1")), BIGINT.getTypeSignature())),
-                TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName("col2")), DOUBLE.getTypeSignature())));
+                TypeParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName("col1")), BIGINT.getTypeSignature())),
+                TypeParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName("col2")), DOUBLE.getTypeSignature())));
         Type rowType = RowParametricType.ROW.createType(TESTING_TYPE_MANAGER, typeSignature.getParameters());
 
         assertThat(rowType.getTypeSignature()).isEqualTo(typeSignature);
