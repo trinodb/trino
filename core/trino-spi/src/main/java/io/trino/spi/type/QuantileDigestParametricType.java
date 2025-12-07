@@ -27,7 +27,7 @@ public class QuantileDigestParametricType
     }
 
     @Override
-    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
+    public Type createType(TypeManager typeManager, List<TypeSignatureParameter> parameters)
     {
         if (parameters.size() != 1) {
             throw new IllegalArgumentException("QDIGEST type expects exactly one type as a parameter, got " + parameters);
@@ -37,6 +37,6 @@ public class QuantileDigestParametricType
         }
         // Validation check on the acceptable type (bigint, real, double) intentionally omitted
         // because this is validated in each function and to allow for consistent error messaging
-        return new QuantileDigestType(parameters.get(0).getType());
+        return new QuantileDigestType(typeManager.getType(parameters.get(0).getTypeSignature()));
     }
 }

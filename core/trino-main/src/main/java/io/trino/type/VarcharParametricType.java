@@ -17,7 +17,7 @@ import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeParameter;
+import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 
 import java.util.List;
@@ -37,7 +37,7 @@ public class VarcharParametricType
     }
 
     @Override
-    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
+    public Type createType(TypeManager typeManager, List<TypeSignatureParameter> parameters)
     {
         if (parameters.isEmpty()) {
             return createUnboundedVarcharType();
@@ -46,7 +46,7 @@ public class VarcharParametricType
             throw new IllegalArgumentException("Expected exactly one parameter for VARCHAR");
         }
 
-        TypeParameter parameter = parameters.get(0);
+        TypeSignatureParameter parameter = parameters.get(0);
 
         if (!parameter.isLongLiteral()) {
             throw new IllegalArgumentException("VARCHAR length must be a number");

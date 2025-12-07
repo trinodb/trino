@@ -18,7 +18,7 @@ import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeParameter;
+import io.trino.spi.type.TypeSignatureParameter;
 
 import java.util.List;
 
@@ -37,7 +37,7 @@ public class CharParametricType
     }
 
     @Override
-    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
+    public Type createType(TypeManager typeManager, List<TypeSignatureParameter> parameters)
     {
         if (parameters.isEmpty()) {
             return createCharType(1);
@@ -46,7 +46,7 @@ public class CharParametricType
             throw new IllegalArgumentException("Expected at most one parameter for CHAR");
         }
 
-        TypeParameter parameter = parameters.get(0);
+        TypeSignatureParameter parameter = parameters.get(0);
 
         if (!parameter.isLongLiteral()) {
             throw new IllegalArgumentException("CHAR length must be a number");

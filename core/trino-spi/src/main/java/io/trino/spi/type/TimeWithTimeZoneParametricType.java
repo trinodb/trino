@@ -27,7 +27,7 @@ public class TimeWithTimeZoneParametricType
     }
 
     @Override
-    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
+    public Type createType(TypeManager typeManager, List<TypeSignatureParameter> parameters)
     {
         if (parameters.isEmpty()) {
             return TimeWithTimeZoneType.TIME_TZ_MILLIS;
@@ -36,7 +36,7 @@ public class TimeWithTimeZoneParametricType
             throw new IllegalArgumentException("Expected exactly one parameter for TIME WITH TIME ZONE");
         }
 
-        TypeParameter parameter = parameters.get(0);
+        TypeSignatureParameter parameter = parameters.get(0);
 
         if (!parameter.isLongLiteral()) {
             throw new IllegalArgumentException("TIME WITH TIME ZONE precision must be a number");
