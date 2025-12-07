@@ -111,8 +111,7 @@ public class InternalResourceGroup
     private SchedulingPolicy schedulingPolicy = FAIR;
     @GuardedBy("root")
     private boolean jmxExport;
-    @GuardedBy("root")
-    private boolean disabled;
+    private volatile boolean disabled;
 
     // Live data structures
     // ====================
@@ -639,9 +638,7 @@ public class InternalResourceGroup
     @Override
     public boolean isDisabled()
     {
-        synchronized (root) {
-            return disabled;
-        }
+        return disabled;
     }
 
     @Override
