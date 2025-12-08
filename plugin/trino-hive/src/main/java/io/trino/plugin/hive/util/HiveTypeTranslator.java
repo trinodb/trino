@@ -158,13 +158,10 @@ public final class HiveTypeTranslator
             TypeInfo valueType = toTypeInfo(mapType.getValueType());
             return getMapTypeInfo(keyType, valueType);
         }
-        if (type instanceof RowType) {
+        if (type instanceof RowType rowType) {
             ImmutableList.Builder<String> fieldNames = ImmutableList.builder();
-            for (TypeSignatureParameter parameter : type.getTypeSignature().getParameters()) {
-                if (!parameter.isNamedTypeSignature()) {
-                    throw new IllegalArgumentException(format("Expected all parameters to be named type, but got %s", parameter));
-                }
-                fieldNames.add(parameter.getNamedTypeSignature().getName()
+            for (RowType.Field field : rowType.getFields()) {
+                fieldNames.add(field.getName()
                         .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, format("Anonymous row type is not supported in Hive. Please give each field a name: %s", type))));
             }
             return getStructTypeInfo(

@@ -1119,10 +1119,10 @@ public class OrcTester
             ObjectInspector valueObjectInspector = getJavaObjectInspector(type.getTypeParameters().get(1));
             return getStandardMapObjectInspector(keyObjectInspector, valueObjectInspector);
         }
-        if (type instanceof RowType) {
+        if (type instanceof RowType rowType) {
             return getStandardStructObjectInspector(
-                    type.getTypeSignature().getParameters().stream()
-                            .map(parameter -> parameter.getNamedTypeSignature().getName().get())
+                    rowType.getFields().stream()
+                            .map(field -> field.getName().get())
                             .collect(toList()),
                     type.getTypeParameters().stream()
                             .map(OrcTester::getJavaObjectInspector)
