@@ -64,7 +64,7 @@ public class TableScanOperator
                 PlanNodeId sourceId,
                 PageSourceProviderFactory pageSourceProvider,
                 TableHandle table,
-                Iterable<ColumnHandle> columns,
+                List<ColumnHandle> columns,
                 DynamicFilter dynamicFilter)
         {
             this.operatorId = operatorId;
@@ -128,7 +128,7 @@ public class TableScanOperator
             PlanNodeId sourceId,
             PageSourceProvider pageSourceProvider,
             TableHandle table,
-            Iterable<ColumnHandle> columns,
+            List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");

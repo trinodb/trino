@@ -579,7 +579,7 @@ public class TestDriver
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,
                 TableHandle table,
-                Iterable<ColumnHandle> columns)
+                List<ColumnHandle> columns)
         {
             super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
         }
@@ -599,7 +599,7 @@ public class TestDriver
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,
                 TableHandle table,
-                Iterable<ColumnHandle> columns)
+                List<ColumnHandle> columns)
         {
             super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
         }
@@ -624,7 +624,7 @@ public class TestDriver
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,
                 TableHandle table,
-                Iterable<ColumnHandle> columns)
+                List<ColumnHandle> columns)
         {
             super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
         }
