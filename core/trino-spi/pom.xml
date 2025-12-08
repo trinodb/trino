@@ -494,6 +494,30 @@
                                     <old>class io.trino.spi.type.TypeSignatureParameter</old>
                                     <justification>Rename TypeSignatureParameter to TypeParameter</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.type.NamedType</old>
+                                    <justification>Removing NamedType and NamedTypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.type.NamedTypeSignature</old>
+                                    <justification>Removing NamedType and NamedTypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.field.removed</code>
+                                    <old>field io.trino.spi.type.ParameterKind.NAMED_TYPE</old>
+                                    <justification>Removing NamedType and NamedTypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.type.RowFieldName</old>
+                                    <justification>Removing NamedType and NamedTypeParameter</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

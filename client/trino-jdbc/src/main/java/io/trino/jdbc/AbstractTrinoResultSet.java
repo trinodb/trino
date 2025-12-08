@@ -705,8 +705,8 @@ abstract class AbstractTrinoResultSet
                     io.trino.client.RowField field = fields.get(i);
                     ClientTypeSignatureParameter clientTypeSignatureParameter = typeArguments.get(i);
                     verify(clientTypeSignatureParameter.getKind() == ClientTypeSignatureParameter.ParameterKind.NAMED_TYPE, "Not a NAMED_TYPE: %s", clientTypeSignatureParameter);
-                    verify(field.getName().equals(clientTypeSignatureParameter.getNamedTypeSignature().getName()), "Name mismatch: %s, %s", field, clientTypeSignatureParameter);
-                    Object converted = convertFromClientRepresentation(clientTypeSignatureParameter.getNamedTypeSignature().getTypeSignature(), field.getValue());
+                    verify(field.getName().equals(clientTypeSignatureParameter.getName()), "Name mismatch: %s, %s", field, clientTypeSignatureParameter);
+                    Object converted = convertFromClientRepresentation(clientTypeSignatureParameter.getTypeSignature(), field.getValue());
                     builder.addField(field.getName(), converted);
                 }
                 return builder.build();

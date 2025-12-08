@@ -57,8 +57,6 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.NamedTypeSignature;
-import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -986,9 +984,10 @@ public class MongoSession
                 // TODO: client doesn't handle empty field name row type yet
                 typeSignature = new TypeSignature(StandardTypes.ROW,
                         IntStream.range(0, subTypes.size())
-                                .mapToObj(idx -> TypeParameter.namedTypeParameter(
-                                        new NamedTypeSignature(Optional.of(new RowFieldName(format("%s%d", implicitPrefix, idx + 1))), subTypes.get(idx).get())))
-                                .collect(toList()));
+                                .mapToObj(idx -> TypeParameter.typeParameter(
+                                        Optional.of(format("%s%d", implicitPrefix, idx + 1)),
+                                        subTypes.get(idx).get()))
+                        .collect(toList()));
             }
         }
         else if (value instanceof Document document) {
@@ -997,7 +996,7 @@ public class MongoSession
             for (String key : document.keySet()) {
                 Optional<TypeSignature> fieldType = guessFieldType(document.get(key));
                 if (fieldType.isPresent()) {
-                    parameters.add(TypeParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(key)), fieldType.get())));
+                    parameters.add(TypeParameter.typeParameter(Optional.of(key), fieldType.get()));
                 }
             }
             if (!parameters.isEmpty()) {
@@ -1010,10 +1009,9 @@ public class MongoSession
             TypeSignature idFieldType = guessFieldType(dbRef.getId())
                     .orElseThrow(() -> new UnsupportedOperationException("Unable to guess $id field type of DBRef from: " + dbRef.getId()));
 
-            parameters.add(TypeParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(DATABASE_NAME)), VARCHAR.getTypeSignature())));
-            parameters.add(TypeParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(COLLECTION_NAME)), VARCHAR.getTypeSignature())));
-            parameters.add(TypeParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(ID)), idFieldType)));
-
+            parameters.add(TypeParameter.typeParameter(Optional.of(DATABASE_NAME), VARCHAR.getTypeSignature()));
+            parameters.add(TypeParameter.typeParameter(Optional.of(COLLECTION_NAME), VARCHAR.getTypeSignature()));
+            parameters.add(TypeParameter.typeParameter(Optional.of(ID), idFieldType));
             typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
         }
 

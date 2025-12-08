@@ -429,13 +429,8 @@ public final class JsonDecodingUtils
 
             int index = 0;
             for (ClientTypeSignatureParameter parameter : signature.getArguments()) {
-                checkArgument(
-                        parameter.getKind() == ClientTypeSignatureParameter.ParameterKind.NAMED_TYPE,
-                        "Unexpected parameter [%s] for row type",
-                        parameter);
-                NamedClientTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
-                fieldDecoders[index] = createTypeDecoder(namedTypeSignature.getTypeSignature());
-                fieldNames.add(namedTypeSignature.getName());
+                fieldDecoders[index] = createTypeDecoder(parameter.getTypeSignature());
+                fieldNames.add(parameter.getName());
                 index++;
             }
             this.fieldNames = fieldNames.build();

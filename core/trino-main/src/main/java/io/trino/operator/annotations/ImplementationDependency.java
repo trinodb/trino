@@ -87,9 +87,8 @@ public interface ImplementationDependency
         }
 
         for (TypeParameter parameter : typeSignature.getParameters()) {
-            Optional<TypeSignature> childTypeSignature = parameter.getTypeSignatureOrNamedTypeSignature();
-            if (childTypeSignature.isPresent()) {
-                checkTypeParameters(childTypeSignature.get(), typeParameterNames, element);
+            if (parameter.isTypeSignature()) {
+                checkTypeParameters(parameter.getTypeSignature(), typeParameterNames, element);
             }
         }
     }

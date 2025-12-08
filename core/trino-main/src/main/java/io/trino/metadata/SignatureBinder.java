@@ -23,7 +23,6 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.LongVariableConstraint;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
-import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.ParameterKind;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -314,8 +313,7 @@ public class SignatureBinder
         verifyBoundSignature(declaredTypeSignature.getParameters().size() == actualTypeParameters.size(), boundSignature, declaredSignature);
         for (int i = 0; i < declaredTypeSignature.getParameters().size(); i++) {
             TypeParameter typeParameter = declaredTypeSignature.getParameters().get(i);
-            TypeSignature typeSignature = typeParameter.getTypeSignatureOrNamedTypeSignature()
-                    .orElseThrow(() -> new UnsupportedOperationException("Types with both type parameters and literal parameters at the same time are not supported"));
+            TypeSignature typeSignature = typeParameter.getTypeSignature();
             Type actualTypeParameter = actualTypeParameters.get(i);
             extractBoundVariables(boundSignature, declaredSignature, typeVariableConstraints, bindings, actualTypeParameter, typeSignature);
         }
@@ -359,7 +357,7 @@ public class SignatureBinder
             if (parameter.isLongLiteral() || parameter.isVariable()) {
                 continue;
             }
-            checkNoLiteralVariableUsageAcrossTypes(parameter.getTypeSignatureOrNamedTypeSignature().get(), existingUsages);
+            checkNoLiteralVariableUsageAcrossTypes(parameter.getTypeSignature(), existingUsages);
         }
     }
 
@@ -477,9 +475,7 @@ public class SignatureBinder
 
         ImmutableList.Builder<TypeSignature> formalTypeParameterTypeSignatures = ImmutableList.builder();
         for (TypeParameter formalTypeParameter : formalTypeSignature.getParameters()) {
-            TypeSignature typeSignature = formalTypeParameter.getTypeSignatureOrNamedTypeSignature()
-                    .orElseThrow(() -> new UnsupportedOperationException("Types with both type parameters and literal parameters at the same time are not supported"));
-            formalTypeParameterTypeSignatures.add(typeSignature);
+            formalTypeParameterTypeSignatures.add(formalTypeParameter.getTypeSignature());
         }
 
         return appendConstraintSolvers(
@@ -500,9 +496,6 @@ public class SignatureBinder
                 case TYPE:
                     variables.addAll(typeVariablesOf(parameter.getTypeSignature()));
                     break;
-                case NAMED_TYPE:
-                    variables.addAll(typeVariablesOf(parameter.getNamedTypeSignature().getTypeSignature()));
-                    break;
                 case LONG:
                     break;
                 case VARIABLE:
@@ -522,9 +515,6 @@ public class SignatureBinder
             switch (parameter.getKind()) {
                 case TYPE:
                     variables.addAll(longVariablesOf(parameter.getTypeSignature()));
-                    break;
-                case NAMED_TYPE:
-                    variables.addAll(longVariablesOf(parameter.getNamedTypeSignature().getTypeSignature()));
                     break;
                 case LONG:
                     break;
@@ -610,14 +600,7 @@ public class SignatureBinder
         switch (parameterKind) {
             case TYPE: {
                 TypeSignature typeSignature = parameter.getTypeSignature();
-                return TypeParameter.typeParameter(applyBoundVariables(typeSignature, typeVariables));
-            }
-            case NAMED_TYPE: {
-                NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
-                TypeSignature typeSignature = namedTypeSignature.getTypeSignature();
-                return TypeParameter.namedTypeParameter(new NamedTypeSignature(
-                        namedTypeSignature.getFieldName(),
-                        applyBoundVariables(typeSignature, typeVariables)));
+                return TypeParameter.typeParameter(parameter.name(), applyBoundVariables(typeSignature, typeVariables));
             }
             case VARIABLE: {
                 String variableName = parameter.getVariable();

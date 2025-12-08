@@ -15,8 +15,6 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.spi.type.NamedTypeSignature;
-import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
@@ -28,7 +26,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.Lists.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.TypeParameter.namedField;
@@ -189,19 +187,23 @@ public class TestTypeSignature
                 typeVariable(precisionVariable), typeVariable(scaleVariable)));
     }
 
-    private static TypeSignature rowSignature(NamedTypeSignature... columns)
+    private static TypeSignature rowSignature(Field... fields)
     {
-        return new TypeSignature("row", transform(asList(columns), TypeParameter::namedTypeParameter));
+        return new TypeSignature(
+                "row",
+                asList(fields).stream()
+                        .map(field -> TypeParameter.typeParameter(field.name(), field.type()))
+                        .collect(toImmutableList()));
     }
 
-    private static NamedTypeSignature namedParameter(String name, TypeSignature value)
+    private static Field namedParameter(String name, TypeSignature value)
     {
-        return new NamedTypeSignature(Optional.of(new RowFieldName(name)), value);
+        return new Field(Optional.of(name), value);
     }
 
-    private static NamedTypeSignature unnamedParameter(TypeSignature value)
+    private static Field unnamedParameter(TypeSignature value)
     {
-        return new NamedTypeSignature(Optional.empty(), value);
+        return new Field(Optional.empty(), value);
     }
 
     private static TypeSignature array(TypeSignature type)
@@ -335,4 +337,6 @@ public class TestTypeSignature
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Base type name cannot be a type variable");
     }
+
+    record Field(Optional<String> name, TypeSignature type) {}
 }

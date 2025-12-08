@@ -44,13 +44,12 @@ public final class RowParametricType
     {
         checkArgument(!parameters.isEmpty(), "Row type must have at least one parameter");
         checkArgument(
-                parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE),
-                "Expected only named types as a parameters, got %s",
+                parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.TYPE),
+                "Expected only types as a parameters, got %s",
                 parameters);
 
         List<RowType.Field> fields = parameters.stream()
-                .map(TypeParameter::getNamedTypeSignature)
-                .map(parameter -> new RowType.Field(parameter.getName(), typeManager.getType(parameter.getTypeSignature())))
+                .map(parameter -> new RowType.Field(parameter.name(), typeManager.getType(parameter.getTypeSignature())))
                 .collect(toList());
 
         return RowType.from(fields);
