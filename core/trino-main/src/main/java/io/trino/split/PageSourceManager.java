@@ -13,7 +13,6 @@
  */
 package io.trino.split;
 
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
@@ -26,21 +25,13 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
-import io.trino.spi.connector.SourcePage;
-import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 
-import java.io.IOException;
 import java.util.List;
-import java.util.OptionalLong;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
-import static io.trino.SystemSessionProperties.isSourcePagesValidationEnabled;
-import static io.trino.split.PageValidations.validateOutputPageTypes;
 import static java.util.Objects.requireNonNull;
 
 public class PageSourceManager
@@ -78,8 +69,6 @@ public class PageSourceManager
                 List<Type> types,
                 DynamicFilter dynamicFilter)
         {
-            boolean pageValidationEnabled = isSourcePagesValidationEnabled(session);
-
             requireNonNull(columns, "columns is null");
             checkArgument(split.getCatalogHandle().equals(table.catalogHandle()), "mismatched split and table");
 
@@ -90,93 +79,13 @@ public class PageSourceManager
             if (!isAllowPushdownIntoConnectors(session)) {
                 dynamicFilter = DynamicFilter.EMPTY;
             }
-
-            ConnectorPageSource pageSource = pageSourceProvider.createPageSource(
+            return pageSourceProvider.createPageSource(
                     table.transaction(),
                     session.toConnectorSession(table.catalogHandle()),
                     split.getConnectorSplit(),
                     table.connectorHandle(),
                     columns,
                     dynamicFilter);
-
-            if (pageValidationEnabled) {
-                return new ValidatingConnectorPageSource(pageSource, types, () -> "pageSource=%s; columnHandles=%s".formatted(pageSource, columns));
-            }
-            return pageSource;
-        }
-    }
-
-    private static class ValidatingConnectorPageSource
-            implements ConnectorPageSource
-    {
-        private final ConnectorPageSource delegate;
-        private final List<Type> outputTypes;
-        private final Supplier<String> debugContextSupplier;
-
-        private ValidatingConnectorPageSource(ConnectorPageSource delegate, List<Type> outputTypes, Supplier<String> debugContextSupplier)
-        {
-            this.delegate = requireNonNull(delegate, "delegate is null");
-            this.outputTypes = ImmutableList.copyOf(requireNonNull(outputTypes, "outputTypes is null"));
-            this.debugContextSupplier = requireNonNull(debugContextSupplier, "debugContextSupplier is null");
-        }
-
-        @Override
-        public long getCompletedBytes()
-        {
-            return delegate.getCompletedBytes();
-        }
-
-        @Override
-        public OptionalLong getCompletedPositions()
-        {
-            return delegate.getCompletedPositions();
-        }
-
-        @Override
-        public long getReadTimeNanos()
-        {
-            return delegate.getReadTimeNanos();
-        }
-
-        @Override
-        public boolean isFinished()
-        {
-            return delegate.isFinished();
-        }
-
-        @Override
-        public SourcePage getNextSourcePage()
-        {
-            SourcePage page = delegate.getNextSourcePage();
-            if (page != null) {
-                validateOutputPageTypes(page, outputTypes, debugContextSupplier);
-            }
-            return page;
-        }
-
-        @Override
-        public long getMemoryUsage()
-        {
-            return delegate.getMemoryUsage();
-        }
-
-        @Override
-        public void close()
-                throws IOException
-        {
-            delegate.close();
-        }
-
-        @Override
-        public CompletableFuture<?> isBlocked()
-        {
-            return delegate.isBlocked();
-        }
-
-        @Override
-        public Metrics getMetrics()
-        {
-            return delegate.getMetrics();
         }
     }
 }

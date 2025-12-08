@@ -171,7 +171,6 @@ public class QueryManagerConfig
     // above this threshold.
     // TODO: Consider the cost of restarting the stage as part of adaptive planning.
     private DataSize faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold = DataSize.of(5, GIGABYTE);
-    private boolean sourcePagesValidationEnabled = true;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -1252,19 +1251,6 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold(DataSize faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold)
     {
         this.faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold = faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold;
-        return this;
-    }
-
-    public boolean isSourcePagesValidationEnabled()
-    {
-        return sourcePagesValidationEnabled;
-    }
-
-    @Config("source-pages-validation-enabled")
-    @ConfigDescription("Runtime validation of blocks in source pages")
-    public QueryManagerConfig setSourcePagesValidationEnabled(boolean sourcePagesValidationEnabled)
-    {
-        this.sourcePagesValidationEnabled = sourcePagesValidationEnabled;
         return this;
     }
 }
