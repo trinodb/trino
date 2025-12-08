@@ -24,56 +24,76 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public final class TypeParameter
 {
+    private final Optional<String> name;
     private final ParameterKind kind;
     private final Object value;
 
     public static TypeParameter typeParameter(TypeSignature typeSignature)
     {
-        return new TypeParameter(ParameterKind.TYPE, typeSignature);
+        return new TypeParameter(Optional.empty(), ParameterKind.TYPE, typeSignature);
+    }
+
+    public static TypeParameter typeParameter(Optional<String> name, TypeSignature typeSignature)
+    {
+        return new TypeParameter(name, ParameterKind.TYPE, typeSignature);
     }
 
     public static TypeParameter numericParameter(long longLiteral)
     {
-        return new TypeParameter(ParameterKind.LONG, longLiteral);
-    }
-
-    public static TypeParameter namedTypeParameter(NamedTypeSignature namedTypeSignature)
-    {
-        return new TypeParameter(ParameterKind.NAMED_TYPE, namedTypeSignature);
+        return new TypeParameter(Optional.empty(), ParameterKind.LONG, longLiteral);
     }
 
     public static TypeParameter namedField(String name, TypeSignature type)
     {
-        return new TypeParameter(ParameterKind.NAMED_TYPE, new NamedTypeSignature(Optional.of(new RowFieldName(name)), type));
+        return new TypeParameter(Optional.of(name), ParameterKind.TYPE, type);
     }
 
     public static TypeParameter anonymousField(TypeSignature type)
     {
-        return new TypeParameter(ParameterKind.NAMED_TYPE, new NamedTypeSignature(Optional.empty(), type));
+        return new TypeParameter(Optional.empty(), ParameterKind.TYPE, type);
     }
 
     public static TypeParameter typeVariable(String variable)
     {
-        return new TypeParameter(ParameterKind.VARIABLE, variable);
+        return new TypeParameter(Optional.empty(), ParameterKind.VARIABLE, variable);
     }
 
-    private TypeParameter(ParameterKind kind, Object value)
+    private TypeParameter(Optional<String> name, ParameterKind kind, Object value)
     {
+        this.name = requireNonNull(name, "name is null");
         this.kind = requireNonNull(kind, "kind is null");
         this.value = requireNonNull(value, "value is null");
+    }
+
+    public Optional<String> name()
+    {
+        return name;
     }
 
     @Override
     public String toString()
     {
-        return value.toString();
+        return switch (kind) {
+            case VARIABLE, LONG -> value.toString();
+            case TYPE -> {
+                if (name.isPresent()) {
+                    yield format("\"%s\" %s", name.get().replace("\"", "\"\""), value.toString());
+                }
+                yield value.toString();
+            }
+        };
     }
 
     public String jsonValue()
     {
         String prefix = "";
+
+        if (name.isPresent()) {
+            prefix = format("\"%s\" ", name.get().replace("\"", "\"\""));
+        }
+
         if (kind == ParameterKind.VARIABLE) {
-            prefix = "@";
+            prefix += "@";
         }
 
         String valueJson;
@@ -101,11 +121,6 @@ public final class TypeParameter
         return kind == ParameterKind.LONG;
     }
 
-    public boolean isNamedTypeSignature()
-    {
-        return kind == ParameterKind.NAMED_TYPE;
-    }
-
     public boolean isVariable()
     {
         return kind == ParameterKind.VARIABLE;
@@ -129,30 +144,15 @@ public final class TypeParameter
         return getValue(ParameterKind.LONG, Long.class);
     }
 
-    public NamedTypeSignature getNamedTypeSignature()
-    {
-        return getValue(ParameterKind.NAMED_TYPE, NamedTypeSignature.class);
-    }
-
     public String getVariable()
     {
         return getValue(ParameterKind.VARIABLE, String.class);
-    }
-
-    public Optional<TypeSignature> getTypeSignatureOrNamedTypeSignature()
-    {
-        return switch (kind) {
-            case TYPE -> Optional.of(getTypeSignature());
-            case NAMED_TYPE -> Optional.of(getNamedTypeSignature().getTypeSignature());
-            default -> Optional.empty();
-        };
     }
 
     public boolean isCalculated()
     {
         return switch (kind) {
             case TYPE -> getTypeSignature().isCalculated();
-            case NAMED_TYPE -> getNamedTypeSignature().getTypeSignature().isCalculated();
             case LONG -> false;
             case VARIABLE -> true;
         };
@@ -161,22 +161,15 @@ public final class TypeParameter
     @Override
     public boolean equals(Object o)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
+        if (!(o instanceof TypeParameter that)) {
             return false;
         }
-
-        TypeParameter other = (TypeParameter) o;
-
-        return this.kind == other.kind &&
-                Objects.equals(this.value, other.value);
+        return Objects.equals(name, that.name) && kind == that.kind && Objects.equals(value, that.value);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(kind, value);
+        return Objects.hash(name, kind, value);
     }
 }

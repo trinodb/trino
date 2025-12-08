@@ -143,20 +143,20 @@ public final class ProtocolUtil
         }
 
         return new ClientTypeSignature(signature.getBase(), signature.getParameters().stream()
-                .map(parameter -> toClientTypeSignatureParameter(parameter, supportsParametricDateTime))
+                .map(parameter -> toClientTypeSignatureParameter(signature.getBase(), parameter, supportsParametricDateTime))
                 .collect(toImmutableList()));
     }
 
-    private static ClientTypeSignatureParameter toClientTypeSignatureParameter(TypeParameter parameter, boolean supportsParametricDateTime)
+    private static ClientTypeSignatureParameter toClientTypeSignatureParameter(String base, TypeParameter parameter, boolean supportsParametricDateTime)
     {
         switch (parameter.getKind()) {
             case TYPE:
+                if (base.equalsIgnoreCase(ROW)) { // for backward compatibility with old clients, which expect NAMED_TYPE for row fields
+                    return ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(
+                            parameter.name().map(RowFieldName::new),
+                            toClientTypeSignature(parameter.getTypeSignature(), supportsParametricDateTime)));
+                }
                 return ClientTypeSignatureParameter.ofType(toClientTypeSignature(parameter.getTypeSignature(), supportsParametricDateTime));
-            case NAMED_TYPE:
-                return ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(
-                        parameter.getNamedTypeSignature().getFieldName().map(value ->
-                                new RowFieldName(value.getName())),
-                        toClientTypeSignature(parameter.getNamedTypeSignature().getTypeSignature(), supportsParametricDateTime)));
             case LONG:
                 return ClientTypeSignatureParameter.ofLong(parameter.getLongLiteral());
             case VARIABLE:

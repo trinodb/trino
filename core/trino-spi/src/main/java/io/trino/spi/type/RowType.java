@@ -184,8 +184,7 @@ public class RowType
     private static TypeSignature makeSignature(List<Field> fields)
     {
         List<TypeParameter> parameters = fields.stream()
-                .map(field -> new NamedTypeSignature(field.getName().map(RowFieldName::new), field.getType().getTypeSignature()))
-                .map(TypeParameter::namedTypeParameter)
+                .map(field -> TypeParameter.typeParameter(field.getName(), field.getType().getTypeSignature()))
                 .toList();
 
         return new TypeSignature(ROW, parameters);

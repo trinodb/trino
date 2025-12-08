@@ -20,8 +20,6 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.spi.TrinoException;
-import io.trino.spi.type.NamedTypeSignature;
-import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
@@ -55,7 +53,6 @@ import static io.trino.spi.type.StandardTypes.TIMESTAMP;
 import static io.trino.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
-import static io.trino.spi.type.TypeParameter.namedTypeParameter;
 import static io.trino.spi.type.TypeParameter.numericParameter;
 import static io.trino.spi.type.TypeParameter.typeParameter;
 import static io.trino.spi.type.TypeParameter.typeVariable;
@@ -164,11 +161,9 @@ public final class TypeSignatureTranslator
     private static TypeSignature toTypeSignature(RowDataType type, Set<String> typeVariables)
     {
         List<TypeParameter> parameters = type.getFields().stream()
-                .map(field -> namedTypeParameter(new NamedTypeSignature(
-                        field.getName()
-                                .map(TypeSignatureTranslator::canonicalize)
-                                .map(RowFieldName::new),
-                        toTypeSignature(field.getType(), typeVariables))))
+                .map(field -> typeParameter(
+                        field.getName().map(TypeSignatureTranslator::canonicalize),
+                        toTypeSignature(field.getType(), typeVariables)))
                 .collect(toImmutableList());
 
         return new TypeSignature(ROW, parameters);
@@ -269,9 +264,8 @@ public final class TypeSignatureTranslator
                     typeSignature.getParameters().stream()
                             .map(parameter -> new RowDataType.Field(
                                     Optional.empty(),
-                                    parameter.getNamedTypeSignature().getFieldName().map(fieldName -> new Identifier(fieldName.getName(), requiresDelimiting(fieldName.getName()))),
-                                    toDataType(parameter.getNamedTypeSignature().getTypeSignature())))
-                            .collect(toImmutableList()));
+                                    parameter.name().map(fieldName -> new Identifier(fieldName, requiresDelimiting(fieldName))),
+                                    toDataType(parameter.getTypeSignature()))).collect(toImmutableList()));
             case VARCHAR -> new GenericDataType(
                     Optional.empty(),
                     new Identifier(typeSignature.getBase(), false),

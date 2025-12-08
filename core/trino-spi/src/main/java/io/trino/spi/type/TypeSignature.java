@@ -223,7 +223,7 @@ public final class TypeSignature
 
     public static TypeSignature rowType(List<TypeParameter> fields)
     {
-        checkArgument(fields.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE), "Parameters for ROW type must be NAMED_TYPE parameters");
+        checkArgument(fields.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.TYPE), "Parameters for ROW type must be TYPE parameters");
 
         return new TypeSignature(StandardTypes.ROW, fields);
     }

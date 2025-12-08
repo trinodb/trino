@@ -180,9 +180,6 @@ public final class FunctionsParserHelper
                 case TYPE:
                     verifyTypeSignatureDoesNotContainAnyTypeParameters(rootType, parameter.getTypeSignature(), typeParameterNames);
                     break;
-                case NAMED_TYPE:
-                    verifyTypeSignatureDoesNotContainAnyTypeParameters(rootType, parameter.getNamedTypeSignature().getTypeSignature(), typeParameterNames);
-                    break;
                 case LONG:
                 case VARIABLE:
                     break;

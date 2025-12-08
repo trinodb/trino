@@ -68,7 +68,6 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
@@ -76,6 +75,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeParameter;
+import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -208,12 +208,14 @@ public final class HiveTestUtils
                 TypeParameter.typeParameter(valueType.getTypeSignature())));
     }
 
-    public static RowType rowType(List<NamedTypeSignature> elementTypeSignatures)
+    public static RowType rowType(List<Field> elementTypeSignatures)
     {
         return (RowType) TESTING_TYPE_MANAGER.getParameterizedType(
                 StandardTypes.ROW,
                 elementTypeSignatures.stream()
-                        .map(TypeParameter::namedTypeParameter)
+                        .map(field -> TypeParameter.typeParameter(
+                                Optional.of(field.name()),
+                                field.type()))
                         .collect(toImmutableList()));
     }
 
@@ -296,4 +298,6 @@ public final class HiveTestUtils
         long lsb = buffer.getLong();
         return new UUID(msb, lsb);
     }
+
+    record Field(String name, TypeSignature type) {}
 }
