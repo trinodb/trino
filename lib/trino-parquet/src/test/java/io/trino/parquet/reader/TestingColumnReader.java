@@ -59,7 +59,6 @@ import org.apache.parquet.column.values.plain.PlainValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
-import org.testng.annotations.DataProvider;
 
 import java.math.BigInteger;
 import java.time.LocalDateTime;
@@ -662,7 +661,6 @@ public class TestingColumnReader
         return toTrinoDictionaryPage(apacheDictionaryPage);
     }
 
-    @DataProvider(name = "readersWithPageVersions")
     public static Object[][] readersWithPageVersions()
     {
         return cartesianProduct(
@@ -670,7 +668,6 @@ public class TestingColumnReader
                 Stream.of(TestingColumnReader.columnReaders()).collect(toDataProvider()));
     }
 
-    @DataProvider(name = "dictionaryReadersWithPageVersions")
     public static Object[][] dictionaryReadersWithPageVersions()
     {
         return cartesianProduct(

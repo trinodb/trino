@@ -41,14 +41,17 @@ import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.parquet.reader.TestPageReader.DataPageType.V1;
@@ -68,7 +71,8 @@ public class TestPageReader
 {
     private static final byte[] DATA_PAGE = new byte[] {1, 2, 3};
 
-    @Test(dataProvider = "pageParameters")
+    @ParameterizedTest
+    @MethodSource("pageParameters")
     public void singlePage(CompressionCodec compressionCodec, DataPageType dataPageType)
             throws Exception
     {
@@ -123,7 +127,8 @@ public class TestPageReader
                 .hasMessageContaining("exceeds maximum allowed size");
     }
 
-    @Test(dataProvider = "pageParameters")
+    @ParameterizedTest
+    @MethodSource("pageParameters")
     public void manyPages(CompressionCodec compressionCodec, DataPageType dataPageType)
             throws Exception
     {
@@ -173,7 +178,8 @@ public class TestPageReader
                 .hasMessageContaining("exceeds maximum allowed size");
     }
 
-    @Test(dataProvider = "pageParameters")
+    @ParameterizedTest
+    @MethodSource("pageParameters")
     public void dictionaryPage(CompressionCodec compressionCodec, DataPageType dataPageType)
             throws Exception
     {
@@ -343,10 +349,13 @@ public class TestPageReader
         assertThat(pageReader.readPage()).isNull();
     }
 
-    @DataProvider
-    public Object[][] pageParameters()
+    public static Stream<Arguments> pageParameters()
     {
-        return new Object[][] {{UNCOMPRESSED, V1}, {SNAPPY, V1}, {UNCOMPRESSED, V2}, {SNAPPY, V2}};
+        return Stream.of(
+                Arguments.of(UNCOMPRESSED, V1),
+                Arguments.of(SNAPPY, V1),
+                Arguments.of(UNCOMPRESSED, V2),
+                Arguments.of(SNAPPY, V2));
     }
 
     public enum DataPageType
