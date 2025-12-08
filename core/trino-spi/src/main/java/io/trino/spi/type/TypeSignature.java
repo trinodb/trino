@@ -72,11 +72,12 @@ public final class TypeSignature
     {
         List<TypeSignature> result = new ArrayList<>();
         for (TypeParameter parameter : parameters) {
-            if (parameter.getKind() != ParameterKind.TYPE) {
-                throw new IllegalStateException(
-                        format("Expected all parameters to be TypeSignatures but [%s] was found", parameter));
+            if (parameter instanceof TypeParameter.Type(_, TypeSignature type)) {
+                result.add(type);
             }
-            result.add(parameter.getTypeSignature());
+            else {
+                throw new IllegalStateException(format("Expected all parameters to be TypeSignatures but [%s] was found", parameter));
+            }
         }
         return result;
     }
@@ -106,8 +107,8 @@ public final class TypeSignature
 
         if (base.equalsIgnoreCase(StandardTypes.VARCHAR) &&
                 (parameters.size() == 1) &&
-                parameters.get(0).isLongLiteral() &&
-                parameters.get(0).getLongLiteral() == VarcharType.UNBOUNDED_LENGTH) {
+                parameters.get(0) instanceof TypeParameter.Numeric(long length) &&
+                length == VarcharType.UNBOUNDED_LENGTH) {
             return base;
         }
 
@@ -223,7 +224,7 @@ public final class TypeSignature
 
     public static TypeSignature rowType(List<TypeParameter> fields)
     {
-        checkArgument(fields.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.TYPE), "Parameters for ROW type must be TYPE parameters");
+        checkArgument(fields.stream().allMatch(parameter -> parameter instanceof TypeParameter.Type), "Parameters for ROW type must be TYPE parameters");
 
         return new TypeSignature(StandardTypes.ROW, fields);
     }

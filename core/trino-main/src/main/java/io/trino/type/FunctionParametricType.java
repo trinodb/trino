@@ -13,7 +13,6 @@
  */
 package io.trino.type;
 
-import io.trino.spi.type.ParameterKind;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -41,12 +40,12 @@ public final class FunctionParametricType
     public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
         checkArgument(parameters.size() >= 1, "Function type must have at least one parameter, got %s", parameters);
-        checkArgument(
-                parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.TYPE),
-                "Expected only types as a parameters, got %s",
-                parameters);
+
         List<Type> types = parameters.stream()
-                .map(parameter -> typeManager.getType(parameter.getTypeSignature()))
+                .map(parameter -> switch (parameter) {
+                    case TypeParameter.Type type -> typeManager.getType(type.type());
+                    default -> throw new IllegalArgumentException("Expected only types as parameters, got " + parameter);
+                })
                 .collect(toList());
 
         return new FunctionType(types.subList(0, types.size() - 1), types.getLast());

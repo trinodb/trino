@@ -52,6 +52,7 @@ import io.trino.sql.tree.RowDataType;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -149,20 +150,18 @@ public final class ProtocolUtil
 
     private static ClientTypeSignatureParameter toClientTypeSignatureParameter(String base, TypeParameter parameter, boolean supportsParametricDateTime)
     {
-        switch (parameter.getKind()) {
-            case TYPE:
+        return switch (parameter) {
+            case TypeParameter.Type(Optional<String> name, TypeSignature type) -> {
                 if (base.equalsIgnoreCase(ROW)) { // for backward compatibility with old clients, which expect NAMED_TYPE for row fields
-                    return ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(
-                            parameter.name().map(RowFieldName::new),
-                            toClientTypeSignature(parameter.getTypeSignature(), supportsParametricDateTime)));
+                    yield ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(
+                            name.map(RowFieldName::new),
+                            toClientTypeSignature(type, supportsParametricDateTime)));
                 }
-                return ClientTypeSignatureParameter.ofType(toClientTypeSignature(parameter.getTypeSignature(), supportsParametricDateTime));
-            case LONG:
-                return ClientTypeSignatureParameter.ofLong(parameter.getLongLiteral());
-            case VARIABLE:
-                // not expected here
-        }
-        throw new IllegalArgumentException("Unsupported kind: " + parameter.getKind());
+                yield ClientTypeSignatureParameter.ofType(toClientTypeSignature(type, supportsParametricDateTime));
+            }
+            case TypeParameter.Numeric number -> ClientTypeSignatureParameter.ofLong(number.value());
+            case TypeParameter.Variable _ -> throw new IllegalArgumentException("Unsupported parameter kind: " + parameter);
+        };
     }
 
     public static StatementStats toStatementStats(ResultQueryInfo queryInfo)

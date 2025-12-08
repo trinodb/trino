@@ -47,7 +47,6 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.Date;
-import java.util.List;
 import java.util.UUID;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -246,7 +245,7 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
             throws IOException, AvroTypeException
     {
         Location testLocation = createLocalTempLocation();
-        Type type = new NativeLogicalTypesAvroTypeBlockHandler().typeFor(ALL_SUPPORTED_TYPES_SCHEMA);
+        RowType type = (RowType) new NativeLogicalTypesAvroTypeBlockHandler().typeFor(ALL_SUPPORTED_TYPES_SCHEMA);
         try (AvroFileWriter fileWriter = new AvroFileWriter(
                 trinoLocalFilesystem.newOutputFile(testLocation).create(),
                 ALL_SUPPORTED_TYPES_SCHEMA,
@@ -254,7 +253,7 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
                 AvroCompressionKind.NULL,
                 ImmutableMap.of(),
                 ALL_SUPPORTED_TYPES_SCHEMA.getFields().stream().map(Schema.Field::name).collect(toImmutableList()),
-                type instanceof RowType rowType ? rowType.getFieldTypes() : List.of(),
+                type.getFieldTypes(),
                 false)) {
             fileWriter.write(ALL_SUPPORTED_PAGE);
         }

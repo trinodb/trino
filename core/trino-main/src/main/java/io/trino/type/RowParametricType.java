@@ -13,7 +13,6 @@
  */
 package io.trino.type;
 
-import io.trino.spi.type.ParameterKind;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
@@ -43,13 +42,11 @@ public final class RowParametricType
     public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
         checkArgument(!parameters.isEmpty(), "Row type must have at least one parameter");
-        checkArgument(
-                parameters.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.TYPE),
-                "Expected only types as a parameters, got %s",
-                parameters);
-
         List<RowType.Field> fields = parameters.stream()
-                .map(parameter -> new RowType.Field(parameter.name(), typeManager.getType(parameter.getTypeSignature())))
+                .map(parameter -> switch (parameter) {
+                    case TypeParameter.Type type -> new RowType.Field(type.name(), typeManager.getType(type.type()));
+                    default -> throw new IllegalArgumentException("Expected only types as parameters, got " + parameter);
+                })
                 .collect(toList());
 
         return RowType.from(fields);

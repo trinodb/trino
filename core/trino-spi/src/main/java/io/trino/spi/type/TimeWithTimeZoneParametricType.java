@@ -38,11 +38,9 @@ public class TimeWithTimeZoneParametricType
 
         TypeParameter parameter = parameters.get(0);
 
-        if (!parameter.isLongLiteral()) {
+        if (!(parameter instanceof TypeParameter.Numeric(long precision))) {
             throw new IllegalArgumentException("TIME WITH TIME ZONE precision must be a number");
         }
-
-        long precision = parameter.getLongLiteral();
 
         if (precision < 0 || precision > TimeWithTimeZoneType.MAX_PRECISION) {
             throw new IllegalArgumentException("Invalid TIME WITH TIME ZONE precision " + precision);
