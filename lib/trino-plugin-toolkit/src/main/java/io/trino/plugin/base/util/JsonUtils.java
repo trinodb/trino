@@ -31,7 +31,6 @@ import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -95,16 +94,6 @@ public final class JsonUtils
     public static <T> T parseJson(ObjectMapper mapper, InputStream inputStream, Class<T> javaType)
     {
         return parseJson(mapper, ObjectMapper::createParser, inputStream, javaType);
-    }
-
-    public static <T> T parseJson(URL url, Class<T> javaType)
-    {
-        return parseJson(OBJECT_MAPPER, url, javaType);
-    }
-
-    public static <T> T parseJson(ObjectMapper mapper, URL url, Class<T> javaType)
-    {
-        return parseJson(mapper, ObjectMapper::createParser, url, javaType);
     }
 
     private static <I, T> T parseJson(ObjectMapper mapper, ParserConstructor<I> parserConstructor, I input, Class<T> javaType)
