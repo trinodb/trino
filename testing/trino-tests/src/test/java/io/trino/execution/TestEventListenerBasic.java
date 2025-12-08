@@ -511,6 +511,8 @@ public class TestEventListenerBasic
                 .hasNoTableReferences();
     }
 
+    // Currently, the storage table for a materialized view is not included anywhere in the set of `tables` in the query event.
+    // See for more details: https://github.com/trinodb/trino/pull/18871#discussion_r1412247513
     @Test
     public void testReferencedTablesWithMaterializedViewsStale()
             throws Exception
