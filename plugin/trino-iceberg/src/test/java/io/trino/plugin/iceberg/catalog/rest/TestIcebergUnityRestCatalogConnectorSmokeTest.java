@@ -551,6 +551,14 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
 
     @Test
     @Override
+    public void testCreateTableWithIdentifierFields()
+    {
+        assertThatThrownBy(super::testCreateTableWithIdentifierFields)
+                .hasMessageContaining("Access Denied");
+    }
+
+    @Test
+    @Override
     public void testAnalyze()
     {
         assertThatThrownBy(super::testAnalyze)

@@ -78,6 +78,8 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -1498,6 +1500,131 @@ public class TestIcebergV2
             assertThat(metadataFiles.keySet()).containsAll(expectMetadataFiles);
         }
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateTableWithIdentifierFields()
+    {
+        try (TestTable table = newTrinoTable("test_identifier_fields",
+                "(id BIGINT NOT NULL, name VARCHAR NOT NULL) WITH (identifier_fields = ARRAY['id'])")) {
+
+            BaseTable icebergTable = loadTable(table.getName());
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("identifier_fields = ARRAY['id']");
+            Set<String> identifierFieldNames = icebergTable.schema().identifierFieldNames();
+            assertThat(identifierFieldNames).containsOnly("id");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES identifier_fields = ARRAY['name']");
+            icebergTable = loadTable(table.getName());
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("identifier_fields = ARRAY['name']");
+            identifierFieldNames = icebergTable.schema().identifierFieldNames();
+            assertThat(identifierFieldNames).containsOnly("name");
+        }
+    }
+
+    @Test
+    public void testCreateTableWithMultiIdentifierFields()
+    {
+        try (TestTable table = newTrinoTable("test_identifier_fields",
+                "(id BIGINT NOT NULL, name VARCHAR NOT NULL, area INT NOT NULL) WITH (identifier_fields = ARRAY['name','id'])")) {
+            BaseTable icebergTable = loadTable(table.getName());
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("identifier_fields = ARRAY['id','name']");
+            List<String> identifierFieldNames = icebergTable.schema().identifierFieldNames().stream().sorted().collect(toImmutableList());
+            assertThat(identifierFieldNames).containsExactly("id", "name");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES identifier_fields = ARRAY['name','area']");
+            icebergTable = loadTable(table.getName());
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("identifier_fields = ARRAY['area','name']");
+            identifierFieldNames = icebergTable.schema().identifierFieldNames().stream().sorted().collect(toImmutableList());
+            assertThat(identifierFieldNames).containsExactly("area", "name");
+        }
+    }
+
+    @Test
+    public void testUpdateIdentifierFields()
+    {
+        try (TestTable table = newTrinoTable("test_identifier_fields",
+                "(id BIGINT NOT NULL, name VARCHAR NOT NULL, area INT, address ROW(street VARCHAR, city VARCHAR) NOT NULL)")) {
+            BaseTable icebergTable = loadTable(table.getName());
+
+            Set<String> identifierFieldNames = icebergTable.schema().identifierFieldNames();
+            assertThat(identifierFieldNames).isEmpty();
+
+            assertThat(query("ALTER TABLE " + table.getName() + " SET PROPERTIES identifier_fields = ARRAY['not_exist_col']"))
+                    .failure()
+                    .hasMessage("Field 'not_exist_col' does not exist");
+
+            assertThat(query("ALTER TABLE " + table.getName() + " SET PROPERTIES identifier_fields = ARRAY['area']"))
+                    .failure()
+                    .hasMessage("Identifier field 'area' must be NOT NULL");
+
+            assertThat(query("ALTER TABLE " + table.getName() + " SET PROPERTIES identifier_fields = ARRAY['name','name']"))
+                    .failure()
+                    .hasMessage("Duplicate identifier fields detected");
+
+            assertThat(query("ALTER TABLE " + table.getName() + " SET PROPERTIES identifier_fields = ARRAY['address.street']"))
+                    .failure()
+                    .hasMessage("Setting a nested internal field as an identifier is not supported");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES identifier_fields = ARRAY[]");
+            icebergTable.refresh();
+            identifierFieldNames = icebergTable.schema().identifierFieldNames();
+            assertThat(identifierFieldNames).isEmpty();
+        }
+    }
+
+    @Test
+    public void testUpdateIdentifierFieldsWithNested()
+    {
+        try (TestTable table = newTrinoTable("test_update_nested_identifier_fields",
+                "(id BIGINT NOT NULL, info ROW(name VARCHAR, code INT) NOT NULL)")) {
+            assertThat(query("ALTER TABLE " + table.getName() + " SET PROPERTIES identifier_fields = ARRAY['info.name']"))
+                    .failure()
+                    .hasMessage("Setting a nested internal field as an identifier is not supported");
+        }
+    }
+
+    @Test
+    public void testCreateTableWithNullableIdentifierField()
+    {
+        assertThat(query("CREATE TABLE test_nullable_identifier_fields " +
+                "(id BIGINT, name VARCHAR NOT NULL) " +
+                "WITH (identifier_fields = ARRAY['id'])"))
+                .failure()
+                .hasMessage("Identifier field 'id' must be NOT NULL");
+    }
+
+    @Test
+    public void testShowCreateTableWithStructIdentifierFields()
+    {
+        String tableName = "test_struct_identifier_fields" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", tableName);
+        List<Types.NestedField> fields = Arrays.asList(
+                Types.NestedField.required(1, "id", Types.IntegerType.get()),
+                Types.NestedField.required(2, "name", Types.DoubleType.get()),
+                Types.NestedField.required(3, "address", Types.StructType.of(
+                        Types.NestedField.optional(4, "city", Types.StringType.get()),
+                        Types.NestedField.required(5, "zip", Types.StringType.get())
+                ))
+        );
+        Set<Integer> identifierIds = Collections.singleton(5);
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        schemaTableName,
+                        new Schema(fields, identifierIds),
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        ImmutableMap.of())
+                .commitTransaction();
+        BaseTable icebergTable = loadTable(tableName);
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("identifier_fields = ARRAY['address.zip']");
+        Set<String> identifierFieldNames = icebergTable.schema().identifierFieldNames();
+        assertThat(identifierFieldNames).containsOnly("address.zip");
     }
 
     @Test

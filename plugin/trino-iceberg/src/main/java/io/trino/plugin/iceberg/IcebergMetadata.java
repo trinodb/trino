@@ -276,6 +276,7 @@ import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_IDENTIFIER_FIELDS;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_UNSUPPORTED_VIEW_DIALECT;
@@ -308,12 +309,14 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.DATA_LOCATION_PROPE
 import static io.trino.plugin.iceberg.IcebergTableProperties.EXTRA_PROPERTIES_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.IDENTIFIER_FIELDS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_COMMIT_RETRY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.OBJECT_STORE_LAYOUT_ENABLED_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getIdentifierFields;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.IcebergTableProperties.validateCompression;
@@ -448,6 +451,7 @@ public class IcebergMetadata
             .add(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)
             .add(PARTITIONING_PROPERTY)
             .add(SORTED_BY_PROPERTY)
+            .add(IDENTIFIER_FIELDS_PROPERTY)
             .build();
     private static final String SYSTEM_SCHEMA = "system";
 
@@ -1231,7 +1235,7 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        Schema schema = schemaFromMetadata(tableMetadata.getColumns());
+        Schema schema = schemaFromMetadata(tableMetadata.getColumns(), getIdentifierFields(tableMetadata.getProperties()));
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
         return getWriteLayout(schema, partitionSpec, false);
     }
@@ -2526,6 +2530,17 @@ public class IcebergMetadata
             }
         }
 
+        if (properties.containsKey(IDENTIFIER_FIELDS_PROPERTY)) {
+            @SuppressWarnings("unchecked")
+            List<String> identifierFields = (List<String>) properties.get(IDENTIFIER_FIELDS_PROPERTY)
+                    .orElse(ImmutableList.of());
+            Set<String> uniqueFields = new HashSet<>(identifierFields);
+            if (uniqueFields.size() != identifierFields.size()) {
+                throw new TrinoException(ICEBERG_INVALID_IDENTIFIER_FIELDS, "Duplicate identifier fields detected");
+            }
+            updateIdentifierFields(icebergTable, transaction, uniqueFields);
+        }
+
         commitTransaction(transaction, "set table properties");
     }
 
@@ -2570,6 +2585,36 @@ public class IcebergMetadata
         }
         catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to set new partitioning value", e);
+        }
+    }
+
+    private static void updateIdentifierFields(Table icebergTable, Transaction transaction, Set<String> identifierFields)
+    {
+        UpdateSchema updateSchema = transaction.updateSchema();
+        if (!identifierFields.isEmpty()) {
+            Schema schema = icebergTable.schema();
+            for (String identifierField : identifierFields) {
+                NestedField field = schema.findField(identifierField);
+                if (field == null) {
+                    throw new TrinoException(ICEBERG_INVALID_IDENTIFIER_FIELDS, "Field '" + identifierField + "' does not exist");
+                }
+                // Currently, it is not possible to set the inner field of a nested field to NOT NULL in trino
+                boolean isTopLevel = schema.columns().stream()
+                        .anyMatch(nestedField -> nestedField.fieldId() == field.fieldId());
+                if (!isTopLevel) {
+                    throw new TrinoException(ICEBERG_INVALID_IDENTIFIER_FIELDS, "Setting a nested internal field as an identifier is not supported");
+                }
+                if (field.isOptional()) {
+                    throw new TrinoException(ICEBERG_INVALID_IDENTIFIER_FIELDS, "Identifier field '" + identifierField + "' must be NOT NULL");
+                }
+            }
+        }
+        updateSchema.setIdentifierFields(identifierFields);
+        try {
+            updateSchema.commit();
+        }
+        catch (Exception e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to set new identifier fields", e);
         }
     }
 
