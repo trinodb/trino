@@ -950,13 +950,15 @@ public class LocalExecutionPlanner
                 context.setDriverInstanceCount(getTaskConcurrency(session));
             }
 
+            List<Type> outputTypes = mappedCopy(node.getOutputSymbols(), Symbol::type);
             OperatorFactory operatorFactory = new ExchangeOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
                     directExchangeClientSupplier,
                     createExchangePagesSerdeFactory(plannerContext.getBlockEncodingSerde(), session),
                     node.getRetryPolicy(),
-                    exchangeManagerRegistry);
+                    exchangeManagerRegistry,
+                    outputTypes);
 
             return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
