@@ -264,7 +264,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.build-pt.outputs.matrix) }}
     # PT Launcher's timeout defaults to 2h, add some margin
-    timeout-minutes: 130
+    timeout-minutes: 15
     needs: build-pt
     steps:
       - uses: actions/checkout@v5
