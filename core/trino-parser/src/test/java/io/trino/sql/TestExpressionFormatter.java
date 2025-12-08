@@ -14,20 +14,22 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.tree.CompositeIntervalQualifier;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.IntervalField;
 import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Row;
+import io.trino.sql.tree.SimpleIntervalQualifier;
 import io.trino.sql.tree.StringLiteral;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.trino.sql.parser.ParserAssert.expression;
-import static io.trino.sql.tree.IntervalLiteral.IntervalField.HOUR;
-import static io.trino.sql.tree.IntervalLiteral.IntervalField.SECOND;
 import static io.trino.sql.tree.IntervalLiteral.Sign.NEGATIVE;
 import static io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -95,21 +97,21 @@ public class TestExpressionFormatter
     {
         // positive
         assertFormattedExpression(
-                new IntervalLiteral("2", POSITIVE, HOUR),
+                new IntervalLiteral("2", POSITIVE, new SimpleIntervalQualifier(new NodeLocation(1, 1), OptionalInt.empty(), new IntervalField.Hour())),
                 "INTERVAL '2' HOUR");
         // negative
         assertFormattedExpression(
-                new IntervalLiteral("2", NEGATIVE, HOUR),
+                new IntervalLiteral("2", NEGATIVE, new SimpleIntervalQualifier(new NodeLocation(1, 1), OptionalInt.empty(), new IntervalField.Hour())),
                 "INTERVAL -'2' HOUR");
 
         // from .. to
         assertFormattedExpression(
-                new IntervalLiteral("2", POSITIVE, HOUR, Optional.of(SECOND)),
+                new IntervalLiteral("2", POSITIVE, new CompositeIntervalQualifier(new NodeLocation(1, 1), OptionalInt.empty(), new IntervalField.Hour(), new IntervalField.Second(OptionalInt.empty()))),
                 "INTERVAL '2' HOUR TO SECOND");
 
         // negative from .. to
         assertFormattedExpression(
-                new IntervalLiteral("2", NEGATIVE, HOUR, Optional.of(SECOND)),
+                new IntervalLiteral("2", NEGATIVE, new CompositeIntervalQualifier(new NodeLocation(1, 1), OptionalInt.empty(), new IntervalField.Hour(), new IntervalField.Second(OptionalInt.empty()))),
                 "INTERVAL -'2' HOUR TO SECOND");
     }
 
