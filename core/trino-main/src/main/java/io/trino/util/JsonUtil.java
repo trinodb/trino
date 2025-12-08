@@ -51,7 +51,6 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.BigintOperators;
 import io.trino.type.BooleanOperators;
@@ -663,10 +662,10 @@ public final class JsonUtil
                 SqlRow sqlRow = type.getObject(block, position);
                 int rawIndex = sqlRow.getRawIndex();
 
-                List<TypeSignatureParameter> typeSignatureParameters = type.getTypeSignature().getParameters();
+                List<Field> fields = type.getFields();
                 jsonGenerator.writeStartObject();
                 for (int i = 0; i < sqlRow.getFieldCount(); i++) {
-                    jsonGenerator.writeFieldName(typeSignatureParameters.get(i).getNamedTypeSignature().getName().orElse(""));
+                    jsonGenerator.writeFieldName(fields.get(i).getName().orElse(""));
                     fieldWriters.get(i).writeJsonValue(jsonGenerator, sqlRow.getRawFieldBlock(i), rawIndex);
                 }
                 jsonGenerator.writeEndObject();

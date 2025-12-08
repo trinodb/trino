@@ -27,9 +27,8 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
-import io.trino.spi.type.Type;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.util.JsonUtil.JsonGeneratorWriter;
 
 import java.io.IOException;
@@ -37,14 +36,11 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 
-import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.type.JsonType.JSON;
-import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.JsonGeneratorWriter.createJsonGeneratorWriter;
-import static io.trino.util.JsonUtil.canCastToJson;
 import static io.trino.util.JsonUtil.createJsonFactory;
 import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.Reflection.methodHandle;
@@ -77,17 +73,16 @@ public class RowToJsonCast
     @Override
     protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
-        Type type = boundSignature.getArgumentType(0);
-        checkCondition(canCastToJson(type), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON", type);
+        RowType type = (RowType) boundSignature.getArgumentType(0);
 
-        List<Type> fieldTypes = type.getTypeParameters();
+        List<RowType.Field> fields = type.getFields();
 
-        List<JsonGeneratorWriter> fieldWriters = new ArrayList<>(fieldTypes.size());
-        List<TypeSignatureParameter> typeSignatureParameters = type.getTypeSignature().getParameters();
-        List<String> fieldNames = new ArrayList<>(fieldTypes.size());
-        for (int i = 0; i < fieldTypes.size(); i++) {
-            fieldNames.add(typeSignatureParameters.get(i).getNamedTypeSignature().getName().orElse(""));
-            fieldWriters.add(createJsonGeneratorWriter(fieldTypes.get(i)));
+        List<JsonGeneratorWriter> fieldWriters = new ArrayList<>(fields.size());
+        List<String> fieldNames = new ArrayList<>(fields.size());
+
+        for (RowType.Field field : fields) {
+            fieldNames.add(field.getName().orElse(""));
+            fieldWriters.add(createJsonGeneratorWriter(field.getType()));
         }
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(fieldNames).bindTo(fieldWriters);
 
