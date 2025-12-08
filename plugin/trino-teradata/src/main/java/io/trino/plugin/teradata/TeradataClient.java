@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.teradata;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -38,7 +40,6 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import org.weakref.jmx.$internal.guava.collect.ImmutableMap;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -93,6 +94,8 @@ import static java.lang.String.format;
 public class TeradataClient
         extends BaseJdbcClient
 {
+    private static final Logger log = Logger.get(TeradataClient.class);
+
     @Inject
     public TeradataClient(
             BaseJdbcConfig config,
@@ -273,6 +276,7 @@ public class TeradataClient
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+            log.debug("Mapping unsupported Teradata type %s to VARCHAR", typeHandle);
             return mapToUnboundedVarchar(typeHandle);
         }
 
