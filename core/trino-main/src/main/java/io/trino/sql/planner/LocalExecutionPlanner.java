@@ -389,6 +389,7 @@ import static io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
 import static io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
 import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
+import static io.trino.util.MoreLists.mappedCopy;
 import static io.trino.util.MoreMath.previousPowerOfTwo;
 import static io.trino.util.SpatialJoinUtils.ST_CONTAINS;
 import static io.trino.util.SpatialJoinUtils.ST_DISTANCE;
@@ -1745,12 +1746,14 @@ public class LocalExecutionPlanner
             TableFunctionProcessorProvider processorProvider = plannerContext.getFunctionManager().getTableFunctionProcessorProvider(node.getHandle());
 
             if (node.getSource().isEmpty()) {
+                List<Type> outputTypes = mappedCopy(node.getOutputSymbols(), Symbol::type);
                 OperatorFactory operatorFactory = new LeafTableFunctionOperatorFactory(
                         context.getNextOperatorId(),
                         node.getId(),
                         node.getHandle().catalogHandle(),
                         processorProvider,
-                        node.getHandle().functionHandle());
+                        node.getHandle().functionHandle(),
+                        outputTypes);
                 return new PhysicalOperation(operatorFactory, makeLayout(node));
             }
 
