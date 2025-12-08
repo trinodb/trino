@@ -50,8 +50,8 @@ public class TestTypeSignature
     {
         TypeSignature result = new TypeSignature("decimal", typeVariable("X"), numericParameter(42));
         assertThat(result.getParameters()).hasSize(2);
-        assertThat(result.getParameters().get(0).isVariable()).isEqualTo(true);
-        assertThat(result.getParameters().get(1).isLongLiteral()).isEqualTo(true);
+        assertThat(result.getParameters().get(0)).isInstanceOf(TypeParameter.Variable.class);
+        assertThat(result.getParameters().get(1)).isInstanceOf(TypeParameter.Numeric.class);
     }
 
     @Test

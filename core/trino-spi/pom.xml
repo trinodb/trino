@@ -518,6 +518,62 @@
                                     <old>class io.trino.spi.type.RowFieldName</old>
                                     <justification>Removing NamedType and NamedTypeParameter</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.type.ParameterKind io.trino.spi.type.TypeParameter::getKind()</old>
+                                    <justification>Improve type-safety of TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.Long io.trino.spi.type.TypeParameter::getLongLiteral()</old>
+                                    <justification>Improve type-safety of TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method &lt;A&gt; A io.trino.spi.type.TypeParameter::getValue(io.trino.spi.type.ParameterKind, java.lang.Class&lt;A&gt;)</old>
+                                    <justification>Improve type-safety of TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.type.TypeParameter::getVariable()</old>
+                                    <justification>Improve type-safety of TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.type.TypeParameter::isLongLiteral()</old>
+                                    <justification>Improve type-safety of TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method boolean io.trino.spi.type.TypeParameter::isCalculated()</new>
+                                    <justification>Improve type-safety of TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method java.lang.String io.trino.spi.type.TypeParameter::jsonValue()</new>
+                                    <justification>Improve type-safety of TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.kindChanged</code>
+                                    <old>class io.trino.spi.type.TypeParameter</old>
+                                    <new>interface io.trino.spi.type.TypeParameter</new>
+                                    <justification>Improve type-safety of TypeParameter</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.nowAbstract</code>
+                                    <old>class io.trino.spi.type.TypeParameter</old>
+                                    <new>interface io.trino.spi.type.TypeParameter</new>
+                                    <justification>Improve type-safety of TypeParameter</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

@@ -560,7 +560,6 @@ public class ParquetReader
             throw new ParquetCorruptionException(dataSource.getId(), "Expected map type, found: %s", field.getType());
         }
 
-        checkArgument(field.getType() instanceof MapType, "Expected array type, found: %s", field.getType());
         Block[] blocks = new Block[2];
 
         ColumnChunk columnChunk = readColumnChunk(field.getChildren().get(0).get());

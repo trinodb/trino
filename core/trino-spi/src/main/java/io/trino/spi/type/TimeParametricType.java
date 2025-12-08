@@ -38,11 +38,9 @@ public class TimeParametricType
 
         TypeParameter parameter = parameters.get(0);
 
-        if (!parameter.isLongLiteral()) {
+        if (!(parameter instanceof TypeParameter.Numeric(long precision))) {
             throw new IllegalArgumentException("TIME precision must be a number");
         }
-
-        long precision = parameter.getLongLiteral();
 
         if (precision < 0 || precision > TimeType.MAX_PRECISION) {
             throw new IllegalArgumentException("Invalid TIME precision " + precision);

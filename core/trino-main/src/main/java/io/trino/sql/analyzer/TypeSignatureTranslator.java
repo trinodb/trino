@@ -262,15 +262,19 @@ public final class TypeSignatureTranslator
             case ROW -> new RowDataType(
                     Optional.empty(),
                     typeSignature.getParameters().stream()
-                            .map(parameter -> new RowDataType.Field(
-                                    Optional.empty(),
-                                    parameter.name().map(fieldName -> new Identifier(fieldName, requiresDelimiting(fieldName))),
-                                    toDataType(parameter.getTypeSignature()))).collect(toImmutableList()));
+                            .map(parameter -> {
+                                TypeParameter.Type typeParameter = (TypeParameter.Type) parameter;
+                                return new RowDataType.Field(
+                                        Optional.empty(),
+                                        typeParameter.name().map(fieldName -> new Identifier(fieldName, requiresDelimiting(fieldName))),
+                                        toDataType(typeParameter.type()));
+                            })
+                            .collect(toImmutableList()));
             case VARCHAR -> new GenericDataType(
                     Optional.empty(),
                     new Identifier(typeSignature.getBase(), false),
                     typeSignature.getParameters().stream()
-                            .filter(parameter -> parameter.getLongLiteral() != UNBOUNDED_LENGTH)
+                            .filter(parameter -> ((TypeParameter.Numeric) parameter).value() != UNBOUNDED_LENGTH)
                             .map(parameter -> new NumericParameter(Optional.empty(), parameter.toString()))
                             .collect(toImmutableList()));
             default -> new GenericDataType(
@@ -304,9 +308,9 @@ public final class TypeSignatureTranslator
 
     private static DataTypeParameter toTypeParameter(TypeParameter parameter)
     {
-        return switch (parameter.getKind()) {
-            case LONG -> new NumericParameter(Optional.empty(), parameter.toString());
-            case TYPE -> new io.trino.sql.tree.TypeParameter(toDataType(parameter.getTypeSignature()));
+        return switch (parameter) {
+            case TypeParameter.Numeric numeric -> new NumericParameter(Optional.empty(), Long.toString(numeric.value()));
+            case TypeParameter.Type type -> new io.trino.sql.tree.TypeParameter(toDataType(type.type()));
             default -> throw new UnsupportedOperationException("Unsupported parameter kind");
         };
     }

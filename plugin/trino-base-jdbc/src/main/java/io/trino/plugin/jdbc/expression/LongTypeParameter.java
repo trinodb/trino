@@ -16,7 +16,6 @@ package io.trino.plugin.jdbc.expression;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.matching.Property;
-import io.trino.spi.type.ParameterKind;
 import io.trino.spi.type.TypeParameter;
 
 import java.util.Optional;
@@ -69,11 +68,9 @@ public class LongTypeParameter
 
     public static Property<TypeParameter, ?, Long> value()
     {
-        return Property.optionalProperty("value", parameter -> {
-            if (parameter.getKind() != ParameterKind.LONG) {
-                return Optional.empty();
-            }
-            return Optional.of(parameter.getLongLiteral());
+        return Property.optionalProperty("value", parameter -> switch (parameter) {
+            case TypeParameter.Numeric numeric -> Optional.of(numeric.value());
+            default -> Optional.empty();
         });
     }
 }

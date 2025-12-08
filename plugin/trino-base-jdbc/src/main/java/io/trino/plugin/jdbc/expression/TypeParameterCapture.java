@@ -49,15 +49,10 @@ public class TypeParameterCapture
     public void resolve(Captures captures, MatchContext matchContext)
     {
         TypeParameter parameter = captures.get(capture);
-        switch (parameter.getKind()) {
-            case TYPE:
-                matchContext.record(name, parameter.getTypeSignature());
-                break;
-            case LONG:
-                matchContext.record(name, parameter.getLongLiteral());
-                break;
-            default:
-                throw new UnsupportedOperationException("Unsupported parameter: " + parameter);
+        switch (parameter) {
+            case TypeParameter.Numeric numeric -> matchContext.record(name, numeric.value());
+            case TypeParameter.Type type -> matchContext.record(name, type.type());
+            case TypeParameter.Variable _ -> throw new UnsupportedOperationException("Unsupported parameter: " + parameter);
         }
     }
 

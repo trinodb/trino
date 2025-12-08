@@ -21,11 +21,11 @@ import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.operator.annotations.LiteralImplementationDependency;
 import io.trino.operator.annotations.OperatorImplementationDependency;
 import io.trino.operator.annotations.TypeImplementationDependency;
-import io.trino.spi.type.ParameterKind;
 import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -104,8 +104,8 @@ class TypeSignatureMapping
 
     private TypeParameter mapTypeSignatureParameter(TypeParameter parameter)
     {
-        if (parameter.getKind() == ParameterKind.TYPE) {
-            return TypeParameter.typeParameter(parameter.name(), mapTypeSignature(parameter.getTypeSignature()));
+        if (parameter instanceof TypeParameter.Type(Optional<String> name, TypeSignature type)) {
+            return TypeParameter.typeParameter(name, mapTypeSignature(type));
         }
         return parameter;
     }

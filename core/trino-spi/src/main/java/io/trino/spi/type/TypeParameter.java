@@ -15,161 +15,120 @@ package io.trino.spi.type;
 
 import com.google.errorprone.annotations.Immutable;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 @Immutable
-public final class TypeParameter
+public sealed interface TypeParameter
+        permits TypeParameter.Type, TypeParameter.Numeric, TypeParameter.Variable
 {
-    private final Optional<String> name;
-    private final ParameterKind kind;
-    private final Object value;
-
-    public static TypeParameter typeParameter(TypeSignature typeSignature)
+    static TypeParameter typeParameter(TypeSignature typeSignature)
     {
-        return new TypeParameter(Optional.empty(), ParameterKind.TYPE, typeSignature);
+        return new Type(Optional.empty(), typeSignature);
     }
 
-    public static TypeParameter typeParameter(Optional<String> name, TypeSignature typeSignature)
+    static TypeParameter typeParameter(Optional<String> name, TypeSignature typeSignature)
     {
-        return new TypeParameter(name, ParameterKind.TYPE, typeSignature);
+        return new Type(name, typeSignature);
     }
 
-    public static TypeParameter numericParameter(long longLiteral)
+    static TypeParameter numericParameter(long longLiteral)
     {
-        return new TypeParameter(Optional.empty(), ParameterKind.LONG, longLiteral);
+        return new Numeric(longLiteral);
     }
 
-    public static TypeParameter namedField(String name, TypeSignature type)
+    static TypeParameter namedField(String name, TypeSignature type)
     {
-        return new TypeParameter(Optional.of(name), ParameterKind.TYPE, type);
+        return new Type(Optional.of(name), type);
     }
 
-    public static TypeParameter anonymousField(TypeSignature type)
+    static TypeParameter anonymousField(TypeSignature type)
     {
-        return new TypeParameter(Optional.empty(), ParameterKind.TYPE, type);
+        return new Type(Optional.empty(), type);
     }
 
-    public static TypeParameter typeVariable(String variable)
+    static TypeParameter typeVariable(String variable)
     {
-        return new TypeParameter(Optional.empty(), ParameterKind.VARIABLE, variable);
+        return new Variable(variable);
     }
 
-    private TypeParameter(Optional<String> name, ParameterKind kind, Object value)
-    {
-        this.name = requireNonNull(name, "name is null");
-        this.kind = requireNonNull(kind, "kind is null");
-        this.value = requireNonNull(value, "value is null");
-    }
+    String jsonValue();
 
-    public Optional<String> name()
-    {
-        return name;
-    }
+    boolean isCalculated();
 
-    @Override
-    public String toString()
+    record Type(Optional<String> name, TypeSignature type)
+            implements TypeParameter
     {
-        return switch (kind) {
-            case VARIABLE, LONG -> value.toString();
-            case TYPE -> {
-                if (name.isPresent()) {
-                    yield format("\"%s\" %s", name.get().replace("\"", "\"\""), value.toString());
-                }
-                yield value.toString();
+        @Override
+        public String toString()
+        {
+            if (name.isPresent()) {
+                return format("\"%s\" %s", name.get().replace("\"", "\"\""), type.toString());
             }
-        };
-    }
-
-    public String jsonValue()
-    {
-        String prefix = "";
-
-        if (name.isPresent()) {
-            prefix = format("\"%s\" ", name.get().replace("\"", "\"\""));
+            return type.toString();
         }
 
-        if (kind == ParameterKind.VARIABLE) {
-            prefix += "@";
+        @Override
+        public String jsonValue()
+        {
+            String prefix = "";
+
+            if (name.isPresent()) {
+                prefix = format("\"%s\" ", name.get().replace("\"", "\"\""));
+            }
+
+            return prefix + type.jsonValue();
         }
 
-        String valueJson;
-        if (value instanceof TypeSignature typeSignature) {
-            valueJson = typeSignature.jsonValue();
+        @Override
+        public boolean isCalculated()
+        {
+            return type.isCalculated();
         }
-        else {
-            valueJson = value.toString();
+    }
+
+    record Numeric(long value)
+            implements TypeParameter
+    {
+        @Override
+        public String toString()
+        {
+            return Long.toString(value);
         }
-        return prefix + valueJson;
-    }
 
-    public ParameterKind getKind()
-    {
-        return kind;
-    }
-
-    public boolean isTypeSignature()
-    {
-        return kind == ParameterKind.TYPE;
-    }
-
-    public boolean isLongLiteral()
-    {
-        return kind == ParameterKind.LONG;
-    }
-
-    public boolean isVariable()
-    {
-        return kind == ParameterKind.VARIABLE;
-    }
-
-    private <A> A getValue(ParameterKind expectedParameterKind, Class<A> target)
-    {
-        if (kind != expectedParameterKind) {
-            throw new IllegalArgumentException(format("ParameterKind is [%s] but expected [%s]", kind, expectedParameterKind));
+        @Override
+        public String jsonValue()
+        {
+            return toString();
         }
-        return target.cast(value);
-    }
 
-    public TypeSignature getTypeSignature()
-    {
-        return getValue(ParameterKind.TYPE, TypeSignature.class);
-    }
-
-    public Long getLongLiteral()
-    {
-        return getValue(ParameterKind.LONG, Long.class);
-    }
-
-    public String getVariable()
-    {
-        return getValue(ParameterKind.VARIABLE, String.class);
-    }
-
-    public boolean isCalculated()
-    {
-        return switch (kind) {
-            case TYPE -> getTypeSignature().isCalculated();
-            case LONG -> false;
-            case VARIABLE -> true;
-        };
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (!(o instanceof TypeParameter that)) {
+        @Override
+        public boolean isCalculated()
+        {
             return false;
         }
-        return Objects.equals(name, that.name) && kind == that.kind && Objects.equals(value, that.value);
     }
 
-    @Override
-    public int hashCode()
+    record Variable(String name)
+            implements TypeParameter
     {
-        return Objects.hash(name, kind, value);
+        @Override
+        public String toString()
+        {
+            return name;
+        }
+
+        @Override
+        public String jsonValue()
+        {
+            return "@" + name;
+        }
+
+        @Override
+        public boolean isCalculated()
+        {
+            return true;
+        }
     }
 }

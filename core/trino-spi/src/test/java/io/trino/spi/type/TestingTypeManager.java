@@ -56,7 +56,10 @@ public final class TestingTypeManager
                     typeOperators);
             case StandardTypes.ARRAY -> new ArrayType(getType(signature.getTypeParametersAsTypeSignatures().get(0)));
             case StandardTypes.ROW -> RowType.from(signature.getParameters().stream()
-                    .map(type -> new RowType.Field(type.name(), getType(type.getTypeSignature())))
+                    .map(parameter -> {
+                        TypeParameter.Type typeParameter = (TypeParameter.Type) parameter;
+                        return new RowType.Field(typeParameter.name(), getType(typeParameter.type()));
+                    })
                     .collect(toImmutableList()));
             default -> throw new TypeNotFoundException(signature);
         };

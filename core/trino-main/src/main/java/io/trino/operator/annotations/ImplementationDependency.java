@@ -87,8 +87,8 @@ public interface ImplementationDependency
         }
 
         for (TypeParameter parameter : typeSignature.getParameters()) {
-            if (parameter.isTypeSignature()) {
-                checkTypeParameters(parameter.getTypeSignature(), typeParameterNames, element);
+            if (parameter instanceof TypeParameter.Type(_, TypeSignature type)) {
+                checkTypeParameters(type, typeParameterNames, element);
             }
         }
     }

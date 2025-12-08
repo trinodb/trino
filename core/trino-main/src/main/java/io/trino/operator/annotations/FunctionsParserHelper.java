@@ -176,15 +176,8 @@ public final class FunctionsParserHelper
         checkArgument(!typeParameterNames.contains(typeSignature.getBase()), "Nested type variables are not allowed: %s", rootType);
 
         for (TypeParameter parameter : typeSignature.getParameters()) {
-            switch (parameter.getKind()) {
-                case TYPE:
-                    verifyTypeSignatureDoesNotContainAnyTypeParameters(rootType, parameter.getTypeSignature(), typeParameterNames);
-                    break;
-                case LONG:
-                case VARIABLE:
-                    break;
-                default:
-                    throw new UnsupportedOperationException();
+            if (parameter instanceof TypeParameter.Type(_, TypeSignature type)) {
+                verifyTypeSignatureDoesNotContainAnyTypeParameters(rootType, type, typeParameterNames);
             }
         }
     }
