@@ -2071,7 +2071,6 @@ public class LocalExecutionPlanner
                 int channel = 0;
                 for (Symbol symbol : tableScanNode.getOutputSymbols()) {
                     columns.add(tableScanNode.getAssignments().get(symbol));
-
                     Integer input = channel;
                     sourceLayout.put(symbol, input);
 
