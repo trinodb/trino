@@ -26,7 +26,6 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.SourcePage;
-import io.trino.spi.type.Type;
 import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
 import io.trino.split.PageSourceProviderFactory;
@@ -56,7 +55,6 @@ public class TableScanOperator
         private final PageSourceProvider pageSourceProvider;
         private final TableHandle table;
         private final List<ColumnHandle> columns;
-        private final List<Type> types;
         private final DynamicFilter dynamicFilter;
         private boolean closed;
 
@@ -67,7 +65,6 @@ public class TableScanOperator
                 PageSourceProviderFactory pageSourceProvider,
                 TableHandle table,
                 Iterable<ColumnHandle> columns,
-                List<Type> types,
                 DynamicFilter dynamicFilter)
         {
             this.operatorId = operatorId;
@@ -75,7 +72,6 @@ public class TableScanOperator
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
             this.pageSourceProvider = pageSourceProvider.createPageSourceProvider(table.catalogHandle());
         }
@@ -97,7 +93,6 @@ public class TableScanOperator
                     pageSourceProvider,
                     table,
                     columns,
-                    types,
                     dynamicFilter);
         }
 
@@ -113,7 +108,6 @@ public class TableScanOperator
     private final PageSourceProvider pageSourceProvider;
     private final TableHandle table;
     private final List<ColumnHandle> columns;
-    private final List<Type> types;
     private final DynamicFilter dynamicFilter;
     private final LocalMemoryContext memoryContext;
     private final SettableFuture<Void> blocked = SettableFuture.create();
@@ -135,7 +129,6 @@ public class TableScanOperator
             PageSourceProvider pageSourceProvider,
             TableHandle table,
             Iterable<ColumnHandle> columns,
-            List<Type> types,
             DynamicFilter dynamicFilter)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
@@ -143,7 +136,6 @@ public class TableScanOperator
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.table = requireNonNull(table, "table is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         this.memoryContext = operatorContext.newLocalUserMemoryContext(TableScanOperator.class.getSimpleName());
     }
@@ -264,7 +256,7 @@ public class TableScanOperator
             if (!dynamicFilter.getCurrentPredicate().isAll()) {
                 operatorContext.recordDynamicFilterSplitProcessed(1L);
             }
-            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, types, dynamicFilter);
+            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, dynamicFilter);
         }
 
         SourcePage sourcePage = source.getNextSourcePage();
