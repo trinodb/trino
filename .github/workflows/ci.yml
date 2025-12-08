@@ -293,6 +293,14 @@ jobs:
           !contains(github.event.pull_request.labels.*.name, 'tests:all') &&
           !contains(github.event.pull_request.labels.*.name, 'tests:all-product')
         run: echo "PTL_OPTS=--impacted-features impacted-features.log" >> $GITHUB_ENV
+      - name: Disk space report
+        run: |
+          echo "=== Host disk usage ==="
+          df -h /
+      
+          echo
+          echo "=== Docker disk usage ==="
+          docker system df
       - name: Product Tests
         id: tests
         timeout-minutes: 15
@@ -327,6 +335,14 @@ jobs:
             ${PTL_OPTS:-} \
             --bind=off --logs-dir logs/ --timeout 2h
 
+      - name: Disk space report afterwards
+        run: |
+          echo "=== Host disk usage ==="
+          df -h /
+      
+          echo
+          echo "=== Docker disk usage ==="
+          docker system df
       - name: Compute unique logs artifact name
         if: always()
         id: pt-logs-name
