@@ -170,12 +170,11 @@ public class TestDriver
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
-                (_, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
+                (_, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                types,
                 DynamicFilter.EMPTY);
 
         PageConsumerOperator sink = createSinkOperator(types);
@@ -251,11 +250,10 @@ public class TestDriver
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new AlwaysBlockedMemoryRevokingTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
                 new PlanNodeId("source"),
-                (_, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
+                (_, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TEST_TABLE_HANDLE,
-                ImmutableList.of(),
                 ImmutableList.of());
 
         Driver driver = Driver.createDriver(driverContext, source, createSinkOperator(types));
@@ -272,11 +270,10 @@ public class TestDriver
         TableScanOperator source = new AlwaysBlockedTableScanOperator(
                 driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
                 new PlanNodeId("source"),
-                (_, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
+                (_, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TEST_TABLE_HANDLE,
-                ImmutableList.of(),
                 ImmutableList.of());
 
         MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(driverContext.getSession(), types);
@@ -343,11 +340,10 @@ public class TestDriver
         // create a table scan operator that does not block, which will cause the driver loop to busy wait
         TableScanOperator source = new NotBlockedTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
-                (_, _, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
+                (_, _, _, _, _) -> new FixedPageSource(rowPagesBuilder(types)
                         .addSequencePage(10, 20, 30, 40)
                         .build()),
                 TEST_TABLE_HANDLE,
-                ImmutableList.of(),
                 ImmutableList.of());
 
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"));
@@ -583,10 +579,9 @@ public class TestDriver
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,
                 TableHandle table,
-                Iterable<ColumnHandle> columns,
-                List<Type> types)
+                Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, columns, types, DynamicFilter.EMPTY);
+            super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
         }
 
         @Override
@@ -604,10 +599,9 @@ public class TestDriver
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,
                 TableHandle table,
-                Iterable<ColumnHandle> columns,
-                List<Type> types)
+                Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, columns, types, DynamicFilter.EMPTY);
+            super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
         }
 
         @Override
@@ -630,10 +624,9 @@ public class TestDriver
                 PlanNodeId planNodeId,
                 PageSourceProvider pageSourceProvider,
                 TableHandle table,
-                Iterable<ColumnHandle> columns,
-                List<Type> types)
+                Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, columns, types, DynamicFilter.EMPTY);
+            super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
         }
 
         @Override

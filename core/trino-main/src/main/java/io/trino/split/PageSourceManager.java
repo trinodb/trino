@@ -26,7 +26,6 @@ import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.Type;
 
 import java.util.List;
 
@@ -66,7 +65,6 @@ public class PageSourceManager
                 Split split,
                 TableHandle table,
                 List<ColumnHandle> columns,
-                List<Type> types,
                 DynamicFilter dynamicFilter)
         {
             requireNonNull(columns, "columns is null");

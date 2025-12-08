@@ -19,7 +19,6 @@ import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
-import io.trino.spi.type.Type;
 
 import java.util.List;
 
@@ -30,6 +29,5 @@ public interface PageSourceProvider
             Split split,
             TableHandle table,
             List<ColumnHandle> columns,
-            List<Type> types,
             DynamicFilter dynamicFilter);
 }
