@@ -1122,6 +1122,13 @@ public abstract class BaseBigQueryConnectorTest
         }
     }
 
+    @Test // regression test for https://github.com/trinodb/trino/issues/27573
+    public void testNativeQueryWhenResultReused()
+    {
+        assertThat(query("WITH t AS (SELECT * FROM TABLE(system.query('SELECT regionkey FROM tpch.region WHERE regionkey = 0'))) SELECT * FROM t, t"))
+                .matches("VALUES (BIGINT '0', BIGINT '0')");
+    }
+
     @Test
     public void testNativeQuerySelectUnsupportedType()
     {
