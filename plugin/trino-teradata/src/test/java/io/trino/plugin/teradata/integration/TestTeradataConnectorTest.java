@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.teradata.integration;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.query.QueryAssertions;
@@ -176,7 +177,7 @@ final class TestTeradataConnectorTest
         try (TestTable table = newTrinoTable(
                 tableName,
                 "(a varchar(50))",
-                List.of(
+                ImmutableList.of(
                         "'999-09-09'",
                         "'1005-09-09'",
                         "'2005-06-06'", "'2005-06-6'", "'2005-6-06'", "'2005-6-6'", "' 2005-06-06'", "'2005-06-06 '", "' +2005-06-06'", "'02005-06-06'",
@@ -186,8 +187,8 @@ final class TestTeradataConnectorTest
                         "'2005-09-20'", "'2005-9-20'", "' 2005-09-20'", "'2005-09-20 '", "' +2005-09-20'", "'02005-09-20'",
                         "'9999-09-09'",
                         "'99999-09-09'"))) {
-            for (String date : List.of("2005-09-06", "2005-09-09", "2005-09-10")) {
-                for (String operator : List.of("=", "<=", "<", ">", ">=", "!=", "IS DISTINCT FROM", "IS NOT DISTINCT FROM")) {
+            for (String date : ImmutableList.of("2005-09-06", "2005-09-09", "2005-09-10")) {
+                for (String operator : ImmutableList.of("=", "<=", "<", ">", ">=", "!=", "IS DISTINCT FROM", "IS NOT DISTINCT FROM")) {
                     assertThat(query("SELECT a FROM %s WHERE CAST(a AS date) %s DATE '%s'".formatted(table.getName(), operator, date)))
                             .hasCorrectResultsRegardlessOfPushdown();
                 }
@@ -196,7 +197,7 @@ final class TestTeradataConnectorTest
         try (TestTable table = newTrinoTable(
                 tableName,
                 "(a varchar(50))",
-                List.of("'2005-06-bad-date'", "'2005-09-10'"))) {
+                ImmutableList.of("'2005-06-bad-date'", "'2005-09-10'"))) {
             assertThat(query("SELECT a FROM %s WHERE CAST(a AS date) < DATE '2005-09-10'".formatted(table.getName())))
                     .failure().hasMessage("Value cannot be cast to date: " + "2005-06-bad-date");
             verifyResultOrFailure(
@@ -208,7 +209,7 @@ final class TestTeradataConnectorTest
         try (TestTable table = newTrinoTable(
                 tableName,
                 "(a varchar(50))",
-                List.of("'2005-09-10'"))) {
+                ImmutableList.of("'2005-09-10'"))) {
             // 2005-09-01, when written as 2005-09-1, is a prefix of an existing data point: 2005-09-10
             assertThat(query("SELECT a FROM %s WHERE CAST(a AS date) != DATE '2005-09-01'".formatted(table.getName())))
                     .skippingTypesCheck().matches("VALUES '2005-09-10'");
@@ -309,7 +310,7 @@ final class TestTeradataConnectorTest
         try (TestTable table = newTrinoTable(
                 testTableName,
                 "(k int, v char(3))",
-                List.of(
+                ImmutableList.of(
                         "-1, CAST(NULL AS char(3))",
                         "3, CAST('   ' AS char(3))",
                         "6, CAST('x  ' AS char(3))"))) {
@@ -333,7 +334,7 @@ final class TestTeradataConnectorTest
         try (TestTable table = newTrinoTable(
                 "test_varchar_char",
                 "(k int, v char(3))",
-                List.of(
+                ImmutableList.of(
                         "-1, CAST(NULL AS varchar(3))",
                         "0, CAST('' AS varchar(3))",
                         "1, CAST(' ' AS varchar(3))",
@@ -498,7 +499,7 @@ final class TestTeradataConnectorTest
         try (TestTable table = newTrinoTable(
                 "test_number",
                 "(id INTEGER,  number_col NUMBER(10,2),  number_default NUMBER,  number_large NUMBER(38,10))",
-                List.of(
+                ImmutableList.of(
                         "1, CAST(12345.67 AS NUMBER(10,2)), CAST(999999999999999 AS NUMBER), CAST(1234567890123456789012345678.1234567890 AS NUMBER(38,10))",
                         "2, CAST(-99999.99 AS NUMBER(10,2)), CAST(-123456789012345 AS NUMBER), CAST(-9999999999999999999999999999.9999999999 AS NUMBER(38,10))",
                         "3, CAST(0.00 AS NUMBER(10,2)), CAST" + "(0 AS NUMBER), CAST(0.0000000000 AS NUMBER(38,10))"))) {
@@ -521,7 +522,7 @@ final class TestTeradataConnectorTest
         try (TestTable table = newTrinoTable(
                 "test_character",
                 "(id INTEGER,  char_col CHARACTER(5), char_default CHARACTER,  char_large CHARACTER(100))",
-                List.of(
+                ImmutableList.of(
                         "1, CAST('HELLO' AS CHARACTER(5)), CAST('A' AS CHARACTER), CAST('TERADATA' AS CHARACTER(100))",
                         "2, CAST('WORLD' AS CHARACTER(5)), CAST('B' AS CHARACTER), CAST('CHARACTER' AS CHARACTER(100))",
                         "3, CAST('' AS CHARACTER(5)), CAST('C' AS CHARACTER), CAST('' AS CHARACTER(100))"))) {
