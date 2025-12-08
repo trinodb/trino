@@ -295,6 +295,7 @@ jobs:
         run: echo "PTL_OPTS=--impacted-features impacted-features.log" >> $GITHUB_ENV
       - name: Product Tests
         id: tests
+        timeout-minutes: 15
         env:
           ABFS_CONTAINER: ${{ vars.AZURE_ABFS_HIERARCHICAL_CONTAINER }}
           ABFS_ACCOUNT: ${{ vars.AZURE_ABFS_HIERARCHICAL_ACCOUNT }}
@@ -339,6 +340,13 @@ jobs:
           name: ${{ steps.pt-logs-name.outputs.name }}
           path: logs/
           retention-days: 7
+
+      - name: Show Docker containers
+        if: always()
+        run: |
+          echo "=== docker ps -a ==="
+          docker ps -a --format '{{.ID}} {{.Image}} {{.Status}}' || echo "docker ps failed"
+          echo "===================="
 
       - name: Collect Exasol logs
         if: always()
