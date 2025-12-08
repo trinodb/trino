@@ -44,13 +44,17 @@ Graviton2 is NEON-only (no SVE), whereas Graviton3 provides SVE.
 public final class BlockEncodingSimdSupport
 {
     public record SimdSupport(
-            boolean expandAndCompressByte,
-            boolean expandAndCompressShort,
-            boolean expandAndCompressInt,
-            boolean expandAndCompressLong)
+            boolean compressByte,
+            boolean expandByte,
+            boolean compressShort,
+            boolean expandShort,
+            boolean compressInt,
+            boolean expandInt,
+            boolean compressLong,
+            boolean expandLong)
     {
-        public static final SimdSupport NONE = new SimdSupport(false, false, false, false);
-        public static final SimdSupport ALL = new SimdSupport(true, true, true, true);
+        public static final SimdSupport NONE = new SimdSupport(false, false, false, false, false, false, false, false);
+        public static final SimdSupport ALL = new SimdSupport(true, true, true, true, true, true, true, true);
     }
 
     private static final int MINIMUM_SIMD_LENGTH = 256;
@@ -121,19 +125,27 @@ public final class BlockEncodingSimdSupport
         if (PREFERRED_BIT_WIDTH < MINIMUM_SIMD_LENGTH) {
             return SimdSupport.NONE;
         }
-        else {
-            return new SimdSupport(
-                    x86Flags.contains(X86SimdInstructionSet.avx512vbmi2),
-                    x86Flags.contains(X86SimdInstructionSet.avx512vbmi2),
-                    x86Flags.contains(X86SimdInstructionSet.avx512f),
-                    x86Flags.contains(X86SimdInstructionSet.avx512f));
-        }
+
+        boolean expandAndCompressByte = x86Flags.contains(X86SimdInstructionSet.avx512vbmi2);
+        boolean expandAndCompressShort = x86Flags.contains(X86SimdInstructionSet.avx512vbmi2);
+        boolean expandAndCompressInt = x86Flags.contains(X86SimdInstructionSet.avx512f);
+        boolean expandAndCompressLong = x86Flags.contains(X86SimdInstructionSet.avx512f);
+        return new SimdSupport(
+                expandAndCompressByte,
+                expandAndCompressByte,
+                expandAndCompressShort,
+                expandAndCompressShort,
+                expandAndCompressInt,
+                expandAndCompressInt,
+                expandAndCompressLong,
+                expandAndCompressLong);
     }
 
     private static SimdSupport detectArmSimdSupport()
     {
         enum ArmSimdInstructionSet {
             sve,
+            sve2
         }
 
         Set<String> flags = readCpuFlags();
@@ -151,7 +163,22 @@ public final class BlockEncodingSimdSupport
             return SimdSupport.NONE;
         }
 
-        return SimdSupport.ALL;
+        // SVE 1 is sufficient to have Vector#compress(VectorMask) intrinsics for all primitive types that outperforms scalar code
+        boolean compressAll = armFlags.contains(ArmSimdInstructionSet.sve);
+        // SVE 2 has intrinsics for Vector#expand(VectorMask) over int and long, but not byte or short
+        boolean expandIntAndLong = armFlags.contains(ArmSimdInstructionSet.sve2);
+        // AARCH64 has intrinsics added to NEON, SVE1 and SVE2 in JDK 26 by https://bugs.openjdk.org/browse/JDK-8363989,
+        // reconsider enabling vectorized expand after testing with those changes
+        boolean expandByteAndShort = false;
+        return new SimdSupport(
+                compressAll,
+                expandByteAndShort,
+                compressAll,
+                expandByteAndShort,
+                compressAll,
+                expandIntAndLong,
+                compressAll,
+                expandIntAndLong);
     }
 
     public SimdSupport getSimdSupport()
