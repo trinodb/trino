@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.type.Type;
 import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
 import io.trino.split.PageSourceProviderFactory;
@@ -41,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.trino.SystemSessionProperties.isSourcePagesValidationEnabled;
 import static java.util.Objects.requireNonNull;
 
 public class TableScanOperator
@@ -55,6 +57,7 @@ public class TableScanOperator
         private final PageSourceProvider pageSourceProvider;
         private final TableHandle table;
         private final List<ColumnHandle> columns;
+        private final List<Type> columnTypes;
         private final DynamicFilter dynamicFilter;
         private boolean closed;
 
@@ -65,6 +68,7 @@ public class TableScanOperator
                 PageSourceProviderFactory pageSourceProvider,
                 TableHandle table,
                 List<ColumnHandle> columns,
+                List<Type> columnTypes,
                 DynamicFilter dynamicFilter)
         {
             this.operatorId = operatorId;
@@ -72,6 +76,7 @@ public class TableScanOperator
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+            this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
             this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
             this.pageSourceProvider = pageSourceProvider.createPageSourceProvider(table.catalogHandle());
         }
@@ -87,13 +92,22 @@ public class TableScanOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, Optional.of(sourceId), TableScanOperator.class.getSimpleName());
-            return new TableScanOperator(
+
+            TableScanOperator operator = new TableScanOperator(
                     operatorContext,
                     sourceId,
                     pageSourceProvider,
                     table,
                     columns,
                     dynamicFilter);
+
+            if (isSourcePagesValidationEnabled(operatorContext.getSession())) {
+                return new OutputValidatingSourceOperator(
+                        operator,
+                        columnTypes,
+                        () -> "TableScanOperator(%s); taskId=%s; operatorId=%s".formatted(table, operatorContext.getDriverContext().getTaskId(), operatorContext.getOperatorId()));
+            }
+            return operator;
         }
 
         @Override
