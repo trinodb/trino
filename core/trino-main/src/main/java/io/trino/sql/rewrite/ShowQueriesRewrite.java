@@ -562,7 +562,7 @@ public final class ShowQueriesRewrite
                     query,
                     false,
                     false,
-                    viewDefinition.flatMap(MaterializedViewDefinition::getGracePeriod)
+                    viewDefinition.get().getGracePeriod()
                             .map(DateTimeUtils::formatDayTimeInterval),
                     Optional.empty(), // TODO support WHEN STALE
                     propertyNodes,
