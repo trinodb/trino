@@ -1060,6 +1060,11 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
     Defaults to `false`. 
 * - `data_location`
   - Optionally specifies the file system location URI for the table's data files
+* - `identifier_fields`
+  - Optionally specifies table `identifier-field-ids`. If a table is `identifier-field-ids` by
+    columns `c1` and `c2`, the identifier_fields property is `identifier_fields =
+    ARRAY['c1', 'c2']`. This property does not require these columns to be unique 
+    and is only used as an identifier field.
 * - `extra_properties`
   - Additional properties added to an Iceberg table. The properties are not used by Trino,
     and are available in the `$properties` metadata table.
