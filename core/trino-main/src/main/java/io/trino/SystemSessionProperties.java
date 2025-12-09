@@ -86,6 +86,7 @@ public final class SystemSessionProperties
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String TASK_SCALE_WRITERS_ENABLED = "task_scale_writers_enabled";
+    public static final String TASK_SCALE_WRITERS_MAX_WRITER_MEMORY_PERCENTAGE = "task_scale_writers_max_writer_memory_percentage";
     public static final String MAX_WRITER_TASK_COUNT = "max_writer_task_count";
     public static final String WRITER_SCALING_MIN_DATA_PROCESSED = "writer_scaling_min_data_processed";
     public static final String SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD = "skewed_partition_min_data_processed_rebalance_threshold";
@@ -334,6 +335,16 @@ public final class SystemSessionProperties
                         TASK_SCALE_WRITERS_ENABLED,
                         "Scale the number of concurrent table writers per task based on throughput",
                         taskManagerConfig.isScaleWritersEnabled(),
+                        false),
+                doubleProperty(
+                        TASK_SCALE_WRITERS_MAX_WRITER_MEMORY_PERCENTAGE,
+                        "Maximum percentage of memory per node that can be used by concurrent writers within a task before stopping writer scaling",
+                        taskManagerConfig.getScaleWritersMaxWriterMemoryPercentage(),
+                        value -> {
+                            if (value < 0.0 || value > 100.0) {
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be between 0.0 and 100.0: %s", TASK_SCALE_WRITERS_MAX_WRITER_MEMORY_PERCENTAGE, value));
+                            }
+                        },
                         false),
                 dataSizeProperty(
                         WRITER_SCALING_MIN_DATA_PROCESSED,
@@ -1218,6 +1229,11 @@ public final class SystemSessionProperties
     public static boolean isTaskScaleWritersEnabled(Session session)
     {
         return session.getSystemProperty(TASK_SCALE_WRITERS_ENABLED, Boolean.class);
+    }
+
+    public static double getTaskScaleWritersMaxWriterMemoryPercentage(Session session)
+    {
+        return session.getSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_MEMORY_PERCENTAGE, Double.class);
     }
 
     public static int getMaxWriterTaskCount(Session session)
