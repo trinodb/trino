@@ -77,6 +77,7 @@ import static io.trino.sql.relational.Expressions.field;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
+import static java.util.Collections.nCopies;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -299,7 +300,7 @@ public class TestScanFilterAndProjectOperator
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
                 DynamicFilter.EMPTY,
-                ImmutableList.of(BIGINT),
+                ImmutableList.copyOf(nCopies(totalColumns, BIGINT)),
                 DataSize.ofBytes(0),
                 0);
 
