@@ -49,6 +49,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static io.trino.SystemSessionProperties.getSkewedPartitionMinDataProcessedRebalanceThreshold;
+import static io.trino.SystemSessionProperties.getTaskScaleWritersMaxWriterMemoryPercentage;
 import static io.trino.operator.InterpretedHashGenerator.createChannelsHashGenerator;
 import static io.trino.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
 import static io.trino.sql.planner.PartitioningHandle.isScaledWriterHashDistribution;
@@ -168,7 +169,8 @@ public class LocalExchange
                         partitionCount,
                         skewedPartitionRebalancer,
                         totalMemoryUsed,
-                        getQueryMaxMemoryPerNode(session).toBytes());
+                        getQueryMaxMemoryPerNode(session).toBytes(),
+                        getTaskScaleWritersMaxWriterMemoryPercentage(session));
             };
         }
         else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||
