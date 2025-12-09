@@ -54,7 +54,6 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.filter2.compat.FilterCompat;
@@ -540,8 +539,7 @@ public class ParquetReader
     private ColumnChunk readArray(GroupField field)
             throws IOException
     {
-        List<Type> parameters = field.getType().getTypeParameters();
-        checkArgument(parameters.size() == 1, "Arrays must have a single type parameter, found %s", parameters.size());
+        checkArgument(field.getType() instanceof ArrayType, "Expected array type, found: %s", field.getType());
         Optional<Field> children = field.getChildren().get(0);
         if (children.isEmpty()) {
             return new ColumnChunk(field.getType().createNullBlock(), new int[] {}, new int[] {});
@@ -558,14 +556,17 @@ public class ParquetReader
     private ColumnChunk readMap(GroupField field)
             throws IOException
     {
-        List<Type> parameters = field.getType().getTypeParameters();
-        checkArgument(parameters.size() == 2, "Maps must have two type parameters, found %s", parameters.size());
-        Block[] blocks = new Block[parameters.size()];
+        if (!(field.getType() instanceof MapType mapType)) {
+            throw new ParquetCorruptionException(dataSource.getId(), "Expected map type, found: %s", field.getType());
+        }
+
+        checkArgument(field.getType() instanceof MapType, "Expected array type, found: %s", field.getType());
+        Block[] blocks = new Block[2];
 
         ColumnChunk columnChunk = readColumnChunk(field.getChildren().get(0).get());
         blocks[0] = columnChunk.getBlock();
         Optional<Field> valueField = field.getChildren().get(1);
-        blocks[1] = valueField.isPresent() ? readColumnChunk(valueField.get()).getBlock() : parameters.get(1).createNullBlock();
+        blocks[1] = valueField.isPresent() ? readColumnChunk(valueField.get()).getBlock() : mapType.getValueType().createNullBlock();
         ListColumnReader.BlockPositions collectionPositions = calculateCollectionOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
         Block mapBlock = ((MapType) field.getType()).createBlockFromKeyValue(collectionPositions.isNull(), collectionPositions.offsets(), blocks[0], blocks[1]);
         return new ColumnChunk(mapBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
@@ -574,7 +575,8 @@ public class ParquetReader
     private ColumnChunk readStruct(GroupField field)
             throws IOException
     {
-        Block[] blocks = new Block[field.getType().getTypeParameters().size()];
+        RowType rowType = (RowType) field.getType();
+        Block[] blocks = new Block[rowType.getFields().size()];
         ColumnChunk columnChunk = null;
         List<Optional<Field>> parameters = field.getChildren();
         for (int i = 0; i < blocks.length; i++) {
@@ -593,7 +595,7 @@ public class ParquetReader
         Optional<boolean[]> isNull = structIsNull.isNull();
         for (int i = 0; i < blocks.length; i++) {
             if (blocks[i] == null) {
-                blocks[i] = RunLengthEncodedBlock.create(field.getType().getTypeParameters().get(i), null, structIsNull.positionsCount());
+                blocks[i] = RunLengthEncodedBlock.create(rowType.getFields().get(i).getType(), null, structIsNull.positionsCount());
             }
             else if (isNull.isPresent()) {
                 blocks[i] = toNotNullSupressedBlock(structIsNull.positionsCount(), isNull.get(), blocks[i]);

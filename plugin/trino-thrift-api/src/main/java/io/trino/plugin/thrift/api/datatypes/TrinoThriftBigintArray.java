@@ -22,6 +22,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
@@ -91,7 +92,7 @@ public final class TrinoThriftBigintArray
     @Override
     public ValueBlock toBlock(Type desiredType)
     {
-        checkArgument(desiredType.getTypeParameters().size() == 1 && BIGINT.equals(desiredType.getTypeParameters().get(0)),
+        checkArgument(desiredType instanceof ArrayType arrayType && BIGINT.equals(arrayType.getElementType()),
                 "type doesn't match: %s", desiredType);
         int numberOfRecords = numberOfRecords();
         return ArrayBlock.fromElementBlock(

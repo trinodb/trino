@@ -177,8 +177,8 @@ public final class JsonUtil
                     isValidJsonObjectKeyType(mapType.getKeyType())) &&
                     canCastToJson(mapType.getValueType());
         }
-        if (type instanceof RowType) {
-            return type.getTypeParameters().stream().allMatch(JsonUtil::canCastToJson);
+        if (type instanceof RowType rowType) {
+            return rowType.getFieldTypes().stream().allMatch(JsonUtil::canCastToJson);
         }
         return false;
     }
@@ -203,8 +203,8 @@ public final class JsonUtil
         if (type instanceof MapType mapType) {
             return isValidJsonObjectKeyType(mapType.getKeyType()) && canCastFromJson(mapType.getValueType());
         }
-        if (type instanceof RowType) {
-            return type.getTypeParameters().stream().allMatch(JsonUtil::canCastFromJson);
+        if (type instanceof RowType rowType) {
+            return rowType.getFieldTypes().stream().allMatch(JsonUtil::canCastFromJson);
         }
         return false;
     }
@@ -323,7 +323,7 @@ public final class JsonUtil
                         createJsonGeneratorWriter(mapType.getValueType()));
             }
             if (type instanceof RowType rowType) {
-                List<Type> fieldTypes = type.getTypeParameters();
+                List<Type> fieldTypes = rowType.getFieldTypes();
                 List<JsonGeneratorWriter> fieldWriters = new ArrayList<>(fieldTypes.size());
                 for (int i = 0; i < fieldTypes.size(); i++) {
                     fieldWriters.add(createJsonGeneratorWriter(fieldTypes.get(i)));

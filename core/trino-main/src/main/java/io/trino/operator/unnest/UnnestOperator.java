@@ -335,8 +335,8 @@ public class UnnestOperator
         if (nestedType instanceof ArrayType arrayType) {
             Type elementType = arrayType.getElementType();
 
-            if (elementType instanceof RowType) {
-                return new ArrayOfRowsUnnester(elementType.getTypeParameters().size());
+            if (elementType instanceof RowType rowType) {
+                return new ArrayOfRowsUnnester(rowType.getFields().size());
             }
             return new ArrayUnnester();
         }

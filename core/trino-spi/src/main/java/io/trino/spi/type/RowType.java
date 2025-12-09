@@ -193,13 +193,13 @@ public class RowType
     @Override
     public RowBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
-        return new RowBlockBuilder(getTypeParameters(), blockBuilderStatus, expectedEntries);
+        return new RowBlockBuilder(fieldTypes, blockBuilderStatus, expectedEntries);
     }
 
     @Override
     public RowBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
-        return new RowBlockBuilder(getTypeParameters(), blockBuilderStatus, expectedEntries);
+        return new RowBlockBuilder(fieldTypes, blockBuilderStatus, expectedEntries);
     }
 
     @Override
@@ -316,6 +316,11 @@ public class RowType
     public List<Field> getFields()
     {
         return fields;
+    }
+
+    public List<Type> getFieldTypes()
+    {
+        return fieldTypes;
     }
 
     public static class Field
@@ -441,7 +446,7 @@ public class RowType
             List<BlockBuilder> fieldBuilders)
             throws Throwable
     {
-        List<Type> fieldTypes = rowType.getTypeParameters();
+        List<Type> fieldTypes = rowType.getFieldTypes();
         for (int fieldIndex = 0; fieldIndex < fieldTypes.size(); fieldIndex++) {
             Type fieldType = fieldTypes.get(fieldIndex);
             BlockBuilder fieldBuilder = fieldBuilders.get(fieldIndex);
@@ -471,7 +476,7 @@ public class RowType
             throws Throwable
     {
         int rawIndex = row.getRawIndex();
-        List<Type> fieldTypes = rowType.getTypeParameters();
+        List<Type> fieldTypes = rowType.getFieldTypes();
         for (int fieldIndex = 0; fieldIndex < fieldTypes.size(); fieldIndex++) {
             Type fieldType = fieldTypes.get(fieldIndex);
             Block fieldBlock = row.getRawFieldBlock(fieldIndex);

@@ -229,7 +229,7 @@ public final class HiveTestUtils
             Collection<?> hiveArray = (Collection<?>) hiveValue;
             return buildArrayValue(arrayType, hiveArray.size(), valueBuilder -> {
                 for (Object subElement : hiveArray) {
-                    appendToBlockBuilder(type.getTypeParameters().get(0), subElement, valueBuilder);
+                    appendToBlockBuilder(arrayType.getElementType(), subElement, valueBuilder);
                 }
             });
         }
@@ -237,7 +237,7 @@ public final class HiveTestUtils
             return buildRowValue(rowType, fields -> {
                 int fieldIndex = 0;
                 for (Object subElement : (Iterable<?>) hiveValue) {
-                    appendToBlockBuilder(type.getTypeParameters().get(fieldIndex), subElement, fields.get(fieldIndex));
+                    appendToBlockBuilder(rowType.getFields().get(fieldIndex).getType(), subElement, fields.get(fieldIndex));
                     fieldIndex++;
                 }
             });

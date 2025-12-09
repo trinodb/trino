@@ -28,7 +28,6 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metastore.HiveType.HIVE_BINARY;
@@ -132,7 +131,6 @@ public class DeltaHiveTypeTranslator
             return new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale());
         }
         if (type.getBaseName().equals(JSON)) {
-            checkArgument(type.getTypeParameters().isEmpty(), "JSON type should not have parameters");
             return HIVE_VARIANT.getTypeInfo();
         }
         if (type instanceof ArrayType arrayType) {
@@ -152,7 +150,7 @@ public class DeltaHiveTypeTranslator
             }
             return getStructTypeInfo(
                     fieldNames.build(),
-                    type.getTypeParameters().stream()
+                    rowType.getFieldTypes().stream()
                             .map(DeltaHiveTypeTranslator::translate)
                             .collect(toImmutableList()));
         }
