@@ -2959,7 +2959,10 @@ public class IcebergMetadata
     {
         Set<String> allScalarColumnNames = tableMetadata.getColumns().stream()
                 .filter(column -> !column.isHidden())
-                .filter(column -> column.getType().getTypeParameters().isEmpty()) // is scalar type
+                .filter(column -> {
+                    io.trino.spi.type.Type type = column.getType();
+                    return !(type instanceof MapType || type instanceof ArrayType || type instanceof RowType); // is scalar type
+                })
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableSet());
 

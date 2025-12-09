@@ -820,8 +820,8 @@ class StatementAnalyzer
                 return hasBoundedCharacterType(mapType.getKeyType()) || hasBoundedCharacterType(mapType.getValueType());
             }
 
-            if (type instanceof RowType) {
-                for (Type fieldType : type.getTypeParameters()) {
+            if (type instanceof RowType rowType) {
+                for (Type fieldType : rowType.getFieldTypes()) {
                     if (hasBoundedCharacterType(fieldType)) {
                         return true;
                     }
@@ -4063,16 +4063,16 @@ class StatementAnalyzer
                     })
                     .collect(toImmutableList());
 
-            int fieldCount = rowTypes.getFirst().getTypeParameters().size();
+            int fieldCount = rowTypes.getFirst().getFields().size();
             RowType commonSuperType = rowTypes.getFirst();
-            for (Type rowType : rowTypes) {
+            for (RowType rowType : rowTypes) {
                 // check field count consistency for rows
-                if (rowType.getTypeParameters().size() != fieldCount) {
+                if (rowType.getFields().size() != fieldCount) {
                     throw semanticException(TYPE_MISMATCH,
                             node,
                             "Values rows have mismatched sizes: %s vs %s",
                             fieldCount,
-                            rowType.getTypeParameters().size());
+                            rowType.getFields().size());
                 }
 
                 // determine common super type of the rows
@@ -4092,7 +4092,7 @@ class StatementAnalyzer
                 Type targetType = commonSuperType;
                 if (!(actualType instanceof RowType)) {
                     // coerce field. it will be wrapped in Row by Planner
-                    targetType = getOnlyElement(commonSuperType.getTypeParameters());
+                    targetType = getOnlyElement(commonSuperType.getFieldTypes());
                 }
 
                 if (!actualType.equals(targetType)) {
@@ -5026,9 +5026,9 @@ class StatementAnalyzer
                 analyzeExpression(outputExpression, scope);
                 unfoldedExpressionsBuilder.add(outputExpression);
 
-                Type outputExpressionType = type.getTypeParameters().get(i);
+                Type outputExpressionType = rowType.getFields().get(i).getType();
                 if (node.getSelect().isDistinct() && !outputExpressionType.isComparable()) {
-                    throw semanticException(TYPE_MISMATCH, node.getSelect(), "DISTINCT can only be applied to comparable types (actual: %s)", type.getTypeParameters().get(i));
+                    throw semanticException(TYPE_MISMATCH, node.getSelect(), "DISTINCT can only be applied to comparable types (actual: %s)", rowType.getFields().get(i).getType());
                 }
 
                 Optional<String> name = ((RowType) type).getFields().get(i).getName();

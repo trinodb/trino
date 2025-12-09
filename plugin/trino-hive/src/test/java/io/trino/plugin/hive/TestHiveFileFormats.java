@@ -1154,7 +1154,17 @@ public final class TestHiveFileFormats
 
     private static boolean hasType(Type actualType, Type testType)
     {
-        return actualType.equals(testType) || actualType.getTypeParameters().stream().anyMatch(type -> hasType(type, testType));
+        if (actualType.equals(testType)) {
+            return true;
+        }
+
+        return switch (actualType) {
+            case ArrayType arrayType -> hasType(arrayType.getElementType(), testType);
+            case MapType mapType -> hasType(mapType.getKeyType(), testType) || hasType(mapType.getValueType(), testType);
+            case RowType rowType -> rowType.getFields().stream()
+                    .anyMatch(field -> hasType(field.getType(), testType));
+            default -> false;
+        };
     }
 
     private static boolean withoutNullMapKeyTests(TestColumn testColumn)
@@ -1509,7 +1519,7 @@ public final class TestHiveFileFormats
             });
         }
         else if (type instanceof RowType rowType) {
-            List<Type> typeParameters = rowType.getTypeParameters();
+            List<Type> typeParameters = rowType.getFieldTypes();
             List<?> foo = (List<?>) object;
             ((RowBlockBuilder) builder).buildEntry(fieldBuilders -> {
                 for (int i = 0; i < typeParameters.size(); i++) {

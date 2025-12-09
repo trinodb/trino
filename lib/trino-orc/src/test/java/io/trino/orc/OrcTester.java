@@ -537,25 +537,21 @@ public class OrcTester
             assertThat(expected).isNull();
             return;
         }
-        if (type instanceof ArrayType) {
+        if (type instanceof ArrayType arrayType) {
             List<?> actualArray = (List<?>) actual;
             List<?> expectedArray = (List<?>) expected;
             assertThat(actualArray).hasSize(expectedArray.size());
 
-            Type elementType = type.getTypeParameters().get(0);
             for (int i = 0; i < actualArray.size(); i++) {
                 Object actualElement = actualArray.get(i);
                 Object expectedElement = expectedArray.get(i);
-                assertColumnValueEquals(elementType, actualElement, expectedElement);
+                assertColumnValueEquals(arrayType.getElementType(), actualElement, expectedElement);
             }
         }
-        else if (type instanceof MapType) {
+        else if (type instanceof MapType mapType) {
             Map<?, ?> actualMap = (Map<?, ?>) actual;
             Map<?, ?> expectedMap = (Map<?, ?>) expected;
             assertThat(actualMap).hasSize(expectedMap.size());
-
-            Type keyType = type.getTypeParameters().get(0);
-            Type valueType = type.getTypeParameters().get(1);
 
             List<Entry<?, ?>> expectedEntries = new ArrayList<>(expectedMap.entrySet());
             for (Entry<?, ?> actualEntry : actualMap.entrySet()) {
@@ -563,8 +559,8 @@ public class OrcTester
                 while (iterator.hasNext()) {
                     Entry<?, ?> expectedEntry = iterator.next();
                     try {
-                        assertColumnValueEquals(keyType, actualEntry.getKey(), expectedEntry.getKey());
-                        assertColumnValueEquals(valueType, actualEntry.getValue(), expectedEntry.getValue());
+                        assertColumnValueEquals(mapType.getKeyType(), actualEntry.getKey(), expectedEntry.getKey());
+                        assertColumnValueEquals(mapType.getValueType(), actualEntry.getValue(), expectedEntry.getValue());
                         iterator.remove();
                     }
                     catch (AssertionError _) {
@@ -575,16 +571,14 @@ public class OrcTester
                     .describedAs("Unmatched entries " + expectedEntries)
                     .isTrue();
         }
-        else if (type instanceof RowType) {
-            List<Type> fieldTypes = type.getTypeParameters();
-
+        else if (type instanceof RowType rowType) {
             List<?> actualRow = (List<?>) actual;
             List<?> expectedRow = (List<?>) expected;
-            assertThat(actualRow).hasSize(fieldTypes.size());
+            assertThat(actualRow).hasSize(rowType.getFields().size());
             assertThat(actualRow).hasSize(expectedRow.size());
 
             for (int fieldId = 0; fieldId < actualRow.size(); fieldId++) {
-                Type fieldType = fieldTypes.get(fieldId);
+                Type fieldType = rowType.getFields().get(fieldId).getType();
                 Object actualElement = actualRow.get(fieldId);
                 Object expectedElement = expectedRow.get(fieldId);
                 assertColumnValueEquals(fieldType, actualElement, expectedElement);
@@ -780,12 +774,11 @@ public class OrcTester
                 type.writeObject(blockBuilder, LongTimestampWithTimeZone.fromEpochMillisAndFraction(ts.getEpochMillis(), ts.getPicosOfMilli(), UTC_KEY));
             }
             else {
-                if (type instanceof ArrayType) {
+                if (type instanceof ArrayType arrayType) {
                     List<?> array = (List<?>) value;
-                    Type elementType = type.getTypeParameters().get(0);
                     ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
                         for (Object elementValue : array) {
-                            writeValue(elementType, elementBuilder, elementValue);
+                            writeValue(arrayType.getElementType(), elementBuilder, elementValue);
                         }
                     });
                 }
@@ -800,9 +793,9 @@ public class OrcTester
                         });
                     });
                 }
-                else if (type instanceof RowType) {
+                else if (type instanceof RowType rowType) {
                     List<?> array = (List<?>) value;
-                    List<Type> fieldTypes = type.getTypeParameters();
+                    List<Type> fieldTypes = rowType.getFieldTypes();
                     ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
                         for (int fieldId = 0; fieldId < fieldTypes.size(); fieldId++) {
                             Type fieldType = fieldTypes.get(fieldId);
@@ -954,7 +947,7 @@ public class OrcTester
 
     private static List<Object> decodeRecordReaderList(Type type, List<?> list)
     {
-        Type elementType = type.getTypeParameters().get(0);
+        Type elementType = ((ArrayType) type).getElementType();
         return list.stream()
                 .map(element -> decodeRecordReaderValue(elementType, element))
                 .collect(toList());
@@ -962,8 +955,8 @@ public class OrcTester
 
     private static Object decodeRecordReaderMap(Type type, Map<?, ?> map)
     {
-        Type keyType = type.getTypeParameters().get(0);
-        Type valueType = type.getTypeParameters().get(1);
+        Type keyType = ((MapType) type).getKeyType();
+        Type valueType = ((MapType) type).getValueType();
         Map<Object, Object> newMap = new HashMap<>();
         for (Entry<?, ?> entry : map.entrySet()) {
             newMap.put(decodeRecordReaderValue(keyType, entry.getKey()), decodeRecordReaderValue(valueType, entry.getValue()));
@@ -973,7 +966,7 @@ public class OrcTester
 
     private static List<Object> decodeRecordReaderStruct(Type type, List<?> fields)
     {
-        List<Type> fieldTypes = type.getTypeParameters();
+        List<Type> fieldTypes = ((RowType) type).getFieldTypes();
         List<Object> newFields = new ArrayList<>(fields.size());
         for (int i = 0; i < fields.size(); i++) {
             Type fieldType = fieldTypes.get(i);
@@ -1109,12 +1102,12 @@ public class OrcTester
         if (type instanceof DecimalType decimalType) {
             return getPrimitiveJavaObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
         }
-        if (type instanceof ArrayType) {
-            return getStandardListObjectInspector(getJavaObjectInspector(type.getTypeParameters().get(0)));
+        if (type instanceof ArrayType arrayType) {
+            return getStandardListObjectInspector(getJavaObjectInspector(arrayType.getElementType()));
         }
-        if (type instanceof MapType) {
-            ObjectInspector keyObjectInspector = getJavaObjectInspector(type.getTypeParameters().get(0));
-            ObjectInspector valueObjectInspector = getJavaObjectInspector(type.getTypeParameters().get(1));
+        if (type instanceof MapType mapType) {
+            ObjectInspector keyObjectInspector = getJavaObjectInspector(mapType.getKeyType());
+            ObjectInspector valueObjectInspector = getJavaObjectInspector(mapType.getValueType());
             return getStandardMapObjectInspector(keyObjectInspector, valueObjectInspector);
         }
         if (type instanceof RowType rowType) {
@@ -1122,7 +1115,7 @@ public class OrcTester
                     rowType.getFields().stream()
                             .map(field -> field.getName().get())
                             .collect(toList()),
-                    type.getTypeParameters().stream()
+                    rowType.getFieldTypes().stream()
                             .map(OrcTester::getJavaObjectInspector)
                             .collect(toList()));
         }
@@ -1186,24 +1179,24 @@ public class OrcTester
         if (type instanceof DecimalType) {
             return HiveDecimal.create(((SqlDecimal) value).toBigDecimal());
         }
-        if (type instanceof ArrayType) {
-            Type elementType = type.getTypeParameters().get(0);
+        if (type instanceof ArrayType arrayType) {
+            Type elementType = arrayType.getElementType();
             return ((List<?>) value).stream()
                     .map(element -> preprocessWriteValueHive(elementType, element))
                     .collect(toList());
         }
-        if (type instanceof MapType) {
-            Type keyType = type.getTypeParameters().get(0);
-            Type valueType = type.getTypeParameters().get(1);
+        if (type instanceof MapType mapType) {
+            Type keyType = mapType.getKeyType();
+            Type valueType = mapType.getValueType();
             Map<Object, Object> newMap = new HashMap<>();
             for (Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
                 newMap.put(preprocessWriteValueHive(keyType, entry.getKey()), preprocessWriteValueHive(valueType, entry.getValue()));
             }
             return newMap;
         }
-        if (type instanceof RowType) {
+        if (type instanceof RowType rowType) {
             List<?> fieldValues = (List<?>) value;
-            List<Type> fieldTypes = type.getTypeParameters();
+            List<Type> fieldTypes = rowType.getFieldTypes();
             List<Object> newStruct = new ArrayList<>();
             for (int fieldId = 0; fieldId < fieldValues.size(); fieldId++) {
                 newStruct.add(preprocessWriteValueHive(fieldTypes.get(fieldId), fieldValues.get(fieldId)));

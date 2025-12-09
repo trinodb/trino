@@ -141,7 +141,7 @@ public class UnwrapSingleColumnRowInApply
         Type type = value.type();
         if (type instanceof RowType rowType) {
             if (rowType.getFields().size() == 1) {
-                Type elementType = rowType.getTypeParameters().get(0);
+                Type elementType = rowType.getFields().getFirst().getType();
 
                 Symbol valueSymbol = context.getSymbolAllocator().newSymbol("input", elementType);
                 Symbol listSymbol = context.getSymbolAllocator().newSymbol("subquery", elementType);

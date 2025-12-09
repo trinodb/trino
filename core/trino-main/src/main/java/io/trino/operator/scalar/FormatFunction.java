@@ -31,6 +31,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -100,7 +101,7 @@ public final class FormatFunction
     public FunctionDependencyDeclaration getFunctionDependencies(BoundSignature boundSignature)
     {
         FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
-        boundSignature.getArgumentTypes().get(1).getTypeParameters()
+        ((RowType) boundSignature.getArgumentTypes().get(1)).getFieldTypes()
                 .forEach(type -> addDependencies(builder, type));
         return builder.build();
     }
@@ -135,9 +136,9 @@ public final class FormatFunction
     @Override
     public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        Type rowType = boundSignature.getArgumentType(1);
+        RowType rowType = (RowType) boundSignature.getArgumentType(1);
 
-        List<BiFunction<Block, Integer, Object>> converters = rowType.getTypeParameters().stream()
+        List<BiFunction<Block, Integer, Object>> converters = rowType.getFieldTypes().stream()
                 .map(type -> converter(functionDependencies, type))
                 .collect(toImmutableList());
 

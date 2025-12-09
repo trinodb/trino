@@ -235,7 +235,7 @@ public class MongoPageSink
             SqlRow sqlRow = rowType.getObject(block, position);
             int rawIndex = sqlRow.getRawIndex();
 
-            List<Type> fieldTypes = rowType.getTypeParameters();
+            List<Type> fieldTypes = rowType.getFieldTypes();
             if (fieldTypes.size() != sqlRow.getFieldCount()) {
                 throw new TrinoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Expected row value field count does not match type field count");
             }

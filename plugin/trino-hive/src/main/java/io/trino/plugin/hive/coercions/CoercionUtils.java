@@ -457,8 +457,8 @@ public final class CoercionUtils
         public StructCoercer(RowType fromType, RowType toType, List<Optional<TypeCoercer<? extends Type, ? extends Type>>> coercers)
         {
             super(fromType, toType);
-            checkArgument(toType.getTypeParameters().size() == coercers.size());
-            checkArgument(fromType.getTypeParameters().size() <= coercers.size());
+            checkArgument(toType.getFieldTypes().size() == coercers.size());
+            checkArgument(fromType.getFieldTypes().size() <= coercers.size());
             this.coercers = ImmutableList.copyOf(requireNonNull(coercers, "coercers is null"));
         }
 
@@ -518,7 +518,7 @@ public final class CoercionUtils
                     newFields[i] = fields.get(i);
                 }
                 else {
-                    newFields[i] = RunLengthEncodedBlock.create(toType.getTypeParameters().get(i), null, fields.get(0).getPositionCount());
+                    newFields[i] = RunLengthEncodedBlock.create(toType.getFieldTypes().get(i), null, fields.get(0).getPositionCount());
                 }
             }
             return newFields;

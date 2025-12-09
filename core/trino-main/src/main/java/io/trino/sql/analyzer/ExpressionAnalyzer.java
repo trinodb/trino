@@ -1093,7 +1093,7 @@ public class ExpressionAnalyzer
         {
             Type baseType = process(node.getBase(), context);
             // Subscript on Row hasn't got a dedicated operator. Its Type is resolved by hand.
-            if (baseType instanceof RowType) {
+            if (baseType instanceof RowType rowType) {
                 if (!(node.getIndex() instanceof LongLiteral)) {
                     throw semanticException(EXPRESSION_NOT_CONSTANT, node.getIndex(), "Subscript expression on ROW requires a constant index");
                 }
@@ -1105,7 +1105,7 @@ public class ExpressionAnalyzer
                 if (indexValue <= 0) {
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, node.getIndex(), "Invalid subscript index: %s. ROW indices start at 1", indexValue);
                 }
-                List<Type> rowTypes = baseType.getTypeParameters();
+                List<Type> rowTypes = rowType.getFieldTypes();
                 if (indexValue > rowTypes.size()) {
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, node.getIndex(), "Subscript index out of bounds: %s, max value is %s", indexValue, rowTypes.size());
                 }
@@ -2448,8 +2448,8 @@ public class ExpressionAnalyzer
             Type type = analyzeSubquery(node, context);
 
             // the implied type of a scalar subquery is that of the unique field in the single-column row
-            if (type instanceof RowType && ((RowType) type).getFields().size() == 1) {
-                type = type.getTypeParameters().getFirst();
+            if (type instanceof RowType rowType && rowType.getFields().size() == 1) {
+                type = rowType.getFieldTypes().getFirst();
             }
 
             setExpressionType(node, type);

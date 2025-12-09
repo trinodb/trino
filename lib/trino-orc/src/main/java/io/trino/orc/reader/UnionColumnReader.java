@@ -76,12 +76,12 @@ public class UnionColumnReader
 
     private boolean rowGroupOpen;
 
-    UnionColumnReader(Type type, OrcColumn column, AggregatedMemoryContext memoryContext, FieldMapperFactory fieldMapperFactory)
+    UnionColumnReader(RowType type, OrcColumn column, AggregatedMemoryContext memoryContext, FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
         verifyStreamType(column, type, RowType.class::isInstance);
-        this.type = (RowType) type;
+        this.type = type;
 
         this.column = requireNonNull(column, "column is null");
 
@@ -89,7 +89,7 @@ public class UnionColumnReader
         List<OrcColumn> fields = column.getNestedColumns();
         for (int i = 0; i < fields.size(); i++) {
             fieldReadersBuilder.add(createColumnReader(
-                    type.getTypeParameters().get(i + 1),
+                    type.getFields().get(i + 1).getType(),
                     fields.get(i),
                     fullyProjectedLayout(),
                     memoryContext,
@@ -144,7 +144,7 @@ public class UnionColumnReader
                 blocks = getBlocks(nextBatchSize, nextBatchSize - nullValues, nullVector);
             }
             else {
-                List<Type> typeParameters = type.getTypeParameters();
+                List<Type> typeParameters = type.getFieldTypes();
                 blocks = new Block[typeParameters.size() + 1];
                 blocks[0] = TINYINT.createFixedSizeBlockBuilder(0).build();
                 for (int i = 0; i < typeParameters.size(); i++) {
@@ -256,7 +256,7 @@ public class UnionColumnReader
         }
 
         for (int i = 0; i < fieldReaders.size(); i++) {
-            Type fieldType = type.getTypeParameters().get(i + 1);
+            Type fieldType = type.getFields().get(i + 1).getType();
             if (nonNullValueCount[i] > 0) {
                 ColumnReader reader = fieldReaders.get(i);
                 reader.prepareNextRead(nonNullValueCount[i]);

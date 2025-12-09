@@ -14,6 +14,9 @@
 package io.trino.parquet;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -32,13 +35,14 @@ public class GroupField
     public GroupField(Type type, int repetitionLevel, int definitionLevel, boolean required, List<Optional<Field>> children)
     {
         super(type, repetitionLevel, definitionLevel, required);
-        checkArgument(
-                type.getTypeParameters().size() == children.size(),
-                "Type %s has %s parameters, but %s children: %s",
-                type,
-                type.getTypeParameters().size(),
-                children.size(),
-                children);
+
+        switch (type) {
+            case RowType rowType -> checkArgument(rowType.getFields().size() == children.size(), "Expected %s children for RowType, but got %s", rowType.getFields().size(), children.size());
+            case MapType _ -> checkArgument(children.size() == 2, "Expected 2 children for MapType, but got %s", children.size());
+            case ArrayType _ -> checkArgument(children.size() == 1, "Expected 1 child for ArrayType, but got %s", children.size());
+            default -> throw new IllegalArgumentException("Unsupported type for group field: " + type);
+        }
+
         this.children = ImmutableList.copyOf(requireNonNull(children, "children is null"));
     }
 

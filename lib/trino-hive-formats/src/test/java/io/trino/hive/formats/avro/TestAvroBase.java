@@ -39,6 +39,7 @@ import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarbinaryType;
 import org.apache.avro.Schema;
@@ -309,6 +310,7 @@ public abstract class TestAvroBase
             }
         }
 
+        Type type = new BaseAvroTypeBlockHandler().typeFor(schema);
         try (AvroFileWriter fileWriter = new AvroFileWriter(
                 trinoLocalFilesystem.newOutputFile(temp2).create(),
                 schema,
@@ -316,7 +318,8 @@ public abstract class TestAvroBase
                 compressionKind,
                 ImmutableMap.of(),
                 schema.getFields().stream().map(Schema.Field::name).collect(toImmutableList()),
-                new BaseAvroTypeBlockHandler().typeFor(schema).getTypeParameters(), false)) {
+                type instanceof RowType rowType ? rowType.getFieldTypes() : List.of(),
+                false)) {
             for (Page p : pages.build()) {
                 fileWriter.write(p);
             }

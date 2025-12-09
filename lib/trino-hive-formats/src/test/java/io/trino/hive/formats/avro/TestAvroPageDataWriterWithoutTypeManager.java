@@ -36,6 +36,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
@@ -68,6 +69,7 @@ public class TestAvroPageDataWriterWithoutTypeManager
             throws AvroTypeException, IOException
     {
         Location tempTestLocation = createLocalTempLocation();
+        Type type = new BaseAvroTypeBlockHandler().typeFor(ALL_TYPES_RECORD_SCHEMA);
         try (AvroFileWriter fileWriter = new AvroFileWriter(
                 trinoLocalFilesystem.newOutputFile(tempTestLocation).create(),
                 writeSchema,
@@ -75,7 +77,8 @@ public class TestAvroPageDataWriterWithoutTypeManager
                 AvroCompressionKind.NULL,
                 ImmutableMap.of(),
                 ALL_TYPES_RECORD_SCHEMA.getFields().stream().map(Schema.Field::name).collect(toImmutableList()),
-                new BaseAvroTypeBlockHandler().typeFor(ALL_TYPES_RECORD_SCHEMA).getTypeParameters(), false)) {
+                type instanceof RowType rowType ? rowType.getFieldTypes() : List.of(),
+                false)) {
             fileWriter.write(ALL_TYPES_PAGE);
         }
 
@@ -133,6 +136,7 @@ public class TestAvroPageDataWriterWithoutTypeManager
                         new int[] {0, 0}));
 
         Location testLocation = createLocalTempLocation();
+        Type type = new BaseAvroTypeBlockHandler().typeFor(testBlocksSchema);
         try (AvroFileWriter avroFileWriter = new AvroFileWriter(
                 trinoLocalFilesystem.newOutputFile(testLocation).create(),
                 testBlocksSchema,
@@ -140,7 +144,8 @@ public class TestAvroPageDataWriterWithoutTypeManager
                 AvroCompressionKind.NULL,
                 ImmutableMap.of(),
                 testBlocksSchema.getFields().stream().map(Schema.Field::name).collect(toImmutableList()),
-                new BaseAvroTypeBlockHandler().typeFor(testBlocksSchema).getTypeParameters(), false)) {
+                type instanceof RowType rowType ? rowType.getFieldTypes() : List.of(),
+                false)) {
             avroFileWriter.write(toWrite);
         }
 

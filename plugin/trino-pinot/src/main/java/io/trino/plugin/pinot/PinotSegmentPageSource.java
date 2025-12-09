@@ -25,6 +25,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
@@ -299,8 +300,7 @@ public class PinotSegmentPageSource
 
     private Block getArrayBlock(int rowIndex, int columnIndex)
     {
-        Type trinoType = getType(columnIndex);
-        Type elementType = trinoType.getTypeParameters().get(0);
+        Type elementType = ((ArrayType) getType(columnIndex)).getElementType();
         DataSchema.ColumnDataType columnType = currentDataTable.dataTable().getDataSchema().getColumnDataType(columnIndex);
         BlockBuilder blockBuilder;
         switch (columnType) {

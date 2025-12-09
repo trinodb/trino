@@ -97,7 +97,7 @@ public class BinaryColumnEncodingFactory
         if (type instanceof RowType rowType) {
             return new StructEncoding(
                     rowType,
-                    rowType.getTypeParameters().stream()
+                    rowType.getFieldTypes().stream()
                             .map(this::getEncoding)
                             .collect(Collectors.toList()));
         }
