@@ -18,7 +18,6 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.execution.QueryManager;
 import io.trino.execution.resourcegroups.NoOpResourceGroupManager;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.failuredetector.FailureDetector;
@@ -27,8 +26,6 @@ import io.trino.metadata.LanguageFunctionProvider;
 import io.trino.metadata.WorkerLanguageFunctionProvider;
 import io.trino.server.ui.NoWebUiAuthenticationFilter;
 import io.trino.server.ui.WebUiAuthenticationFilter;
-
-import static com.google.common.reflect.Reflection.newProxy;
 
 public class WorkerModule
         extends AbstractConfigurationAwareModule
@@ -44,11 +41,6 @@ public class WorkerModule
 
         // Install no-op failure detector on workers, since only coordinators need global node selection.
         binder.bind(FailureDetector.class).to(NoOpFailureDetector.class).in(Scopes.SINGLETON);
-
-        // HACK: this binding is needed by SystemConnectorModule, but will only be used on the coordinator
-        binder.bind(QueryManager.class).toInstance(newProxy(QueryManager.class, (proxy, method, args) -> {
-            throw new UnsupportedOperationException();
-        }));
 
         // language functions
         binder.bind(WorkerLanguageFunctionProvider.class).in(Scopes.SINGLETON);

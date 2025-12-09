@@ -56,7 +56,6 @@ import io.trino.execution.FailureInjector;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
-import io.trino.execution.SqlQueryManager;
 import io.trino.execution.SqlTaskManager;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
@@ -208,7 +207,7 @@ public class TestingTrinoServer
     private final LocalMemoryManager localMemoryManager;
     private final InternalNodeManager nodeManager;
     private final DispatchManager dispatchManager;
-    private final SqlQueryManager queryManager;
+    private final QueryManager queryManager;
     private final SqlTaskManager taskManager;
     private final NodeStateManager nodeStateManager;
     private final ShutdownAction shutdownAction;
@@ -402,7 +401,7 @@ public class TestingTrinoServer
         sessionPropertyManager = injector.getInstance(SessionPropertyManager.class);
         if (coordinator) {
             dispatchManager = injector.getInstance(DispatchManager.class);
-            queryManager = (SqlQueryManager) injector.getInstance(QueryManager.class);
+            queryManager = injector.getInstance(QueryManager.class);
             queryExplainer = injector.getInstance(QueryExplainerFactory.class)
                     .createQueryExplainer(injector.getInstance(AnalyzerFactory.class));
             resourceGroupManager = Optional.of((InternalResourceGroupManager<?>) injector.getInstance(InternalResourceGroupManager.class));
