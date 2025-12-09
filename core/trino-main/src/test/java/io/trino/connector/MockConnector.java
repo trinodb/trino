@@ -71,6 +71,7 @@ import io.trino.spi.connector.JoinApplicationResult;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MaterializedViewFreshnessCheckPolicy;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.RelationColumnsMetadata;
@@ -747,7 +748,7 @@ public class MockConnector
         }
 
         @Override
-        public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName viewName)
+        public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName viewName, MaterializedViewFreshnessCheckPolicy policy)
         {
             if (getMaterializedViewFreshness.isPresent()) {
                 MaterializedViewFreshness freshness = getMaterializedViewFreshness.get().apply(session, viewName);

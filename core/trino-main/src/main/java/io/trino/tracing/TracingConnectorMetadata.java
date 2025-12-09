@@ -50,6 +50,7 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MaterializedViewFreshnessCheckPolicy;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
@@ -1405,11 +1406,11 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
+    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, MaterializedViewFreshnessCheckPolicy policy)
     {
         Span span = startSpan("getMaterializedViewFreshness", name);
         try (var _ = scopedSpan(span)) {
-            return delegate.getMaterializedViewFreshness(session, name);
+            return delegate.getMaterializedViewFreshness(session, name, policy);
         }
     }
 

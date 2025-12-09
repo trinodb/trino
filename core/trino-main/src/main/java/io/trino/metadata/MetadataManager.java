@@ -73,6 +73,7 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MaterializedViewFreshnessCheckPolicy;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
@@ -1871,7 +1872,7 @@ public final class MetadataManager
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName viewName)
+    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName viewName, MaterializedViewFreshnessCheckPolicy policy)
     {
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.catalogName());
         if (catalog.isPresent()) {
@@ -1880,7 +1881,7 @@ public final class MetadataManager
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
-            return metadata.getMaterializedViewFreshness(connectorSession, viewName.asSchemaTableName());
+            return metadata.getMaterializedViewFreshness(connectorSession, viewName.asSchemaTableName(), policy);
         }
         return new MaterializedViewFreshness(STALE, Optional.empty());
     }

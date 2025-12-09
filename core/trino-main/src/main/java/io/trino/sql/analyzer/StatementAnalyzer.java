@@ -69,6 +69,7 @@ import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MaterializedViewFreshnessCheckPolicy;
 import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
@@ -374,6 +375,7 @@ import static io.trino.spi.StandardErrorCode.UNSUPPORTED_SUBQUERY;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_RECURSIVE;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_STALE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH_WITHIN_GRACE_PERIOD;
 import static io.trino.spi.connector.StandardWarningCode.REDUNDANT_ORDER_BY;
 import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.spi.function.FunctionKind.WINDOW;
@@ -744,7 +746,7 @@ class StatementAnalyzer
             TableHandle targetTableHandle = metadata.getTableHandle(session, targetTable)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Table '%s' does not exist", targetTable));
 
-            analysis.setSkipMaterializedViewRefresh(metadata.getMaterializedViewFreshness(session, name).getFreshness() == FRESH);
+            analysis.setSkipMaterializedViewRefresh(metadata.getMaterializedViewFreshness(session, name, new MaterializedViewFreshnessCheckPolicy.Exact()).getFreshness() == FRESH);
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle);
             List<String> insertColumns = tableMetadata.columns().stream()
@@ -2377,10 +2379,21 @@ class StatementAnalyzer
 
         private boolean isMaterializedViewSufficientlyFresh(Session session, QualifiedObjectName name, MaterializedViewDefinition materializedViewDefinition)
         {
-            MaterializedViewFreshness materializedViewFreshness = metadata.getMaterializedViewFreshness(session, name);
+            boolean gracePeriodZero = materializedViewDefinition.getGracePeriod()
+                    .map(Duration::isZero)
+                    .orElse(false);
+
+            // TODO should we compare lastFreshTime with session.start() or with current time? The freshness is calculated with respect to current state of things.
+            Instant freshnessReferenceTime = sessionTimeProvider.getStart(session);
+            // Use Exact policy when grace period is zero to handle this special case in the analyzer
+            // rather than duplicating this logic across all connectors
+            MaterializedViewFreshnessCheckPolicy policy = gracePeriodZero
+                    ? new MaterializedViewFreshnessCheckPolicy.Exact()
+                    : new MaterializedViewFreshnessCheckPolicy.ConsiderGracePeriod(freshnessReferenceTime);
+            MaterializedViewFreshness materializedViewFreshness = metadata.getMaterializedViewFreshness(session, name, policy);
             MaterializedViewFreshness.Freshness freshness = materializedViewFreshness.getFreshness();
 
-            if (freshness == FRESH) {
+            if (freshness == FRESH || freshness == FRESH_WITHIN_GRACE_PERIOD) {
                 return true;
             }
             Optional<Instant> lastFreshTime = materializedViewFreshness.getLastFreshTime();
@@ -2392,16 +2405,15 @@ class StatementAnalyzer
                 // Unlimited grace period
                 return true;
             }
-            Duration gracePeriod = materializedViewDefinition.getGracePeriod().get();
-            if (gracePeriod.isZero()) {
+            if (gracePeriodZero) {
                 // Consider 0 as a special value meaning "do not accept any staleness". This makes 0 more reliable, and more likely what user wanted,
                 // regardless of lastFreshTime, query time or rounding.
                 return false;
             }
 
+            Duration gracePeriod = materializedViewDefinition.getGracePeriod().get();
             // Can be negative
-            // TODO should we compare lastFreshTime with session.start() or with current time? The freshness is calculated with respect to current state of things.
-            Duration staleness = Duration.between(lastFreshTime.get(), sessionTimeProvider.getStart(session));
+            Duration staleness = Duration.between(lastFreshTime.get(), freshnessReferenceTime);
             return staleness.compareTo(gracePeriod) <= 0;
         }
 
