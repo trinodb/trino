@@ -46,6 +46,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.HashPartitionFunction;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
 import io.trino.type.BlockTypeOperators;
@@ -87,7 +88,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.sql.planner.SystemPartitioningHandle.SystemPartitionFunction.HASH;
 import static io.trino.sql.planner.SystemPartitioningHandle.SystemPartitionFunction.ROUND_ROBIN;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.lang.Math.toIntExact;
@@ -196,7 +196,7 @@ public class TestPagePartitioner
 
         PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT)
                 .withPartitionFunction(new BucketPartitionFunction(
-                        ROUND_ROBIN.createBucketFunction(null, PARTITION_COUNT, null, null),
+                        ROUND_ROBIN.createBucketFunction(null, PARTITION_COUNT, null),
                         IntStream.range(0, PARTITION_COUNT).toArray()))
                 .withPartitionChannels(ImmutableList.of())
                 .build();
@@ -743,8 +743,9 @@ public class TestPagePartitioner
         List<Type> types = new ArrayList<>();
         types.add(BIGINT);
         PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, types.get(0))
-                .withPartitionFunction(new BucketPartitionFunction(
-                        HASH.createBucketFunction(types, PARTITION_COUNT, blockTypeOperators.getTypeOperators(), partitionHashGeneratorCompiler),
+                .withPartitionFunction(new HashPartitionFunction(
+                        partitionHashGeneratorCompiler.getPartitionHashGenerator(types, null),
+                        PARTITION_COUNT,
                         IntStream.range(0, PARTITION_COUNT).toArray()))
                 .withPartitionChannels(ImmutableList.of(0))
                 .build();
@@ -773,8 +774,9 @@ public class TestPagePartitioner
         List<Type> types = new ArrayList<>();
         types.add(BIGINT);
         PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, types.get(0))
-                .withPartitionFunction(new BucketPartitionFunction(
-                        HASH.createBucketFunction(types, PARTITION_COUNT, blockTypeOperators.getTypeOperators(), partitionHashGeneratorCompiler),
+                .withPartitionFunction(new HashPartitionFunction(
+                        partitionHashGeneratorCompiler.getPartitionHashGenerator(types, null),
+                        PARTITION_COUNT,
                         IntStream.range(0, PARTITION_COUNT).toArray()))
                 .withPartitionChannels(ImmutableList.of(0))
                 .build();

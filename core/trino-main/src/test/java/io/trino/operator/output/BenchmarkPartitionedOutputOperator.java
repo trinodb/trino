@@ -27,7 +27,6 @@ import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.jmh.Benchmarks;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
-import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.DriverContext;
 import io.trino.operator.PageTestUtils;
 import io.trino.operator.PartitionFunction;
@@ -48,7 +47,7 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.planner.HashBucketFunction;
+import io.trino.sql.planner.HashPartitionFunction;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
 import io.trino.type.BlockTypeOperators;
@@ -454,8 +453,9 @@ public class BenchmarkPartitionedOutputOperator
 
         private PartitionedOutputOperator createPartitionedOutputOperator()
         {
-            PartitionFunction partitionFunction = new BucketPartitionFunction(
-                    new HashBucketFunction(partitionHashGeneratorCompiler.getPartitionHashGenerator(types, null), partitionCount),
+            PartitionFunction partitionFunction = new HashPartitionFunction(
+                    partitionHashGeneratorCompiler.getPartitionHashGenerator(types, null),
+                    partitionCount,
                     IntStream.range(0, partitionCount).toArray());
             PagesSerdeFactory serdeFactory = createTestingPagesSerdeFactory(compressionCodec);
 
