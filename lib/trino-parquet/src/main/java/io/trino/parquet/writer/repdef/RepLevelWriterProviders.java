@@ -20,6 +20,7 @@ import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.VariantBlock;
 
 import java.util.Optional;
 
@@ -33,8 +34,12 @@ public class RepLevelWriterProviders
 
     public static RepLevelWriterProvider of(Block block)
     {
-        if (block.getUnderlyingValueBlock() instanceof RowBlock) {
+        Block valueBlock = block.getUnderlyingValueBlock();
+        if (valueBlock instanceof RowBlock) {
             return new RowRepLevelWriterProvider(block);
+        }
+        if (valueBlock instanceof VariantBlock) {
+            return new VariantRepLevelWriterProvider(block);
         }
         return new PrimitiveRepLevelWriterProvider(block);
     }
@@ -102,6 +107,64 @@ public class RepLevelWriterProviders
         public RepetitionLevelWriter getRepetitionLevelWriter(Optional<RepetitionLevelWriter> nestedWriterOptional, ColumnDescriptorValuesWriter encoder)
         {
             checkArgument(nestedWriterOptional.isPresent(), "nestedWriter should be present for column row repetition level writer");
+            return new RepetitionLevelWriter()
+            {
+                private final RepetitionLevelWriter nestedWriter = nestedWriterOptional.orElseThrow();
+
+                private int offset;
+
+                @Override
+                public void writeRepetitionLevels(int parentLevel)
+                {
+                    writeRepetitionLevels(parentLevel, block.getPositionCount());
+                }
+
+                @Override
+                public void writeRepetitionLevels(int parentLevel, int positionsCount)
+                {
+                    checkValidPosition(offset, positionsCount, block.getPositionCount());
+                    if (!block.mayHaveNull()) {
+                        nestedWriter.writeRepetitionLevels(parentLevel, positionsCount);
+                        offset += positionsCount;
+                        return;
+                    }
+
+                    for (int position = offset; position < offset + positionsCount; ) {
+                        if (block.isNull(position)) {
+                            encoder.writeInteger(parentLevel);
+                            position++;
+                        }
+                        else {
+                            int consecutiveNonNullsCount = 1;
+                            position++;
+                            while (position < offset + positionsCount && !block.isNull(position)) {
+                                position++;
+                                consecutiveNonNullsCount++;
+                            }
+                            nestedWriter.writeRepetitionLevels(parentLevel, consecutiveNonNullsCount);
+                        }
+                    }
+                    offset += positionsCount;
+                }
+            };
+        }
+    }
+
+    static class VariantRepLevelWriterProvider
+            implements RepLevelWriterProvider
+    {
+        private final Block block;
+
+        VariantRepLevelWriterProvider(Block block)
+        {
+            this.block = requireNonNull(block, "block is null");
+            checkArgument(block.getUnderlyingValueBlock() instanceof VariantBlock, "block is not a variant block");
+        }
+
+        @Override
+        public RepetitionLevelWriter getRepetitionLevelWriter(Optional<RepetitionLevelWriter> nestedWriterOptional, ColumnDescriptorValuesWriter encoder)
+        {
+            checkArgument(nestedWriterOptional.isPresent(), "nestedWriter should be present for variant repetition level writer");
             return new RepetitionLevelWriter()
             {
                 private final RepetitionLevelWriter nestedWriter = nestedWriterOptional.orElseThrow();
