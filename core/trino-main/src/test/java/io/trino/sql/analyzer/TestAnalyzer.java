@@ -5797,6 +5797,12 @@ public class TestAnalyzer
     public void testAnalyzeFreshMaterializedView()
     {
         analyze("SELECT * FROM fresh_materialized_view");
+        assertFails("SELECT * FROM fresh_materialized_view_non_existent_table")
+                .hasErrorCode(INVALID_VIEW)
+                .hasMessage("line 1:15: Failed analyzing stored view 'tpch.s1.fresh_materialized_view_non_existent_table': line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
+        assertFails("REFRESH MATERIALIZED VIEW fresh_materialized_view_non_existent_table")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
     }
 
     @Test
@@ -8094,6 +8100,27 @@ public class TestAnalyzer
                 false,
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedView.asSchemaTableName());
+
+        QualifiedObjectName freshMaterializedViewNonExistentTable = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_non_existent_table");
+        inSetupTransaction(session -> metadata.createMaterializedView(
+                session,
+                freshMaterializedViewNonExistentTable,
+                new MaterializedViewDefinition(
+                        "SELECT a, b FROM non_existent_table",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Identity.ofUser("some user"),
+                        ImmutableList.of(),
+                        // t3 has a, b column and hidden column x
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3"))),
+                ImmutableMap.of(),
+                false,
+                false));
+        testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedViewNonExistentTable.asSchemaTableName());
 
         QualifiedObjectName freshMaterializedViewMismatchedColumnCount = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_count");
         inSetupTransaction(session -> metadata.createMaterializedView(
