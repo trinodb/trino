@@ -87,6 +87,7 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -1424,6 +1425,42 @@ public class TestIcebergV2
                 "ARRAY['hour(\"grandparent.parent.ts\")']",
                 ".*?(grandparent\\.parent\\.ts_hour=.*/).*",
                 ImmutableSet.of("grandparent.parent.ts_hour=2021-01-01-01/", "grandparent.parent.ts_hour=2022-02-02-02/", "grandparent.parent.ts_hour=2023-03-03-03/"));
+    }
+
+    @Test // regression test for https://github.com/trinodb/trino/issues/25077
+    void testHighlyNestedFields()
+    {
+        String table = "test_highly_nested_fields" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", table);
+
+        List<Types.NestedField> fields = IntStream.rangeClosed(1, 10000)
+            .mapToObj(i -> Types.NestedField.optional(i, "field_" + i, Types.LongType.get()))
+            .collect(toImmutableList());
+
+        Types.NestedField column = Types.NestedField.optional(10001, "row_col", Types.StructType.of(fields));
+
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        schemaTableName,
+                        new Schema(column),
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        ImmutableMap.of())
+                .commitTransaction();
+
+        assertUpdate("INSERT INTO " + table + " VALUES NULL" , 1);
+        assertUpdate("UPDATE " + table + " SET row_col = NULL" , 1);
+        assertUpdate("MERGE INTO " + table + " USING (VALUES 42) t(dummy) ON false WHEN NOT MATCHED THEN INSERT VALUES (NULL)", 1);
+        assertUpdate("ALTER TABLE " + table + " EXECUTE optimize");
+        assertThat(query("SELECT * FROM " + table))
+                .skippingTypesCheck()
+                .matches("VALUES NULL, NULL");
+
+        assertUpdate("DELETE FROM " + table , 2);
+        assertQueryReturnsEmptyResult("SELECT * FROM " + table);
+
+        assertUpdate("DROP TABLE " + table);
     }
 
     @Test

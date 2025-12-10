@@ -332,6 +332,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getCompressionPropertyName;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
 import static io.trino.plugin.iceberg.IcebergUtil.getHiveCompressionCodec;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.getProjectedColumns;
@@ -676,17 +677,15 @@ public class IcebergMetadata
             return Optional.empty();
         }
 
-        Schema schema = icebergTable.schema();
-
         IcebergPartitioningHandle partitioningHandle = IcebergPartitioningHandle.create(partitionSpec, typeManager, List.of());
 
-        Map<Integer, IcebergColumnHandle> columnById = getProjectedColumns(schema, typeManager).stream()
+        Map<Integer, IcebergColumnHandle> partitionColumnById = getPartitionColumns(icebergTable, typeManager).stream()
                 .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
         List<IcebergColumnHandle> partitionColumns = partitionSpec.fields().stream()
                 .map(PartitionField::sourceId)
                 .distinct()
                 .sorted()
-                .map(columnById::get)
+                .map(partitionColumnById::get)
                 .collect(toImmutableList());
 
         // Partitioning is only activated if it is actually necessary for the query.
@@ -1450,7 +1449,7 @@ public class IcebergMetadata
                 transformValues(table.specs(), PartitionSpecParser::toJson),
                 table.spec().specId(),
                 getSupportedSortFields(table.schema(), table.sortOrder()),
-                getProjectedColumns(table.schema(), typeManager),
+                getPartitionColumns(table, typeManager),
                 table.location(),
                 getFileFormat(table),
                 table.properties(),
@@ -1603,7 +1602,7 @@ public class IcebergMetadata
                         tableHandle.getSnapshotId(),
                         tableHandle.getTableSchemaJson(),
                         tableHandle.getPartitionSpecJson().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle")),
-                        getProjectedColumns(SchemaParser.fromJson(tableHandle.getTableSchemaJson()), typeManager),
+                        getPartitionColumns(icebergTable, typeManager),
                         icebergTable.sortOrder().fields().stream()
                                 .map(TrinoSortField::fromIceberg)
                                 .collect(toImmutableList()),
