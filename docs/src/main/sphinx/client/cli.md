@@ -152,7 +152,7 @@ mode:
     [](cli-troubleshooting). Displays more information about query
     processing statistics.
 * - `--decimal-data-size`
-  - Show data size and rate in base 10 (KB, MB, etc.) rather than the default 
+  - Show data size and rate in base 10 (kB, MB, etc.) rather than the default
     base 2 (KiB, MiB, etc.).
 * - `--disable-auto-suggestion`
   - Disables autocomplete suggestions.

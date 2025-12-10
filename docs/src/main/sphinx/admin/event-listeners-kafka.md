@@ -102,7 +102,7 @@ Use the following properties for further configuration.
   - `5MB`
 * - `kafka-event-listener.batch-size`
   - [Size value](prop-type-data-size) that specifies the size to batch before sending records to Kafka.
-  - `16KB`
+  - `16kB`
 * - `kafka-event-listener.publish-created-event`
   - [Boolean](prop-type-boolean) switch to control publishing of query creation
     events.
