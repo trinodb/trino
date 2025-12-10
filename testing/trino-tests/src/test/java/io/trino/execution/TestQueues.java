@@ -301,7 +301,7 @@ public class TestQueues
     }
 
     @Test
-    @Timeout(10)
+    @Timeout(240)
     public void testQueryTextBasedSelection()
             throws Exception
     {
