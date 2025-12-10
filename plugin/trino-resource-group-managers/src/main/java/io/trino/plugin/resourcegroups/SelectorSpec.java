@@ -153,7 +153,8 @@ public class SelectorSpec
                 authenticatedUserRegex.map(Pattern::flags),
                 sourceRegex.map(Pattern::pattern),
                 sourceRegex.map(Pattern::flags),
-                queryText,
+                queryText.map(Pattern::pattern),
+                queryText.map(Pattern::flags),
                 queryType,
                 clientTags);
     }
@@ -173,7 +174,8 @@ public class SelectorSpec
                 .add("authenticatedUserFlags", authenticatedUserRegex.map(Pattern::flags))
                 .add("sourceRegex", sourceRegex)
                 .add("sourceFlags", sourceRegex.map(Pattern::flags))
-                .add("queryText", queryText)
+                .add("queryTextRegex", queryText)
+                .add("queryTextFlags", queryText.map(Pattern::flags))
                 .add("queryType", queryType)
                 .add("clientTags", clientTags)
                 .toString();
