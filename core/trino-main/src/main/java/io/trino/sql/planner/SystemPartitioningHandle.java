@@ -140,15 +140,20 @@ public final class SystemPartitioningHandle
         requireNonNull(partitionChannelTypes, "partitionChannelTypes is null");
         requireNonNull(bucketToPartition, "bucketToPartition is null");
 
-        BucketFunction bucketFunction = function.createBucketFunction(partitionChannelTypes, bucketToPartition.length, typeOperators, partitionHashGeneratorCompiler);
-        return new BucketPartitionFunction(bucketFunction, bucketToPartition);
+        if (function == SystemPartitionFunction.HASH) {
+            return new HashPartitionFunction(partitionHashGeneratorCompiler.getPartitionHashGenerator(partitionChannelTypes, null), bucketToPartition.length, bucketToPartition);
+        }
+        else {
+            BucketFunction bucketFunction = function.createBucketFunction(partitionChannelTypes, bucketToPartition.length, typeOperators);
+            return new BucketPartitionFunction(bucketFunction, bucketToPartition);
+        }
     }
 
     public enum SystemPartitionFunction
     {
         SINGLE {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators, PartitionHashGeneratorCompiler partitionHashGeneratorCompiler)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators)
             {
                 checkArgument(bucketCount == 1, "Single partition can only have one bucket");
                 return new SingleBucketFunction();
@@ -156,28 +161,28 @@ public final class SystemPartitioningHandle
         },
         HASH {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators, PartitionHashGeneratorCompiler partitionHashGeneratorCompiler)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators)
             {
-                return new HashBucketFunction(partitionHashGeneratorCompiler.getPartitionHashGenerator(partitionChannelTypes, null), bucketCount);
+                throw new UnsupportedOperationException();
             }
         },
         ROUND_ROBIN {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators, PartitionHashGeneratorCompiler partitionHashGeneratorCompiler)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators)
             {
                 return new RoundRobinBucketFunction(bucketCount);
             }
         },
         BROADCAST {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators, PartitionHashGeneratorCompiler partitionHashGeneratorCompiler)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators)
             {
                 throw new UnsupportedOperationException();
             }
         },
         UNKNOWN {
             @Override
-            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators, PartitionHashGeneratorCompiler partitionHashGeneratorCompiler)
+            public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators)
             {
                 throw new UnsupportedOperationException();
             }
@@ -185,8 +190,7 @@ public final class SystemPartitioningHandle
 
         public abstract BucketFunction createBucketFunction(List<Type> partitionChannelTypes,
                 int bucketCount,
-                TypeOperators typeOperators,
-                PartitionHashGeneratorCompiler partitionHashGeneratorCompiler);
+                TypeOperators typeOperators);
 
         private static class SingleBucketFunction
                 implements BucketFunction
