@@ -65,6 +65,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -90,6 +91,11 @@ public final class ExpressionConverter
         if (isStructuralType(domain.getType())) {
             // structural types cannot be used to filter a table scan in Iceberg library.
             return false;
+        }
+
+        if (domain.getType() == VARIANT) {
+            // Iceberg does not support filtering on VARIANT type, but simple checks always work
+            return domain.isOnlyNull() || domain.getValues().isAll();
         }
 
         if (domain.getType() == UUID) {

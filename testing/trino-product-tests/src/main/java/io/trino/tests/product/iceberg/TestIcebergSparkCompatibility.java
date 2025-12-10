@@ -2238,6 +2238,81 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
+    @Test(groups = {ICEBERG_REST, PROFILE_SPECIFIC_TESTS}, dataProvider = "variantStorageFormats")
+    public void testSparkReadsTrinoVariantData(StorageFormat storageFormat)
+    {
+        String tableName = toLowerCase(format("test_spark_reads_trino_variant_%s_%s", storageFormat.name(), randomNameSuffix()));
+        String sparkTableName = sparkTableName(tableName);
+        String trinoTableName = trinoTableName(tableName);
+
+        // Keep TIME_NTZ_MICROS, TIMESTAMP_UTC_NANOS, and TIMESTAMP_NTZ_NANOS out until Spark
+        // supports the full Iceberg VARIANT primitive set.
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + "(id INT, v VARIANT) " +
+                "WITH(format_version = 3, format = '" + storageFormat.name() + "')");
+        onTrino().executeQuery(
+                """
+                INSERT INTO %s VALUES
+                    (1, CAST(NULL AS VARIANT)),
+                    (2, CAST(JSON 'null' AS VARIANT)),
+                    (3, CAST(true AS VARIANT)),
+                    (4, CAST(TINYINT '1' AS VARIANT)),
+                    (5, CAST(SMALLINT '1' AS VARIANT)),
+                    (6, CAST(INTEGER '-2' AS VARIANT)),
+                    (7, CAST(BIGINT '1234567890123' AS VARIANT)),
+                    (8, CAST(REAL '1.5' AS VARIANT)),
+                    (9, CAST(DOUBLE '2.5' AS VARIANT)),
+                    (10, CAST(DECIMAL '123.45' AS VARIANT)),
+                    (11, CAST('hello "variant"' AS VARIANT)),
+                    (12, CAST(ARRAY[1, 2, 3] AS VARIANT)),
+                    (13, CAST(MAP(ARRAY['a', 'b'], ARRAY[1, 2]) AS VARIANT)),
+                    (14, CAST(CAST(ROW(42, 'x', true) AS ROW(id integer, vc varchar, flag boolean)) AS VARIANT))
+                """.formatted(trinoTableName));
+
+        QueryResult trinoResult = onTrino().executeQuery("SELECT id, json_format(CAST(v AS JSON)) FROM " + trinoTableName + " ORDER BY id");
+        QueryResult sparkResult = onSpark().executeQuery("SELECT id, to_json(v) FROM " + sparkTableName + " ORDER BY id");
+        assertResultsEqual(trinoResult, sparkResult);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
+    @Test(groups = {ICEBERG_REST, PROFILE_SPECIFIC_TESTS}, dataProvider = "variantStorageFormats")
+    public void testTrinoReadsSparkVariantData(StorageFormat storageFormat)
+    {
+        String tableName = toLowerCase(format("test_trino_reads_spark_variant_%s_%s", storageFormat.name(), randomNameSuffix()));
+        String sparkTableName = sparkTableName(tableName);
+        String trinoTableName = trinoTableName(tableName);
+
+        // This is the currently verified Spark-written overlap.
+        // Keep TIME_NTZ_MICROS, TIMESTAMP_UTC_NANOS, and TIMESTAMP_NTZ_NANOS out until Spark
+        // implements the full Iceberg VARIANT primitive set.
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(id INT, v VARIANT) " +
+                "USING ICEBERG TBLPROPERTIES ('format-version'='3', 'write.format.default'='" + storageFormat.name() + "')");
+        onSpark().executeQuery(
+                """
+                INSERT INTO %s VALUES
+                    (1, CAST(NULL AS VARIANT)),
+                    (2, parse_json('null')),
+                    (3, CAST(true AS VARIANT)),
+                    (4, CAST(CAST(1 AS TINYINT) AS VARIANT)),
+                    (5, CAST(CAST(1 AS SMALLINT) AS VARIANT)),
+                    (6, CAST(CAST(-2 AS INT) AS VARIANT)),
+                    (7, CAST(CAST(1234567890123 AS BIGINT) AS VARIANT)),
+                    (8, CAST(CAST(1.5 AS FLOAT) AS VARIANT)),
+                    (9, CAST(CAST(2.5 AS DOUBLE) AS VARIANT)),
+                    (10, CAST(CAST(123.45 AS DECIMAL(5, 2)) AS VARIANT)),
+                    (11, CAST('hello "variant"' AS VARIANT)),
+                    (12, CAST(DATE '2021-07-24' AS VARIANT)),
+                    (13, to_variant_object(array(1, 2, 3))),
+                    (14, to_variant_object(named_struct('flag', true, 'id', CAST(42 AS TINYINT), 'vc', 'x')))
+                """.formatted(sparkTableName));
+
+        QueryResult sparkResult = onSpark().executeQuery("SELECT id, to_json(v) FROM " + sparkTableName + " ORDER BY id");
+        QueryResult trinoResult = onTrino().executeQuery("SELECT id, json_format(CAST(v AS JSON)) FROM " + trinoTableName + " ORDER BY id");
+        assertResultsEqual(sparkResult, trinoResult);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
     public void testDeleteAfterPartitionEvolution(StorageFormat storageFormat)
     {
@@ -2393,6 +2468,17 @@ public class TestIcebergSparkCompatibility
         return io.trino.jdbc.Row.builder();
     }
 
+    private static void assertResultsEqual(QueryResult first, QueryResult second)
+    {
+        assertThat(first).containsOnly(second.rows().stream()
+                .map(Row::new)
+                .collect(toImmutableList()));
+
+        assertThat(second).containsOnly(first.rows().stream()
+                .map(Row::new)
+                .collect(toImmutableList()));
+    }
+
     @DataProvider
     public static Object[][] specVersions()
     {
@@ -2403,6 +2489,16 @@ public class TestIcebergSparkCompatibility
     public static Object[][] storageFormats()
     {
         return Stream.of(StorageFormat.values())
+                .map(storageFormat -> new Object[] {storageFormat})
+                .toArray(Object[][]::new);
+    }
+
+    @DataProvider
+    public static Object[][] variantStorageFormats()
+    {
+        // Spark/Iceberg VARIANT interoperability currently works for AVRO and PARQUET.
+        // ORC VARIANT is not supported in Spark's current Iceberg integration.
+        return Stream.of(StorageFormat.AVRO, StorageFormat.PARQUET)
                 .map(storageFormat -> new Object[] {storageFormat})
                 .toArray(Object[][]::new);
     }

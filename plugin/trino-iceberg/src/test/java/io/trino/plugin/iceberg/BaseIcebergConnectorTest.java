@@ -4913,10 +4913,12 @@ public abstract class BaseIcebergConnectorTest
                 "  a_timestamp timestamp(6), " +
                 "  a_timestamptz timestamp(6) with time zone, " +
                 "  a_uuid uuid, " +
+                "  a_variant variant, " +
                 "  a_row row(id integer, vc varchar), " +
                 "  an_array array(varchar), " +
                 "  a_map map(integer, varchar) " +
-                ")");
+                ")" +
+                " WITH (FORMAT_VERSION = 3)");
 
         String values = "VALUES (" +
                 "true, " +
@@ -4933,11 +4935,12 @@ public abstract class BaseIcebergConnectorTest
                 "TIMESTAMP '2021-07-24 03:43:57.987654'," +
                 "TIMESTAMP '2021-07-24 04:43:57.987654 UTC', " +
                 "UUID '20050910-1330-11e9-ffff-2a86e4085a59', " +
+                "CAST(42 as VARIANT), " +
                 "CAST(ROW(42, 'this is a random value') AS ROW(id int, vc varchar)), " +
                 "ARRAY[VARCHAR 'uno', 'dos', 'tres'], " +
                 "map(ARRAY[1,2], ARRAY['ek', VARCHAR 'one'])) ";
 
-        String nullValues = nCopies(17, "NULL").stream()
+        String nullValues = nCopies(18, "NULL").stream()
                 .collect(joining(", ", "VALUES (", ")"));
 
         assertUpdate("INSERT INTO test_all_types " + values, 1);
@@ -4963,6 +4966,7 @@ public abstract class BaseIcebergConnectorTest
                 "AND a_timestamp = TIMESTAMP '2021-07-24 03:43:57.987654' " +
                 "AND a_timestamptz = TIMESTAMP '2021-07-24 04:43:57.987654 UTC' " +
                 "AND a_uuid = UUID '20050910-1330-11e9-ffff-2a86e4085a59' " +
+                "AND a_variant = CAST(42 as VARIANT) " +
                 "AND a_row = CAST(ROW(42, 'this is a random value') AS ROW(id int, vc varchar)) " +
                 "AND an_array = ARRAY[VARCHAR 'uno', 'dos', 'tres'] " +
                 "AND a_map = map(ARRAY[1,2], ARRAY['ek', VARCHAR 'one']) " +
@@ -4984,6 +4988,7 @@ public abstract class BaseIcebergConnectorTest
                 "AND a_timestamp IS NULL " +
                 "AND a_timestamptz IS NULL " +
                 "AND a_uuid IS NULL " +
+                "AND a_variant IS NULL " +
                 "AND a_row IS NULL " +
                 "AND an_array IS NULL " +
                 "AND a_map IS NULL " +
@@ -5010,6 +5015,7 @@ public abstract class BaseIcebergConnectorTest
                             "  ('a_timestamp', NULL, 1e0, 0.5e0, NULL, " + (format == ORC ? "'2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'" : "'2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'") + "), " +
                             "  ('a_timestamptz', NULL, 1e0, 0.5e0, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
                             "  ('a_uuid', NULL, 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_variant', NULL, NULL, " + (format == ORC ? "0.5e0" : "NULL") + ", NULL, NULL, NULL), " +
                             "  ('a_row', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
                             "  ('an_array', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
                             "  ('a_map', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
@@ -5033,6 +5039,7 @@ public abstract class BaseIcebergConnectorTest
                             "  ('a_timestamp', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
                             "  ('a_timestamptz', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
                             "  ('a_uuid', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_variant', NULL, NULL, NULL, NULL, NULL, NULL), " +
                             "  ('a_row', NULL, NULL, NULL, NULL, NULL, NULL), " +
                             "  ('an_array', NULL, NULL, NULL, NULL, NULL, NULL), " +
                             "  ('a_map', NULL, NULL, NULL, NULL, NULL, NULL), " +
@@ -5059,6 +5066,7 @@ public abstract class BaseIcebergConnectorTest
                             "  ('a_timestamp', NULL, 1e0, 0.5e0, NULL, " + (format == ORC ? "'2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'" : "'2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'") + "), " +
                             "  ('a_timestamptz', NULL, 1e0, 0.5e0, NULL, '2021-07-24 04:43:57.987 UTC', '2021-07-24 04:43:57.987 UTC'), " +
                             "  ('a_uuid', NULL, 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_variant', NULL, NULL, " + (format == ORC ? "0.5e0" : "NULL") + ", NULL, NULL, NULL), " +
                             "  ('a_row', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
                             "  ('an_array', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
                             "  ('a_map', NULL, NULL, " + (format == ORC ? "0.5" : "NULL") + ", NULL, NULL, NULL), " +
@@ -5082,6 +5090,7 @@ public abstract class BaseIcebergConnectorTest
                             "  ('a_timestamp', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
                             "  ('a_timestamptz', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
                             "  ('a_uuid', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
+                            "  ('a_variant', NULL, NULL, NULL, NULL, NULL, NULL), " +
                             "  ('a_row', NULL, NULL, NULL, NULL, NULL, NULL), " +
                             "  ('an_array', NULL, NULL, NULL, NULL, NULL, NULL), " +
                             "  ('a_map', NULL, NULL, NULL, NULL, NULL, NULL), " +
@@ -5182,6 +5191,69 @@ public abstract class BaseIcebergConnectorTest
         }
 
         assertUpdate("DROP TABLE test_all_types");
+    }
+
+    @Test
+    public void testVariantValueTypes()
+    {
+        try (TestTable table = newTrinoTable(
+                "test_variant_value_types",
+                "(v variant) WITH (FORMAT_VERSION = 3)")) {
+            String values = """
+                    VALUES
+                    CAST(NULL AS VARIANT),
+                    CAST(true AS VARIANT),
+                    CAST(TINYINT '1' AS VARIANT),
+                    CAST(SMALLINT '1' AS VARIANT),
+                    CAST(INTEGER '1' AS VARIANT),
+                    CAST(BIGINT '1' AS VARIANT),
+                    CAST(REAL '1.0' AS VARIANT),
+                    CAST(DOUBLE '1.0' AS VARIANT),
+                    CAST(DECIMAL '1.23' AS VARIANT),
+                    CAST('hello' AS VARIANT),
+                    CAST(X'000102f0feff' AS VARIANT),
+                    CAST(DATE '2021-07-24' AS VARIANT),
+                    CAST(TIME '02:43:57.987654' AS VARIANT),
+                    CAST(TIMESTAMP '2021-07-24 03:43:57.987654' AS VARIANT),
+                    CAST(TIMESTAMP '2021-07-24 03:43:57.987654321' AS VARIANT),
+                    CAST(TIMESTAMP '2021-07-24 04:43:57.987654 UTC' AS VARIANT),
+                    CAST(TIMESTAMP '2021-07-24 04:43:57.987654321 UTC' AS VARIANT),
+                    CAST(UUID '20050910-1330-11e9-ffff-2a86e4085a59' AS VARIANT),
+                    CAST(ARRAY['uno', 'dos'] AS VARIANT),
+                    CAST(MAP(ARRAY['a', 'b'], ARRAY[1, 2]) AS VARIANT),
+                    CAST(CAST(ROW(42, 'x') AS ROW(id integer, vc varchar)) AS VARIANT)
+                    """;
+
+            assertUpdate("INSERT INTO " + table.getName() + " " + values, 21);
+
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches(values);
+        }
+    }
+
+    @Test
+    public void testNestedVariant()
+    {
+        // Tests variant nested inside array and row types
+        try (TestTable table = newTrinoTable(
+                "test_nested_variant",
+                "(" +
+                        "variant_array array(variant), " +
+                        "variant_row row(v variant, i integer)) " +
+                        "WITH (FORMAT_VERSION = 3)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (" +
+                    "ARRAY[CAST(1 AS VARIANT), CAST('hello' AS VARIANT), CAST(NULL AS VARIANT)], " +
+                    "CAST(ROW(42, 123) AS ROW(v variant, i integer)))", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (NULL, NULL)", 1);
+
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("""
+                            VALUES (
+                            ARRAY[CAST(1 AS VARIANT), CAST('hello' AS VARIANT), CAST(NULL AS VARIANT)],
+                            CAST(ROW(42, 123) AS ROW(v variant, i integer))),
+                            (NULL, NULL)
+                            """);
+        }
     }
 
     @Test

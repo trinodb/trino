@@ -48,7 +48,7 @@ public class EnvSinglenodeSparkIcebergRest
     private static final int REST_SERVER_PORT = 8181;
     private static final String SPARK_CONTAINER_NAME = "spark";
     private static final String REST_CONTAINER_NAME = "iceberg-with-rest";
-    private static final String REST_SERVER_IMAGE = "tabulario/iceberg-rest:1.5.0";
+    private static final String REST_SERVER_IMAGE = "ghcr.io/trinodb/testing/iceberg-rest";
     private static final String CATALOG_WAREHOUSE = "hdfs://hadoop-master:9000/user/hive/warehouse";
 
     private final DockerFiles dockerFiles;
@@ -80,10 +80,19 @@ public class EnvSinglenodeSparkIcebergRest
     @SuppressWarnings("resource")
     private DockerContainer createRESTContainer()
     {
-        DockerContainer container = new DockerContainer(REST_SERVER_IMAGE, REST_CONTAINER_NAME)
+        DockerContainer container = new DockerContainer(REST_SERVER_IMAGE + ":" + hadoopImagesVersion, REST_CONTAINER_NAME)
                 .withEnv("CATALOG_WAREHOUSE", CATALOG_WAREHOUSE)
                 .withEnv("REST_PORT", Integer.toString(REST_SERVER_PORT))
+                .withEnv("HADOOP_CONF_DIR", "/etc/hadoop/conf")
                 .withEnv("HADOOP_USER_NAME", "hive")
+                .withCopyFileToContainer(
+                        forHostPath(dockerFiles.getDockerFilesHostPath(
+                                "conf/environment/singlenode-spark-iceberg-rest/core-site.xml")),
+                        "/etc/hadoop/conf/core-site.xml")
+                .withCopyFileToContainer(
+                        forHostPath(dockerFiles.getDockerFilesHostPath(
+                                "conf/environment/singlenode-spark-iceberg-rest/hdfs-site.xml")),
+                        "/etc/hadoop/conf/hdfs-site.xml")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(forSelectedPorts(REST_SERVER_PORT));
 

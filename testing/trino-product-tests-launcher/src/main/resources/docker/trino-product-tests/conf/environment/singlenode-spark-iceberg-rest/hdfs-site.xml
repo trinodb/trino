@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<configuration>
+    <property>
+        <name>fs.viewfs.mounttable.hadoop-viewfs.link./default</name>
+        <value>hdfs://hadoop-master:9000/user/hive/warehouse</value>
+    </property>
+
+    <property>
+        <name>dfs.safemode.threshold.pct</name>
+        <value>0</value>
+    </property>
+</configuration>

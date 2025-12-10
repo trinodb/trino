@@ -55,6 +55,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -107,8 +108,7 @@ public final class TypeConverter
                         .map(field -> new RowType.Field(Optional.of(field.name()), toTrinoType(field.type(), typeManager)))
                         .collect(toImmutableList()));
             case VARIANT:
-                // TODO https://github.com/trinodb/trino/issues/24538 Support variant type
-                break;
+                return VARIANT;
             case GEOMETRY:
             case GEOGRAPHY:
             case UNKNOWN:
@@ -173,6 +173,9 @@ public final class TypeConverter
         }
         if (type.equals(UUID)) {
             return Types.UUIDType.get();
+        }
+        if (type.equals(VARIANT)) {
+            return Types.VariantType.get();
         }
         if (type instanceof RowType rowType) {
             return fromRow(rowType, columnIdentity, nextFieldId);
