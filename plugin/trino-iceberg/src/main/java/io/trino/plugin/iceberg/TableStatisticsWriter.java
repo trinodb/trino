@@ -131,6 +131,9 @@ public class TableStatisticsWriter
                     if (type instanceof Type.NestedType nestedType) {
                         return nestedType.fields();
                     }
+                    if (type instanceof Types.VariantType) {
+                        return ImmutableList.of();
+                    }
                     if (type instanceof Type.PrimitiveType) {
                         return ImmutableList.of();
                     }

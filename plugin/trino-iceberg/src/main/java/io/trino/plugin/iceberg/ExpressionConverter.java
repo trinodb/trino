@@ -36,6 +36,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergTypes.convertTrinoValueToIceberg;
 import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static java.lang.String.format;
 import static org.apache.iceberg.expressions.Expressions.alwaysFalse;
 import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
@@ -57,6 +58,11 @@ public final class ExpressionConverter
         if (isStructuralType(domain.getType())) {
             // structural types cannot be used to filter a table scan in Iceberg library.
             return false;
+        }
+
+        if (domain.getType() == VARIANT) {
+            // Iceberg does not support filtering on VARIANT type, but simple checks always work
+            return domain.isOnlyNull() || domain.getValues().isAll();
         }
 
         if (domain.getType() == UUID) {
