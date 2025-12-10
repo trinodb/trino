@@ -85,8 +85,6 @@ public class LocalExchange
     @GuardedBy("this")
     private int nextSourceIndex;
 
-    private final PartitionHashGeneratorCompiler partitionHashGeneratorCompiler;
-
     public LocalExchange(
             PartitionFunctionProvider partitionFunctionProvider,
             Session session,
@@ -101,7 +99,7 @@ public class LocalExchange
             PartitionHashGeneratorCompiler partitionHashGeneratorCompiler)
     {
         int bufferCount = computeBufferCount(partitioning, defaultConcurrency, partitionChannels);
-        this.partitionHashGeneratorCompiler = requireNonNull(partitionHashGeneratorCompiler, "partitionHashGeneratorCompiler is null");
+        requireNonNull(partitionHashGeneratorCompiler, "partitionHashGeneratorCompiler is null");
 
         if (partitioning.equals(SINGLE_DISTRIBUTION) || partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
             LocalExchangeMemoryManager memoryManager = new LocalExchangeMemoryManager(maxBufferedBytes.toBytes());

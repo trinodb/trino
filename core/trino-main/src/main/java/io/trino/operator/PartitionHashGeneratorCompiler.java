@@ -114,9 +114,8 @@ public final class PartitionHashGeneratorCompiler
         CallSiteBinder callSiteBinder = new CallSiteBinder();
         List<ChunkClass> chunkClasses = new ArrayList<>();
         int chunkNumber = 0;
-        boolean singleChunkClass = keyFields.size() <= COLUMNS_PER_CHUNK;
         for (List<HashGeneratorKeyField> chunk : Lists.partition(keyFields, COLUMNS_PER_CHUNK)) {
-            chunkClasses.add(compilePartitionHashGeneratorChunk(callSiteBinder, chunk, chunkNumber, singleChunkClass));
+            chunkClasses.add(compilePartitionHashGeneratorChunk(callSiteBinder, chunk, chunkNumber));
             chunkNumber++;
         }
 
@@ -153,7 +152,7 @@ public final class PartitionHashGeneratorCompiler
         }
     }
 
-    private static ChunkClass compilePartitionHashGeneratorChunk(CallSiteBinder callSiteBinder, List<HashGeneratorKeyField> keyFields, int chunkNumber, boolean singleChunkClass)
+    private static ChunkClass compilePartitionHashGeneratorChunk(CallSiteBinder callSiteBinder, List<HashGeneratorKeyField> keyFields, int chunkNumber)
     {
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),

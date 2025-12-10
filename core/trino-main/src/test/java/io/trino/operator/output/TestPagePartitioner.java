@@ -1019,8 +1019,7 @@ public class TestPagePartitioner
                     PARTITION_MAX_MEMORY,
                     POSITIONS_APPENDER_FACTORY,
                     Optional.empty(),
-                    memoryContext,
-                    true);
+                    memoryContext);
         }
     }
 
