@@ -1801,9 +1801,14 @@ public abstract class BaseConnectorTest
             assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 1);
         }
         assertUpdate("DROP TABLE " + baseTable);
-        assertQueryFails(
-                "TABLE " + viewName,
-                "line 1:1: Failed analyzing stored view '%1$s\\.%2$s\\.%3$s': line 3:3: Table '%1$s\\.%2$s\\.%4$s' does not exist".formatted(catalog, schema, viewName, baseTable));
+        if (initialized) {
+            assertQuerySucceeds("TABLE " + viewName);
+        }
+        else {
+            assertQueryFails(
+                    "TABLE " + viewName,
+                    "line 1:1: Failed analyzing stored view '%1$s\\.%2$s\\.%3$s': line 3:3: Table '%1$s\\.%2$s\\.%4$s' does not exist".formatted(catalog, schema, viewName, baseTable));
+        }
         assertUpdate("DROP MATERIALIZED VIEW " + viewName);
     }
 
