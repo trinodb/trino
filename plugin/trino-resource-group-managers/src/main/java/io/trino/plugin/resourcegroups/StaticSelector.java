@@ -88,7 +88,10 @@ public class StaticSelector
                 }))
                 .add(userGroupRegex.map(userGroupRegexValue ->
                             new BasicMatcher(criteria -> criteria.getUserGroups().stream().anyMatch(userGroup -> userGroupRegexValue.matcher(userGroup).matches()))))
-                .add(queryTextRegex.map(queryTextRegexValue -> new PatternMatcher(variableNames, queryTextRegexValue, SelectionCriteria::getQueryText)))
+                .add(queryTextRegex.map(queryTextRegexValue -> {
+                    addNamedGroups(queryTextRegexValue, variableNames);
+                    return new PatternMatcher(variableNames, queryTextRegexValue, SelectionCriteria::getQueryText);
+                }))
                 .add(queryType.map(queryTypeValue ->
                             new BasicMatcher(criteria -> queryTypeValue.equalsIgnoreCase(criteria.getQueryType().orElse("")))))
                 .add(selectorResourceEstimate.map(selectorResourceEstimateValue ->
