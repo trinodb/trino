@@ -5851,6 +5851,22 @@ public class TestAnalyzer
                 accessControlManager)
                 .hasErrorCode(PERMISSION_DENIED)
                 .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.fresh_materialized_view");
+        accessControlManager.reset();
+
+        // Deny access to the table referenced by the underlying query
+        accessControlManager.denyIdentityTable((_, table) -> !"t1".equals(table));
+        assertFails(CLIENT_SESSION, "SELECT * FROM fresh_materialized_view", accessControlManager)
+                .hasErrorCode(PERMISSION_DENIED)
+                .hasMessage("Access Denied: View owner does not have sufficient privileges: View owner 'some user' cannot create view that selects from tpch.s1.t1");
+        assertFails(CLIENT_SESSION, "REFRESH MATERIALIZED VIEW fresh_materialized_view", accessControlManager)
+                .hasErrorCode(PERMISSION_DENIED)
+                .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.t1");
+        assertFails(CLIENT_SESSION, "SELECT * FROM stale_materialized_view", accessControlManager)
+                .hasErrorCode(PERMISSION_DENIED)
+                .hasMessage("Access Denied: View owner does not have sufficient privileges: View owner 'some user' cannot create view that selects from tpch.s1.t1");
+        assertFails(CLIENT_SESSION, "REFRESH MATERIALIZED VIEW stale_materialized_view", accessControlManager)
+                .hasErrorCode(PERMISSION_DENIED)
+                .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.t1");
     }
 
     @Test
