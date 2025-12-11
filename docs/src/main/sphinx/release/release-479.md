@@ -6,7 +6,7 @@
 * Add support for specifying the location of the Exchange Manager configuration file. ({issue}`26611`)
 * Publish time taken by query in `FINISHING` state in event listener. ({issue}`27202`)
 * Add lineage support for output columns of `SELECT` queries. ({issue}`26241`)
-* Add support for setting and dropping column defaults via ALTER TABLE ... ALTER COLUMN" at current. ({issue}`26162`)
+* Add support for setting and dropping column defaults via `ALTER TABLE ... ALTER COLUMN` at current. ({issue}`26162`)
 * Add {func}`array_first` and {func}`array_last` functions. ({issue}`27295`)
 * Add `GRACE PERIOD` to `SHOW CREATE MATERIALIZED VIEW` output. ({issue}`27529`)
 * Allow field name declaration in row literals. For example, `row(1 as a, 2 as b)` is now legal. ({issue}`25261`)
@@ -14,12 +14,14 @@
 * Require JDK 25 to build and run Trino. ({issue}`27153`)
 * {{breaking}} The configuration property `task.statistics-cpu-timer-enabled` is now defunct and must be removed. ({issue}`27504`)
 * Deprecate `EXPLAIN (TYPE LOGICAL)`. `EXPLAIN (TYPE DISTRIBUTED)` should be used instead. ({issue}`27434`)
-* Remove `prefer_streaming_operators` session property. `SET SESSION task_concurrency=1` can be used to achieve the same behaviour as `prefer_streaming_operators`. ({issue}`27506`)
-* Improve performance of remote data exchanges on CPUs supporting the required SIMD extensions. This can be disabled by setting `exchange.experimental.vectorized-serde.enabled=false`. ({issue}`27426`, {issue}`26919`)
-* Fix query failure when one of the branches of a `UNION` is known to produce zero rows during query planning. ({issue}`21506`)
+* Remove `prefer_streaming_operators` session property. `SET SESSION task_concurrency=1` can be used to achieve the same 
+  behaviour as `prefer_streaming_operators`. ({issue}`27506`)
+* Improve performance of remote data exchanges on CPUs supporting the required SIMD extensions. This can be disabled by 
+  setting `exchange.experimental.vectorized-serde.enabled=false`. ({issue}`27426`, {issue}`26919`)
 * Improve performance of {func}`array_sort` function. ({issue}`27272`)
 * Improve performance of {func}`repeat` function. ({issue}`27369`)
 * Improve performance of data exchanges involving variable width data. ({issue}`27377`)
+* Fix query failure when one of the branches of a `UNION` is known to produce zero rows during query planning. ({issue}`21506`)
 * Fix configuring partitioned layout for spooling protocol. ({issue}`27247`)
 * Fix `EXPLAIN (TYPE IO)` failure when query predicate contains a type which cannot be cast to `varchar`. ({issue}`27433`)
 
@@ -53,7 +55,8 @@
 
 ## ClickHouse connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
+  The new property will be removed in a future version.
 
 ## Delta Lake connector
 
@@ -69,17 +72,20 @@
 
 ## Druid connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
+  The new property will be removed in a future version.
 
 ## DuckDB connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
+  The new property will be removed in a future version.
 
 ## Elasticsearch connector
 
 ## Exasol connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
+  The new property will be removed in a future version.
 
 ## Faker connector
 
@@ -121,7 +127,8 @@
 
 ## Ignite connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
+  The new property will be removed in a future version.
 
 ## JMX connector
 
@@ -133,7 +140,8 @@
 
 ## MariaDB connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
+  The new property will be removed in a future version.
 
 ## Memory connector
 
@@ -144,20 +152,23 @@
 
 ## MySQL connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
+  The new property will be removed in a future version.
 * Fix incorrect results for queries involving `IS NOT DISTINCT FROM`. ({issue}`27213`)
 
 ## OpenSearch connector
 
 ## Oracle connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
+  The new property will be removed in a future version.
 
 ## Pinot connector
 
 ## PostgreSQL connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
+  The new property will be removed in a future version.
 * Fix incorrect results for queries involving `IS NOT DISTINCT FROM`. ({issue}`27213`)
 
 ## Prometheus connector
@@ -166,20 +177,24 @@
 
 ## Redshift connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
+  The new property will be removed in a future version.
 * Fix failure when reading Redshift `character varying` type. ({issue}`27224`)
 
 ## SingleStore connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
+  The new property will be removed in a future version.
 
 ## Snowflake connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
+  The new property will be removed in a future version.
 
 ## SQL Server connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
+  The new property will be removed in a future version.
 * Fix potential failure when listing tables and columns. ({issue}`10846`)
 
 ## TPC-H connector
@@ -188,7 +203,8 @@
 
 ## Vertica connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. The new property will be removed in a future version.
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
+  The new property will be removed in a future version.
 
 ## SPI
 
