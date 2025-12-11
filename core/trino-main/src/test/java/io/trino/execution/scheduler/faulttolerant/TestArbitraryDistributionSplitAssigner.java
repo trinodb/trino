@@ -688,7 +688,7 @@ public class TestArbitraryDistributionSplitAssigner
                     Optional<HostAddress> hostRequirement = Optional.empty();
                     if (!split.getAddresses().isEmpty()) {
                         int splitCount = Integer.MAX_VALUE;
-                        for (HostAddress hostAddress : split.getConnectorSplit().getAddresses()) {
+                        for (HostAddress hostAddress : split.connectorSplit().getAddresses()) {
                             int currentSplitCount = addUpSplits(hostAddress, currentSplitAssignments);
                             if (currentSplitCount < splitCount) {
                                 splitCount = currentSplitCount;

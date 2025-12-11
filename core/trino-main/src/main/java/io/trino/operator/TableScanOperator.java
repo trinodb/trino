@@ -179,7 +179,7 @@ public class TableScanOperator
         this.split = split;
         blocked.set(null);
 
-        if (split.getConnectorSplit() instanceof EmptySplit) {
+        if (split.connectorSplit() instanceof EmptySplit) {
             source = new EmptyPageSource();
         }
     }

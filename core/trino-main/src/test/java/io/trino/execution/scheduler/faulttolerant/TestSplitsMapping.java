@@ -119,7 +119,7 @@ public class TestSplitsMapping
         return splitsMapping.getSplits(new PlanNodeId(planNodeId)).entries().stream()
                 .collect(ImmutableListMultimap.toImmutableListMultimap(
                         Map.Entry::getKey,
-                        entry -> ((TestingConnectorSplit) entry.getValue().getConnectorSplit()).getId()));
+                        entry -> ((TestingConnectorSplit) entry.getValue().connectorSplit()).getId()));
     }
 
     private static Split createSplit(int id)
