@@ -80,7 +80,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
         Path dataDirectory = Files.createTempDirectory("iceberg_data");
         dataDirectory.toFile().deleteOnExit();
 
-        queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory, Optional.of(new TestingGlueCatalogModule())));
+        queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory, () -> Optional.of(new TestingGlueCatalogModule())));
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.<String, String>builder()
                 .put("iceberg.catalog.type", "glue")
                 .put("fs.hadoop.enabled", "true")
