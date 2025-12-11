@@ -90,14 +90,6 @@ values. Typical usage does not require you to configure them.
     specified in [](prop-type-data-size) values such as `64MB`. Default is
     calculated to 5% of the maximum memory allocated to the JVM.
   - 
-* - `delta.metadata.live-files.cache-size`
-  - Amount of memory allocated for caching information about files. Must be
-    specified in [](prop-type-data-size) values such as `64MB`. Default is
-    calculated to 10% of the maximum memory allocated to the JVM.
-  -
-* - `delta.metadata.live-files.cache-ttl`
-  - Caching duration for active files that correspond to the Delta Lake tables.
-  - `30m`
 * - `delta.compression-codec`
   - The compression codec to be used when writing new data files. Possible
     values are:
@@ -134,14 +126,6 @@ values. Typical usage does not require you to configure them.
   -
 * - `delta.checkpoint-row-statistics-writing.enabled`
   - Enable writing row statistics to checkpoint files.
-  - `true`
-* - `delta.checkpoint-filtering.enabled`
-  - Enable pruning of data file entries as well as data file statistics columns
-    which are irrelevant for the query when reading Delta Lake checkpoint files.
-    Reading only the relevant active file data from the checkpoint, directly
-    from the storage, instead of relying on the active files caching, likely
-    results in decreased memory pressure on the coordinator. The equivalent
-    catalog session property is `checkpoint_filtering_enabled`.
   - `true`
 * - `delta.dynamic-filtering.wait-timeout`
   - Duration to wait for completion of [dynamic
