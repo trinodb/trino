@@ -54,9 +54,6 @@
 
 ## ClickHouse connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
-  The new property will be removed in a future version. ({issue}`27498`)
-
 ## Delta Lake connector
 
 * Add `APPLICATION_DEFAULT` authentication type for GCS. ({issue}`26984`)
@@ -71,20 +68,11 @@
 
 ## Druid connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
-  The new property will be removed in a future version. ({issue}`27498`)
-
 ## DuckDB connector
-
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
-  The new property will be removed in a future version. ({issue}`27498`)
 
 ## Elasticsearch connector
 
 ## Exasol connector
-
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
-  The new property will be removed in a future version. ({issue}`27498`)
 
 ## Faker connector
 
@@ -126,9 +114,6 @@
 
 ## Ignite connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
-  The new property will be removed in a future version. ({issue}`27498`)
-
 ## JMX connector
 
 ## Kafka connector
@@ -139,9 +124,6 @@
 
 ## MariaDB connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
-  The new property will be removed in a future version. ({issue}`27498`)
-
 ## Memory connector
 
 * Add support for setting and dropping column defaults via `ALTER TABLE ... ALTER COLUMN`. ({issue}`26162`)
@@ -151,23 +133,16 @@
 
 ## MySQL connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
-  The new property will be removed in a future version. ({issue}`27498`)
 * Fix incorrect results for queries involving `IS NOT DISTINCT FROM`. ({issue}`27213`)
 
 ## OpenSearch connector
 
 ## Oracle connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
-  The new property will be removed in a future version. ({issue}`27498`)
-
 ## Pinot connector
 
 ## PostgreSQL connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
-  The new property will be removed in a future version. ({issue}`27498`)
 * Fix incorrect results for queries involving `IS NOT DISTINCT FROM`. ({issue}`27213`)
 
 ## Prometheus connector
@@ -176,24 +151,14 @@
 
 ## Redshift connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
-  The new property will be removed in a future version. ({issue}`27498`)
 * Fix failure when reading Redshift `character varying` type. ({issue}`27224`)
 
 ## SingleStore connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
-  The new property will be removed in a future version. ({issue}`27498`)
-
 ## Snowflake connector
-
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
-  The new property will be removed in a future version. ({issue}`27498`)
 
 ## SQL Server connector
 
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
-  The new property will be removed in a future version. ({issue}`27498`)
 * Fix potential failure when listing tables and columns. ({issue}`10846`)
 
 ## TPC-H connector
@@ -201,9 +166,6 @@
 ## TPC-DS connector
 
 ## Vertica connector
-
-* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
-  The new property will be removed in a future version. ({issue}`27498`)
 
 ## SPI
 
