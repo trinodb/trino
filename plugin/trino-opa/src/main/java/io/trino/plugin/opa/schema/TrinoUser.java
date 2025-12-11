@@ -38,8 +38,8 @@ public record TrinoUser(String user, @JsonUnwrapped TrinoIdentity identity)
         this(name, null);
     }
 
-    public TrinoUser(Identity identity)
+    public TrinoUser(Identity identity, boolean includeUserPrincipal)
     {
-        this(null, TrinoIdentity.fromTrinoIdentity(identity));
+        this(null, TrinoIdentity.fromTrinoIdentity(identity, includeUserPrincipal));
     }
 }
