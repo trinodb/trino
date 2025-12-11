@@ -15,7 +15,7 @@
 * {{breaking}} The configuration property `task.statistics-cpu-timer-enabled` is now defunct and must be removed. ({issue}`27504`)
 * Deprecate `EXPLAIN (TYPE LOGICAL)`. `EXPLAIN (TYPE DISTRIBUTED)` should be used instead. ({issue}`27434`)
 * Remove `prefer_streaming_operators` session property. ({issue}`27506`)
-* Add experimental performance improvements for remote data exchanges on newer CPU architectures, such as `Graviton 3+`, `Skylake`,
+* Add experimental performance improvements for remote data exchanges on newer CPU architectures, such as `Graviton 3`, `Skylake`,
   `Icelake`, or `Zen 4+`. This can be disabled by setting `exchange.experimental.vectorized-serde.enabled=false`. ({issue}`27426`, {issue}`26919`)
 * Improve performance of {func}`array_sort` function. ({issue}`27272`)
 * Improve performance of {func}`repeat` function. ({issue}`27369`)
@@ -127,7 +127,7 @@
 ## Memory connector
 
 * Add support for setting and dropping column defaults via `ALTER TABLE ... ALTER COLUMN`. ({issue}`26162`)
-* Fix `RENAME SCHEMA` in the memory connector when there is more than one table in the schema. ({issue}`27205`)
+* Fix failure in `RENAME SCHEMA` when there is more than one table in the schema. ({issue}`27205`)
 
 ## MongoDB connector
 
