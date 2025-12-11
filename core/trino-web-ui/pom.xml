@@ -16,6 +16,7 @@
     <properties>
         <frontend.package.goal>package</frontend.package.goal>
         <frontend.check.goal>check</frontend.check.goal>
+        <frontend.npm.retries>--fetch-retries=4 --fetch-retry-mintimeout=10000 --fetch-retry-maxtimeout=120000</frontend.npm.retries>
     </properties>
 
     <dependencies>
@@ -100,7 +101,7 @@
                         </goals>
                         <phase>generate-resources</phase>
                         <configuration>
-                            <arguments>run ${frontend.package.goal}</arguments>
+                            <arguments>run ${frontend.package.goal} ${frontend.npm.retries}</arguments>
                             <workingDirectory>src/main/resources/webapp/src</workingDirectory>
                         </configuration>
                     </execution>
@@ -133,7 +134,7 @@
                         </goals>
                         <phase>generate-resources</phase>
                         <configuration>
-                            <arguments>run ${frontend.package.goal}</arguments>
+                            <arguments>run ${frontend.package.goal} ${frontend.npm.retries}</arguments>
                             <workingDirectory>src/main/resources/webapp-preview</workingDirectory>
                         </configuration>
                     </execution>
