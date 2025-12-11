@@ -24,6 +24,7 @@ import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.security.ViewSecurity;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -279,10 +280,10 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
-    public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
+    public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName, Optional<ViewSecurity> security)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            delegate.checkCanCreateView(context, viewName);
+            delegate.checkCanCreateView(context, viewName, security);
         }
     }
 

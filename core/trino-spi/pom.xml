@@ -315,6 +315,18 @@
                                     <old>method void io.trino.spi.resourcegroups.SelectionCriteria::&lt;init&gt;(boolean, java.lang.String, java.util.Set&lt;java.lang.String&gt;, java.lang.String, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Set&lt;java.lang.String&gt;, io.trino.spi.session.ResourceEstimates, java.util.Optional&lt;java.lang.String&gt;)</old>
                                     <justification>Added queryText before queryType parameter</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.security.SystemAccessControl::checkCanCreateView(io.trino.spi.security.SystemSecurityContext, io.trino.spi.connector.CatalogSchemaTableName)</old>
+                                    <new>method void io.trino.spi.security.SystemAccessControl::checkCanCreateView(io.trino.spi.security.SystemSecurityContext, io.trino.spi.connector.CatalogSchemaTableName, java.util.Optional&lt;io.trino.spi.security.ViewSecurity&gt;)</new>
+                                    <justification>We need to additionally pass the view security for more granular authorization</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.connector.ConnectorAccessControl::checkCanCreateView(io.trino.spi.connector.ConnectorSecurityContext, io.trino.spi.connector.SchemaTableName)</old>
+                                    <new>method void io.trino.spi.connector.ConnectorAccessControl::checkCanCreateView(io.trino.spi.connector.ConnectorSecurityContext, io.trino.spi.connector.SchemaTableName, java.util.Optional&lt;io.trino.spi.security.ViewSecurity&gt;)</new>
+                                    <justification>We need to additionally pass the view security for more granular authorization</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
