@@ -16,6 +16,7 @@ package io.trino.plugin.tpcds;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.trino.plugin.base.ConnectorContextModule;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -41,6 +42,7 @@ public class TpcdsConnectorFactory
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
                 new ConnectorContextModule(catalogName, context),
+                new ConnectorObjectNameGeneratorModule("io.trino.plugin.tpcds", "io.trino.plugin.tpcds"),
                 new TpcdsModule());
 
         Injector injector = app

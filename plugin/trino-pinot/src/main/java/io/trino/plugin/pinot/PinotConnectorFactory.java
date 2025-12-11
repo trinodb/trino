@@ -20,6 +20,7 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.pinot.auth.PinotAuthenticationModule;
 import io.trino.spi.connector.Connector;
@@ -62,6 +63,7 @@ public class PinotConnectorFactory
                 .add(new MBeanServerModule())
                 .add(new TypeDeserializerModule())
                 .add(new ConnectorContextModule(catalogName, context))
+                .add(new ConnectorObjectNameGeneratorModule("io.trino.plugin.pinot", "io.trino.plugin.pinot"))
                 .add(new PinotModule(catalogName))
                 .add(new PinotAuthenticationModule());
 

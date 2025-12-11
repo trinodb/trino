@@ -25,6 +25,7 @@ import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.metastore.HiveMetastoreModule;
@@ -70,6 +71,7 @@ public class HudiConnectorFactory
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     "io.trino.bootstrap.catalog." + catalogName,
+                    new ConnectorObjectNameGeneratorModule("io.trino.plugin.hudi", "io.trino.plugin.hudi"),
                     new MBeanModule(),
                     new JsonModule(),
                     new HudiModule(),

@@ -16,6 +16,7 @@ package io.trino.plugin.ai.functions;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.trino.plugin.base.ConnectorContextModule;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -40,6 +41,7 @@ public class AiConnectorFactory
 
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
+                new ConnectorObjectNameGeneratorModule("io.trino.plugin.ai.functions", "io.trino.plugin.ai.functions"),
                 new AiModule(),
                 new ConnectorContextModule(catalogName, context));
 
