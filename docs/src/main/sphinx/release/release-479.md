@@ -6,7 +6,7 @@
 * Add support for specifying the location of the Exchange Manager configuration file. ({issue}`26611`)
 * Publish time taken by query in `FINISHING` state in event listener. ({issue}`27202`)
 * Add lineage support for output columns of `SELECT` queries. ({issue}`26241`)
-* Add support for setting and dropping column defaults via `ALTER TABLE ... ALTER COLUMN` at current. ({issue}`26162`)
+* Add support for setting and dropping column defaults via `ALTER TABLE ... ALTER COLUMN` statement. ({issue}`26162`)
 * Add {func}`array_first` and {func}`array_last` functions. ({issue}`27295`)
 * Add `GRACE PERIOD` to `SHOW CREATE MATERIALIZED VIEW` output. ({issue}`27529`)
 * Allow field name declaration in row literals. For example, `row(1 as a, 2 as b)` is now legal. ({issue}`25261`)
