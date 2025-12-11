@@ -30,7 +30,6 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
-import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.metastore.HiveMetastoreModule;
@@ -88,7 +87,6 @@ public class HiveConnectorFactory
             Bootstrap app = new Bootstrap(
                     "io.trino.bootstrap.catalog." + catalogName,
                     new MBeanModule(),
-                    new ConnectorObjectNameGeneratorModule("io.trino.plugin.hive", "trino.plugin.hive"),
                     new JsonModule(),
                     new TypeDeserializerModule(),
                     new HiveModule(),
