@@ -15,9 +15,9 @@ package io.trino.plugin.hive.line;
 
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.hive.formats.line.protobuf.ProtobufDeserializerFactory;
 import io.trino.hive.formats.line.sequence.SequenceFileReaderFactory;
 import io.trino.plugin.hive.HiveConfig;
+import io.trino.plugin.hive.metastore.dynamic.ProtobufDeserializerFactoryLoader;
 
 import static java.lang.Math.toIntExact;
 
@@ -25,10 +25,10 @@ public class ProtobufSequenceFilePageSourceFactory
         extends LinePageSourceFactory
 {
     @Inject
-    public ProtobufSequenceFilePageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, HiveConfig config)
+    public ProtobufSequenceFilePageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, ProtobufDeserializerFactoryLoader loader, HiveConfig config)
     {
         super(trinoFileSystemFactory,
-                new ProtobufDeserializerFactory(config.getProtobufDescriptorsLocation(), config.getProtobufDescriptorsCacheRefreshInterval(), config.getProtobufDescriptorsCacheMaxSize()),
+                loader.get(),
                 new SequenceFileReaderFactory(1024, toIntExact(config.getTextMaxLineLength().toBytes())));
     }
 }
