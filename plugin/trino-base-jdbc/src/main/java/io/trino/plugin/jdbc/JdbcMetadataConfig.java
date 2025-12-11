@@ -77,8 +77,8 @@ public class JdbcMetadataConfig
         return complexJoinPushdownEnabled;
     }
 
-    @Deprecated
-    @Config("deprecated.join-pushdown.with-expressions")
+    @Deprecated(forRemoval = true)
+    @Config("join-pushdown.with-expressions")
     @ConfigDescription("Enable join pushdown with complex expressions")
     public JdbcMetadataConfig setComplexJoinPushdownEnabled(boolean complexJoinPushdownEnabled)
     {
