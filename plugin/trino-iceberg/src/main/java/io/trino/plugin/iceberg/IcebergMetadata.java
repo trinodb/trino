@@ -3878,9 +3878,11 @@ public class IcebergMetadata
                 .map(snapshot -> Boolean.valueOf(snapshot.summary().getOrDefault(DEPENDS_ON_TABLE_FUNCTIONS, "false")))
                 .orElse(false);
 
-        Optional<Instant> refreshTime = currentSnapshot.map(snapshot -> snapshot.summary().get(TRINO_QUERY_START_TIME))
-                .map(Instant::parse)
-                .or(() -> currentSnapshot.map(snapshot -> Instant.ofEpochMilli(snapshot.timestampMillis())));
+        // refreshStartTime is captured at the beginning of refresh
+        Optional<Instant> refreshStartTime = currentSnapshot.map(snapshot -> snapshot.summary().get(TRINO_QUERY_START_TIME))
+                .map(Instant::parse);
+        // For MVs refreshed before TRINO_QUERY_START_TIME was introduced, fall back to snapshot timestamp (captured at end of refresh)
+        Optional<Instant> refreshTime = refreshStartTime.or(() -> currentSnapshot.map(snapshot -> Instant.ofEpochMilli(snapshot.timestampMillis())));
 
         if (dependsOnTableFunctions) {
             // It can't be determined whether a value returned by table function is STALE or not
