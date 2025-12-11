@@ -85,7 +85,7 @@ public class TestIcebergFileMetastoreCreateTableFailure
                 .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
-        queryRunner.installPlugin(new TestingIcebergPlugin(Path.of(dataDirectory.toString()), Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore))));
+        queryRunner.installPlugin(new TestingIcebergPlugin(Path.of(dataDirectory.toString()), () -> Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore))));
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg");
         queryRunner.execute("CREATE SCHEMA " + SCHEMA_NAME);
 
