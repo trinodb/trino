@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.NodeVersion;
@@ -45,6 +46,8 @@ public class ConnectorContextModule
     @Override
     public void configure(Binder binder)
     {
+        binder.install(new ConnectorObjectNameGeneratorModule("io.trino.plugin", "trino.plugin"));
+
         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
 
         binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());

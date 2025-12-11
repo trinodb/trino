@@ -26,7 +26,6 @@ import io.trino.hdfs.cos.HiveCosModule;
 import io.trino.hdfs.gcs.HiveGcsModule;
 import io.trino.hdfs.s3.HiveS3Module;
 import io.trino.plugin.base.ConnectorContextModule;
-import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.connector.ConnectorContext;
 import org.weakref.jmx.guice.MBeanModule;
@@ -55,7 +54,6 @@ public final class HdfsFileSystemManager
 
         modules.add(new MBeanModule());
         modules.add(new MBeanServerModule());
-        modules.add(new ConnectorObjectNameGeneratorModule("", ""));
 
         modules.add(new HdfsFileSystemModule());
         modules.add(new HdfsModule());
