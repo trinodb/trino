@@ -87,9 +87,7 @@ public class JdbcModule
         bindSessionPropertiesProvider(binder, JdbcDynamicFilteringSessionProperties.class);
 
         binder.bind(DynamicFilteringStats.class).in(Scopes.SINGLETON);
-        Provider<CatalogName> catalogName = binder.getProvider(CatalogName.class);
-        newExporter(binder).export(DynamicFilteringStats.class)
-                .as(generator -> generator.generatedNameOf(DynamicFilteringStats.class, catalogName.get().toString()));
+        newExporter(binder).export(DynamicFilteringStats.class).as(generator -> generator.generatedNameOf(DynamicFilteringStats.class));
 
         binder.bind(JdbcClient.class).annotatedWith(ForCaching.class).to(Key.get(RetryingJdbcClient.class)).in(Scopes.SINGLETON);
         binder.bind(CachingJdbcClient.class).in(Scopes.SINGLETON);

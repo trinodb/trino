@@ -22,15 +22,12 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.json.JsonModule;
 import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.plugin.base.ConnectorContextModule;
-import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
-import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.iceberg.catalog.IcebergCatalogModule;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 import java.util.Optional;
@@ -43,10 +40,12 @@ import static java.util.Objects.requireNonNull;
 public class IcebergConnectorFactory
         implements ConnectorFactory
 {
+    static final String CONNECTOR_NAME = "iceberg";
+
     @Override
     public String getName()
     {
-        return "iceberg";
+        return CONNECTOR_NAME;
     }
 
     @Override
@@ -67,15 +66,12 @@ public class IcebergConnectorFactory
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     "io.trino.bootstrap.catalog." + catalogName,
-                    new MBeanModule(),
-                    new ConnectorObjectNameGeneratorModule("io.trino.plugin.iceberg", "trino.plugin.iceberg"),
                     new JsonModule(),
                     new IcebergModule(),
                     new IcebergSecurityModule(),
                     icebergCatalogModule.orElse(new IcebergCatalogModule()),
-                    new MBeanServerModule(),
                     new IcebergFileSystemModule(catalogName, context),
-                    new ConnectorContextModule(catalogName, context),
+                    new ConnectorContextModule(CONNECTOR_NAME, catalogName, context),
                     binder -> {
                         binder.bind(ClassLoader.class).toInstance(IcebergConnectorFactory.class.getClassLoader());
                     },

@@ -112,7 +112,7 @@ public class TestDeltaLakeGlueMetastore
         Bootstrap app = new Bootstrap(
                 // connector dependencies
                 new JsonModule(),
-                new ConnectorContextModule("test", context),
+                new ConnectorContextModule("deltalake", "test", context),
                 // connector modules
                 new DeltaLakeMetastoreModule(),
                 new DeltaLakeModule(),

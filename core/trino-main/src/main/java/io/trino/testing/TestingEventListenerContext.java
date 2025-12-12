@@ -17,6 +17,9 @@ import io.airlift.tracing.Tracing;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.eventlistener.EventListenerFactory;
+import org.weakref.jmx.testing.TestingMBeanServer;
+
+import javax.management.MBeanServer;
 
 public class TestingEventListenerContext
         implements EventListenerFactory.EventListenerContext
@@ -37,5 +40,11 @@ public class TestingEventListenerContext
     public Tracer getTracer()
     {
         return Tracing.noopTracer();
+    }
+
+    @Override
+    public MBeanServer getMBeanServer()
+    {
+        return new TestingMBeanServer();
     }
 }

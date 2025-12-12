@@ -44,6 +44,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -102,7 +103,7 @@ public class TestMergeOperator
                 httpClient,
                 new HttpClientConfig(),
                 executor,
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()));
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new TestingMBeanServer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()));
         orderingCompiler = new OrderingCompiler(new TypeOperators());
     }
 

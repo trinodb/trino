@@ -36,6 +36,9 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.type.InternalTypeManager;
 import io.trino.util.EmbedVersion;
+import org.weakref.jmx.testing.TestingMBeanServer;
+
+import javax.management.MBeanServer;
 
 import static io.trino.node.TestingInternalNodeManager.CURRENT_NODE;
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
@@ -104,5 +107,11 @@ public class TestingPostgreSqlConnectorContext
     public PageIndexerFactory getPageIndexerFactory()
     {
         return pageIndexerFactory;
+    }
+
+    @Override
+    public MBeanServer getMBeanServer()
+    {
+        return new TestingMBeanServer();
     }
 }

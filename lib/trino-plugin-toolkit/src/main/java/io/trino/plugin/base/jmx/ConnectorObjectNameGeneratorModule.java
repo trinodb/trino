@@ -72,7 +72,7 @@ public class ConnectorObjectNameGeneratorModule
             return new ObjectNameBuilder(toDomain(type))
                     .withProperties(ImmutableMap.<String, String>builder()
                             .put("type", type.getSimpleName())
-                            .put("name", catalogName)
+                            .put("catalog", catalogName)
                             .buildOrThrow())
                     .build();
         }
@@ -83,6 +83,7 @@ public class ConnectorObjectNameGeneratorModule
             return new ObjectNameBuilder(toDomain(type))
                     .withProperties(ImmutableMap.<String, String>builder()
                             .putAll(properties)
+                            .put("type", type.getSimpleName())
                             .put("catalog", catalogName)
                             .buildOrThrow())
                     .build();

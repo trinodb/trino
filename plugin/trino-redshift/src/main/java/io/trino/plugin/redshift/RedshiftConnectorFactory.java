@@ -31,6 +31,8 @@ import static java.util.Objects.requireNonNull;
 public class RedshiftConnectorFactory
         implements ConnectorFactory
 {
+    static final String CONNECTOR_NAME = "redshift";
+
     @Override
     public String getName()
     {
@@ -45,7 +47,7 @@ public class RedshiftConnectorFactory
 
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
-                new ConnectorContextModule(catalogName, context),
+                new ConnectorContextModule(CONNECTOR_NAME, catalogName, context),
                 new JdbcModule(),
                 new CredentialProviderModule(),
                 new ExtraCredentialsBasedIdentityCacheMappingModule(),

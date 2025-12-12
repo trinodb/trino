@@ -35,6 +35,8 @@ import static java.util.Objects.requireNonNull;
 public class RedisConnectorFactory
         implements ConnectorFactory
 {
+    static final String CONNECTOR_NAME = "redis";
+
     private final Optional<Supplier<Map<SchemaTableName, RedisTableDescription>>> tableDescriptionSupplier;
 
     RedisConnectorFactory(Optional<Supplier<Map<SchemaTableName, RedisTableDescription>>> tableDescriptionSupplier)
@@ -45,7 +47,7 @@ public class RedisConnectorFactory
     @Override
     public String getName()
     {
-        return "redis";
+        return CONNECTOR_NAME;
     }
 
     @Override
@@ -59,7 +61,7 @@ public class RedisConnectorFactory
                 "io.trino.bootstrap.catalog." + catalogName,
                 new JsonModule(),
                 new TypeDeserializerModule(),
-                new ConnectorContextModule(catalogName, context),
+                new ConnectorContextModule(CONNECTOR_NAME, catalogName, context),
                 new RedisConnectorModule(),
                 binder -> {
                     if (tableDescriptionSupplier.isPresent()) {

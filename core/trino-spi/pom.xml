@@ -686,6 +686,12 @@
                                     <old>method void io.trino.spi.type.TypeNotFoundException::&lt;init&gt;(io.trino.spi.type.TypeSignature, java.lang.Throwable)</old>
                                     <justification>Remove TypeSignature dependency from</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method javax.management.MBeanServer io.trino.spi.eventlistener.EventListenerFactory.EventListenerContext::getMBeanServer()</new>
+                                    <justification>MBeanServer provided by the engine</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
