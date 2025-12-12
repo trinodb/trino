@@ -112,7 +112,7 @@
 * Avoid worker crashes by failing queries attempting to read columns with huge values in parquet files. ({issue}`27148`)
 * Fix potential `FileAlreadyExistsException` failure when network failures occur during writes to S3. ({issue}`27330`)
 * Fix potential failure when dropping a schema with `CASCADE` option. ({issue}`27361`)
-* Fix failure when querying materialized views within the grace period. ({issue}`27606`)
+* Fix failure when handling of dropped base tables for materialized views. ({issue}`27606`)
 
 ## Ignite connector
 
