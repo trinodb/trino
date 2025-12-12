@@ -50,9 +50,9 @@ public class TestFaultTolerantExecutionDynamicFiltering
         return DistributedQueryRunner.builder(getDefaultSession())
                 .setExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
                 // keep limits lower to test edge cases
-                .addExtraProperty("dynamic-filtering.large.max-distinct-values-per-driver", "10")
-                .addExtraProperty("dynamic-filtering.large.range-row-limit-per-driver", "100")
-                .addExtraProperty("dynamic-filtering.large-partitioned.range-row-limit-per-driver", "500")
+                .addExtraProperty("dynamic-filtering.max-distinct-values-per-driver", "10")
+                .addExtraProperty("dynamic-filtering.range-row-limit-per-driver", "100")
+                .addExtraProperty("dynamic-filtering.partitioned.range-row-limit-per-driver", "500")
                 .withExchange("filesystem")
                 .build();
     }
