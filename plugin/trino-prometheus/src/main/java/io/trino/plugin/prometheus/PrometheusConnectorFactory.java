@@ -18,6 +18,7 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -49,6 +50,7 @@ public class PrometheusConnectorFactory
                     "io.trino.bootstrap.catalog." + catalogName,
                     new JsonModule(),
                     new TypeDeserializerModule(),
+                    new ConnectorObjectNameGeneratorModule("io.trino.plugin.prometheus", "io.trino.plugin.prometheus"),
                     new ConnectorContextModule(catalogName, context),
                     new PrometheusModule());
 

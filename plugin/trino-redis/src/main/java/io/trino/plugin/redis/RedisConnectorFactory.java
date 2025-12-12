@@ -20,6 +20,7 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -60,6 +61,7 @@ public class RedisConnectorFactory
                 new JsonModule(),
                 new TypeDeserializerModule(),
                 new ConnectorContextModule(catalogName, context),
+                new ConnectorObjectNameGeneratorModule("io.trino.plugin.redis", "io.trino.plugin.redis"),
                 new RedisConnectorModule(),
                 binder -> {
                     if (tableDescriptionSupplier.isPresent()) {

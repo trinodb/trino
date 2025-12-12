@@ -20,6 +20,7 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.kafka.security.KafkaSecurityModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -63,6 +64,7 @@ public class KafkaConnectorFactory
                         .add(new KafkaClientsModule())
                         .add(new KafkaSecurityModule())
                         .add(new ConnectorContextModule(catalogName, context))
+                        .add(new ConnectorObjectNameGeneratorModule("io.trino.plugin.kafka", "trino.plugin.kafka"))
                         .add(binder -> {
                             binder.bind(ClassLoader.class).toInstance(KafkaConnectorFactory.class.getClassLoader());
                         })
