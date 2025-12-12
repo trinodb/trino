@@ -46,7 +46,40 @@ public class TestConditionalTracingModule
     }
 
     @Test
-    public void testUsesGlobalWhenAvailable()
+    public void testUsesTracingModuleWhenNoAgentPresent()
+    {
+        try {
+            // Don't initialize GlobalOpenTelemetry - simulates running without Java agent
+            // GlobalOpenTelemetry.get() returns noop, and we should detect this and use TracingModule
+
+            // TracingModule requires NodeInfo, so include NodeModule
+            Bootstrap bootstrap = new Bootstrap(new NodeModule(), new ConditionalTracingModule("test-service", "1.0"));
+            Injector injector = bootstrap
+                    .doNotInitializeLogging()
+                    .setRequiredConfigurationProperty("node.environment", "test")
+                    .initialize();
+
+            // Should have created OpenTelemetry and Tracer instances via TracingModule
+            OpenTelemetry openTelemetry = injector.getInstance(OpenTelemetry.class);
+            Tracer tracer = injector.getInstance(Tracer.class);
+
+            assertThat(openTelemetry).isNotNull();
+            assertThat(tracer).isNotNull();
+
+            // Key: We should NOT be using GlobalOpenTelemetry (the noop wrapper)
+            // TracingModule creates its own SDK and registers it globally, so we can't
+            // compare with GlobalOpenTelemetry.get() directly. Instead verify TracingModule
+            // was used by checking the OpenTelemetry type is the SDK type (not the wrapper).
+            String otelClassName = openTelemetry.getClass().getName();
+            assertThat(otelClassName).doesNotContain("ObfuscatedOpenTelemetry");
+        }
+        finally {
+            GlobalOpenTelemetry.resetForTest();
+        }
+    }
+
+    @Test
+    public void testUsesGlobalWhenAgentPresent()
     {
         try {
             // Initialize GlobalOpenTelemetry (simulating Java agent)

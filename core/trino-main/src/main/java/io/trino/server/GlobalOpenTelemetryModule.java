@@ -15,10 +15,14 @@ package io.trino.server;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import io.airlift.tracing.SpanSerialization.SpanDeserializer;
+import io.airlift.tracing.SpanSerialization.SpanSerializer;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 
+import static io.airlift.json.JsonBinder.jsonBinder;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -60,8 +64,10 @@ public class GlobalOpenTelemetryModule
         Tracer tracer = openTelemetry.getTracer(serviceName, serviceVersion);
         binder.bind(Tracer.class).toInstance(tracer);
 
-        // Note: We don't need to configure exporters, resource attributes, or span processors
-        // here because they are already configured in the global OpenTelemetry instance
-        // (typically by the Java agent or other initialization code)
+        // Register JSON serializers for Span (required for remote task communication)
+        // This is normally done by TracingModule, but we need to do it here since
+        // we're bypassing TracingModule when using GlobalOpenTelemetry
+        jsonBinder(binder).addSerializerBinding(Span.class).to(SpanSerializer.class);
+        jsonBinder(binder).addDeserializerBinding(Span.class).to(SpanDeserializer.class);
     }
 }

@@ -19,6 +19,7 @@ import io.airlift.log.Logger;
 import io.airlift.tracing.TracingModule;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -78,18 +79,38 @@ public class ConditionalTracingModule
             return useGlobal;
         }
 
-        // Auto-detect: Check if GlobalOpenTelemetry has been initialized
+        // Auto-detect: Check if GlobalOpenTelemetry has been initialized with a real SDK
         // (typically by OpenTelemetry Java agent)
+        return isGlobalOpenTelemetryInitialized();
+    }
+
+    /**
+     * Checks if GlobalOpenTelemetry has been initialized with a real SDK
+     * (as opposed to the default noop implementation).
+     * <p>
+     * Note: We can't use equals() comparison because GlobalOpenTelemetry.get()
+     * returns an ObfuscatedOpenTelemetry wrapper that doesn't equal OpenTelemetry.noop().
+     * Instead, we check if the tracer it produces is a noop tracer.
+     */
+    private boolean isGlobalOpenTelemetryInitialized()
+    {
         try {
             OpenTelemetry global = GlobalOpenTelemetry.get();
-            boolean isNoop = global.equals(OpenTelemetry.noop());
+            Tracer tracer = global.getTracer("detection-probe");
+
+            // Check if the tracer is the noop implementation
+            // DefaultTracer is the noop tracer class name
+            String tracerClassName = tracer.getClass().getName();
+            boolean isNoop = tracerClassName.contains("DefaultTracer") ||
+                    tracerClassName.contains("NoopTracer") ||
+                    tracerClassName.equals("io.opentelemetry.api.trace.DefaultTracer");
 
             if (!isNoop) {
-                log.info("GlobalOpenTelemetry detected (likely from Java agent)");
+                log.info("GlobalOpenTelemetry has real SDK (tracer: %s)", tracerClassName);
                 return true;
             }
 
-            log.debug("GlobalOpenTelemetry is noop, will use dedicated instance");
+            log.debug("GlobalOpenTelemetry is noop (tracer: %s), will use dedicated instance", tracerClassName);
             return false;
         }
         catch (Exception e) {
