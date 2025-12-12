@@ -837,7 +837,7 @@ public class TestDynamicFilterService
     {
         DataSize sizeLimit = DataSize.of(1, KILOBYTE);
         DynamicFilterConfig config = new DynamicFilterConfig();
-        config.setLargeMaxSizePerFilter(sizeLimit);
+        config.setMaxSizePerFilter(sizeLimit);
         DynamicFilterService dynamicFilterService = new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),

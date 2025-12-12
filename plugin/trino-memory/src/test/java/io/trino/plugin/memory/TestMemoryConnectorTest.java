@@ -57,12 +57,12 @@ public class TestMemoryConnectorTest
         return MemoryQueryRunner.builder()
                 .addExtraProperties(ImmutableMap.<String, String>builder()
                         // Adjust DF limits to test edge cases
-                        .put("dynamic-filtering.large.max-distinct-values-per-driver", "100")
-                        .put("dynamic-filtering.large.range-row-limit-per-driver", "100000")
-                        .put("dynamic-filtering.large.max-size-per-driver", "100kB")
-                        .put("dynamic-filtering.large-partitioned.max-distinct-values-per-driver", "100")
-                        .put("dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000")
-                        .put("dynamic-filtering.large-partitioned.max-size-per-driver", "50kB")
+                        .put("dynamic-filtering.max-distinct-values-per-driver", "100")
+                        .put("dynamic-filtering.range-row-limit-per-driver", "100000")
+                        .put("dynamic-filtering.max-size-per-driver", "100kB")
+                        .put("dynamic-filtering.partitioned.max-distinct-values-per-driver", "100")
+                        .put("dynamic-filtering.partitioned.range-row-limit-per-driver", "100000")
+                        .put("dynamic-filtering.partitioned.max-size-per-driver", "50kB")
                         // disable semi join to inner join rewrite to test semi join operators explicitly
                         .put("optimizer.rewrite-filtering-semi-join-to-inner-join", "false")
                         // enable CREATE FUNCTION

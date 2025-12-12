@@ -51,6 +51,10 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
         "dynamic-filtering.small-partitioned.range-row-limit-per-driver",
         "dynamic-filtering.small-partitioned.max-size-per-operator",
         "enable-large-dynamic-filters",
+        "dynamic-filtering.large-broadcast.max-distinct-values-per-driver",
+        "dynamic-filtering.large-broadcast.max-size-per-driver",
+        "dynamic-filtering.large-broadcast.range-row-limit-per-driver",
+        "dynamic-filtering.large-broadcast.max-size-per-operator",
 })
 public class DynamicFilterConfig
 {
@@ -59,26 +63,26 @@ public class DynamicFilterConfig
     private double dynamicRowFilterSelectivityThreshold = 0.7;
 
     /*
-     * dynamic-filtering.large.* limits are applied when
+     * dynamic-filtering.* limits are applied when
      * collected over a not pre-partitioned source (when join distribution type is
      * REPLICATED or when FTE is enabled).
      *
-     * dynamic-filtering.large-partitioned.*
+     * dynamic-filtering.partitioned.*
      * limits are applied when collected over a pre-partitioned source (when join
      * distribution type is PARTITIONED and FTE is disabled).
      *
      * When FTE is enabled dynamic filters are always collected over non partitioned data,
-     * hence the dynamic-filtering.large.* limits applied.
+     * hence the dynamic-filtering.* limits applied.
      */
-    private int largeMaxDistinctValuesPerDriver = 50_000;
-    private DataSize largeMaxSizePerDriver = DataSize.of(4, MEGABYTE);
-    private int largeRangeRowLimitPerDriver = 100_000;
-    private DataSize largeMaxSizePerOperator = DataSize.of(5, MEGABYTE);
-    private int largePartitionedMaxDistinctValuesPerDriver = 20_000;
-    private DataSize largePartitionedMaxSizePerDriver = DataSize.of(200, KILOBYTE);
-    private int largePartitionedRangeRowLimitPerDriver = 30_000;
-    private DataSize largePartitionedMaxSizePerOperator = DataSize.of(5, MEGABYTE);
-    private DataSize largeMaxSizePerFilter = DataSize.of(10, MEGABYTE);
+    private int maxDistinctValuesPerDriver = 50_000;
+    private DataSize maxSizePerDriver = DataSize.of(4, MEGABYTE);
+    private int rangeRowLimitPerDriver = 100_000;
+    private DataSize maxSizePerOperator = DataSize.of(5, MEGABYTE);
+    private int partitionedMaxDistinctValuesPerDriver = 20_000;
+    private DataSize partitionedMaxSizePerDriver = DataSize.of(200, KILOBYTE);
+    private int partitionedRangeRowLimitPerDriver = 30_000;
+    private DataSize partitionedMaxSizePerOperator = DataSize.of(5, MEGABYTE);
+    private DataSize maxSizePerFilter = DataSize.of(10, MEGABYTE);
 
     public boolean isEnableDynamicFiltering()
     {
@@ -121,122 +125,127 @@ public class DynamicFilterConfig
     }
 
     @Min(0)
-    public int getLargeMaxDistinctValuesPerDriver()
+    public int getMaxDistinctValuesPerDriver()
     {
-        return largeMaxDistinctValuesPerDriver;
+        return maxDistinctValuesPerDriver;
     }
 
-    @LegacyConfig("dynamic-filtering.large-broadcast.max-distinct-values-per-driver")
-    @Config("dynamic-filtering.large.max-distinct-values-per-driver")
-    public DynamicFilterConfig setLargeMaxDistinctValuesPerDriver(int largeMaxDistinctValuesPerDriver)
+    @LegacyConfig("dynamic-filtering.large.max-distinct-values-per-driver")
+    @Config("dynamic-filtering.max-distinct-values-per-driver")
+    public DynamicFilterConfig setMaxDistinctValuesPerDriver(int maxDistinctValuesPerDriver)
     {
-        this.largeMaxDistinctValuesPerDriver = largeMaxDistinctValuesPerDriver;
+        this.maxDistinctValuesPerDriver = maxDistinctValuesPerDriver;
         return this;
     }
 
-    public DataSize getLargeMaxSizePerDriver()
+    public DataSize getMaxSizePerDriver()
     {
-        return largeMaxSizePerDriver;
+        return maxSizePerDriver;
     }
 
-    @LegacyConfig("dynamic-filtering.large-broadcast.max-size-per-driver")
-    @Config("dynamic-filtering.large.max-size-per-driver")
-    public DynamicFilterConfig setLargeMaxSizePerDriver(DataSize largeMaxSizePerDriver)
+    @LegacyConfig("dynamic-filtering.large.max-size-per-driver")
+    @Config("dynamic-filtering.max-size-per-driver")
+    public DynamicFilterConfig setMaxSizePerDriver(DataSize maxSizePerDriver)
     {
-        this.largeMaxSizePerDriver = largeMaxSizePerDriver;
+        this.maxSizePerDriver = maxSizePerDriver;
         return this;
     }
 
     @Min(0)
-    public int getLargeRangeRowLimitPerDriver()
+    public int getRangeRowLimitPerDriver()
     {
-        return largeRangeRowLimitPerDriver;
+        return rangeRowLimitPerDriver;
     }
 
-    @LegacyConfig("dynamic-filtering.large-broadcast.range-row-limit-per-driver")
-    @Config("dynamic-filtering.large.range-row-limit-per-driver")
-    public DynamicFilterConfig setLargeRangeRowLimitPerDriver(int largeRangeRowLimitPerDriver)
+    @LegacyConfig("dynamic-filtering.large.range-row-limit-per-driver")
+    @Config("dynamic-filtering.range-row-limit-per-driver")
+    public DynamicFilterConfig setRangeRowLimitPerDriver(int rangeRowLimitPerDriver)
     {
-        this.largeRangeRowLimitPerDriver = largeRangeRowLimitPerDriver;
+        this.rangeRowLimitPerDriver = rangeRowLimitPerDriver;
         return this;
     }
 
     @MaxDataSize("100MB")
-    public DataSize getLargeMaxSizePerOperator()
+    public DataSize getMaxSizePerOperator()
     {
-        return largeMaxSizePerOperator;
+        return maxSizePerOperator;
     }
 
-    @LegacyConfig("dynamic-filtering.large-broadcast.max-size-per-operator")
-    @Config("dynamic-filtering.large.max-size-per-operator")
-    public DynamicFilterConfig setLargeMaxSizePerOperator(DataSize largeMaxSizePerOperator)
+    @LegacyConfig("dynamic-filtering.large.max-size-per-operator")
+    @Config("dynamic-filtering.max-size-per-operator")
+    public DynamicFilterConfig setMaxSizePerOperator(DataSize maxSizePerOperator)
     {
-        this.largeMaxSizePerOperator = largeMaxSizePerOperator;
+        this.maxSizePerOperator = maxSizePerOperator;
         return this;
     }
 
     @Min(0)
-    public int getLargePartitionedMaxDistinctValuesPerDriver()
+    public int getPartitionedMaxDistinctValuesPerDriver()
     {
-        return largePartitionedMaxDistinctValuesPerDriver;
+        return partitionedMaxDistinctValuesPerDriver;
     }
 
-    @Config("dynamic-filtering.large-partitioned.max-distinct-values-per-driver")
-    public DynamicFilterConfig setLargePartitionedMaxDistinctValuesPerDriver(int largePartitionedMaxDistinctValuesPerDriver)
+    @LegacyConfig("dynamic-filtering.large-partitioned.max-distinct-values-per-driver")
+    @Config("dynamic-filtering.partitioned.max-distinct-values-per-driver")
+    public DynamicFilterConfig setPartitionedMaxDistinctValuesPerDriver(int partitionedMaxDistinctValuesPerDriver)
     {
-        this.largePartitionedMaxDistinctValuesPerDriver = largePartitionedMaxDistinctValuesPerDriver;
+        this.partitionedMaxDistinctValuesPerDriver = partitionedMaxDistinctValuesPerDriver;
         return this;
     }
 
-    public DataSize getLargePartitionedMaxSizePerDriver()
+    public DataSize getPartitionedMaxSizePerDriver()
     {
-        return largePartitionedMaxSizePerDriver;
+        return partitionedMaxSizePerDriver;
     }
 
-    @Config("dynamic-filtering.large-partitioned.max-size-per-driver")
-    public DynamicFilterConfig setLargePartitionedMaxSizePerDriver(DataSize largePartitionedMaxSizePerDriver)
+    @LegacyConfig("dynamic-filtering.large-partitioned.max-size-per-driver")
+    @Config("dynamic-filtering.partitioned.max-size-per-driver")
+    public DynamicFilterConfig setPartitionedMaxSizePerDriver(DataSize partitionedMaxSizePerDriver)
     {
-        this.largePartitionedMaxSizePerDriver = largePartitionedMaxSizePerDriver;
+        this.partitionedMaxSizePerDriver = partitionedMaxSizePerDriver;
         return this;
     }
 
     @Min(0)
-    public int getLargePartitionedRangeRowLimitPerDriver()
+    public int getPartitionedRangeRowLimitPerDriver()
     {
-        return largePartitionedRangeRowLimitPerDriver;
+        return partitionedRangeRowLimitPerDriver;
     }
 
-    @Config("dynamic-filtering.large-partitioned.range-row-limit-per-driver")
-    public DynamicFilterConfig setLargePartitionedRangeRowLimitPerDriver(int largePartitionedRangeRowLimitPerDriver)
+    @LegacyConfig("dynamic-filtering.large-partitioned.range-row-limit-per-driver")
+    @Config("dynamic-filtering.partitioned.range-row-limit-per-driver")
+    public DynamicFilterConfig setPartitionedRangeRowLimitPerDriver(int partitionedRangeRowLimitPerDriver)
     {
-        this.largePartitionedRangeRowLimitPerDriver = largePartitionedRangeRowLimitPerDriver;
+        this.partitionedRangeRowLimitPerDriver = partitionedRangeRowLimitPerDriver;
         return this;
     }
 
     @MaxDataSize("50MB")
-    public DataSize getLargePartitionedMaxSizePerOperator()
+    public DataSize getPartitionedMaxSizePerOperator()
     {
-        return largePartitionedMaxSizePerOperator;
+        return partitionedMaxSizePerOperator;
     }
 
-    @Config("dynamic-filtering.large-partitioned.max-size-per-operator")
-    public DynamicFilterConfig setLargePartitionedMaxSizePerOperator(DataSize largePartitionedMaxSizePerOperator)
+    @LegacyConfig("dynamic-filtering.large-partitioned.max-size-per-operator")
+    @Config("dynamic-filtering.partitioned.max-size-per-operator")
+    public DynamicFilterConfig setPartitionedMaxSizePerOperator(DataSize partitionedMaxSizePerOperator)
     {
-        this.largePartitionedMaxSizePerOperator = largePartitionedMaxSizePerOperator;
+        this.partitionedMaxSizePerOperator = partitionedMaxSizePerOperator;
         return this;
     }
 
     @NotNull
     @MaxDataSize("10MB")
-    public DataSize getLargeMaxSizePerFilter()
+    public DataSize getMaxSizePerFilter()
     {
-        return largeMaxSizePerFilter;
+        return maxSizePerFilter;
     }
 
-    @Config("dynamic-filtering.large.max-size-per-filter")
-    public DynamicFilterConfig setLargeMaxSizePerFilter(DataSize largeMaxSizePerFilter)
+    @LegacyConfig("dynamic-filtering.large.max-size-per-filter")
+    @Config("dynamic-filtering.max-size-per-filter")
+    public DynamicFilterConfig setMaxSizePerFilter(DataSize maxSizePerFilter)
     {
-        this.largeMaxSizePerFilter = largeMaxSizePerFilter;
+        this.maxSizePerFilter = maxSizePerFilter;
         return this;
     }
 }

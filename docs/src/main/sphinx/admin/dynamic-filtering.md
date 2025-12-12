@@ -200,21 +200,21 @@ Therefore, to limit the overhead of collecting dynamic filters
 to the cases where the join operator is likely to be selective,
 Trino defines thresholds on the size of dynamic filters collected from build side tasks.
 
-When large dynamic filters are enabled, limits on the size of dynamic filters can
-be configured using the configuration properties
-`dynamic-filtering.large.max-distinct-values-per-driver`,
-`dynamic-filtering.large.max-size-per-driver` ,
-`dynamic-filtering.large.range-row-limit-per-driver`,
-`dynamic-filtering.large-partitioned.max-distinct-values-per-driver`,
-`dynamic-filtering.large-partitioned.max-size-per-driver` and
-`dynamic-filtering.large-partitioned.range-row-limit-per-driver`.
+Limits on the size of dynamic filters can be configured using the configuration
+properties
+`dynamic-filtering.max-distinct-values-per-driver`,
+`dynamic-filtering.max-size-per-driver` ,
+`dynamic-filtering.range-row-limit-per-driver`,
+`dynamic-filtering.partitioned.max-distinct-values-per-driver`,
+`dynamic-filtering.partitioned.max-size-per-driver` and
+`dynamic-filtering.partitioned.range-row-limit-per-driver`.
 
-The `dynamic-filtering.large.*` limits are applied
+The `dynamic-filtering.*` limits are applied
 when dynamic filters are collected before build side is partitioned on join
 keys (when broadcast join is chosen or when fault-tolerant execution is enabled).
-The `dynamic-filtering.large-partitioned.*`
-limits are applied when dynamic filters are collected after build side is partitioned
-on join keys (when partitioned join is chosen and fault-tolerant execution is disabled).
+The `dynamic-filtering.partitioned.*` limits are applied when dynamic filters
+are collected after build side is partitioned on join keys
+(when partitioned join is chosen and fault-tolerant execution is disabled).
 
 The properties based on `max-distinct-values-per-driver` and `max-size-per-driver`
 define thresholds for the size up to which dynamic filters are collected in a
