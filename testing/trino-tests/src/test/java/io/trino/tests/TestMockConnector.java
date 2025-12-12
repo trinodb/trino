@@ -30,6 +30,7 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
+import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.metrics.Metrics;
@@ -44,6 +45,7 @@ import java.util.Optional;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
 import static io.trino.spi.connector.TableProcedureExecutionMode.coordinatorOnly;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
@@ -108,6 +110,12 @@ public class TestMockConnector
                                                 Optional.empty(),
                                                 Optional.of("alice"),
                                                 ImmutableList.of())))
+                                .withGetMaterializedViewsFreshness((session, materializedViewName) -> {
+                                    if (materializedViewName.equals(new SchemaTableName("default", "test_materialized_view"))) {
+                                        return new MaterializedViewFreshness(FRESH, Optional.empty());
+                                    }
+                                    throw new UnsupportedOperationException("getMaterializedViewsFreshness not supported for " + materializedViewName);
+                                })
                                 .withData(schemaTableName -> {
                                     if (schemaTableName.equals(new SchemaTableName("default", "nation"))) {
                                         return TPCH_NATION_DATA;

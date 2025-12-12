@@ -23,6 +23,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
@@ -44,6 +45,8 @@ import java.util.Optional;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_WITH_HIDDEN_COLUMN;
 import static io.trino.connector.MockConnectorEntities.TPCH_WITH_HIDDEN_COLUMN_DATA;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
@@ -190,6 +193,18 @@ public class TestColumnMask
                         new SchemaTableName("default", "nation_materialized_view"), materializedView,
                         new SchemaTableName("default", "nation_fresh_materialized_view"), freshMaterializedView,
                         new SchemaTableName("default", "materialized_view_with_casts"), materializedViewWithCasts))
+                .withGetMaterializedViewsFreshness((session, materializedViewName) -> {
+                    if (materializedViewName.equals(new SchemaTableName("default", "nation_materialized_view"))) {
+                        return new MaterializedViewFreshness(STALE, Optional.empty());
+                    }
+                    if (materializedViewName.equals(new SchemaTableName("default", "nation_fresh_materialized_view"))) {
+                        return new MaterializedViewFreshness(FRESH, Optional.empty());
+                    }
+                    if (materializedViewName.equals(new SchemaTableName("default", "materialized_view_with_casts"))) {
+                        return new MaterializedViewFreshness(FRESH, Optional.empty());
+                    }
+                    throw new UnsupportedOperationException("getMaterializedViewsFreshness not supported for " + materializedViewName);
+                })
                 .build()));
         runner.createCatalog(MOCK_CATALOG, "mock", ImmutableMap.of());
 
