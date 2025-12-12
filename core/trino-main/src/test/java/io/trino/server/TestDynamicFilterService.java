@@ -64,7 +64,6 @@ import java.util.stream.LongStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.SystemSessionProperties.RETRY_POLICY;
 import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
@@ -94,7 +93,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestDynamicFilterService
 {
     private static final Session session = TestingSession.testSessionBuilder()
-            .setSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, "false")
             .build();
 
     @Test
@@ -839,8 +837,7 @@ public class TestDynamicFilterService
     {
         DataSize sizeLimit = DataSize.of(1, KILOBYTE);
         DynamicFilterConfig config = new DynamicFilterConfig();
-        config.setEnableLargeDynamicFilters(false)
-                .setSmallMaxSizePerFilter(sizeLimit);
+        config.setLargeMaxSizePerFilter(sizeLimit);
         DynamicFilterService dynamicFilterService = new DynamicFilterService(
                 PLANNER_CONTEXT.getMetadata(),
                 PLANNER_CONTEXT.getFunctionManager(),
