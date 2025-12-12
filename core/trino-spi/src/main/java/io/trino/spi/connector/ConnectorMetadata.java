@@ -1757,7 +1757,7 @@ public interface ConnectorMetadata
      *
      * @throws MaterializedViewNotFoundException when materialized view is not found
      */
-    default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
+    default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, MaterializedViewFreshnessCheckPolicy policy)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getMaterializedView() is implemented without getMaterializedViewFreshness()");
     }

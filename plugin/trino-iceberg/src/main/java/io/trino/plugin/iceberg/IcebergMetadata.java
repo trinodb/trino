@@ -104,6 +104,8 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MaterializedViewFreshnessCheckPolicy;
+import io.trino.spi.connector.MaterializedViewFreshnessCheckPolicy.ConsiderGracePeriod;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
@@ -376,6 +378,7 @@ import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH_WITHIN_GRACE_PERIOD;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.UNKNOWN;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
@@ -3856,7 +3859,7 @@ public class IcebergMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName)
+    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName materializedViewName, MaterializedViewFreshnessCheckPolicy policy)
     {
         Optional<ConnectorMaterializedViewDefinition> materializedViewDefinition = getMaterializedView(session, materializedViewName);
         if (materializedViewDefinition.isEmpty()) {
@@ -3877,9 +3880,11 @@ public class IcebergMetadata
                 .map(snapshot -> Boolean.valueOf(snapshot.summary().getOrDefault(DEPENDS_ON_TABLE_FUNCTIONS, "false")))
                 .orElse(false);
 
-        Optional<Instant> refreshTime = currentSnapshot.map(snapshot -> snapshot.summary().get(TRINO_QUERY_START_TIME))
-                .map(Instant::parse)
-                .or(() -> currentSnapshot.map(snapshot -> Instant.ofEpochMilli(snapshot.timestampMillis())));
+        // refreshStartTime is captured at the beginning of refresh
+        Optional<Instant> refreshStartTime = currentSnapshot.map(snapshot -> snapshot.summary().get(TRINO_QUERY_START_TIME))
+                .map(Instant::parse);
+        // For MVs refreshed before TRINO_QUERY_START_TIME was introduced, fall back to snapshot timestamp (captured at end of refresh)
+        Optional<Instant> refreshTime = refreshStartTime.or(() -> currentSnapshot.map(snapshot -> Instant.ofEpochMilli(snapshot.timestampMillis())));
 
         if (dependsOnTableFunctions) {
             // It can't be determined whether a value returned by table function is STALE or not
@@ -3890,6 +3895,27 @@ public class IcebergMetadata
             // Information missing. While it's "unknown" whether storage is stale, we return "stale".
             // Normally dependsOnTables may be missing only when there was no refresh yet.
             return new MaterializedViewFreshness(STALE, Optional.empty());
+        }
+
+        if (policy instanceof ConsiderGracePeriod(Instant referenceTime) && refreshStartTime.isPresent()) {
+            // To determine freshness, we normally load current metadata for each base table and check if there
+            // is a newer snapshot than the recorded one (DEPENDS_ON_TABLES). This requires expensive metastore
+            // operations for each base Iceberg table.
+            //
+            // The refresh query can read base table snapshots created before or during its execution. In the most
+            // pessimistic scenario, a new base table snapshot is created immediately after the refresh started
+            // (at refreshStartTime + epsilon), but the refresh reads an older snapshot. This new snapshot would
+            // not be recorded in DEPENDS_ON_TABLES, making the MV technically stale. However, when ConsiderGracePeriod
+            // policy is used and refreshStartTime + gracePeriod > referenceTime, we can safely say that the MV
+            // is at least within the grace period because refreshStartTime is before the new snapshot creation time.
+            Optional<java.time.Duration> gracePeriod = materializedViewDefinition.get().getGracePeriod();
+            if (gracePeriod.isEmpty()) {
+                // infinite grace period
+                return new MaterializedViewFreshness(FRESH_WITHIN_GRACE_PERIOD, Optional.empty());
+            }
+            else if (refreshStartTime.get().plus(gracePeriod.get()).isAfter(referenceTime)) {
+                return new MaterializedViewFreshness(FRESH_WITHIN_GRACE_PERIOD, Optional.empty());
+            }
         }
 
         boolean hasUnknownTables = false;

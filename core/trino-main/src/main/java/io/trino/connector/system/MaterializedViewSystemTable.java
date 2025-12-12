@@ -30,6 +30,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MaterializedViewFreshnessCheckPolicy;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
@@ -170,7 +171,7 @@ public class MaterializedViewSystemTable
 
             if (needFreshness) {
                 try {
-                    freshness = Optional.of(metadata.getMaterializedViewFreshness(session, name));
+                    freshness = Optional.of(metadata.getMaterializedViewFreshness(session, name, new MaterializedViewFreshnessCheckPolicy.Exact()));
                 }
                 catch (MaterializedViewNotFoundException e) {
                     // Ignore materialized view that was dropped during query execution (race condition)

@@ -42,6 +42,7 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MaterializedViewFreshnessCheckPolicy;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RelationType;
@@ -851,7 +852,7 @@ public interface Metadata
      * Method to get difference between the states of table at two different points in time/or as of given token-ids.
      * The method is used by the engine to determine if a materialized view is current with respect to the tables it depends on.
      */
-    MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name);
+    MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name, MaterializedViewFreshnessCheckPolicy policy);
 
     /**
      * Rename the specified materialized view.

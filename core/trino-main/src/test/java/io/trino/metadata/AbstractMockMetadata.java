@@ -46,6 +46,7 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MaterializedViewFreshnessCheckPolicy;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RelationType;
@@ -1051,7 +1052,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name)
+    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name, MaterializedViewFreshnessCheckPolicy policy)
     {
         throw new UnsupportedOperationException();
     }

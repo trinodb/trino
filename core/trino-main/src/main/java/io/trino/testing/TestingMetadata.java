@@ -37,6 +37,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MaterializedViewFreshnessCheckPolicy;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SaveMode;
@@ -301,7 +302,7 @@ public class TestingMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
+    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, MaterializedViewFreshnessCheckPolicy policy)
     {
         boolean fresh = freshMaterializedViews.contains(name);
         return new MaterializedViewFreshness(
