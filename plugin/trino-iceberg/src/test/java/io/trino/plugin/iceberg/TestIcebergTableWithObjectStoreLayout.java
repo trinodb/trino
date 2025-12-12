@@ -62,7 +62,7 @@ final class TestIcebergTableWithObjectStoreLayout
         String filePath = (String) computeScalar("SELECT file_path FROM \"test_create_table_with_different_location$files\"");
         Location dataFileLocation = Location.of(filePath);
         assertThat(fileSystem.newInputFile(dataFileLocation).exists()).isTrue();
-        assertThat(filePath).matches("local:///table-location/abc/.{6}/tpch/test_create_table_with_different_location-.*/.*\\.parquet");
+        assertThat(filePath).matches("local:///table-location/abc/[01]{4}/[01]{4}/[01]{4}/[01]{8}/tpch/test_create_table_with_different_location-.*/.*\\.parquet");
 
         assertQuerySucceeds("DROP TABLE test_create_table_with_different_location");
         assertThat(metastore.getTable("tpch", "test_create_table_with_different_location")).isEmpty();
