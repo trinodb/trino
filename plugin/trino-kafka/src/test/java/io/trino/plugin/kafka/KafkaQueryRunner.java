@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Level;
@@ -25,8 +26,10 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.decoder.DecoderModule;
 import io.trino.plugin.kafka.encoder.EncoderModule;
+import io.trino.plugin.kafka.schema.ContentSchemaProvider;
 import io.trino.plugin.kafka.schema.MapBasedTableDescriptionSupplier;
 import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
+import io.trino.plugin.kafka.schema.file.FileReadContentSchemaProvider;
 import io.trino.plugin.kafka.util.CodecSupplier;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.SchemaTableName;
@@ -165,6 +168,7 @@ public final class KafkaQueryRunner
                                     kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
                                     innerBinder -> innerBinder.bind(TableDescriptionSupplier.class)
                                             .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions.buildOrThrow()))));
+                            binder.bind(ContentSchemaProvider.class).to(FileReadContentSchemaProvider.class).in(Scopes.SINGLETON);
                             install(new DecoderModule());
                             install(new EncoderModule());
                         }
