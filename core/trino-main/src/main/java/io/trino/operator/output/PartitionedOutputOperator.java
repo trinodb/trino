@@ -182,13 +182,9 @@ public class PartitionedOutputOperator
             this.pagePartitionerPool = new PagePartitionerPool(
                     pagePartitionerPoolSize,
                     () -> {
-                        boolean partitionProcessRleAndDictionaryBlocks = true;
                         PartitionFunction function = partitionFunction;
                         if (skewedPartitionRebalancer.isPresent()) {
                             function = new SkewedPartitionFunction(partitionFunction, skewedPartitionRebalancer.get());
-                            // Partition flattened Rle and Dictionary blocks since if they are scaled then we want to
-                            // round-robin the entire block to increase the writing parallelism across tasks/workers.
-                            partitionProcessRleAndDictionaryBlocks = false;
                         }
                         return new PagePartitioner(
                                 function,
@@ -202,8 +198,7 @@ public class PartitionedOutputOperator
                                 maxMemory,
                                 positionsAppenderFactory,
                                 exchangeEncryptionKey,
-                                memoryContext,
-                                partitionProcessRleAndDictionaryBlocks);
+                                memoryContext);
                     });
         }
 

@@ -243,5 +243,21 @@ public final class MergePartitioningHandle
                 default -> throw new VerifyException("Invalid merge operation number: " + operation);
             };
         }
+
+        @Override
+        public void getPartitions(Page page, int[] partitions, long[] rawHashes, int offset, int length)
+        {
+            Block operationBlock = page.getBlock(0);
+            for (int i = 0; i < length; i++) {
+                byte operation = TINYINT.getByte(operationBlock, offset + i);
+                partitions[i] = switch (operation) {
+                    case INSERT_OPERATION_NUMBER, UPDATE_INSERT_OPERATION_NUMBER ->
+                            insertFunction.getPartition(page.getColumns(insertColumns), offset + i);
+                    case UPDATE_OPERATION_NUMBER, DELETE_OPERATION_NUMBER, UPDATE_DELETE_OPERATION_NUMBER ->
+                            updateFunction.getPartition(page.getColumns(updateColumns), offset + i);
+                    default -> throw new VerifyException("Invalid merge operation number: " + operation);
+                };
+            }
+        }
     }
 }

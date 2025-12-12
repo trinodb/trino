@@ -36,6 +36,7 @@ import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.OutputFactory;
 import io.trino.operator.PartitionFunction;
+import io.trino.operator.PartitionHashGeneratorCompiler;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
@@ -45,6 +46,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.HashPartitionFunction;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
 import io.trino.type.BlockTypeOperators;
@@ -726,6 +728,68 @@ public class TestPagePartitioner
         assertThat(memoryContext.getBytes()).isEqualTo(0);
     }
 
+    @Test
+    public void testOutputForVectorizedHashGeneration()
+    {
+        testVectorizedHashGeneration(PartitioningMode.ROW_WISE);
+        testVectorizedHashGeneration(PartitioningMode.COLUMNAR);
+    }
+
+    private void testVectorizedHashGeneration(PartitioningMode partitioningMode)
+    {
+        TestOutputBuffer outputBuffer = new TestOutputBuffer();
+        BlockTypeOperators blockTypeOperators = new BlockTypeOperators();
+        PartitionHashGeneratorCompiler partitionHashGeneratorCompiler = new PartitionHashGeneratorCompiler(blockTypeOperators.getTypeOperators());
+        List<Type> types = new ArrayList<>();
+        types.add(BIGINT);
+        PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, types.get(0))
+                .withPartitionFunction(new HashPartitionFunction(
+                        partitionHashGeneratorCompiler.getPartitionHashGenerator(types, null),
+                        PARTITION_COUNT,
+                        IntStream.range(0, PARTITION_COUNT).toArray()))
+                .withPartitionChannels(ImmutableList.of(0))
+                .build();
+        Page page = new Page(createLongSequenceBlock(0, POSITIONS_PER_PAGE));
+
+        processPages(pagePartitioner, partitioningMode, page);
+
+        List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
+        assertThat(partition0).containsExactly(0L, 2L, 6L);
+        List<Object> partition1 = readLongs(outputBuffer.getEnqueuedDeserialized(1), 0);
+        assertThat(partition1).containsExactly(1L, 3L, 4L, 5L, 7L);
+    }
+
+    @Test
+    public void testOutputForVectorizedHashGenerationForDictionaryBlock()
+    {
+        testVectorizedHashGenerationForDictionaryBlock(PartitioningMode.ROW_WISE);
+        testVectorizedHashGenerationForDictionaryBlock(PartitioningMode.COLUMNAR);
+    }
+
+    private void testVectorizedHashGenerationForDictionaryBlock(PartitioningMode partitioningMode)
+    {
+        TestOutputBuffer outputBuffer = new TestOutputBuffer();
+        BlockTypeOperators blockTypeOperators = new BlockTypeOperators();
+        PartitionHashGeneratorCompiler partitionHashGeneratorCompiler = new PartitionHashGeneratorCompiler(blockTypeOperators.getTypeOperators());
+        List<Type> types = new ArrayList<>();
+        types.add(BIGINT);
+        PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, types.get(0))
+                .withPartitionFunction(new HashPartitionFunction(
+                        partitionHashGeneratorCompiler.getPartitionHashGenerator(types, null),
+                        PARTITION_COUNT,
+                        IntStream.range(0, PARTITION_COUNT).toArray()))
+                .withPartitionChannels(ImmutableList.of(0))
+                .build();
+        Page page = new Page(createLongDictionaryBlock(0, 10));
+
+        processPages(pagePartitioner, partitioningMode, page);
+
+        List<Object> partition0 = readLongs(outputBuffer.getEnqueuedDeserialized(0), 0);
+        assertThat(partition0).containsExactlyElementsOf(nCopies(5, 0L));
+        List<Object> partition1 = readLongs(outputBuffer.getEnqueuedDeserialized(1), 0);
+        assertThat(partition1).containsExactlyElementsOf(nCopies(5, 1L));
+    }
+
     private void testOutputEqualsInput(Type type, PartitioningMode mode1, PartitioningMode mode2)
     {
         TestOutputBuffer outputBuffer = new TestOutputBuffer();
@@ -955,8 +1019,7 @@ public class TestPagePartitioner
                     PARTITION_MAX_MEMORY,
                     POSITIONS_APPENDER_FACTORY,
                     Optional.empty(),
-                    memoryContext,
-                    true);
+                    memoryContext);
         }
     }
 
@@ -1118,6 +1181,18 @@ public class TestPagePartitioner
 
             return toIntExact(Math.abs(value) % partitionCount);
         }
+
+        @Override
+        public void getPartitions(Page page, int[] partitions, long[] rawHashes, int offset, int length)
+        {
+            for (int i = 0; i < length; i++) {
+                long value = 0;
+                for (int hashChannel : hashChannels) {
+                    value += BIGINT.getLong(page.getBlock(hashChannel), offset + i);
+                }
+                partitions[i] = toIntExact(Math.abs(value) % partitionCount);
+            }
+        }
     }
 
     private static final class SinglePartitionFailIfCalled
@@ -1133,6 +1208,12 @@ public class TestPagePartitioner
         public int getPartition(Page page, int position)
         {
             throw new UnsupportedOperationException("getPartition should not be called on single partitioned outputs");
+        }
+
+        @Override
+        public void getPartitions(Page page, int[] partitions, long[] rawHashes, int offset, int length)
+        {
+            throw new UnsupportedOperationException("getPartitions should not be called on single partitioned outputs");
         }
     }
 }

@@ -301,5 +301,13 @@ class TestSkewedPartitionRebalancer
         {
             return position % partitionCount;
         }
+
+        @Override
+        public void getPartitions(Page page, int[] partitions, long[] rawHashes, int offset, int length)
+        {
+            for (int i = 0; i < length; i++) {
+                partitions[i] = (offset + i) % partitionCount;
+            }
+        }
     }
 }

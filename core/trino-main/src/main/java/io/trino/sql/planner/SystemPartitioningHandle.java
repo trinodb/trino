@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.PartitionFunction;
+import io.trino.operator.PartitionHashGeneratorCompiler;
 import io.trino.spi.Page;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
@@ -29,7 +30,6 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.operator.InterpretedHashGenerator.createPagePrefixHashGenerator;
 import static java.util.Objects.requireNonNull;
 
 public final class SystemPartitioningHandle
@@ -135,13 +135,18 @@ public final class SystemPartitioningHandle
         return partitioning.toString();
     }
 
-    public PartitionFunction getPartitionFunction(List<Type> partitionChannelTypes, int[] bucketToPartition, TypeOperators typeOperators)
+    public PartitionFunction getPartitionFunction(List<Type> partitionChannelTypes, int[] bucketToPartition, TypeOperators typeOperators, PartitionHashGeneratorCompiler partitionHashGeneratorCompiler)
     {
         requireNonNull(partitionChannelTypes, "partitionChannelTypes is null");
         requireNonNull(bucketToPartition, "bucketToPartition is null");
 
-        BucketFunction bucketFunction = function.createBucketFunction(partitionChannelTypes, bucketToPartition.length, typeOperators);
-        return new BucketPartitionFunction(bucketFunction, bucketToPartition);
+        if (function == SystemPartitionFunction.HASH) {
+            return new HashPartitionFunction(partitionHashGeneratorCompiler.getPartitionHashGenerator(partitionChannelTypes, null), bucketToPartition.length, bucketToPartition);
+        }
+        else {
+            BucketFunction bucketFunction = function.createBucketFunction(partitionChannelTypes, bucketToPartition.length, typeOperators);
+            return new BucketPartitionFunction(bucketFunction, bucketToPartition);
+        }
     }
 
     public enum SystemPartitionFunction
@@ -158,7 +163,7 @@ public final class SystemPartitioningHandle
             @Override
             public BucketFunction createBucketFunction(List<Type> partitionChannelTypes, int bucketCount, TypeOperators typeOperators)
             {
-                return new HashBucketFunction(createPagePrefixHashGenerator(partitionChannelTypes, typeOperators), bucketCount);
+                throw new UnsupportedOperationException();
             }
         },
         ROUND_ROBIN {

@@ -29,6 +29,7 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.metadata.Split;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.PagesIndex;
+import io.trino.operator.PartitionHashGeneratorCompiler;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.index.IndexManager;
 import io.trino.server.protocol.spooling.QueryDataEncoders;
@@ -183,7 +184,8 @@ public final class TaskTestUtils
                 new TableExecuteContextManager(),
                 new ExchangeManagerRegistry(noop(), noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
                 new NodeVersion("test"),
-                new CompilerConfig());
+                new CompilerConfig(),
+                new PartitionHashGeneratorCompiler(PLANNER_CONTEXT.getTypeOperators()));
     }
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<SplitAssignment> splitAssignments, OutputBuffers outputBuffers)

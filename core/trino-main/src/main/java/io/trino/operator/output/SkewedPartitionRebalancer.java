@@ -22,6 +22,7 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.execution.resourcegroups.IndexedPriorityQueue;
 import io.trino.operator.PartitionFunction;
+import io.trino.operator.PartitionHashGeneratorCompiler;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.NodePartitionMap.BucketToPartition;
 import io.trino.sql.planner.NodePartitioningManager;
@@ -141,7 +142,8 @@ public class SkewedPartitionRebalancer
             PartitionFunctionProvider partitionFunctionProvider,
             PartitioningHandle partitioningHandle,
             int bucketCount,
-            List<Type> partitionChannelTypes)
+            List<Type> partitionChannelTypes,
+            PartitionHashGeneratorCompiler partitionHashGeneratorCompiler)
     {
         // In case of SystemPartitioningHandle we can use arbitrary bucket count so that skewness mitigation
         // is more granular.
@@ -161,7 +163,7 @@ public class SkewedPartitionRebalancer
         // compared to only a single hive bucket reaching the min limit.
         int[] bucketToPartition = IntStream.range(0, bucketCount).toArray();
 
-        return partitionFunctionProvider.getPartitionFunction(session, partitioningHandle, partitionChannelTypes, bucketToPartition);
+        return partitionFunctionProvider.getPartitionFunction(session, partitioningHandle, partitionChannelTypes, bucketToPartition, partitionHashGeneratorCompiler);
     }
 
     public static int getMaxWritersBasedOnMemory(Session session)

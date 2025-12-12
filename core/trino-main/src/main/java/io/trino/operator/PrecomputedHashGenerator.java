@@ -37,6 +37,15 @@ public class PrecomputedHashGenerator
     }
 
     @Override
+    public void hashBlocksBatched(Page page, long[] hashes, int offset, int length)
+    {
+        Block hashBlock = page.getBlock(hashChannel);
+        for (int i = 0; i < length; i++) {
+            hashes[i] = BIGINT.getLong(hashBlock, i + offset);
+        }
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)

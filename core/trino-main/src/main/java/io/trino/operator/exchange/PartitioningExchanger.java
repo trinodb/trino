@@ -24,17 +24,22 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
 class PartitioningExchanger
         implements LocalExchanger
 {
+    private static final int BATCH_SIZE = 1024;
     private final List<Consumer<Page>> buffers;
     private final LocalExchangeMemoryManager memoryManager;
     private final Function<Page, Page> partitionedPagePreparer;
     private final PartitionFunction partitionFunction;
     private final IntArrayList[] partitionAssignments;
+    private long[] hashesBufferArray;
 
     public PartitioningExchanger(
             List<Consumer<Page>> partitions,
@@ -53,15 +58,34 @@ class PartitioningExchanger
         }
     }
 
+    public long[] getHashesBufferArray()
+    {
+        if (hashesBufferArray == null) {
+            hashesBufferArray = new long[BATCH_SIZE];
+        }
+        return hashesBufferArray;
+    }
+
     @Override
     public void accept(Page page)
     {
         Page partitionPage = partitionedPagePreparer.apply(page);
-        // assign each row to a partition. The assignments lists are all expected to cleared by the previous iterations
-        for (int position = 0; position < partitionPage.getPositionCount(); position++) {
-            int partition = partitionFunction.getPartition(partitionPage, position);
-            partitionAssignments[partition].add(position);
+        int positionCount = partitionPage.getPositionCount();
+        int lastPosition = 0;
+        checkState(lastPosition <= positionCount, "position count out of bound");
+        int remainingPositions = positionCount - lastPosition;
+        long[] hashes = getHashesBufferArray();
+        int[] partitions = new int[BATCH_SIZE];
+        while (remainingPositions != 0) {
+            int batchSize = min(remainingPositions, hashes.length);
+            partitionFunction.getPartitions(partitionPage, partitions, hashes, lastPosition, batchSize);
+            for (int i = 0; i < batchSize; i++) {
+                partitionAssignments[partitions[i]].add(lastPosition + i);
+            }
+            lastPosition += batchSize;
+            remainingPositions -= batchSize;
         }
+        verify(lastPosition == positionCount);
 
         // build a page for each partition
         for (int partition = 0; partition < partitionAssignments.length; partition++) {
@@ -95,5 +119,11 @@ class PartitioningExchanger
     public ListenableFuture<Void> waitForWriting()
     {
         return memoryManager.getNotFullFuture();
+    }
+
+    @Override
+    public void finish()
+    {
+        hashesBufferArray = null;
     }
 }

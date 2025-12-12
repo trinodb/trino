@@ -25,6 +25,9 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
+import static java.lang.Math.min;
 import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
 
@@ -32,6 +35,7 @@ public class ScaleWriterPartitioningExchanger
         implements LocalExchanger
 {
     private static final double SCALE_WRITER_MEMORY_PERCENTAGE = 0.7;
+    private static final int BATCH_SIZE = 1024;
     private final List<Consumer<Page>> buffers;
     private final LocalExchangeMemoryManager memoryManager;
     private final long maxBufferedBytes;
@@ -45,6 +49,7 @@ public class ScaleWriterPartitioningExchanger
     private final int[] partitionWriterIndexes;
     private final Supplier<Long> totalMemoryUsed;
     private final long maxMemoryPerNode;
+    private long[] hashesBufferArray;
 
     public ScaleWriterPartitioningExchanger(
             List<Consumer<Page>> buffers,
@@ -81,6 +86,14 @@ public class ScaleWriterPartitioningExchanger
         fill(partitionWriterIds, -1);
     }
 
+    public long[] getHashesBufferArray()
+    {
+        if (hashesBufferArray == null) {
+            hashesBufferArray = new long[BATCH_SIZE];
+        }
+        return hashesBufferArray;
+    }
+
     @Override
     public void accept(Page page)
     {
@@ -99,24 +112,30 @@ public class ScaleWriterPartitioningExchanger
         }
 
         Page partitionPage = partitionedPagePreparer.apply(page);
-
-        // Assign each row to a writer by looking at partitions scaling state using partitionRebalancer
-        for (int position = 0; position < partitionPage.getPositionCount(); position++) {
-            // Get row partition id (or bucket id) which limits to the partitionCount. If there are more physical partitions than
-            // this artificial partition limit, then it is possible that multiple physical partitions will get assigned the same
-            // bucket id. Thus, multiple partitions will be scaled together since we track partition physicalWrittenBytes
-            // using the artificial limit (partitionCount).
-            int partitionId = partitionFunction.getPartition(partitionPage, position);
-            partitionRowCounts[partitionId] += 1;
-
-            // Get writer id for this partition by looking at the scaling state
-            int writerId = partitionWriterIds[partitionId];
-            if (writerId == -1) {
-                writerId = getNextWriterId(partitionId);
-                partitionWriterIds[partitionId] = writerId;
+        int positionCount = partitionPage.getPositionCount();
+        int lastPosition = 0;
+        checkState(lastPosition <= positionCount, "position count out of bound");
+        int remainingPositions = positionCount - lastPosition;
+        long[] hashes = getHashesBufferArray();
+        int[] partitions = new int[BATCH_SIZE];
+        while (remainingPositions != 0) {
+            int batchSize = min(remainingPositions, hashes.length);
+            partitionFunction.getPartitions(partitionPage, partitions, hashes, lastPosition, batchSize);
+            for (int i = 0; i < batchSize; i++) {
+                int partitionId = partitions[i];
+                partitionRowCounts[partitionId] += 1;
+                // Get writer id for this partition by looking at the scaling state
+                int writerId = partitionWriterIds[partitionId];
+                if (writerId == -1) {
+                    writerId = getNextWriterId(partitionId);
+                    partitionWriterIds[partitionId] = writerId;
+                }
+                writerAssignments[writerId].add(lastPosition + i);
             }
-            writerAssignments[writerId].add(position);
+            lastPosition += batchSize;
+            remainingPositions -= batchSize;
         }
+        verify(lastPosition == positionCount);
 
         // build a page for each writer
         for (int bucket = 0; bucket < writerAssignments.length; bucket++) {
@@ -158,6 +177,12 @@ public class ScaleWriterPartitioningExchanger
     public ListenableFuture<Void> waitForWriting()
     {
         return memoryManager.getNotFullFuture();
+    }
+
+    @Override
+    public void finish()
+    {
+        hashesBufferArray = null;
     }
 
     private int getNextWriterId(int partitionId)

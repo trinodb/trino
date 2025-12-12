@@ -48,6 +48,20 @@ public class SkewedPartitionFunction
         return skewedPartitionRebalancer.getTaskId(partition, partitionRowCount[partition]++);
     }
 
+    @Override
+    public void getPartitions(Page page, int[] partitions, long[] rawHashes, int offset, int length)
+    {
+        partitionFunction.getPartitions(page, partitions, rawHashes, offset, length);
+        for (int i = 0; i < partitions.length; i++) {
+            partitions[i] = skewedPartitionRebalancer.getTaskId(partitions[i], partitionRowCount[partitions[i]]++);
+        }
+    }
+
+    public PartitionFunction getPartitionFunction()
+    {
+        return partitionFunction;
+    }
+
     public void flushPartitionRowCountToRebalancer()
     {
         for (int partition = 0; partition < partitionFunction.partitionCount(); partition++) {

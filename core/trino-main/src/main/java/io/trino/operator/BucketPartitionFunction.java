@@ -46,4 +46,12 @@ public class BucketPartitionFunction
         int bucket = bucketFunction.getBucket(functionArguments, position);
         return bucketToPartition[bucket];
     }
+
+    @Override
+    public void getPartitions(Page page, int[] partitions, long[] rawHashes, int offset, int length)
+    {
+        for (int i = 0; i < length; i++) {
+            partitions[i] = getPartition(page, offset + i);
+        }
+    }
 }
