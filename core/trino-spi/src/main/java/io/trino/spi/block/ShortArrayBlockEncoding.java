@@ -16,24 +16,29 @@ package io.trino.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import jakarta.annotation.Nullable;
+import jdk.incubator.vector.ShortVector;
+import jdk.incubator.vector.VectorMask;
+import jdk.incubator.vector.VectorSpecies;
 
-import static io.trino.spi.block.EncoderUtil.compactShortsWithNullsScalar;
-import static io.trino.spi.block.EncoderUtil.compactShortsWithNullsVectorized;
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
 import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
 import static java.lang.System.arraycopy;
+import static java.util.Objects.checkFromIndexSize;
 
 public class ShortArrayBlockEncoding
         implements BlockEncoding
 {
+    private static final VectorSpecies<Short> SHORT_SPECIES = ShortVector.SPECIES_PREFERRED;
     public static final String NAME = "SHORT_ARRAY";
 
-    private final boolean enableVectorizedNullSuppression;
+    private final boolean vectorizeNullCompress;
+    private final boolean vectorizeNullExpand;
 
-    public ShortArrayBlockEncoding(boolean enableVectorizedNullSuppression)
+    public ShortArrayBlockEncoding(boolean vectorizeNullCompress, boolean vectorizeNullExpand)
     {
-        this.enableVectorizedNullSuppression = enableVectorizedNullSuppression;
+        this.vectorizeNullCompress = vectorizeNullCompress;
+        this.vectorizeNullExpand = vectorizeNullExpand;
     }
 
     @Override
@@ -66,7 +71,7 @@ public class ShortArrayBlockEncoding
             sliceOutput.writeShorts(rawValues, rawOffset, positionCount);
         }
         else {
-            if (enableVectorizedNullSuppression) {
+            if (vectorizeNullCompress) {
                 compactShortsWithNullsVectorized(sliceOutput, rawValues, isNull, rawOffset, positionCount);
             }
             else {
@@ -81,14 +86,91 @@ public class ShortArrayBlockEncoding
         int positionCount = sliceInput.readInt();
 
         byte[] valueIsNullPacked = retrieveNullBits(sliceInput, positionCount);
-        short[] values = new short[positionCount];
 
         if (valueIsNullPacked == null) {
+            short[] values = new short[positionCount];
             sliceInput.readShorts(values);
             return new ShortArrayBlock(0, positionCount, null, values);
         }
-        boolean[] valueIsNull = decodeNullBits(valueIsNullPacked, positionCount);
+        else {
+            boolean[] valueIsNull = decodeNullBits(valueIsNullPacked, positionCount);
+            if (vectorizeNullExpand) {
+                return expandShortsWithNullsVectorized(sliceInput, positionCount, valueIsNull);
+            }
+            else {
+                return expandShortsWithNullsScalar(sliceInput, positionCount, valueIsNullPacked, valueIsNull);
+            }
+        }
+    }
 
+    static void compactShortsWithNullsVectorized(SliceOutput sliceOutput, short[] values, boolean[] isNull, int offset, int length)
+    {
+        checkFromIndexSize(offset, length, values.length);
+        checkFromIndexSize(offset, length, isNull.length);
+        short[] compacted = new short[length];
+        int valuesIndex = 0;
+        int compactedIndex = 0;
+        for (; valuesIndex < SHORT_SPECIES.loopBound(length); valuesIndex += SHORT_SPECIES.length()) {
+            VectorMask<Short> mask = SHORT_SPECIES.loadMask(isNull, valuesIndex + offset).not();
+            ShortVector.fromArray(SHORT_SPECIES, values, valuesIndex + offset)
+                    .compress(mask)
+                    .intoArray(compacted, compactedIndex);
+            compactedIndex += mask.trueCount();
+        }
+        for (; valuesIndex < length; valuesIndex++) {
+            compacted[compactedIndex] = values[valuesIndex + offset];
+            compactedIndex += isNull[valuesIndex + offset] ? 0 : 1;
+        }
+        sliceOutput.writeInt(compactedIndex);
+        sliceOutput.writeShorts(compacted, 0, compactedIndex);
+    }
+
+    static void compactShortsWithNullsScalar(SliceOutput sliceOutput, short[] values, boolean[] isNull, int offset, int length)
+    {
+        checkFromIndexSize(offset, length, values.length);
+        checkFromIndexSize(offset, length, isNull.length);
+        short[] compacted = new short[length];
+        int compactedIndex = 0;
+        for (int i = 0; i < length; i++) {
+            compacted[compactedIndex] = values[i + offset];
+            compactedIndex += isNull[i + offset] ? 0 : 1;
+        }
+        sliceOutput.writeInt(compactedIndex);
+        sliceOutput.writeShorts(compacted, 0, compactedIndex);
+    }
+
+    static ShortArrayBlock expandShortsWithNullsVectorized(SliceInput sliceInput, int positionCount, boolean[] valueIsNull)
+    {
+        if (valueIsNull.length != positionCount) {
+            throw new IllegalArgumentException("valueIsNull length must match positionCount");
+        }
+        int nonNullPositionCount = sliceInput.readInt();
+        int nonNullIndex = positionCount - nonNullPositionCount;
+        short[] values = new short[positionCount];
+        sliceInput.readShorts(values, nonNullIndex, nonNullPositionCount);
+
+        int position = 0;
+        for (; position < nonNullIndex && nonNullIndex + SHORT_SPECIES.length() < values.length; position += SHORT_SPECIES.length()) {
+            ShortVector nonNullValues = ShortVector.fromArray(SHORT_SPECIES, values, nonNullIndex);
+            VectorMask<Short> nonNullMask = SHORT_SPECIES.loadMask(valueIsNull, position).not();
+            nonNullIndex += nonNullMask.trueCount();
+            nonNullValues
+                    .expand(nonNullMask)
+                    .intoArray(values, position);
+        }
+        for (; position < nonNullIndex; position++) {
+            values[position] = valueIsNull[position] ? 0 : values[nonNullIndex++];
+        }
+
+        return new ShortArrayBlock(0, positionCount, valueIsNull, values);
+    }
+
+    static ShortArrayBlock expandShortsWithNullsScalar(SliceInput sliceInput, int positionCount, byte[] valueIsNullPacked, boolean[] valueIsNull)
+    {
+        if (valueIsNull.length != positionCount) {
+            throw new IllegalArgumentException("valueIsNull length must match positionCount");
+        }
+        short[] values = new short[positionCount];
         int nonNullPositionCount = sliceInput.readInt();
         sliceInput.readShorts(values, 0, nonNullPositionCount);
         int position = nonNullPositionCount - 1;

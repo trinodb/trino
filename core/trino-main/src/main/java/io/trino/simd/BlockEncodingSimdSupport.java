@@ -13,6 +13,7 @@
  */
 package io.trino.simd;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.StandardSystemProperty;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
@@ -44,17 +45,20 @@ Graviton2 is NEON-only (no SVE), whereas Graviton3 provides SVE.
 public final class BlockEncodingSimdSupport
 {
     public record SimdSupport(
-            boolean expandAndCompressByte,
-            boolean expandAndCompressShort,
-            boolean expandAndCompressInt,
-            boolean expandAndCompressLong)
+            boolean compressByte,
+            boolean expandByte,
+            boolean compressShort,
+            boolean expandShort,
+            boolean compressInt,
+            boolean expandInt,
+            boolean compressLong,
+            boolean expandLong)
     {
-        public static final SimdSupport NONE = new SimdSupport(false, false, false, false);
-        public static final SimdSupport ALL = new SimdSupport(true, true, true, true);
+        public static final SimdSupport NONE = new SimdSupport(false, false, false, false, false, false, false, false);
+        public static final SimdSupport ALL = new SimdSupport(true, true, true, true, true, true, true, true);
     }
 
     private static final int MINIMUM_SIMD_LENGTH = 256;
-    private static final int PREFERRED_BIT_WIDTH = VectorShape.preferredShape().vectorBitSize();
     private static final SimdSupport AUTO_DETECTED_SUPPORT = detectSimd();
 
     private final SimdSupport simdSupport;
@@ -79,15 +83,22 @@ public final class BlockEncodingSimdSupport
     {
         String archRaw = StandardSystemProperty.OS_ARCH.value();
         String arch = archRaw == null ? "" : archRaw.toLowerCase(ENGLISH);
+        int preferredBitWidth = VectorShape.preferredShape().vectorBitSize();
+        return determineSimdSupport(arch, preferredBitWidth, readCpuFlags());
+    }
 
-        if (isX86Arch(arch)) {
-            return detectX86SimdSupport();
+    @VisibleForTesting
+    static SimdSupport determineSimdSupport(String osArch, int preferredVectorBitWidth, Set<String> flags)
+    {
+        if (isX86Arch(osArch)) {
+            return detectX86SimdSupport(preferredVectorBitWidth, flags);
         }
-        if (isArmArch(arch)) {
-            return detectArmSimdSupport();
+        else if (isArmArch(osArch)) {
+            return detectArmSimdSupport(preferredVectorBitWidth, flags);
         }
-
-        return SimdSupport.NONE;
+        else {
+            return SimdSupport.NONE;
+        }
     }
 
     private static boolean isX86Arch(String arch)
@@ -100,14 +111,13 @@ public final class BlockEncodingSimdSupport
         return arch.contains("arm") || arch.contains("aarch64");
     }
 
-    private static SimdSupport detectX86SimdSupport()
+    private static SimdSupport detectX86SimdSupport(int preferredVectorBitWidth, Set<String> flags)
     {
         enum X86SimdInstructionSet {
             avx512f,
             avx512vbmi2
         }
 
-        Set<String> flags = readCpuFlags();
         EnumSet<X86SimdInstructionSet> x86Flags = EnumSet.noneOf(X86SimdInstructionSet.class);
 
         if (!flags.isEmpty()) {
@@ -118,25 +128,32 @@ public final class BlockEncodingSimdSupport
             }
         }
 
-        if (PREFERRED_BIT_WIDTH < MINIMUM_SIMD_LENGTH) {
+        if (preferredVectorBitWidth < MINIMUM_SIMD_LENGTH) {
             return SimdSupport.NONE;
         }
-        else {
-            return new SimdSupport(
-                    x86Flags.contains(X86SimdInstructionSet.avx512vbmi2),
-                    x86Flags.contains(X86SimdInstructionSet.avx512vbmi2),
-                    x86Flags.contains(X86SimdInstructionSet.avx512f),
-                    x86Flags.contains(X86SimdInstructionSet.avx512f));
-        }
+
+        boolean expandAndCompressByte = x86Flags.contains(X86SimdInstructionSet.avx512vbmi2);
+        boolean expandAndCompressShort = x86Flags.contains(X86SimdInstructionSet.avx512vbmi2);
+        boolean expandAndCompressInt = x86Flags.contains(X86SimdInstructionSet.avx512f);
+        boolean expandAndCompressLong = x86Flags.contains(X86SimdInstructionSet.avx512f);
+        return new SimdSupport(
+                expandAndCompressByte,
+                expandAndCompressByte,
+                expandAndCompressShort,
+                expandAndCompressShort,
+                expandAndCompressInt,
+                expandAndCompressInt,
+                expandAndCompressLong,
+                expandAndCompressLong);
     }
 
-    private static SimdSupport detectArmSimdSupport()
+    private static SimdSupport detectArmSimdSupport(int preferredVectorBitWidth, Set<String> flags)
     {
         enum ArmSimdInstructionSet {
             sve,
+            sve2
         }
 
-        Set<String> flags = readCpuFlags();
         EnumSet<ArmSimdInstructionSet> armFlags = EnumSet.noneOf(ArmSimdInstructionSet.class);
 
         if (!flags.isEmpty()) {
@@ -147,11 +164,30 @@ public final class BlockEncodingSimdSupport
             }
         }
 
-        if (PREFERRED_BIT_WIDTH < MINIMUM_SIMD_LENGTH || !armFlags.contains(ArmSimdInstructionSet.sve)) {
+        // NEON support is often too slow to make this worthwhile
+        if (!armFlags.contains(ArmSimdInstructionSet.sve)) {
             return SimdSupport.NONE;
         }
 
-        return SimdSupport.ALL;
+        // SVE 1 is sufficient to have Vector#compress(VectorMask) intrinsics for all primitive types
+        boolean compressAll = true;
+        boolean compressLong = preferredVectorBitWidth > 128; // only vectorize long compression if we can handle more than 2 values per instruction
+
+        // As of JDK 25, SVE 2 intrinsics for Vector#expand(VectorMask) over int and long, but not byte or short. JDK 26 add intrinsics
+        // for byte and short on SVE 2, SVE 1, and NEON in https://bugs.openjdk.org/browse/JDK-8363989. We can reconsider enabling vectorized
+        // expansion for those types at some point in the future
+        boolean expandInt = armFlags.contains(ArmSimdInstructionSet.sve2);
+        boolean expandLong = armFlags.contains(ArmSimdInstructionSet.sve2) && preferredVectorBitWidth > 128; // ensure minimum register width for long
+        boolean expandByteAndShort = false; // no intrinsics in JDK 25
+        return new SimdSupport(
+                compressAll,
+                expandByteAndShort,
+                compressAll,
+                expandByteAndShort,
+                compressAll,
+                expandInt,
+                compressLong,
+                expandLong);
     }
 
     public SimdSupport getSimdSupport()
