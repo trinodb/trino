@@ -751,32 +751,29 @@ class ParquetTester
                 type.writeObject(blockBuilder, new LongTimestamp(((SqlTimestamp) value).getEpochMicros(), ((SqlTimestamp) value).getPicosOfMicros()));
             }
             else {
-                if (type instanceof ArrayType) {
+                if (type instanceof ArrayType arrayType) {
                     List<?> array = (List<?>) value;
-                    Type elementType = type.getTypeParameters().get(0);
+                    Type elementType = arrayType.getElementType();
                     ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
                         for (Object elementValue : array) {
                             writeValue(elementType, elementBuilder, elementValue);
                         }
                     });
                 }
-                else if (type instanceof MapType) {
+                else if (type instanceof MapType mapType) {
                     Map<?, ?> map = (Map<?, ?>) value;
-                    Type keyType = type.getTypeParameters().get(0);
-                    Type valueType = type.getTypeParameters().get(1);
                     ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
                         for (Map.Entry<?, ?> entry : map.entrySet()) {
-                            writeValue(keyType, keyBuilder, entry.getKey());
-                            writeValue(valueType, valueBuilder, entry.getValue());
+                            writeValue(mapType.getKeyType(), keyBuilder, entry.getKey());
+                            writeValue(mapType.getValueType(), valueBuilder, entry.getValue());
                         }
                     });
                 }
-                else if (type instanceof RowType) {
+                else if (type instanceof RowType rowType) {
                     List<?> array = (List<?>) value;
-                    List<Type> fieldTypes = type.getTypeParameters();
                     ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
-                        for (int fieldId = 0; fieldId < fieldTypes.size(); fieldId++) {
-                            Type fieldType = fieldTypes.get(fieldId);
+                        for (int fieldId = 0; fieldId < rowType.getFields().size(); fieldId++) {
+                            Type fieldType = rowType.getFields().get(fieldId).getType();
                             writeValue(fieldType, fieldBuilders.get(fieldId), array.get(fieldId));
                         }
                     });

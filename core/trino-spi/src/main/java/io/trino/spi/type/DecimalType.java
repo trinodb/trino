@@ -22,7 +22,7 @@ import java.util.List;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.Decimals.MAX_PRECISION;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static io.trino.spi.type.TypeSignatureParameter.numericParameter;
+import static io.trino.spi.type.TypeParameter.numericParameter;
 import static java.lang.String.format;
 
 public abstract sealed class DecimalType
@@ -96,7 +96,7 @@ public abstract sealed class DecimalType
         return precision <= MAX_SHORT_PRECISION;
     }
 
-    private static List<TypeSignatureParameter> buildTypeParameters(int precision, int scale)
+    private static List<TypeParameter> buildTypeParameters(int precision, int scale)
     {
         return List.of(numericParameter(precision), numericParameter(scale));
     }

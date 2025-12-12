@@ -31,8 +31,8 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -99,7 +99,7 @@ public final class TypeConverter
                 Types.MapType mapType = (Types.MapType) type;
                 TypeSignature keyType = toTrinoType(mapType.keyType(), typeManager).getTypeSignature();
                 TypeSignature valueType = toTrinoType(mapType.valueType(), typeManager).getTypeSignature();
-                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.typeParameter(keyType), TypeSignatureParameter.typeParameter(valueType)));
+                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeParameter.typeParameter(keyType), TypeParameter.typeParameter(valueType)));
             case STRUCT:
                 List<Types.NestedField> fields = ((Types.StructType) type).fields();
                 return RowType.from(fields.stream()

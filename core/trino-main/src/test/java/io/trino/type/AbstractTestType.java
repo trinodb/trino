@@ -660,7 +660,7 @@ public abstract class AbstractTestType
                 return sqlMapOf(keyType, valueType, map);
             }
             case RowType rowType -> {
-                List<Type> elementTypes = rowType.getTypeParameters();
+                List<Type> elementTypes = rowType.getFieldTypes();
                 Object[] elementNonNullValues = elementTypes.stream().map(AbstractTestType::getNonNullValueForType).toArray(Object[]::new);
                 return toRow(elementTypes, elementNonNullValues);
             }

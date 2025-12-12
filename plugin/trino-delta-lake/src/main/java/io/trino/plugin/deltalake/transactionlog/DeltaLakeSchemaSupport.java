@@ -41,8 +41,8 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
 
@@ -786,13 +786,13 @@ public final class DeltaLakeSchemaSupport
     private static RowType buildRowType(TypeManager typeManager, JsonNode typeNode, boolean usePhysicalName)
             throws UnsupportedTypeException
     {
-        ImmutableList.Builder<TypeSignatureParameter> fields = ImmutableList.builder();
+        ImmutableList.Builder<TypeParameter> fields = ImmutableList.builder();
         Iterator<JsonNode> elements = typeNode.get("fields").elements();
         while (elements.hasNext()) {
             JsonNode element = elements.next();
             String fieldName = usePhysicalName ? element.get("metadata").get("delta.columnMapping.physicalName").asText() : element.get("name").asText();
             verify(!isNullOrEmpty(fieldName), "fieldName is null or empty");
-            fields.add(TypeSignatureParameter.namedField(
+            fields.add(TypeParameter.namedField(
                     // We lower case the struct field names.
                     // Otherwise, Trino will refuse to write to columns whose struct type has field names containing upper case characters.
                     // Users can't work around this by casting in their queries because Trino parser always lower case types.

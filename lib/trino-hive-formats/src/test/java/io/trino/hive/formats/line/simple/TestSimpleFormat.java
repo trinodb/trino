@@ -1353,7 +1353,7 @@ public class TestSimpleFormat
             return hasComplexMapKey(arrayType.getElementType());
         }
         else if (type instanceof RowType rowType) {
-            return rowType.getTypeParameters().stream().allMatch(TestSimpleFormat::hasComplexMapKey);
+            return rowType.getFieldTypes().stream().allMatch(TestSimpleFormat::hasComplexMapKey);
         }
         return true;
     }

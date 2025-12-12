@@ -20,8 +20,8 @@ import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.type.FunctionType;
 import org.assertj.core.api.Assertions;
@@ -39,12 +39,12 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeParameter.anonymousField;
+import static io.trino.spi.type.TypeParameter.numericParameter;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.functionType;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.TypeSignature.rowType;
-import static io.trino.spi.type.TypeSignatureParameter.anonymousField;
-import static io.trino.spi.type.TypeSignatureParameter.numericParameter;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -65,8 +65,8 @@ public class TestSignatureBinder
     @Test
     public void testBindLiteralForDecimal()
     {
-        TypeSignature leftType = new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p1"), TypeSignatureParameter.typeVariable("s1"));
-        TypeSignature rightType = new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p2"), TypeSignatureParameter.typeVariable("s2"));
+        TypeSignature leftType = new TypeSignature("decimal", TypeParameter.typeVariable("p1"), TypeParameter.typeVariable("s1"));
+        TypeSignature rightType = new TypeSignature("decimal", TypeParameter.typeVariable("p2"), TypeParameter.typeVariable("s2"));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
@@ -88,7 +88,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(new TypeSignature("decimal", numericParameter(4), TypeSignatureParameter.typeVariable("s")))
+                .argumentType(new TypeSignature("decimal", numericParameter(4), TypeParameter.typeVariable("s")))
                 .build();
 
         assertThat(function)
@@ -99,7 +99,7 @@ public class TestSignatureBinder
 
         function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p"), numericParameter(1)))
+                .argumentType(new TypeSignature("decimal", TypeParameter.typeVariable("p"), numericParameter(1)))
                 .build();
 
         assertThat(function)
@@ -123,8 +123,8 @@ public class TestSignatureBinder
     @Test
     public void testBindLiteralForVarchar()
     {
-        TypeSignature leftType = new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x"));
-        TypeSignature rightType = new TypeSignature("varchar", TypeSignatureParameter.typeVariable("y"));
+        TypeSignature leftType = new TypeSignature("varchar", TypeParameter.typeVariable("x"));
+        TypeSignature rightType = new TypeSignature("varchar", TypeParameter.typeVariable("y"));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
@@ -149,8 +149,8 @@ public class TestSignatureBinder
     @Test
     public void testBindLiteralForRepeatedVarcharWithReturn()
     {
-        TypeSignature leftType = new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x"));
-        TypeSignature rightType = new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x"));
+        TypeSignature leftType = new TypeSignature("varchar", TypeParameter.typeVariable("x"));
+        TypeSignature rightType = new TypeSignature("varchar", TypeParameter.typeVariable("x"));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
@@ -182,8 +182,8 @@ public class TestSignatureBinder
     @Test
     public void testBindLiteralForRepeatedDecimal()
     {
-        TypeSignature leftType = new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p"), TypeSignatureParameter.typeVariable("s"));
-        TypeSignature rightType = new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p"), TypeSignatureParameter.typeVariable("s"));
+        TypeSignature leftType = new TypeSignature("decimal", TypeParameter.typeVariable("p"), TypeParameter.typeVariable("s"));
+        TypeSignature rightType = new TypeSignature("decimal", TypeParameter.typeVariable("p"), TypeParameter.typeVariable("s"));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
@@ -219,9 +219,9 @@ public class TestSignatureBinder
     @Test
     public void testBindLiteralForRepeatedVarchar()
     {
-        TypeSignature leftType = new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x"));
-        TypeSignature rightType = new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x"));
-        TypeSignature returnType = new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x"));
+        TypeSignature leftType = new TypeSignature("varchar", TypeParameter.typeVariable("x"));
+        TypeSignature rightType = new TypeSignature("varchar", TypeParameter.typeVariable("x"));
+        TypeSignature returnType = new TypeSignature("varchar", TypeParameter.typeVariable("x"));
 
         Signature function = functionSignature()
                 .returnType(returnType)
@@ -247,7 +247,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x")))
+                .argumentType(new TypeSignature("varchar", TypeParameter.typeVariable("x")))
                 .build();
 
         assertThat(function)
@@ -267,7 +267,7 @@ public class TestSignatureBinder
                 .returnType(BOOLEAN)
                 .typeVariable("T")
                 .argumentType(arrayType(new TypeSignature("T")))
-                .argumentType(arrayType(new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p"), TypeSignatureParameter.typeVariable("s"))))
+                .argumentType(arrayType(new TypeSignature("decimal", TypeParameter.typeVariable("p"), TypeParameter.typeVariable("s"))))
                 .build();
 
         assertThat(function)
@@ -282,7 +282,7 @@ public class TestSignatureBinder
     @Test
     public void testBindDifferentLiteralParameters()
     {
-        TypeSignature argType = new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p"), TypeSignatureParameter.typeVariable("s"));
+        TypeSignature argType = new TypeSignature("decimal", TypeParameter.typeVariable("p"), TypeParameter.typeVariable("s"));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
@@ -298,8 +298,8 @@ public class TestSignatureBinder
     @Test
     public void testNoVariableReuseAcrossTypes()
     {
-        TypeSignature leftType = new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p1"), TypeSignatureParameter.typeVariable("s"));
-        TypeSignature rightType = new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p2"), TypeSignatureParameter.typeVariable("s"));
+        TypeSignature leftType = new TypeSignature("decimal", TypeParameter.typeVariable("p1"), TypeParameter.typeVariable("s"));
+        TypeSignature rightType = new TypeSignature("decimal", TypeParameter.typeVariable("p2"), TypeParameter.typeVariable("s"));
 
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
@@ -319,7 +319,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(new TypeSignature("decimal", TypeSignatureParameter.typeVariable("p"), TypeSignatureParameter.typeVariable("s")))
+                .argumentType(new TypeSignature("decimal", TypeParameter.typeVariable("p"), TypeParameter.typeVariable("s")))
                 .build();
 
         assertThat(function)
@@ -461,7 +461,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x")))
+                .argumentType(new TypeSignature("varchar", TypeParameter.typeVariable("x")))
                 .build();
 
         assertThat(function)
@@ -1003,7 +1003,7 @@ public class TestSignatureBinder
         Signature varcharApply = functionSignature()
                 .returnType(VARCHAR)
                 .argumentType(VARCHAR)
-                .argumentType(functionType(VARCHAR.getTypeSignature(), new TypeSignature("varchar", TypeSignatureParameter.typeVariable("x"))))
+                .argumentType(functionType(VARCHAR.getTypeSignature(), new TypeSignature("varchar", TypeParameter.typeVariable("x"))))
                 .build();
         assertThat(varcharApply)
                 .withCoercion()

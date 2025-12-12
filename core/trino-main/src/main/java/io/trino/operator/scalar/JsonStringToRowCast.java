@@ -20,7 +20,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.TypeSignature;
 
 import static io.trino.operator.scalar.JsonToRowCast.JSON_TO_ROW;
-import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
+import static io.trino.spi.type.TypeParameter.typeVariable;
 
 public final class JsonStringToRowCast
         extends SqlScalarFunction

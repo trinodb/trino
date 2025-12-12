@@ -16,13 +16,13 @@ package io.trino.hive.formats;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 
 import java.util.List;
 
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.TypeSignatureParameter.namedField;
+import static io.trino.spi.type.TypeParameter.namedField;
 
 public final class UnionToRowCoercionUtils
 {
@@ -44,7 +44,7 @@ public final class UnionToRowCoercionUtils
 
     public static TypeSignature rowTypeSignatureForUnionOfTypes(List<TypeSignature> typeSignatures)
     {
-        ImmutableList.Builder<TypeSignatureParameter> fields = ImmutableList.builder();
+        ImmutableList.Builder<TypeParameter> fields = ImmutableList.builder();
         fields.add(namedField(UNION_FIELD_TAG_NAME, UNION_FIELD_TAG_TYPE.getTypeSignature()));
         for (int i = 0; i < typeSignatures.size(); i++) {
             fields.add(namedField(UNION_FIELD_FIELD_PREFIX + i, typeSignatures.get(i)));

@@ -37,7 +37,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
@@ -653,8 +653,8 @@ public class RcFileTester
     private static MapType createMapType(Type type)
     {
         return (MapType) TESTING_TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(
-                TypeSignatureParameter.typeParameter(type.getTypeSignature()),
-                TypeSignatureParameter.typeParameter(type.getTypeSignature())));
+                TypeParameter.typeParameter(type.getTypeSignature()),
+                TypeParameter.typeParameter(type.getTypeSignature())));
     }
 
     private static Object toHiveMap(Object nullKeyValue, Object input)

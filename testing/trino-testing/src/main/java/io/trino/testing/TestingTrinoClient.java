@@ -334,8 +334,8 @@ public class TestingTrinoClient
                             convertToRowValue(mapType.getValueType(), v)));
             return result;
         }
-        if (type instanceof RowType) {
-            List<Type> fieldTypes = type.getTypeParameters();
+        if (type instanceof RowType rowType) {
+            List<Type> fieldTypes = rowType.getFieldTypes();
             List<Object> fieldValues = ((Row) value).getFields().stream()
                     .map(RowField::getValue)
                     .collect(toList()); // nullable

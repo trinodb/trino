@@ -116,8 +116,8 @@ public class MapType
         super(
                 new TypeSignature(
                         StandardTypes.MAP,
-                        TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
-                        TypeSignatureParameter.typeParameter(valueType.getTypeSignature())),
+                        TypeParameter.typeParameter(keyType.getTypeSignature()),
+                        TypeParameter.typeParameter(valueType.getTypeSignature())),
                 SqlMap.class,
                 MapBlock.class);
         if (!keyType.isComparable()) {

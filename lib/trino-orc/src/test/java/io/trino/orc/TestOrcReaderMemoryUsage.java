@@ -18,8 +18,8 @@ import io.trino.spi.Page;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -139,7 +139,7 @@ public class TestOrcReaderMemoryUsage
     public void testMapTypeWithNulls()
             throws Exception
     {
-        Type mapType = TESTING_TYPE_MANAGER.getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature()), TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature())));
+        Type mapType = TESTING_TYPE_MANAGER.getType(new TypeSignature(StandardTypes.MAP, TypeParameter.typeParameter(BIGINT.getTypeSignature()), TypeParameter.typeParameter(BIGINT.getTypeSignature())));
 
         int rows = 10000;
         OrcRecordReader reader = null;

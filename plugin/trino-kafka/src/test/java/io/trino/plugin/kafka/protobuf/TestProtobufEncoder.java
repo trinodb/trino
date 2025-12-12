@@ -392,7 +392,7 @@ public class TestProtobufEncoder
 
         RowType nestedRowType = (RowType) columnHandles.get(0).getType();
 
-        MapType mapType = (MapType) nestedRowType.getTypeParameters().get(1);
+        MapType mapType = (MapType) nestedRowType.getFieldTypes().get(1);
         BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
         Block mapBlock = mapType.createBlockFromKeyValue(
                 Optional.empty(),
@@ -401,7 +401,7 @@ public class TestProtobufEncoder
                 rowBlockBuilder.build());
         mapBlockBuilder.append(mapBlock.getUnderlyingValueBlock(), mapBlock.getUnderlyingValuePosition(0));
 
-        Type listType = nestedRowType.getTypeParameters().get(0);
+        Type listType = nestedRowType.getFieldTypes().get(0);
         BlockBuilder listBlockBuilder = listType.createBlockBuilder(null, 1);
         Block arrayBlock = fromElementBlock(
                 1,

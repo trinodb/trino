@@ -16,8 +16,7 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metastore.HiveType;
-import io.trino.spi.type.NamedTypeSignature;
-import io.trino.spi.type.RowFieldName;
+import io.trino.plugin.hive.HiveTestUtils.Field;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
@@ -41,12 +40,12 @@ public class TestHiveReaderProjectionsUtil
     private TestHiveReaderProjectionsUtil() {}
 
     public static final RowType ROWTYPE_OF_PRIMITIVES = rowType(ImmutableList.of(
-            new NamedTypeSignature(Optional.of(new RowFieldName("f_bigint_0")), BIGINT.getTypeSignature()),
-            new NamedTypeSignature(Optional.of(new RowFieldName("f_bigint_1")), BIGINT.getTypeSignature())));
+            new Field("f_bigint_0", BIGINT.getTypeSignature()),
+            new Field("f_bigint_1", BIGINT.getTypeSignature())));
 
     public static final RowType ROWTYPE_OF_ROW_AND_PRIMITIVES = rowType(ImmutableList.of(
-            new NamedTypeSignature(Optional.of(new RowFieldName("f_row_0")), ROWTYPE_OF_PRIMITIVES.getTypeSignature()),
-            new NamedTypeSignature(Optional.of(new RowFieldName("f_bigint_0")), BIGINT.getTypeSignature())));
+            new Field("f_row_0", ROWTYPE_OF_PRIMITIVES.getTypeSignature()),
+            new Field("f_bigint_0", BIGINT.getTypeSignature())));
 
     public static Map<String, HiveColumnHandle> createTestFullColumns(List<String> names, Map<String, Type> types)
     {

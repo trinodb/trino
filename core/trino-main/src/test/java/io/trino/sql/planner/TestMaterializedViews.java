@@ -149,7 +149,7 @@ public class TestMaterializedViews
             return null;
         });
 
-        Type timestampWithTimezone3 = TIMESTAMP_WITH_TIME_ZONE.createType(TESTING_TYPE_MANAGER, ImmutableList.of(TypeParameter.of(3)));
+        Type timestampWithTimezone3 = TIMESTAMP_WITH_TIME_ZONE.createType(TESTING_TYPE_MANAGER, ImmutableList.of(TypeParameter.numericParameter(3)));
         SchemaTableName timestampTest = new SchemaTableName(SCHEMA, "timestamp_test");
         planTester.inTransaction(session -> {
             metadata.createTable(

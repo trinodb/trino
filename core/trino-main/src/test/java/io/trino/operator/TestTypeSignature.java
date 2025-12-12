@@ -15,11 +15,9 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.spi.type.NamedTypeSignature;
-import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.parser.ParsingException;
 import org.junit.jupiter.api.Test;
@@ -28,15 +26,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.Lists.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.TypeParameter.namedField;
+import static io.trino.spi.type.TypeParameter.numericParameter;
+import static io.trino.spi.type.TypeParameter.typeVariable;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.TypeSignature.rowType;
-import static io.trino.spi.type.TypeSignatureParameter.namedField;
-import static io.trino.spi.type.TypeSignatureParameter.numericParameter;
-import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -52,8 +50,8 @@ public class TestTypeSignature
     {
         TypeSignature result = new TypeSignature("decimal", typeVariable("X"), numericParameter(42));
         assertThat(result.getParameters()).hasSize(2);
-        assertThat(result.getParameters().get(0).isVariable()).isEqualTo(true);
-        assertThat(result.getParameters().get(1).isLongLiteral()).isEqualTo(true);
+        assertThat(result.getParameters().get(0)).isInstanceOf(TypeParameter.Variable.class);
+        assertThat(result.getParameters().get(1)).isInstanceOf(TypeParameter.Numeric.class);
     }
 
     @Test
@@ -175,12 +173,12 @@ public class TestTypeSignature
 
     private TypeSignature varchar()
     {
-        return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.numericParameter(VarcharType.UNBOUNDED_LENGTH));
+        return new TypeSignature(StandardTypes.VARCHAR, TypeParameter.numericParameter(VarcharType.UNBOUNDED_LENGTH));
     }
 
     private TypeSignature varchar(long length)
     {
-        return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.numericParameter(length));
+        return new TypeSignature(StandardTypes.VARCHAR, TypeParameter.numericParameter(length));
     }
 
     private TypeSignature decimal(String precisionVariable, String scaleVariable)
@@ -189,29 +187,33 @@ public class TestTypeSignature
                 typeVariable(precisionVariable), typeVariable(scaleVariable)));
     }
 
-    private static TypeSignature rowSignature(NamedTypeSignature... columns)
+    private static TypeSignature rowSignature(Field... fields)
     {
-        return new TypeSignature("row", transform(asList(columns), TypeSignatureParameter::namedTypeParameter));
+        return new TypeSignature(
+                "row",
+                asList(fields).stream()
+                        .map(field -> TypeParameter.typeParameter(field.name(), field.type()))
+                        .collect(toImmutableList()));
     }
 
-    private static NamedTypeSignature namedParameter(String name, TypeSignature value)
+    private static Field namedParameter(String name, TypeSignature value)
     {
-        return new NamedTypeSignature(Optional.of(new RowFieldName(name)), value);
+        return new Field(Optional.of(name), value);
     }
 
-    private static NamedTypeSignature unnamedParameter(TypeSignature value)
+    private static Field unnamedParameter(TypeSignature value)
     {
-        return new NamedTypeSignature(Optional.empty(), value);
+        return new Field(Optional.empty(), value);
     }
 
     private static TypeSignature array(TypeSignature type)
     {
-        return new TypeSignature(StandardTypes.ARRAY, TypeSignatureParameter.typeParameter(type));
+        return new TypeSignature(StandardTypes.ARRAY, TypeParameter.typeParameter(type));
     }
 
     private static TypeSignature map(TypeSignature keyType, TypeSignature valueType)
     {
-        return new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.typeParameter(keyType), TypeSignatureParameter.typeParameter(valueType));
+        return new TypeSignature(StandardTypes.MAP, TypeParameter.typeParameter(keyType), TypeParameter.typeParameter(valueType));
     }
 
     private TypeSignature signature(String name)
@@ -335,4 +337,6 @@ public class TestTypeSignature
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Base type name cannot be a type variable");
     }
+
+    record Field(Optional<String> name, TypeSignature type) {}
 }

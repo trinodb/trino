@@ -67,7 +67,7 @@ public final class CustomFunctions
 
     @ScalarFunction("connector_session_row")
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice row(ConnectorSession session, @TypeParameter("row(greeting varchar)") RowType rowType, @SqlType("row(varchar)") SqlRow sqlRow)
+    public static Slice row(ConnectorSession session, @TypeParameter("row(greeting varchar)") RowType rowType, @SqlType("row(greeting varchar)") SqlRow sqlRow)
     {
         Slice message = rowType.getFields().getFirst().getType().getSlice(sqlRow.getRawFieldBlock(0), sqlRow.getRawIndex());
         return Slices.utf8Slice(message.toStringUtf8() + " " + session.getUser());

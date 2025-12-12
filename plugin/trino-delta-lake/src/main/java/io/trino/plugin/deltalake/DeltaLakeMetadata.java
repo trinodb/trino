@@ -1672,7 +1672,6 @@ public class DeltaLakeMetadata
         if (type instanceof RowType rowType) {
             return rowType.getFields().stream().anyMatch(field -> containsTimestampType(field.getType()));
         }
-        checkArgument(type.getTypeParameters().isEmpty(), "Unexpected type parameters for type %s", type);
         return type instanceof TimestampType;
     }
 

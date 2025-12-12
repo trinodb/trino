@@ -68,6 +68,7 @@ public class TestAvroPageDataWriterWithoutTypeManager
             throws AvroTypeException, IOException
     {
         Location tempTestLocation = createLocalTempLocation();
+        RowType type = (RowType) new BaseAvroTypeBlockHandler().typeFor(ALL_TYPES_RECORD_SCHEMA);
         try (AvroFileWriter fileWriter = new AvroFileWriter(
                 trinoLocalFilesystem.newOutputFile(tempTestLocation).create(),
                 writeSchema,
@@ -75,7 +76,8 @@ public class TestAvroPageDataWriterWithoutTypeManager
                 AvroCompressionKind.NULL,
                 ImmutableMap.of(),
                 ALL_TYPES_RECORD_SCHEMA.getFields().stream().map(Schema.Field::name).collect(toImmutableList()),
-                new BaseAvroTypeBlockHandler().typeFor(ALL_TYPES_RECORD_SCHEMA).getTypeParameters(), false)) {
+                type.getFieldTypes(),
+                false)) {
             fileWriter.write(ALL_TYPES_PAGE);
         }
 
@@ -133,6 +135,7 @@ public class TestAvroPageDataWriterWithoutTypeManager
                         new int[] {0, 0}));
 
         Location testLocation = createLocalTempLocation();
+        RowType type = (RowType) new BaseAvroTypeBlockHandler().typeFor(testBlocksSchema);
         try (AvroFileWriter avroFileWriter = new AvroFileWriter(
                 trinoLocalFilesystem.newOutputFile(testLocation).create(),
                 testBlocksSchema,
@@ -140,7 +143,8 @@ public class TestAvroPageDataWriterWithoutTypeManager
                 AvroCompressionKind.NULL,
                 ImmutableMap.of(),
                 testBlocksSchema.getFields().stream().map(Schema.Field::name).collect(toImmutableList()),
-                new BaseAvroTypeBlockHandler().typeFor(testBlocksSchema).getTypeParameters(), false)) {
+                type.getFieldTypes(),
+                false)) {
             avroFileWriter.write(toWrite);
         }
 

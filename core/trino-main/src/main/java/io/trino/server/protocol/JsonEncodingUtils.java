@@ -108,7 +108,7 @@ public final class JsonEncodingUtils
             // TODO: add specialized Short/Long decimal encoders
             case ArrayType arrayType -> new ArrayEncoder(arrayType, createTypeEncoder(arrayType.getElementType(), supportsParametricDateTime));
             case MapType mapType -> new MapEncoder(mapType, createTypeEncoder(mapType.getValueType(), supportsParametricDateTime));
-            case RowType rowType -> new RowEncoder(rowType, rowType.getTypeParameters()
+            case RowType rowType -> new RowEncoder(rowType, rowType.getFieldTypes()
                     .stream()
                     .map(elementType -> createTypeEncoder(elementType, supportsParametricDateTime))
                     .toArray(TypeEncoder[]::new));

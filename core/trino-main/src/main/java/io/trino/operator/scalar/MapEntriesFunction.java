@@ -48,7 +48,7 @@ public class MapEntriesFunction
             @TypeParameter("row(K,V)") RowType rowType,
             @SqlType("map(K,V)") SqlMap sqlMap)
     {
-        verify(rowType.getTypeParameters().size() == 2);
+        verify(rowType.getFieldTypes().size() == 2);
 
         int size = sqlMap.getSize();
         int rawOffset = sqlMap.getRawOffset();

@@ -89,7 +89,12 @@ public interface Type
 
     /**
      * For parameterized types returns the list of parameters.
+     *
+     * @deprecated Use type-specific methods to access type parameters (e.g.,
+     *             {@link ArrayType#getElementType()}, {@link MapType#getKeyType()},
+     *             {@link MapType#getValueType()}, {@link RowType#getFields()})
      */
+    @Deprecated
     List<Type> getTypeParameters();
 
     /**

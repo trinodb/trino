@@ -30,9 +30,7 @@ import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.type.CharParametricType;
@@ -216,13 +214,6 @@ public final class TypeRegistry
 
     private Type instantiateParametricType(TypeSignature signature)
     {
-        List<TypeParameter> parameters = new ArrayList<>();
-
-        for (TypeSignatureParameter parameter : signature.getParameters()) {
-            TypeParameter typeParameter = TypeParameter.of(parameter, typeManager);
-            parameters.add(typeParameter);
-        }
-
         ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
         if (parametricType == null) {
             throw new TypeNotFoundException(signature);
@@ -230,7 +221,7 @@ public final class TypeRegistry
 
         Type instantiatedType;
         try {
-            instantiatedType = parametricType.createType(typeManager, parameters);
+            instantiatedType = parametricType.createType(typeManager, signature.getParameters());
         }
         catch (IllegalArgumentException e) {
             throw new TypeNotFoundException(signature, e);

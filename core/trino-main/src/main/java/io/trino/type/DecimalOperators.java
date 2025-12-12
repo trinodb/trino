@@ -47,7 +47,7 @@ import static io.trino.spi.type.Int128Math.negateExact;
 import static io.trino.spi.type.Int128Math.remainder;
 import static io.trino.spi.type.Int128Math.rescale;
 import static io.trino.spi.type.Int128Math.subtract;
-import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
+import static io.trino.spi.type.TypeParameter.typeVariable;
 import static java.lang.Integer.max;
 import static java.lang.Long.signum;
 import static java.lang.Math.abs;
