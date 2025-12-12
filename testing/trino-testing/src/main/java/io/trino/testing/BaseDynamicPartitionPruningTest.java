@@ -65,9 +65,9 @@ public abstract class BaseDynamicPartitionPruningTest
     private static final long LINEITEM_COUNT = 60175;
     protected static final Set<TpchTable<?>> REQUIRED_TABLES = ImmutableSet.of(LINE_ITEM, ORDERS, SUPPLIER);
     protected static final Map<String, String> EXTRA_PROPERTIES = ImmutableMap.of(
-            // Reduced partitioned join limit for large DF to enable DF min/max collection
-            "dynamic-filtering.large-partitioned.max-distinct-values-per-driver", "100",
-            "dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000",
+            // Reduced partitioned join limit for DF to enable DF min/max collection
+            "dynamic-filtering.partitioned.max-distinct-values-per-driver", "100",
+            "dynamic-filtering.partitioned.range-row-limit-per-driver", "100000",
             // disable semi join to inner join rewrite to test semi join operators explicitly
             "optimizer.rewrite-filtering-semi-join-to-inner-join", "false");
 
