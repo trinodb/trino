@@ -25,7 +25,10 @@ import java.util.Map;
 
 import static com.google.common.hash.Hashing.murmur3_32_fixed;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.iceberg.TableProperties.WRITE_OBJECT_STORE_PARTITIONED_PATHS;
+import static org.apache.iceberg.TableProperties.WRITE_OBJECT_STORE_PARTITIONED_PATHS_DEFAULT;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
+import static org.apache.iceberg.util.PropertyUtil.propertyAsBoolean;
 
 // based on org.apache.iceberg.LocationProviders.ObjectStoreLocationProvider
 public class ObjectStoreLocationProvider
@@ -40,12 +43,14 @@ public class ObjectStoreLocationProvider
     private static final int ENTROPY_DIR_DEPTH = 3;
     private final String storageLocation;
     private final String context;
+    private final boolean includePartitionPaths;
 
     public ObjectStoreLocationProvider(String tableLocation, Map<String, String> properties)
     {
         this.storageLocation = stripTrailingSlash(dataLocation(properties, tableLocation));
         // if the storage location is within the table prefix, don't add table and database name context
         this.context = storageLocation.startsWith(stripTrailingSlash(tableLocation)) ? null : pathContext(tableLocation);
+        this.includePartitionPaths = propertyAsBoolean(properties, WRITE_OBJECT_STORE_PARTITIONED_PATHS, WRITE_OBJECT_STORE_PARTITIONED_PATHS_DEFAULT);
     }
 
     @SuppressWarnings("deprecation")
@@ -67,7 +72,10 @@ public class ObjectStoreLocationProvider
     @Override
     public String newDataLocation(PartitionSpec spec, StructLike partitionData, String filename)
     {
-        return newDataLocation("%s/%s".formatted(spec.partitionToPath(partitionData), filename));
+        if (includePartitionPaths) {
+            return newDataLocation("%s/%s".formatted(spec.partitionToPath(partitionData), filename));
+        }
+        return newDataLocation(filename);
     }
 
     @Override
@@ -77,7 +85,12 @@ public class ObjectStoreLocationProvider
         if (context != null) {
             return "%s/%s/%s/%s".formatted(storageLocation, hash, context, filename);
         }
-        return "%s/%s/%s".formatted(storageLocation, hash, filename);
+        if (includePartitionPaths) {
+            // if partition paths are included, add last part of entropy as dir before partition names
+            return "%s/%s/%s".formatted(storageLocation, hash, filename);
+        }
+        // if partition paths are not included, append last part of entropy with `-` to file name
+        return "%s/%s-%s".formatted(storageLocation, hash, filename);
     }
 
     private static String pathContext(String tableLocation)
