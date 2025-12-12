@@ -20,12 +20,11 @@ import jdk.incubator.vector.LongVector;
 import jdk.incubator.vector.VectorMask;
 import jdk.incubator.vector.VectorSpecies;
 
-import static io.trino.spi.block.EncoderUtil.compactLongsWithNullsScalar;
-import static io.trino.spi.block.EncoderUtil.compactLongsWithNullsVectorized;
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
 import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
 import static java.lang.System.arraycopy;
+import static java.util.Objects.checkFromIndexSize;
 
 public class LongArrayBlockEncoding
         implements BlockEncoding
@@ -100,7 +99,43 @@ public class LongArrayBlockEncoding
         return expandLongsWithNullsScalar(sliceInput, positionCount, valueIsNullPacked, valueIsNull);
     }
 
-    private static LongArrayBlock expandLongsWithNullsVectorized(SliceInput sliceInput, int positionCount, boolean[] valueIsNull)
+    static void compactLongsWithNullsVectorized(SliceOutput sliceOutput, long[] values, boolean[] isNull, int offset, int length)
+    {
+        checkFromIndexSize(offset, length, values.length);
+        checkFromIndexSize(offset, length, isNull.length);
+        long[] compacted = new long[length];
+        int valuesIndex = 0;
+        int compactedIndex = 0;
+        for (; valuesIndex < LONG_SPECIES.loopBound(length); valuesIndex += LONG_SPECIES.length()) {
+            VectorMask<Long> mask = LONG_SPECIES.loadMask(isNull, valuesIndex + offset).not();
+            LongVector.fromArray(LONG_SPECIES, values, valuesIndex + offset)
+                    .compress(mask)
+                    .intoArray(compacted, compactedIndex);
+            compactedIndex += mask.trueCount();
+        }
+        for (; valuesIndex < length; valuesIndex++) {
+            compacted[compactedIndex] = values[valuesIndex + offset];
+            compactedIndex += isNull[valuesIndex + offset] ? 0 : 1;
+        }
+        sliceOutput.writeInt(compactedIndex);
+        sliceOutput.writeLongs(compacted, 0, compactedIndex);
+    }
+
+    static void compactLongsWithNullsScalar(SliceOutput sliceOutput, long[] values, boolean[] isNull, int offset, int length)
+    {
+        checkFromIndexSize(offset, length, values.length);
+        checkFromIndexSize(offset, length, isNull.length);
+        long[] compacted = new long[length];
+        int compactedIndex = 0;
+        for (int i = 0; i < length; i++) {
+            compacted[compactedIndex] = values[i + offset];
+            compactedIndex += isNull[i + offset] ? 0 : 1;
+        }
+        sliceOutput.writeInt(compactedIndex);
+        sliceOutput.writeLongs(compacted, 0, compactedIndex);
+    }
+
+    static LongArrayBlock expandLongsWithNullsVectorized(SliceInput sliceInput, int positionCount, boolean[] valueIsNull)
     {
         if (valueIsNull.length != positionCount) {
             throw new IllegalArgumentException("valueIsNull length must match positionCount");
@@ -144,7 +179,7 @@ public class LongArrayBlockEncoding
         return new LongArrayBlock(0, positionCount, valueIsNull, values);
     }
 
-    private static LongArrayBlock expandLongsWithNullsScalar(SliceInput sliceInput, int positionCount, byte[] valueIsNullPacked, boolean[] valueIsNull)
+    static LongArrayBlock expandLongsWithNullsScalar(SliceInput sliceInput, int positionCount, byte[] valueIsNullPacked, boolean[] valueIsNull)
     {
         if (valueIsNull.length != positionCount) {
             throw new IllegalArgumentException("valueIsNull length must match positionCount");

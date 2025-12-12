@@ -21,12 +21,11 @@ import jdk.incubator.vector.ByteVector;
 import jdk.incubator.vector.VectorMask;
 import jdk.incubator.vector.VectorSpecies;
 
-import static io.trino.spi.block.EncoderUtil.compactBytesWithNullsScalar;
-import static io.trino.spi.block.EncoderUtil.compactBytesWithNullsVectorized;
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
 import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
 import static java.lang.System.arraycopy;
+import static java.util.Objects.checkFromIndexSize;
 
 public class ByteArrayBlockEncoding
         implements BlockEncoding
@@ -102,7 +101,43 @@ public class ByteArrayBlockEncoding
         return expandBytesWithNullsScalar(sliceInput, positionCount, valueIsNullPacked, valueIsNull);
     }
 
-    private static ByteArrayBlock expandBytesWithNullsVectorized(SliceInput sliceInput, int positionCount, boolean[] valueIsNull)
+    static void compactBytesWithNullsVectorized(SliceOutput sliceOutput, byte[] values, boolean[] isNull, int offset, int length)
+    {
+        checkFromIndexSize(offset, length, values.length);
+        checkFromIndexSize(offset, length, isNull.length);
+        byte[] compacted = new byte[length];
+        int valuesIndex = 0;
+        int compactedIndex = 0;
+        for (; valuesIndex < BYTE_SPECIES.loopBound(length); valuesIndex += BYTE_SPECIES.length()) {
+            VectorMask<Byte> mask = BYTE_SPECIES.loadMask(isNull, valuesIndex + offset).not();
+            ByteVector.fromArray(BYTE_SPECIES, values, valuesIndex + offset)
+                    .compress(mask)
+                    .intoArray(compacted, compactedIndex);
+            compactedIndex += mask.trueCount();
+        }
+        for (; valuesIndex < length; valuesIndex++) {
+            compacted[compactedIndex] = values[valuesIndex + offset];
+            compactedIndex += isNull[valuesIndex + offset] ? 0 : 1;
+        }
+        sliceOutput.writeInt(compactedIndex);
+        sliceOutput.writeBytes(compacted, 0, compactedIndex);
+    }
+
+    static void compactBytesWithNullsScalar(SliceOutput sliceOutput, byte[] values, boolean[] isNull, int offset, int length)
+    {
+        checkFromIndexSize(offset, length, values.length);
+        checkFromIndexSize(offset, length, isNull.length);
+        byte[] compacted = new byte[length];
+        int compactedIndex = 0;
+        for (int i = 0; i < length; i++) {
+            compacted[compactedIndex] = values[i + offset];
+            compactedIndex += isNull[i + offset] ? 0 : 1;
+        }
+        sliceOutput.writeInt(compactedIndex);
+        sliceOutput.writeBytes(compacted, 0, compactedIndex);
+    }
+
+    static ByteArrayBlock expandBytesWithNullsVectorized(SliceInput sliceInput, int positionCount, boolean[] valueIsNull)
     {
         if (valueIsNull.length != positionCount) {
             throw new IllegalArgumentException("valueIsNull length must match positionCount");
@@ -129,7 +164,7 @@ public class ByteArrayBlockEncoding
         return new ByteArrayBlock(0, positionCount, valueIsNull, values);
     }
 
-    private static ByteArrayBlock expandBytesWithNullsScalar(SliceInput sliceInput, int positionCount, byte[] valueIsNullPacked, boolean[] valueIsNull)
+    static ByteArrayBlock expandBytesWithNullsScalar(SliceInput sliceInput, int positionCount, byte[] valueIsNullPacked, boolean[] valueIsNull)
     {
         if (valueIsNull.length != positionCount) {
             throw new IllegalArgumentException("valueIsNull length must match positionCount");
