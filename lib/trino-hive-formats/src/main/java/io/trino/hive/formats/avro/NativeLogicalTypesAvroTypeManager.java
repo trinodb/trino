@@ -25,6 +25,7 @@ import io.trino.hive.formats.avro.model.AvroLogicalType.TimeMicrosLogicalType;
 import io.trino.hive.formats.avro.model.AvroLogicalType.TimeMillisLogicalType;
 import io.trino.hive.formats.avro.model.AvroLogicalType.TimestampMicrosLogicalType;
 import io.trino.hive.formats.avro.model.AvroLogicalType.TimestampMillisLogicalType;
+import io.trino.hive.formats.avro.model.AvroLogicalType.TimestampNanosLogicalType;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
@@ -50,19 +51,27 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.hive.formats.avro.model.AvroLogicalType.DATE;
 import static io.trino.hive.formats.avro.model.AvroLogicalType.DECIMAL;
 import static io.trino.hive.formats.avro.model.AvroLogicalType.LOCAL_TIMESTAMP_MICROS;
 import static io.trino.hive.formats.avro.model.AvroLogicalType.LOCAL_TIMESTAMP_MILLIS;
+import static io.trino.hive.formats.avro.model.AvroLogicalType.LOCAL_TIMESTAMP_NANOS;
 import static io.trino.hive.formats.avro.model.AvroLogicalType.TIMESTAMP_MICROS;
 import static io.trino.hive.formats.avro.model.AvroLogicalType.TIMESTAMP_MILLIS;
+import static io.trino.hive.formats.avro.model.AvroLogicalType.TIMESTAMP_NANOS;
 import static io.trino.hive.formats.avro.model.AvroLogicalType.TIME_MICROS;
 import static io.trino.hive.formats.avro.model.AvroLogicalType.TIME_MILLIS;
 import static io.trino.hive.formats.avro.model.AvroLogicalType.UUID;
 import static io.trino.hive.formats.avro.model.AvroLogicalType.fromAvroLogicalType;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
+import static java.lang.Math.addExact;
+import static java.lang.Math.divideExact;
+import static java.lang.Math.multiplyExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.avro.LogicalTypes.fromSchemaIgnoreInvalid;
 
@@ -79,6 +88,7 @@ public class NativeLogicalTypesAvroTypeManager
     public static final Schema TIME_MICROS_SCHEMA;
     public static final Schema TIMESTAMP_MILLIS_SCHEMA;
     public static final Schema TIMESTAMP_MICROS_SCHEMA;
+    public static final Schema TIMESTAMP_NANOS_SCHEMA;
     public static final Schema UUID_SCHEMA;
 
     static {
@@ -92,6 +102,8 @@ public class NativeLogicalTypesAvroTypeManager
         LogicalTypes.timestampMillis().addToSchema(TIMESTAMP_MILLIS_SCHEMA);
         TIMESTAMP_MICROS_SCHEMA = SchemaBuilder.builder().longType();
         LogicalTypes.timestampMicros().addToSchema(TIMESTAMP_MICROS_SCHEMA);
+        TIMESTAMP_NANOS_SCHEMA = SchemaBuilder.builder().longType();
+        LogicalTypes.timestampNanos().addToSchema(TIMESTAMP_NANOS_SCHEMA);
         UUID_SCHEMA = Schema.create(Schema.Type.STRING);
         LogicalTypes.uuid().addToSchema(UUID_SCHEMA);
     }
@@ -117,6 +129,7 @@ public class NativeLogicalTypesAvroTypeManager
             case TimeMicrosLogicalType __ -> TimeType.TIME_MICROS;
             case TimestampMillisLogicalType __ -> TimestampType.TIMESTAMP_MILLIS;
             case TimestampMicrosLogicalType __ -> TimestampType.TIMESTAMP_MICROS;
+            case TimestampNanosLogicalType __ -> TimestampType.TIMESTAMP_NANOS;
             case StringUUIDLogicalType __ -> UuidType.UUID;
         };
     }
@@ -133,6 +146,7 @@ public class NativeLogicalTypesAvroTypeManager
             case TIME_MICROS -> TimeType.TIME_MICROS;
             case TIMESTAMP_MILLIS -> TimestampType.TIMESTAMP_MILLIS;
             case TIMESTAMP_MICROS -> TimestampType.TIMESTAMP_MICROS;
+            case TIMESTAMP_NANOS -> TimestampType.TIMESTAMP_NANOS;
             case UUID -> UuidType.UUID;
             default -> throw new IllegalStateException("Unreachable unfiltered logical type");
         };
@@ -216,6 +230,17 @@ public class NativeLogicalTypesAvroTypeManager
                     };
                 }
             }
+            case TimestampNanosLogicalType _ -> {
+                if (!(type instanceof TimestampType timestampType)) {
+                    throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType, type));
+                }
+                checkState(!timestampType.isShort(), "Short timestamp type cannot represent nanosecond precision");
+                yield (block, position) ->
+                {
+                    SqlTimestamp timestamp = ((SqlTimestamp) timestampType.getObjectValue(block, position));
+                    return addExact(multiplyExact(timestamp.getEpochMicros(), NANOSECONDS_PER_MICROSECOND), divideExact(timestamp.getPicosOfMicros(), PICOSECONDS_PER_NANOSECOND));
+                };
+            }
             case StringUUIDLogicalType _ -> {
                 if (!(type instanceof UuidType uuidType)) {
                     throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType, type));
@@ -253,10 +278,10 @@ public class NativeLogicalTypesAvroTypeManager
         }
         LogicalType logicalType;
         switch (typeName) {
-            case DATE, DECIMAL, TIME_MILLIS, TIME_MICROS, TIMESTAMP_MILLIS, TIMESTAMP_MICROS, UUID:
+            case DATE, DECIMAL, TIME_MILLIS, TIME_MICROS, TIMESTAMP_MILLIS, TIMESTAMP_MICROS, TIMESTAMP_NANOS, UUID:
                 logicalType = fromSchemaIgnoreInvalid(schema);
                 break;
-            case LOCAL_TIMESTAMP_MICROS, LOCAL_TIMESTAMP_MILLIS:
+            case LOCAL_TIMESTAMP_NANOS, LOCAL_TIMESTAMP_MICROS, LOCAL_TIMESTAMP_MILLIS:
                 log.debug("Logical type %s not currently supported by by Trino", typeName);
                 // fall through
             default:

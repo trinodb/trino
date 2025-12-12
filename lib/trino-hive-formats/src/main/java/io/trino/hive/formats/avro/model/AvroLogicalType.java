@@ -27,6 +27,7 @@ public sealed interface AvroLogicalType
         AvroLogicalType.TimeMicrosLogicalType,
         AvroLogicalType.TimestampMillisLogicalType,
         AvroLogicalType.TimestampMicrosLogicalType,
+        AvroLogicalType.TimestampNanosLogicalType,
         AvroLogicalType.StringUUIDLogicalType
 {
     // Copied from org.apache.avro.LogicalTypes
@@ -36,8 +37,10 @@ public sealed interface AvroLogicalType
     String TIME_MICROS = "time-micros";
     String TIMESTAMP_MILLIS = "timestamp-millis";
     String TIMESTAMP_MICROS = "timestamp-micros";
+    String TIMESTAMP_NANOS = "timestamp-nanos";
     String LOCAL_TIMESTAMP_MILLIS = "local-timestamp-millis";
     String LOCAL_TIMESTAMP_MICROS = "local-timestamp-micros";
+    String LOCAL_TIMESTAMP_NANOS = "local-timestamp-nanos";
     String UUID = "uuid";
 
     static AvroLogicalType fromAvroLogicalType(LogicalType logicalType, Schema schema)
@@ -80,6 +83,11 @@ public sealed interface AvroLogicalType
                     return new TimestampMicrosLogicalType();
                 }
             }
+            case TIMESTAMP_NANOS -> {
+                if (schema.getType() == Schema.Type.LONG) {
+                    return new TimestampNanosLogicalType();
+                }
+            }
             case UUID -> {
                 if (schema.getType() == Schema.Type.STRING) {
                     return new StringUUIDLogicalType();
@@ -108,6 +116,9 @@ public sealed interface AvroLogicalType
             implements AvroLogicalType {}
 
     record TimestampMicrosLogicalType()
+            implements AvroLogicalType {}
+
+    record TimestampNanosLogicalType()
             implements AvroLogicalType {}
 
     record StringUUIDLogicalType()

@@ -24,6 +24,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTime;
@@ -48,16 +49,21 @@ import java.nio.ByteBuffer;
 import java.util.Date;
 import java.util.UUID;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.DATE_SCHEMA;
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.TIMESTAMP_MICROS_SCHEMA;
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.TIMESTAMP_MILLIS_SCHEMA;
+import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.TIMESTAMP_NANOS_SCHEMA;
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.TIME_MICROS_SCHEMA;
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.TIME_MILLIS_SCHEMA;
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.UUID_SCHEMA;
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.padBigEndianToSize;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static java.lang.Math.floorDiv;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -101,6 +107,8 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
                 .type(TIMESTAMP_MILLIS_SCHEMA).noDefault()
                 .name("timestampMicros")
                 .type(TIMESTAMP_MICROS_SCHEMA).noDefault()
+                .name("timestampNanos")
+                .type(TIMESTAMP_NANOS_SCHEMA).noDefault()
                 .name("smallBytesDecimal")
                 .type(DECIMAL_SMALL_BYTES_SCHEMA).noDefault()
                 .name("smallFixedDecimal")
@@ -124,13 +132,19 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
 
         ALL_SUPPORTED_TYPES_GENERIC_RECORD.put("timestampMillis", testTime.getTime());
         BlockBuilder timestampMilliBlock = TimestampType.TIMESTAMP_MILLIS.createFixedSizeBlockBuilder(1);
-        TimestampType.TIMESTAMP_MILLIS.writeLong(timestampMilliBlock, testTime.getTime() * Timestamps.MICROSECONDS_PER_MILLISECOND);
+        TimestampType.TIMESTAMP_MILLIS.writeLong(timestampMilliBlock, testTime.getTime() * MICROSECONDS_PER_MILLISECOND);
         blocks.add(timestampMilliBlock.build());
 
-        ALL_SUPPORTED_TYPES_GENERIC_RECORD.put("timestampMicros", testTime.getTime() * 1000);
+        ALL_SUPPORTED_TYPES_GENERIC_RECORD.put("timestampMicros", testTime.getTime() * MICROSECONDS_PER_MILLISECOND);
         BlockBuilder timestampMicroBlock = TimestampType.TIMESTAMP_MICROS.createFixedSizeBlockBuilder(1);
-        TimestampType.TIMESTAMP_MICROS.writeLong(timestampMicroBlock, testTime.getTime() * Timestamps.MICROSECONDS_PER_MILLISECOND);
+        TimestampType.TIMESTAMP_MICROS.writeLong(timestampMicroBlock, testTime.getTime() * MICROSECONDS_PER_MILLISECOND);
         blocks.add(timestampMicroBlock.build());
+
+        ALL_SUPPORTED_TYPES_GENERIC_RECORD.put("timestampNanos", testTime.getTime() * Timestamps.NANOSECONDS_PER_MILLISECOND);
+        BlockBuilder timestampNanoBlock = TimestampType.TIMESTAMP_NANOS.createFixedSizeBlockBuilder(1);
+        SqlTimestamp sqlTimestamp = SqlTimestamp.fromMillis(9, testTime.getTime());
+        TimestampType.TIMESTAMP_NANOS.writeObject(timestampNanoBlock, new LongTimestamp(sqlTimestamp.getEpochMicros(), sqlTimestamp.getPicosOfMicros()));
+        blocks.add(timestampNanoBlock.build());
 
         ALL_SUPPORTED_TYPES_GENERIC_RECORD.put("smallBytesDecimal", ByteBuffer.wrap(Longs.toByteArray(78068160000000L)));
         ALL_SUPPORTED_TYPES_GENERIC_RECORD.put("smallFixedDecimal", GENERIC_SMALL_FIXED_DECIMAL);
@@ -265,20 +279,125 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
         }
     }
 
+    @Test
+    public void testNegativeEpochTimestampsAndDates()
+            throws IOException, AvroTypeException
+    {
+        Location testLocation = createLocalTempLocation();
+        Schema timestampsSchema = SchemaBuilder.builder()
+                .record("timestamps")
+                .fields()
+                .name("timestampMillis")
+                .type(TIMESTAMP_MILLIS_SCHEMA).noDefault()
+                .name("timestampMicros")
+                .type(TIMESTAMP_MICROS_SCHEMA).noDefault()
+                .name("timestampNanos")
+                .type(TIMESTAMP_NANOS_SCHEMA).noDefault()
+                .name("date")
+                .type(DATE_SCHEMA).noDefault()
+                .endRecord();
+        ImmutableList.Builder<Block> blocks = ImmutableList.builder();
+
+        BlockBuilder timestampMillisBlock = TimestampType.TIMESTAMP_MILLIS.createFixedSizeBlockBuilder(2);
+        BlockBuilder timestampMicrosBlock = TimestampType.TIMESTAMP_MICROS.createFixedSizeBlockBuilder(2);
+        BlockBuilder timestampNanosBlock = TimestampType.TIMESTAMP_NANOS.createFixedSizeBlockBuilder(2);
+
+        // negative epoch timestamps
+        long negativeEpochNanos = -1_000_000_000L;
+        SqlTimestamp negativeEpochTimestamp = SqlTimestamp.newInstance(9, negativeEpochNanos / Timestamps.NANOSECONDS_PER_MICROSECOND, 0);
+        {
+            TimestampType.TIMESTAMP_MILLIS.writeLong(timestampMillisBlock, negativeEpochNanos / Timestamps.NANOSECONDS_PER_MICROSECOND);
+            TimestampType.TIMESTAMP_MICROS.writeLong(timestampMicrosBlock, negativeEpochNanos / Timestamps.NANOSECONDS_PER_MICROSECOND);
+            TimestampType.TIMESTAMP_NANOS.writeObject(timestampNanosBlock, new LongTimestamp(negativeEpochTimestamp.getEpochMicros(), negativeEpochTimestamp.getPicosOfMicros()));
+        }
+
+        // largest timestamp representable by nanos: 2262-04-11T23:47:16.854775807
+        long largestEpochNanos = Long.MAX_VALUE;
+        SqlTimestamp largestEpochTimestamp = SqlTimestamp.newInstance(9, largestEpochNanos / Timestamps.NANOSECONDS_PER_MICROSECOND, 0);
+        {
+            TimestampType.TIMESTAMP_MILLIS.writeLong(timestampMillisBlock, largestEpochNanos / Timestamps.NANOSECONDS_PER_MICROSECOND);
+            TimestampType.TIMESTAMP_MICROS.writeLong(timestampMicrosBlock, largestEpochNanos / Timestamps.NANOSECONDS_PER_MICROSECOND);
+            TimestampType.TIMESTAMP_NANOS.writeObject(timestampNanosBlock, new LongTimestamp(largestEpochTimestamp.getEpochMicros(), largestEpochTimestamp.getPicosOfMicros()));
+        }
+
+        blocks.add(timestampMillisBlock.build());
+        blocks.add(timestampMicrosBlock.build());
+        blocks.add(timestampNanosBlock.build());
+
+        BlockBuilder dateBlock = DateType.DATE.createFixedSizeBlockBuilder(2);
+        // negative epoch date
+        int daysBeforeEpoch = -3;
+        DateType.DATE.writeInt(dateBlock, daysBeforeEpoch);
+
+        // largest timestamp representable by date: 5874897-07-11
+        int daysAfterEpoch = Integer.MAX_VALUE;
+        DateType.DATE.writeInt(dateBlock, daysAfterEpoch);
+
+        blocks.add(dateBlock.build());
+
+        Page timestampsPage = new Page(blocks.build().toArray(Block[]::new));
+        try (AvroFileWriter fileWriter = new AvroFileWriter(
+                trinoLocalFilesystem.newOutputFile(testLocation).create(),
+                timestampsSchema,
+                new NativeLogicalTypesAvroTypeManager(),
+                AvroCompressionKind.NULL,
+                ImmutableMap.of(),
+                timestampsSchema.getFields().stream().map(Schema.Field::name).collect(toImmutableList()),
+                new NativeLogicalTypesAvroTypeBlockHandler().typeFor(timestampsSchema).getTypeParameters(), false)) {
+            fileWriter.write(timestampsPage);
+        }
+
+        try (AvroFileReader fileReader = new AvroFileReader(
+                trinoLocalFilesystem.newInputFile(testLocation),
+                timestampsSchema,
+                new NativeLogicalTypesAvroTypeBlockHandler())) {
+            assertThat(fileReader.hasNext()).isTrue();
+            Page p = fileReader.next();
+            assertThat(fileReader.hasNext()).isFalse();
+            assertThat(p.getPositionCount()).isEqualTo(2);
+            for (int i = 0; i < p.getPositionCount(); i++) {
+                SqlTimestamp readMillisTimestamp = (SqlTimestamp) TimestampType.TIMESTAMP_MILLIS.getObjectValue(p.getBlock(0), i);
+                SqlTimestamp readMicrosTimestamp = (SqlTimestamp) TimestampType.TIMESTAMP_MICROS.getObjectValue(p.getBlock(1), i);
+                SqlTimestamp readNanosTimestamp = (SqlTimestamp) TimestampType.TIMESTAMP_NANOS.getObjectValue(p.getBlock(2), i);
+                int readDaysValue = DateType.DATE.getInt(p.getBlock(3), i);
+
+                if (i == 0) {
+                    assertThat(readMillisTimestamp).isEqualTo(newTruncatedTimestamp(negativeEpochTimestamp, 3));
+                    assertThat(readMicrosTimestamp).isEqualTo(newTruncatedTimestamp(negativeEpochTimestamp, 6));
+                    assertThat(readNanosTimestamp).isEqualTo(negativeEpochTimestamp);
+                    assertThat(readDaysValue).isEqualTo(daysBeforeEpoch);
+                }
+                else if (i == 1) {
+                    assertThat(readMillisTimestamp).isEqualTo(newTruncatedTimestamp(largestEpochTimestamp, 3));
+                    assertThat(readMicrosTimestamp).isEqualTo(newTruncatedTimestamp(largestEpochTimestamp, 6));
+                    assertThat(readNanosTimestamp).isEqualTo(largestEpochTimestamp);
+                    assertThat(readDaysValue).isEqualTo(daysAfterEpoch);
+                }
+                else {
+                    fail("Expected only 2 positions");
+                }
+            }
+        }
+    }
+
     private static void assertIsAllSupportedTypePage(Page p)
     {
         assertThat(p.getPositionCount()).isEqualTo(1);
         // Timestamps equal
         SqlTimestamp milliTimestamp = (SqlTimestamp) TimestampType.TIMESTAMP_MILLIS.getObjectValue(p.getBlock(0), 0);
         SqlTimestamp microTimestamp = (SqlTimestamp) TimestampType.TIMESTAMP_MICROS.getObjectValue(p.getBlock(1), 0);
+        SqlTimestamp nanoTimestamp = (SqlTimestamp) TimestampType.TIMESTAMP_NANOS.getObjectValue(p.getBlock(2), 0);
+
         assertThat(milliTimestamp).isEqualTo(microTimestamp.roundTo(3));
+        assertThat(microTimestamp).isEqualTo(nanoTimestamp.roundTo(6));
         assertThat(microTimestamp.getEpochMicros()).isEqualTo(testTime.getTime() * 1000);
+        assertThat(nanoTimestamp.getPicosOfMicros()).isEqualTo(0);
 
         // Decimals Equal
-        SqlDecimal smallBytesDecimal = (SqlDecimal) SMALL_DECIMAL_TYPE.getObjectValue(p.getBlock(2), 0);
-        SqlDecimal smallFixedDecimal = (SqlDecimal) SMALL_DECIMAL_TYPE.getObjectValue(p.getBlock(3), 0);
-        SqlDecimal largeBytesDecimal = (SqlDecimal) LARGE_DECIMAL_TYPE.getObjectValue(p.getBlock(4), 0);
-        SqlDecimal largeFixedDecimal = (SqlDecimal) LARGE_DECIMAL_TYPE.getObjectValue(p.getBlock(5), 0);
+        SqlDecimal smallBytesDecimal = (SqlDecimal) SMALL_DECIMAL_TYPE.getObjectValue(p.getBlock(3), 0);
+        SqlDecimal smallFixedDecimal = (SqlDecimal) SMALL_DECIMAL_TYPE.getObjectValue(p.getBlock(4), 0);
+        SqlDecimal largeBytesDecimal = (SqlDecimal) LARGE_DECIMAL_TYPE.getObjectValue(p.getBlock(5), 0);
+        SqlDecimal largeFixedDecimal = (SqlDecimal) LARGE_DECIMAL_TYPE.getObjectValue(p.getBlock(6), 0);
 
         assertThat(smallBytesDecimal).isEqualTo(smallFixedDecimal);
         assertThat(largeBytesDecimal).isEqualTo(largeFixedDecimal);
@@ -286,16 +405,45 @@ public class TestAvroPageDataReaderWithAvroNativeTypeManagement
         assertThat(smallBytesDecimal.getUnscaledValue()).isEqualTo(new BigInteger(Longs.toByteArray(78068160000000L)));
 
         // Get date
-        SqlDate date = (SqlDate) DateType.DATE.getObjectValue(p.getBlock(6), 0);
+        SqlDate date = (SqlDate) DateType.DATE.getObjectValue(p.getBlock(7), 0);
         assertThat(date.getDays()).isEqualTo(9035);
 
         // Time equals
-        SqlTime timeMillis = (SqlTime) TimeType.TIME_MILLIS.getObjectValue(p.getBlock(7), 0);
-        SqlTime timeMicros = (SqlTime) TimeType.TIME_MICROS.getObjectValue(p.getBlock(8), 0);
+        SqlTime timeMillis = (SqlTime) TimeType.TIME_MILLIS.getObjectValue(p.getBlock(8), 0);
+        SqlTime timeMicros = (SqlTime) TimeType.TIME_MICROS.getObjectValue(p.getBlock(9), 0);
         assertThat(timeMillis).isEqualTo(timeMicros.roundTo(3));
         assertThat(timeMillis.getPicos()).isEqualTo(timeMicros.getPicos()).isEqualTo(39_600_000_000L * 1_000_000L);
 
         //UUID
-        assertThat(RANDOM_UUID.toString()).isEqualTo(UuidType.UUID.getObjectValue(p.getBlock(9), 0));
+        assertThat(RANDOM_UUID.toString()).isEqualTo(UuidType.UUID.getObjectValue(p.getBlock(10), 0));
+    }
+
+    /**
+     * Timestamps#rescale not exposed publicly
+     *
+     * @param timestamp timestamp to truncate
+     * @param truncateToPrecision precision of new truncated timestamp
+     *
+     * @return truncated timestamp
+     */
+    private static SqlTimestamp newTruncatedTimestamp(SqlTimestamp timestamp, int truncateToPrecision)
+    {
+        checkArgument(truncateToPrecision >= 0 && truncateToPrecision <= 12, "Invalid precision: %s. Must be between 0 and 12.", truncateToPrecision);
+
+        checkArgument(truncateToPrecision < timestamp.getPrecision(),
+                "Invalid truncateToPrecision %s. Must be less than timestamp precision %s.",
+                truncateToPrecision,
+                timestamp.getPrecision());
+
+        if (truncateToPrecision <= 6) {
+            long factor = (long) Math.pow(10, 6 - truncateToPrecision);
+            long truncatedEpochMicros = floorDiv(timestamp.getEpochMicros(), factor) * factor;
+            return SqlTimestamp.newInstance(truncateToPrecision, truncatedEpochMicros, 0);
+        }
+        else {
+            long factor = (long) Math.pow(10, 12 - truncateToPrecision);
+            long truncatedPicosOfMicros = floorDiv(timestamp.getPicosOfMicros(), factor) * factor;
+            return SqlTimestamp.newInstance(truncateToPrecision, timestamp.getEpochMicros(), (int) truncatedPicosOfMicros);
+        }
     }
 }
