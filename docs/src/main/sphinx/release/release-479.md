@@ -20,6 +20,7 @@
 * Improve performance of {func}`array_sort` function. ({issue}`27272`)
 * Improve performance of {func}`repeat` function. ({issue}`27369`)
 * Improve performance of data exchanges involving variable width data. ({issue}`27377`)
+* Improve performance of queries referencing fresh materialized views. ({issue}`27551`)
 * Fix query failure when one of the branches of a `UNION` is known to produce zero rows during query planning. ({issue}`21506`)
 * Fix configuring partitioned layout for spooling protocol. ({issue}`27247`)
 * Fix `EXPLAIN (TYPE IO)` failure when the `WHERE` clause involves a type which cannot be cast to `varchar`. ({issue}`27433`)
@@ -111,6 +112,7 @@
 * Avoid worker crashes by failing queries attempting to read columns with huge values in parquet files. ({issue}`27148`)
 * Fix potential `FileAlreadyExistsException` failure when network failures occur during writes to S3. ({issue}`27330`)
 * Fix potential failure when dropping a schema with `CASCADE` option. ({issue}`27361`)
+* Fix failure when querying materialized views within the grace period. ({issue}`27606`)
 
 ## Ignite connector
 
