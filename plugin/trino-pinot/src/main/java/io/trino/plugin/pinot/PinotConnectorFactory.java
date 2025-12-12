@@ -20,12 +20,10 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
-import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.pinot.auth.PinotAuthenticationModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 import java.util.Optional;
@@ -36,6 +34,8 @@ import static java.util.Objects.requireNonNull;
 public class PinotConnectorFactory
         implements ConnectorFactory
 {
+    static final String CONNECTOR_NAME = "pinot";
+
     private final Optional<Module> extension;
 
     public PinotConnectorFactory(Optional<Module> extension)
@@ -46,7 +46,7 @@ public class PinotConnectorFactory
     @Override
     public String getName()
     {
-        return "pinot";
+        return CONNECTOR_NAME;
     }
 
     @Override
@@ -58,10 +58,8 @@ public class PinotConnectorFactory
 
         ImmutableList.Builder<Module> modulesBuilder = ImmutableList.<Module>builder()
                 .add(new JsonModule())
-                .add(new MBeanModule())
-                .add(new MBeanServerModule())
                 .add(new TypeDeserializerModule())
-                .add(new ConnectorContextModule(catalogName, context))
+                .add(new ConnectorContextModule(CONNECTOR_NAME, catalogName, context))
                 .add(new PinotModule(catalogName))
                 .add(new PinotAuthenticationModule());
 

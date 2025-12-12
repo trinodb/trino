@@ -43,6 +43,7 @@ import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
 import io.trino.util.EmbedVersion;
 import org.junit.jupiter.api.Test;
+import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.util.List;
 import java.util.OptionalInt;
@@ -138,7 +139,7 @@ public class TestTaskExecutorStuckSplits
                 new NodeSpillConfig(),
                 new TestingGcMonitor(),
                 noopTracer(),
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new TestingMBeanServer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
                 stuckSplitStackTracePredicate);
     }
 

@@ -30,10 +30,12 @@ import static java.util.Objects.requireNonNull;
 public class SheetsConnectorFactory
         implements ConnectorFactory
 {
+    static final String CONNECTOR_NAME = "gsheets";
+
     @Override
     public String getName()
     {
-        return "gsheets";
+        return CONNECTOR_NAME;
     }
 
     @Override
@@ -46,7 +48,7 @@ public class SheetsConnectorFactory
                 "io.trino.bootstrap.catalog." + catalogName,
                 new JsonModule(),
                 new TypeDeserializerModule(),
-                new ConnectorContextModule(catalogName, context),
+                new ConnectorContextModule(CONNECTOR_NAME, catalogName, context),
                 new SheetsModule());
 
         Injector injector = app

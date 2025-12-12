@@ -31,6 +31,8 @@ import static java.util.Objects.requireNonNull;
 public class PrometheusConnectorFactory
         implements ConnectorFactory
 {
+    static final String CONNECTOR_NAME = "prometheus";
+
     @Override
     public String getName()
     {
@@ -49,7 +51,7 @@ public class PrometheusConnectorFactory
                     "io.trino.bootstrap.catalog." + catalogName,
                     new JsonModule(),
                     new TypeDeserializerModule(),
-                    new ConnectorContextModule(catalogName, context),
+                    new ConnectorContextModule(CONNECTOR_NAME, catalogName, context),
                     new PrometheusModule());
 
             Injector injector = app

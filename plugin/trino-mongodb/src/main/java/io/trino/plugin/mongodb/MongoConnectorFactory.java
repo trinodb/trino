@@ -31,6 +31,8 @@ import static java.util.Objects.requireNonNull;
 public class MongoConnectorFactory
         implements ConnectorFactory
 {
+    static final String CONNECTOR_NAME = "mongo";
+
     private final String name;
 
     public MongoConnectorFactory(String name)
@@ -55,7 +57,7 @@ public class MongoConnectorFactory
                 "io.trino.bootstrap.catalog." + catalogName,
                 new JsonModule(),
                 new MongoClientModule(),
-                new ConnectorContextModule(catalogName, context));
+                new ConnectorContextModule(CONNECTOR_NAME, catalogName, context));
 
         Injector injector = app
                 .doNotInitializeLogging()

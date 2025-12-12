@@ -51,7 +51,7 @@ public class FakerConnectorFactory
 
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
-                new ConnectorContextModule(catalogName, context),
+                new ConnectorContextModule(name, catalogName, context),
                 new FakerModule());
 
         Injector injector = app

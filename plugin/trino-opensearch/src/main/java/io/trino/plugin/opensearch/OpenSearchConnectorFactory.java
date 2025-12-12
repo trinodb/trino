@@ -18,12 +18,9 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
-import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
-import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -33,12 +30,14 @@ import static java.util.Objects.requireNonNull;
 public class OpenSearchConnectorFactory
         implements ConnectorFactory
 {
+    static final String CONNECTOR_NAME = "opensearch";
+
     OpenSearchConnectorFactory() {}
 
     @Override
     public String getName()
     {
-        return "opensearch";
+        return CONNECTOR_NAME;
     }
 
     @Override
@@ -50,13 +49,10 @@ public class OpenSearchConnectorFactory
 
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
-                new MBeanModule(),
-                new MBeanServerModule(),
-                new ConnectorObjectNameGeneratorModule("io.trino.plugin.opensearch", "trino.plugin.opensearch"),
                 new JsonModule(),
                 new TypeDeserializerModule(),
                 new OpenSearchConnectorModule(),
-                new ConnectorContextModule(catalogName, context));
+                new ConnectorContextModule(CONNECTOR_NAME, catalogName, context));
 
         Injector injector = app
                 .doNotInitializeLogging()

@@ -64,6 +64,7 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Statement;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.Test;
+import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.net.URI;
 import java.util.List;
@@ -129,7 +130,7 @@ public class TestLocalDispatchQuery
                 JsonCodec.jsonCodec(OperatorStats.class),
                 JsonCodec.jsonCodec(ExecutionFailureInfo.class),
                 JsonCodec.jsonCodec(StatsAndCosts.class),
-                new EventListenerManager(new EventListenerConfig(), new SecretsResolver(ImmutableMap.of()), noop(), noopTracer(), new NodeVersion("test")),
+                new EventListenerManager(new EventListenerConfig(), new SecretsResolver(ImmutableMap.of()), noop(), noopTracer(), new TestingMBeanServer(), new NodeVersion("test")),
                 new NodeInfo("node"),
                 new NodeVersion("version"),
                 new SessionPropertyManager(),

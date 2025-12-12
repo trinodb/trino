@@ -27,10 +27,12 @@ import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 public class AiConnectorFactory
         implements ConnectorFactory
 {
+    static final String CONNECTOR_NAME = "ai";
+
     @Override
     public String getName()
     {
-        return "ai";
+        return CONNECTOR_NAME;
     }
 
     @Override
@@ -41,7 +43,7 @@ public class AiConnectorFactory
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
                 new AiModule(),
-                new ConnectorContextModule(catalogName, context));
+                new ConnectorContextModule(CONNECTOR_NAME, catalogName, context));
 
         Injector injector = app
                 .doNotInitializeLogging()
