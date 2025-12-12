@@ -18,7 +18,6 @@ import com.google.inject.Module;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
-import java.util.List;
 import java.util.function.Supplier;
 
 import static com.google.inject.util.Modules.EMPTY_MODULE;

@@ -25,7 +25,6 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 
-import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
