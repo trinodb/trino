@@ -38,6 +38,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.util.HashSet;
 import java.util.List;
@@ -69,7 +70,7 @@ public class TestDeduplicatingDirectExchangeBuffer
     @BeforeAll
     public void beforeClass()
     {
-        exchangeManagerRegistry = new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig());
+        exchangeManagerRegistry = new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new TestingMBeanServer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig());
         exchangeManagerRegistry.addExchangeManagerFactory(new FileSystemExchangeManagerFactory());
         exchangeManagerRegistry.loadExchangeManager("filesystem", ImmutableMap.of(
                 "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
@@ -450,7 +451,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                 directExecutor(),
                 DataSize.of(100, BYTE),
                 RetryPolicy.QUERY,
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new TestingMBeanServer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
                 new QueryId("query"),
                 Span.getInvalid(),
                 createRandomExchangeId())) {
@@ -474,7 +475,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                 directExecutor(),
                 DataSize.of(100, BYTE),
                 RetryPolicy.QUERY,
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new TestingMBeanServer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
                 new QueryId("query"),
                 Span.getInvalid(),
                 createRandomExchangeId())) {

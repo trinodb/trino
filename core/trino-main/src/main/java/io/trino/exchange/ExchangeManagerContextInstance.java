@@ -17,6 +17,8 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.exchange.ExchangeManagerContext;
 
+import javax.management.MBeanServer;
+
 import static java.util.Objects.requireNonNull;
 
 public class ExchangeManagerContextInstance
@@ -24,13 +26,16 @@ public class ExchangeManagerContextInstance
 {
     private final OpenTelemetry openTelemetry;
     private final Tracer tracer;
+    private final MBeanServer mbeanServer;
 
     public ExchangeManagerContextInstance(
             OpenTelemetry openTelemetry,
-            Tracer tracer)
+            Tracer tracer,
+            MBeanServer mbeanServer)
     {
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
+        this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
     }
 
     @Override
@@ -43,5 +48,11 @@ public class ExchangeManagerContextInstance
     public Tracer getTracer()
     {
         return tracer;
+    }
+
+    @Override
+    public MBeanServer getMBeanServer()
+    {
+        return mbeanServer;
     }
 }

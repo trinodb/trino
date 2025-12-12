@@ -18,14 +18,11 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
-import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
-import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.hive.security.HiveSecurityModule;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -34,6 +31,8 @@ import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 public class LakehouseConnectorFactory
         implements ConnectorFactory
 {
+    static final String CONNECTOR_NAME = "lakehouse";
+
     @Override
     public String getName()
     {
@@ -47,9 +46,6 @@ public class LakehouseConnectorFactory
         try (var _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             Bootstrap app = new Bootstrap(
                     "io.trino.bootstrap.catalog." + catalogName,
-                    new MBeanModule(),
-                    new MBeanServerModule(),
-                    new ConnectorObjectNameGeneratorModule("io.trino.plugin", "trino.plugin"),
                     new JsonModule(),
                     new TypeDeserializerModule(),
                     new LakehouseModule(),
@@ -59,7 +55,7 @@ public class LakehouseConnectorFactory
                     new LakehouseHudiModule(),
                     new HiveSecurityModule(),
                     new LakehouseFileSystemModule(catalogName, context),
-                    new ConnectorContextModule(catalogName, context));
+                    new ConnectorContextModule(CONNECTOR_NAME, catalogName, context));
 
             Injector injector = app
                     .doNotInitializeLogging()

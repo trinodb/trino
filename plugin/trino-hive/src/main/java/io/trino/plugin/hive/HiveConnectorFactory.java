@@ -30,8 +30,6 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
-import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
-import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.metastore.HiveMetastoreModule;
 import io.trino.plugin.hive.procedure.HiveProcedureModule;
@@ -48,7 +46,6 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.procedure.Procedure;
-import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 import java.util.Optional;
@@ -61,10 +58,12 @@ import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 public class HiveConnectorFactory
         implements ConnectorFactory
 {
+    static final String CONNECTOR_NAME = "hive";
+
     @Override
     public String getName()
     {
-        return "hive";
+        return CONNECTOR_NAME;
     }
 
     @Override
@@ -87,8 +86,6 @@ public class HiveConnectorFactory
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     "io.trino.bootstrap.catalog." + catalogName,
-                    new MBeanModule(),
-                    new ConnectorObjectNameGeneratorModule("io.trino.plugin.hive", "trino.plugin.hive"),
                     new JsonModule(),
                     new TypeDeserializerModule(),
                     new HiveModule(),
@@ -98,8 +95,7 @@ public class HiveConnectorFactory
                             .map(factory -> (Module) binder -> binder.bind(TrinoFileSystemFactory.class).toInstance(factory))
                             .orElseGet(() -> new FileSystemModule(catalogName, context, false)),
                     new HiveProcedureModule(),
-                    new MBeanServerModule(),
-                    new ConnectorContextModule(catalogName, context),
+                    new ConnectorContextModule(CONNECTOR_NAME, catalogName, context),
                     binder -> newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(HiveSessionProperties.class).in(Scopes.SINGLETON),
                     module);
 

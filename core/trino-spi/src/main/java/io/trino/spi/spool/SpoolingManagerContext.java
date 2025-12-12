@@ -17,6 +17,8 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.Node;
 
+import javax.management.MBeanServer;
+
 public interface SpoolingManagerContext
 {
     default OpenTelemetry getOpenTelemetry()
@@ -25,6 +27,11 @@ public interface SpoolingManagerContext
     }
 
     default Tracer getTracer()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default MBeanServer getMBeanServer()
     {
         throw new UnsupportedOperationException();
     }

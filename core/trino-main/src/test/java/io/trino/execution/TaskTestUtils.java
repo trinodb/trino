@@ -58,6 +58,7 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingSplit;
 import io.trino.type.BlockTypeOperators;
+import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.util.List;
 import java.util.Optional;
@@ -181,7 +182,7 @@ public final class TaskTestUtils
                 blockTypeOperators,
                 PLANNER_CONTEXT.getTypeOperators(),
                 new TableExecuteContextManager(),
-                new ExchangeManagerRegistry(noop(), noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
+                new ExchangeManagerRegistry(noop(), noopTracer(), new TestingMBeanServer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
                 new NodeVersion("test"),
                 new CompilerConfig());
     }

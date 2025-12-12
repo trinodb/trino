@@ -27,8 +27,6 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
-import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
-import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.hive.HiveConfig;
@@ -45,7 +43,6 @@ import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
-import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 import java.util.Optional;
@@ -84,16 +81,13 @@ public class DeltaLakeConnectorFactory
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     "io.trino.bootstrap.catalog." + catalogName,
-                    new MBeanModule(),
-                    new ConnectorObjectNameGeneratorModule("io.trino.plugin.deltalake", "trino.plugin.deltalake"),
                     new JsonModule(),
-                    new MBeanServerModule(),
                     metastoreModule.orElse(new DeltaLakeMetastoreModule()),
                     new DeltaLakeModule(),
                     new DeltaLakeSecurityModule(),
                     new DeltaLakeSynchronizerModule(),
                     new FileSystemModule(catalogName, context, false),
-                    new ConnectorContextModule(catalogName, context),
+                    new ConnectorContextModule(CONNECTOR_NAME, catalogName, context),
                     module);
 
             Injector injector = app
