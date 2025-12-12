@@ -60,8 +60,8 @@ import static java.util.Objects.requireNonNull;
 public class QueryExplainer
 {
     public static final String DEPRECATED_TYPE_LOGICAL_WARNING = """
-                                                                 WARNING: EXPLAIN TYPE LOGICAL is no longer supported and will be removed in a future release.
-                                                                 Below is the output for EXPLAIN TYPE DISTRIBUTED. Please update your query.
+                                                                 WARNING: EXPLAIN [TYPE LOGICAL | TYPE DISTRIBUTED] is no longer supported and will be removed in a future release.
+                                                                 Below is the output for EXPLAIN <query>. Please update your query.
 
                                                                  """;
     private final List<PlanOptimizer> planOptimizers;
@@ -103,11 +103,10 @@ public class QueryExplainer
         }
 
         return switch (planType) {
-            case LOGICAL -> {
+            case LOGICAL, DISTRIBUTED -> {
                 setDeprecatedTypeLogicalWarning(warningCollector);
                 yield DEPRECATED_TYPE_LOGICAL_WARNING + textDistributedPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
             }
-            case DISTRIBUTED -> textDistributedPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
             case IO -> textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector), plannerContext, session);
             default -> throw new IllegalArgumentException("Unhandled plan type: " + planType);
         };
@@ -133,11 +132,10 @@ public class QueryExplainer
         }
 
         return switch (planType) {
-            case LOGICAL -> {
+            case LOGICAL, DISTRIBUTED -> {
                 setDeprecatedTypeLogicalWarning(warningCollector);
                 yield PlanPrinter.graphvizDistributedPlan(getDistributedPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector));
             }
-            case DISTRIBUTED -> PlanPrinter.graphvizDistributedPlan(getDistributedPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector));
             default -> throw new IllegalArgumentException("Unhandled plan type: " + planType);
         };
     }
@@ -152,11 +150,10 @@ public class QueryExplainer
 
         return switch (planType) {
             case IO -> textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector), plannerContext, session);
-            case LOGICAL -> {
+            case LOGICAL, DISTRIBUTED -> {
                 setDeprecatedTypeLogicalWarning(warningCollector);
                 yield jsonDistributedPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
             }
-            case DISTRIBUTED -> jsonDistributedPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
             default -> throw new TrinoException(NOT_SUPPORTED, format("Unsupported explain plan type %s for JSON format", planType));
         };
     }
@@ -172,7 +169,7 @@ public class QueryExplainer
 
     private void setDeprecatedTypeLogicalWarning(WarningCollector warningCollector)
     {
-        warningCollector.add(new TrinoWarning(DEPRECATED_SYNTAX, "EXPLAIN TYPE LOGICAL is deprecated. Please use EXPLAIN TYPE DISTRIBUTED instead."));
+        warningCollector.add(new TrinoWarning(DEPRECATED_SYNTAX, "EXPLAIN [TYPE LOGICAL | TYPE DISTRIBUTED] is deprecated. Please use EXPLAIN <query> instead."));
     }
 
     public Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)

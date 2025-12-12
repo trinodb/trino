@@ -60,7 +60,6 @@ import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.QueryExplainer.DEPRECATED_TYPE_LOGICAL_WARNING;
 import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.trino.sql.tree.ExplainType.Type.IO;
 import static io.trino.sql.tree.ExplainType.Type.LOGICAL;
@@ -6013,7 +6012,7 @@ public abstract class AbstractTestEngineOnlyQueries
         String query = "SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN (TYPE LOGICAL, FORMAT TEXT) " + query);
         assertThat(getOnlyElement(result.getOnlyColumnAsSet())).isEqualTo(getExplainPlan(query, LOGICAL));
-        assertThat(getOnlyElement(result.getOnlyColumnAsSet())).isEqualTo(DEPRECATED_TYPE_LOGICAL_WARNING + getExplainPlan(query, DISTRIBUTED));
+        assertThat(getOnlyElement(result.getOnlyColumnAsSet())).isEqualTo(getExplainPlan(query, DISTRIBUTED));
     }
 
     @Test
