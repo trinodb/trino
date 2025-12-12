@@ -75,6 +75,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Locale.ENGLISH;
+import static org.apache.iceberg.TableProperties.GC_ENABLED_DEFAULT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseTrinoCatalogTest
@@ -153,7 +154,8 @@ public abstract class BaseTrinoCatalogTest
                     newDirectExecutorService(),
                     directExecutor(),
                     newDirectExecutorService(),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    GC_ENABLED_DEFAULT);
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
@@ -191,7 +193,8 @@ public abstract class BaseTrinoCatalogTest
                     newDirectExecutorService(),
                     directExecutor(),
                     newDirectExecutorService(),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    GC_ENABLED_DEFAULT);
 
             assertThat(icebergMetadata.getSchemaProperties(SESSION, namespace))
                     .doesNotContainKey("invalid_property");
