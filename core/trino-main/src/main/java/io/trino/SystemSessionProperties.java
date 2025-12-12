@@ -139,7 +139,6 @@ public final class SystemSessionProperties
     public static final String COMPLEX_EXPRESSION_PUSHDOWN = "complex_expression_pushdown";
     public static final String PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES = "predicate_pushdown_use_table_properties";
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
-    public static final String ENABLE_LARGE_DYNAMIC_FILTERS = "enable_large_dynamic_filters";
     public static final String ENABLE_DYNAMIC_ROW_FILTERING = "enable_dynamic_row_filtering";
     public static final String DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD = "dynamic_row_filtering_selectivity_threshold";
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
@@ -675,11 +674,6 @@ public final class SystemSessionProperties
                         ENABLE_DYNAMIC_FILTERING,
                         "Enable dynamic filtering",
                         dynamicFilterConfig.isEnableDynamicFiltering(),
-                        false),
-                booleanProperty(
-                        ENABLE_LARGE_DYNAMIC_FILTERS,
-                        "Enable collection of large dynamic filters",
-                        dynamicFilterConfig.isEnableLargeDynamicFilters(),
                         false),
                 booleanProperty(
                         ENABLE_DYNAMIC_ROW_FILTERING,
@@ -1630,11 +1624,6 @@ public final class SystemSessionProperties
     public static boolean isEnableDynamicFiltering(Session session)
     {
         return session.getSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.class);
-    }
-
-    public static boolean isEnableLargeDynamicFilters(Session session)
-    {
-        return session.getSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, Boolean.class);
     }
 
     public static boolean isEnableDynamicRowFiltering(Session session)
