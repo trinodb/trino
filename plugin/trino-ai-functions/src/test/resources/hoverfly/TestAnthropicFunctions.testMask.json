@@ -20,7 +20,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"claude-3-5-sonnet-latest\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Mask the values for each of the JSON encoded labels in the text below.\\nLabels: [ \\\"email\\\" ]\\nReplace the values with the text \\\"[MASKED]\\\".\\nOutput only the masked text.\\nDo not output anything else.\\n=====\\nYou can message me at jsmith@example.com\\n\"\n  } ]\n}"
+          "value" : "{\n  \"model\" : \"claude-sonnet-4-5-20250929\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Mask the values for each of the JSON encoded labels in the text below.\\nLabels: [ \\\"email\\\" ]\\nReplace the values with the text \\\"[MASKED]\\\".\\nOutput only the masked text.\\nDo not output anything else.\\n=====\\nYou can message me at jsmith@example.com\\n\"\n  } ],\n  \"temperature\" : 1.0\n}"
         } ]
       },
       "response" : {
@@ -74,7 +74,7 @@
         } ],
         "body" : [ {
           "matcher" : "exact",
-          "value" : "{\n  \"model\" : \"claude-3-5-sonnet-latest\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Mask the values for each of the JSON encoded labels in the text below.\\nLabels: [ \\\"phone\\\", \\\"address\\\" ]\\nReplace the values with the text \\\"[MASKED]\\\".\\nOutput only the masked text.\\nDo not output anything else.\\n=====\\nContact me at 555-1234 or visit us at 123 Main St.\\n\"\n  } ]\n}"
+          "value" : "{\n  \"model\" : \"claude-sonnet-4-5-20250929\",\n  \"max_tokens\" : 4096,\n  \"messages\" : [ {\n    \"role\" : \"user\",\n    \"content\" : \"Mask the values for each of the JSON encoded labels in the text below.\\nLabels: [ \\\"phone\\\", \\\"address\\\" ]\\nReplace the values with the text \\\"[MASKED]\\\".\\nOutput only the masked text.\\nDo not output anything else.\\n=====\\nContact me at 555-1234 or visit us at 123 Main St.\\n\"\n  } ],\n  \"temperature\" : 1.0\n}"
         } ]
       },
       "response" : {
