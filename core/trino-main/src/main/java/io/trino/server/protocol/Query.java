@@ -37,6 +37,7 @@ import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.exchange.LazyExchangeDataSource;
 import io.trino.execution.BasicStageInfo;
 import io.trino.execution.BasicStagesInfo;
+import io.trino.execution.ColumnInfo;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
@@ -683,13 +684,13 @@ class Query
     {
         // if first callback, set column names
         if (columns == null) {
-            List<String> columnNames = outputInfo.getColumnNames();
+            List<ColumnInfo> columnInfos = outputInfo.getColumnInfos();
             List<Type> columnTypes = outputInfo.getColumnTypes();
-            checkArgument(columnNames.size() == columnTypes.size(), "Column names and types size mismatch");
+            checkArgument(columnInfos.size() == columnTypes.size(), "Column infos and types size mismatch");
 
             ImmutableList.Builder<Column> list = ImmutableList.builder();
-            for (int i = 0; i < columnNames.size(); i++) {
-                list.add(createColumn(columnNames.get(i), columnTypes.get(i), supportsParametricDateTime));
+            for (int i = 0; i < columnInfos.size(); i++) {
+                list.add(createColumn(columnInfos.get(i), columnTypes.get(i), supportsParametricDateTime));
             }
             columns = list.build();
             types = outputInfo.getColumnTypes();

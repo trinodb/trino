@@ -1014,9 +1014,9 @@ public class QueryStateMachine
         outputManager.outputTaskFailed(taskId, failure);
     }
 
-    public void setColumns(List<String> columnNames, List<Type> columnTypes)
+    public void setColumns(List<ColumnInfo> columnInfos, List<Type> columnTypes)
     {
-        outputManager.setColumns(columnNames, columnTypes);
+        outputManager.setColumns(columnInfos, columnTypes);
     }
 
     public void updateInputsForQueryResults(List<ExchangeInput> inputs, boolean noMoreInputs)
@@ -1641,7 +1641,7 @@ public class QueryStateMachine
         private Optional<Consumer<QueryOutputInfo>> listener = Optional.empty();
 
         @GuardedBy("this")
-        private List<String> columnNames;
+        private List<ColumnInfo> columnInfos;
         @GuardedBy("this")
         private List<Type> columnTypes;
         @GuardedBy("this")
@@ -1674,17 +1674,17 @@ public class QueryStateMachine
             fireStateChangedIfReady(queryOutputInfo, Optional.of(listener));
         }
 
-        public void setColumns(List<String> columnNames, List<Type> columnTypes)
+        public void setColumns(List<ColumnInfo> columnInfos, List<Type> columnTypes)
         {
-            requireNonNull(columnNames, "columnNames is null");
+            requireNonNull(columnInfos, "columnInfos is null");
             requireNonNull(columnTypes, "columnTypes is null");
-            checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes must be the same size");
+            checkArgument(columnInfos.size() == columnTypes.size(), "columnInfos and columnTypes must be the same size");
 
             Optional<QueryOutputInfo> queryOutputInfo;
             Optional<Consumer<QueryOutputInfo>> listener;
             synchronized (this) {
-                checkState(this.columnNames == null && this.columnTypes == null, "output fields already set");
-                this.columnNames = ImmutableList.copyOf(columnNames);
+                checkState(this.columnInfos == null && this.columnTypes == null, "output fields already set");
+                this.columnInfos = ImmutableList.copyOf(columnInfos);
                 this.columnTypes = ImmutableList.copyOf(columnTypes);
 
                 queryOutputInfo = getQueryOutputInfo();
@@ -1759,10 +1759,10 @@ public class QueryStateMachine
 
         private synchronized Optional<QueryOutputInfo> getQueryOutputInfo()
         {
-            if (columnNames == null || columnTypes == null) {
+            if (columnInfos == null || columnTypes == null) {
                 return Optional.empty();
             }
-            return Optional.of(new QueryOutputInfo(columnNames, columnTypes, inputsQueue, noMoreInputs));
+            return Optional.of(new QueryOutputInfo(columnInfos, columnTypes, inputsQueue, noMoreInputs));
         }
 
         private void fireStateChangedIfReady(Optional<QueryOutputInfo> info, Optional<Consumer<QueryOutputInfo>> listener)
