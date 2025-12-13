@@ -1349,7 +1349,7 @@ public class ExpressionAnalyzer
 
             if (node.getWindow().isPresent()) {
                 ResolvedWindow window = getResolvedWindow.apply(node);
-                checkState(window != null, "no resolved window for: " + node);
+                checkState(window != null, "no resolved window for: %s", node);
 
                 analyzeWindow(window, context.inWindow(), (Node) node.getWindow().get());
                 windowFunctions.add(NodeRef.of(node));
@@ -1710,7 +1710,7 @@ public class ExpressionAnalyzer
         protected Type visitWindowOperation(WindowOperation node, Context context)
         {
             ResolvedWindow window = getResolvedWindow.apply(node);
-            checkState(window != null, "no resolved window for: " + node);
+            checkState(window != null, "no resolved window for: %s", node);
 
             if (window.getFrame().isEmpty()) {
                 throw semanticException(INVALID_WINDOW_MEASURE, node, "Measure %s is not defined in the corresponding window", node.getName().getValue());

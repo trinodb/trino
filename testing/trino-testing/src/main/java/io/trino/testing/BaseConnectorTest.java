@@ -1028,7 +1028,7 @@ public abstract class BaseConnectorTest
 
         assertQuery("WITH orders AS (SELECT * FROM orders LIMIT 0) SELECT * FROM " + testView, query);
 
-        String name = format("%s.%s." + testView, catalogName, schemaName);
+        String name = format("%s.%s.%s", catalogName, schemaName, testView);
         assertQuery("SELECT * FROM " + name, query);
 
         assertUpdate("DROP VIEW " + testViewWithComment);

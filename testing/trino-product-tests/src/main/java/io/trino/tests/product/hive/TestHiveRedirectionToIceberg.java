@@ -423,7 +423,7 @@ public class TestHiveRedirectionToIceberg
         assertTableComment("iceberg", "default", tableName).isNull();
 
         String tableComment = "This is my table, there are many like it but this one is mine";
-        onTrino().executeQuery(format("COMMENT ON TABLE " + hiveTableName + " IS '%s'", tableComment));
+        onTrino().executeQuery(format("COMMENT ON TABLE %s IS '%s'", hiveTableName, tableComment));
 
         assertTableComment("hive", "default", tableName).isEqualTo(tableComment);
         assertTableComment("iceberg", "default", tableName).isEqualTo(tableComment);

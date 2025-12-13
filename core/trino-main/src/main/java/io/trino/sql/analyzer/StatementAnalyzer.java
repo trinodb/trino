@@ -5874,7 +5874,7 @@ class StatementAnalyzer
                 rowCount = ((LongLiteral) node.getRowCount()).getParsedValue();
             }
             else {
-                checkState(node.getRowCount() instanceof Parameter, "unexpected OFFSET rowCount: " + node.getRowCount().getClass().getSimpleName());
+                checkState(node.getRowCount() instanceof Parameter, "unexpected OFFSET rowCount: %s", node.getRowCount().getClass().getSimpleName());
                 OptionalLong providedValue = analyzeParameterAsRowCount((Parameter) node.getRowCount(), scope, "OFFSET");
                 rowCount = providedValue.orElse(0);
             }
@@ -5908,7 +5908,7 @@ class StatementAnalyzer
                     rowCount = longLiteral.getParsedValue();
                 }
                 else {
-                    checkState(count instanceof Parameter, "unexpected FETCH FIRST rowCount: " + count.getClass().getSimpleName());
+                    checkState(count instanceof Parameter, "unexpected FETCH FIRST rowCount: %s", count.getClass().getSimpleName());
                     OptionalLong providedValue = analyzeParameterAsRowCount((Parameter) count, scope, "FETCH FIRST");
                     if (providedValue.isPresent()) {
                         rowCount = providedValue.getAsLong();
@@ -5933,7 +5933,7 @@ class StatementAnalyzer
                 rowCount = OptionalLong.of(((LongLiteral) node.getRowCount()).getParsedValue());
             }
             else {
-                checkState(node.getRowCount() instanceof Parameter, "unexpected LIMIT rowCount: " + node.getRowCount().getClass().getSimpleName());
+                checkState(node.getRowCount() instanceof Parameter, "unexpected LIMIT rowCount: %s", node.getRowCount().getClass().getSimpleName());
                 rowCount = analyzeParameterAsRowCount((Parameter) node.getRowCount(), scope, "LIMIT");
             }
             rowCount.ifPresent(count -> {
