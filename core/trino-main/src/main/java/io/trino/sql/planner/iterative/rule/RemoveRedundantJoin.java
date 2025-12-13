@@ -51,7 +51,7 @@ public class RemoveRedundantJoin
         PlanNode right = joinNode.getRight();
         return switch (joinNode.getType()) {
             case INNER -> isEmpty(left, lookup) || isEmpty(right, lookup);
-            case LEFT -> isEmpty(left, lookup);
+            case LEFT, ASOF -> isEmpty(left, lookup);
             case RIGHT -> isEmpty(right, lookup);
             case FULL -> isEmpty(left, lookup) && isEmpty(right, lookup);
         };

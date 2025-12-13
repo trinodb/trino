@@ -239,7 +239,7 @@ public final class StreamPropertyDerivations
                 case INNER -> leftProperties
                         .translate(column -> PropertyDerivations.filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column))
                         .unordered(unordered);
-                case LEFT -> leftProperties
+                case LEFT, ASOF -> leftProperties
                         .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column))
                         .unordered(unordered);
                 case RIGHT ->
@@ -272,7 +272,7 @@ public final class StreamPropertyDerivations
             StreamProperties leftProperties = inputProperties.get(0);
 
             return switch (node.getType()) {
-                case INNER, LEFT -> leftProperties.translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column));
+                case INNER, LEFT, ASOF -> leftProperties.translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column));
             };
         }
 
@@ -537,7 +537,7 @@ public final class StreamPropertyDerivations
             });
 
             return switch (node.getJoinType()) {
-                case INNER, LEFT -> translatedProperties;
+                case INNER, LEFT, ASOF -> translatedProperties;
                 case RIGHT, FULL -> translatedProperties.unordered(true);
             };
         }

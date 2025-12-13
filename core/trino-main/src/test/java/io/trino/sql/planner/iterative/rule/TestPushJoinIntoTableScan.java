@@ -626,6 +626,7 @@ public class TestPushJoinIntoTableScan
     {
         return switch (joinType) {
             case INNER -> JoinType.INNER;
+            case ASOF -> JoinType.ASOF;
             case LEFT -> JoinType.LEFT_OUTER;
             case RIGHT -> JoinType.RIGHT_OUTER;
             case FULL -> JoinType.FULL_OUTER;

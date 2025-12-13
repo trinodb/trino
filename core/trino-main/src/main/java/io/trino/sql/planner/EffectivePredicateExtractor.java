@@ -302,7 +302,7 @@ public class EffectivePredicateExtractor
         public Expression visitUnnest(UnnestNode node, Void context)
         {
             return switch (node.getJoinType()) {
-                case INNER, LEFT -> pullExpressionThroughSymbols(node.getSource().accept(this, context), node.getOutputSymbols());
+                case INNER, LEFT, ASOF -> pullExpressionThroughSymbols(node.getSource().accept(this, context), node.getOutputSymbols());
                 case RIGHT, FULL -> TRUE;
             };
         }
@@ -324,7 +324,7 @@ public class EffectivePredicateExtractor
                         .add(combineConjuncts(joinConjuncts))
                         .add(node.getFilter().orElse(TRUE))
                         .build()), node.getOutputSymbols());
-                case LEFT -> combineConjuncts(ImmutableList.<Expression>builder()
+                case LEFT, ASOF -> combineConjuncts(ImmutableList.<Expression>builder()
                         .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
                         .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
                         .addAll(pullNullableConjunctsThroughOuterJoin(joinConjuncts, node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
@@ -536,7 +536,7 @@ public class EffectivePredicateExtractor
                         .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
                         .add(pullExpressionThroughSymbols(rightPredicate, node.getOutputSymbols()))
                         .build());
-                case LEFT -> combineConjuncts(ImmutableList.<Expression>builder()
+                case LEFT, ASOF -> combineConjuncts(ImmutableList.<Expression>builder()
                         .add(pullExpressionThroughSymbols(leftPredicate, node.getOutputSymbols()))
                         .addAll(pullNullableConjunctsThroughOuterJoin(extractConjuncts(rightPredicate), node.getOutputSymbols(), node.getRight().getOutputSymbols()::contains))
                         .build());

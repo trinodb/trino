@@ -1963,7 +1963,10 @@ class AstBuilder
         }
 
         Join.Type joinType;
-        if (context.joinType().LEFT() != null) {
+        if (context.ASOF() != null) {
+            joinType = Join.Type.ASOF;
+        }
+        else if (context.joinType().LEFT() != null) {
             joinType = Join.Type.LEFT;
         }
         else if (context.joinType().RIGHT() != null) {

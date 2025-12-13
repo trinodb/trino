@@ -220,6 +220,7 @@ import io.trino.sql.planner.iterative.rule.ReplaceJoinOverConstantWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithSource;
 import io.trino.sql.planner.iterative.rule.ReplaceWindowWithRowNumber;
+import io.trino.sql.planner.iterative.rule.RewriteAsofJoinToLeftJoinWithTop1;
 import io.trino.sql.planner.iterative.rule.RewriteExcludeColumnsFunctionToProjection;
 import io.trino.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import io.trino.sql.planner.iterative.rule.RewriteTableFunctionToTableScan;
@@ -853,6 +854,16 @@ public class PlanOptimizers
                         // Must run after join reordering because join reordering creates
                         // new join nodes without JoinNode.maySkipOutputDuplicates flag set
                         new OptimizeDuplicateInsensitiveJoins())));
+
+        // Rewrite ASOF join semantics into LEFT join with window row_number + filter (Top-1 per left row)
+        // Run this before exchanges so that the physical planning operates on the rewritten plan
+        builder.add(new IterativeOptimizer(
+                plannerContext,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(
+                        new RewriteAsofJoinToLeftJoinWithTop1(plannerContext))));
 
         // Previous invocations of PushPredicateIntoTableScan do not prune using predicate expression. The invocation in AddExchanges
         // does this pruning - and we may end up with empty union branches after that. We invoke PushPredicateIntoTableScan

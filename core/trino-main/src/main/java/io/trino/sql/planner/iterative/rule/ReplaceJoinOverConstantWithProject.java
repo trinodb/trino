@@ -114,7 +114,7 @@ public class ReplaceJoinOverConstantWithProject
                 }
                 yield Result.empty();
             }
-            case LEFT -> {
+            case LEFT, ASOF -> {
                 if (canInlineLeftSource && rightCardinality.isAtLeastScalar()) {
                     yield Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
                 }
