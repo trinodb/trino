@@ -120,7 +120,9 @@ public class NimbusOAuth2Client
 
         accessTokenAudiences = new HashSet<>(oauthConfig.getAdditionalAudiences());
         accessTokenAudiences.add(clientId.getValue());
-        accessTokenAudiences.add(null); // A null value in the set allows JWTs with no audience
+        if (oauthConfig.getAdditionalAudiences().isEmpty()) {
+            accessTokenAudiences.add(null); // A null value in the set allows JWTs with no audience
+        }
 
         this.serverConfigurationProvider = requireNonNull(serverConfigurationProvider, "serverConfigurationProvider is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
