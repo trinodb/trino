@@ -541,7 +541,7 @@ public class TestTransactionLogAccess
         Files.copy(new File(resourceDir, LAST_CHECKPOINT_FILENAME).toPath(), new File(transactionLogDir, LAST_CHECKPOINT_FILENAME).toPath());
         ConnectorSession activeDataFileCacheSession = TestingConnectorSession.builder()
                 .setPropertyMetadata(new DeltaLakeSessionProperties(
-                        new DeltaLakeConfig().setCheckpointFilteringEnabled(false),
+                        new DeltaLakeConfig(),
                         new ParquetReaderConfig(),
                         new ParquetWriterConfig())
                         .getSessionProperties())
@@ -610,10 +610,12 @@ public class TestTransactionLogAccess
                 },
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation("_last_checkpoint", "InputFile.newStream"))
-                        .addCopies(new FileOperation("00000000000000000012.json", "InputFile.newStream"), 2)
-                        .addCopies(new FileOperation("00000000000000000013.json", "InputFile.newStream"), 2)
-                        .addCopies(new FileOperation("00000000000000000012.json", "InputFile.length"), 2)
-                        .addCopies(new FileOperation("00000000000000000013.json", "InputFile.length"), 2)
+                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
+                        .addCopies(new FileOperation("00000000000000000012.json", "InputFile.newStream"), 1)
+                        .addCopies(new FileOperation("00000000000000000013.json", "InputFile.newStream"), 1)
+                        .addCopies(new FileOperation("00000000000000000012.json", "InputFile.length"), 1)
+                        .addCopies(new FileOperation("00000000000000000013.json", "InputFile.length"), 1)
                         .add(new FileOperation("00000000000000000014.json", "InputFile.length"))
                         .build());
     }
@@ -800,166 +802,11 @@ public class TestTransactionLogAccess
     }
 
     @Test
-    public void testTableSnapshotsActiveDataFilesCache()
-            throws Exception
-    {
-        setupTransactionLogAccessFromResources("person", "databricks73/person");
-
-        String tableName = "person";
-        String tableDir = getClass().getClassLoader().getResource("databricks73/" + tableName).toURI().toString();
-        DeltaLakeConfig shortLivedActiveDataFilesCacheConfig = new DeltaLakeConfig();
-        shortLivedActiveDataFilesCacheConfig.setDataFileCacheTtl(new Duration(10, TimeUnit.MINUTES));
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
-
-        ConnectorSession activeDataFileCacheSession = TestingConnectorSession.builder()
-                .setPropertyMetadata(new DeltaLakeSessionProperties(
-                        new DeltaLakeConfig().setCheckpointFilteringEnabled(false),
-                        new ParquetReaderConfig(),
-                        new ParquetWriterConfig())
-                        .getSessionProperties())
-                .build();
-        assertFileSystemAccesses(
-                () -> {
-                    setupTransactionLogAccess(tableName, tableDir, shortLivedActiveDataFilesCacheConfig, Optional.empty());
-                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(activeDataFileCacheSession, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
-                        assertThat(addFileEntries.count()).isEqualTo(12L);
-                    }
-                },
-                ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation("_last_checkpoint", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000011.json", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000012.json", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000013.json", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000014.json", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
-                        .build());
-
-        // The internal data cache should still contain the data files for the table
-        assertFileSystemAccesses(
-                () -> {
-                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(activeDataFileCacheSession, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
-                        assertThat(addFileEntries.count()).isEqualTo(12L);
-                    }
-                },
-                ImmutableMultiset.of());
-    }
-
-    @Test
-    public void testFlushSnapshotAndActiveFileCache()
-            throws Exception
-    {
-        setupTransactionLogAccessFromResources("person", "databricks73/person");
-
-        String tableName = "person";
-        String tableDir = getClass().getClassLoader().getResource("databricks73/" + tableName).toURI().toString();
-        DeltaLakeConfig shortLivedActiveDataFilesCacheConfig = new DeltaLakeConfig();
-        shortLivedActiveDataFilesCacheConfig.setDataFileCacheTtl(new Duration(10, TimeUnit.MINUTES));
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
-
-        assertFileSystemAccesses(
-                () -> {
-                    setupTransactionLogAccess(tableName, tableDir, shortLivedActiveDataFilesCacheConfig, Optional.empty());
-                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
-                        assertThat(addFileEntries.count()).isEqualTo(12L);
-                    }
-                },
-                ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation("_last_checkpoint", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000011.json", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000012.json", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000013.json", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000014.json", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
-                        .build());
-
-        // Flush all cache and then load snapshot and get active files
-        transactionLogAccess.flushCache();
-        assertFileSystemAccesses(
-                () -> {
-                    transactionLogAccess.loadSnapshot(SESSION, createTable(new SchemaTableName("schema", tableName), tableDir), Optional.empty());
-                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
-                        assertThat(addFileEntries.count()).isEqualTo(12L);
-                    }
-                },
-                ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation("_last_checkpoint", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000011.json", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000012.json", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000013.json", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000014.json", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
-                        .build());
-    }
-
-    @Test
-    public void testTableSnapshotsActiveDataFilesCacheDisabled()
-            throws Exception
-    {
-        setupTransactionLogAccessFromResources("person", "databricks73/person");
-
-        String tableName = "person";
-        String tableDir = getClass().getClassLoader().getResource("databricks73/" + tableName).toURI().toString();
-        DeltaLakeConfig shortLivedActiveDataFilesCacheConfig = new DeltaLakeConfig();
-        shortLivedActiveDataFilesCacheConfig.setDataFileCacheTtl(new Duration(0, TimeUnit.SECONDS));
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
-        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
-
-        assertFileSystemAccesses(
-                () -> {
-                    setupTransactionLogAccess(tableName, tableDir, shortLivedActiveDataFilesCacheConfig, Optional.empty());
-                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
-                        assertThat(addFileEntries.count()).isEqualTo(12L);
-                    }
-                },
-                ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation("_last_checkpoint", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000011.json", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000012.json", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000013.json", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000014.json", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
-                        .build());
-
-        // With no caching for the transaction log entries, when loading the snapshot again,
-        // the checkpoint file will be read again
-        assertFileSystemAccesses(
-                () -> {
-                    try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, createTable(metadataEntry, protocolEntry), tableSnapshot, TupleDomain.all(), alwaysTrue())) {
-                        assertThat(addFileEntries.count()).isEqualTo(12L);
-                    }
-                },
-                ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"))
-                        .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
-                        .build());
-    }
-
-    @Test
     public void testLoadSnapshotWithEndVersion()
             throws Exception
     {
         String tableName = "person";
         String tableDir = getClass().getClassLoader().getResource("databricks73/" + tableName).toURI().toString();
-        DeltaLakeConfig shortLivedActiveDataFilesCacheConfig = new DeltaLakeConfig();
-        shortLivedActiveDataFilesCacheConfig.setDataFileCacheTtl(new Duration(10, TimeUnit.MINUTES));
         setupTransactionLogAccess("person", getClass().getClassLoader().getResource("databricks73/person").toString(), new DeltaLakeConfig(), Optional.of(9L));
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tracingFileSystemFactory.create(SESSION, tableLocation), tableSnapshot);

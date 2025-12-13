@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.statistics;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
@@ -331,15 +332,27 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
     public void testStatisticsParquetParsedStatistics()
     {
         // The transaction log for this table was created so that the checkpoints only write struct statistics, not json statistics
-        DeltaLakeTableHandle tableHandle = registerTable("parquet_struct_statistics");
-        ConnectorSession activeDataFileCacheSession = TestingConnectorSession.builder()
+        DeltaLakeTableHandle tableHandle = registerTable("parquet_struct_statistics")
+                .withProjectedColumns(ImmutableSet.<DeltaLakeColumnHandle>builder()
+                        .add(new DeltaLakeColumnHandle("dec_short", DecimalType.createDecimalType(5, 1), OptionalInt.empty(), "dec_short", DecimalType.createDecimalType(5, 1), REGULAR, Optional.empty()))
+                        .add(new DeltaLakeColumnHandle("dec_long", DecimalType.createDecimalType(25, 3), OptionalInt.empty(), "dec_long", DecimalType.createDecimalType(25, 3), REGULAR, Optional.empty()))
+                        .add(new DeltaLakeColumnHandle("l", BIGINT, OptionalInt.empty(), "l", BIGINT, REGULAR, Optional.empty()))
+                        .add(new DeltaLakeColumnHandle("in", INTEGER, OptionalInt.empty(), "in", INTEGER, REGULAR, Optional.empty()))
+                        .add(new DeltaLakeColumnHandle("sh", SMALLINT, OptionalInt.empty(), "sh", SMALLINT, REGULAR, Optional.empty()))
+                        .add(new DeltaLakeColumnHandle("byt", TINYINT, OptionalInt.empty(), "byt", TINYINT, REGULAR, Optional.empty()))
+                        .add(new DeltaLakeColumnHandle("fl", REAL, OptionalInt.empty(), "fl", REAL, REGULAR, Optional.empty()))
+                        .add(new DeltaLakeColumnHandle("dou", DOUBLE, OptionalInt.empty(), "dou", DOUBLE, REGULAR, Optional.empty()))
+                        .add(new DeltaLakeColumnHandle("dat", DATE, OptionalInt.empty(), "dat", DATE, REGULAR, Optional.empty()))
+                        .build());
+
+        ConnectorSession session = TestingConnectorSession.builder()
                 .setPropertyMetadata(new DeltaLakeSessionProperties(
-                        new DeltaLakeConfig().setCheckpointFilteringEnabled(false),
+                        new DeltaLakeConfig(),
                         new ParquetReaderConfig(),
                         new ParquetWriterConfig())
                         .getSessionProperties())
                 .build();
-        TableStatistics stats = getTableStatistics(activeDataFileCacheSession, tableHandle);
+        TableStatistics stats = getTableStatistics(session, tableHandle);
         assertThat(stats.getRowCount()).isEqualTo(Estimate.of(9));
 
         Map<ColumnHandle, ColumnStatistics> statisticsMap = stats.getColumnStatistics();

@@ -229,7 +229,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
                         .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
                         .put("delta.metadata.cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
-                        .put("delta.metadata.live-files.cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
                         .put("hive.metastore-cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
                         .put("delta.register-table-procedure.enabled", "true")
                         .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout

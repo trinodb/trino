@@ -126,7 +126,6 @@ public class TestDeltaLakePlugin
         factory.create("test",
                         ImmutableMap.of(
                                 "hive.metastore.uri", "thrift://foo:1234",
-                                "delta.metadata.live-files.cache-ttl", "0s",
                                 "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
