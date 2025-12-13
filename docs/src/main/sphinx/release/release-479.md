@@ -106,6 +106,7 @@
 * Add `APPLICATION_DEFAULT` authentication type for GCS. ({issue}`26984`)
 * Remove `s3.exclusive-create` config. ({issue}`27372`)
 * {{breaking}} Remove support for unauthenticated access when GCS authentication type is set to `SERVICE_ACCOUNT`. ({issue}`26984`)
+* * Reduce memory pressure when the table contains highly nested fields. ({issue}`25077`)
 * Fix failures when querying `$files` table after changes to table partitioning. ({issue}`26746`)
 * Fix incorrect results for queries involving `IS NOT DISTINCT FROM`. ({issue}`27213`)
 * Fix failure when checking Azure hierarchical namespaces. ({issue}`27278`)
