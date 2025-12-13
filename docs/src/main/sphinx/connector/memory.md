@@ -25,6 +25,15 @@ CREATE TABLE example.default.nation AS
 SELECT * from tpch.tiny.nation;
 ```
 
+Create the table orders, adding a column with default value:
+
+```
+CREATE TABLE orders (
+  orderkey bigint,
+  status varchar default 'created'
+)
+```
+
 Insert data into a table in the Memory connector:
 
 ```
