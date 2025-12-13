@@ -17,11 +17,9 @@ import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.ConnectorContextModule;
-import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -30,6 +28,8 @@ import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 public class TpchConnectorFactory
         implements ConnectorFactory
 {
+    static final String CONNECTOR_NAME = "tpch";
+
     private final int defaultSplitsPerNode;
     private final boolean predicatePushdownEnabled;
 
@@ -52,7 +52,7 @@ public class TpchConnectorFactory
     @Override
     public String getName()
     {
-        return "tpch";
+        return CONNECTOR_NAME;
     }
 
     @Override
@@ -62,11 +62,9 @@ public class TpchConnectorFactory
 
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
-                new ConnectorContextModule(catalogName, context),
-                new MBeanModule(),
+                new ConnectorContextModule(CONNECTOR_NAME, catalogName, context),
                 new JsonModule(),
-                new TpchModule(defaultSplitsPerNode, predicatePushdownEnabled),
-                new MBeanServerModule());
+                new TpchModule(defaultSplitsPerNode, predicatePushdownEnabled));
 
         Injector injector = app
                 .doNotInitializeLogging()

@@ -31,6 +31,10 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.util.EmbedVersion;
 
+import javax.management.MBeanServer;
+
+import java.lang.management.ManagementFactory;
+
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Objects.requireNonNull;
@@ -99,5 +103,12 @@ public final class TestingConnectorContext
     public PageIndexerFactory getPageIndexerFactory()
     {
         return pageIndexerFactory;
+    }
+
+    @Override
+    public MBeanServer getMBeanServer()
+    {
+        // TODO: replace with TestingMBeanServer once it supports queryNames
+        return ManagementFactory.getPlatformMBeanServer();
     }
 }

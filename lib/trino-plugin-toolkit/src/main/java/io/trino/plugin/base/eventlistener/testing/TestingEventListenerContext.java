@@ -16,6 +16,9 @@ package io.trino.plugin.base.eventlistener.testing;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.eventlistener.EventListenerFactory;
+import org.weakref.jmx.testing.TestingMBeanServer;
+
+import javax.management.MBeanServer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -50,5 +53,11 @@ public class TestingEventListenerContext
     public Tracer getTracer()
     {
         return OpenTelemetry.noop().getTracer("TEST_TRACER");
+    }
+
+    @Override
+    public MBeanServer getMBeanServer()
+    {
+        return new TestingMBeanServer();
     }
 }

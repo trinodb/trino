@@ -27,10 +27,12 @@ import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 public class TpcdsConnectorFactory
         implements ConnectorFactory
 {
+    static final String CONNECTOR_NAME = "tpcds";
+
     @Override
     public String getName()
     {
-        return "tpcds";
+        return CONNECTOR_NAME;
     }
 
     @Override
@@ -40,7 +42,7 @@ public class TpcdsConnectorFactory
 
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
-                new ConnectorContextModule(catalogName, context),
+                new ConnectorContextModule(CONNECTOR_NAME, catalogName, context),
                 new TpcdsModule());
 
         Injector injector = app

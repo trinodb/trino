@@ -29,6 +29,8 @@ import static java.util.Objects.requireNonNull;
 public class MemoryConnectorFactory
         implements ConnectorFactory
 {
+    static final String CONNECTOR_NAME = "memory";
+
     @Override
     public String getName()
     {
@@ -45,7 +47,7 @@ public class MemoryConnectorFactory
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
                 new JsonModule(),
-                new ConnectorContextModule(catalogName, context),
+                new ConnectorContextModule(CONNECTOR_NAME, catalogName, context),
                 new MemoryModule());
 
         Injector injector = app

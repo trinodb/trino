@@ -40,6 +40,8 @@ import io.trino.spi.type.TypeManager;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.transaction.TransactionManager;
 
+import javax.management.MBeanServer;
+
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -72,6 +74,7 @@ public class DefaultCatalogFactory
 
     private final ConcurrentMap<ConnectorName, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
     private final SecretsResolver secretsResolver;
+    private final MBeanServer mbeanServer;
 
     @Inject
     public DefaultCatalogFactory(
@@ -87,7 +90,8 @@ public class DefaultCatalogFactory
             TypeManager typeManager,
             NodeSchedulerConfig nodeSchedulerConfig,
             OptimizerConfig optimizerConfig,
-            SecretsResolver secretsResolver)
+            SecretsResolver secretsResolver,
+            MBeanServer mbeanServer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -102,6 +106,7 @@ public class DefaultCatalogFactory
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
         this.maxPrefetchedInformationSchemaPrefixes = optimizerConfig.getMaxPrefetchedInformationSchemaPrefixes();
         this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
+        this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
     }
 
     @Override
@@ -192,7 +197,8 @@ public class DefaultCatalogFactory
                 typeManager,
                 new InternalMetadataProvider(metadata, typeManager),
                 pageSorter,
-                pageIndexerFactory);
+                pageIndexerFactory,
+                mbeanServer);
 
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
             // TODO: connector factory should take CatalogName
