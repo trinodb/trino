@@ -13,7 +13,7 @@
 * Add `queryText` as a regular expression in resource group selector. ({issue}`27129`)
 * Require JDK 25 to build and run Trino. ({issue}`27153`)
 * {{breaking}} The configuration property `task.statistics-cpu-timer-enabled` is now defunct and must be removed. ({issue}`27504`)
-* Deprecate `EXPLAIN (TYPE LOGICAL)`. `EXPLAIN (TYPE DISTRIBUTED)` should be used instead. ({issue}`27434`)
+* Deprecate `EXPLAIN` type `LOGICAL` and `DISTRIBUTED`. Use `EXPLAIN` without a type clause, instead.({issue}`27434`)
 * Remove `prefer_streaming_operators` session property. ({issue}`27506`)
 * Add experimental performance improvements for remote data exchanges on newer CPU architectures, such as `Graviton 3`, `Skylake`,
   `Icelake`, or `Zen 4+`. This can be disabled by setting `exchange.experimental.vectorized-serde.enabled=false`. ({issue}`27426`, {issue}`26919`)
