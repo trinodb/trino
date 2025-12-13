@@ -5,8 +5,8 @@ local exchange (GATHER, SINGLE, [])
                 final aggregation over (orderdate, orderkey_5, shippriority)
                     local exchange (GATHER, SINGLE, [])
                         join (INNER, PARTITIONED):
-                            partial aggregation over (orderkey_5)
-                                remote exchange (REPARTITION, HASH, [orderkey_5])
+                            remote exchange (REPARTITION, HASH, [orderkey_5])
+                                partial aggregation over (orderkey_5)
                                     dynamic filter (orderkey_5::EQUAL)
                                         scan lineitem
                             local exchange (GATHER, SINGLE, [])
