@@ -25,6 +25,7 @@ import io.trino.spi.connector.ConnectorFactory;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -35,17 +36,17 @@ public class TestingIcebergConnectorFactory
         implements ConnectorFactory
 {
     private final Path localFileSystemRootPath;
-    private final Optional<Module> icebergCatalogModule;
+    private final Supplier<Optional<Module>> icebergCatalogModule;
 
     public TestingIcebergConnectorFactory(Path localFileSystemRootPath)
     {
-        this(localFileSystemRootPath, Optional.empty());
+        this(localFileSystemRootPath, Optional::empty);
     }
 
     @Deprecated
     public TestingIcebergConnectorFactory(
             Path localFileSystemRootPath,
-            Optional<Module> icebergCatalogModule)
+            Supplier<Optional<Module>> icebergCatalogModule)
     {
         this.localFileSystemRootPath = requireNonNull(localFileSystemRootPath, "localFileSystemRootPath is null");
         boolean ignored = localFileSystemRootPath.toFile().mkdirs();
@@ -74,6 +75,6 @@ public class TestingIcebergConnectorFactory
                     FileHiveMetastoreConfig.class,
                     metastoreConfig -> metastoreConfig.setCatalogDirectory("local:///" + catalogName));
         };
-        return createConnector(catalogName, config, context, module, icebergCatalogModule);
+        return createConnector(catalogName, config, context, module, icebergCatalogModule.get());
     }
 }
