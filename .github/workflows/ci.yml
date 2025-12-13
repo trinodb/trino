@@ -351,6 +351,7 @@ jobs:
             !:trino-bigquery,
             !:trino-cassandra,
             !:trino-clickhouse,
+            !:trino-databend,
             !:trino-delta-lake,
             !:trino-docs,
             !:trino-druid,
@@ -481,6 +482,7 @@ jobs:
             - { modules: plugin/trino-bigquery, profile: cloud-tests-2 }
             - { modules: plugin/trino-cassandra }
             - { modules: plugin/trino-clickhouse }
+            - { modules: plugin/trino-databend }
             - { modules: plugin/trino-delta-lake }
             - { modules: plugin/trino-delta-lake, profile: cloud-tests }
             - { modules: plugin/trino-delta-lake, profile: fte-tests }
