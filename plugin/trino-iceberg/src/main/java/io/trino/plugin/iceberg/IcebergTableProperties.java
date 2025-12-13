@@ -69,6 +69,7 @@ public class IcebergTableProperties
     public static final String PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY = "parquet_bloom_filter_columns";
     public static final String OBJECT_STORE_LAYOUT_ENABLED_PROPERTY = "object_store_layout_enabled";
     public static final String DATA_LOCATION_PROPERTY = "data_location";
+    public static final String IDENTIFIER_FIELDS_PROPERTY = "identifier_fields";
     public static final String EXTRA_PROPERTIES_PROPERTY = "extra_properties";
 
     public static final Set<String> SUPPORTED_PROPERTIES = ImmutableSet.<String>builder()
@@ -85,6 +86,7 @@ public class IcebergTableProperties
             .add(DATA_LOCATION_PROPERTY)
             .add(EXTRA_PROPERTIES_PROPERTY)
             .add(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)
+            .add(IDENTIFIER_FIELDS_PROPERTY)
             .build();
 
     // These properties are used by Trino or Iceberg internally and cannot be set directly by users through extra_properties
@@ -120,6 +122,15 @@ public class IcebergTableProperties
                 .add(new PropertyMetadata<>(
                         PARTITIONING_PROPERTY,
                         "Partition transforms",
+                        new ArrayType(VARCHAR),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> (List<?>) value,
+                        value -> value))
+                .add(new PropertyMetadata<>(
+                        IDENTIFIER_FIELDS_PROPERTY,
+                        "Identifier fields",
                         new ArrayType(VARCHAR),
                         List.class,
                         ImmutableList.of(),
@@ -245,6 +256,13 @@ public class IcebergTableProperties
     {
         List<String> partitioning = (List<String>) tableProperties.get(PARTITIONING_PROPERTY);
         return partitioning == null ? ImmutableList.of() : ImmutableList.copyOf(partitioning);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static List<String> getIdentifierFields(Map<String, Object> tableProperties)
+    {
+        List<String> identifierFields = (List<String>) tableProperties.get(IDENTIFIER_FIELDS_PROPERTY);
+        return identifierFields == null ? ImmutableList.of() : ImmutableList.copyOf(identifierFields);
     }
 
     @SuppressWarnings("unchecked")
