@@ -453,7 +453,7 @@ public class TestHiveAndDeltaLakeRedirect
             assertThat(onTrino().executeQuery("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'hive' AND schema_name = 'default' AND table_name = '" + tableName + "'"))
                     .is(new Condition<>(queryResult -> queryResult.getOnlyValue() == null, "Unexpected table comment"));
             String tableComment = "This is my table, there are many like it but this one is mine";
-            onTrino().executeQuery(format("COMMENT ON TABLE delta.default.\"" + tableName + "\" IS '%s'", tableComment));
+            onTrino().executeQuery(format("COMMENT ON TABLE delta.default.\"%s\" IS '%s'", tableName, tableComment));
 
             assertTableComment("hive", "default", tableName).isEqualTo(tableComment);
             assertTableComment("delta", "default", tableName).isEqualTo(tableComment);
@@ -475,7 +475,7 @@ public class TestHiveAndDeltaLakeRedirect
                     .is(new Condition<>(queryResult -> queryResult.getOnlyValue() == null, "Unexpected table comment"));
 
             String tableComment = "This is my table, there are many like it but this one is mine";
-            onTrino().executeQuery(format("COMMENT ON TABLE hive.default.\"" + tableName + "\" IS '%s'", tableComment));
+            onTrino().executeQuery(format("COMMENT ON TABLE hive.default.\"%s\" IS '%s'", tableName, tableComment));
             assertTableComment("hive", "default", tableName).isEqualTo(tableComment);
             assertTableComment("delta", "default", tableName).isEqualTo(tableComment);
         }

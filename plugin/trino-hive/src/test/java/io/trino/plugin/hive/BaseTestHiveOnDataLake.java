@@ -2551,13 +2551,13 @@ abstract class BaseTestHiveOnDataLake
 
     protected void copyTpchNationToTable(Session session, String testTable)
     {
-        computeActual(session, format("INSERT INTO " + testTable + " SELECT name, comment, nationkey, regionkey FROM tpch.tiny.nation"));
+        computeActual(session, "INSERT INTO " + testTable + " SELECT name, comment, nationkey, regionkey FROM tpch.tiny.nation");
     }
 
     private void testWriteWithFileSize(String testTable, int scaleFactorInThousands, long fileSizeRangeStart, long fileSizeRangeEnd)
     {
         String scaledColumnExpression = format("array_join(transform(sequence(1, %d), x-> array_join(repeat(comment, 1000), '')), '')", scaleFactorInThousands);
-        computeActual(format("INSERT INTO " + testTable + " SELECT %s, %s, regionkey FROM tpch.tiny.nation WHERE nationkey = 9", scaledColumnExpression, scaledColumnExpression));
+        computeActual(format("INSERT INTO %s SELECT %s, %s, regionkey FROM tpch.tiny.nation WHERE nationkey = 9", testTable, scaledColumnExpression, scaledColumnExpression));
         query(format("SELECT length(col1) FROM %s", testTable))
                 .assertThat()
                 .result()

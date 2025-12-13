@@ -256,7 +256,7 @@ public class IterativeOptimizer
 
         PlanNode expression = context.memo.getNode(group);
         for (PlanNode child : expression.getSources()) {
-            checkState(child instanceof GroupReference, "Expected child to be a group reference. Found: " + child.getClass().getName());
+            checkState(child instanceof GroupReference, "Expected child to be a group reference. Found: %s", child.getClass().getName());
 
             if (exploreGroup(((GroupReference) child).getGroupId(), context, changedPlanNodeIds)) {
                 progress = true;

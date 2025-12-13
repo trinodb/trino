@@ -347,7 +347,7 @@ public class TestExternalAuthenticator
                     exceptions.add(ex);
                 }
                 catch (ExecutionException ex) {
-                    checkState(ex.getCause() != null, "Missing cause on ExecutionException " + ex.getMessage());
+                    checkState(ex.getCause() != null, "Missing cause on ExecutionException %s", ex.getMessage());
 
                     exceptions.add(ex.getCause());
                 }

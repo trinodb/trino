@@ -187,7 +187,7 @@ public final class PageReader
     public DictionaryPage readDictionaryPage()
     {
         checkState(!dictionaryAlreadyRead, "Dictionary was already read");
-        checkState(dataPageReadCount == 0, "Dictionary has to be read first but " + dataPageReadCount + " was read already");
+        checkState(dataPageReadCount == 0, "Dictionary has to be read first but %s was read already", dataPageReadCount);
         dictionaryAlreadyRead = true;
         if (!(compressedPages.peek() instanceof DictionaryPage)) {
             return null;

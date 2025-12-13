@@ -1098,7 +1098,7 @@ public final class StateCompiler
 
     private static void checkInterface(Class<?> clazz, List<StateField> fields)
     {
-        checkArgument(clazz.isInterface(), clazz.getName() + " is not an interface");
+        checkArgument(clazz.isInterface(), "%s is not an interface", clazz.getName());
         Set<String> setters = new HashSet<>();
         Set<String> getters = new HashSet<>();
         Set<String> isGetters = new HashSet<>();

@@ -111,7 +111,7 @@ public record IcebergStatistics(
                 io.trino.spi.type.Type trinoType = fieldIdToTrinoType.get(id);
                 updateNanCountStats(id, nanValueCounts.map(map -> map.get(id)));
                 if (identityPartitionFieldIds.contains(id)) {
-                    verify(partitionValues.containsKey(id), "Unable to find value for partition column with field id " + id);
+                    verify(partitionValues.containsKey(id), "Unable to find value for partition column with field id %s", id);
                     Optional<String> partitionValue = partitionValues.get(id);
                     if (partitionValue.isPresent()) {
                         Object trinoValue = deserializePartitionValue(trinoType, partitionValue.get(), column.name());

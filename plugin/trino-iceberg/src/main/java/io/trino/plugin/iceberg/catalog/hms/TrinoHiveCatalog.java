@@ -743,7 +743,7 @@ public class TrinoHiveCatalog
         }
         else {
             String storageMetadataLocation = view.getParameters().get(METADATA_LOCATION_PROP);
-            checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view " + viewName);
+            checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view %s", viewName);
             try {
                 dropMaterializedViewStorage(session, fileSystemFactory.create(session), storageMetadataLocation);
             }
@@ -830,7 +830,7 @@ public class TrinoHiveCatalog
     {
         return uncheckedCacheGet(tableMetadataCache, storageTableName, () -> {
             String storageMetadataLocation = materializedView.getParameters().get(METADATA_LOCATION_PROP);
-            checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view " + materializedView.getTableName());
+            checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view %s", materializedView.getTableName());
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             return TableMetadataParser.read(fileIoFactory.create(fileSystem, isUseFileSizeFromMetadata(session)), storageMetadataLocation);
         });

@@ -579,7 +579,7 @@ public class IcebergPageSink
             sourceIdsBuilder.add(findFieldPosFromSchema(fieldId, current));
 
             if (i + 1 < nestedFieldIds.size()) {
-                checkState(current.field(fieldId).type().isStructType(), "Could not find field " + nestedFieldIds + " in schema");
+                checkState(current.field(fieldId).type().isStructType(), "Could not find field %s in schema", nestedFieldIds);
                 current = current.field(fieldId).type().asStructType();
             }
         }
