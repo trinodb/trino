@@ -104,8 +104,8 @@ public class TestJdbcPlugin
     private static class TestingJdbcModule
             extends AbstractConfigurationAwareModule
     {
-        public static final String CATALOG_WITH_PUSH_DOWN_ENABLED = "catalogWithPushDownEnabled";
-        public static final String CATALOG_WITH_PUSH_DOWN_DISABLED = "catalogWithPushDownDisabled";
+        public static final String CATALOG_WITH_PUSH_DOWN_ENABLED = "catalog_with_pushdown_enabled";
+        public static final String CATALOG_WITH_PUSH_DOWN_DISABLED = "catalog_with_pushdown_disabled";
 
         @Override
         protected void setup(Binder binder)

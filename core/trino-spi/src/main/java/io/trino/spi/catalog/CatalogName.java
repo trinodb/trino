@@ -20,6 +20,7 @@ import java.util.Objects;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static java.util.Locale.ENGLISH;
 
 public final class CatalogName
 {
@@ -32,6 +33,10 @@ public final class CatalogName
     {
         if (catalogName.isEmpty()) {
             throw new IllegalArgumentException("catalogName is empty");
+        }
+        // Currently, catalog names must be lowercase.
+        if (!catalogName.equals(catalogName.toLowerCase(ENGLISH))) {
+            throw new IllegalArgumentException("catalogName is not lowercase: " + catalogName);
         }
         this.catalogName = catalogName;
     }
