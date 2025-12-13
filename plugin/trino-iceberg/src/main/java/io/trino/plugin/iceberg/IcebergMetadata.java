@@ -1390,7 +1390,7 @@ public class IcebergMetadata
                     if (sourceType.isListType()) {
                         throw new TrinoException(NOT_SUPPORTED, "Partitioning field [" + field.name() + "] cannot be contained in a array");
                     }
-                    verify(indexById.containsKey(sourceId), "Cannot find source column for partition field " + field);
+                    verify(indexById.containsKey(sourceId), "Cannot find source column for partition field %s", field);
                     return createColumnHandle(typeManager, sourceId, indexById, indexPaths);
                 })
                 .distinct()

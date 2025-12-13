@@ -92,7 +92,7 @@ public class TestDeltaLakeDropTableCompatibility
         String schemaLocation = format("s3://%s/databricks-compatibility-test-%s", bucketName, schemaName);
         String tableName = explicitLocation ? "test_external_table" : "test_managed_table";
         Optional<String> tableLocation = explicitLocation
-                ? Optional.of(format("s3://" + bucketName + "/databricks-compatibility-test-%s/%s", schemaName, tableName))
+                ? Optional.of(format("s3://%s/databricks-compatibility-test-%s/%s", bucketName, schemaName, tableName))
                 : Optional.empty();
 
         switch (creator) {

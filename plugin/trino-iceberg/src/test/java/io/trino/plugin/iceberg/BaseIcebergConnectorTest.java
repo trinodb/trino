@@ -3408,7 +3408,7 @@ public abstract class BaseIcebergConnectorTest
     public void testTruncateIntegerTransform(String dataType)
     {
         String table = format("test_truncate_%s_transform", dataType);
-        assertUpdate(format("CREATE TABLE " + table + " (d %s, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 10)'])", dataType));
+        assertUpdate(format("CREATE TABLE %s (d %s, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 10)'])", table, dataType));
         String select = "SELECT partition.d_trunc, record_count, data.d.min AS d_min, data.d.max AS d_max, data.b.min AS b_min, data.b.max AS b_max FROM \"" + table + "$partitions\"";
 
         assertUpdate("INSERT INTO " + table + " VALUES" +

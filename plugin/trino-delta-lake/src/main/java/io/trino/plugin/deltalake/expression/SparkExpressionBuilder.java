@@ -81,7 +81,7 @@ public class SparkExpressionBuilder
     @Override
     public SparkExpression visitAnd(SparkExpressionBaseParser.AndContext context)
     {
-        verify(context.booleanExpression().size() == 2, "AND operator expects two expressions: " + context.booleanExpression());
+        verify(context.booleanExpression().size() == 2, "AND operator expects two expressions: %s", context.booleanExpression());
         return new LogicalExpression(
                 LogicalExpression.Operator.AND,
                 visit(context.left, SparkExpression.class),
@@ -91,7 +91,7 @@ public class SparkExpressionBuilder
     @Override
     public Object visitOr(SparkExpressionBaseParser.OrContext context)
     {
-        verify(context.booleanExpression().size() == 2, "AND operator expects two expressions: " + context.booleanExpression());
+        verify(context.booleanExpression().size() == 2, "AND operator expects two expressions: %s", context.booleanExpression());
         return new LogicalExpression(
                 LogicalExpression.Operator.OR,
                 visit(context.left, SparkExpression.class),

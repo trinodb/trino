@@ -132,7 +132,7 @@ public class StaticSelector
         Matcher matcher = NAMED_GROUPS_PATTERN.matcher(pattern.toString());
         while (matcher.find()) {
             String name = matcher.group(1);
-            checkArgument(!variables.contains(name), "Multiple definitions found for variable ${" + name + "}");
+            checkArgument(!variables.contains(name), "Multiple definitions found for variable ${%s}", name);
             variables.add(name);
         }
     }

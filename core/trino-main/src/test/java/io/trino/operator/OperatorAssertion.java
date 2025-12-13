@@ -199,7 +199,7 @@ public final class OperatorAssertion
 
     public static SqlRow toRow(List<Type> parameterTypes, Object... values)
     {
-        checkArgument(parameterTypes.size() == values.length, "parameterTypes.size(" + parameterTypes.size() + ") does not equal to values.length(" + values.length + ")");
+        checkArgument(parameterTypes.size() == values.length, "parameterTypes.size(%s) does not equal to values.length(%s)", parameterTypes.size(), values.length);
 
         return buildRowValue(RowType.anonymous(parameterTypes), fields -> {
             for (int i = 0; i < values.length; i++) {
