@@ -16,6 +16,7 @@ package io.trino.plugin.lakehouse;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.lakehouse.TableType.DELTA;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -58,5 +59,18 @@ public class TestLakehouseDeltaConnectorSmokeTest
                    location = \\E's3://test-bucket-.*/tpch/region.*'\\Q,
                    type = 'DELTA'
                 )\\E""");
+    }
+
+    @Test
+    public void testOptimize()
+    {
+        String tableName = "test_optimize_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar)");
+        try {
+            assertThat(query("ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')")).succeeds();
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 }
