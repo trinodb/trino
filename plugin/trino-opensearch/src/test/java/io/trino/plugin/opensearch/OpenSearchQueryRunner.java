@@ -39,6 +39,7 @@ import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.opensearch.OpenSearchServer.OPENSEARCH_IMAGE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -72,7 +73,8 @@ public final class OpenSearchQueryRunner
         private Builder(HostAndPort address)
         {
             super(testSessionBuilder()
-                    .setCatalog("opensearch")
+                    // We need separate catalog names because these tests check for JMX beans that would clash otherwise
+                    .setCatalog("opensearch_" + randomNameSuffix())
                     .setSchema(TPCH_SCHEMA)
                     .build());
 
@@ -116,7 +118,7 @@ public final class OpenSearchQueryRunner
                 queryRunner.createCatalog("tpch", "tpch");
 
                 queryRunner.installPlugin(new OpenSearchPlugin(new OpenSearchConnectorFactory()));
-                queryRunner.createCatalog("opensearch", "opensearch", connectorProperties);
+                queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().orElseThrow(), "opensearch", connectorProperties);
 
                 LOG.info("Loading data...");
                 long startTime = System.nanoTime();

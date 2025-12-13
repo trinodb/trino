@@ -39,6 +39,7 @@ import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_7_IMAGE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -98,7 +99,8 @@ public final class ElasticsearchQueryRunner
         private Builder(ElasticsearchServer server)
         {
             super(testSessionBuilder()
-                    .setCatalog("elasticsearch")
+                    // We need separate catalog names because these tests check for JMX beans that would clash otherwise
+                    .setCatalog("elasticsearch_" + randomNameSuffix())
                     .setSchema(TPCH_SCHEMA)
                     .build());
             this.server = requireNonNull(server, "server is null");
@@ -131,7 +133,7 @@ public final class ElasticsearchQueryRunner
                 queryRunner.createCatalog("tpch", "tpch");
 
                 queryRunner.installPlugin(new ElasticsearchPlugin(new ElasticsearchConnectorFactory()));
-                queryRunner.createCatalog("elasticsearch", "elasticsearch", connectorProperties);
+                queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().orElseThrow(), "elasticsearch", connectorProperties);
 
                 TestingTrinoClient trinoClient = queryRunner.getClient();
 
