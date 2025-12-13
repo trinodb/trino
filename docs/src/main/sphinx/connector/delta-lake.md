@@ -89,7 +89,11 @@ values. Typical usage does not require you to configure them.
   - Maximum retained size of Delta table metadata stored in cache. Must be
     specified in [](prop-type-data-size) values such as `64MB`. Default is
     calculated to 5% of the maximum memory allocated to the JVM.
-  - 
+  -
+* - `delta.transaction-log.max-cached-file-size`
+  - Maximum size of delta transaction log file that will be cached in memory
+    for the table metadata cache.
+  - `16MB` 
 * - `delta.metadata.live-files.cache-size`
   - Amount of memory allocated for caching information about files. Must be
     specified in [](prop-type-data-size) values such as `64MB`. Default is
@@ -112,6 +116,10 @@ values. Typical usage does not require you to configure them.
 * - `delta.max-partitions-per-writer`
   - Maximum number of partitions per writer.
   - `100`
+* - `delta.idle-writer-min-file-size`
+  - Minimum data written by a single partition writer before it can be
+    considered as 'idle' and could be closed by the engine.
+  - `16MB`
 * - `delta.hide-non-delta-lake-tables`
   - Hide information about tables that are not managed by Delta Lake. Hiding
     only applies to tables with the metadata managed in a Glue catalog, and does
