@@ -60,6 +60,8 @@
 
 ## Oracle connector
 
+## Paimon connector
+
 ## Pinot connector
 
 ## PostgreSQL connector
