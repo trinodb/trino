@@ -14,6 +14,7 @@
 package io.trino.server;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -24,6 +25,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestInternalCommunicationConfig
 {
@@ -32,6 +35,7 @@ public class TestInternalCommunicationConfig
     {
         assertRecordedDefaults(recordDefaults(InternalCommunicationConfig.class)
                 .setSharedSecret(null)
+                .setMaxRequestAge(new Duration(3, MINUTES))
                 .setHttp2Enabled(false)
                 .setHttpsRequired(false)
                 .setKeyStorePath(null)
@@ -50,6 +54,7 @@ public class TestInternalCommunicationConfig
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("internal-communication.shared-secret", "secret")
+                .put("internal-communication.max-request-age", "40s")
                 .put("internal-communication.http2.enabled", "true")
                 .put("internal-communication.https.required", "true")
                 .put("internal-communication.https.keystore.path", keystoreFile.toString())
@@ -61,6 +66,7 @@ public class TestInternalCommunicationConfig
 
         InternalCommunicationConfig expected = new InternalCommunicationConfig()
                 .setSharedSecret("secret")
+                .setMaxRequestAge(new Duration(40, SECONDS))
                 .setHttp2Enabled(true)
                 .setHttpsRequired(true)
                 .setKeyStorePath(keystoreFile.toString())

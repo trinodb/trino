@@ -22,6 +22,9 @@ import static io.trino.client.ProtocolHeaders.Headers.REQUEST_CLIENT_CAPABILITIE
 import static io.trino.client.ProtocolHeaders.Headers.REQUEST_CLIENT_INFO;
 import static io.trino.client.ProtocolHeaders.Headers.REQUEST_CLIENT_TAGS;
 import static io.trino.client.ProtocolHeaders.Headers.REQUEST_EXTRA_CREDENTIAL;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_INTERNAL_NODE_ID;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_INTERNAL_REQUEST_VALID_UNTIL;
+import static io.trino.client.ProtocolHeaders.Headers.REQUEST_INTERNAL_SIGNATURE;
 import static io.trino.client.ProtocolHeaders.Headers.REQUEST_LANGUAGE;
 import static io.trino.client.ProtocolHeaders.Headers.REQUEST_ORIGINAL_ROLES;
 import static io.trino.client.ProtocolHeaders.Headers.REQUEST_ORIGINAL_USER;
@@ -80,6 +83,9 @@ public final class ProtocolHeaders
         REQUEST_RESOURCE_ESTIMATE("Resource-Estimate"),
         REQUEST_EXTRA_CREDENTIAL("Extra-Credential"),
         REQUEST_QUERY_DATA_ENCODING("Query-Data-Encoding"),
+        REQUEST_INTERNAL_SIGNATURE("Internal-Signature"),
+        REQUEST_INTERNAL_NODE_ID("Internal-Node-Id"),
+        REQUEST_INTERNAL_REQUEST_VALID_UNTIL("Internal-Valid-Until"),
         RESPONSE_SET_CATALOG("Set-Catalog"),
         RESPONSE_SET_SCHEMA("Set-Schema"),
         RESPONSE_SET_PATH("Set-Path"),
@@ -129,6 +135,9 @@ public final class ProtocolHeaders
     private final String requestResourceEstimate;
     private final String requestExtraCredential;
     private final String requestQueryDataEncoding;
+    private final String requestInternalSignature;
+    private final String requestInternalNodeId;
+    private final String requestInternalRequestValidUntil;
     private final String responseSetCatalog;
     private final String responseSetSchema;
     private final String responseSetPath;
@@ -178,6 +187,9 @@ public final class ProtocolHeaders
         requestResourceEstimate = REQUEST_RESOURCE_ESTIMATE.withProtocolName(name);
         requestExtraCredential = REQUEST_EXTRA_CREDENTIAL.withProtocolName(name);
         requestQueryDataEncoding = REQUEST_QUERY_DATA_ENCODING.withProtocolName(name);
+        requestInternalSignature = REQUEST_INTERNAL_SIGNATURE.withProtocolName(name);
+        requestInternalNodeId = REQUEST_INTERNAL_NODE_ID.withProtocolName(name);
+        requestInternalRequestValidUntil = REQUEST_INTERNAL_REQUEST_VALID_UNTIL.withProtocolName(name);
         responseSetCatalog = RESPONSE_SET_CATALOG.withProtocolName(name);
         responseSetSchema = RESPONSE_SET_SCHEMA.withProtocolName(name);
         responseSetPath = RESPONSE_SET_PATH.withProtocolName(name);
@@ -307,6 +319,21 @@ public final class ProtocolHeaders
     public String requestQueryDataEncoding()
     {
         return requestQueryDataEncoding;
+    }
+
+    public String requestInternalSignature()
+    {
+        return requestInternalSignature;
+    }
+
+    public String requestInternalNodeId()
+    {
+        return requestInternalNodeId;
+    }
+
+    public String requestInternalRequestValidUntil()
+    {
+        return requestInternalRequestValidUntil;
     }
 
     public String responseSetCatalog()
