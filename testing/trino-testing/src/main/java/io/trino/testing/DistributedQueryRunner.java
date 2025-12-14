@@ -40,6 +40,7 @@ import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.node.InternalNode;
+import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.PluginManager;
 import io.trino.server.SessionPropertyDefaults;
@@ -730,6 +731,8 @@ public final class DistributedQueryRunner
     {
         private Session defaultSession;
         private boolean withTracing;
+        private Optional<String> exchangeType = Optional.empty();
+        private Optional<Map<String, String>> exchangeProperties = Optional.empty();
         private int workerCount = 2;
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
@@ -918,6 +921,26 @@ public final class DistributedQueryRunner
             return self();
         }
 
+        public SELF withExchange(String exchangeType)
+        {
+            return withExchange(exchangeType, Optional.empty());
+        }
+
+        public SELF withExchange(String exchangeType, Map<String, String> properties)
+        {
+            return withExchange(exchangeType, Optional.of(ImmutableMap.copyOf(properties)));
+        }
+
+        private SELF withExchange(String exchangeType, Optional<Map<String, String>> properties)
+        {
+            if (!exchangeType.equals("filesystem")) {
+                throw new IllegalArgumentException("Unknow exchange type: " + exchangeType);
+            }
+            this.exchangeType = Optional.of(exchangeType);
+            this.exchangeProperties = properties;
+            return self();
+        }
+
         public SELF withProtocolSpooling(String encoding)
         {
             this.encoding = Optional.of(encoding);
@@ -991,6 +1014,18 @@ public final class DistributedQueryRunner
                 if (encoding.isPresent()) {
                     queryRunner.installPlugin(new LocalSpoolingPlugin());
                     queryRunner.loadSpoolingManager("test-local", Map.of());
+                }
+
+                if (exchangeType.isPresent()) {
+                    switch (exchangeType.get()) {
+                        case "filesystem" -> {
+                            queryRunner.installPlugin(new FileSystemExchangePlugin());
+                            Map<String, String> properties = exchangeProperties.orElse(
+                                    ImmutableMap.of("exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
+                            queryRunner.loadExchangeManager("filesystem", properties);
+                        }
+                        default -> throw new IllegalArgumentException("Unknow exchange type: " + exchangeType);
+                    }
                 }
 
                 additionalSetup.accept(queryRunner);

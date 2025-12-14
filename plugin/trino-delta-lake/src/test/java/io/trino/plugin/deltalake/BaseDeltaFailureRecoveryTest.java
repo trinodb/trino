@@ -15,7 +15,6 @@ package io.trino.plugin.deltalake;
 
 import com.google.inject.Module;
 import io.trino.operator.RetryPolicy;
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.spi.ErrorType;
@@ -67,10 +66,7 @@ public abstract class BaseDeltaFailureRecoveryTest
         return DeltaLakeQueryRunner.builder()
                 .setCoordinatorProperties(coordinatorProperties)
                 .addExtraProperties(configProperties)
-                .setAdditionalSetup(runner -> {
-                    runner.installPlugin(new FileSystemExchangePlugin());
-                    runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
-                })
+                .withExchange("filesystem", getExchangeManagerProperties(minioStorage))
                 .addMetastoreProperties(hiveMinioDataLake.getHiveHadoop())
                 .addS3Properties(hiveMinioDataLake.getMinio(), bucketName)
                 .addDeltaProperty("delta.enable-non-concurrent-writes", "true")

@@ -20,7 +20,6 @@ import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
@@ -578,10 +577,7 @@ public final class IcebergQueryRunner
                             .put("fault-tolerant-execution-task-memory", "1GB")
                             .buildOrThrow())
                     .setInitialTables(TpchTable.getTables())
-                    .setAdditionalSetup(runner -> {
-                        runner.installPlugin(new FileSystemExchangePlugin());
-                        runner.loadExchangeManager("filesystem", exchangeManagerProperties);
-                    })
+                    .withExchange("filesystem", exchangeManagerProperties)
                     .build();
 
             log.info("======== SERVER STARTED ========");

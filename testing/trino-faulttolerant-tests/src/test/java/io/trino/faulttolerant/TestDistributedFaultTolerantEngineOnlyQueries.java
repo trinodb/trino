@@ -13,19 +13,15 @@
  */
 package io.trino.faulttolerant;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.plugin.blackhole.BlackHolePlugin;
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.memory.MemoryQueryRunner;
 import io.trino.testing.AbstractDistributedEngineOnlyQueries;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-
-import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.execution.scheduler.faulttolerant.EventDrivenFaultTolerantQueryScheduler.NO_FINAL_TASK_INFO_CHECK_INTERVAL;
@@ -40,16 +36,9 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Map<String, String> exchangeManagerProperties = ImmutableMap.<String, String>builder()
-                .put("exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager")
-                .buildOrThrow();
-
         QueryRunner queryRunner = MemoryQueryRunner.builder()
                 .setExtraProperties(FaultTolerantExecutionConnectorTestHelper.getExtraProperties())
-                .setAdditionalSetup(runner -> {
-                    runner.installPlugin(new FileSystemExchangePlugin());
-                    runner.loadExchangeManager("filesystem", exchangeManagerProperties);
-                })
+                .withExchange("filesystem")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
 
