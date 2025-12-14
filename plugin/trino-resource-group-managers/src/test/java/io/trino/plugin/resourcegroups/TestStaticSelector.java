@@ -330,7 +330,7 @@ public class TestStaticSelector
     }
 
     @Test
-    public void testQueryText()
+    public void testQueryTextRegex()
     {
         ResourceGroupId resourceGroupId = new ResourceGroupId(new ResourceGroupId("global"), "foo");
         {
@@ -366,9 +366,9 @@ public class TestStaticSelector
         }
     }
 
-    private SelectionCriteria newSelectionCriteriaQueryText(String user, String queryText)
+    private SelectionCriteria newSelectionCriteriaQueryText(String user, String queryTextRegex)
     {
-        return new SelectionCriteria(true, user, ImmutableSet.of(), user, Optional.empty(), Optional.empty(), Set.of(), EMPTY_RESOURCE_ESTIMATES, queryText, Optional.empty());
+        return new SelectionCriteria(true, user, ImmutableSet.of(), user, Optional.empty(), Optional.empty(), Set.of(), EMPTY_RESOURCE_ESTIMATES, queryTextRegex, Optional.empty());
     }
 
     private SelectionCriteria newSelectionCriteria(String user, String source, Set<String> tags, ResourceEstimates resourceEstimates)

@@ -31,7 +31,7 @@ public class SelectorSpec
     private final Optional<Pattern> originalUserRegex;
     private final Optional<Pattern> authenticatedUserRegex;
     private final Optional<Pattern> sourceRegex;
-    private final Optional<Pattern> queryText;
+    private final Optional<Pattern> queryTextRegex;
     private final Optional<String> queryType;
     private final Optional<List<String>> clientTags;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
@@ -44,7 +44,7 @@ public class SelectorSpec
             @JsonProperty("originalUser") Optional<Pattern> originalUserRegex,
             @JsonProperty("authenticatedUser") Optional<Pattern> authenticatedUserRegex,
             @JsonProperty("source") Optional<Pattern> sourceRegex,
-            @JsonProperty("queryText") Optional<Pattern> queryText,
+            @JsonProperty("queryText") Optional<Pattern> queryTextRegex,
             @JsonProperty("queryType") Optional<String> queryType,
             @JsonProperty("clientTags") Optional<List<String>> clientTags,
             @JsonProperty("selectorResourceEstimate") Optional<SelectorResourceEstimate> selectorResourceEstimate,
@@ -55,7 +55,7 @@ public class SelectorSpec
         this.originalUserRegex = requireNonNull(originalUserRegex, "originalUserRegex is null");
         this.authenticatedUserRegex = requireNonNull(authenticatedUserRegex, "authenticatedUserRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
-        this.queryText = requireNonNull(queryText, "queryText is null");
+        this.queryTextRegex = requireNonNull(queryTextRegex, "queryTextRegex is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.clientTags = requireNonNull(clientTags, "clientTags is null");
         this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
@@ -87,9 +87,9 @@ public class SelectorSpec
         return sourceRegex;
     }
 
-    public Optional<Pattern> getQueryText()
+    public Optional<Pattern> getQueryTextRegex()
     {
-        return queryText;
+        return queryTextRegex;
     }
 
     public Optional<String> getQueryType()
@@ -132,8 +132,8 @@ public class SelectorSpec
                 authenticatedUserRegex.map(Pattern::flags).equals(that.authenticatedUserRegex.map(Pattern::flags)) &&
                 sourceRegex.map(Pattern::pattern).equals(that.sourceRegex.map(Pattern::pattern))) &&
                 sourceRegex.map(Pattern::flags).equals(that.sourceRegex.map(Pattern::flags)) &&
-                queryText.map(Pattern::pattern).equals(that.queryText.map(Pattern::pattern)) &&
-                queryText.map(Pattern::flags).equals(that.queryText.map(Pattern::flags)) &&
+                queryTextRegex.map(Pattern::pattern).equals(that.queryTextRegex.map(Pattern::pattern)) &&
+                queryTextRegex.map(Pattern::flags).equals(that.queryTextRegex.map(Pattern::flags)) &&
                 queryType.equals(that.queryType) &&
                 clientTags.equals(that.clientTags);
     }
@@ -153,8 +153,8 @@ public class SelectorSpec
                 authenticatedUserRegex.map(Pattern::flags),
                 sourceRegex.map(Pattern::pattern),
                 sourceRegex.map(Pattern::flags),
-                queryText.map(Pattern::pattern),
-                queryText.map(Pattern::flags),
+                queryTextRegex.map(Pattern::pattern),
+                queryTextRegex.map(Pattern::flags),
                 queryType,
                 clientTags);
     }
@@ -174,8 +174,8 @@ public class SelectorSpec
                 .add("authenticatedUserFlags", authenticatedUserRegex.map(Pattern::flags))
                 .add("sourceRegex", sourceRegex)
                 .add("sourceFlags", sourceRegex.map(Pattern::flags))
-                .add("queryTextRegex", queryText)
-                .add("queryTextFlags", queryText.map(Pattern::flags))
+                .add("queryTextRegex", queryTextRegex)
+                .add("queryTextFlags", queryTextRegex.map(Pattern::flags))
                 .add("queryType", queryType)
                 .add("clientTags", clientTags)
                 .toString();
