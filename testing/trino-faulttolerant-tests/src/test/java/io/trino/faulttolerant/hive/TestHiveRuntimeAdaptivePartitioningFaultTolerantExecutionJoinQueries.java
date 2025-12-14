@@ -15,7 +15,6 @@ package io.trino.faulttolerant.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.execution.DynamicFilterConfig;
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.AbstractTestFaultTolerantExecutionJoinQueries;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
@@ -40,11 +39,7 @@ public class TestHiveRuntimeAdaptivePartitioningFaultTolerantExecutionJoinQuerie
         verify(new DynamicFilterConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
         return HiveQueryRunner.builder()
                 .setExtraProperties(extraPropertiesWithRuntimeAdaptivePartitioning.buildOrThrow())
-                .setAdditionalSetup(runner -> {
-                    runner.installPlugin(new FileSystemExchangePlugin());
-                    runner.loadExchangeManager("filesystem", ImmutableMap.of("exchange.base-directories",
-                            System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
-                })
+                .withExchange("filesystem")
                 .addHiveProperty("hive.dynamic-filtering.wait-timeout", "1h")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
