@@ -944,10 +944,6 @@ public final class DistributedQueryRunner
                 addExtraProperty("protocol.spooling.shared-secret-key", randomAESKey());
                 // LocalSpoolingManager doesn't support direct storage access
                 addExtraProperty("protocol.spooling.retrieval-mode", "coordinator_proxy");
-                setAdditionalSetup(queryRunner -> {
-                    queryRunner.installPlugin(new LocalSpoolingPlugin());
-                    queryRunner.loadSpoolingManager("test-local", Map.of());
-                });
             }
             if (withTracing) {
                 OpenTracingCollector collector = new OpenTracingCollector();
@@ -992,6 +988,11 @@ public final class DistributedQueryRunner
             extraCloseables = null;
 
             try {
+                if (encoding.isPresent()) {
+                    queryRunner.installPlugin(new LocalSpoolingPlugin());
+                    queryRunner.loadSpoolingManager("test-local", Map.of());
+                }
+
                 additionalSetup.accept(queryRunner);
             }
             catch (Throwable e) {
