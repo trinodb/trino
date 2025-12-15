@@ -16,6 +16,8 @@ package io.trino.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import jakarta.annotation.Nullable;
+import jdk.incubator.vector.ByteVector;
+import jdk.incubator.vector.VectorOperators;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -23,13 +25,15 @@ import java.util.Optional;
 
 final class EncoderUtil
 {
+    private static final ByteVector NULL_BIT_SHIFTS = ByteVector.fromArray(ByteVector.SPECIES_64, new byte[] {7, 6, 5, 4, 3, 2, 1, 0}, 0);
+
     private EncoderUtil() {}
 
     /**
      * Append null values for the block as a stream of bits.
      */
     @SuppressWarnings({"NarrowingCompoundAssignment", "ImplicitNumericConversion"})
-    public static void encodeNullsAsBits(SliceOutput sliceOutput, @Nullable boolean[] isNull, int offset, int length)
+    public static void encodeNullsAsBitsScalar(SliceOutput sliceOutput, @Nullable boolean[] isNull, int offset, int length)
     {
         sliceOutput.writeBoolean(isNull != null);
         if (isNull == null) {
@@ -69,15 +73,53 @@ final class EncoderUtil
     }
 
     /**
-     * Decode the bit stream created by encodeNullsAsBits.
+     * Implementation of {@link EncoderUtil#encodeNullsAsBitsScalar(SliceOutput, boolean[], int, int)} using the vector API
      */
-    public static Optional<boolean[]> decodeNullBits(SliceInput sliceInput, int positionCount)
+    @SuppressWarnings({"NarrowingCompoundAssignment", "ImplicitNumericConversion"})
+    public static void encodeNullsAsBitsVectorized(SliceOutput sliceOutput, @Nullable boolean[] isNull, int offset, int length)
     {
-        return Optional.ofNullable(retrieveNullBits(sliceInput, positionCount))
-                .map(packedIsNull -> decodeNullBits(packedIsNull, positionCount));
+        sliceOutput.writeBoolean(isNull != null);
+        if (isNull == null) {
+            return;
+        }
+        // inlined from Objects.checkFromIndexSize
+        if ((length | offset) < 0 || length > isNull.length - offset) {
+            throw new IndexOutOfBoundsException("Invalid offset: %s, length: %s for size: %s".formatted(offset, length, isNull.length));
+        }
+        byte[] packedIsNull = new byte[(length + 7) / 8];
+        int currentByte = 0;
+        int position = 0;
+        while (position < ByteVector.SPECIES_64.loopBound(length)) {
+            packedIsNull[currentByte++] = ByteVector.fromBooleanArray(ByteVector.SPECIES_64, isNull, position + offset)
+                    .lanewise(VectorOperators.LSHL, NULL_BIT_SHIFTS)
+                    .reduceLanes(VectorOperators.OR);
+            position += ByteVector.SPECIES_64.length();
+        }
+
+        // write last null bits
+        if (position < length) {
+            byte value = 0;
+            int mask = 0b1000_0000;
+            for (; position < length; position++) {
+                value |= isNull[position + offset] ? mask : 0;
+                mask >>>= 1;
+            }
+            packedIsNull[currentByte++] = value;
+        }
+
+        sliceOutput.writeBytes(packedIsNull, 0, currentByte);
     }
 
-    public static boolean[] decodeNullBits(byte[] packedIsNull, int positionCount)
+    /**
+     * Decode the bit stream created by encodeNullsAsBits.
+     */
+    public static Optional<boolean[]> decodeNullBitsScalar(SliceInput sliceInput, int positionCount)
+    {
+        return Optional.ofNullable(retrieveNullBits(sliceInput, positionCount))
+                .map(packedIsNull -> decodeNullBitsScalar(packedIsNull, positionCount));
+    }
+
+    public static boolean[] decodeNullBitsScalar(byte[] packedIsNull, int positionCount)
     {
         // read null bits 8 at a time
         boolean[] valueIsNull = new boolean[positionCount];
@@ -99,6 +141,42 @@ final class EncoderUtil
             byte value = packedIsNull[packedIsNull.length - 1];
             int mask = 0b1000_0000;
             for (int position = positionCount & ~0b111; position < positionCount; position++) {
+                valueIsNull[position] = ((value & mask) != 0);
+                mask >>>= 1;
+            }
+        }
+
+        return valueIsNull;
+    }
+
+    /**
+     * Implementation of {@link EncoderUtil#decodeNullBitsScalar(SliceInput, int)} that uses the vector API
+     */
+    public static Optional<boolean[]> decodeNullBitsVectorized(SliceInput sliceInput, int positionCount)
+    {
+        return Optional.ofNullable(retrieveNullBits(sliceInput, positionCount))
+                .map(packedIsNull -> decodeNullBitsVectorized(packedIsNull, positionCount));
+    }
+
+    public static boolean[] decodeNullBitsVectorized(byte[] packedIsNull, int positionCount)
+    {
+        // read null bits 8 at a time
+        boolean[] valueIsNull = new boolean[positionCount];
+        int currentByte = 0;
+        int position = 0;
+        while (position < ByteVector.SPECIES_64.loopBound(positionCount)) {
+            // equivalent of ((value >>> shift) & 1) != 0
+            ByteVector.broadcast(ByteVector.SPECIES_64, packedIsNull[currentByte++])
+                    .lanewise(VectorOperators.LSHR, NULL_BIT_SHIFTS)
+                    .intoBooleanArray(valueIsNull, position);
+            position += ByteVector.SPECIES_64.length();
+        }
+
+        // read last null bits
+        if (position < positionCount) {
+            byte value = packedIsNull[currentByte];
+            int mask = 0b1000_0000;
+            for (; position < positionCount; position++) {
                 valueIsNull[position] = ((value & mask) != 0);
                 mask >>>= 1;
             }

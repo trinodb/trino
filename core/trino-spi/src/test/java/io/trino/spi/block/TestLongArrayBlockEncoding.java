@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.Random;
 
-import static io.trino.spi.block.EncoderUtil.decodeNullBits;
+import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
 import static io.trino.spi.block.LongArrayBlockEncoding.compactLongsWithNullsScalar;
 import static io.trino.spi.block.LongArrayBlockEncoding.compactLongsWithNullsVectorized;
 import static io.trino.spi.block.LongArrayBlockEncoding.expandLongsWithNullsScalar;
@@ -64,7 +64,7 @@ final class TestLongArrayBlockEncoding
                     byte[] vector = compressLongsVectorized(values, isNull, offset, length);
                     assertThat(vector).as("longs: scalar and vector outputs differ").isEqualTo(scalar);
                     byte[] packedIsNullBits = getEncodedNullsAsBits(isNull, offset, length);
-                    boolean[] decodedIsNull = decodeNullBits(packedIsNullBits, length);
+                    boolean[] decodedIsNull = decodeNullBitsVectorized(packedIsNullBits, length);
                     assertThat(decodedIsNull).as("decodedIsNull must match input isNull").isEqualTo(Arrays.copyOfRange(isNull, offset, offset + length));
                     LongArrayBlock scalarBlock = expandLongsWithNullsScalar(Slices.wrappedBuffer(scalar).getInput(), length, packedIsNullBits, decodedIsNull);
                     LongArrayBlock vectorBlock = expandLongsWithNullsVectorized(Slices.wrappedBuffer(scalar).getInput(), length, decodedIsNull);

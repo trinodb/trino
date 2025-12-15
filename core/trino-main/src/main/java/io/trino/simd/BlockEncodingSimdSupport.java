@@ -48,6 +48,7 @@ public final class BlockEncodingSimdSupport
     private static final Logger log = Logger.get(BlockEncodingSimdSupport.class);
 
     public record SimdSupport(
+            boolean vectorizeNullBitPacking,
             boolean compressByte,
             boolean expandByte,
             boolean compressShort,
@@ -57,8 +58,8 @@ public final class BlockEncodingSimdSupport
             boolean compressLong,
             boolean expandLong)
     {
-        public static final SimdSupport NONE = new SimdSupport(false, false, false, false, false, false, false, false);
-        public static final SimdSupport ALL = new SimdSupport(true, true, true, true, true, true, true, true);
+        public static final SimdSupport NONE = new SimdSupport(false, false, false, false, false, false, false, false, false);
+        public static final SimdSupport ALL = new SimdSupport(true, true, true, true, true, true, true, true, true);
     }
 
     private static final int MINIMUM_SIMD_LENGTH = 256;
@@ -139,15 +140,20 @@ public final class BlockEncodingSimdSupport
             }
         }
 
+        // Unclear which x86_64 platforms would lack 256 bit SIMD registers, so disable vectorization
+        // because it's likely that intrinsics are missing or perform worse
         if (preferredVectorBitWidth < MINIMUM_SIMD_LENGTH) {
             return SimdSupport.NONE;
         }
 
+        // Always vectorize valueIsNull bit packing, no known x86_64 platforms regress with this approach
+        boolean packIsNullBits = true;
         boolean expandAndCompressByte = x86Flags.contains(X86SimdInstructionSet.avx512vbmi2);
         boolean expandAndCompressShort = x86Flags.contains(X86SimdInstructionSet.avx512vbmi2);
         boolean expandAndCompressInt = x86Flags.contains(X86SimdInstructionSet.avx512f);
         boolean expandAndCompressLong = x86Flags.contains(X86SimdInstructionSet.avx512f);
         return new SimdSupport(
+                packIsNullBits,
                 expandAndCompressByte,
                 expandAndCompressByte,
                 expandAndCompressShort,
@@ -180,6 +186,8 @@ public final class BlockEncodingSimdSupport
             return SimdSupport.NONE;
         }
 
+        // Vectorized null bit packing has no known aarch64 platforms that regress compared to scalar code
+        boolean packIsNullBits = true;
         // SVE 1 is sufficient to have Vector#compress(VectorMask) intrinsics for all primitive types
         boolean compressAll = true;
         boolean compressLong = preferredVectorBitWidth > 128; // only vectorize long compression if we can handle more than 2 values per instruction
@@ -191,6 +199,7 @@ public final class BlockEncodingSimdSupport
         boolean expandLong = armFlags.contains(ArmSimdInstructionSet.sve2) && preferredVectorBitWidth > 128; // ensure minimum register width for long
         boolean expandByteAndShort = false; // no intrinsics in JDK 25
         return new SimdSupport(
+                packIsNullBits,
                 compressAll,
                 expandByteAndShort,
                 compressAll,

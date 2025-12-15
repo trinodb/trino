@@ -266,30 +266,72 @@
                                 <item>
                                     <ignore>true</ignore>
                                     <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.block.ArrayBlockEncoding::&lt;init&gt;()</old>
+                                    <new>method void io.trino.spi.block.ArrayBlockEncoding::&lt;init&gt;(boolean)</new>
+                                    <justification>ArrayBlockEncoding needs to accept a parameter to enable SIMD support</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
                                     <old>method void io.trino.spi.block.ByteArrayBlockEncoding::&lt;init&gt;(boolean)</old>
-                                    <new>method void io.trino.spi.block.ByteArrayBlockEncoding::&lt;init&gt;(boolean, boolean)</new>
-                                    <justification>ByteArrayBlockEncoding need to accept a parameter to enable SIMD support</justification>
+                                    <new>method void io.trino.spi.block.ByteArrayBlockEncoding::&lt;init&gt;(boolean, boolean, boolean)</new>
+                                    <justification>ByteArrayBlockEncoding needs to accept parameters to enable SIMD support</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.block.Fixed12BlockEncoding::&lt;init&gt;()</old>
+                                    <new>method void io.trino.spi.block.Fixed12BlockEncoding::&lt;init&gt;(boolean)</new>
+                                    <justification>Fixed12BlockEncoding needs to accept a parameter to enable SIMD support</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.block.Int128ArrayBlockEncoding::&lt;init&gt;()</old>
+                                    <new>method void io.trino.spi.block.Int128ArrayBlockEncoding::&lt;init&gt;(boolean)</new>
+                                    <justification>Int128ArrayBlockEncoding needs to accept a parameter to enable SIMD support</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
                                     <code>java.method.numberOfParametersChanged</code>
                                     <old>method void io.trino.spi.block.IntArrayBlockEncoding::&lt;init&gt;(boolean)</old>
-                                    <new>method void io.trino.spi.block.IntArrayBlockEncoding::&lt;init&gt;(boolean, boolean)</new>
-                                    <justification>IntArrayBlockEncoding need to accept a parameter to enable SIMD support</justification>
+                                    <new>method void io.trino.spi.block.IntArrayBlockEncoding::&lt;init&gt;(boolean, boolean, boolean)</new>
+                                    <justification>IntArrayBlockEncoding needs to accept parameters to enable SIMD support</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
                                     <code>java.method.numberOfParametersChanged</code>
                                     <old>method void io.trino.spi.block.LongArrayBlockEncoding::&lt;init&gt;(boolean)</old>
-                                    <new>method void io.trino.spi.block.LongArrayBlockEncoding::&lt;init&gt;(boolean, boolean)</new>
-                                    <justification>LongArrayBlockEncoding need to accept a parameter to enable SIMD support</justification>
+                                    <new>method void io.trino.spi.block.LongArrayBlockEncoding::&lt;init&gt;(boolean, boolean, boolean)</new>
+                                    <justification>LongArrayBlockEncoding needs to accept parameters to to enable SIMD support</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.block.MapBlockEncoding::&lt;init&gt;()</old>
+                                    <new>method void io.trino.spi.block.MapBlockEncoding::&lt;init&gt;(boolean)</new>
+                                    <justification>MapBlockEncoding needs to accept a parameter to enable SIMD support</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.block.RowBlockEncoding::&lt;init&gt;()</old>
+                                    <new>method void io.trino.spi.block.RowBlockEncoding::&lt;init&gt;(boolean)</new>
+                                    <justification>RowBlockEncoding needs to accept a parameter to enable SIMD support</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
                                     <code>java.method.numberOfParametersChanged</code>
                                     <old>method void io.trino.spi.block.ShortArrayBlockEncoding::&lt;init&gt;(boolean)</old>
-                                    <new>method void io.trino.spi.block.ShortArrayBlockEncoding::&lt;init&gt;(boolean, boolean)</new>
-                                    <justification>ShortArrayBlockEncoding need to accept a parameter to enable SIMD support</justification>
+                                    <new>method void io.trino.spi.block.ShortArrayBlockEncoding::&lt;init&gt;(boolean, boolean, boolean)</new>
+                                    <justification>ShortArrayBlockEncoding needs to accept parameters to enable SIMD support</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.block.VariableWidthBlockEncoding::&lt;init&gt;()</old>
+                                    <new>method void io.trino.spi.block.VariableWidthBlockEncoding::&lt;init&gt;(boolean)</new>
+                                    <justification>VariableWidthBlockEncoding needs to accept a parameter to enable SIMD support</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
