@@ -1754,9 +1754,19 @@ public interface ConnectorMetadata
 
     /**
      * The method is used by the engine to determine if a materialized view is current with respect to the tables it depends on.
+     * <p>
+     * When {@code considerGracePeriod} is {@code true}, connectors may skip expensive freshness checks and return
+     * {@link MaterializedViewFreshness.Freshness#FRESH_WITHIN_GRACE_PERIOD} if the materialized view is within its
+     * configured grace period, evaluated relative to the session start time ({@link ConnectorSession#getStart()}).
      *
      * @throws MaterializedViewNotFoundException when materialized view is not found
      */
+    default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, boolean considerGracePeriod)
+    {
+        return getMaterializedViewFreshness(session, name);
+    }
+
+    @Deprecated(forRemoval = true)
     default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getMaterializedView() is implemented without getMaterializedViewFreshness()");
