@@ -2397,7 +2397,6 @@ class StatementAnalyzer
             }
 
             // Can be negative
-            // TODO should we compare lastFreshTime with session.start() or with current time? The freshness is calculated with respect to current state of things.
             Duration staleness = Duration.between(lastFreshTime.get(), session.getStart());
             return staleness.compareTo(gracePeriod) <= 0;
         }
