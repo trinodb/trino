@@ -107,7 +107,7 @@ class BuiltinFunctionResolver
         catch (UncheckedExecutionException e) {
             if (e.getCause() instanceof TrinoException cause) {
                 if (cause.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
-                    throw new OperatorNotFoundException(operatorType, ImmutableList.of(fromType), toType.getTypeSignature(), cause);
+                    throw new OperatorNotFoundException(operatorType, ImmutableList.of(fromType), toType, cause);
                 }
                 throw cause;
             }
