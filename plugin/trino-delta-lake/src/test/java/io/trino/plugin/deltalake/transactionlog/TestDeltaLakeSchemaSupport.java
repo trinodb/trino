@@ -145,10 +145,10 @@ public class TestDeltaLakeSchemaSupport
         assertThat(schema).hasSize(5);
         // asserting on the string representations, since they're more readable
         assertThat(schema.get(0).toString()).isEqualTo("ColumnMetadata{name='a', type=integer, nullable}");
-        assertThat(schema.get(1).toString()).isEqualTo("ColumnMetadata{name='b', type=row(b1 integer, b2 row(b21 varchar, b22 boolean)), nullable}");
+        assertThat(schema.get(1).toString()).isEqualTo("ColumnMetadata{name='b', type=row(\"b1\" integer, \"b2\" row(\"b21\" varchar, \"b22\" boolean)), nullable}");
         assertThat(schema.get(2).toString()).isEqualTo("ColumnMetadata{name='c', type=array(integer), nullable}");
-        assertThat(schema.get(3).toString()).isEqualTo("ColumnMetadata{name='d', type=array(row(d1 integer)), nullable}");
-        assertThat(schema.get(4).toString()).isEqualTo("ColumnMetadata{name='e', type=map(varchar, row(e1 date, e2 timestamp(3) with time zone)), nullable}");
+        assertThat(schema.get(3).toString()).isEqualTo("ColumnMetadata{name='d', type=array(row(\"d1\" integer)), nullable}");
+        assertThat(schema.get(4).toString()).isEqualTo("ColumnMetadata{name='e', type=map(varchar, row(\"e1\" date, \"e2\" timestamp(3) with time zone)), nullable}");
     }
 
     @Test

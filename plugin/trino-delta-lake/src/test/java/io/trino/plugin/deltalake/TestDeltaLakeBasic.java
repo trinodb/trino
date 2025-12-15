@@ -210,8 +210,8 @@ public class TestDeltaLakeBasic
                             "('age', 'integer', '', ''), " +
                             "('married', 'boolean', '', ''), " +
                             "('gender', 'varchar', '', ''), " +
-                            "('phones', 'array(row(number varchar, label varchar))', '', ''), " +
-                            "('address', 'row(street varchar, city varchar, state varchar, zip varchar)', '', ''), " +
+                            "('phones', 'array(row(\"number\" varchar, \"label\" varchar))', '', ''), " +
+                            "('address', 'row(\"street\" varchar, \"city\" varchar, \"state\" varchar, \"zip\" varchar)', '', ''), " +
                             "('income', 'double', '', '')");
         }
     }
@@ -1610,7 +1610,7 @@ public class TestDeltaLakeBasic
                         "('simple_variant', 'json')," +
                         "('array_variant', 'array(json)')," +
                         "('map_variant', 'map(varchar, json)')," +
-                        "('struct_variant', 'row(x json)')," +
+                        "('struct_variant', 'row(\"x\" json)')," +
                         "('col_string', 'varchar')");
 
         assertThat(query("SELECT col_int, simple_variant, array_variant[1], map_variant['key1'], struct_variant.x, col_string FROM variant"))
@@ -2514,7 +2514,7 @@ public class TestDeltaLakeBasic
 
         assertThat(query("DESCRIBE " + tableName)).result().projected("Column", "Type")
                 .skippingTypesCheck()
-                .matches("VALUES ('s', 'row(field integer)'), ('m', 'map(integer, integer)'), ('a', 'array(integer)')");
+                .matches("VALUES ('s', 'row(\"field\" integer)'), ('m', 'map(integer, integer)'), ('a', 'array(integer)')");
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES " +
                         "(CAST(ROW(127) AS ROW(field integer)), MAP(ARRAY[-128], ARRAY[127]), ARRAY[127])," +

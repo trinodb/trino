@@ -3045,7 +3045,7 @@ public class TestDeltaLakeConnectorTest
                 "EXPLAIN SELECT root.f2 FROM " + tableName,
                 "ScanProject\\[table = (.*)]",
                 "expr := root.1",
-                "root := root:row\\(f1 bigint, f2 bigint\\):REGULAR");
+                "root := root:row\\(\"f1\" bigint, \"f2\" bigint\\):REGULAR");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -3064,7 +3064,7 @@ public class TestDeltaLakeConnectorTest
                 "expr(.*) := .*\\$subscript\\(.*, bigint '1'\\).0",
                 "id(.*) := id:bigint:REGULAR",
                 // _array:array\\(row\\(child bigint\\)\\) is a symbol name, not a dereference expression.
-                "(.*) := _array:array\\(row\\(child bigint\\)\\):REGULAR",
+                "(.*) := _array:array\\(row\\(\"child\" bigint\\)\\):REGULAR",
                 "(.*) := _map:map\\(bigint, bigint\\):REGULAR",
                 "(.*) := _row#child:bigint:REGULAR");
     }
@@ -4681,7 +4681,7 @@ public class TestDeltaLakeConnectorTest
         try (TestTable testTable = newTrinoTable(
                 "test_timestamp_coercion_on_create_table_as_with_row_type",
                 "AS SELECT CAST(row(%s) AS row(value timestamp(6))) ts".formatted(actualValue))) {
-            assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("row(value timestamp(6))");
+            assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("row(\"value\" timestamp(6))");
             assertThat(query("SELECT ts.value FROM " + testTable.getName()))
                     .skippingTypesCheck()
                     .matches("VALUES " + expectedValue);
@@ -4694,7 +4694,7 @@ public class TestDeltaLakeConnectorTest
         try (TestTable testTable = newTrinoTable(
                 "test_char_coercion_on_create_table_as_with_row_type",
                 "AS SELECT CAST(row(%s) AS row(value %s)) col".formatted(actualValue, actualTypeLiteral))) {
-            assertThat(getColumnType(testTable.getName(), "col")).isEqualTo("row(value varchar)");
+            assertThat(getColumnType(testTable.getName(), "col")).isEqualTo("row(\"value\" varchar)");
             assertThat(query("SELECT col.value FROM " + testTable.getName()))
                     .skippingTypesCheck()
                     .matches("VALUES " + expectedValue);
@@ -4847,7 +4847,7 @@ public class TestDeltaLakeConnectorTest
 
         testAddColumnWithTypeCoercion("array(char(10))", "array(varchar)");
         testAddColumnWithTypeCoercion("map(char(20), char(30))", "map(varchar, varchar)");
-        testAddColumnWithTypeCoercion("row(x char(40))", "row(x varchar)");
+        testAddColumnWithTypeCoercion("row(x char(40))", "row(\"x\" varchar)");
     }
 
     private void testAddColumnWithTypeCoercion(String columnType, String expectedColumnType)

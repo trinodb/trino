@@ -1115,7 +1115,7 @@ public class TestJsonOperators
                 .binding("a", "'{\"a\": 1, \"b\": {}}'")
                 .evaluate())
                 .hasErrorCode(INVALID_CAST_ARGUMENT, INVALID_FUNCTION_ARGUMENT)
-                .hasMessage("Cannot cast to row(a integer, b array(integer)). Expected a json array, but got {\n{\"a\": 1, \"b\": {}}");
+                .hasMessage("Cannot cast to row(\"a\" integer, \"b\" array(integer)). Expected a json array, but got {\n{\"a\": 1, \"b\": {}}");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(json_parse(a) AS ROW(INTEGER, ARRAY(INTEGER)))")
                 .binding("a", "'[1, {}]'")

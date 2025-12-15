@@ -211,8 +211,10 @@ public class RowType
         for (Field field : fields) {
             String typeDisplayName = field.getType().getDisplayName();
             if (field.getName().isPresent()) {
-                // TODO: names are already canonicalized, so they should be printed as delimited identifiers
-                result.append(field.getName().get()).append(' ').append(typeDisplayName);
+                result.append("\"")
+                        .append(field.getName().get().replace("\"", "\"\""))
+                        .append("\" ")
+                        .append(typeDisplayName);
             }
             else {
                 result.append(typeDisplayName);

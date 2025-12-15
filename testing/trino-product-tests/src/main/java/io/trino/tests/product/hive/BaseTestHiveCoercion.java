@@ -861,9 +861,9 @@ public abstract class BaseTestHiveCoercion
             String timestampType = "timestamp(%d)".formatted(hiveTimestampPrecision.getPrecision());
             setHiveTimestampPrecision(hiveTimestampPrecision);
             assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
-                    row("timestamp_row_to_row", "row(keep %1$s, si2i integer, timestamp2string varchar, string2timestamp %1$s, timestamp2date date)".formatted(timestampType)),
-                    row("timestamp_list_to_list", "array(row(keep %1$s, si2i integer, timestamp2string varchar, string2timestamp %1$s, timestamp2date date))".formatted(timestampType)),
-                    row("timestamp_map_to_map", "map(integer, row(keep %1$s, si2i integer, timestamp2string varchar, string2timestamp %1$s, timestamp2date date))".formatted(timestampType)),
+                    row("timestamp_row_to_row", "row(\"keep\" %1$s, \"si2i\" integer, \"timestamp2string\" varchar, \"string2timestamp\" %1$s, \"timestamp2date\" date)".formatted(timestampType)),
+                    row("timestamp_list_to_list", "array(row(\"keep\" %1$s, \"si2i\" integer, \"timestamp2string\" varchar, \"string2timestamp\" %1$s, \"timestamp2date\" date))".formatted(timestampType)),
+                    row("timestamp_map_to_map", "map(integer, row(\"keep\" %1$s, \"si2i\" integer, \"timestamp2string\" varchar, \"string2timestamp\" %1$s, \"timestamp2date\" date))".formatted(timestampType)),
                     row("timestamp_to_string", "varchar"),
                     row("string_to_timestamp", timestampType),
                     row("timestamp_to_date", "date"),
@@ -1139,9 +1139,9 @@ public abstract class BaseTestHiveCoercion
     {
         assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
                 // The field lower2uppercase in the row is recorded in upper case in hive, but Trino converts it to lower case
-                row("row_to_row", "row(keep varchar, ti2si smallint, si2int integer, int2bi bigint, bi2vc varchar, lower2uppercase bigint)"),
-                row("list_to_list", "array(row(ti2int integer, si2bi bigint, bi2vc varchar))"),
-                row("map_to_map", "map(integer, row(ti2bi bigint, int2bi bigint, float2double double, add tinyint))"),
+                row("row_to_row", "row(\"keep\" varchar, \"ti2si\" smallint, \"si2int\" integer, \"int2bi\" bigint, \"bi2vc\" varchar, \"lower2uppercase\" bigint)"),
+                row("list_to_list", "array(row(\"ti2int\" integer, \"si2bi\" bigint, \"bi2vc\" varchar))"),
+                row("map_to_map", "map(integer, row(\"ti2bi\" bigint, \"int2bi\" bigint, \"float2double\" double, \"add\" tinyint))"),
                 row("boolean_to_varchar", "varchar(5)"),
                 row("string_to_boolean", "boolean"),
                 row("special_string_to_boolean", "boolean"),

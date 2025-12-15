@@ -139,7 +139,7 @@ public class TestMongoConnectorTest
         assertThat(query("SHOW COLUMNS FROM " + table))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                         "('mixed_array_col', 'row(_pos1 bigint, _pos2 varchar, _pos3 double, _pos4 row(nested_arr array(bigint)))', '', '')");
+                         "('mixed_array_col', 'row(\"_pos1\" bigint, \"_pos2\" varchar, \"_pos3\" double, \"_pos4\" row(\"nested_arr\" array(bigint)))', '', '')");
 
         assertThat(query("SELECT mixed_array_col._pos1, mixed_array_col._pos2, mixed_array_col._pos3 FROM " + table))
                 .matches("VALUES (BIGINT '1', VARCHAR 'two', DOUBLE '3.0')");
@@ -627,7 +627,7 @@ public class TestMongoConnectorTest
         String unknownFieldTable = "test_unknown_field" + randomNameSuffix();
         Document document1 = new Document("col", Document.parse("{\"key1\": \"value1\", \"key2\": null}"));
         client.getDatabase("test").getCollection(unknownFieldTable).insertOne(document1);
-        assertQuery("SHOW COLUMNS FROM test." + unknownFieldTable, "SELECT 'col', 'row(key1 varchar)', '', ''");
+        assertQuery("SHOW COLUMNS FROM test." + unknownFieldTable, "SELECT 'col', 'row(\"key1\" varchar)', '', ''");
         assertQuery("SELECT col.key1 FROM test." + unknownFieldTable, "SELECT 'value1'");
         assertUpdate("DROP TABLE test." + unknownFieldTable);
 
@@ -718,7 +718,7 @@ public class TestMongoConnectorTest
                 .matches("SELECT varchar 'test', varchar 'creators', " + expectedValue);
         assertQuery(
                 "SELECT typeof(creator) FROM test." + tableName,
-                "SELECT 'row(databaseName varchar, collectionName varchar, id " + expectedType + ")'");
+                "SELECT 'row(\"databaseName\" varchar, \"collectionName\" varchar, \"id\" " + expectedType + ")'");
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -754,7 +754,7 @@ public class TestMongoConnectorTest
         client.getDatabase("test").getCollection(tableName).insertOne(document);
 
         assertThat(query("SELECT * FROM test." + tableName))
-                .failure().hasMessageContaining("DBRef should have 3 fields : row(databaseName varchar, collectionName varchar)");
+                .failure().hasMessageContaining("DBRef should have 3 fields : row(\"databaseName\" varchar, \"collectionName\" varchar)");
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1596,7 +1596,7 @@ public class TestMongoConnectorTest
                 .isNotFullyPushedDown(ProjectNode.class);
         assertQuery(
                 "SELECT typeof(creator) FROM test." + tableName,
-                "SELECT 'row(databaseName varchar, collectionName varchar, id " + expectedType + ")'");
+                "SELECT 'row(\"databaseName\" varchar, \"collectionName\" varchar, \"id\" " + expectedType + ")'");
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1633,7 +1633,7 @@ public class TestMongoConnectorTest
                 .isNotFullyPushedDown(ProjectNode.class);
         assertQuery(
                 "SELECT typeof(parent.creator) FROM test." + tableName,
-                "SELECT 'row(databaseName varchar, collectionName varchar, id " + expectedType + ")'");
+                "SELECT 'row(\"databaseName\" varchar, \"collectionName\" varchar, \"id\" " + expectedType + ")'");
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1669,7 +1669,7 @@ public class TestMongoConnectorTest
                 .isNotFullyPushedDown(ProjectNode.class);
         assertQuery(
                 "SELECT typeof(parent.id), typeof(parent.id.id) FROM test." + tableName,
-                "SELECT 'row(databaseName varchar, collectionName varchar, id %1$s)', '%1$s'".formatted(expectedType));
+                "SELECT 'row(\"databaseName\" varchar, \"collectionName\" varchar, \"id\" %1$s)', '%1$s'".formatted(expectedType));
 
         assertUpdate("DROP TABLE test." + tableName);
     }

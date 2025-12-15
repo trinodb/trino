@@ -461,13 +461,13 @@ public class TestRowOperators
         assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a as ROW(a BIGINT, b BIGINT))")
                 .binding("a", "unchecked_to_json('{\"a\":1,\"b\":2,\"a\":3}')")
                 .evaluate())
-                .hasMessage("Cannot cast to row(a bigint, b bigint). Duplicate field: a\n{\"a\":1,\"b\":2,\"a\":3}")
+                .hasMessage("Cannot cast to row(\"a\" bigint, \"b\" bigint). Duplicate field: a\n{\"a\":1,\"b\":2,\"a\":3}")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a as ARRAY(ROW(a BIGINT, b BIGINT)))")
                 .binding("a", "unchecked_to_json('[{\"a\":1,\"b\":2,\"a\":3}]')")
                 .evaluate())
-                .hasMessage("Cannot cast to array(row(a bigint, b bigint)). Duplicate field: a\n[{\"a\":1,\"b\":2,\"a\":3}]")
+                .hasMessage("Cannot cast to array(row(\"a\" bigint, \"b\" bigint)). Duplicate field: a\n[{\"a\":1,\"b\":2,\"a\":3}]")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
     }
 
@@ -676,19 +676,19 @@ public class TestRowOperators
 
         assertTrinoExceptionThrownBy(assertions.expression("CAST(row(CAST(CAST('' as varbinary) as hyperloglog)) as row(col0 hyperloglog)) = CAST(row(CAST(CAST('' as varbinary) as hyperloglog)) as row(col0 hyperloglog))")::evaluate)
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:91: Cannot apply operator: row(col0 HyperLogLog) = row(col0 HyperLogLog)");
+                .hasMessage("line 1:91: Cannot apply operator: row(\"col0\" HyperLogLog) = row(\"col0\" HyperLogLog)");
 
         assertTrinoExceptionThrownBy(assertions.expression("CAST(row(CAST(CAST('' as varbinary) as hyperloglog)) as row(col0 hyperloglog)) > CAST(row(CAST(CAST('' as varbinary) as hyperloglog)) as row(col0 hyperloglog))")::evaluate)
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:91: Cannot apply operator: row(col0 HyperLogLog) < row(col0 HyperLogLog)");
+                .hasMessage("line 1:91: Cannot apply operator: row(\"col0\" HyperLogLog) < row(\"col0\" HyperLogLog)");
 
         assertTrinoExceptionThrownBy(assertions.expression("CAST(row(CAST(CAST('' as varbinary) as qdigest(double))) as row(col0 qdigest(double))) = CAST(row(CAST(CAST('' as varbinary) as qdigest(double))) as row(col0 qdigest(double)))")::evaluate)
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:99: Cannot apply operator: row(col0 qdigest(double)) = row(col0 qdigest(double))");
+                .hasMessage("line 1:99: Cannot apply operator: row(\"col0\" qdigest(double)) = row(\"col0\" qdigest(double))");
 
         assertTrinoExceptionThrownBy(assertions.expression("CAST(row(CAST(CAST('' as varbinary) as qdigest(double))) as row(col0 qdigest(double))) > CAST(row(CAST(CAST('' as varbinary) as qdigest(double))) as row(col0 qdigest(double)))")::evaluate)
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:99: Cannot apply operator: row(col0 qdigest(double)) < row(col0 qdigest(double))");
+                .hasMessage("line 1:99: Cannot apply operator: row(\"col0\" qdigest(double)) < row(\"col0\" qdigest(double))");
 
         assertThat(assertions.operator(EQUAL, "row(TRUE, ARRAY [1], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0]))", "row(TRUE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0]))"))
                 .isEqualTo(false);
