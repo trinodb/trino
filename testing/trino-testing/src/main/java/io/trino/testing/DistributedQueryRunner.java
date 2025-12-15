@@ -974,8 +974,8 @@ public final class DistributedQueryRunner
                 extraCloseables.add(collector);
                 addExtraProperties(Map.of(
                         "tracing.enabled", "true",
-                        "tracing.exporter.endpoint", collector.getExporterEndpoint().toString(),
-                        "tracing.exporter.protocol", "http/protobuf"));
+                        "otel.exporter.endpoint", collector.getExporterEndpoint().toString(),
+                        "otel.exporter.protocol", "http/protobuf"));
                 checkState(eventListeners.isEmpty(), "eventListeners already set");
                 setEventListener(new EventListener()
                 {
