@@ -25,7 +25,7 @@ import static io.trino.spi.block.ByteArrayBlockEncoding.compactBytesWithNullsSca
 import static io.trino.spi.block.ByteArrayBlockEncoding.compactBytesWithNullsVectorized;
 import static io.trino.spi.block.ByteArrayBlockEncoding.expandBytesWithNullsScalar;
 import static io.trino.spi.block.ByteArrayBlockEncoding.expandBytesWithNullsVectorized;
-import static io.trino.spi.block.EncoderUtil.decodeNullBits;
+import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
 import static io.trino.spi.block.TestEncoderUtil.assertBlockEquals;
 import static io.trino.spi.block.TestEncoderUtil.getEncodedNullsAsBits;
 import static io.trino.spi.block.TestEncoderUtil.getIsNullArray;
@@ -65,7 +65,7 @@ final class TestByteArrayBlockEncoding
                     byte[] compressedVectorized = compressBytesVectorized(values, isNull, offset, length);
                     assertThat(compressedVectorized).as("bytes: compressedScalar and vector outputs differ").isEqualTo(compressedScalar);
                     byte[] packedIsNullBits = getEncodedNullsAsBits(isNull, offset, length);
-                    boolean[] decodedIsNull = decodeNullBits(packedIsNullBits, length);
+                    boolean[] decodedIsNull = decodeNullBitsVectorized(packedIsNullBits, length);
                     assertThat(decodedIsNull).as("decodedIsNull must match input isNull").isEqualTo(Arrays.copyOfRange(isNull, offset, offset + length));
                     ByteArrayBlock scalarBlock = expandBytesWithNullsScalar(Slices.wrappedBuffer(compressedScalar).getInput(), length, packedIsNullBits, decodedIsNull);
                     ByteArrayBlock vectorBlock = expandBytesWithNullsVectorized(Slices.wrappedBuffer(compressedScalar).getInput(), length, decodedIsNull);

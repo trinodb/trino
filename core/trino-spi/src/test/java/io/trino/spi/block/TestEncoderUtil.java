@@ -16,6 +16,7 @@ package io.trino.spi.block;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.trino.spi.type.Type;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Random;
@@ -42,6 +43,28 @@ final class TestEncoderUtil
         return TEST_OFFSETS.clone();
     }
 
+    @Test
+    void testEncodeNullBitsScalarEqualsVectorized()
+    {
+        for (int offset : getTestOffsets()) {
+            for (int length : getTestLengths()) {
+                for (boolean[] isNull : getIsNullArray(offset + length)) {
+                    DynamicSliceOutput scalarOutput = new DynamicSliceOutput((length / 8) + 2);
+                    EncoderUtil.encodeNullsAsBitsScalar(scalarOutput, isNull, offset, length);
+                    DynamicSliceOutput vectorOutput = new DynamicSliceOutput((length / 8) + 2);
+                    EncoderUtil.encodeNullsAsBitsVectorized(vectorOutput, isNull, offset, length);
+                    Slice scalarSlice = scalarOutput.slice();
+                    Slice vectorSlice = vectorOutput.slice();
+                    assertThat(scalarSlice).as("scalar and vector encode results differ").isEqualTo(vectorSlice);
+                    boolean[] scalarDecode = EncoderUtil.decodeNullBitsScalar(scalarSlice.getInput(), length).orElseThrow();
+                    boolean[] vectorDecode = EncoderUtil.decodeNullBitsVectorized(scalarSlice.getInput(), length).orElseThrow();
+                    assertThat(scalarDecode).as("scalar and vector decode results differ").isEqualTo(vectorDecode);
+                    assertThat(scalarDecode).as("decode boolean[] differs from input value").isEqualTo(Arrays.copyOfRange(isNull, offset, offset + length));
+                }
+            }
+        }
+    }
+
     static boolean[][] getIsNullArray(int length)
     {
         return new boolean[][] {
@@ -54,7 +77,7 @@ final class TestEncoderUtil
     static byte[] getEncodedNullsAsBits(boolean[] isNull, int offset, int length)
     {
         DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput((length / 8) + 2);
-        EncoderUtil.encodeNullsAsBits(dynamicSliceOutput, isNull, offset, length);
+        EncoderUtil.encodeNullsAsBitsScalar(dynamicSliceOutput, isNull, offset, length);
         Slice encodedSlice = dynamicSliceOutput.slice();
         return EncoderUtil.retrieveNullBits(encodedSlice.getInput(), length);
     }

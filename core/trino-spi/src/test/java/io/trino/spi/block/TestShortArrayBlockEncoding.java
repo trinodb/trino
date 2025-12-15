@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.Random;
 
-import static io.trino.spi.block.EncoderUtil.decodeNullBits;
+import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
 import static io.trino.spi.block.ShortArrayBlockEncoding.compactShortsWithNullsScalar;
 import static io.trino.spi.block.ShortArrayBlockEncoding.compactShortsWithNullsVectorized;
 import static io.trino.spi.block.ShortArrayBlockEncoding.expandShortsWithNullsScalar;
@@ -64,7 +64,7 @@ final class TestShortArrayBlockEncoding
                     byte[] vector = compressShortsVectorized(values, isNull, offset, length);
                     assertThat(vector).as("shorts: scalar and vector outputs differ").isEqualTo(scalar);
                     byte[] packedIsNullBits = getEncodedNullsAsBits(isNull, offset, length);
-                    boolean[] decodedIsNull = decodeNullBits(packedIsNullBits, length);
+                    boolean[] decodedIsNull = decodeNullBitsVectorized(packedIsNullBits, length);
                     assertThat(decodedIsNull).as("decodedIsNull must match input isNull").isEqualTo(Arrays.copyOfRange(isNull, offset, offset + length));
                     ShortArrayBlock scalarBlock = expandShortsWithNullsScalar(Slices.wrappedBuffer(scalar).getInput(), length, packedIsNullBits, decodedIsNull);
                     ShortArrayBlock vectorBlock = expandShortsWithNullsVectorized(Slices.wrappedBuffer(scalar).getInput(), length, decodedIsNull);

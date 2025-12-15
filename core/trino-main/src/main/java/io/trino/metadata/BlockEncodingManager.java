@@ -49,17 +49,17 @@ public final class BlockEncodingManager
     {
         // add the built-in BlockEncodings
         SimdSupport simdSupport = blockEncodingSimdSupport.getSimdSupport();
-        addBlockEncoding(new VariableWidthBlockEncoding());
-        addBlockEncoding(new ByteArrayBlockEncoding(simdSupport.compressByte(), simdSupport.expandByte()));
-        addBlockEncoding(new ShortArrayBlockEncoding(simdSupport.compressShort(), simdSupport.expandShort()));
-        addBlockEncoding(new IntArrayBlockEncoding(simdSupport.compressInt(), simdSupport.expandInt()));
-        addBlockEncoding(new LongArrayBlockEncoding(simdSupport.compressLong(), simdSupport.expandLong()));
-        addBlockEncoding(new Fixed12BlockEncoding());
-        addBlockEncoding(new Int128ArrayBlockEncoding());
+        addBlockEncoding(new VariableWidthBlockEncoding(simdSupport.vectorizeNullBitPacking()));
+        addBlockEncoding(new ByteArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressByte(), simdSupport.expandByte()));
+        addBlockEncoding(new ShortArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressShort(), simdSupport.expandShort()));
+        addBlockEncoding(new IntArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressInt(), simdSupport.expandInt()));
+        addBlockEncoding(new LongArrayBlockEncoding(simdSupport.vectorizeNullBitPacking(), simdSupport.compressLong(), simdSupport.expandLong()));
+        addBlockEncoding(new Fixed12BlockEncoding(simdSupport.vectorizeNullBitPacking()));
+        addBlockEncoding(new Int128ArrayBlockEncoding(simdSupport.vectorizeNullBitPacking()));
         addBlockEncoding(new DictionaryBlockEncoding());
-        addBlockEncoding(new ArrayBlockEncoding());
-        addBlockEncoding(new MapBlockEncoding());
-        addBlockEncoding(new RowBlockEncoding());
+        addBlockEncoding(new ArrayBlockEncoding(simdSupport.vectorizeNullBitPacking()));
+        addBlockEncoding(new MapBlockEncoding(simdSupport.vectorizeNullBitPacking()));
+        addBlockEncoding(new RowBlockEncoding(simdSupport.vectorizeNullBitPacking()));
         addBlockEncoding(new RunLengthBlockEncoding());
     }
 

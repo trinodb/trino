@@ -30,6 +30,7 @@ final class TestBlockEncodingSimdSupport
         // Only compress and expand int and long, no byte or short support with only avx512f
         assertThat(determineSimdSupport(osArch, vectorBitsPreferred, Set.of("avx512f")))
                 .isEqualTo(new BlockEncodingSimdSupport.SimdSupport(
+                        true, // vectorizeNullBitPacking
                         false, // compressByte
                         false, // expandByte
                         false, // compressShort
@@ -50,6 +51,7 @@ final class TestBlockEncodingSimdSupport
         int vectorBitsPreferred = 256;
         Set<String> flags = Set.of("sve");
         BlockEncodingSimdSupport.SimdSupport expected = new BlockEncodingSimdSupport.SimdSupport(
+                true, // vectorizeNullBitPacking
                 true, // compressByte
                 false, // expandByte - no intrinsic support in JDK 25
                 true, // compressShort
@@ -68,6 +70,7 @@ final class TestBlockEncodingSimdSupport
         int vectorBitsPreferred = 128;
         Set<String> flags = Set.of("sve", "sve2");
         BlockEncodingSimdSupport.SimdSupport expected = new BlockEncodingSimdSupport.SimdSupport(
+                true, // vectorizeNullBitPacking
                 true, // compressByte
                 false, // expandByte - no intrinsic support in JDK 25
                 true, // compressShort
