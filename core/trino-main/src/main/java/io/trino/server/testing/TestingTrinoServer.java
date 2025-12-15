@@ -353,10 +353,6 @@ public class TestingTrinoServer
                     }
                 });
 
-        if (coordinator) {
-            modules.add(new TestingSessionTimeModule());
-        }
-
         modules.add(additionalModule);
 
         Bootstrap app = new Bootstrap("io.trino.bootstrap.engine", modules.build());

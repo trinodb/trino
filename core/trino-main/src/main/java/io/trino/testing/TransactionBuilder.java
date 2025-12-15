@@ -22,11 +22,13 @@ import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionInfo;
 import io.trino.transaction.TransactionManager;
 
+import java.time.Instant;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static java.util.Objects.requireNonNull;
 
 public class TransactionBuilder
@@ -137,9 +139,14 @@ public class TransactionBuilder
         requireNonNull(session, "session is null");
         requireNonNull(callback, "callback is null");
 
-        session = Session.builder(session)
-                .setQueryId(QUERY_ID_GENERATOR.createNextQueryId())
-                .build();
+        Session.SessionBuilder sessionBuilder = Session.builder(session)
+                .setQueryId(QUERY_ID_GENERATOR.createNextQueryId());
+        if (session.getSystemProperties().containsKey(SESSION_START_TIME_PROPERTY)) {
+            Instant sessionStartTime = session.getSystemProperty(SESSION_START_TIME_PROPERTY, Instant.class);
+            sessionBuilder.setStart(sessionStartTime);
+        }
+        session = sessionBuilder.build();
+
         boolean managedTransaction = session.getTransactionId().isEmpty();
 
         Session transactionSession;
