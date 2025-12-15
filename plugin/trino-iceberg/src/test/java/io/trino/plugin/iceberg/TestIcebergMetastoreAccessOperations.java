@@ -219,7 +219,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("SELECT * FROM test_select_fresh_mview_view",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .addCopies(GET_TABLE, 2)
+                        .addCopies(GET_TABLE, 1)
                         .build());
     }
 
@@ -233,7 +233,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("SELECT * FROM test_select_gp_mview_view",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .addCopies(GET_TABLE, 2)
+                        .addCopies(GET_TABLE, 1)
                         .build());
     }
 

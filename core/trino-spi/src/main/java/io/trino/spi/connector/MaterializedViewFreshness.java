@@ -76,6 +76,14 @@ public final class MaterializedViewFreshness
     public enum Freshness
     {
         FRESH,
+        /**
+         * The materialized view is fresh enough within its grace period. Returned when a connector
+         * is invoked with {@code considerGracePeriod = true} and determined it could skip expensive
+         * freshness checks (e.g., checking base table snapshots) because the MV is still within
+         * the grace period bounds. The actual freshness of base tables was not verified, but worst-case
+         * staleness is guaranteed to be within the acceptable grace period.
+         */
+        FRESH_WITHIN_GRACE_PERIOD,
         STALE,
         UNKNOWN,
         /**/
