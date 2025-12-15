@@ -2719,21 +2719,21 @@ public abstract class BaseConnectorTest
         try (TestTable table = newTrinoTable(
                 "test_add_field_",
                 "AS SELECT CAST(row(1, row(10)) AS row(a integer, b row(x integer))) AS col")) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, b row(x integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a\" integer, \"b\" row(\"x\" integer))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.c integer");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, b row(x integer), c integer)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a\" integer, \"b\" row(\"x\" integer), \"c\" integer)");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10), NULL) AS row(a integer, b row(x integer), c integer))");
 
             // Add a nested field
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.b.y integer");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, b row(x integer, y integer), c integer)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a\" integer, \"b\" row(\"x\" integer, \"y\" integer), \"c\" integer)");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10, NULL), NULL) AS row(a integer, b row(x integer, y integer), c integer))");
 
             // Specify existing fields with IF NOT EXISTS option
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN IF NOT EXISTS col.a varchar");
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN IF NOT EXISTS col.b.x varchar");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, b row(x integer, y integer), c integer)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a\" integer, \"b\" row(\"x\" integer, \"y\" integer), \"c\" integer)");
 
             // Specify existing fields without IF NOT EXISTS option
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN col.a varchar", ".* Field 'a' already exists");
@@ -2757,19 +2757,19 @@ public abstract class BaseConnectorTest
         try (TestTable table = newTrinoTable(
                 "test_add_field_in_array_",
                 "AS SELECT CAST(array[row(1, row(10), array[row(11)])] AS array(row(a integer, b row(x integer), c array(row(v integer))))) AS col")) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, b row(x integer), c array(row(v integer))))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(\"a\" integer, \"b\" row(\"x\" integer), \"c\" array(row(\"v\" integer))))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.element.d integer");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, b row(x integer), c array(row(v integer)), d integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(\"a\" integer, \"b\" row(\"x\" integer), \"c\" array(row(\"v\" integer)), \"d\" integer))");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[row(1, row(10), array[row(11)], NULL)] AS array(row(a integer, b row(x integer), c array(row(v integer)), d integer)))");
 
             // Add a nested field
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.element.b.y integer");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, b row(x integer, y integer), c array(row(v integer)), d integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(\"a\" integer, \"b\" row(\"x\" integer, \"y\" integer), \"c\" array(row(\"v\" integer)), \"d\" integer))");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[row(1, row(10, NULL), array[row(11)], NULL)] AS array(row(a integer, b row(x integer, y integer), c array(row(v integer)), d integer)))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.element.c.element.w integer");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, b row(x integer, y integer), c array(row(v integer, w integer)), d integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(\"a\" integer, \"b\" row(\"x\" integer, \"y\" integer), \"c\" array(row(\"v\" integer, \"w\" integer)), \"d\" integer))");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[row(1, row(10, NULL), array[row(11, NULL)], NULL)] AS array(row(a integer, b row(x integer, y integer), c array(row(v integer, w integer)), d integer)))");
 
             // Denote to array without 'element' designator
@@ -2781,7 +2781,7 @@ public abstract class BaseConnectorTest
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN IF NOT EXISTS col.element.a varchar");
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN IF NOT EXISTS col.element.b.x varchar");
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN IF NOT EXISTS col.element.c.element.w varchar");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, b row(x integer, y integer), c array(row(v integer, w integer)), d integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(\"a\" integer, \"b\" row(\"x\" integer, \"y\" integer), \"c\" array(row(\"v\" integer, \"w\" integer)), \"d\" integer))");
 
             // Specify existing fields without IF NOT EXISTS option
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN col.element.a varchar", ".* Field 'a' already exists");
@@ -2793,18 +2793,18 @@ public abstract class BaseConnectorTest
         try (TestTable table = newTrinoTable(
                 "test_add_field_in_array_nested_",
                 "AS SELECT CAST(array[array[row(1, row(10), array[row(11)])]] AS array(array(row(a integer, b row(x integer), c array(row(v integer)))))) AS col")) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(a integer, b row(x integer), c array(row(v integer)))))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(\"a\" integer, \"b\" row(\"x\" integer), \"c\" array(row(\"v\" integer)))))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.element.element.d integer");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(a integer, b row(x integer), c array(row(v integer)), d integer)))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(\"a\" integer, \"b\" row(\"x\" integer), \"c\" array(row(\"v\" integer)), \"d\" integer)))");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[array[row(1, row(10), array[row(11)], NULL)]] AS array(array(row(a integer, b row(x integer), c array(row(v integer)), d integer))))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.element.element.b.y integer");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(a integer, b row(x integer, y integer), c array(row(v integer)), d integer)))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(\"a\" integer, \"b\" row(\"x\" integer, \"y\" integer), \"c\" array(row(\"v\" integer)), \"d\" integer)))");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[array[row(1, row(10, NULL), array[row(11)], NULL)]] AS array(array(row(a integer, b row(x integer, y integer), c array(row(v integer)), d integer))))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.element.element.c.element.w integer");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(a integer, b row(x integer, y integer), c array(row(v integer, w integer)), d integer)))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(\"a\" integer, \"b\" row(\"x\" integer, \"y\" integer), \"c\" array(row(\"v\" integer, \"w\" integer)), \"d\" integer)))");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[array[row(1, row(10, NULL), array[row(11, NULL)], NULL)]] AS array(array(row(a integer, b row(x integer, y integer), c array(row(v integer, w integer)), d integer))))");
         }
     }
@@ -2855,15 +2855,15 @@ public abstract class BaseConnectorTest
         try (TestTable table = newTrinoTable(
                 "test_drop_field_",
                 "AS SELECT CAST(row(1, 2, row(10, 20)) AS row(a integer, b integer, c row(x integer, y integer))) AS col")) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, b integer, c row(x integer, y integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a\" integer, \"b\" integer, \"c\" row(\"x\" integer, \"y\" integer))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.b");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, c row(x integer, y integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a\" integer, \"c\" row(\"x\" integer, \"y\" integer))");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10, 20)) AS row(a integer, c row(x integer, y integer)))");
 
             // Drop a nested field
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.c.y");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, c row(x integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a\" integer, \"c\" row(\"x\" integer))");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10)) AS row(a integer, c row(x integer)))");
 
             // Verify failure when trying to drop unique field in nested row type
@@ -2872,17 +2872,17 @@ public abstract class BaseConnectorTest
             // Verify failure when trying to drop non-existing fields
             assertQueryFails(
                     "ALTER TABLE " + table.getName() + " DROP COLUMN col.c.non_existing",
-                    "\\Qline 1:1: Cannot resolve field 'non_existing' within row(x integer) type when dropping [c, non_existing] in row(a integer, c row(x integer))");
+                    "\\Qline 1:1: Cannot resolve field 'non_existing' within row(\"x\" integer) type when dropping [c, non_existing] in row(\"a\" integer, \"c\" row(\"x\" integer))");
 
             // Drop a row having fields
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.c");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a\" integer)");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1) AS row(a integer))");
 
             // Specify non-existing fields with IF EXISTS option
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN IF EXISTS non_existing.a");
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN IF EXISTS col.non_existing");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a\" integer)");
         }
     }
 
@@ -2904,20 +2904,20 @@ public abstract class BaseConnectorTest
         try (TestTable table = newTrinoTable(
                 "test_drop_field_in_array_",
                 "AS SELECT CAST(array[row(1, 2, row(10, 20), array[row(30, 40)])] AS array(row(a integer, b integer, c row(x integer, y integer), d array(row(v integer, w integer))))) AS col")) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, b integer, c row(x integer, y integer), d array(row(v integer, w integer))))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(\"a\" integer, \"b\" integer, \"c\" row(\"x\" integer, \"y\" integer), \"d\" array(row(\"v\" integer, \"w\" integer))))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.element.b");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, c row(x integer, y integer), d array(row(v integer, w integer))))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(\"a\" integer, \"c\" row(\"x\" integer, \"y\" integer), \"d\" array(row(\"v\" integer, \"w\" integer))))");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[row(1, row(10, 20), array[row(30, 40)])] AS array(row(a integer, c row(x integer, y integer), d array(row(v integer, w integer)))))");
 
             // Drop a nested field
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.element.c.y");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, c row(x integer), d array(row(v integer, w integer))))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(\"a\" integer, \"c\" row(\"x\" integer), \"d\" array(row(\"v\" integer, \"w\" integer))))");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[row(1, row(10), array[row(30, 40)])] AS array(row(a integer, c row(x integer), d array(row(v integer, w integer)))))");
 
             // Drop a nested field in array
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.element.d.element.v");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, c row(x integer), d array(row(w integer))))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(\"a\" integer, \"c\" row(\"x\" integer), \"d\" array(row(\"w\" integer))))");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[row(1, row(10), array[row(40)])] AS array(row(a integer, c row(x integer), d array(row(w integer)))))");
 
             // Verify failure when trying to drop unique field in nested row type
@@ -2927,21 +2927,21 @@ public abstract class BaseConnectorTest
             // Verify failure when trying to drop non-existing fields
             assertQueryFails(
                     "ALTER TABLE " + table.getName() + " DROP COLUMN col.element.c.non_existing",
-                    "\\Qline 1:1: Cannot resolve field 'non_existing' within row(x integer) type when dropping [element, c, non_existing] in array(row(a integer, c row(x integer), d array(row(w integer))))");
+                    "\\Qline 1:1: Cannot resolve field 'non_existing' within row(\"x\" integer) type when dropping [element, c, non_existing] in array(row(\"a\" integer, \"c\" row(\"x\" integer), \"d\" array(row(\"w\" integer))))");
 
             // Verify failure when trying to drop non-existing fields
             assertQueryFails(
                     "ALTER TABLE " + table.getName() + " DROP COLUMN col.element.d.element.non_existing",
-                    "\\Qline 1:1: Cannot resolve field 'non_existing' within row(w integer) type when dropping [element, d, element, non_existing] in array(row(a integer, c row(x integer), d array(row(w integer))))");
+                    "\\Qline 1:1: Cannot resolve field 'non_existing' within row(\"w\" integer) type when dropping [element, d, element, non_existing] in array(row(\"a\" integer, \"c\" row(\"x\" integer), \"d\" array(row(\"w\" integer))))");
 
             // Drop a row having fields
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.element.c");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer, d array(row(w integer))))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(\"a\" integer, \"d\" array(row(\"w\" integer))))");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[row(1, array[row(40)])] AS array(row(a integer, d array(row(w integer)))))");
 
             // Drop a array(row) having fields
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.element.d");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(\"a\" integer))");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[row(1)] AS array(row(a integer)))");
 
             // Denote to array without 'element' designator
@@ -2952,7 +2952,7 @@ public abstract class BaseConnectorTest
             // Specify non-existing fields with IF EXISTS option
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN IF EXISTS non_existing.a");
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN IF EXISTS col.element.non_existing");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(a integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(\"a\" integer))");
         }
 
         try (TestTable table = newTrinoTable(
@@ -2967,17 +2967,17 @@ public abstract class BaseConnectorTest
                     "\\Qline 1:1: Field path [element, element, d, element] does not point to row field");
 
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.element.element.b");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(a integer, c row(x integer, y integer), d array(row(v integer, w integer)))))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(\"a\" integer, \"c\" row(\"x\" integer, \"y\" integer), \"d\" array(row(\"v\" integer, \"w\" integer)))))");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[array[row(1, row(10, 20), array[row(30, 40)])]] AS array(array(row(a integer, c row(x integer, y integer), d array(row(v integer, w integer))))))");
 
             // Drop a nested field
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.element.element.c.y");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(a integer, c row(x integer), d array(row(v integer, w integer)))))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(\"a\" integer, \"c\" row(\"x\" integer), \"d\" array(row(\"v\" integer, \"w\" integer)))))");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[array[row(1, row(10), array[row(30, 40)])]] AS array(array(row(a integer, c row(x integer), d array(row(v integer, w integer))))))");
 
             // Drop a nested field in array
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.element.element.d.element.v");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(a integer, c row(x integer), d array(row(w integer)))))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(\"a\" integer, \"c\" row(\"x\" integer), \"d\" array(row(\"w\" integer)))))");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(array[array[row(1, row(10), array[row(40)])]] AS array(array(row(a integer, c row(x integer), d array(row(w integer))))))");
         }
     }
@@ -3007,17 +3007,17 @@ public abstract class BaseConnectorTest
         try (TestTable table = newTrinoTable(
                 "test_drop_row_field_case_sensitivity_",
                 "AS SELECT CAST(row(1, 2) AS row(lower integer, \"UPPER\" integer)) AS col")) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(lower integer, UPPER integer)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"lower\" integer, \"UPPER\" integer)");
 
             assertQueryFails(
                     "ALTER TABLE " + table.getName() + " DROP COLUMN col.LOWER",
-                    "\\Qline 1:1: Cannot resolve field 'LOWER' within row(lower integer, UPPER integer) type when dropping [LOWER] in row(lower integer, UPPER integer)");
+                    "\\Qline 1:1: Cannot resolve field 'LOWER' within row(\"lower\" integer, \"UPPER\" integer) type when dropping [LOWER] in row(\"lower\" integer, \"UPPER\" integer)");
             assertQueryFails(
                     "ALTER TABLE " + table.getName() + " DROP COLUMN col.upper",
-                    "\\Qline 1:1: Cannot resolve field 'upper' within row(lower integer, UPPER integer) type when dropping [upper] in row(lower integer, UPPER integer)");
+                    "\\Qline 1:1: Cannot resolve field 'upper' within row(\"lower\" integer, \"UPPER\" integer) type when dropping [upper] in row(\"lower\" integer, \"UPPER\" integer)");
 
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.\"UPPER\"");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(lower integer)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"lower\" integer)");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1) AS row(lower integer))");
         }
     }
@@ -3130,21 +3130,21 @@ public abstract class BaseConnectorTest
         try (TestTable table = newTrinoTable(
                 "test_add_field_",
                 "AS SELECT CAST(row(1, row(10)) AS row(a integer, b row(x integer))) AS col")) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a integer, b row(x integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a\" integer, \"b\" row(\"x\" integer))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN col.a TO a_renamed");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a_renamed integer, b row(x integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a_renamed\" integer, \"b\" row(\"x\" integer))");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10)) AS row(a_renamed integer, b row(x integer)))");
 
             // Rename a nested field
             assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN col.b.x TO x_renamed");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a_renamed integer, b row(x_renamed integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a_renamed\" integer, \"b\" row(\"x_renamed\" integer))");
             assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10)) AS row(a_renamed integer, b row(x_renamed integer)))");
 
             // Specify not existing fields with IF EXISTS option
             assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN IF EXISTS col.a_missing TO a_missing_renamed");
             assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN IF EXISTS col.b.x_missing TO x_missing_renamed");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(a_renamed integer, b row(x_renamed integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"a_renamed\" integer, \"b\" row(\"x_renamed\" integer))");
 
             // Specify existing fields without IF EXISTS option
             assertQueryFails("ALTER TABLE " + table.getName() + " RENAME COLUMN col.a_renamed TO a_renamed", ".* Field 'a_renamed' already exists");
@@ -3159,16 +3159,16 @@ public abstract class BaseConnectorTest
         try (TestTable table = newTrinoTable(
                 "test_add_row_field_case_sensitivity_",
                 "AS SELECT CAST(row(1, 2) AS row(lower integer, \"UPPER\" integer)) AS col")) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(lower integer, UPPER integer)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"lower\" integer, \"UPPER\" integer)");
 
             assertQueryFails("ALTER TABLE " + table.getName() + " RENAME COLUMN col.lower TO UPPER", ".* Field 'upper' already exists");
             assertQueryFails("ALTER TABLE " + table.getName() + " RENAME COLUMN col.lower TO upper", ".* Field 'upper' already exists");
 
             assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN col.lower TO LOWER_RENAMED");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(lower_renamed integer, UPPER integer)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"lower_renamed\" integer, \"UPPER\" integer)");
 
             assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN col.\"UPPER\" TO upper_renamed");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(lower_renamed integer, upper_renamed integer)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"lower_renamed\" integer, \"upper_renamed\" integer)");
 
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("SELECT CAST(row(1, 2) AS row(lower_renamed integer, upper_renamed integer))");
@@ -3443,11 +3443,11 @@ public abstract class BaseConnectorTest
         }
 
         try (TestTable table = newTrinoTable("test_set_field_type_", "AS SELECT CAST(row(123) AS row(field integer)) AS col")) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(field integer)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"field\" integer)");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.field SET DATA TYPE bigint");
 
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(field bigint)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"field\" bigint)");
             assertThat(query("SELECT * FROM " + table.getName()))
                     .skippingTypesCheck()
                     .matches("SELECT row(bigint '123')");
@@ -3506,10 +3506,10 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
 
         try (TestTable table = newTrinoTable("test_set_field_type_case_", " AS SELECT CAST(row(1) AS row(\"UPPER\" integer)) col")) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(UPPER integer)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"UPPER\" integer)");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.upper SET DATA TYPE bigint");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(UPPER bigint)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"UPPER\" bigint)");
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("SELECT CAST(row(1) AS row(UPPER bigint))");
         }
@@ -3586,11 +3586,11 @@ public abstract class BaseConnectorTest
         }
 
         try (TestTable table = newTrinoTable("test_set_field_type_in_array_", "AS SELECT CAST(array[row(123)] AS array(row(field integer))) AS col")) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(field integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(\"field\" integer))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.element.field SET DATA TYPE bigint");
 
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(field bigint))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(row(\"field\" bigint))");
             assertThat(query("SELECT * FROM " + table.getName()))
                     .skippingTypesCheck()
                     .matches("SELECT array[row(bigint '123')]");
@@ -3603,11 +3603,11 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE_IN_ARRAY) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ARRAY) && hasBehavior(SUPPORTS_ROW_TYPE));
 
         try (TestTable table = newTrinoTable("test_set_field_type_in_nested_array_", "AS SELECT CAST(array[array[row(array[row(123)])]] AS array(array(row(field array(row(a integer)))))) AS col")) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(field array(row(a integer)))))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(\"field\" array(row(\"a\" integer)))))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.element.element.field.element.a SET DATA TYPE bigint");
 
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(field array(row(a bigint)))))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(array(row(\"field\" array(row(\"a\" bigint)))))");
             assertThat(query("SELECT * FROM " + table.getName()))
                     .skippingTypesCheck()
                     .matches("SELECT array[array[row(array[row(bigint '123')])]]");
@@ -3632,11 +3632,11 @@ public abstract class BaseConnectorTest
         }
 
         try (TestTable table = newTrinoTable("test_set_field_type_in_map", tableDefinition)) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(row(field integer), integer)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(row(\"field\" integer), integer)");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.key.field SET DATA TYPE bigint");
 
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(row(field bigint), integer)");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(row(\"field\" bigint), integer)");
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("SELECT CAST(map(array[row(1)], array[2]) AS map(row(field bigint), integer))");
         }
@@ -3656,11 +3656,11 @@ public abstract class BaseConnectorTest
         }
 
         try (TestTable table = newTrinoTable("test_set_field_type_in_map", tableDefinition)) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(integer, row(field integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(integer, row(\"field\" integer))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.value.field SET DATA TYPE bigint");
 
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(integer, row(field bigint))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("map(integer, row(\"field\" bigint))");
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("SELECT CAST(map(array[1], array[row(2)]) AS map(integer, row(field bigint)))");
         }
@@ -3674,11 +3674,11 @@ public abstract class BaseConnectorTest
         try (TestTable table = newTrinoTable(
                 "test_set_nested_field_type_in_map",
                 "AS SELECT CAST(array[map(array[row(1)], array[2])] AS array(map(row(field integer), integer))) AS col")) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(map(row(field integer), integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(map(row(\"field\" integer), integer))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.element.key.field SET DATA TYPE bigint");
 
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(map(row(field bigint), integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(map(row(\"field\" bigint), integer))");
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("SELECT CAST(array[map(array[row(1)], array[2])] AS array(map(row(field bigint), integer)))");
         }
@@ -3692,13 +3692,13 @@ public abstract class BaseConnectorTest
         try (TestTable table = newTrinoTable(
                 "test_set_nested_field_type_in_map",
                 "AS SELECT CAST(array[map(array[1], array[row(2)])] AS array(map(integer, row(field integer)))) AS col")) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(map(integer, row(field integer)))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(map(integer, row(\"field\" integer)))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.element.value.field SET DATA TYPE bigint");
 
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(map(integer, row(field bigint)))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("array(map(integer, row(\"field\" bigint)))");
             assertThat(query("SELECT * FROM " + table.getName()))
-                    .matches("SELECT CAST(array[map(array[1], array[row(2)])] AS array(map(integer, row(field bigint))))");
+                    .matches("SELECT CAST(array[map(array[1], array[row(2)])] AS array(map(integer, row(\"field\" bigint))))");
         }
     }
 

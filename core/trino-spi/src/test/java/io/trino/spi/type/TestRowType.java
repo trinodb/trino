@@ -91,7 +91,7 @@ final class TestRowType
                 RowType.field("map_col", new MapType(BOOLEAN, DOUBLE, typeOperators)));
 
         RowType row = RowType.from(fields);
-        assertThat(row.getDisplayName()).isEqualTo("row(bool_col boolean, double_col double, array_col array(varchar), map_col map(boolean, double))");
+        assertThat(row.getDisplayName()).isEqualTo("row(\"bool_col\" boolean, \"double_col\" double, \"array_col\" array(varchar), \"map_col\" map(boolean, double))");
     }
 
     @Test
@@ -116,6 +116,6 @@ final class TestRowType
                 RowType.field("map_col", new MapType(BOOLEAN, DOUBLE, typeOperators)));
 
         RowType row = RowType.from(fields);
-        assertThat(row.getDisplayName()).isEqualTo("row(boolean, double_col double, array(varchar), map_col map(boolean, double))");
+        assertThat(row.getDisplayName()).isEqualTo("row(boolean, \"double_col\" double, array(varchar), \"map_col\" map(boolean, double))");
     }
 }

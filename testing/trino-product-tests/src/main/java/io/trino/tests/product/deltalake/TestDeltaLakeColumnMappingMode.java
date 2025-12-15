@@ -298,8 +298,8 @@ public class TestDeltaLakeColumnMappingMode
             assertThat(onTrino().executeQuery("DESCRIBE delta.default." + tableName))
                     .containsOnly(ImmutableList.of(
                             row("new_a_column", "integer", "", ""),
-                            row("array_col", "array(row(array_struct_element varchar))", "", ""),
-                            row("nested", "row(field2 varchar)", "", ""),
+                            row("array_col", "array(row(\"array_struct_element\" varchar))", "", ""),
+                            row("nested", "row(\"field2\" varchar)", "", ""),
                             row("a_string", "varchar", "", ""),
                             row("new_part", "varchar", "", "")));
 
@@ -510,7 +510,7 @@ public class TestDeltaLakeColumnMappingMode
                             row("another_varchar", "varchar", "", ""),
                             row("a_array", "array(integer)", "", ""),
                             row("a_map", "map(varchar, integer)", "", ""),
-                            row("a_row", "row(x integer)", "", ""));
+                            row("a_row", "row(\"x\" integer)", "", ""));
 
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (3, 'new column', array(3), map('key', 4), named_struct('x', 5))");
             expectedRows = ImmutableList.of(

@@ -32,6 +32,6 @@ public class TestFunctionType
                 ImmutableList.of(RowType.from(ImmutableList.of(field("field", DOUBLE)))),
                 BIGINT);
 
-        assertThat(function.getDisplayName()).isEqualTo("function(row(field double),bigint)");
+        assertThat(function.getDisplayName()).isEqualTo("function(row(\"field\" double),bigint)");
     }
 }
