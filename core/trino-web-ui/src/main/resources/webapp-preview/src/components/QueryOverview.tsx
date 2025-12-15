@@ -36,6 +36,7 @@ import {
     formatCount,
     formatDataSize,
     formatShortDateTime,
+    getStageNumber,
     parseAndFormatDataSize,
     parseDataSize,
     parseDuration,
@@ -437,7 +438,7 @@ export const QueryOverview = () => {
                     {stages ? (
                         stages
                             .slice()
-                            .sort((a, b) => a.stageId.localeCompare(b.stageId))
+                            .sort((stageA, stageB) => getStageNumber(stageA.stageId) - getStageNumber(stageB.stageId))
                             .map((stage: QueryStage) => (
                                 <QueryStageCard
                                     key={stage.stageId}
