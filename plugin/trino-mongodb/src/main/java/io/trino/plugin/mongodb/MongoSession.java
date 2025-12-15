@@ -19,6 +19,7 @@ import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Streams;
 import com.google.common.primitives.Primitives;
@@ -52,16 +53,15 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeParameter;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import org.bson.Document;
 import org.bson.types.Binary;
@@ -83,7 +83,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -906,13 +905,13 @@ public class MongoSession
 
         for (String key : doc.keySet()) {
             Object value = doc.get(key);
-            Optional<TypeSignature> fieldType = guessFieldType(value);
+            Optional<Type> fieldType = guessFieldType(value);
             if (fieldType.isPresent()) {
                 Document metadata = new Document();
                 metadata.append(FIELDS_NAME_KEY, key);
                 metadata.append(FIELDS_TYPE_KEY, fieldType.get().toString());
                 metadata.append(FIELDS_HIDDEN_KEY,
-                        key.equals("_id") && fieldType.get().equals(OBJECT_ID.getTypeSignature()));
+                        key.equals("_id") && fieldType.get().equals(OBJECT_ID));
 
                 builder.add(metadata);
             }
@@ -924,27 +923,27 @@ public class MongoSession
         return builder.build();
     }
 
-    private Optional<TypeSignature> guessFieldType(Object value)
+    private Optional<Type> guessFieldType(Object value)
     {
         if (value == null) {
             return Optional.empty();
         }
 
-        TypeSignature typeSignature = null;
+        Type type = null;
         if (value instanceof String) {
-            typeSignature = createUnboundedVarcharType().getTypeSignature();
+            type = createUnboundedVarcharType();
         }
         if (value instanceof Binary) {
-            typeSignature = VARBINARY.getTypeSignature();
+            type = VARBINARY;
         }
         else if (value instanceof Integer || value instanceof Long) {
-            typeSignature = BIGINT.getTypeSignature();
+            type = BIGINT;
         }
         else if (value instanceof Boolean) {
-            typeSignature = BOOLEAN.getTypeSignature();
+            type = BOOLEAN;
         }
         else if (value instanceof Float || value instanceof Double) {
-            typeSignature = DOUBLE.getTypeSignature();
+            type = DOUBLE;
         }
         else if (value instanceof Decimal128 decimal128) {
             BigDecimal decimal;
@@ -957,16 +956,16 @@ public class MongoSession
             // Java's BigDecimal.precision() returns precision for the unscaled value, so it skips leading zeros for values lower than 1.
             // Trino's (SQL) decimal precision must include leading zeros in values less than 1, and can never be lower than scale.
             int precision = Math.max(decimal.precision(), decimal.scale());
-            typeSignature = createDecimalType(precision, decimal.scale()).getTypeSignature();
+            type = createDecimalType(precision, decimal.scale());
         }
         else if (value instanceof Date) {
-            typeSignature = TIMESTAMP_MILLIS.getTypeSignature();
+            type = TIMESTAMP_MILLIS;
         }
         else if (value instanceof ObjectId) {
-            typeSignature = OBJECT_ID.getTypeSignature();
+            type = OBJECT_ID;
         }
         else if (value instanceof List) {
-            List<Optional<TypeSignature>> subTypes = ((List<?>) value).stream()
+            List<Optional<Type>> subTypes = ((List<?>) value).stream()
                     .map(this::guessFieldType)
                     .collect(toList());
 
@@ -974,48 +973,43 @@ public class MongoSession
                 return Optional.empty();
             }
 
-            Set<TypeSignature> signatures = subTypes.stream().map(Optional::get).collect(toSet());
-            if (signatures.size() == 1) {
-                typeSignature = new TypeSignature(StandardTypes.ARRAY, signatures.stream()
-                        .map(TypeParameter::typeParameter)
-                        .collect(Collectors.toList()));
+            Set<Type> types = subTypes.stream().map(Optional::get).collect(toSet());
+            if (types.size() == 1) {
+                type = new ArrayType(Iterables.getOnlyElement(types));
             }
             else {
                 // TODO: client doesn't handle empty field name row type yet
-                typeSignature = new TypeSignature(StandardTypes.ROW,
-                        IntStream.range(0, subTypes.size())
-                                .mapToObj(idx -> TypeParameter.typeParameter(
-                                        Optional.of(format("%s%d", implicitPrefix, idx + 1)),
-                                        subTypes.get(idx).get()))
-                        .collect(toList()));
+                type = RowType.from(IntStream.range(0, subTypes.size())
+                        .mapToObj(idx -> RowType.field(
+                                format("%s%d", implicitPrefix, idx + 1),
+                                subTypes.get(idx).get()))
+                        .toList());
             }
         }
         else if (value instanceof Document document) {
-            List<TypeParameter> parameters = new ArrayList<>();
+            List<RowType.Field> fields = new ArrayList<>();
 
             for (String key : document.keySet()) {
-                Optional<TypeSignature> fieldType = guessFieldType(document.get(key));
+                Optional<Type> fieldType = guessFieldType(document.get(key));
                 if (fieldType.isPresent()) {
-                    parameters.add(TypeParameter.typeParameter(Optional.of(key), fieldType.get()));
+                    fields.add(RowType.field(key, fieldType.get()));
                 }
             }
-            if (!parameters.isEmpty()) {
-                typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
+            if (!fields.isEmpty()) {
+                type = RowType.from(fields);
             }
         }
         else if (value instanceof DBRef dbRef) {
-            List<TypeParameter> parameters = new ArrayList<>();
-
-            TypeSignature idFieldType = guessFieldType(dbRef.getId())
+            Type idFieldType = guessFieldType(dbRef.getId())
                     .orElseThrow(() -> new UnsupportedOperationException("Unable to guess $id field type of DBRef from: " + dbRef.getId()));
 
-            parameters.add(TypeParameter.typeParameter(Optional.of(DATABASE_NAME), VARCHAR.getTypeSignature()));
-            parameters.add(TypeParameter.typeParameter(Optional.of(COLLECTION_NAME), VARCHAR.getTypeSignature()));
-            parameters.add(TypeParameter.typeParameter(Optional.of(ID), idFieldType));
-            typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
+            type = RowType.from(ImmutableList.of(
+                    RowType.field(DATABASE_NAME, VARCHAR),
+                    RowType.field(COLLECTION_NAME, VARCHAR),
+                    RowType.field(ID, idFieldType)));
         }
 
-        return Optional.ofNullable(typeSignature);
+        return Optional.ofNullable(type);
     }
 
     public RemoteTableName toRemoteSchemaTableName(SchemaTableName schemaTableName)
