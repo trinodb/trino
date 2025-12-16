@@ -23,6 +23,7 @@ import io.trino.hive.formats.avro.model.AvroLogicalType.TimeMicrosLogicalType;
 import io.trino.hive.formats.avro.model.AvroLogicalType.TimeMillisLogicalType;
 import io.trino.hive.formats.avro.model.AvroLogicalType.TimestampMicrosLogicalType;
 import io.trino.hive.formats.avro.model.AvroLogicalType.TimestampMillisLogicalType;
+import io.trino.hive.formats.avro.model.AvroLogicalType.TimestampNanosLogicalType;
 import io.trino.hive.formats.avro.model.AvroReadAction;
 import io.trino.hive.formats.avro.model.AvroReadAction.LongIoFunction;
 import io.trino.hive.formats.avro.model.BytesRead;
@@ -33,6 +34,7 @@ import io.trino.hive.formats.avro.model.StringRead;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.Type;
 import org.apache.avro.Schema;
@@ -54,8 +56,14 @@ import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
+import static java.lang.Math.divideExact;
+import static java.lang.Math.floorMod;
+import static java.lang.Math.multiplyExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -133,6 +141,12 @@ public class NativeLogicalTypesAvroTypeBlockHandler
             case TimestampMicrosLogicalType _ -> {
                 if (readAction instanceof LongRead longRead) {
                     yield new TimestampMicrosBlockBuildingDecoder(longRead);
+                }
+                throw new IllegalStateException("Unreachable unfiltered logical type");
+            }
+            case TimestampNanosLogicalType _ -> {
+                if (readAction instanceof LongRead longRead) {
+                    yield new TimestampNanosBlockBuildingDecoder(longRead);
                 }
                 throw new IllegalStateException("Unreachable unfiltered logical type");
             }
@@ -268,6 +282,27 @@ public class NativeLogicalTypesAvroTypeBlockHandler
                 throws IOException
         {
             TIMESTAMP_MICROS.writeLong(builder, longDecoder.apply(decoder));
+        }
+    }
+
+    public static class TimestampNanosBlockBuildingDecoder
+            implements BlockBuildingDecoder
+    {
+        private final LongIoFunction<Decoder> longDecoder;
+
+        public TimestampNanosBlockBuildingDecoder(LongRead longRead)
+        {
+            longDecoder = requireNonNull(longRead, "longRead is null").getLongDecoder();
+        }
+
+        @Override
+        public void decodeIntoBlock(Decoder decoder, BlockBuilder builder)
+                throws IOException
+        {
+            long epochNanos = longDecoder.apply(decoder);
+            long epochMicros = divideExact(epochNanos, NANOSECONDS_PER_MICROSECOND);
+            int picosOfMicro = multiplyExact(floorMod(epochNanos, NANOSECONDS_PER_MICROSECOND), PICOSECONDS_PER_NANOSECOND);
+            TIMESTAMP_NANOS.writeObject(builder, new LongTimestamp(epochMicros, picosOfMicro));
         }
     }
 
