@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.StandardSystemProperty;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import io.airlift.log.Logger;
 import io.trino.FeaturesConfig;
 import jdk.incubator.vector.VectorShape;
 
@@ -44,6 +45,8 @@ Graviton2 is NEON-only (no SVE), whereas Graviton3 provides SVE.
 @Singleton
 public final class BlockEncodingSimdSupport
 {
+    private static final Logger log = Logger.get(BlockEncodingSimdSupport.class);
+
     public record SimdSupport(
             boolean compressByte,
             boolean expandByte,
@@ -84,7 +87,15 @@ public final class BlockEncodingSimdSupport
         String archRaw = StandardSystemProperty.OS_ARCH.value();
         String arch = archRaw == null ? "" : archRaw.toLowerCase(ENGLISH);
         int preferredBitWidth = VectorShape.preferredShape().vectorBitSize();
-        return determineSimdSupport(arch, preferredBitWidth, readCpuFlags());
+        Set<String> cpuFlags = readCpuFlags();
+        SimdSupport detected = determineSimdSupport(arch, preferredBitWidth, cpuFlags);
+        if (log.isDebugEnabled()) {
+            log.info("Detected SIMD Support for architecture=%s, vectorBitWidth=%s, cpuFlags=%s: %s", arch, preferredBitWidth, cpuFlags, detected);
+        }
+        else {
+            log.info("Detected SIMD Support for architecture=%s, vectorBitWidth=%s: %s", arch, preferredBitWidth, detected);
+        }
+        return detected;
     }
 
     @VisibleForTesting
