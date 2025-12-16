@@ -28,7 +28,6 @@ import io.trino.spi.function.FlatVariableOffset;
 import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.type.AbstractVariableWidthType;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeOperatorDeclaration;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
@@ -45,6 +44,7 @@ import static java.lang.invoke.MethodHandles.lookup;
 public final class KdbTreeType
         extends AbstractVariableWidthType
 {
+    public static final String NAME = "KdbTree";
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(KdbTreeType.class, lookup(), Object.class);
     private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
 
@@ -55,7 +55,13 @@ public final class KdbTreeType
         // The KDB tree type should be KdbTree but can not be since KdbTree is in
         // both the plugin class loader and the system class loader.  This was done
         // so the plan optimizer can process geospatial joins.
-        super(new TypeSignature(StandardTypes.KDB_TREE), Object.class);
+        super(new TypeSignature(NAME), Object.class);
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override

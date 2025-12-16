@@ -49,13 +49,14 @@ public final class TinyintType
         extends AbstractType
         implements FixedWidthType
 {
+    public static final String NAME = "tinyint";
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(TinyintType.class, lookup(), long.class);
 
     public static final TinyintType TINYINT = new TinyintType();
 
     private TinyintType()
     {
-        super(new TypeSignature(StandardTypes.TINYINT), long.class, ByteArrayBlock.class);
+        super(new TypeSignature(NAME), long.class, ByteArrayBlock.class);
     }
 
     @Override
@@ -83,6 +84,12 @@ public final class TinyintType
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
         return new ByteArrayBlockBuilder(null, positionCount);
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override

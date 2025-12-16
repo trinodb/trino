@@ -43,6 +43,12 @@ public class ClassifierType
     }
 
     @Override
+    public String getDisplayName()
+    {
+        return ClassifierParametricType.NAME + "(" + labelType.getDisplayName() + "))";
+    }
+
+    @Override
     public List<Type> getTypeParameters()
     {
         return ImmutableList.of(labelType);

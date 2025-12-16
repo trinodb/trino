@@ -52,6 +52,7 @@ public final class DoubleType
         extends AbstractType
         implements FixedWidthType
 {
+    public static final String NAME = "double";
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(DoubleType.class, lookup(), double.class);
     private static final VarHandle DOUBLE_HANDLE = MethodHandles.byteArrayViewVarHandle(double[].class, ByteOrder.LITTLE_ENDIAN);
 
@@ -59,13 +60,19 @@ public final class DoubleType
 
     private DoubleType()
     {
-        super(new TypeSignature(StandardTypes.DOUBLE), double.class, LongArrayBlock.class);
+        super(new TypeSignature(NAME), double.class, LongArrayBlock.class);
     }
 
     @Override
     public int getFixedSize()
     {
         return Double.BYTES;
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override

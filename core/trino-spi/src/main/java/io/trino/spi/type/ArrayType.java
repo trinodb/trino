@@ -45,7 +45,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.type.StandardTypes.ARRAY;
 import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
 import static io.trino.spi.type.TypeUtils.checkElementNotNull;
 import static java.lang.Math.toIntExact;
@@ -57,6 +56,7 @@ import static java.util.Objects.requireNonNull;
 public class ArrayType
         extends AbstractType
 {
+    public static final String NAME = "array";
     private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
 
     private static final InvocationConvention READ_FLAT_CONVENTION = simpleConvention(FAIL_ON_NULL, FLAT);
@@ -104,7 +104,7 @@ public class ArrayType
 
     public ArrayType(Type elementType)
     {
-        super(new TypeSignature(ARRAY, TypeParameter.typeParameter(elementType.getTypeSignature())), Block.class, ArrayBlock.class);
+        super(new TypeSignature(NAME, TypeParameter.typeParameter(elementType.getTypeSignature())), Block.class, ArrayBlock.class);
         this.elementType = requireNonNull(elementType, "elementType is null");
     }
 
@@ -334,7 +334,7 @@ public class ArrayType
     @Override
     public String getDisplayName()
     {
-        return ARRAY + "(" + elementType.getDisplayName() + ")";
+        return NAME + "(" + elementType.getDisplayName() + ")";
     }
 
     private static Block read(ArrayBlock block, int position)

@@ -30,6 +30,7 @@ public abstract sealed class DecimalType
         implements FixedWidthType
         permits LongDecimalType, ShortDecimalType
 {
+    public static final String NAME = "decimal";
     public static final int DEFAULT_SCALE = 0;
     public static final int DEFAULT_PRECISION = MAX_PRECISION;
 
@@ -64,9 +65,15 @@ public abstract sealed class DecimalType
 
     DecimalType(int precision, int scale, Class<?> javaType, Class<? extends ValueBlock> valueBlockType)
     {
-        super(new TypeSignature(StandardTypes.DECIMAL, buildTypeParameters(precision, scale)), javaType, valueBlockType);
+        super(new TypeSignature(NAME, buildTypeParameters(precision, scale)), javaType, valueBlockType);
         this.precision = precision;
         this.scale = scale;
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME + "(" + precision + "," + scale + ")";
     }
 
     @Override

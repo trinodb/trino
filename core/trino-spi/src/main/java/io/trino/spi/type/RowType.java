@@ -45,7 +45,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.type.StandardTypes.ROW;
 import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
@@ -66,6 +65,8 @@ import static java.util.Objects.requireNonNull;
 public class RowType
         extends AbstractType
 {
+    public static final String NAME = "row";
+
     private static final InvocationConvention READ_FLAT_CONVENTION = simpleConvention(FAIL_ON_NULL, FLAT);
     private static final InvocationConvention READ_FLAT_TO_BLOCK_CONVENTION = simpleConvention(BLOCK_BUILDER, FLAT);
     private static final InvocationConvention WRITE_FLAT_CONVENTION = simpleConvention(FLAT_RETURN, NEVER_NULL);
@@ -187,7 +188,7 @@ public class RowType
                 .map(field -> TypeParameter.typeParameter(field.getName(), field.getType().getTypeSignature()))
                 .toList();
 
-        return new TypeSignature(ROW, parameters);
+        return new TypeSignature(NAME, parameters);
     }
 
     @Override
@@ -207,7 +208,7 @@ public class RowType
     {
         // Convert to standard sql name
         StringBuilder result = new StringBuilder();
-        result.append(ROW).append('(');
+        result.append(NAME).append('(');
         for (Field field : fields) {
             String typeDisplayName = field.getType().getDisplayName();
             if (field.getName().isPresent()) {
