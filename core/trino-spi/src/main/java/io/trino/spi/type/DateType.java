@@ -28,11 +28,18 @@ import java.util.Optional;
 public final class DateType
         extends AbstractIntType
 {
+    public static final String NAME = "date";
     public static final DateType DATE = new DateType();
 
     private DateType()
     {
-        super(new TypeSignature(StandardTypes.DATE));
+        super(new TypeSignature(NAME));
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override

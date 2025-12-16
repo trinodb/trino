@@ -19,7 +19,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.AbstractVariableWidthType;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeSignature;
 
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
@@ -27,11 +26,12 @@ import static io.trino.geospatial.serde.GeometrySerde.deserialize;
 public class SphericalGeographyType
         extends AbstractVariableWidthType
 {
+    public static final String NAME = "SphericalGeography";
     public static final SphericalGeographyType SPHERICAL_GEOGRAPHY = new SphericalGeographyType();
 
     private SphericalGeographyType()
     {
-        super(new TypeSignature(StandardTypes.SPHERICAL_GEOGRAPHY), Slice.class);
+        super(new TypeSignature(NAME), Slice.class);
     }
 
     @Override
@@ -52,6 +52,12 @@ public class SphericalGeographyType
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
         ((VariableWidthBlockBuilder) blockBuilder).writeEntry(value, offset, length);
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override

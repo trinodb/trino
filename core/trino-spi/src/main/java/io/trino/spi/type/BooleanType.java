@@ -43,6 +43,7 @@ public final class BooleanType
         extends AbstractType
         implements FixedWidthType
 {
+    public static final String NAME = "boolean";
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(BooleanType.class, lookup(), boolean.class);
 
     private static final long TRUE_XX_HASH = XxHash64.hash(1);
@@ -69,7 +70,7 @@ public final class BooleanType
 
     private BooleanType()
     {
-        super(new TypeSignature(StandardTypes.BOOLEAN), boolean.class, ByteArrayBlock.class);
+        super(new TypeSignature(NAME), boolean.class, ByteArrayBlock.class);
     }
 
     @Override
@@ -97,6 +98,12 @@ public final class BooleanType
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
         return new ByteArrayBlockBuilder(null, positionCount);
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override

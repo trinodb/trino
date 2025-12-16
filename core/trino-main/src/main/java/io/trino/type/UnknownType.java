@@ -83,6 +83,12 @@ public final class UnknownType
     }
 
     @Override
+    public String getDisplayName()
+    {
+        return NAME;
+    }
+
+    @Override
     public boolean isComparable()
     {
         return true;

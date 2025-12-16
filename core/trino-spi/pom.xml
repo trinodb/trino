@@ -574,6 +574,13 @@
                                     <new>interface io.trino.spi.type.TypeParameter</new>
                                     <justification>Improve type-safety of TypeParameter</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.nowAbstract</code>
+                                    <old>method java.lang.String io.trino.spi.type.AbstractType::getDisplayName()</old>
+                                    <new>method java.lang.String io.trino.spi.type.Type::getDisplayName() @ io.trino.spi.type.AbstractType</new>
+                                    <justification>Don't rely on TypeSignature for deriving the display name</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
