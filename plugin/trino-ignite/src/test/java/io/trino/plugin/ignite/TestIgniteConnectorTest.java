@@ -95,6 +95,7 @@ public class TestIgniteConnectorTest
                  SUPPORTS_MAP_TYPE,
                  SUPPORTS_NATIVE_QUERY,
                  SUPPORTS_NEGATIVE_DATE,
+                 SUPPORTS_PRIMARY_KEY_CONSTRAINT,
                  SUPPORTS_RENAME_COLUMN,
                  SUPPORTS_RENAME_TABLE,
                  SUPPORTS_ROW_TYPE,
