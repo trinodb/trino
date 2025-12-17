@@ -32,7 +32,6 @@ final class EncoderUtil
     /**
      * Append null values for the block as a stream of bits.
      */
-    @SuppressWarnings({"NarrowingCompoundAssignment", "ImplicitNumericConversion"})
     public static void encodeNullsAsBitsScalar(SliceOutput sliceOutput, @Nullable boolean[] isNull, int offset, int length)
     {
         sliceOutput.writeBoolean(isNull != null);
@@ -46,27 +45,26 @@ final class EncoderUtil
         byte[] packedIsNull = new byte[(length + 7) / 8];
         int currentByte = 0;
         for (int position = 0; position < (length & ~0b111); position += 8) {
-            byte value = 0;
-            value |= (isNull[position + offset] ? 1 : 0) << 7;
-            value |= (isNull[position + offset + 1] ? 1 : 0) << 6;
-            value |= (isNull[position + offset + 2] ? 1 : 0) << 5;
-            value |= (isNull[position + offset + 3] ? 1 : 0) << 4;
-            value |= (isNull[position + offset + 4] ? 1 : 0) << 3;
-            value |= (isNull[position + offset + 5] ? 1 : 0) << 2;
-            value |= (isNull[position + offset + 6] ? 1 : 0) << 1;
-            value |= (isNull[position + offset + 7] ? 1 : 0);
-            packedIsNull[currentByte++] = value;
+            int value = ((isNull[position + offset] ? 1 : 0) << 7) |
+                    ((isNull[position + offset + 1] ? 1 : 0) << 6) |
+                    ((isNull[position + offset + 2] ? 1 : 0) << 5) |
+                    ((isNull[position + offset + 3] ? 1 : 0) << 4) |
+                    ((isNull[position + offset + 4] ? 1 : 0) << 3) |
+                    ((isNull[position + offset + 5] ? 1 : 0) << 2) |
+                    ((isNull[position + offset + 6] ? 1 : 0) << 1) |
+                    (isNull[position + offset + 7] ? 1 : 0);
+            packedIsNull[currentByte++] = (byte) (value & 0xFF);
         }
 
         // write last null bits
         if ((length & 0b111) > 0) {
-            byte value = 0;
+            int value = 0;
             int mask = 0b1000_0000;
             for (int position = length & ~0b111; position < length; position++) {
                 value |= isNull[position + offset] ? mask : 0;
                 mask >>>= 1;
             }
-            packedIsNull[currentByte++] = value;
+            packedIsNull[currentByte++] = (byte) (value & 0xFF);
         }
 
         sliceOutput.writeBytes(packedIsNull, 0, currentByte);
@@ -75,7 +73,6 @@ final class EncoderUtil
     /**
      * Implementation of {@link EncoderUtil#encodeNullsAsBitsScalar(SliceOutput, boolean[], int, int)} using the vector API
      */
-    @SuppressWarnings({"NarrowingCompoundAssignment", "ImplicitNumericConversion"})
     public static void encodeNullsAsBitsVectorized(SliceOutput sliceOutput, @Nullable boolean[] isNull, int offset, int length)
     {
         sliceOutput.writeBoolean(isNull != null);
@@ -98,13 +95,13 @@ final class EncoderUtil
 
         // write last null bits
         if (position < length) {
-            byte value = 0;
+            int value = 0;
             int mask = 0b1000_0000;
             for (; position < length; position++) {
                 value |= isNull[position + offset] ? mask : 0;
                 mask >>>= 1;
             }
-            packedIsNull[currentByte++] = value;
+            packedIsNull[currentByte++] = (byte) (value & 0xFF);
         }
 
         sliceOutput.writeBytes(packedIsNull, 0, currentByte);
