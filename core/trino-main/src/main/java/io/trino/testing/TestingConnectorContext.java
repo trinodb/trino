@@ -30,6 +30,9 @@ import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.util.EmbedVersion;
+import org.weakref.jmx.testing.TestingMBeanServer;
+
+import javax.management.MBeanServer;
 
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -42,6 +45,7 @@ public final class TestingConnectorContext
     private final VersionEmbedder versionEmbedder = new EmbedVersion(NodeVersion.UNKNOWN);
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
     private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators()));
+    private final MBeanServer mbeanServer = new TestingMBeanServer();
 
     public TestingConnectorContext()
     {
@@ -99,5 +103,11 @@ public final class TestingConnectorContext
     public PageIndexerFactory getPageIndexerFactory()
     {
         return pageIndexerFactory;
+    }
+
+    @Override
+    public MBeanServer getMBeanServer()
+    {
+        return mbeanServer;
     }
 }

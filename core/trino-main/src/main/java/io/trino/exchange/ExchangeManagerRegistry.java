@@ -24,6 +24,8 @@ import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeManagerFactory;
 import jakarta.annotation.PreDestroy;
 
+import javax.management.MBeanServer;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -49,6 +51,7 @@ public class ExchangeManagerRegistry
 
     private final OpenTelemetry openTelemetry;
     private final Tracer tracer;
+    private final MBeanServer mbeanServer;
     private final Map<String, ExchangeManagerFactory> exchangeManagerFactories = new ConcurrentHashMap<>();
 
     private volatile ExchangeManager exchangeManager;
@@ -59,11 +62,13 @@ public class ExchangeManagerRegistry
     public ExchangeManagerRegistry(
             OpenTelemetry openTelemetry,
             Tracer tracer,
+            MBeanServer mbeanServer,
             SecretsResolver secretsResolver,
             ExchangeManagerConfig config)
     {
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
+        this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
         this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
         this.configFile = config.getExchangeManagerConfigFile();
     }
@@ -101,7 +106,7 @@ public class ExchangeManagerRegistry
 
         ExchangeManager exchangeManager;
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            exchangeManager = factory.create(secretsResolver.getResolvedConfiguration(properties), new ExchangeManagerContextInstance(openTelemetry, tracer));
+            exchangeManager = factory.create(secretsResolver.getResolvedConfiguration(properties), new ExchangeManagerContextInstance(openTelemetry, tracer, mbeanServer));
         }
 
         log.info("-- Loaded exchange manager %s --", name);

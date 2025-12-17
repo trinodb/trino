@@ -132,8 +132,8 @@ public abstract class BaseElasticsearchConnectorTest
         String catalogName = getSession().getCatalog().orElseThrow();
         assertQuerySucceeds("SELECT * FROM orders");
         // Check that JMX stats show no sign of backpressure
-        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*name=%s*\" WHERE \"backpressurestats.alltime.count\" > 0", catalogName));
-        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*name=%s*\" WHERE \"backpressurestats.alltime.max\" > 0", catalogName));
+        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*catalog=%s*\" WHERE \"backpressurestats.alltime.count\" > 0", catalogName));
+        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*catalog=%s*\" WHERE \"backpressurestats.alltime.max\" > 0", catalogName));
     }
 
     @Test

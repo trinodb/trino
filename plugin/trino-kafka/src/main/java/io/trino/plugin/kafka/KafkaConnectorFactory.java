@@ -34,6 +34,8 @@ import static java.util.Objects.requireNonNull;
 public class KafkaConnectorFactory
         implements ConnectorFactory
 {
+    static final String CONNECTOR_NAME = "kafka";
+
     private final List<Module> extensions;
 
     public KafkaConnectorFactory(List<Module> extensions)
@@ -44,7 +46,7 @@ public class KafkaConnectorFactory
     @Override
     public String getName()
     {
-        return "kafka";
+        return CONNECTOR_NAME;
     }
 
     @Override
@@ -62,7 +64,7 @@ public class KafkaConnectorFactory
                         .add(new KafkaConnectorModule())
                         .add(new KafkaClientsModule())
                         .add(new KafkaSecurityModule())
-                        .add(new ConnectorContextModule(catalogName, context))
+                        .add(new ConnectorContextModule(CONNECTOR_NAME, catalogName, context))
                         .add(binder -> {
                             binder.bind(ClassLoader.class).toInstance(KafkaConnectorFactory.class.getClassLoader());
                         })

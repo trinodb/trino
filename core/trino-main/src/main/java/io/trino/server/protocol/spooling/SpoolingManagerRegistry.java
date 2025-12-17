@@ -27,6 +27,8 @@ import io.trino.spi.spool.SpoolingManager;
 import io.trino.spi.spool.SpoolingManagerContext;
 import io.trino.spi.spool.SpoolingManagerFactory;
 
+import javax.management.MBeanServer;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -56,17 +58,25 @@ public class SpoolingManagerRegistry
     private final boolean coordinator;
     private final OpenTelemetry openTelemetry;
     private final Tracer tracer;
+    private final MBeanServer mbeanServer;
     private final Node currentNode;
     private volatile SpoolingManager spoolingManager;
 
     @Inject
-    public SpoolingManagerRegistry(InternalNode currentNode, ServerConfig serverConfig, SpoolingEnabledConfig config, OpenTelemetry openTelemetry, Tracer tracer)
+    public SpoolingManagerRegistry(
+            InternalNode currentNode,
+            ServerConfig serverConfig,
+            SpoolingEnabledConfig config,
+            OpenTelemetry openTelemetry,
+            Tracer tracer,
+            MBeanServer mbeanServer)
     {
         this.currentNode = requireNonNull(currentNode, "currentNode is null");
         this.enabled = config.isEnabled();
         this.coordinator = serverConfig.isCoordinator();
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
+        this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
     }
 
     public void addSpoolingManagerFactory(SpoolingManagerFactory factory)
@@ -123,6 +133,12 @@ public class SpoolingManagerRegistry
             public Tracer getTracer()
             {
                 return tracer;
+            }
+
+            @Override
+            public MBeanServer getMBeanServer()
+            {
+                return mbeanServer;
             }
 
             @Override

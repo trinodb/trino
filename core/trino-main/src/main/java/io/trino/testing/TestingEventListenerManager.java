@@ -27,6 +27,7 @@ import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
+import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -45,7 +46,7 @@ public class TestingEventListenerManager
     @Inject
     public TestingEventListenerManager(EventListenerConfig config, SecretsResolver secretsResolver)
     {
-        super(config, secretsResolver, OpenTelemetry.noop(), Tracing.noopTracer(), new NodeVersion("test-version"));
+        super(config, secretsResolver, OpenTelemetry.noop(), Tracing.noopTracer(), new TestingMBeanServer(), new NodeVersion("test-version"));
     }
 
     @Override
