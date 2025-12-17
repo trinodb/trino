@@ -25,6 +25,7 @@ import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.CaseStatement;
 import io.trino.sql.tree.CaseStatementWhenClause;
+import io.trino.sql.tree.ColumnComment;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
@@ -1191,6 +1192,16 @@ public final class SqlFormatter
             builder.append("VIEW ")
                     .append(formatName(node.getName()));
 
+            node.getColumnComments().ifPresent(columnComments -> {
+                builder.append(" (\n");
+                String elementIndent = indentString(indent + 1);
+                String columnCommentList = node.getColumnComments().get().stream()
+                        .map(columnComment -> elementIndent + formatColumnComment(columnComment))
+                        .collect(joining(",\n"));
+                builder.append(columnCommentList);
+                builder.append("\n").append(")");
+            });
+
             node.getComment().ifPresent(comment -> builder
                     .append(" COMMENT ")
                     .append(formatStringLiteral(comment)));
@@ -1696,6 +1707,16 @@ public final class SqlFormatter
                         .append(joinProperties(column.getProperties()))
                         .append(")");
             }
+            return builder.toString();
+        }
+
+        private static String formatColumnComment(ColumnComment column)
+        {
+            StringBuilder builder = new StringBuilder()
+                    .append(formatName(column.getName()));
+            column.getComment().ifPresent(comment -> builder
+                    .append(" COMMENT ")
+                    .append(formatStringLiteral(comment)));
             return builder.toString();
         }
 

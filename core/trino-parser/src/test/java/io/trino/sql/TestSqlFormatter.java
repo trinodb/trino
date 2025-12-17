@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.ColumnComment;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
@@ -436,6 +437,51 @@ public class TestSqlFormatter
                         FROM
                           t
                         """);
+
+        // CREATE VIEW WITH COLUMN COMMENT
+        assertThat(formatSql(
+                new CreateView(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("test"),
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(),
+                        Optional.of(ImmutableList.of(
+                                new ColumnComment(QualifiedName.of("test_comment_1"), Optional.of("comment1")),
+                                new ColumnComment(QualifiedName.of("test_comment_2"), Optional.empty()),
+                                new ColumnComment(QualifiedName.of("test_comment_3"), Optional.of("comment3")))))))
+                .isEqualTo("CREATE VIEW test (\n" +
+                        "   test_comment_1 COMMENT 'comment1',\n" +
+                        "   test_comment_2,\n" +
+                        "   test_comment_3 COMMENT 'comment3'\n" +
+                        ") AS\n" +
+                        "SELECT *\n" +
+                        "FROM\n" +
+                        "  t\n");
+
+        assertThat(formatSql(
+                new CreateView(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("test"),
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                        false,
+                        Optional.of("攻殻機動隊"),
+                        Optional.empty(),
+                        ImmutableList.of(),
+                        Optional.of(ImmutableList.of(
+                                new ColumnComment(QualifiedName.of("test_comment_1"), Optional.of("comment1")),
+                                new ColumnComment(QualifiedName.of("test_comment_2"), Optional.empty()),
+                                new ColumnComment(QualifiedName.of("test_comment_3"), Optional.of("comment3")))))))
+                .isEqualTo("CREATE VIEW test (\n" +
+                        "   test_comment_1 COMMENT 'comment1',\n" +
+                        "   test_comment_2,\n" +
+                        "   test_comment_3 COMMENT 'comment3'\n" +
+                        ") COMMENT '攻殻機動隊' AS\n" +
+                        "SELECT *\n" +
+                        "FROM\n" +
+                        "  t\n");
     }
 
     @Test

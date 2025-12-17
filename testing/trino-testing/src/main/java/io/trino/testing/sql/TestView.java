@@ -31,6 +31,13 @@ public class TestView
         sqlExecutor.execute(format("CREATE VIEW %s AS %s", name, viewBody));
     }
 
+    public TestView(SqlExecutor sqlExecutor, String namePrefix, String viewExtraInfo, @Language("SQL") String viewBody)
+    {
+        this.sqlExecutor = sqlExecutor;
+        this.name = namePrefix + "_" + randomNameSuffix();
+        sqlExecutor.execute(format("CREATE VIEW %s %s AS %s", name, viewExtraInfo, viewBody));
+    }
+
     @Override
     public String getName()
     {
