@@ -16,6 +16,7 @@ package io.trino.sql;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AllColumns;
+import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
@@ -52,6 +53,7 @@ import io.trino.sql.tree.ShowSchemas;
 import io.trino.sql.tree.ShowSession;
 import io.trino.sql.tree.ShowTables;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.UpdateAssignment;
@@ -66,6 +68,8 @@ import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.table;
 import static io.trino.sql.SqlFormatter.formatSql;
+import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
+import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.PLUS;
 import static io.trino.sql.tree.CreateView.Security.DEFINER;
 import static io.trino.sql.tree.SaveMode.FAIL;
 import static io.trino.sql.tree.SaveMode.IGNORE;
@@ -831,5 +835,29 @@ public class TestSqlFormatter
         assertThat(formatSql(
                 new ShowBranches(new NodeLocation(1, 1), QualifiedName.of("a"))))
                 .isEqualTo("SHOW BRANCHES FROM TABLE a");
+    }
+
+    @Test
+    public void testArithmeticUnary()
+    {
+        assertThat(formatSql(
+                new ArithmeticUnaryExpression(new NodeLocation(1, 1), PLUS, new LongLiteral(new NodeLocation(1, 2), "1"))))
+                .isEqualTo("+1");
+
+        assertThat(formatSql(
+                new ArithmeticUnaryExpression(new NodeLocation(1, 1), MINUS, new LongLiteral(new NodeLocation(1, 3), "1"))))
+                .isEqualTo("-(1)");
+
+        assertThat(formatSql(
+                new ArithmeticUnaryExpression(new NodeLocation(1, 1), PLUS, new SubqueryExpression(
+                        new NodeLocation(1, 3),
+                        simpleQuery(selectList(new LongLiteral(new NodeLocation(1, 10), "1")))))))
+                .isEqualTo("+(SELECT 1\n\n)");
+
+        assertThat(formatSql(
+                new ArithmeticUnaryExpression(new NodeLocation(1, 1), MINUS, new SubqueryExpression(
+                        new NodeLocation(1, 3),
+                        simpleQuery(selectList(new LongLiteral(new NodeLocation(1, 10), "1")))))))
+                .isEqualTo("-(SELECT 1\n\n)");
     }
 }
