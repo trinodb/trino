@@ -4892,6 +4892,34 @@ public abstract class BaseConnectorTest
         }
     }
 
+    @Test
+    public void testCreateViewWithColumnAlias()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));
+
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_create_view_with_column_alias", "(test_alias1, test_alias2, test_alias3)", "SELECT * FROM region")) {
+            assertQuery("SELECT test_alias1, test_alias2, test_alias3 FROM " + view.getName() + "", "SELECT * FROM region");
+        }
+
+        // test with query with duplicate column name
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_create_view_with_column_alias", "(test_alias1, test_alias2, test_alias3)", "SELECT regionKey, regionKey, regionKey FROM region")) {
+            assertQuery("SELECT test_alias1, test_alias2, test_alias3 FROM " + view.getName() + "", "SELECT regionKey, regionKey, regionKey FROM region");
+        }
+    }
+
+    @Test
+    public void testCreateViewWithColumnComment()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_COMMENT_ON_VIEW_COLUMN));
+
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_create_view_with_column_comment", "(test_comment1 COMMENT 'comment1', test_comment2, test_comment3 COMMENT 'comment3')", "SELECT * FROM region")) {
+            assertThat(getColumnComment(view.getName(), "test_comment1")).isEqualTo("comment1");
+            assertThat(getColumnComment(view.getName(), "test_comment2")).isEqualTo(null);
+            assertThat(getColumnComment(view.getName(), "test_comment3")).isEqualTo("comment3");
+            assertQuery("SELECT * FROM " + view.getName(), "SELECT * FROM region");
+        }
+    }
+
     protected String getColumnComment(String tableName, String columnName)
     {
         return (String) computeScalar(format(

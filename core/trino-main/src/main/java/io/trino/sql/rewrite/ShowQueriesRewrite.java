@@ -610,6 +610,7 @@ public final class ShowQueriesRewrite
             Collection<PropertyMetadata<?>> allViewProperties = viewPropertyManager.getAllProperties(catalogHandle);
             List<Property> propertyNodes = toSqlProperties("view " + objectName, INVALID_VIEW_PROPERTY, properties, allViewProperties);
             CreateView.Security security = viewDefinition.get().isRunAsInvoker() ? INVOKER : DEFINER;
+
             String sql = formatSql(new CreateView(
                     node.getLocation().orElseThrow(),
                     QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
