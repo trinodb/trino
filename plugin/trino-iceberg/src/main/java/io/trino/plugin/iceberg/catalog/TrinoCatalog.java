@@ -26,7 +26,6 @@ import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.security.TrinoPrincipal;
-import jakarta.annotation.Nullable;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -161,8 +160,7 @@ public interface TrinoCatalog
 
     void updateViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment);
 
-    @Nullable
-    String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName);
+    Optional<String> defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName);
 
     void setTablePrincipal(ConnectorSession session, SchemaTableName schemaTableName, TrinoPrincipal principal);
 

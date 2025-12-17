@@ -1305,7 +1305,7 @@ public class IcebergMetadata
 
         if (tableLocation == null) {
             tableLocation = getTableLocation(tableMetadata.getProperties())
-                    .orElseGet(() -> catalog.defaultTableLocation(session, tableMetadata.getTable()));
+                    .orElseGet(() -> catalog.defaultTableLocation(session, tableMetadata.getTable()).orElse(null));
         }
         transaction = newCreateTableTransaction(catalog, tableMetadata, session, replace, tableLocation, allowedExtraProperties);
         Location location = Location.of(transaction.table().location());
