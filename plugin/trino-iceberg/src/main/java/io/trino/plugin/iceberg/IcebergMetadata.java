@@ -1247,7 +1247,7 @@ public class IcebergMetadata
     public Optional<io.trino.spi.type.Type> getSupportedType(ConnectorSession session, Map<String, Object> tableProperties, io.trino.spi.type.Type type)
     {
         io.trino.spi.type.Type newType = coerceType(type);
-        if (type.getTypeSignature().equals(newType.getTypeSignature())) {
+        if (type.equals(newType)) {
             return Optional.empty();
         }
         return Optional.of(newType);
