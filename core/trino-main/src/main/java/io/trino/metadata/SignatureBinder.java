@@ -420,10 +420,10 @@ public class SignatureBinder
         // * type with type parameter of type/named_type kind (except function type)
 
         if (FunctionType.NAME.equalsIgnoreCase(formalTypeSignature.getBase())) {
-            List<TypeSignature> formalTypeParameterTypeSignatures = formalTypeSignature.getTypeParametersAsTypeSignatures();
+            List<TypeParameter> parameters = formalTypeSignature.getParameters();
             resultBuilder.add(new FunctionSolver(
                     getLambdaArgumentTypeSignatures(formalTypeSignature),
-                    formalTypeParameterTypeSignatures.getLast(),
+                    ((TypeParameter.Type) parameters.getLast()).type(),
                     actualTypeSignatureProvider));
             return true;
         }
@@ -662,8 +662,10 @@ public class SignatureBinder
 
     private static List<TypeSignature> getLambdaArgumentTypeSignatures(TypeSignature lambdaTypeSignature)
     {
-        List<TypeSignature> typeParameters = lambdaTypeSignature.getTypeParametersAsTypeSignatures();
-        return typeParameters.subList(0, typeParameters.size() - 1);
+        List<TypeParameter> parameters = lambdaTypeSignature.getParameters();
+        return parameters.subList(0, parameters.size() - 1).stream()
+                .map(parameter -> ((TypeParameter.Type) parameter).type())
+                .collect(toImmutableList());
     }
 
     private interface TypeConstraintSolver

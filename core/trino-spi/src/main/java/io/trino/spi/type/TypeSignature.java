@@ -68,20 +68,6 @@ public final class TypeSignature
         return parameters;
     }
 
-    public List<TypeSignature> getTypeParametersAsTypeSignatures()
-    {
-        List<TypeSignature> result = new ArrayList<>();
-        for (TypeParameter parameter : parameters) {
-            if (parameter instanceof TypeParameter.Type(_, TypeSignature type)) {
-                result.add(type);
-            }
-            else {
-                throw new IllegalStateException(format("Expected all parameters to be TypeSignatures but [%s] was found", parameter));
-            }
-        }
-        return result;
-    }
-
     public boolean isCalculated()
     {
         return calculated;

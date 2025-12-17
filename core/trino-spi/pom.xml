@@ -623,6 +623,12 @@
                                     <new>method java.lang.String io.trino.spi.type.Type::getDisplayName() @ io.trino.spi.type.AbstractType</new>
                                     <justification>Don't rely on TypeSignature for deriving the display name</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.type.TypeSignature::getTypeParametersAsTypeSignatures()</old>
+                                    <justification>Not needed. Use getParameters() instead.</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
