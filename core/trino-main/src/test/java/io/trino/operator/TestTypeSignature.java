@@ -285,7 +285,7 @@ public class TestTypeSignature
         assertThat(arrayType(createDecimalType(2, 1).getTypeSignature()).isCalculated()).isFalse();
         assertThat(mapType(new TypeSignature("decimal", typeVariable("p1"), typeVariable("s1")), new TypeSignature("decimal", typeVariable("p2"), typeVariable("s2"))).isCalculated()).isTrue();
         assertThat(mapType(createDecimalType(2, 1).getTypeSignature(), createDecimalType(3, 1).getTypeSignature()).isCalculated()).isFalse();
-        assertThat(rowType(namedField("a", new TypeSignature("decimal", typeVariable("p1"), typeVariable("s1"))), namedField("b", new TypeSignature("decimal", typeVariable("p2"), typeVariable("s2")))).isCalculated()).isTrue();
+        assertThat(rowType(List.of(namedField("a", new TypeSignature("decimal", typeVariable("p1"), typeVariable("s1"))), namedField("b", new TypeSignature("decimal", typeVariable("p2"), typeVariable("s2"))))).isCalculated()).isTrue();
     }
 
     private static void assertRowSignature(

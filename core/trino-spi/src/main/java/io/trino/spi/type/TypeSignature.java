@@ -203,11 +203,6 @@ public final class TypeSignature
         return new TypeSignature("function", parameters);
     }
 
-    public static TypeSignature rowType(TypeParameter... fields)
-    {
-        return rowType(Arrays.asList(fields));
-    }
-
     public static TypeSignature rowType(List<TypeParameter> fields)
     {
         checkArgument(fields.stream().allMatch(parameter -> parameter instanceof TypeParameter.Type), "Parameters for ROW type must be TYPE parameters");
