@@ -41,7 +41,6 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
-import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
@@ -786,36 +785,37 @@ public final class DeltaLakeSchemaSupport
     private static RowType buildRowType(TypeManager typeManager, JsonNode typeNode, boolean usePhysicalName)
             throws UnsupportedTypeException
     {
-        ImmutableList.Builder<TypeParameter> fields = ImmutableList.builder();
+        ImmutableList.Builder<RowType.Field> fields = ImmutableList.builder();
         Iterator<JsonNode> elements = typeNode.get("fields").elements();
         while (elements.hasNext()) {
             JsonNode element = elements.next();
             String fieldName = usePhysicalName ? element.get("metadata").get("delta.columnMapping.physicalName").asText() : element.get("name").asText();
             verify(!isNullOrEmpty(fieldName), "fieldName is null or empty");
-            fields.add(TypeParameter.namedField(
+            fields.add(RowType.field(
                     // We lower case the struct field names.
                     // Otherwise, Trino will refuse to write to columns whose struct type has field names containing upper case characters.
                     // Users can't work around this by casting in their queries because Trino parser always lower case types.
                     // TODO: This is a hack. Engine should be able to handle identifiers in a case insensitive way where necessary.
                     // See also HiveTypeTranslator#toTypeSingature.
                     TransactionLogAccess.canonicalizeColumnName(fieldName),
-                    buildType(typeManager, element.get("type"), usePhysicalName).getTypeSignature()));
+                    buildType(typeManager, element.get("type"), usePhysicalName)));
         }
-        return (RowType) typeManager.getType(TypeSignature.rowType(fields.build()));
+        return RowType.from(fields.build());
     }
 
     private static ArrayType buildArrayType(TypeManager typeManager, JsonNode typeNode, boolean usePhysicalName)
             throws UnsupportedTypeException
     {
-        return (ArrayType) typeManager.getType(TypeSignature.arrayType(buildType(typeManager, typeNode.get("elementType"), usePhysicalName).getTypeSignature()));
+        return new ArrayType(buildType(typeManager, typeNode.get("elementType"), usePhysicalName));
     }
 
     private static MapType buildMapType(TypeManager typeManager, JsonNode typeNode, boolean usePhysicalName)
             throws UnsupportedTypeException
     {
-        return (MapType) typeManager.getType(TypeSignature.mapType(
-                buildType(typeManager, typeNode.get("keyType"), usePhysicalName).getTypeSignature(),
-                buildType(typeManager, typeNode.get("valueType"), usePhysicalName).getTypeSignature()));
+        return new MapType(
+                buildType(typeManager, typeNode.get("keyType"), usePhysicalName),
+                buildType(typeManager, typeNode.get("valueType"), usePhysicalName),
+                typeManager.getTypeOperators());
     }
 
     private static Optional<Location> getLocation(JsonProcessingException e)

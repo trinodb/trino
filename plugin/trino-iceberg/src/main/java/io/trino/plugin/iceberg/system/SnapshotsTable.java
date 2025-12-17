@@ -18,9 +18,9 @@ import io.trino.plugin.iceberg.util.PageListBuilder;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import org.apache.iceberg.Table;
 
 import java.util.Map;
@@ -64,7 +64,7 @@ public class SnapshotsTable
                         .add(new ColumnMetadata(PARENT_ID_COLUMN_NAME, BIGINT))
                         .add(new ColumnMetadata(OPERATION_COLUMN_NAME, VARCHAR))
                         .add(new ColumnMetadata(MANIFEST_LIST_COLUMN_NAME, VARCHAR))
-                        .add(new ColumnMetadata(SUMMARY_COLUMN_NAME, typeManager.getType(TypeSignature.mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()))))
+                        .add(new ColumnMetadata(SUMMARY_COLUMN_NAME, new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators())))
                         .build());
     }
 
