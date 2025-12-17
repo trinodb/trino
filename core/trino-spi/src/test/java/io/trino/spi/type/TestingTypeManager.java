@@ -49,12 +49,13 @@ public final class TestingTypeManager
             }
         }
 
+        List<TypeParameter> parameters = signature.getParameters();
         return switch (signature.getBase()) {
             case StandardTypes.MAP -> new MapType(
-                    getType(signature.getTypeParametersAsTypeSignatures().get(0)),
-                    getType(signature.getTypeParametersAsTypeSignatures().get(1)),
+                    getType(((TypeParameter.Type) parameters.get(0)).type()),
+                    getType(((TypeParameter.Type) parameters.get(1)).type()),
                     typeOperators);
-            case StandardTypes.ARRAY -> new ArrayType(getType(signature.getTypeParametersAsTypeSignatures().get(0)));
+            case StandardTypes.ARRAY -> new ArrayType(getType(((TypeParameter.Type) parameters.get(0)).type()));
             case StandardTypes.ROW -> RowType.from(signature.getParameters().stream()
                     .map(parameter -> {
                         TypeParameter.Type typeParameter = (TypeParameter.Type) parameter;
