@@ -88,7 +88,8 @@ public class TestRemoveEmptyUnionBranches
                             Optional.empty(),
                             Optional.empty(),
                             true,
-                            ImmutableList.of()));
+                            ImmutableList.of(),
+                            false));
 
     @Override
     protected PlanTester createPlanTester()

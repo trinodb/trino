@@ -34,6 +34,7 @@ public class ConnectorViewDefinition
     private final Optional<String> owner;
     private final boolean runAsInvoker;
     private final List<CatalogSchemaName> path;
+    private final boolean withAlias;
 
     @JsonCreator
     public ConnectorViewDefinition(
@@ -44,7 +45,8 @@ public class ConnectorViewDefinition
             @JsonProperty("comment") Optional<String> comment,
             @JsonProperty("owner") Optional<String> owner,
             @JsonProperty("runAsInvoker") boolean runAsInvoker,
-            @JsonProperty("path") List<CatalogSchemaName> path)
+            @JsonProperty("path") List<CatalogSchemaName> path,
+            @JsonProperty("withAlias") boolean withAlias)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
@@ -54,6 +56,7 @@ public class ConnectorViewDefinition
         this.owner = requireNonNull(owner, "owner is null");
         this.runAsInvoker = runAsInvoker;
         this.path = path == null ? List.of() : List.copyOf(path);
+        this.withAlias = withAlias;
         if (catalog.isEmpty() && schema.isPresent()) {
             throw new IllegalArgumentException("catalog must be present if schema is present");
         }
@@ -113,6 +116,12 @@ public class ConnectorViewDefinition
         return path;
     }
 
+    @JsonProperty
+    public boolean isWithAlias()
+    {
+        return withAlias;
+    }
+
     public ConnectorViewDefinition withoutOwner()
     {
         return new ConnectorViewDefinition(
@@ -123,7 +132,8 @@ public class ConnectorViewDefinition
                 comment,
                 Optional.empty(),
                 runAsInvoker,
-                path);
+                path,
+                withAlias);
     }
 
     @Override
@@ -133,6 +143,7 @@ public class ConnectorViewDefinition
         owner.ifPresent(value -> joiner.add("owner=" + value));
         comment.ifPresent(value -> joiner.add("comment=" + value));
         joiner.add("runAsInvoker=" + runAsInvoker);
+        joiner.add("withAlias=" + withAlias);
         joiner.add("columns=" + columns);
         catalog.ifPresent(value -> joiner.add("catalog=" + value));
         schema.ifPresent(value -> joiner.add("schema=" + value));

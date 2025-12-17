@@ -44,6 +44,7 @@ import io.trino.sql.tree.CaseStatement;
 import io.trino.sql.tree.CaseStatementWhenClause;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
+import io.trino.sql.tree.ColumnComment;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
@@ -953,6 +954,11 @@ class AstBuilder
     @Override
     public Node visitCreateView(SqlBaseParser.CreateViewContext context)
     {
+        Optional<List<ColumnComment>> columnComments = Optional.empty();
+        if (context.columnComments() != null) {
+            columnComments = Optional.of(visit(context.columnComments().columnComment(), ColumnComment.class));
+        }
+
         Optional<String> comment = Optional.empty();
         if (context.COMMENT() != null) {
             comment = Optional.of(visitString(context.string()).getValue());
@@ -978,7 +984,22 @@ class AstBuilder
                 context.REPLACE() != null,
                 comment,
                 security,
-                properties);
+                properties,
+                columnComments);
+    }
+
+    @Override
+    public Node visitColumnComment(SqlBaseParser.ColumnCommentContext context)
+    {
+        Optional<String> comment = Optional.empty();
+        if (context.COMMENT() != null) {
+            comment = Optional.of(visitString(context.string()).getValue());
+        }
+
+        return new ColumnComment(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                comment);
     }
 
     @Override

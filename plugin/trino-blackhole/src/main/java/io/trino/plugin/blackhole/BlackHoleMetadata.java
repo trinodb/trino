@@ -504,7 +504,8 @@ public class BlackHoleMetadata
                 comment,
                 view.getOwner(),
                 view.isRunAsInvoker(),
-                view.getPath()));
+                view.getPath(),
+                view.isWithAlias()));
     }
 
     @Override
@@ -521,6 +522,7 @@ public class BlackHoleMetadata
                 view.getComment(),
                 view.getOwner(),
                 view.isRunAsInvoker(),
-                view.getPath()));
+                view.getPath(),
+                view.isWithAlias()));
     }
 }

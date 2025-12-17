@@ -122,7 +122,8 @@ final class TestBlackHoleMetadata
                 Optional.empty(),
                 Optional.empty(),
                 true,
-                ImmutableList.of());
+                ImmutableList.of(),
+                false);
     }
 
     private void assertThatNoTableIsCreated()

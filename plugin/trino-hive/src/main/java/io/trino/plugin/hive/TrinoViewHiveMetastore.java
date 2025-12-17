@@ -191,7 +191,8 @@ public final class TrinoViewHiveMetastore
                 comment,
                 definition.getOwner(),
                 definition.isRunAsInvoker(),
-                definition.getPath());
+                definition.getPath(),
+                definition.isWithAlias());
 
         replaceView(session, viewName, view, newDefinition);
     }
@@ -213,7 +214,8 @@ public final class TrinoViewHiveMetastore
                 definition.getComment(),
                 definition.getOwner(),
                 definition.isRunAsInvoker(),
-                definition.getPath());
+                definition.getPath(),
+                definition.isWithAlias());
 
         replaceView(session, viewName, view, newDefinition);
     }

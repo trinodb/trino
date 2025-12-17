@@ -125,7 +125,8 @@ public class TestShowQueries
                                 Optional.empty(),
                                 Optional.empty(),
                                 true,
-                                ImmutableList.of())))
+                                ImmutableList.of(),
+                                false)))
                 .withGetViewProperties(() -> ImmutableList.of(PropertyMetadata.booleanProperty("boolean_property", "sample_property", true, false)))
                 .build()));
         queryRunner.createCatalog("mock", "mock", ImmutableMap.of());

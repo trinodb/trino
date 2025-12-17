@@ -3520,6 +3520,40 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testCreateViewWithColumnComment()
+    {
+        analyze("CREATE VIEW test (id) AS SELECT 123");
+        analyze("CREATE VIEW test (id COMMENT 'id') AS SELECT 123");
+        analyze("CREATE VIEW test (id COMMENT 'id') AS SELECT 123 as id1");
+        analyze("CREATE VIEW test (id COMMENT 'id', name) AS SELECT 123 as id1, '456' as name1");
+        analyze("CREATE VIEW test (id COMMENT 'id', name COMMENT 'name') AS SELECT 123 as id1, '456' as name1");
+        assertFails("CREATE VIEW test (id, name) AS SELECT 123")
+                .hasErrorCode(MISMATCHED_COLUMN_ALIASES)
+                .hasMessageContaining("Column alias list has 2 entries but relation has 1 columns");
+        assertFails("CREATE VIEW test (id COMMENT 'id', name COMMENT 'name') AS SELECT 123")
+                .hasErrorCode(MISMATCHED_COLUMN_ALIASES)
+                .hasMessageContaining("Column alias list has 2 entries but relation has 1 columns");
+        assertFails("CREATE VIEW test (id.name) AS SELECT 123")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("Column name 'id.name' must not be qualified");
+        assertFails("CREATE VIEW test (id.name COMMENT 'id') AS SELECT 123")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("Column name 'id.name' must not be qualified");
+        assertFails("CREATE VIEW test (id, id) AS SELECT 123, 456")
+                .hasErrorCode(DUPLICATE_COLUMN_NAME)
+                .hasMessageContaining("Column name 'id' specified more than once");
+        assertFails("CREATE VIEW test (id COMMENT 'id1', id COMMENT 'id2') AS SELECT 123, 456")
+                .hasErrorCode(DUPLICATE_COLUMN_NAME)
+                .hasMessageContaining("Column name 'id' specified more than once");
+        assertFails("CREATE VIEW test (id) AS SELECT null a")
+                .hasErrorCode(COLUMN_TYPE_UNKNOWN)
+                .hasMessage("line 1:1: Column type is unknown at position 1");
+        assertFails("CREATE VIEW test (id COMMENT 'id') AS SELECT null a")
+                .hasErrorCode(COLUMN_TYPE_UNKNOWN)
+                .hasMessage("line 1:1: Column type is unknown at position 1");
+    }
+
+    @Test
     public void testCreateRecursiveView()
     {
         assertFails("CREATE OR REPLACE VIEW v1 AS SELECT * FROM v1")
@@ -7954,7 +7988,8 @@ public class TestAnalyzer
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
-                ImmutableList.of());
+                ImmutableList.of(),
+                false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, ImmutableMap.of(), false));
 
         // stale view (different column type)
@@ -7965,7 +8000,8 @@ public class TestAnalyzer
                 ImmutableList.of(new ViewColumn("a", VARCHAR.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
-                ImmutableList.of());
+                ImmutableList.of(),
+                false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, ImmutableMap.of(), false));
 
         // valid view with uppercase column name
@@ -7976,7 +8012,8 @@ public class TestAnalyzer
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
-                ImmutableList.of());
+                ImmutableList.of(),
+                false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, ImmutableMap.of(), false));
 
         // recursive view referencing to itself
@@ -7987,7 +8024,8 @@ public class TestAnalyzer
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
-                ImmutableList.of());
+                ImmutableList.of(),
+                false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, ImmutableMap.of(), false));
 
         // type analysis for INSERT
@@ -8078,7 +8116,8 @@ public class TestAnalyzer
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                false);
         inSetupTransaction(session -> metadata.createView(
                 session,
                 tableViewAndMaterializedView,

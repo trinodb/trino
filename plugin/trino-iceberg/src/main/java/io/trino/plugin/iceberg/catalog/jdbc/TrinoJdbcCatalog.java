@@ -464,6 +464,7 @@ public class TrinoJdbcCatalog
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         definition.getOwner().ifPresent(owner -> properties.put(ICEBERG_VIEW_RUN_AS_OWNER, owner));
         definition.getComment().ifPresent(comment -> properties.put(COMMENT, comment));
+        properties.put(ICEBERG_VIEW_WITH_ALIAS, String.valueOf(definition.isWithAlias()));
         Schema schema = IcebergUtil.schemaFromViewColumns(typeManager, definition.getColumns());
         ViewBuilder viewBuilder = jdbcCatalog.buildView(toIdentifier(schemaViewName));
         viewBuilder = viewBuilder.withSchema(schema)
@@ -545,7 +546,8 @@ public class TrinoJdbcCatalog
             }
 
             Optional<String> owner = Optional.ofNullable(view.properties().get(ICEBERG_VIEW_RUN_AS_OWNER));
-            return Optional.of(new ConnectorViewDefinition(sqlView.sql(), catalog, schema, viewColumns, comment, owner, owner.isEmpty(), null));
+            boolean withAlias = Boolean.parseBoolean(view.properties().getOrDefault(ICEBERG_VIEW_WITH_ALIAS, "false"));
+            return Optional.of(new ConnectorViewDefinition(sqlView.sql(), catalog, schema, viewColumns, comment, owner, owner.isEmpty(), null, withAlias));
         });
     }
 

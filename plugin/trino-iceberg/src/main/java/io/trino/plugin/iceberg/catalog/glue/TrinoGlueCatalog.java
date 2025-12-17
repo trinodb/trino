@@ -1080,7 +1080,8 @@ public class TrinoGlueCatalog
                 comment,
                 definition.getOwner(),
                 definition.isRunAsInvoker(),
-                definition.getPath());
+                definition.getPath(),
+                definition.isWithAlias());
 
         updateView(session, viewName, newDefinition);
     }
@@ -1100,7 +1101,8 @@ public class TrinoGlueCatalog
                 definition.getComment(),
                 definition.getOwner(),
                 definition.isRunAsInvoker(),
-                definition.getPath());
+                definition.getPath(),
+                definition.isWithAlias());
 
         updateView(session, viewName, newDefinition);
     }

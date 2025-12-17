@@ -36,8 +36,14 @@ public class CreateView
     private final Optional<String> comment;
     private final Optional<Security> security;
     private final List<Property> properties;
+    private final Optional<List<ColumnComment>> columnComments;
 
     public CreateView(NodeLocation location, QualifiedName name, Query query, boolean replace, Optional<String> comment, Optional<Security> security, List<Property> properties)
+    {
+        this(location, name, query, replace, comment, security, properties, Optional.empty());
+    }
+
+    public CreateView(NodeLocation location, QualifiedName name, Query query, boolean replace, Optional<String> comment, Optional<Security> security, List<Property> properties, Optional<List<ColumnComment>> columnComments)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
@@ -46,6 +52,7 @@ public class CreateView
         this.comment = requireNonNull(comment, "comment is null");
         this.security = requireNonNull(security, "security is null");
         this.properties = ImmutableList.copyOf(properties);
+        this.columnComments = columnComments;
     }
 
     public QualifiedName getName()
@@ -78,6 +85,11 @@ public class CreateView
         return properties;
     }
 
+    public Optional<List<ColumnComment>> getColumnComments()
+    {
+        return columnComments;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -96,7 +108,7 @@ public class CreateView
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, query, replace, security, properties);
+        return Objects.hash(name, query, replace, security, properties, columnComments);
     }
 
     @Override
@@ -114,7 +126,8 @@ public class CreateView
                 && replace == o.replace
                 && Objects.equals(comment, o.comment)
                 && Objects.equals(security, o.security)
-                && Objects.equals(properties, o.properties);
+                && Objects.equals(properties, o.properties)
+                && Objects.equals(columnComments, o.columnComments);
     }
 
     @Override
@@ -127,6 +140,7 @@ public class CreateView
                 .add("comment", comment)
                 .add("security", security)
                 .add("properties", properties)
+                .add("columnComments", columnComments)
                 .toString();
     }
 }

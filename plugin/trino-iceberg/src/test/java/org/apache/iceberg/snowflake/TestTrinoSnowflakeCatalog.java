@@ -351,7 +351,8 @@ public class TestTrinoSnowflakeCatalog
                 Optional.empty(),
                 Optional.of(SESSION.getUser()),
                 false,
-                ImmutableList.of());
+                ImmutableList.of(),
+                false);
         TrinoCatalog catalog = createTrinoCatalog(false);
         assertThatThrownBy(() -> catalog.createView(SESSION, SchemaTableName.schemaTableName(SNOWFLAKE_TEST_SCHEMA, TpchTable.NATION.getTableName()), viewDefinition, true))
                 .hasMessageContaining("Views are not supported for the Snowflake Iceberg catalog");

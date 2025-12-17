@@ -110,6 +110,7 @@ statement
         (COMMENT string)?
         (WITH properties)? AS rootQuery                                #createMaterializedView
     | CREATE (OR REPLACE)? VIEW qualifiedName
+        columnComments?
         (COMMENT string)?
         (SECURITY (DEFINER | INVOKER))?
         (WITH properties)? AS rootQuery                                #createView
@@ -464,6 +465,14 @@ aliasedRelation
 
 columnAliases
     : '(' identifier (',' identifier)* ')'
+    ;
+
+columnComments
+    : '(' columnComment (',' columnComment)* ')'
+    ;
+
+columnComment
+    : qualifiedName (COMMENT string)?
     ;
 
 relationPrimary

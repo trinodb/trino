@@ -87,7 +87,8 @@ public class TestColumnMask
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 false,
-                ImmutableList.of());
+                ImmutableList.of(),
+                false);
         ConnectorViewDefinition viewUpperCase = new ConnectorViewDefinition(
                 "SELECT NATIONKEY, NAME FROM local.tiny.nation",
                 Optional.empty(),
@@ -98,7 +99,8 @@ public class TestColumnMask
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 false,
-                ImmutableList.of());
+                ImmutableList.of(),
+                false);
 
         ConnectorViewDefinition viewWithNested = new ConnectorViewDefinition(
                 """
@@ -119,7 +121,8 @@ public class TestColumnMask
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 false,
-                ImmutableList.of());
+                ImmutableList.of(),
+                false);
 
         ConnectorMaterializedViewDefinition materializedView = new ConnectorMaterializedViewDefinition(
                 "SELECT * FROM local.tiny.nation",

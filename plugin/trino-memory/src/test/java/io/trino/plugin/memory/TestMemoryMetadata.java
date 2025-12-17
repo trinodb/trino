@@ -391,7 +391,8 @@ public class TestMemoryMetadata
                 Optional.empty(),
                 Optional.empty(),
                 true,
-                ImmutableList.of());
+                ImmutableList.of(),
+                false);
     }
 
     private static MemoryMetadata createMetadata()

@@ -54,6 +54,7 @@ public class LegacyHiveViewReader
                 Optional.ofNullable(table.getParameters().get(TABLE_COMMENT)),
                 Optional.empty(), // will be filled in later by HiveMetadata
                 hiveViewsRunAsInvoker,
-                ImmutableList.of());
+                ImmutableList.of(),
+                false);
     }
 }

@@ -132,6 +132,7 @@ import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.AutoGroupBy;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
+import io.trino.sql.tree.ColumnComment;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
@@ -1071,7 +1072,26 @@ class StatementAnalyzer
 
             accessControl.checkCanCreateView(session.toSecurityContext(), viewName);
 
-            validateColumns(node, queryScope.getRelationType());
+            // analyze target view column and column comment
+            ImmutableList.Builder<OutputColumn> outputColumns = ImmutableList.builder();
+            if (node.getColumnComments().isPresent()) {
+                validateColumnComments(node.getColumnComments().get(), queryScope.getRelationType().getVisibleFieldCount(), node);
+                int aliasPosition = 0;
+                for (Field field : queryScope.getRelationType().getVisibleFields()) {
+                    if (field.getType().equals(UNKNOWN)) {
+                        throw semanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
+                    }
+                    String columnName = getOnlyElement(node.getColumnComments().get().get(aliasPosition).getName().getOriginalParts()).getValue().toLowerCase(ENGLISH);
+                    outputColumns.add(new OutputColumn(new Column(columnName, field.getType().toString()), analysis.getSourceColumns(field)));
+                    aliasPosition++;
+                }
+            }
+            else {
+                validateColumns(node, queryScope.getRelationType());
+                queryScope.getRelationType().getVisibleFields().stream()
+                        .map(this::createOutputColumn)
+                        .forEach(outputColumns::add);
+            }
 
             CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, viewName.catalogName());
             analysis.setUpdateType("CREATE VIEW");
@@ -1079,9 +1099,7 @@ class StatementAnalyzer
                     catalogHandle.getVersion(),
                     viewName,
                     Optional.empty(),
-                    Optional.of(queryScope.getRelationType().getVisibleFields().stream()
-                            .map(this::createOutputColumn)
-                            .collect(toImmutableList())));
+                    Optional.of(outputColumns.build()));
 
             return createAndAssignScope(node, scope);
         }
@@ -1570,6 +1588,31 @@ class StatementAnalyzer
                         "Column alias list has %s entries but relation has %s columns",
                         columnAliases.size(),
                         sourceColumnSize);
+            }
+        }
+
+        private void validateColumnComments(List<ColumnComment> columnComments, int sourceColumnSize, Statement statement)
+        {
+            if (columnComments.size() != sourceColumnSize) {
+                throw semanticException(
+                        MISMATCHED_COLUMN_ALIASES,
+                        columnComments.get(0),
+                        "Column alias list has %s entries but relation has %s columns",
+                        columnComments.size(),
+                        sourceColumnSize);
+            }
+            Set<String> names = new HashSet<>();
+            for (ColumnComment columnComment : columnComments) {
+                if (columnComment.getName().getParts().size() != 1) {
+                    throw semanticException(NOT_SUPPORTED, statement, "Column name '%s' must not be qualified", columnComment.getName());
+                }
+                Identifier name = getOnlyElement(columnComment.getName().getOriginalParts());
+                String columnName = name.getValue().toLowerCase(ENGLISH);
+
+                if (names.contains(columnName)) {
+                    throw semanticException(DUPLICATE_COLUMN_NAME, name, "Column name '%s' specified more than once", columnName);
+                }
+                names.add(columnName);
             }
         }
 
@@ -2562,7 +2605,8 @@ class StatementAnalyzer
                     view.getPath(),
                     view.getColumns(),
                     freshStorageTable,
-                    true);
+                    true,
+                    false);
         }
 
         private Scope createScopeForView(Table table, QualifiedObjectName name, Optional<Scope> scope, ViewDefinition view)
@@ -2577,7 +2621,8 @@ class StatementAnalyzer
                     view.getPath(),
                     view.getColumns(),
                     Optional.empty(),
-                    false);
+                    false,
+                    view.isWithAlias());
         }
 
         private Scope createScopeForView(
@@ -2591,7 +2636,8 @@ class StatementAnalyzer
                 List<CatalogSchemaName> path,
                 List<ViewColumn> columns,
                 Optional<TableHandle> freshStorageTable,
-                boolean isMaterializedView)
+                boolean isMaterializedView,
+                boolean withAlias)
         {
             Statement statement = analysis.getStatement();
             if (statement instanceof CreateView viewStatement) {
@@ -2639,7 +2685,7 @@ class StatementAnalyzer
                 RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table);
                 analysis.unregisterTableForView();
 
-                checkViewStaleness(columns, descriptor.getVisibleFields(), name, table)
+                checkViewStaleness(columns, descriptor.getVisibleFields(), name, table, withAlias)
                         .ifPresent(explanation -> { throw semanticException(VIEW_IS_STALE, table, "View '%s' is stale or in invalid state: %s", name, explanation); });
 
                 analysis.registerNamedQuery(table, query);
@@ -5190,7 +5236,7 @@ class StatementAnalyzer
             }
         }
 
-        private Optional<String> checkViewStaleness(List<ViewColumn> columns, Collection<Field> fields, QualifiedObjectName name, Node node)
+        private Optional<String> checkViewStaleness(List<ViewColumn> columns, Collection<Field> fields, QualifiedObjectName name, Node node, boolean withAlias)
         {
             if (columns.size() != fields.size()) {
                 return Optional.of(format(
@@ -5204,14 +5250,14 @@ class StatementAnalyzer
                 ViewColumn column = columns.get(i);
                 Type type = getViewColumnType(column, name, node);
                 Field field = fieldList.get(i);
-                if (field.getName().isEmpty()) {
+                if (!withAlias && field.getName().isEmpty()) {
                     return Optional.of(format(
                             "a column of type %s projected from query view at position %s has no name",
                             field.getType(),
                             i));
                 }
                 String fieldName = field.getName().orElseThrow();
-                if (!column.name().equalsIgnoreCase(fieldName)) {
+                if (!withAlias && !column.name().equalsIgnoreCase(fieldName)) {
                     return Optional.of(format(
                             "column [%s] of type %s projected from query view at position %s has a different name from column [%s] of type %s stored in view definition",
                             fieldName,

@@ -56,7 +56,8 @@ public final class TrinoViewUtil
                     definition.getComment(),
                     tableOwner,
                     false,
-                    definition.getPath());
+                    definition.getPath(),
+                    definition.isWithAlias());
         }
         return Optional.of(definition);
     }
