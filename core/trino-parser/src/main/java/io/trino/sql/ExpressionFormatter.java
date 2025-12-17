@@ -572,8 +572,8 @@ public final class ExpressionFormatter
 
             return switch (node.getSign()) {
                 // Unary is ambiguous with respect to negative numbers. "-1" parses as a number, but "-(1)" parses as "unaryMinus(number)"
-                // The parentheses are needed to ensure the parsing roundtrips properly.
-                case MINUS -> "-(" + value + ")";
+                // When parentheses are not present, adding them is necessary to ensure the parsing round trips properly.
+                case MINUS -> value.startsWith("(") ? "-" + value : "-(" + value + ")";
                 case PLUS -> "+" + value;
             };
         }
