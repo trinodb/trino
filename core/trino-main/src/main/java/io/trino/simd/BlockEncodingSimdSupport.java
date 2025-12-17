@@ -62,7 +62,6 @@ public final class BlockEncodingSimdSupport
         public static final SimdSupport ALL = new SimdSupport(true, true, true, true, true, true, true, true, true);
     }
 
-    private static final int MINIMUM_SIMD_LENGTH = 256;
     private static final SimdSupport AUTO_DETECTED_SUPPORT = detectSimd();
 
     private final SimdSupport simdSupport;
@@ -142,7 +141,7 @@ public final class BlockEncodingSimdSupport
 
         // Unclear which x86_64 platforms would lack 256 bit SIMD registers, so disable vectorization
         // because it's likely that intrinsics are missing or perform worse
-        if (preferredVectorBitWidth < MINIMUM_SIMD_LENGTH) {
+        if (preferredVectorBitWidth < 256) {
             return SimdSupport.NONE;
         }
 
