@@ -50,6 +50,7 @@ import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.PASSWORD;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.USER;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
@@ -279,6 +280,34 @@ public final class IcebergQueryRunner
             unityCatalog.copyTpchTables(TpchTable.getTables());
 
             Logger log = Logger.get(IcebergUnityQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
+    public static final class IcebergS3TablesQueryRunnerMain
+    {
+        private IcebergS3TablesQueryRunnerMain() {}
+
+        static void main()
+                throws Exception
+        {
+            @SuppressWarnings("resource")
+            QueryRunner queryRunner = IcebergQueryRunner.builder("tpch")
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .addIcebergProperty("iceberg.catalog.type", "rest")
+                    .addIcebergProperty("iceberg.rest-catalog.uri", "https://glue.%s.amazonaws.com/iceberg".formatted(requireEnv("AWS_REGION")))
+                    .addIcebergProperty("iceberg.rest-catalog.warehouse", "s3tablescatalog/" + requireEnv("S3_TABLES_BUCKET"))
+                    .addIcebergProperty("iceberg.rest-catalog.view-endpoints-enabled", "false")
+                    .addIcebergProperty("iceberg.rest-catalog.security", "sigv4")
+                    .addIcebergProperty("iceberg.rest-catalog.signing-name", "glue")
+                    .addIcebergProperty("fs.native-s3.enabled", "true")
+                    .addIcebergProperty("s3.region", requireEnv("AWS_REGION"))
+                    .addIcebergProperty("s3.aws-access-key", requireEnv("AWS_ACCESS_KEY_ID"))
+                    .addIcebergProperty("s3.aws-secret-key", requireEnv("AWS_SECRET_ACCESS_KEY"))
+                    .build();
+
+            Logger log = Logger.get(IcebergS3TablesQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
