@@ -372,7 +372,7 @@ public class PinotSegmentPageSource
             }
             return Slices.wrappedBuffer(toBytes(dataTable.getString(rowIndex, columnIndex)));
         }
-        if (trinoType.getTypeSignature().getBase().equalsIgnoreCase(StandardTypes.JSON)) {
+        if (trinoType.getBaseName().equalsIgnoreCase(StandardTypes.JSON)) {
             String field = dataTable.getString(rowIndex, columnIndex);
             return jsonParse(getUtf8Slice(field));
         }

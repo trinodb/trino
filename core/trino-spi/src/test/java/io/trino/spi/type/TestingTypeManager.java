@@ -44,7 +44,7 @@ public final class TestingTypeManager
     public Type getType(TypeSignature signature)
     {
         for (Type type : TYPES) {
-            if (signature.getBase().equals(type.getTypeSignature().getBase())) {
+            if (signature.getBase().equals(type.getBaseName())) {
                 return type;
             }
         }
