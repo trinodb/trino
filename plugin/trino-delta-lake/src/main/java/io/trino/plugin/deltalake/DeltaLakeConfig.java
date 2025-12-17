@@ -475,7 +475,7 @@ public class DeltaLakeConfig
     }
 
     @Config("delta.idle-writer-min-file-size")
-    @ConfigDescription("Minimum data written by a single partition writer before it can be consider as 'idle' and could be closed by the engine")
+    @ConfigDescription("Minimum data written by a single partition writer before it can be considered as 'idle' and could be closed by the engine")
     public DeltaLakeConfig setIdleWriterMinFileSize(DataSize idleWriterMinFileSize)
     {
         this.idleWriterMinFileSize = idleWriterMinFileSize;
