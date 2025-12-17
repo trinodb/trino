@@ -370,7 +370,7 @@ public final class ParquetTypeUtils
 
     private static boolean isVariantType(Type type, ColumnIO columnIO)
     {
-        return type.getTypeSignature().getBase().equals(JSON) &&
+        return type.getBaseName().equals(JSON) &&
                 columnIO instanceof GroupColumnIO groupColumnIo &&
                 groupColumnIo.getChildrenCount() == 2 &&
                 groupColumnIo.getChild("value") != null &&
