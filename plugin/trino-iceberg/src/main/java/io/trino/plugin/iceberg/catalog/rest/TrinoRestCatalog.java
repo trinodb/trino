@@ -45,6 +45,7 @@ import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
@@ -825,6 +826,12 @@ public class TrinoRestCatalog
         }
 
         replaceViewVersion.commit();
+    }
+
+    public boolean isS3Tables()
+    {
+        String warehouse = restSessionCatalog.properties().get(CatalogProperties.WAREHOUSE_LOCATION);
+        return warehouse != null && warehouse.startsWith("s3tablescatalog/") && "sigv4".equals(restSessionCatalog.properties().get("rest.auth.type"));
     }
 
     private SessionCatalog.SessionContext convert(ConnectorSession session)
