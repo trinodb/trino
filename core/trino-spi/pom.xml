@@ -629,6 +629,12 @@
                                     <old>method java.util.List&lt;io.trino.spi.type.TypeSignature&gt; io.trino.spi.type.TypeSignature::getTypeParametersAsTypeSignatures()</old>
                                     <justification>Not needed. Use getParameters() instead.</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.type.TypeSignature io.trino.spi.type.TypeSignature::rowType(io.trino.spi.type.TypeSignatureParameter[])</old>
+                                    <justification>Method unused</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

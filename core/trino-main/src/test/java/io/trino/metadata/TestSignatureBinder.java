@@ -671,7 +671,7 @@ public class TestSignatureBinder
     {
         Signature function = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(rowType(anonymousField(INTEGER.getTypeSignature())))
+                .argumentType(rowType(List.of(anonymousField(INTEGER.getTypeSignature()))))
                 .build();
 
         assertThat(function)
@@ -689,8 +689,8 @@ public class TestSignatureBinder
 
         Signature biFunction = functionSignature()
                 .returnType(BOOLEAN)
-                .argumentType(rowType(anonymousField(new TypeSignature("T"))))
-                .argumentType(rowType(anonymousField(new TypeSignature("T"))))
+                .argumentType(rowType(List.of(anonymousField(new TypeSignature("T")))))
+                .argumentType(rowType(List.of(anonymousField(new TypeSignature("T")))))
                 .typeVariable("T")
                 .build();
 
