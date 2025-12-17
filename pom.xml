@@ -280,7 +280,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.50.0</version>
+                <version>3.51.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
