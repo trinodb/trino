@@ -16,14 +16,13 @@ package io.trino.type;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TypeSignature.arrayType;
-import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -32,7 +31,7 @@ public class TestIntegerArrayType
 {
     public TestIntegerArrayType()
     {
-        super(TESTING_TYPE_MANAGER.getType(arrayType(INTEGER.getTypeSignature())), List.class, createTestBlock(TESTING_TYPE_MANAGER.getType(arrayType(INTEGER.getTypeSignature()))));
+        super(new ArrayType(INTEGER), List.class, createTestBlock(new ArrayType(INTEGER)));
     }
 
     public static ValueBlock createTestBlock(Type arrayType)
