@@ -50,6 +50,7 @@ import io.trino.sql.planner.iterative.rule.DetermineTableScanNodePartitioning;
 import io.trino.sql.planner.iterative.rule.EliminateCrossJoins;
 import io.trino.sql.planner.iterative.rule.EvaluateEmptyIntersect;
 import io.trino.sql.planner.iterative.rule.EvaluateZeroSample;
+import io.trino.sql.planner.iterative.rule.ExpandAllColumnSearch;
 import io.trino.sql.planner.iterative.rule.ExtractDereferencesFromFilterAboveScan;
 import io.trino.sql.planner.iterative.rule.ExtractSpatialJoins;
 import io.trino.sql.planner.iterative.rule.GatherAndMergeWindows;
@@ -404,6 +405,15 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(new DesugarLambdaExpression().rules())
+                                .build()),
+                // Expand allcolumnsearch() BEFORE column pruning so all columns are visible
+                new IterativeOptimizer(
+                        plannerContext,
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(new ExpandAllColumnSearch(plannerContext).rules())
                                 .build()),
                 new IterativeOptimizer(
                         plannerContext,
