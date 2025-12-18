@@ -19,8 +19,8 @@ import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
+import io.trino.testing.datatype.ColumnSetup;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
-import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
@@ -66,6 +66,8 @@ import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -631,12 +633,12 @@ public class TestRedshiftTypeMapping
     public void testTimestampWithTimeZoneOverflow()
     {
         // The min timestamp with time zone value in Trino is smaller than Redshift
-        try (TestTable table = new TestTable(getTrinoExecutor(), "timestamp_tz_min", "(ts timestamp(3) with time zone)")) {
+        try (TestTable table = new RedshiftTestTable(getQueryRunner(), "timestamp_tz_min", "(ts timestamp(3) with time zone)")) {
             assertQueryFails(
                     format("INSERT INTO %s VALUES (TIMESTAMP '-69387-04-22 03:45:14.752 UTC')", table.getName()),
                     "\\QMinimum timestamp with time zone in Redshift is -4712-01-01 00:00:00.000000: -69387-04-22 03:45:14.752000");
         }
-        try (TestTable table = new TestTable(getTrinoExecutor(), "timestamp_tz_min", "(ts timestamp(6) with time zone)")) {
+        try (TestTable table = new RedshiftTestTable(getQueryRunner(), "timestamp_tz_min", "(ts timestamp(6) with time zone)")) {
             assertQueryFails(
                     format("INSERT INTO %s VALUES (TIMESTAMP '-69387-04-22 03:45:14.752000 UTC')", table.getName()),
                     "\\QMinimum timestamp with time zone in Redshift is -4712-01-01 00:00:00.000000: -69387-04-22 03:45:14.752000");
@@ -801,8 +803,8 @@ public class TestRedshiftTypeMapping
 
     private void runTestCases(String tableName, List<TestCase> testCases)
     {
-        try (TestTable table = new TestTable(
-                getTrinoExecutor(),
+        try (TestTable table = new RedshiftTestTable(
+                getQueryRunner(),
                 tableName,
                 format("AS SELECT * FROM (VALUES %s) AS t (id, value)",
                         testCases.stream()
@@ -890,7 +892,30 @@ public class TestRedshiftTypeMapping
 
     private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new TrinoSqlExecutorWithRetries(getQueryRunner(), session), tableNamePrefix);
+        return new DataSetup() {
+            @Override
+            public TestTable setupTemporaryRelation(List<ColumnSetup> inputs)
+            {
+                List<String> columnValues = inputs.stream()
+                        .map(this::format)
+                        .collect(toList());
+                String selectBody = range(0, columnValues.size())
+                        .mapToObj(i -> String.format("%s col_%d", columnValues.get(i), i))
+                        .collect(joining(",\n"));
+                return new RedshiftTestTable(getQueryRunner(), session, tableNamePrefix, "AS SELECT " + selectBody);
+            }
+
+            private String format(ColumnSetup input)
+            {
+                if (input.getDeclaredType().isEmpty()) {
+                    return input.getInputLiteral();
+                }
+                return String.format(
+                        "CAST(%s AS %s)",
+                        input.getInputLiteral(),
+                        input.getDeclaredType().get());
+            }
+        };
     }
 
     private static DataSetup redshiftCreateAndInsert(String tableNamePrefix)
@@ -906,11 +931,6 @@ public class TestRedshiftTypeMapping
     private static TestTable testTable(String namePrefix, String body)
     {
         return new TestTable(getRedshiftExecutor(), TEST_SCHEMA + "." + namePrefix, body);
-    }
-
-    private SqlExecutor getTrinoExecutor()
-    {
-        return new TrinoSqlExecutorWithRetries(getQueryRunner());
     }
 
     private static SqlExecutor getRedshiftExecutor()

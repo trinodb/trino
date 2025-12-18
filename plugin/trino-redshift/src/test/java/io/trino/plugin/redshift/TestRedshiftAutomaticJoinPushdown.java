@@ -38,7 +38,7 @@ public class TestRedshiftAutomaticJoinPushdown
     @Override
     protected TestTable newTrinoTable(String namePrefix, String tableDefinition)
     {
-        return new TestTable(new TrinoSqlExecutorWithRetries(getQueryRunner()), namePrefix, tableDefinition);
+        return new RedshiftTestTable(getQueryRunner(), namePrefix, tableDefinition);
     }
 
     @Test

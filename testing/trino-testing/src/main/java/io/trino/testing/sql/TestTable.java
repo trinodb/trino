@@ -47,9 +47,14 @@ public class TestTable
         createAndInsert(rowsToInsert);
     }
 
-    protected void createAndInsert(List<String> rowsToInsert)
+    protected void createTable()
     {
         sqlExecutor.execute(format("CREATE TABLE %s %s", name, tableDefinition));
+    }
+
+    protected void createAndInsert(List<String> rowsToInsert)
+    {
+        createTable();
         try {
             if (!rowsToInsert.isEmpty()) {
                 if (sqlExecutor.supportsMultiRowInsert()) {
