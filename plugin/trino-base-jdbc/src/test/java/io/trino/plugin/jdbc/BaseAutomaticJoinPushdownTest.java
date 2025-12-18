@@ -18,7 +18,6 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
 
@@ -178,15 +177,9 @@ public abstract class BaseAutomaticJoinPushdownTest
         String sourceTable = "tpch.tiny.orders";
         checkArgument(rowsCount < ((long) computeScalar("SELECT count(*) FROM " + sourceTable)), "rowsCount too high: %s", rowsCount);
         String padding = "x".repeat(50);
-        return new TestTable(
-                tableCreator(),
+        return newTrinoTable(
                 name,
                 format("(key, padding, intpadding) AS SELECT mod(orderkey, %s), '%s', orderkey FROM %s ORDER BY orderkey LIMIT %s", keyDistinctValues, padding, sourceTable, rowsCount));
-    }
-
-    protected SqlExecutor tableCreator()
-    {
-        return getQueryRunner()::execute;
     }
 
     protected abstract void gatherStats(String tableName);
