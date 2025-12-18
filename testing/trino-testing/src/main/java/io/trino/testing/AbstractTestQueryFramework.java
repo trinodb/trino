@@ -684,7 +684,8 @@ public abstract class AbstractTestQueryFramework
         return Optional.empty();
     }
 
-    protected TestTable newTrinoTable(String namePrefix, @Language("SQL") String tableDefinition)
+    // final because it delegates to another (overridable) method
+    protected final TestTable newTrinoTable(String namePrefix, @Language("SQL") String tableDefinition)
     {
         return newTrinoTable(namePrefix, tableDefinition, ImmutableList.of());
     }
