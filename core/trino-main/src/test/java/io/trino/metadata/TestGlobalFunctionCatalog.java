@@ -78,7 +78,7 @@ public class TestGlobalFunctionCatalog
             if (operatorType == CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST) {
                 continue;
             }
-            if (!function.getSignature().getTypeVariableConstraints().isEmpty()) {
+            if (function.getSignature().isGeneric()) {
                 continue;
             }
             if (function.getSignature().getArgumentTypes().stream().anyMatch(TypeSignature::isCalculated)) {

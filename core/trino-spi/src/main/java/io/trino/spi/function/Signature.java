@@ -71,6 +71,14 @@ public class Signature
         return variableArity;
     }
 
+    /**
+     * Only parametric types with type-kinded parameters are considered "generic".
+     */
+    public boolean isGeneric()
+    {
+        return !typeVariableConstraints.isEmpty();
+    }
+
     @JsonProperty
     public List<TypeVariableConstraint> getTypeVariableConstraints()
     {
