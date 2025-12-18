@@ -13,15 +13,11 @@
  */
 package io.trino.plugin.redshift;
 
-import dev.failsafe.Failsafe;
-import dev.failsafe.RetryPolicy;
 import io.trino.Session;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 
-import java.time.Duration;
-
-import static com.google.common.base.Throwables.getCausalChain;
+import static io.trino.plugin.redshift.TestingRedshiftServer.REDSHIFT_RETRY_EXECUTOR;
 import static java.util.Objects.requireNonNull;
 
 public class TrinoSqlExecutorWithRetries
@@ -44,11 +40,6 @@ public class TrinoSqlExecutorWithRetries
     @Override
     public void execute(String sql)
     {
-        Failsafe.with(RetryPolicy.builder()
-                        .handleIf(e -> getCausalChain(e).stream().anyMatch(TestingRedshiftServer::isExceptionRecoverable))
-                        .withDelay(Duration.ofSeconds(10))
-                        .withMaxRetries(3)
-                        .build())
-                .run(() -> queryRunner.execute(session, sql));
+        REDSHIFT_RETRY_EXECUTOR.run(() -> queryRunner.execute(session, sql));
     }
 }

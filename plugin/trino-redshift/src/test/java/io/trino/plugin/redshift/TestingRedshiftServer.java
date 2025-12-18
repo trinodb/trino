@@ -14,6 +14,7 @@
 package io.trino.plugin.redshift;
 
 import dev.failsafe.Failsafe;
+import dev.failsafe.FailsafeExecutor;
 import dev.failsafe.RetryPolicy;
 import org.jdbi.v3.core.HandleCallback;
 import org.jdbi.v3.core.HandleConsumer;
@@ -36,14 +37,15 @@ public final class TestingRedshiftServer
 
     public static final String JDBC_URL = "jdbc:redshift://" + JDBC_ENDPOINT + TEST_DATABASE + "?connectTimeout=0";
 
+    public static final FailsafeExecutor<Object> REDSHIFT_RETRY_EXECUTOR = Failsafe.with(RetryPolicy.builder()
+            .handleIf(TestingRedshiftServer::isExceptionRecoverable)
+            .withDelay(Duration.ofSeconds(10))
+            .withMaxRetries(3)
+            .build());
+
     public static void executeInRedshiftWithRetry(String sql)
     {
-        Failsafe.with(RetryPolicy.builder()
-                        .handleIf(TestingRedshiftServer::isExceptionRecoverable)
-                        .withDelay(Duration.ofSeconds(10))
-                        .withMaxRetries(3)
-                        .build())
-                .run(() -> executeInRedshift(sql));
+        REDSHIFT_RETRY_EXECUTOR.run(() -> executeInRedshift(sql));
     }
 
     public static void executeInRedshift(String sql, Object... parameters)
