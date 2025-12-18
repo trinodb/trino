@@ -712,7 +712,7 @@ public class TestSignatureBinder
         Signature rowVariadicBoundFunction = functionSignature()
                 .returnType(BIGINT)
                 .argumentType(new TypeSignature("T"))
-                .variadicTypeParameter("T", "row")
+                .rowTypeParameter("T")
                 .build();
 
         assertThat(rowVariadicBoundFunction)
@@ -728,16 +728,6 @@ public class TestSignatureBinder
                 .boundTo(new ArrayType(BIGINT))
                 .withCoercion()
                 .fails();
-
-        assertThatThrownBy(() -> TypeVariableConstraint.builder("T").variadicBound("array").build())
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("variadicBound must be row but is array");
-        assertThatThrownBy(() -> TypeVariableConstraint.builder("T").variadicBound("map").build())
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("variadicBound must be row but is map");
-        assertThatThrownBy(() -> TypeVariableConstraint.builder("T").variadicBound("decimal").build())
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("variadicBound must be row but is decimal");
     }
 
     @Test
@@ -747,7 +737,7 @@ public class TestSignatureBinder
                 .returnType(BOOLEAN)
                 .argumentType(new TypeSignature("T"))
                 .argumentType(new TypeSignature("T"))
-                .variadicTypeParameter("T", "row")
+                .rowTypeParameter("T")
                 .build();
 
         assertThat(rowFunction)
@@ -755,20 +745,6 @@ public class TestSignatureBinder
                 .withCoercion()
                 .produces(new BoundVariables()
                         .setTypeVariable("T", RowType.from(ImmutableList.of(RowType.field("a", BIGINT)))));
-    }
-
-    @Test
-    public void testInvalidVariadicBound()
-    {
-        assertThatThrownBy(() -> TypeVariableConstraint.builder("T").variadicBound("array").build())
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("variadicBound must be row but is array");
-        assertThatThrownBy(() -> TypeVariableConstraint.builder("T").variadicBound("map").build())
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("variadicBound must be row but is map");
-        assertThatThrownBy(() -> TypeVariableConstraint.builder("T").variadicBound("decimal").build())
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("variadicBound must be row but is decimal");
     }
 
     @Test

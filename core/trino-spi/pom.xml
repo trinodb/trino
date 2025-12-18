@@ -635,6 +635,43 @@
                                     <old>method io.trino.spi.type.TypeSignature io.trino.spi.type.TypeSignature::rowType(io.trino.spi.type.TypeSignatureParameter[])</old>
                                     <justification>Method unused</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.function.Signature.Builder io.trino.spi.function.Signature.Builder::variadicTypeParameter(java.lang.String, java.lang.String)</old>
+                                    <justification>Remove support for arbitrary variadic bounds</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.function.TypeVariableConstraint.TypeVariableConstraintBuilder io.trino.spi.function.TypeVariableConstraint.TypeVariableConstraintBuilder::variadicBound(java.lang.String)</old>
+                                    <justification>Remove support for arbitrary variadic bounds</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter io.trino.spi.function.TypeVariableConstraint io.trino.spi.function.TypeVariableConstraint::fromJson(java.lang.String, boolean, boolean, ===java.util.Optional&lt;java.lang.String&gt;===, java.util.Set&lt;io.trino.spi.type.TypeSignature&gt;, java.util.Set&lt;io.trino.spi.type.TypeSignature&gt;)</old>
+                                    <new>parameter io.trino.spi.function.TypeVariableConstraint io.trino.spi.function.TypeVariableConstraint::fromJson(java.lang.String, boolean, boolean, ===boolean===, java.util.Set&lt;io.trino.spi.type.TypeSignature&gt;, java.util.Set&lt;io.trino.spi.type.TypeSignature&gt;)</new>
+                                    <parameterIndex>3</parameterIndex>
+                                    <justification>Remove support for arbitrary variadic bounds</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.Optional&lt;java.lang.String&gt; io.trino.spi.function.TypeVariableConstraint::getVariadicBound()</old>
+                                    <justification>Remove support for arbitrary variadic bounds</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>parameter io.trino.spi.function.TypeVariableConstraint io.trino.spi.function.TypeVariableConstraint::fromJson(java.lang.String, boolean, boolean, ===java.util.Optional&lt;java.lang.String&gt;===, java.util.Set&lt;io.trino.spi.type.TypeSignature&gt;, java.util.Set&lt;io.trino.spi.type.TypeSignature&gt;)</old>
+                                    <new>parameter io.trino.spi.function.TypeVariableConstraint io.trino.spi.function.TypeVariableConstraint::fromJson(java.lang.String, boolean, boolean, ===boolean===, java.util.Set&lt;io.trino.spi.type.TypeSignature&gt;, java.util.Set&lt;io.trino.spi.type.TypeSignature&gt;)</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonProperty</annotationType>
+                                    <attribute>value</attribute>
+                                    <oldValue>"variadicBound"</oldValue>
+                                    <newValue>"rowType"</newValue>
+                                    <justification>Remove support for arbitrary variadic bounds</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
