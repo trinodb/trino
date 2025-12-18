@@ -161,7 +161,7 @@ public final class AggregationFromAnnotationsParser
 
     private static boolean isGenericOrCalculated(Signature signature)
     {
-        return signature.getTypeVariableConstraints().isEmpty()
+        return !signature.isGeneric()
                 && signature.getArgumentTypes().stream().noneMatch(TypeSignature::isCalculated)
                 && !signature.getReturnType().isCalculated();
     }
