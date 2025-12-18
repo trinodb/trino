@@ -444,7 +444,7 @@ public class SignatureBinder
             for (TypeSignature castFromSignature : typeVariableConstraint.getCastableFrom()) {
                 appendTypeRelationshipConstraintSolver(resultBuilder, castFromSignature, actualTypeSignatureProvider, EXPLICIT_COERCION_FROM);
             }
-            if (typeVariableConstraint.getVariadicBound().isPresent() && !typeVariableConstraint.getVariadicBound().get().equalsIgnoreCase(actualType.getTypeSignature().getBase())) {
+            if (typeVariableConstraint.isRowType() && !(actualType instanceof RowType)) {
                 return actualType == UNKNOWN;
             }
             resultBuilder.add(new TypeParameterSolver(
@@ -452,7 +452,7 @@ public class SignatureBinder
                     actualType,
                     typeVariableConstraint.isComparableRequired(),
                     typeVariableConstraint.isOrderableRequired(),
-                    typeVariableConstraint.getVariadicBound()));
+                    typeVariableConstraint.isRowType()));
             return true;
         }
 
@@ -724,15 +724,15 @@ public class SignatureBinder
         private final Type actualType;
         private final boolean comparableRequired;
         private final boolean orderableRequired;
-        private final Optional<String> requiredBaseName;
+        private final boolean rowTypeRequired;
 
-        public TypeParameterSolver(String typeParameter, Type actualType, boolean comparableRequired, boolean orderableRequired, Optional<String> requiredBaseName)
+        public TypeParameterSolver(String typeParameter, Type actualType, boolean comparableRequired, boolean orderableRequired, boolean rowTypeRequired)
         {
             this.typeParameter = typeParameter;
             this.actualType = actualType;
             this.comparableRequired = comparableRequired;
             this.orderableRequired = orderableRequired;
-            this.requiredBaseName = requiredBaseName;
+            this.rowTypeRequired = rowTypeRequired;
         }
 
         @Override
@@ -769,9 +769,7 @@ public class SignatureBinder
             if (orderableRequired && !type.isOrderable()) {
                 return false;
             }
-            // TODO: the case below should be properly handled:
-            // * `type` does not have the `requiredBaseName` but can be coerced to some type that has the `requiredBaseName`.
-            return requiredBaseName.isEmpty() || UNKNOWN.equals(type) || requiredBaseName.get().equalsIgnoreCase(type.getBaseName());
+            return UNKNOWN.equals(type) || !rowTypeRequired || type instanceof RowType;
         }
     }
 

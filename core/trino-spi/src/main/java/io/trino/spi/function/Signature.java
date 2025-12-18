@@ -171,10 +171,10 @@ public class Signature
             return this;
         }
 
-        public Builder variadicTypeParameter(String name, String variadicBound)
+        public Builder rowTypeParameter(String name)
         {
             typeVariableConstraints.add(TypeVariableConstraint.builder(name)
-                    .variadicBound(variadicBound)
+                    .rowType()
                     .build());
             return this;
         }

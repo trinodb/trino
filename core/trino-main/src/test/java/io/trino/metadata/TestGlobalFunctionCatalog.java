@@ -219,9 +219,9 @@ public class TestGlobalFunctionCatalog
                                 ImmutableList.of("T1", "T2", "T3"),
                                 "boolean",
                                 ImmutableList.of(
-                                        TypeVariableConstraint.builder("T1").variadicBound("row").build(),
-                                        TypeVariableConstraint.builder("T2").variadicBound("row").build(),
-                                        TypeVariableConstraint.builder("T3").variadicBound("row").build())))
+                                        TypeVariableConstraint.builder("T1").rowType().build(),
+                                        TypeVariableConstraint.builder("T2").rowType().build(),
+                                        TypeVariableConstraint.builder("T3").rowType().build())))
                 .forParameters(UnknownType.UNKNOWN, BIGINT, BIGINT)
                 .returns(functionSignature("bigint", "bigint", "bigint"));
     }
