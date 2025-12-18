@@ -187,8 +187,10 @@ import io.trino.sql.tree.JsonTable;
 import io.trino.sql.tree.JsonTableColumnDefinition;
 import io.trino.sql.tree.JsonTableSpecificPlan;
 import io.trino.sql.tree.Lateral;
+import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.Literal;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
@@ -414,6 +416,7 @@ import static io.trino.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.DereferenceExpression.getQualifiedName;
 import static io.trino.sql.tree.Join.Type.FULL;
@@ -5066,6 +5069,9 @@ class StatementAnalyzer
 
         private void analyzeWhere(Node node, Scope scope, Expression predicate)
         {
+            // Expand allcolumnsearch() BEFORE analysis so expanded AST gets properly analyzed
+            predicate = expandAllColumnSearch(predicate, scope);
+
             verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, predicate, "WHERE clause");
 
             ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
@@ -5081,6 +5087,11 @@ class StatementAnalyzer
             }
 
             analysis.setWhere(node, predicate);
+        }
+
+        private Expression expandAllColumnSearch(Expression expression, Scope scope)
+        {
+            return AllColumnSearchExpander.expand(expression, scope);
         }
 
         private Scope analyzeFrom(QuerySpecification node, Optional<Scope> scope)
@@ -6183,6 +6194,147 @@ class StatementAnalyzer
         public List<TableArgumentAnalysis> getTableArgumentAnalyses()
         {
             return tableArgumentAnalyses;
+        }
+    }
+
+    /**
+     * AST visitor that expands allcolumnsearch() function calls into explicit LIKE predicates during analysis.
+     * This ensures the expanded AST is properly analyzed with types and symbols.
+     */
+    private static class AllColumnSearchExpander
+            extends AstVisitor<Expression, Void>
+    {
+        private final Scope scope;
+
+        private AllColumnSearchExpander(Scope scope)
+        {
+            this.scope = requireNonNull(scope, "scope is null");
+        }
+
+        public static Expression expand(Expression expression, Scope scope)
+        {
+            return new AllColumnSearchExpander(scope).process(expression, null);
+        }
+
+        @Override
+        protected Expression visitFunctionCall(FunctionCall node, Void context)
+        {
+            // Check if this is an allcolumnsearch() function call
+            if (node.getName().getSuffix().equalsIgnoreCase("allcolumnsearch")) {
+                return expandAllColumnSearchFunction(node);
+            }
+
+            // Recurse into function arguments
+            if (!node.getArguments().isEmpty()) {
+                List<Expression> rewrittenArgs = node.getArguments().stream()
+                        .map(arg -> process(arg, context))
+                        .toList();
+
+                if (!node.getArguments().equals(rewrittenArgs)) {
+                    return new FunctionCall(
+                            node.getLocation(),
+                            node.getName(),
+                            node.getWindow(),
+                            node.getFilter(),
+                            node.getOrderBy(),
+                            node.isDistinct(),
+                            node.getNullTreatment(),
+                            node.getProcessingMode(),
+                            rewrittenArgs);
+                }
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitLogicalExpression(LogicalExpression node, Void context)
+        {
+            List<Expression> rewrittenTerms = node.getTerms().stream()
+                    .map(term -> process(term, context))
+                    .toList();
+
+            if (!node.getTerms().equals(rewrittenTerms)) {
+                Optional<NodeLocation> location = node.getLocation();
+                // Location should always be present during AST processing
+                NodeLocation loc = location.orElseThrow(() ->
+                        new IllegalStateException("Expected location to be present during AST rewriting"));
+                return new LogicalExpression(loc, node.getOperator(), rewrittenTerms);
+            }
+
+            return node;
+        }
+
+        @Override
+        protected Expression visitExpression(Expression node, Void context)
+        {
+            // For other expression types, return as-is
+            return node;
+        }
+
+        private Expression expandAllColumnSearchFunction(FunctionCall allColumnSearchCall)
+        {
+            // Validate arguments
+            if (allColumnSearchCall.getArguments().size() != 1) {
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, allColumnSearchCall, "allcolumnsearch() requires exactly one argument");
+            }
+
+            Expression searchTermArg = allColumnSearchCall.getArguments().get(0);
+            if (!(searchTermArg instanceof StringLiteral)) {
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, allColumnSearchCall, "allcolumnsearch() requires a constant string argument");
+            }
+
+            String searchTerm = ((StringLiteral) searchTermArg).getValue();
+            if (searchTerm.isEmpty()) {
+                throw semanticException(INVALID_FUNCTION_ARGUMENT, allColumnSearchCall, "allcolumnsearch() search term cannot be empty");
+            }
+
+            // Get all visible VARCHAR/CHAR fields from the scope
+            List<Field> searchableFields = scope.getRelationType().getVisibleFields().stream()
+                    .filter(field -> isStringType(field.getType()))
+                    .toList();
+
+            if (searchableFields.isEmpty()) {
+                // No searchable columns, return false
+                return FALSE_LITERAL;
+            }
+
+            // Build LIKE predicates for each column
+            String likePattern = "%" + searchTerm + "%";
+            Optional<NodeLocation> location = allColumnSearchCall.getLocation();
+
+            List<Expression> columnPredicates = searchableFields.stream()
+                    .flatMap(field -> field.getName().stream())
+                    .<Expression>map(fieldName -> {
+                        Expression value = new Identifier(fieldName);
+                        Expression pattern = new StringLiteral(likePattern);
+                        return new LikePredicate(value, pattern, Optional.empty());
+                    })
+                    .toList();
+
+            // Combine all predicates with OR
+            return buildOrExpression(location, columnPredicates);
+        }
+
+        private Expression buildOrExpression(Optional<NodeLocation> location, List<Expression> predicates)
+        {
+            if (predicates.isEmpty()) {
+                return FALSE_LITERAL;
+            }
+            if (predicates.size() == 1) {
+                return predicates.get(0);
+            }
+
+            // Build LogicalExpression with OR
+            // Location should always be present during AST processing
+            NodeLocation loc = location.orElseThrow(() ->
+                    new IllegalStateException("Expected location to be present during AST rewriting"));
+            return new LogicalExpression(loc, LogicalExpression.Operator.OR, predicates);
+        }
+
+        private boolean isStringType(Type type)
+        {
+            return type instanceof VarcharType || type instanceof CharType;
         }
     }
 }
