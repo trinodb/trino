@@ -52,6 +52,8 @@
 * Add `APPLICATION_DEFAULT` authentication type for GCS. ({issue}`26984`)
 * {{breaking}} Remove support for unauthenticated access when GCS authentication type is set to `SERVICE_ACCOUNT`. ({issue}`26984`)
 * Rename `s3.exclusive-create` config to `delta.s3.transaction-log-conditional-writes.enabled`. ({issue}`27372`)
+* {{breaking}} Require `PutObjectTagging` AWS S3 permission when writing to tables in S3 buckets, 
+  unless `delta.s3.transaction-log-conditional-writes.enabled` is set to `false`. ({issue}`27388`)
 * Fix incorrect results for queries involving `IS NOT DISTINCT FROM`. ({issue}`27213`)
 * Fix failure when writing to tables created by Databricks 17.3. ({issue}`27100`)
 * Fix failure when checking Azure hierarchical namespaces. ({issue}`27278`)
