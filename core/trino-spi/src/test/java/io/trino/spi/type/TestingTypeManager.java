@@ -62,7 +62,7 @@ public final class TestingTypeManager
                         return new RowType.Field(typeParameter.name(), getType(typeParameter.type()));
                     })
                     .collect(toImmutableList()));
-            default -> throw new TypeNotFoundException(signature);
+            default -> throw new TypeNotFoundException(signature.toString());
         };
     }
 

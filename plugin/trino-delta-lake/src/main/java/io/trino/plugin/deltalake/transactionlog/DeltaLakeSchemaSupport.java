@@ -376,7 +376,7 @@ public final class DeltaLakeSchemaSupport
     private static String serializePrimitiveType(Type type)
     {
         return serializeSupportedPrimitiveType(type)
-                .orElseThrow(() -> new TypeNotFoundException(type.getTypeSignature()));
+                .orElseThrow(() -> new TypeNotFoundException(type.getDisplayName()));
     }
 
     private static Optional<String> serializeSupportedPrimitiveType(Type type)
@@ -766,7 +766,7 @@ public final class DeltaLakeSchemaSupport
             // and https://cwiki.apache.org/confluence/display/Hive/Different+TIMESTAMP+types
             case "timestamp" -> TIMESTAMP_TZ_MILLIS;
             case "variant" -> typeManager.getType(new TypeSignature(JSON));
-            default -> throw new TypeNotFoundException(new TypeSignature(primitiveType));
+            default -> throw new TypeNotFoundException(primitiveType);
         };
     }
 
@@ -778,7 +778,7 @@ public final class DeltaLakeSchemaSupport
             case "array" -> buildArrayType(typeManager, typeNode, usePhysicalName);
             case "map" -> buildMapType(typeManager, typeNode, usePhysicalName);
             case "struct" -> buildRowType(typeManager, typeNode, usePhysicalName);
-            default -> throw new TypeNotFoundException(new TypeSignature(containerType));
+            default -> throw new TypeNotFoundException(containerType);
         };
     }
 
