@@ -145,7 +145,7 @@ public record IcebergPartitioningHandle(boolean update, List<IcebergPartitionFun
         for (IcebergPartitionFunction function : partitionFunctions) {
             hasher.putInt(function.transform().ordinal());
             function.dataPath().forEach(hasher::putInt);
-            hasher.putString(function.type().getTypeSignature().toString(), UTF_8);
+            hasher.putString(function.type().getTypeId().getId(), UTF_8);
             function.size().ifPresent(hasher::putInt);
         }
         return hasher.hash().asLong();
