@@ -6280,11 +6280,11 @@ class StatementAnalyzer
             }
 
             Expression searchTermArg = allColumnSearchCall.getArguments().get(0);
-            if (!(searchTermArg instanceof StringLiteral)) {
+            if (!(searchTermArg instanceof StringLiteral stringLiteral)) {
                 throw semanticException(INVALID_FUNCTION_ARGUMENT, allColumnSearchCall, "allcolumnsearch() requires a constant string argument");
             }
 
-            String searchTerm = ((StringLiteral) searchTermArg).getValue();
+            String searchTerm = stringLiteral.getValue();
             if (searchTerm.isEmpty()) {
                 throw semanticException(INVALID_FUNCTION_ARGUMENT, allColumnSearchCall, "allcolumnsearch() search term cannot be empty");
             }
