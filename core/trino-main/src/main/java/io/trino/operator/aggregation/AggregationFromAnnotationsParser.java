@@ -457,9 +457,9 @@ public final class AggregationFromAnnotationsParser
                 InOut.class,
                 ImmutableList.of(typeVariable),
                 serializedType,
-                (functionBinding, functionDependencies) -> new InOutStateSerializer(functionBinding.getTypeVariable(typeVariable)),
-                (functionBinding, functionDependencies) -> generateInOutStateFactory(functionBinding.getTypeVariable(typeVariable)),
-                ImmutableList.of(new TypeImplementationDependency(parseTypeSignature(typeVariable, ImmutableSet.of()))));
+                (functionBinding, functionDependencies) -> new InOutStateSerializer(functionBinding.variables().getTypeVariable(typeVariable)),
+                (functionBinding, functionDependencies) -> generateInOutStateFactory(functionBinding.variables().getTypeVariable(typeVariable)),
+                        ImmutableList.of(new TypeImplementationDependency(parseTypeSignature(typeVariable, ImmutableSet.of()))));
     }
 
     private static TypeSignatureMapping getTypeParameterMapping(Class<?> stateClass, List<String> declaredTypeParameters, StateMetadata metadata)

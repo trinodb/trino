@@ -154,7 +154,7 @@ public class ParametricScalarImplementation
     {
         List<ScalarImplementationChoice> implementationChoices = new ArrayList<>();
         for (Map.Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
-            if (!entry.getValue().isAssignableFrom(functionBinding.getTypeVariable(entry.getKey()).getJavaType())) {
+            if (!entry.getValue().isAssignableFrom(functionBinding.variables().getTypeVariable(entry.getKey()).getJavaType())) {
                 return Optional.empty();
             }
         }
