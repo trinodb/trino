@@ -106,6 +106,16 @@ public class SignatureBinder
                 .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, TypeVariableConstraint::getName, identity()));
     }
 
+    public boolean canBind(List<? extends TypeSignatureProvider> actualArgumentTypes)
+    {
+        return bindVariables(actualArgumentTypes).isPresent();
+    }
+
+    public boolean canBind(List<? extends TypeSignatureProvider> actualArgumentTypes, TypeSignature actualReturnType)
+    {
+        return bindVariables(actualArgumentTypes, actualReturnType).isPresent();
+    }
+
     public Optional<Signature> bind(List<? extends TypeSignatureProvider> actualArgumentTypes)
     {
         Optional<TypeVariables> boundVariables = bindVariables(actualArgumentTypes);
@@ -113,11 +123,6 @@ public class SignatureBinder
             return Optional.empty();
         }
         return Optional.of(applyBoundVariables(declaredSignature, boundVariables.get(), actualArgumentTypes.size()));
-    }
-
-    public boolean canBind(List<? extends TypeSignatureProvider> actualArgumentTypes)
-    {
-        return bindVariables(actualArgumentTypes).isPresent();
     }
 
     @VisibleForTesting
@@ -129,11 +134,6 @@ public class SignatureBinder
         }
 
         return iterativeSolve(constraintSolvers.build());
-    }
-
-    public boolean canBind(List<? extends TypeSignatureProvider> actualArgumentTypes, TypeSignature actualReturnType)
-    {
-        return bindVariables(actualArgumentTypes, actualReturnType).isPresent();
     }
 
     @VisibleForTesting
