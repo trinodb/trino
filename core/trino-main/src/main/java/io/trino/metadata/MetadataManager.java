@@ -2737,7 +2737,7 @@ public final class MetadataManager
         if (!aggregationFunctionMetadata.getIntermediateTypes().isEmpty()) {
             FunctionBinding functionBinding = toFunctionBinding(resolvedFunction.functionId(), resolvedFunction.signature(), functionSignature);
             aggregationFunctionMetadata.getIntermediateTypes().stream()
-                    .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
+                    .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding.variables()))
                     .forEach(builder::intermediateType);
         }
 

@@ -64,7 +64,7 @@ public final class OperatorImplementationDependency
     @Override
     protected ScalarFunctionImplementation getImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
     {
-        List<TypeSignature> types = applyBoundVariables(argumentTypes, functionBinding);
+        List<TypeSignature> types = applyBoundVariables(argumentTypes, functionBinding.variables());
         return functionDependencies.getOperatorImplementationSignature(operator, types, invocationConvention);
     }
 
