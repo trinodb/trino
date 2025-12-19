@@ -405,16 +405,6 @@ public class ParametricScalarImplementation
             return lambdaInterfaces;
         }
 
-        public boolean checkDependencies()
-        {
-            for (int i = 1; i < getDependencies().size(); i++) {
-                if (!getDependencies().get(i).equals(getDependencies().get(0))) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
         @VisibleForTesting
         public List<ImplementationDependency> getConstructorDependencies()
         {

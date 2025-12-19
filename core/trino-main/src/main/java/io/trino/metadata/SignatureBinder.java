@@ -115,15 +115,6 @@ public class SignatureBinder
         return Optional.of(applyBoundVariables(declaredSignature, boundVariables.get(), actualArgumentTypes.size()));
     }
 
-    public Optional<Signature> bind(List<? extends TypeSignatureProvider> actualArgumentTypes, Type actualReturnType)
-    {
-        Optional<TypeVariables> boundVariables = bindVariables(actualArgumentTypes, actualReturnType.getTypeSignature());
-        if (boundVariables.isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.of(applyBoundVariables(declaredSignature, boundVariables.get(), actualArgumentTypes.size()));
-    }
-
     public boolean canBind(List<? extends TypeSignatureProvider> actualArgumentTypes)
     {
         return bindVariables(actualArgumentTypes).isPresent();
@@ -157,11 +148,6 @@ public class SignatureBinder
         }
 
         return iterativeSolve(constraintSolvers.build());
-    }
-
-    public static Signature applyBoundVariables(Signature signature, FunctionBinding functionBinding, int arity)
-    {
-        return applyBoundVariables(signature, new FunctionTypeVariables(functionBinding), arity);
     }
 
     private static Signature applyBoundVariables(Signature signature, TypeVariables typeVariables, int arity)
