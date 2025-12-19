@@ -21,6 +21,7 @@ import io.trino.plugin.deltalake.DefaultDeltaLakeFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeExecutorModule;
 import io.trino.plugin.deltalake.DeltaLakeFileSystemFactory;
+import io.trino.plugin.deltalake.DeltaLakeFunctionProvider;
 import io.trino.plugin.deltalake.DeltaLakeMergeResult;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.DeltaLakeNodePartitioningProvider;
@@ -32,6 +33,7 @@ import io.trino.plugin.deltalake.DeltaLakeSynchronizerModule;
 import io.trino.plugin.deltalake.DeltaLakeTableProperties;
 import io.trino.plugin.deltalake.DeltaLakeTransactionManager;
 import io.trino.plugin.deltalake.DeltaLakeWriterStats;
+import io.trino.plugin.deltalake.functions.tablechanges.TableChangesProcessorProvider;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler;
 import io.trino.plugin.deltalake.metastore.NoOpVendedCredentialsProvider;
@@ -102,6 +104,9 @@ public class LakehouseDeltaModule
 
         binder.bind(DeltaLakeTableMetadataScheduler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(DeltaLakeTableMetadataScheduler.class).withGeneratedName();
+
+        binder.bind(TableChangesProcessorProvider.class).in(Scopes.SINGLETON);
+        binder.bind(DeltaLakeFunctionProvider.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(DataFileInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(DeltaLakeMergeResult.class);
