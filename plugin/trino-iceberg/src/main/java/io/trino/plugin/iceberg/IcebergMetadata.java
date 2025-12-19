@@ -478,6 +478,7 @@ public class IcebergMetadata
     private final Executor metadataFetchingExecutor;
     private final ExecutorService icebergPlanningExecutor;
     private final ExecutorService icebergFileDeleteExecutor;
+    private final boolean defaultNewTablesGcEnabled;
     private final Map<IcebergTableHandle, AtomicReference<TableStatistics>> tableStatisticsCache = new ConcurrentHashMap<>();
 
     private Transaction transaction;
@@ -496,7 +497,8 @@ public class IcebergMetadata
             ExecutorService icebergScanExecutor,
             Executor metadataFetchingExecutor,
             ExecutorService icebergPlanningExecutor,
-            ExecutorService icebergFileDeleteExecutor)
+            ExecutorService icebergFileDeleteExecutor,
+            boolean defaultNewTablesGcEnabled)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
@@ -511,6 +513,7 @@ public class IcebergMetadata
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
         this.icebergPlanningExecutor = requireNonNull(icebergPlanningExecutor, "icebergPlanningExecutor is null");
         this.icebergFileDeleteExecutor = requireNonNull(icebergFileDeleteExecutor, "icebergFileDeleteExecutor is null");
+        this.defaultNewTablesGcEnabled = defaultNewTablesGcEnabled;
     }
 
     @Override
@@ -1307,7 +1310,7 @@ public class IcebergMetadata
             tableLocation = getTableLocation(tableMetadata.getProperties())
                     .orElseGet(() -> catalog.defaultTableLocation(session, tableMetadata.getTable()));
         }
-        transaction = newCreateTableTransaction(catalog, tableMetadata, session, replace, tableLocation, allowedExtraProperties);
+        transaction = newCreateTableTransaction(catalog, tableMetadata, session, replace, tableLocation, allowedExtraProperties, defaultNewTablesGcEnabled);
         Location location = Location.of(transaction.table().location());
         try {
             // S3 Tables internally assigns a unique location for each table

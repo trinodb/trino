@@ -47,6 +47,7 @@ public class IcebergMetadataFactory
     private final Executor metadataFetchingExecutor;
     private final ExecutorService icebergPlanningExecutor;
     private final ExecutorService icebergFileDeleteExecutor;
+    private final boolean defaultNewTablesGcEnabled;
 
     @Inject
     public IcebergMetadataFactory(
@@ -87,6 +88,7 @@ public class IcebergMetadataFactory
         }
         this.icebergPlanningExecutor = requireNonNull(icebergPlanningExecutor, "icebergPlanningExecutor is null");
         this.icebergFileDeleteExecutor = requireNonNull(icebergFileDeleteExecutor, "icebergFileDeleteExecutor is null");
+        this.defaultNewTablesGcEnabled = config.isDefaultNewTablesGcEnabled();
     }
 
     public IcebergMetadata create(ConnectorIdentity identity)
@@ -104,6 +106,7 @@ public class IcebergMetadataFactory
                 icebergScanExecutor,
                 metadataFetchingExecutor,
                 icebergPlanningExecutor,
-                icebergFileDeleteExecutor);
+                icebergFileDeleteExecutor,
+                defaultNewTablesGcEnabled);
     }
 }
