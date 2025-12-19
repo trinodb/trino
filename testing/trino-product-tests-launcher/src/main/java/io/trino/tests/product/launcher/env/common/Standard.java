@@ -287,8 +287,8 @@ public final class Standard
                     """
                     #!/bin/bash
                     echo 'tracing.enabled=true' >> '%1$s'
-                    echo 'tracing.exporter.protocol=http/protobuf' >> '%1$s'
-                    echo 'tracing.exporter.endpoint=http://opentracing-collector.docker.cluster:%2$d/v1/traces' >> '%1$s'
+                    echo 'otel.exporter.protocol=http/protobuf' >> '%1$s'
+                    echo 'otel.exporter.endpoint=http://opentracing-collector.docker.cluster:%2$d/v1/traces' >> '%1$s'
                     """.formatted(CONTAINER_TRINO_CONFIG_PROPERTIES, COLLECTOR_HTTP_PORT),
                     UTF_8);
             container.withCopyFileToContainer(forHostPath(script), "/docker/presto-init.d/enable-tracing.sh");
