@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.metadata.SignatureBinder.applyBoundVariables;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -1167,7 +1168,7 @@ public class TestSignatureBinder
     private static void assertBindVariablesFails(String typeSignature, VariableBindings typeVariables, String reason)
     {
         try {
-            SignatureBinder.applyBoundVariables(parseTypeSignature(typeSignature, ImmutableSet.of("p", "s")), typeVariables);
+            applyBoundVariables(parseTypeSignature(typeSignature, ImmutableSet.of("p", "s")), typeVariables);
             fail(reason);
         }
         catch (RuntimeException e) {
@@ -1177,7 +1178,7 @@ public class TestSignatureBinder
 
     private static void assertThat(String typeSignature, VariableBindings typeVariables, String expectedTypeSignature)
     {
-        Assertions.assertThat(SignatureBinder.applyBoundVariables(parseTypeSignature(typeSignature, ImmutableSet.of("p", "s")), typeVariables).toString()).isEqualTo(expectedTypeSignature);
+        Assertions.assertThat(applyBoundVariables(parseTypeSignature(typeSignature, ImmutableSet.of("p", "s")), typeVariables).toString()).isEqualTo(expectedTypeSignature);
     }
 
     private static Signature.Builder functionSignature()

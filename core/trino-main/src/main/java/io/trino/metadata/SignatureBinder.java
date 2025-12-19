@@ -169,12 +169,7 @@ public class SignatureBinder
                 .build();
     }
 
-    public static List<TypeSignature> applyBoundVariables(List<TypeSignature> typeSignatures, FunctionBinding functionBinding)
-    {
-        return applyBoundVariables(typeSignatures, functionBinding.variables());
-    }
-
-    private static List<TypeSignature> applyBoundVariables(List<TypeSignature> typeSignatures, VariableBindings typeVariables)
+    public static List<TypeSignature> applyBoundVariables(List<TypeSignature> typeSignatures, VariableBindings typeVariables)
     {
         ImmutableList.Builder<TypeSignature> builder = ImmutableList.builder();
         for (TypeSignature typeSignature : typeSignatures) {
@@ -183,12 +178,7 @@ public class SignatureBinder
         return builder.build();
     }
 
-    public static TypeSignature applyBoundVariables(TypeSignature typeSignature, FunctionBinding functionBinding)
-    {
-        return applyBoundVariables(typeSignature, functionBinding.variables());
-    }
-
-    static TypeSignature applyBoundVariables(TypeSignature typeSignature, VariableBindings typeVariables)
+    public static TypeSignature applyBoundVariables(TypeSignature typeSignature, VariableBindings typeVariables)
     {
         String baseType = typeSignature.getBase();
         if (typeVariables.containsTypeVariable(baseType)) {
