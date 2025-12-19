@@ -36,6 +36,7 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
@@ -66,6 +67,7 @@ public class LocalDispatchQuery
     private final SettableFuture<Void> submitted = SettableFuture.create();
 
     private final AtomicBoolean notificationSentOrGuaranteed = new AtomicBoolean();
+    private final AtomicReference<Throwable> pendingFailure = new AtomicReference<>();
 
     public LocalDispatchQuery(
             QueryStateMachine stateMachine,
@@ -88,6 +90,9 @@ public class LocalDispatchQuery
             // This will be fired when queryExecutionFuture.cancel(true)
             // is called which happens when we reached terminal query state.
             if (!stateMachine.isDone()) {
+                // Use the pending failure cause if set (from fail() method), otherwise use the future's exception.
+                Throwable failureCause = pendingFailure.get();
+                stateMachine.transitionToFailed(failureCause != null ? failureCause : throwable);
                 stateMachine.transitionToFailed(throwable);
             }
         });
@@ -292,12 +297,38 @@ public class LocalDispatchQuery
     @Override
     public void fail(Throwable throwable)
     {
-        stateMachine.transitionToFailed(throwable);
+        // Store the failure cause so the exception callback can use it instead of CancellationException.
+        // This preserves the original failure reason (e.g., QueryQueueFullException).
+        pendingFailure.compareAndSet(null, throwable);
+
+        // Cancel the query execution future to interrupt any in-progress analysis
+        // (e.g., HMS calls in getTable()). The exception callback registered in the constructor
+        // will call transitionToFailed() after the future actually completes (not just when
+        // cancelled), ensuring cleanupQuery() doesn't block on the synchronized lock held
+        // by the analysis thread.
+        //
+        // Note: cancel(true) marks the future as cancelled immediately, but the underlying
+        // task may still be running if it's blocked on non-interruptible I/O. The exception
+        // callback only fires when the task actually completes (successfully, throws exception,
+        // or is interrupted). This is the desired behavior - we want to wait for the analysis
+        // thread to release any locks before running cleanup.
+        //
+        // If the future is already done (task completed), cancel() returns false and
+        // the exception callback won't fire again. In this case, we need to call
+        // transitionToFailed directly.
+        if (!queryExecutionFuture.cancel(true) && !stateMachine.isDone()) {
+            // Future already completed, exception callback won't fire
+            stateMachine.transitionToFailed(throwable);
+        }
     }
 
     @Override
     public void cancel()
     {
+        // Cancel the query execution future to interrupt any in-progress analysis.
+        // The state change listener will call queryExecutionFuture.cancel(true) when
+        // state becomes done, but we also try here for faster interruption.
+        queryExecutionFuture.cancel(true);
         stateMachine.transitionToCanceled();
     }
 
