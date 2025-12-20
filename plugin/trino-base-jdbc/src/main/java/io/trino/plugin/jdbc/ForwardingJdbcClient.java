@@ -47,6 +47,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -292,10 +293,10 @@ public abstract class ForwardingJdbcClient
             ConnectorSession session,
             JdbcTableHandle handle,
             Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
-            List<Runnable> rollbackActions,
+            Consumer<Runnable> rollbackActionConsumer,
             RetryMode retryMode)
     {
-        return delegate().beginMerge(session, handle, updateColumnHandles, rollbackActions, retryMode);
+        return delegate().beginMerge(session, handle, updateColumnHandles, rollbackActionConsumer, retryMode);
     }
 
     @Override
