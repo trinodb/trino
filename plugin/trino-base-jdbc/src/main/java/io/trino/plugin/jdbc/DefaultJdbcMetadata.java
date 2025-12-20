@@ -1347,7 +1347,7 @@ public class DefaultJdbcMetadata
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         checkArgument(handle.isNamedRelation(), "Merge target must be named relation table");
 
-        return jdbcClient.beginMerge(session, handle, updateColumnHandles, rollbackActions, retryMode);
+        return jdbcClient.beginMerge(session, handle, updateColumnHandles, rollbackActions::add, retryMode);
     }
 
     @Override

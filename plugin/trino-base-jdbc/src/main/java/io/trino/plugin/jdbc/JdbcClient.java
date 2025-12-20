@@ -48,6 +48,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
@@ -221,7 +222,7 @@ public interface JdbcClient
             ConnectorSession session,
             JdbcTableHandle handle,
             Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
-            List<Runnable> rollbackActions,
+            Consumer<Runnable> rollbackActionConsumer,
             RetryMode retryMode)
     {
         throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
