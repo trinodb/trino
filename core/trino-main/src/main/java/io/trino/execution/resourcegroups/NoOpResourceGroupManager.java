@@ -20,7 +20,6 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
@@ -38,12 +37,6 @@ public final class NoOpResourceGroupManager
 
     @Override
     public Optional<ResourceGroupInfo> tryGetResourceGroupInfo(ResourceGroupId id)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Optional<List<ResourceGroupInfo>> tryGetPathToRoot(ResourceGroupId id)
     {
         throw new UnsupportedOperationException();
     }

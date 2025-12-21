@@ -267,20 +267,6 @@ public class InternalResourceGroup
         }
     }
 
-    public List<ResourceGroupInfo> getPathToRoot()
-    {
-        synchronized (root) {
-            ImmutableList.Builder<ResourceGroupInfo> builder = ImmutableList.builder();
-            InternalResourceGroup group = this;
-            while (group != null) {
-                builder.add(group.getInfo());
-                group = group.parent.orElse(null);
-            }
-
-            return builder.build();
-        }
-    }
-
     @Override
     public ResourceGroupId getId()
     {

@@ -107,14 +107,6 @@ public final class InternalResourceGroupManager<C>
     }
 
     @Override
-    public Optional<List<ResourceGroupInfo>> tryGetPathToRoot(ResourceGroupId id)
-    {
-        InternalResourceGroup resourceGroup = groups.get(id);
-        return Optional.ofNullable(resourceGroup)
-                .map(InternalResourceGroup::getPathToRoot);
-    }
-
-    @Override
     public void submit(ManagedQueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor)
     {
         checkState(configurationManager.get() != null, "configurationManager not set");
