@@ -188,33 +188,6 @@ public class InternalResourceGroup
         }
     }
 
-    public ResourceGroupInfo getInfo()
-    {
-        synchronized (root) {
-            return new ResourceGroupInfo(
-                    id,
-                    getState(),
-                    schedulingPolicy,
-                    schedulingWeight,
-                    succinctBytes(softMemoryLimitBytes),
-                    softConcurrencyLimit,
-                    hardConcurrencyLimit,
-                    succinctBytes(hardPhysicalDataScanLimitBytes),
-                    maxQueuedQueries,
-                    succinctBytes(cachedResourceUsage.getMemoryUsageBytes()),
-                    succinctDuration(cachedResourceUsage.getCpuUsageMillis(), MILLISECONDS),
-                    succinctBytes(cachedResourceUsage.getPhysicalInputDataUsageBytes()),
-                    getQueuedQueries(),
-                    getRunningQueries(),
-                    eligibleSubGroups.size(),
-                    Optional.of(subGroups.values().stream()
-                            .filter(group -> group.getRunningQueries() + group.getQueuedQueries() > 0)
-                            .map(InternalResourceGroup::getSummaryInfo)
-                            .collect(toImmutableList())),
-                    Optional.empty());
-        }
-    }
-
     private ResourceGroupInfo getSummaryInfo()
     {
         synchronized (root) {
