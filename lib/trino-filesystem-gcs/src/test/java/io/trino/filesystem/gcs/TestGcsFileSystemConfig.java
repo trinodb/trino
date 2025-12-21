@@ -88,7 +88,7 @@ public class TestGcsFileSystemConfig
                 .setMinBackoffDelay(new Duration(20, MILLISECONDS))
                 .setMaxBackoffDelay(new Duration(20, MILLISECONDS))
                 .setApplicationId("application id");
-        assertFullMapping(properties, expected, Set.of("gcs.json-key", "gcs.json-key-file-path", "gcs.use-access-token"));
+        assertFullMapping(properties, expected, Set.of("gcs.use-access-token"));
     }
 
     // backwards compatibility test, remove if use-access-token is removed
