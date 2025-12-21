@@ -33,6 +33,7 @@
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.9.1",
     "sass": "^1.93.2",
+    "trino-query-ui": "^0.1.1",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
