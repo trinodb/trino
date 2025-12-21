@@ -848,8 +848,8 @@ public abstract class BaseIcebergConnectorSmokeTest
         int metadataPreviousVersionCount = 5;
         String tableName = "test_metadata_delete_after_commit_enabled" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(_bigint BIGINT, _varchar VARCHAR)");
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES extra_properties = MAP(ARRAY['write.metadata.delete-after-commit.enabled'], ARRAY['true'])");
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES extra_properties = MAP(ARRAY['write.metadata.previous-versions-max'], ARRAY['" + metadataPreviousVersionCount + "'])");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES delete_after_commit_enabled = true");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES max_previous_versions = " + metadataPreviousVersionCount);
         String tableLocation = getTableLocation(tableName);
 
         Map<String, Long> historyMetadataFiles = getMetadataFileAndUpdatedMillis(fileSystem, tableLocation);
