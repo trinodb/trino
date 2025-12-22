@@ -27,6 +27,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.canonicalizePartitionValues;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class CdcEntry
 {
@@ -43,8 +44,9 @@ public class CdcEntry
             @JsonProperty("partitionValues") Map<String, String> partitionValues,
             @JsonProperty("size") long size)
     {
-        this.path = path;
-        this.partitionValues = partitionValues;
+        this.path = requireNonNull(path, "path is null");
+        // Avoid ImmutableMap.copyOf because the value may have nulls
+        this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
         this.canonicalPartitionValues = canonicalizePartitionValues(partitionValues);
         this.size = size;
     }
