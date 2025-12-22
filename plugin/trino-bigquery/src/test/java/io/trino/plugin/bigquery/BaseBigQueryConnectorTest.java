@@ -893,7 +893,7 @@ public abstract class BaseBigQueryConnectorTest
                 )\
                 """.formatted(expectedLabel);
 
-        assertEventually(() -> assertThat(bigQuerySqlExecutor.executeQuery(checkForLabelQuery).getValues())
+        assertEventually(new Duration(1, MINUTES), () -> assertThat(bigQuerySqlExecutor.executeQuery(checkForLabelQuery).getValues())
                 .extracting(values -> values.get("query").getStringValue())
                 .singleElement()
                 .matches(statement -> statement.contains(expectedView)));
