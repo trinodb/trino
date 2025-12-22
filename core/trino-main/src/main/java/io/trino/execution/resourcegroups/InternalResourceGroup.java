@@ -51,6 +51,7 @@ import static com.google.common.math.LongMath.saturatedSubtract;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.SystemSessionProperties.getQueryPriority;
+import static io.trino.execution.resourcegroups.ResourceUsage.ZERO;
 import static io.trino.server.QueryStateInfo.createQueryStateInfo;
 import static io.trino.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
 import static io.trino.spi.resourcegroups.ResourceGroupState.CAN_QUEUE;
@@ -134,7 +135,7 @@ public class InternalResourceGroup
     private int descendantQueuedQueries;
     // CPU, memory and physical data input usage is cached because it changes very rapidly while queries are running, and would be expensive to track continuously
     @GuardedBy("root")
-    private ResourceUsage cachedResourceUsage = new ResourceUsage(0, 0, 0);
+    private ResourceUsage cachedResourceUsage = ZERO;
     @GuardedBy("root")
     private long lastStartNanos;
     private final CounterStat timeBetweenStartsSec = new CounterStat();
@@ -745,7 +746,7 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock to start a query");
         synchronized (root) {
-            runningQueries.put(query, new ResourceUsage(0, 0, 0));
+            runningQueries.put(query, ZERO);
             InternalResourceGroup group = this;
             group.getStartedQueries().update(1);
             while (group.parent.isPresent()) {
@@ -841,7 +842,7 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock to refresh stats");
         synchronized (root) {
-            ResourceUsage groupUsageDelta = new ResourceUsage(0, 0, 0);
+            ResourceUsage groupUsageDelta = ZERO;
 
             for (Map.Entry<ManagedQueryExecution, ResourceUsage> entry : runningQueries.entrySet()) {
                 ManagedQueryExecution query = entry.getKey();
@@ -865,7 +866,7 @@ public class InternalResourceGroup
                 groupUsageDelta = groupUsageDelta.add(subGroupUsageDelta);
                 cachedResourceUsage = cachedResourceUsage.add(subGroupUsageDelta);
 
-                if (!subGroupUsageDelta.equals(new ResourceUsage(0, 0, 0))) {
+                if (!subGroupUsageDelta.equals(ZERO)) {
                     subGroup.updateEligibility();
                 }
             }
