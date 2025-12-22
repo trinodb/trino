@@ -65,6 +65,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "hive.s3select-pushdown.enabled",
         "hive.s3select-pushdown.experimental-textfile-pushdown-enabled",
         "hive.s3select-pushdown.max-connections",
+        "hive.write-validation-threads",
 })
 public class HiveConfig
 {
@@ -105,7 +106,6 @@ public class HiveConfig
     // to avoid deleting those files if Trino is unable to check.
     private boolean deleteSchemaLocationsFallback;
     private int maxPartitionsPerWriter = 100;
-    private int writeValidationThreads = 16;
     private boolean validateBucketing = true;
     private boolean parallelPartitionedBucketedWrites = true;
 
@@ -609,19 +609,6 @@ public class HiveConfig
     public HiveConfig setMaxPartitionsPerWriter(int maxPartitionsPerWriter)
     {
         this.maxPartitionsPerWriter = maxPartitionsPerWriter;
-        return this;
-    }
-
-    public int getWriteValidationThreads()
-    {
-        return writeValidationThreads;
-    }
-
-    @Config("hive.write-validation-threads")
-    @ConfigDescription("Number of threads used for verifying data after a write")
-    public HiveConfig setWriteValidationThreads(int writeValidationThreads)
-    {
-        this.writeValidationThreads = writeValidationThreads;
         return this;
     }
 
