@@ -353,9 +353,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionConsumer)
     {
-        return stats.getBeginCreateTable().wrap(() -> delegate().beginCreateTable(session, tableMetadata));
+        return stats.getBeginCreateTable().wrap(() -> delegate().beginCreateTable(session, tableMetadata, rollbackActionConsumer));
     }
 
     @Override

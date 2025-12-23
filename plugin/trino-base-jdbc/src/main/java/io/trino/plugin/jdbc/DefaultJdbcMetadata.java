@@ -137,7 +137,7 @@ public class DefaultJdbcMetadata
     private final boolean precalculateStatisticsForPushdown;
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
-    private final List<Runnable> rollbackActions = new ArrayList<>();
+    protected final List<Runnable> rollbackActions = new ArrayList<>();
 
     public DefaultJdbcMetadata(
             JdbcClient jdbcClient,
@@ -1199,7 +1199,7 @@ public class DefaultJdbcMetadata
         if (replace) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
         }
-        JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(session, tableMetadata);
+        JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(session, tableMetadata, rollbackActions::add);
         rollbackActions.add(() -> jdbcClient.rollbackCreateTable(session, handle));
         return handle;
     }
