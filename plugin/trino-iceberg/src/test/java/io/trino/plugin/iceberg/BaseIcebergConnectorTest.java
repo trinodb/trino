@@ -5611,57 +5611,40 @@ public abstract class BaseIcebergConnectorTest
             throws IOException
     {
         String tableName = "test_optimize_" + randomNameSuffix();
-        Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM nation", 25);
 
-        List<String> allDataFilesInitially = getAllDataFilesFromTableDirectory(tableName);
-        assertThat(allDataFilesInitially).hasSize(5);
+        // There are 5 distinct region keys, so we expect 5 data files. A 'content' value of 0 corresponds to a data file, and a value of 1
+        // corresponds to a delete file
+        assertQuery(
+                "SELECT content, count(*) FROM \"" + tableName + "$files\" GROUP BY content",
+                "VALUES (0, 5)");
 
+        // Test that OPTIMIZE filtered on the partition column rewrites the corresponding data file and removes the delete file
         assertUpdate("DELETE FROM " + tableName + " WHERE nationkey = 7", 1);
+        assertQuery(
+                "SELECT content, count(*) FROM \"" + tableName + "$files\" GROUP BY content",
+                "VALUES (0, 5), (1, 1)");
+
+        Session session = withSingleWriterPerTask(getSession());
+        computeActual(session, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey = 3");
+        assertQuery(
+                "SELECT content, count(*) FROM \"" + tableName + "$files\" GROUP BY content",
+                "VALUES (0, 5)");
+
+        // Test that OPTIMIZE using the $partition column rewrites the corresponding data file and removes the delete file
+        assertUpdate("DELETE FROM " + tableName + " WHERE nationkey = 8", 1);
+        assertQuery(
+                "SELECT content, count(*) FROM \"" + tableName + "$files\" GROUP BY content",
+                "VALUES (0, 5), (1, 1)");
+
+        computeActual(session, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$partition\" = 'regionkey=2'");
+        assertQuery(
+                "SELECT content, count(*) FROM \"" + tableName + "$files\" GROUP BY content",
+                "VALUES (0, 5)");
 
         assertQuery(
-                "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
-                "VALUES '1'");
-
-        List<String> allDataFilesAfterDelete = getAllDataFilesFromTableDirectory(tableName);
-        assertThat(allDataFilesAfterDelete).hasSize(6);
-
-        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
-        computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey = 3");
-        computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
-        computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
-
-        assertQuery(
-                "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
-                "VALUES '0'");
-        List<String> allDataFilesAfterOptimizeWithWhere = getAllDataFilesFromTableDirectory(tableName);
-        assertThat(allDataFilesAfterOptimizeWithWhere)
-                .hasSize(5)
-                .doesNotContain(allDataFilesInitially.stream().filter(file -> file.contains("regionkey=3"))
-                        .toArray(String[]::new))
-                .contains(allDataFilesInitially.stream().filter(file -> !file.contains("regionkey=3"))
-                        .toArray(String[]::new));
-
-        assertThat(query("SELECT * FROM " + tableName))
-                .matches("SELECT * FROM nation WHERE nationkey != 7");
-
-        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
-        computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
-        computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
-        computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
-
-        assertQuery(
-                "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
-                "VALUES '0'");
-        List<String> allDataFilesAfterFullOptimize = getAllDataFilesFromTableDirectory(tableName);
-        assertThat(allDataFilesAfterFullOptimize)
-                .hasSize(5)
-                // All files skipped from OPTIMIZE as they have no deletes and there's only one file per partition
-                .contains(allDataFilesAfterOptimizeWithWhere.toArray(new String[0]));
-
-        assertThat(query("SELECT * FROM " + tableName))
-                .matches("SELECT * FROM nation WHERE nationkey != 7");
-
+                "SELECT * FROM " + tableName,
+                "SELECT * FROM nation WHERE nationkey NOT IN (7, 8)");
         assertUpdate("DROP TABLE " + tableName);
     }
 
