@@ -17,26 +17,33 @@ import io.trino.sql.SqlFormatter;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Statement;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
-public class TestSqlFormatter
+final class TestSqlFormatter
 {
+    private static final SqlParser parser = new SqlParser();
+
     @ParameterizedTest
-    @ValueSource(strings = {
-            "SELECT +1",
-            "SELECT -1",
-            "SELECT + (SELECT 1)",
-            "SELECT - (SELECT 1)",
-    })
-    public void testArithmeticUnary(String sql)
+    @MethodSource("sqlQueries")
+    void testArithmeticUnary(String sql)
     {
-        SqlParser parser = new SqlParser();
         Statement statement = parser.createStatement(sql);
         String formattedSql = SqlFormatter.formatSql(statement);
         Statement roundTripStatement = parser.createStatement(formattedSql);
 
         assertThat(roundTripStatement).isEqualTo(statement);
+    }
+
+    private static Stream<String> sqlQueries()
+    {
+        return Stream.of(
+                "SELECT +1",
+                "SELECT -1",
+                "SELECT + (SELECT 1)",
+                "SELECT - (SELECT 1)");
     }
 }
