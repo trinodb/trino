@@ -466,6 +466,7 @@ For more details, see {doc}`setdigest`
 
 For more details, see {doc}`string`
 
+- {doc}`allcolumnsearch`
 - {func}`chr`
 - {func}`codepoint`
 - {func}`concat`
