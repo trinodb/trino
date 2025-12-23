@@ -38,8 +38,10 @@ import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.RefreshTokenGrant;
 import com.nimbusds.oauth2.sdk.Scope;
 import com.nimbusds.oauth2.sdk.TokenRequest;
+import com.nimbusds.oauth2.sdk.auth.ClientAuthentication;
+import com.nimbusds.oauth2.sdk.auth.ClientAuthenticationMethod;
 import com.nimbusds.oauth2.sdk.auth.ClientSecretBasic;
-import com.nimbusds.oauth2.sdk.auth.Secret;
+import com.nimbusds.oauth2.sdk.http.HTTPRequest;
 import com.nimbusds.oauth2.sdk.id.ClientID;
 import com.nimbusds.oauth2.sdk.id.Issuer;
 import com.nimbusds.oauth2.sdk.id.State;
@@ -80,6 +82,7 @@ import static com.google.common.hash.Hashing.sha256;
 import static com.nimbusds.oauth2.sdk.ResponseType.CODE;
 import static com.nimbusds.openid.connect.sdk.OIDCScopeValue.OPENID;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Base64.getEncoder;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -90,7 +93,7 @@ public class NimbusOAuth2Client
 
     private final Issuer issuer;
     private final ClientID clientId;
-    private final ClientSecretBasic clientAuth;
+    private final ClientAuthentication clientAuth;
     private final Scope scope;
     private final String principalField;
     private final Set<String> accessTokenAudiences;
@@ -112,7 +115,7 @@ public class NimbusOAuth2Client
     {
         issuer = new Issuer(oauthConfig.getIssuer());
         clientId = new ClientID(oauthConfig.getClientId());
-        clientAuth = new ClientSecretBasic(clientId, new Secret(oauthConfig.getClientSecret()));
+        clientAuth = createClientAuth(oauthConfig.getClientId(), oauthConfig.getClientSecret());
         scope = Scope.parse(oauthConfig.getScopes());
         principalField = oauthConfig.getPrincipalField();
         maxClockSkew = oauthConfig.getMaxClockSkew();
@@ -124,6 +127,47 @@ public class NimbusOAuth2Client
 
         this.serverConfigurationProvider = requireNonNull(serverConfigurationProvider, "serverConfigurationProvider is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+    }
+
+    /**
+     * Creates HTTP Basic Authentication for OAuth token requests without URL encoding.
+     * <p>
+     * The Nimbus SDK's {@link ClientSecretBasic} implementation incorrectly URL-encodes
+     * special characters in client_id and client_secret before Base64 encoding them.
+     * This violates RFC 7617 and causes authentication failures with OAuth providers
+     * (such as SAP XSUAA) that use special characters like '!', '$', '=' in credentials.
+     * <p>
+     * Per RFC 7617, HTTP Basic Authentication requires:
+     * <pre>Authorization: Basic Base64(client_id + ":" + client_secret)</pre>
+     * NOT:
+     * <pre>Authorization: Basic Base64(URLEncode(client_id) + ":" + URLEncode(client_secret))</pre>
+     *
+     * @param clientId the OAuth client identifier
+     * @param clientSecret the OAuth client secret
+     * @return ClientAuthentication that correctly implements RFC 7617
+     */
+    private static ClientAuthentication createClientAuth(String clientId, String clientSecret)
+    {
+        return new ClientAuthentication(ClientAuthenticationMethod.CLIENT_SECRET_BASIC, new ClientID(clientId))
+        {
+            @Override
+            public void applyTo(HTTPRequest httpRequest)
+            {
+                // Implement HTTP Basic Auth per RFC 7617:
+                // credentials = client_id + ":" + client_secret (raw, not URL-encoded)
+                // Authorization = "Basic " + Base64(credentials)
+                String credentials = clientId + ":" + clientSecret;
+                String encoded = getEncoder().encodeToString(credentials.getBytes(UTF_8));
+                httpRequest.setAuthorization("Basic " + encoded);
+            }
+
+            @Override
+            public java.util.Set<String> getFormParameterNames()
+            {
+                // Basic auth doesn't use form parameters, credentials go in Authorization header
+                return java.util.Collections.emptySet();
+            }
+        };
     }
 
     @Override
