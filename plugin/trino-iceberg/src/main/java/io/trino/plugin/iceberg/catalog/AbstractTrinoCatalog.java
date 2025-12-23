@@ -79,6 +79,7 @@ import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.STORAGE_
 import static io.trino.plugin.iceberg.IcebergMaterializedViewProperties.getStorageSchema;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameWithType;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getIdentifierFields;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
@@ -309,7 +310,7 @@ public abstract class AbstractTrinoCatalog
                 .orElseGet(() -> defaultTableLocation(session, viewName));
         List<ColumnMetadata> columns = columnsForMaterializedView(definition, materializedViewProperties);
 
-        Schema schema = schemaFromMetadata(columns);
+        Schema schema = schemaFromMetadata(columns, getIdentifierFields(materializedViewProperties));
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(materializedViewProperties));
         SortOrder sortOrder = parseSortFields(schema, getSortOrder(materializedViewProperties));
         Map<String, String> properties = createTableProperties(new ConnectorTableMetadata(storageTableName, columns, materializedViewProperties, Optional.empty()), _ -> false);
@@ -371,7 +372,7 @@ public abstract class AbstractTrinoCatalog
                     }
                     return new ColumnMetadata(column.getName(), type);
                 })
-                .collect(toImmutableList()));
+                .collect(toImmutableList()), getIdentifierFields(materializedViewProperties));
         PartitionSpec partitionSpec = parsePartitionFields(schemaWithTimestampTzPreserved, getPartitioning(materializedViewProperties));
         Set<String> temporalPartitioningSources = partitionSpec.fields().stream()
                 .flatMap(partitionField -> {
