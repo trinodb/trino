@@ -348,7 +348,7 @@ public class IcebergSplitSource
                 // OPTIMIZE supports only enforced predicates which select whole partitions, so if there is no path or fileModifiedTime predicate, then we can clean up position deletes
                 List<org.apache.iceberg.DeleteFile> fullyAppliedDeletes = wholeFileTask.deletes().stream()
                         .filter(deleteFile -> switch (deleteFile.content()) {
-                            case POSITION_DELETES -> partitionDomain.isAll() && pathDomain.isAll() && fileModifiedTimeDomain.isAll();
+                            case POSITION_DELETES -> pathDomain.isAll() && fileModifiedTimeDomain.isAll();
                             case EQUALITY_DELETES -> tableHandle.getEnforcedPredicate().isAll();
                             case DATA -> throw new IllegalStateException("Unexpected delete file: " + deleteFile);
                         })
