@@ -143,6 +143,7 @@ import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Deallocate;
+import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DereferenceExpression;
@@ -190,8 +191,8 @@ import io.trino.sql.tree.Lateral;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.Literal;
-import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
@@ -3470,6 +3471,7 @@ class StatementAnalyzer
             }
             if (criteria instanceof JoinOn joinOn) {
                 Expression expression = joinOn.getExpression();
+                AllColumnSearchValidator.validate(expression, "JOIN ON clause");
                 verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, "JOIN clause");
 
                 // Need to register coercions in case when join criteria requires coercion (e.g. join on char(1) = char(2))
@@ -4558,6 +4560,8 @@ class StatementAnalyzer
             if (node.getHaving().isPresent()) {
                 Expression predicate = node.getHaving().get();
 
+                AllColumnSearchValidator.validate(predicate, "HAVING clause");
+
                 List<Expression> windowExpressions = extractWindowExpressions(ImmutableList.of(predicate), session, functionResolver, accessControl);
                 if (!windowExpressions.isEmpty()) {
                     throw semanticException(NESTED_WINDOW, windowExpressions.getFirst(), "HAVING clause cannot contain window functions or row pattern measures");
@@ -4639,6 +4643,7 @@ class StatementAnalyzer
                             }
                             else {
                                 verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, column, "GROUP BY clause");
+                                AllColumnSearchValidator.validate(column, "GROUP BY clause");
                                 analyzeExpression(column, scope);
                             }
 
@@ -5052,6 +5057,7 @@ class StatementAnalyzer
                 ImmutableList.Builder<SelectExpression> selectExpressionBuilder)
         {
             Expression expression = singleColumn.getExpression();
+            AllColumnSearchValidator.validate(expression, "SELECT clause");
             ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, scope);
             analysis.recordSubqueries(node, expressionAnalysis);
             outputExpressionBuilder.add(expression);
@@ -5854,6 +5860,10 @@ class StatementAnalyzer
 
                     expression = new FieldReference(toIntExact(ordinal - 1));
                 }
+                else {
+                    // Validate that allcolumnsearch() is not used in ORDER BY (only validate non-ordinal expressions)
+                    AllColumnSearchValidator.validate(expression, "ORDER BY clause");
+                }
 
                 ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
                         session,
@@ -6194,6 +6204,42 @@ class StatementAnalyzer
         public List<TableArgumentAnalysis> getTableArgumentAnalyses()
         {
             return tableArgumentAnalyses;
+        }
+    }
+
+    /**
+     * Validator that detects allcolumnsearch() usage in invalid contexts.
+     * allcolumnsearch() is only allowed in WHERE clause predicates.
+     */
+
+    private static class AllColumnSearchValidator
+            extends DefaultExpressionTraversalVisitor<Void>
+    {
+        private final String context;
+
+        private AllColumnSearchValidator(String context)
+        {
+            this.context = requireNonNull(context, "context is null");
+        }
+
+        public static void validate(Expression expression, String context)
+        {
+            new AllColumnSearchValidator(context).process(expression, null);
+        }
+
+        @Override
+        protected Void visitFunctionCall(FunctionCall node, Void context)
+        {
+            if (node.getName().getSuffix().equalsIgnoreCase("allcolumnsearch")) {
+                throw semanticException(
+                        NOT_SUPPORTED,
+                        node,
+                        "allcolumnsearch() can only be used in WHERE clause, not in %s",
+                        this.context);
+            }
+
+            // Continue traversing to check nested expressions
+            return super.visitFunctionCall(node, context);
         }
     }
 
