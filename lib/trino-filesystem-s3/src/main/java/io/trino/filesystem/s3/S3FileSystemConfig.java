@@ -159,6 +159,7 @@ public class S3FileSystemConfig
     private String sseKmsKeyId;
     private String sseCustomerKey;
     private boolean useWebIdentityTokenCredentialsProvider;
+    private boolean anonymousAccess;
     private SignerType signerType;
     private DataSize streamingPartSize = DataSize.of(32, MEGABYTE);
     private boolean requesterPays;
@@ -394,6 +395,19 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setUseWebIdentityTokenCredentialsProvider(boolean useWebIdentityTokenCredentialsProvider)
     {
         this.useWebIdentityTokenCredentialsProvider = useWebIdentityTokenCredentialsProvider;
+        return this;
+    }
+
+    public boolean isAnonymousAccess()
+    {
+        return anonymousAccess;
+    }
+
+    @Config("s3.anonymous-access")
+    @ConfigDescription("Use anonymous credentials for accessing public S3 buckets")
+    public S3FileSystemConfig setAnonymousAccess(boolean anonymousAccess)
+    {
+        this.anonymousAccess = anonymousAccess;
         return this;
     }
 
