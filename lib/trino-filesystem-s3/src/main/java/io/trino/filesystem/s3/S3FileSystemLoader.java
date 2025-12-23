@@ -20,6 +20,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.s3.S3Context.S3SseContext;
 import jakarta.annotation.PreDestroy;
+import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -162,6 +163,7 @@ final class S3FileSystemLoader
         Optional<String> staticEndpoint = Optional.ofNullable(config.getEndpoint());
         boolean pathStyleAccess = config.isPathStyleAccess();
         boolean useWebIdentityTokenCredentialsProvider = config.isUseWebIdentityTokenCredentialsProvider();
+        boolean anonymousAccess = config.isAnonymousAccess();
         Optional<String> staticIamRole = Optional.ofNullable(config.getIamRole());
         String staticRoleSessionName = config.getRoleSessionName();
         String externalId = config.getExternalId();
@@ -189,7 +191,10 @@ final class S3FileSystemLoader
             endpoint.map(URI::create).ifPresent(s3::endpointOverride);
             s3.forcePathStyle(pathStyleAccess);
 
-            if (useWebIdentityTokenCredentialsProvider) {
+            if (anonymousAccess) {
+                s3.credentialsProvider(AnonymousCredentialsProvider.create());
+            }
+            else if (useWebIdentityTokenCredentialsProvider) {
                 s3.credentialsProvider(WebIdentityTokenFileCredentialsProvider.builder()
                         .asyncCredentialUpdateEnabled(true)
                         .build());
@@ -219,6 +224,7 @@ final class S3FileSystemLoader
         Optional<String> staticEndpoint = Optional.ofNullable(config.getEndpoint());
         boolean pathStyleAccess = config.isPathStyleAccess();
         boolean useWebIdentityTokenCredentialsProvider = config.isUseWebIdentityTokenCredentialsProvider();
+        boolean anonymousAccess = config.isAnonymousAccess();
         Optional<String> staticIamRole = Optional.ofNullable(config.getIamRole());
         String staticRoleSessionName = config.getRoleSessionName();
         String externalId = config.getExternalId();
@@ -233,7 +239,10 @@ final class S3FileSystemLoader
                 .pathStyleAccessEnabled(pathStyleAccess)
                 .build());
 
-        if (useWebIdentityTokenCredentialsProvider) {
+        if (anonymousAccess) {
+            s3.credentialsProvider(AnonymousCredentialsProvider.create());
+        }
+        else if (useWebIdentityTokenCredentialsProvider) {
             s3.credentialsProvider(WebIdentityTokenFileCredentialsProvider.builder()
                     .asyncCredentialUpdateEnabled(true)
                     .build());
