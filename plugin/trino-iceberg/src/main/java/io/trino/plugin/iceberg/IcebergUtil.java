@@ -144,6 +144,9 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.PROTECTED_ICEBERG_N
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SUPPORTED_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getMaxPreviousVersions;
+import static io.trino.plugin.iceberg.IcebergTableProperties.WRITE_DELETE_MODE;
+import static io.trino.plugin.iceberg.IcebergTableProperties.WRITE_MERGE_MODE;
+import static io.trino.plugin.iceberg.IcebergTableProperties.WRITE_UPDATE_MODE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
 import static io.trino.plugin.iceberg.IcebergTableProperties.isDeleteAfterCommitEnabled;
@@ -387,6 +390,21 @@ public final class IcebergUtil
 
         Optional<String> dataLocation = Optional.ofNullable(icebergTable.properties().get(WRITE_DATA_LOCATION));
         dataLocation.ifPresent(location -> properties.put(DATA_LOCATION_PROPERTY, location));
+
+        // Read write mode properties from Iceberg table properties
+        Map<String, String> icebergProperties = icebergTable.properties();
+        if (icebergProperties.containsKey(org.apache.iceberg.TableProperties.DELETE_MODE)) {
+            UpdateMode deleteMode = UpdateMode.fromIcebergProperty(icebergProperties.get(org.apache.iceberg.TableProperties.DELETE_MODE));
+            properties.put(WRITE_DELETE_MODE, deleteMode);
+        }
+        if (icebergProperties.containsKey(org.apache.iceberg.TableProperties.UPDATE_MODE)) {
+            UpdateMode updateMode = UpdateMode.fromIcebergProperty(icebergProperties.get(org.apache.iceberg.TableProperties.UPDATE_MODE));
+            properties.put(WRITE_UPDATE_MODE, updateMode);
+        }
+        if (icebergProperties.containsKey(org.apache.iceberg.TableProperties.MERGE_MODE)) {
+            UpdateMode mergeMode = UpdateMode.fromIcebergProperty(icebergProperties.get(org.apache.iceberg.TableProperties.MERGE_MODE));
+            properties.put(WRITE_MERGE_MODE, mergeMode);
+        }
 
         return properties.buildOrThrow();
     }

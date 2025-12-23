@@ -16,8 +16,13 @@ package io.trino.plugin.iceberg.catalog.nessie;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.iceberg.CommitTaskData;
+import io.trino.plugin.iceberg.IcebergConfig;
+import io.trino.plugin.iceberg.IcebergFileWriterFactory;
 import io.trino.plugin.iceberg.IcebergMetadata;
+import io.trino.plugin.iceberg.IcebergPageSourceProvider;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -97,7 +102,11 @@ public class TestTrinoNessieCatalog
         nessieClient.createNamespace(Namespace.of(namespace), properties);
     }
 
-    @Override
+    protected TrinoFileSystemFactory fileSystemFactory()
+    {
+        return new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS);
+    }
+
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
     {
         Path tmpDirectory = null;
@@ -195,13 +204,30 @@ public class TestTrinoNessieCatalog
                     .contains(namespace);
 
             // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
+            FileFormatDataSourceStats fileFormatDataSourceStats = new FileFormatDataSourceStats();
+            io.trino.plugin.iceberg.IcebergFileSystemFactory icebergFileSystemFactory = (identity, fileIoProperties) -> {
+                throw new UnsupportedOperationException();
+            };
+            IcebergPageSourceProvider pageSourceProvider = new IcebergPageSourceProvider(
+                    icebergFileSystemFactory,
+                    FILE_IO_FACTORY,
+                    fileFormatDataSourceStats,
+                    null,
+                    null,
+                    TESTING_TYPE_MANAGER);
+
+            IcebergFileWriterFactory fileWriterFactory = new IcebergFileWriterFactory(
+                    TESTING_TYPE_MANAGER,
+                    new NodeVersion("test-version"),
+                    fileFormatDataSourceStats,
+                    new IcebergConfig(),
+                    new OrcWriterConfig());
+
             ConnectorMetadata icebergMetadata = new IcebergMetadata(
                     PLANNER_CONTEXT.getTypeManager(),
                     jsonCodec(CommitTaskData.class),
                     catalog,
-                    (connectorIdentity, fileIoProperties) -> {
-                        throw new UnsupportedOperationException();
-                    },
+                    icebergFileSystemFactory,
                     TABLE_STATISTICS_READER,
                     new TableStatisticsWriter(new NodeVersion("test-version")),
                     Optional.empty(),
@@ -210,7 +236,9 @@ public class TestTrinoNessieCatalog
                     newDirectExecutorService(),
                     directExecutor(),
                     newDirectExecutorService(),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    pageSourceProvider,
+                    fileWriterFactory);
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isTrue();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
