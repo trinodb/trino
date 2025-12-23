@@ -15,8 +15,12 @@ package io.trino.testing;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.trino.Session;
+import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
+import io.trino.execution.StageInfo;
+import io.trino.execution.StagesInfo;
 import io.trino.server.BasicQueryInfo;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
@@ -427,5 +431,30 @@ public abstract class AbstractDistributedEngineOnlyQueries
 
         // Test fragment with empty VALUES and no table scans
         assertQuery("SELECT * FROM (SELECT 2 WHERE FALSE)");
+    }
+
+    @Test
+    public void testStageOutputDataSize()
+    {
+        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
+        QueryRunner.MaterializedResultWithPlan result = queryRunner
+                .executeWithPlan(
+                        queryRunner.getDefaultSession(),
+                        """
+                                SELECT o.orderkey, c.name
+                                FROM customer c
+                                    JOIN orders o ON o.custkey = c.custkey""");
+        QueryInfo queryInfo = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(result.queryId());
+        StagesInfo stagesInfo = queryInfo.getStages().orElseThrow();
+        for (StageInfo stage : stagesInfo.getStages()) {
+            DataSize sumOfSubStagesNetworkOut = DataSize.ofBytes(stagesInfo.getSubStages(stage.getStageId())
+                            .stream()
+                            .mapToLong(subStage -> subStage.getStageStats().getOutputDataSize().toBytes())
+                            .sum())
+                    .succinct();
+            assertThat(sumOfSubStagesNetworkOut)
+                    .as(stage.getStageId().toString())
+                    .isEqualTo(stage.getStageStats().getInternalNetworkInputDataSize());
+        }
     }
 }

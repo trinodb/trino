@@ -550,6 +550,7 @@ public class TaskResource
             return response.build();
         }
 
+        taskWithResults.recordNetworkOutput(serializedPages.stream().mapToLong(Slice::length).sum());
         return response
                 .type(TRINO_PAGES)
                 .entity((StreamingOutput) output ->

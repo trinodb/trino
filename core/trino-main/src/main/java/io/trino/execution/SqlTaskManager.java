@@ -881,5 +881,10 @@ public class SqlTaskManager
         {
             return resultsFuture;
         }
+
+        public void recordNetworkOutput(long bytesSent)
+        {
+            task.getTaskContext().ifPresent(taskContext -> taskContext.recordNetworkOutput(bytesSent));
+        }
     }
 }

@@ -81,6 +81,7 @@ public class TaskContext
     private final AtomicLong endNanos = new AtomicLong();
     private final AtomicLong endFullGcCount = new AtomicLong(-1);
     private final AtomicLong endFullGcTimeNanos = new AtomicLong(-1);
+    private final AtomicLong networkOutputBytes = new AtomicLong(0);
 
     private final AtomicLong currentPeakUserMemoryReservation = new AtomicLong(0);
 
@@ -479,7 +480,6 @@ public class TaskContext
 
         long inputBlockedTime = 0;
 
-        long outputDataSize = 0;
         long outputPositions = 0;
 
         long outputBlockedTime = 0;
@@ -532,7 +532,6 @@ public class TaskContext
             }
 
             if (pipeline.isOutputPipeline()) {
-                outputDataSize += pipeline.getOutputDataSize().toBytes();
                 outputPositions += pipeline.getOutputPositions();
 
                 outputBlockedTime += pipeline.getOutputBlockedTime().roundTo(NANOSECONDS);
@@ -612,7 +611,7 @@ public class TaskContext
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,
                 new Duration(inputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                succinctBytes(outputDataSize),
+                succinctBytes(networkOutputBytes.get()),
                 outputPositions,
                 new Duration(outputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(getWriterInputDataSize()),
@@ -665,5 +664,10 @@ public class TaskContext
     public void sourceTaskFailed(TaskId taskId, Throwable failure)
     {
         taskStateMachine.sourceTaskFailed(taskId, failure);
+    }
+
+    public void recordNetworkOutput(long bytesSent)
+    {
+        this.networkOutputBytes.addAndGet(bytesSent);
     }
 }
