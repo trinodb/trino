@@ -66,6 +66,7 @@ them, change the properties in the catalog configuration file:
 oracle.connection-pool.max-size=30
 oracle.connection-pool.min-size=1
 oracle.connection-pool.inactive-timeout=20m
+oracle.connection-pool.wait-duration=3s
 ```
 
 To disable connection pooling, update properties to include the following:
