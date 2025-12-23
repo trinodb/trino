@@ -123,160 +123,7 @@ import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.ScopeAware;
-import io.trino.sql.tree.AddColumn;
-import io.trino.sql.tree.AliasedRelation;
-import io.trino.sql.tree.AllColumns;
-import io.trino.sql.tree.AllRows;
-import io.trino.sql.tree.Analyze;
-import io.trino.sql.tree.AstVisitor;
-import io.trino.sql.tree.AutoGroupBy;
-import io.trino.sql.tree.Call;
-import io.trino.sql.tree.CallArgument;
-import io.trino.sql.tree.ColumnDefinition;
-import io.trino.sql.tree.Comment;
-import io.trino.sql.tree.Commit;
-import io.trino.sql.tree.Corresponding;
-import io.trino.sql.tree.CreateCatalog;
-import io.trino.sql.tree.CreateMaterializedView;
-import io.trino.sql.tree.CreateSchema;
-import io.trino.sql.tree.CreateTable;
-import io.trino.sql.tree.CreateTableAsSelect;
-import io.trino.sql.tree.CreateView;
-import io.trino.sql.tree.Deallocate;
-import io.trino.sql.tree.Delete;
-import io.trino.sql.tree.Deny;
-import io.trino.sql.tree.DereferenceExpression;
-import io.trino.sql.tree.DropCatalog;
-import io.trino.sql.tree.DropColumn;
-import io.trino.sql.tree.DropDefaultValue;
-import io.trino.sql.tree.DropMaterializedView;
-import io.trino.sql.tree.DropNotNullConstraint;
-import io.trino.sql.tree.DropSchema;
-import io.trino.sql.tree.DropTable;
-import io.trino.sql.tree.DropView;
-import io.trino.sql.tree.EmptyTableTreatment;
-import io.trino.sql.tree.Except;
-import io.trino.sql.tree.Execute;
-import io.trino.sql.tree.ExecuteImmediate;
-import io.trino.sql.tree.Explain;
-import io.trino.sql.tree.ExplainAnalyze;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FetchFirst;
-import io.trino.sql.tree.FieldReference;
-import io.trino.sql.tree.FrameBound;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.FunctionSpecification;
-import io.trino.sql.tree.Grant;
-import io.trino.sql.tree.GroupBy;
-import io.trino.sql.tree.GroupingElement;
-import io.trino.sql.tree.GroupingOperation;
-import io.trino.sql.tree.GroupingSets;
-import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.Insert;
-import io.trino.sql.tree.Intersect;
-import io.trino.sql.tree.IntervalLiteral;
-import io.trino.sql.tree.Join;
-import io.trino.sql.tree.JoinCriteria;
-import io.trino.sql.tree.JoinOn;
-import io.trino.sql.tree.JoinUsing;
-import io.trino.sql.tree.JsonPathInvocation;
-import io.trino.sql.tree.JsonPathParameter;
-import io.trino.sql.tree.JsonTable;
-import io.trino.sql.tree.JsonTableColumnDefinition;
-import io.trino.sql.tree.JsonTableSpecificPlan;
-import io.trino.sql.tree.Lateral;
-import io.trino.sql.tree.LikePredicate;
-import io.trino.sql.tree.Limit;
-import io.trino.sql.tree.Literal;
-import io.trino.sql.tree.LogicalExpression;
-import io.trino.sql.tree.LongLiteral;
-import io.trino.sql.tree.MeasureDefinition;
-import io.trino.sql.tree.Merge;
-import io.trino.sql.tree.MergeCase;
-import io.trino.sql.tree.MergeDelete;
-import io.trino.sql.tree.MergeInsert;
-import io.trino.sql.tree.MergeUpdate;
-import io.trino.sql.tree.NaturalJoin;
-import io.trino.sql.tree.NestedColumns;
-import io.trino.sql.tree.Node;
-import io.trino.sql.tree.NodeLocation;
-import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.Offset;
-import io.trino.sql.tree.OrderBy;
-import io.trino.sql.tree.OrdinalityColumn;
-import io.trino.sql.tree.Parameter;
-import io.trino.sql.tree.PatternRecognitionRelation;
-import io.trino.sql.tree.PlanLeaf;
-import io.trino.sql.tree.PlanParentChild;
-import io.trino.sql.tree.PlanSiblings;
-import io.trino.sql.tree.Prepare;
-import io.trino.sql.tree.Property;
-import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.Query;
-import io.trino.sql.tree.QueryColumn;
-import io.trino.sql.tree.QueryPeriod;
-import io.trino.sql.tree.QuerySpecification;
-import io.trino.sql.tree.RefreshMaterializedView;
-import io.trino.sql.tree.RefreshView;
-import io.trino.sql.tree.Relation;
-import io.trino.sql.tree.RenameColumn;
-import io.trino.sql.tree.RenameMaterializedView;
-import io.trino.sql.tree.RenameSchema;
-import io.trino.sql.tree.RenameTable;
-import io.trino.sql.tree.RenameView;
-import io.trino.sql.tree.ResetSession;
-import io.trino.sql.tree.ResetSessionAuthorization;
-import io.trino.sql.tree.Revoke;
-import io.trino.sql.tree.Rollback;
-import io.trino.sql.tree.RowPattern;
-import io.trino.sql.tree.SampledRelation;
-import io.trino.sql.tree.SecurityCharacteristic;
-import io.trino.sql.tree.Select;
-import io.trino.sql.tree.SelectItem;
-import io.trino.sql.tree.SetAuthorizationStatement;
-import io.trino.sql.tree.SetColumnType;
-import io.trino.sql.tree.SetDefaultValue;
-import io.trino.sql.tree.SetOperation;
-import io.trino.sql.tree.SetProperties;
-import io.trino.sql.tree.SetSession;
-import io.trino.sql.tree.SetSessionAuthorization;
-import io.trino.sql.tree.SetTimeZone;
-import io.trino.sql.tree.SimpleGroupBy;
-import io.trino.sql.tree.SingleColumn;
-import io.trino.sql.tree.SkipTo;
-import io.trino.sql.tree.SortItem;
-import io.trino.sql.tree.StartTransaction;
-import io.trino.sql.tree.Statement;
-import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.SubqueryExpression;
-import io.trino.sql.tree.SubscriptExpression;
-import io.trino.sql.tree.SubsetDefinition;
-import io.trino.sql.tree.Table;
-import io.trino.sql.tree.TableExecute;
-import io.trino.sql.tree.TableFunctionArgument;
-import io.trino.sql.tree.TableFunctionDescriptorArgument;
-import io.trino.sql.tree.TableFunctionInvocation;
-import io.trino.sql.tree.TableFunctionTableArgument;
-import io.trino.sql.tree.TableSubquery;
-import io.trino.sql.tree.TruncateTable;
-import io.trino.sql.tree.Union;
-import io.trino.sql.tree.Unnest;
-import io.trino.sql.tree.Update;
-import io.trino.sql.tree.UpdateAssignment;
-import io.trino.sql.tree.Use;
-import io.trino.sql.tree.ValueColumn;
-import io.trino.sql.tree.Values;
-import io.trino.sql.tree.VariableDefinition;
-import io.trino.sql.tree.Window;
-import io.trino.sql.tree.WindowDefinition;
-import io.trino.sql.tree.WindowFrame;
-import io.trino.sql.tree.WindowOperation;
-import io.trino.sql.tree.WindowReference;
-import io.trino.sql.tree.WindowSpecification;
-import io.trino.sql.tree.With;
-import io.trino.sql.tree.WithQuery;
+import io.trino.sql.tree.*;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.TypeCoercion;
 
@@ -3470,6 +3317,7 @@ class StatementAnalyzer
             }
             if (criteria instanceof JoinOn joinOn) {
                 Expression expression = joinOn.getExpression();
+                AllColumnSearchValidator.validate(expression, "JOIN ON clause");
                 verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, "JOIN clause");
 
                 // Need to register coercions in case when join criteria requires coercion (e.g. join on char(1) = char(2))
@@ -4558,6 +4406,8 @@ class StatementAnalyzer
             if (node.getHaving().isPresent()) {
                 Expression predicate = node.getHaving().get();
 
+                AllColumnSearchValidator.validate(predicate, "HAVING clause");
+
                 List<Expression> windowExpressions = extractWindowExpressions(ImmutableList.of(predicate), session, functionResolver, accessControl);
                 if (!windowExpressions.isEmpty()) {
                     throw semanticException(NESTED_WINDOW, windowExpressions.getFirst(), "HAVING clause cannot contain window functions or row pattern measures");
@@ -4639,6 +4489,7 @@ class StatementAnalyzer
                             }
                             else {
                                 verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, column, "GROUP BY clause");
+                                AllColumnSearchValidator.validate(column, "GROUP BY clause");
                                 analyzeExpression(column, scope);
                             }
 
@@ -5052,6 +4903,7 @@ class StatementAnalyzer
                 ImmutableList.Builder<SelectExpression> selectExpressionBuilder)
         {
             Expression expression = singleColumn.getExpression();
+            AllColumnSearchValidator.validate(expression, "SELECT clause");
             ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, scope);
             analysis.recordSubqueries(node, expressionAnalysis);
             outputExpressionBuilder.add(expression);
@@ -5854,6 +5706,10 @@ class StatementAnalyzer
 
                     expression = new FieldReference(toIntExact(ordinal - 1));
                 }
+                else {
+                    // Validate that allcolumnsearch() is not used in ORDER BY (only validate non-ordinal expressions)
+                    AllColumnSearchValidator.validate(expression, "ORDER BY clause");
+                }
 
                 ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
                         session,
@@ -6194,6 +6050,42 @@ class StatementAnalyzer
         public List<TableArgumentAnalysis> getTableArgumentAnalyses()
         {
             return tableArgumentAnalyses;
+        }
+    }
+
+    /**
+     * Validator that detects allcolumnsearch() usage in invalid contexts.
+     * allcolumnsearch() is only allowed in WHERE clause predicates.
+     */
+
+    private static class AllColumnSearchValidator
+            extends DefaultExpressionTraversalVisitor<Void>
+    {
+        private final String context;
+
+        private AllColumnSearchValidator(String context)
+        {
+            this.context = requireNonNull(context, "context is null");
+        }
+
+        public static void validate(Expression expression, String context)
+        {
+            new AllColumnSearchValidator(context).process(expression, null);
+        }
+
+        @Override
+        protected Void visitFunctionCall(FunctionCall node, Void context)
+        {
+            if (node.getName().getSuffix().equalsIgnoreCase("allcolumnsearch")) {
+                throw semanticException(
+                        NOT_SUPPORTED,
+                        node,
+                        "allcolumnsearch() can only be used in WHERE clause, not in %s",
+                        this.context);
+            }
+
+            // Continue traversing to check nested expressions
+            return super.visitFunctionCall(node, context);
         }
     }
 
