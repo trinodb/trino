@@ -31,7 +31,8 @@ import static io.trino.testing.containers.TestContainers.startOrReuse;
 public class TestingSingleStoreServer
         extends JdbcDatabaseContainer<TestingSingleStoreServer>
 {
-    public static final String DEFAULT_VERSION = "7.8";
+    // https://docs.singlestore.com/db/v9.0/support/singlestore-software-end-of-life-eol-policy
+    public static final String DEFAULT_VERSION = "8.7";
     public static final String LATEST_TESTED_VERSION = "8.9";
 
     public static final String DEFAULT_TAG = "ghcr.io/singlestore-labs/singlestoredb-dev:0.2.51";
@@ -50,6 +51,8 @@ public class TestingSingleStoreServer
         super(DockerImageName.parse(DEFAULT_TAG));
         addEnv("ROOT_PASSWORD", "memsql_root_password");
         addEnv("SINGLESTORE_VERSION", version);
+        // reduce resource usage for tests (https://www.singlestore.com/forum/t/available-disk-space-error/3802/9)
+        addEnv("SINGLESTORE_SET_GLOBAL_DEFAULT_PARTITIONS_PER_LEAF", "4"); // defaults to 8
         cleanup = startOrReuse(this);
     }
 
