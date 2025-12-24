@@ -81,7 +81,7 @@ public final class VarcharToTimestampWithTimeZoneCast
         }
     }
 
-    private static long toShort(int precision, String value, Function<String, ZoneId> zoneId)
+    public static long toShort(int precision, String value, Function<String, ZoneId> zoneId)
     {
         checkArgument(precision <= MAX_SHORT_PRECISION, "precision must be less than max short timestamp precision");
 
@@ -134,7 +134,7 @@ public final class VarcharToTimestampWithTimeZoneCast
         return packDateTimeWithZone(epochSecond * MILLISECONDS_PER_SECOND + millisOfSecond, getTimeZoneKey(zone.getId()));
     }
 
-    private static LongTimestampWithTimeZone toLong(int precision, String value, Function<String, ZoneId> zoneId)
+    public static LongTimestampWithTimeZone toLong(int precision, String value, Function<String, ZoneId> zoneId)
     {
         checkArgument(precision > MAX_SHORT_PRECISION && precision <= MAX_PRECISION, "precision out of range");
 
