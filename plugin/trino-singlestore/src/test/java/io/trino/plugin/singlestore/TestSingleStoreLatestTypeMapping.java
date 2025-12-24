@@ -15,6 +15,7 @@ package io.trino.plugin.singlestore;
 
 import io.trino.testing.QueryRunner;
 
+import static io.trino.plugin.singlestore.TestingSingleStoreServer.LATEST_TAG;
 import static io.trino.plugin.singlestore.TestingSingleStoreServer.LATEST_TESTED_VERSION;
 
 final class TestSingleStoreLatestTypeMapping
@@ -24,7 +25,7 @@ final class TestSingleStoreLatestTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        singleStoreServer = closeAfterClass(new TestingSingleStoreServer(LATEST_TESTED_VERSION));
+        singleStoreServer = closeAfterClass(new TestingSingleStoreServer(LATEST_TESTED_VERSION, LATEST_TAG));
         return SingleStoreQueryRunner.builder(singleStoreServer).build();
     }
 }
