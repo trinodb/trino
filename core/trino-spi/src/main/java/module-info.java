@@ -39,4 +39,5 @@ module trino.spi {
     exports io.trino.spi.statistics;
     exports io.trino.spi.transaction;
     exports io.trino.spi.type;
+    exports io.trino.spi.variant;
 }

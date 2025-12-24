@@ -18,7 +18,6 @@
         <trino.check.skip-revapi>${air.check.skip-basic}</trino.check.skip-revapi>
     </properties>
 
-    <!-- the SPI should have only minimal dependencies -->
     <dependencies>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -117,6 +116,18 @@
         <dependency>
             <groupId>it.unimi.dsi</groupId>
             <artifactId>fastutil</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-core</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -270,6 +281,17 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredResourcePatterns combine.children="append">
+                        <!-- ignore the Iceberg build metadata file -->
+                        <ignoredResourcePattern>^iceberg-build\.properties$</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
+                </configuration>
             </plugin>
         </plugins>
     </build>
