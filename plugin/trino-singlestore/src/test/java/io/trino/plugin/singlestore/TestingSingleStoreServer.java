@@ -33,13 +33,13 @@ public class TestingSingleStoreServer
 {
     // https://docs.singlestore.com/db/v9.0/support/singlestore-software-end-of-life-eol-policy
     public static final String DEFAULT_VERSION = "8.7.2-29aa5175ea";
-    public static final String LATEST_TESTED_VERSION = "8.9";
+    public static final String LATEST_TESTED_VERSION = "9.0.9";
 
     // The singlestoredb-dev image must be compatible with the SingleStoreDB server version
     // used at startup; mismatches may cause bootstrap or configuration failures.
     // Please see https://github.com/singlestore-labs/singlestoredb-dev-image/blob/main/CHANGELOG.md for compatible versions.
     private static final String DEFAULT_TAG = "ghcr.io/singlestore-labs/singlestoredb-dev:0.2.25"; // image comes with '8.7.2-29aa5175ea' SingleStore version
-    public static final String LATEST_TAG = "ghcr.io/singlestore-labs/singlestoredb-dev:0.2.51";
+    public static final String LATEST_TAG = "ghcr.io/singlestore-labs/singlestoredb-dev:0.2.62";
 
     public static final Integer SINGLESTORE_PORT = 3306;
 
