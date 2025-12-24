@@ -14,6 +14,7 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
@@ -37,6 +38,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
+import io.trino.util.variant.VariantWriter;
 import okhttp3.OkHttpClient;
 
 import java.math.BigDecimal;
@@ -70,6 +72,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
@@ -102,6 +105,7 @@ public class TestingTrinoClient
             .append(timestampFormat)
             .appendPattern(" VV")
             .toFormatter();
+    private static final VariantWriter JSON_VARIANT_WRITER = VariantWriter.create(JSON);
 
     public TestingTrinoClient(TestingTrinoServer trinoServer, Session defaultSession)
     {
@@ -329,6 +333,9 @@ public class TestingTrinoClient
         if (type == JSON) {
             //noinspection RedundantCast
             return (String) value;
+        }
+        if (type == VARIANT) {
+            return JSON_VARIANT_WRITER.write(Slices.utf8Slice((String) value));
         }
         if (type instanceof ArrayType arrayType) {
             return ((List<?>) value).stream()

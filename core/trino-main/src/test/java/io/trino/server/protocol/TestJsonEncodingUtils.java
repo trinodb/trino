@@ -33,6 +33,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.spi.variant.Variant;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -67,6 +68,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -404,6 +406,24 @@ public class TestJsonEncodingUtils
         Page page = page(blockBuilder.build());
         assertThat(roundTrip(columns, page, "[[[true,false,true,false,true,null]]]").getFirst())
                 .containsExactly(array(true, false, true, false, true, null));
+    }
+
+    @Test
+    public void testVariantSerialization()
+            throws IOException
+    {
+        List<TypedColumn> columns = ImmutableList.of(typed("col0", VARIANT));
+        var blockBuilder = VARIANT.createBlockBuilder(null, 3);
+        blockBuilder.appendNull();
+        VARIANT.writeObject(blockBuilder, Variant.ofObject(Map.of(
+                utf8Slice("a"), Variant.ofInt(1),
+                utf8Slice("b"), Variant.ofArray(List.of(Variant.ofBoolean(true), Variant.NULL_VALUE)))));
+        VARIANT.writeObject(blockBuilder, Variant.NULL_VALUE);
+        Block block = blockBuilder.build();
+
+        Page page = page(block);
+        assertThat(roundTrip(columns, page, "[[null],[{\"a\":1,\"b\":[true,null]}],[null]]"))
+                .isEqualTo(column(null, "{\"a\":1,\"b\":[true,null]}", null));
     }
 
     @Test
