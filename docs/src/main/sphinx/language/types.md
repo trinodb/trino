@@ -187,6 +187,7 @@ Binary literals ignore any whitespace characters. For example, the literal
 Binary strings with length are not yet supported: `varbinary(n)`
 :::
 
+(json-data-type)=
 ### `JSON`
 
 JSON value type, which can be a JSON object, a JSON array, a JSON number, a JSON string,
@@ -196,6 +197,44 @@ JSON value type, which can be a JSON object, a JSON array, a JSON number, a JSON
 ## Date and time
 
 See also {doc}`/functions/datetime`
+
+(variant-data-type)=
+### `VARIANT`
+
+A semi-structured value type. A `VARIANT` value can represent any of the following:
+
+- object (key-value structure)
+- array
+- string
+- number (integer, decimal, and floating-point)
+- boolean
+- null
+- date and time values
+
+`VARIANT` is designed for working with semi-structured data efficiently, and is
+commonly used with connectors and file formats that support a native variant type.
+
+`VARIANT` differs from {ref}`json-data-type` in that it preserves the full
+underlying value type, rather than reducing values to a limited set of JSON
+types.
+
+Examples:
+```sql
+SELECT typeof(CAST(JSON '{"a": 1, "b": [true, null]}' AS VARIANT));
+-- variant
+
+SELECT CAST(CAST(JSON '123' AS VARIANT) AS BIGINT);
+-- 123
+```
+
+`VARIANT` follows the [Apache Iceberg Variant specification](https://github.com/apache/parquet-format/blob/master/VariantEncoding.md).
+Trino implements this specification directly, including its type system, value
+encoding, and semantics.
+
+This ensures consistent behavior when reading and writing variant values across
+systems that support the same specification.
+
+See also {doc}`/functions/variant`
 
 (date-data-type)=
 ### `DATE`
