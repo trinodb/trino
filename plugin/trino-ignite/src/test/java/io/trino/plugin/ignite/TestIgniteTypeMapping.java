@@ -335,7 +335,6 @@ public class TestIgniteTypeMapping
                 .build();
 
         assertQueryFails("CREATE TABLE test_unsupported_date_range_ctas (data) AS SELECT DATE '1582-10-05'", "Date must be between 1970-01-01 and 9999-12-31 in Ignite.*");
-        assertUpdate("DROP TABLE IF EXISTS test_unsupported_date_range_ctas");
 
         List<String> unsupportedDateValues = ImmutableList.of("-0001-01-01", "0001-01-01", "1000-01-01", "1969-12-31", "10000-01-01");
         try (TestTable table = new TestTable(igniteServer::execute, "test_unsupported_date_range", "(id int primary key, data date)")) {
