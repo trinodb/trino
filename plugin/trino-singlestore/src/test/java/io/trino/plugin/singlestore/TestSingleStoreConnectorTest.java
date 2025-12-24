@@ -125,6 +125,14 @@ public class TestSingleStoreConnectorTest
             case "time" -> Optional.empty();
             case "timestamp(3) with time zone", "timestamp(6) with time zone" -> Optional.of(dataMappingTestSetup.asUnsupported());
             // TODO this should either work or fail cleanly
+            case "date" -> {
+                // The connector supports date type, but value less than `1000-01-01` are unsupported in SingleStore
+                // See BaseSingleStoreTypeMapping for additional test coverage
+                if (dataMappingTestSetup.getSampleValueLiteral().equals("DATE '0001-01-01'")) {
+                    yield Optional.empty();
+                }
+                yield Optional.of(dataMappingTestSetup);
+            }
             case "timestamp" -> Optional.empty();
             // TODO fails due to case insensitive UTF-8 comparisons
             case "varchar" -> Optional.empty();
@@ -312,22 +320,48 @@ public class TestSingleStoreConnectorTest
                 .isNotFullyPushedDown(AggregationNode.class);
     }
 
+    /**
+     * Overrides the test to account for join pushdown behavior, where column
+     * aliases may have additional suffix characters appended.
+     * <p>
+     * The maximum identifier length is therefore reduced by 2 to ensure generated
+     * column aliases remain within the allowed limit after join pushdown.
+     */
+    @Test
+    @Override
+    public void testJoinPushdownWithLongIdentifiers()
+    {
+        String baseColumnName = "col";
+        int maxLength = maxColumnNameLength().orElseThrow() - 2; // 2 extra chars for column alias name when join is pushed down
+
+        String validColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
+        try (TestTable left = newTrinoTable("test_long_id_l", format("(%s BIGINT)", validColumnName));
+                TestTable right = newTrinoTable("test_long_id_r", format("(%s BIGINT)", validColumnName))) {
+            assertThat(query(joinPushdownEnabled(getSession()),
+                    """
+                    SELECT l.%1$s, r.%1$s
+                    FROM %2$s l JOIN %3$s r ON l.%1$s = r.%1$s\
+                    """.formatted(validColumnName, left.getName(), right.getName())))
+                    .isFullyPushedDown();
+        }
+    }
+
     @Test
     @Override
     public void testCreateTableAsSelectNegativeDate()
     {
-        // TODO (https://github.com/trinodb/trino/issues/10320) SingleStore stores '0000-00-00' when inserted negative dates and it throws an exception during reading the row
+        // In latest versions SingleStore throws error when inserting invalid dates
         assertThatThrownBy(super::testCreateTableAsSelectNegativeDate)
-                .hasStackTraceContaining("TrinoException: Driver returned null LocalDate for a non-null value");
+                .hasStackTraceContaining("Invalid DATE/TIME in type conversion for column 'dt'");
     }
 
     @Test
     @Override
     public void testInsertNegativeDate()
     {
-        // TODO (https://github.com/trinodb/trino/issues/10320) SingleStore stores '0000-00-00' when inserted negative dates and it throws an exception during reading the row
+        // In latest versions SingleStore throws error when inserting invalid dates
         assertThatThrownBy(super::testInsertNegativeDate)
-                .hasStackTraceContaining("TrinoException: Driver returned null LocalDate for a non-null value");
+                .hasStackTraceContaining("Invalid DATE/TIME in type conversion for column 'dt'");
     }
 
     @Test
@@ -357,6 +391,17 @@ public class TestSingleStoreConnectorTest
                     .nonTrinoExceptionFailure().hasMessageContaining("descriptor has no fields");
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
         }
+    }
+
+    @Test
+    @Override
+    public void testDateYearOfEraPredicate()
+    {
+        // Override because the connector throws an exception instead of an empty result when the value is out of supported range
+        assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
+        assertQueryFails(
+                "SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'",
+                "(.*)Invalid DATE/TIME in type conversion");
     }
 
     /**
@@ -404,19 +449,19 @@ public class TestSingleStoreConnectorTest
     @Override
     protected OptionalInt maxTableNameLength()
     {
-        return OptionalInt.of(64);
+        return OptionalInt.of(256);
     }
 
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("Incorrect table name");
+        assertThat(e).hasMessageContaining("Object name cannot have more than 256 characters");
     }
 
     @Override
     protected OptionalInt maxColumnNameLength()
     {
-        return OptionalInt.of(64);
+        return OptionalInt.of(256);
     }
 
     @Override
