@@ -17,8 +17,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.LongVariableConstraint;
 import io.trino.spi.function.Signature;
@@ -30,7 +32,6 @@ import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.type.FunctionType;
-import io.trino.type.JsonType;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
 
@@ -47,10 +48,13 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
+import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
+import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.metadata.SignatureBinder.RelationshipType.EXACT;
 import static io.trino.metadata.SignatureBinder.RelationshipType.EXPLICIT_COERCION_FROM;
 import static io.trino.metadata.SignatureBinder.RelationshipType.EXPLICIT_COERCION_TO;
 import static io.trino.metadata.SignatureBinder.RelationshipType.IMPLICIT_COERCION;
+import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.type.TypeCalculation.calculateLiteralValue;
 import static io.trino.type.TypeCoercion.isCovariantTypeBase;
@@ -598,7 +602,8 @@ public class SignatureBinder
 
     private boolean canCast(Type fromType, Type toType)
     {
-        if (toType instanceof UnknownType) {
+        // NULL can be cast to any type; avoid re-entering coercion cache.
+        if (fromType instanceof UnknownType || toType instanceof UnknownType) {
             return true;
         }
         if (fromType instanceof RowType) {
@@ -615,14 +620,14 @@ public class SignatureBinder
                 }
                 return true;
             }
-            if (toType instanceof JsonType) {
+            if (isRecursiveCastFromRow(toType)) {
                 return fromType.getTypeParameters().stream()
                         .allMatch(fromTypeParameter -> canCast(fromTypeParameter, toType));
             }
             return false;
         }
-        if (fromType instanceof JsonType) {
-            if (toType instanceof RowType) {
+        if (toType instanceof RowType) {
+            if (isRecursiveCastToRow(fromType)) {
                 return toType.getTypeParameters().stream()
                         .allMatch(toTypeParameter -> canCast(fromType, toTypeParameter));
             }
@@ -634,6 +639,59 @@ public class SignatureBinder
         catch (TrinoException e) {
             return false;
         }
+    }
+
+    /// Check if there is a recursive variadic CAST from ROW.
+    /// This needs special handling because the cast is applied to each field of ROW individually.
+    private boolean isRecursiveCastFromRow(Type toType)
+    {
+        for (CatalogFunctionMetadata cast : metadata.getFunctions(null, new CatalogSchemaFunctionName(GlobalSystemConnector.NAME, BUILTIN_SCHEMA, mangleOperatorName(CAST)))) {
+            Signature signature = cast.functionMetadata().getSignature();
+            // the return type must match toType
+            if (!toType.getTypeSignature().equals(signature.getReturnType())) {
+                continue;
+            }
+
+            // there must be exactly one type variable constraint and no long variable constraints
+            if (signature.getTypeVariableConstraints().size() != 1 || !signature.getLongVariableConstraints().isEmpty()) {
+                continue;
+            }
+            TypeVariableConstraint typeVariableConstraint = signature.getTypeVariableConstraints().getFirst();
+
+            // The argument type must be a type variable with variadic bound of "row"
+            if (signature.getArgumentTypes().size() == 1 &&
+                    signature.getArgumentTypes().getFirst().getBase().equals(typeVariableConstraint.getName()) &&
+                    typeVariableConstraint.isRowType()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// Check if there is a recursive variadic CAST to ROW.
+    /// This needs special handling because the cast is applied to each field of ROW individually.
+    private boolean isRecursiveCastToRow(Type fromType)
+    {
+        for (CatalogFunctionMetadata cast : metadata.getFunctions(null, new CatalogSchemaFunctionName(GlobalSystemConnector.NAME, BUILTIN_SCHEMA, mangleOperatorName(CAST)))) {
+            Signature signature = cast.functionMetadata().getSignature();
+            // the argument type must match fromType
+            if (signature.getArgumentTypes().size() != 1 || !fromType.getTypeSignature().equals(signature.getArgumentTypes().getFirst())) {
+                continue;
+            }
+
+            // there must be exactly one type variable constraint and no long variable constraints
+            if (signature.getTypeVariableConstraints().size() != 1 || !signature.getLongVariableConstraints().isEmpty()) {
+                continue;
+            }
+            TypeVariableConstraint typeVariableConstraint = signature.getTypeVariableConstraints().getFirst();
+
+            // The return type must be a type variable with variadic bound of "row"
+            if (signature.getReturnType().getBase().equals(typeVariableConstraint.getName()) &&
+                    typeVariableConstraint.isRowType()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static List<TypeSignature> getLambdaArgumentTypeSignatures(TypeSignature lambdaTypeSignature)
