@@ -379,11 +379,27 @@ public class NimbusOAuth2Client
                 throws ChallengeFailedException
         {
             try {
-                IDTokenClaimsSet idToken = idTokenValidator.validate(
-                        tokens.getIDToken(),
-                        nonce.map(this::hashNonce)
-                                .map(Nonce::new)
-                                .orElse(null));
+                // Try validating with nonce first
+                IDTokenClaimsSet idToken;
+                try {
+                    idToken = idTokenValidator.validate(
+                            tokens.getIDToken(),
+                            nonce.map(this::hashNonce)
+                                    .map(Nonce::new)
+                                    .orElse(null));
+                }
+                catch (BadJOSEException e) {
+                    // Some OAuth providers (e.g., SAP XSUAA) return ID tokens without nonce claims
+                    // even when OIDC is used. Fall back to validation without nonce.
+                    if (nonce.isPresent() && e.getMessage() != null && e.getMessage().contains("nonce")) {
+                        LOG.warn("ID token validation failed with nonce, retrying without nonce. Provider may not support nonce parameter.");
+                        idToken = idTokenValidator.validate(tokens.getIDToken(), null);
+                    }
+                    else {
+                        throw e;
+                    }
+                }
+
                 AccessTokenHash accessTokenHash = idToken.getAccessTokenHash();
                 if (accessTokenHash != null) {
                     AccessTokenValidator.validate(tokens.getAccessToken(), ((JWSHeader) tokens.getIDToken().getHeader()).getAlgorithm(), accessTokenHash);
