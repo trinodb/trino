@@ -7,7 +7,8 @@
 Apache Iceberg is an open table format for huge analytic datasets. The Iceberg
 connector allows querying data stored in files written in Iceberg format, as
 defined in the [Iceberg Table Spec](https://iceberg.apache.org/spec/). The
-connector supports Apache Iceberg table spec versions 1 and 2.
+connector supports Apache Iceberg table spec versions 1 and 2. Support for
+version 3 is experimental.
 
 The table state is maintained in metadata files. All changes to table
 state create a new metadata file and replace the old metadata with an atomic
@@ -323,6 +324,8 @@ the following table:
   - `VARBINARY`
 * - `FIXED (L)`
   - `VARBINARY`
+* - `VARIANT`
+  - `VARIANT`
 * - `STRUCT(...)`
   - `ROW(...)`
 * - `LIST(e)`
@@ -370,12 +373,20 @@ the following table:
   - `UUID`
 * - `VARBINARY`
   - `BINARY`
+* - `VARIANT`
+  - `VARIANT`
 * - `ROW(...)`
   - `STRUCT(...)`
 * - `ARRAY(e)`
   - `LIST(e)`
 * - `MAP(k,v)`
   - `MAP(k,v)`
+:::
+
+:::{note}
+Iceberg `VARIANT` is supported only for tables using Iceberg format version `3`
+or higher. To create a table with `VARIANT` columns, set
+`format_version = 3` in the `WITH` clause. The default is `2`.
 :::
 
 No other types are supported.
@@ -1040,8 +1051,9 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
   - Optionally specifies the file system location URI for the table.
 * - `format_version`
   - Optionally specifies the format version of the Iceberg specification to use
-    for new tables; either `1` or `2`. Defaults to `2`. Version `2` is required
-    for row level deletes.
+    for new tables; `1`, `2`, or `3`. Defaults to `2`. Version `2` is required
+    for row level deletes. Version `3` is required for tables containing
+    `VARIANT` columns.
 * - `max_commit_retry`
   - Number of times to retry a commit before failing. Defaults to the value of 
     the `iceberg.max-commit-retry` catalog configuration property, which 
