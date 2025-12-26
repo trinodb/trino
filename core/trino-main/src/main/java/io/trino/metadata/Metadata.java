@@ -54,6 +54,7 @@ import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.connector.WriterScalingOptions;
@@ -339,6 +340,7 @@ public interface Metadata
      * Drops the specified table
      *
      * @throws RuntimeException if the table cannot be dropped or table handle is no longer valid
+     * @throws TableNotFoundException if the table not exists
      */
     void dropTable(Session session, TableHandle tableHandle, CatalogSchemaTableName tableName);
 
