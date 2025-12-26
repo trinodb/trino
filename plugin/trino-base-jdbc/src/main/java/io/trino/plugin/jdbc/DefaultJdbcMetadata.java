@@ -1275,7 +1275,7 @@ public class DefaultJdbcMetadata
             }
         }
         if (!exceptions.isEmpty()) {
-            TrinoException trinoException = new TrinoException(JDBC_ERROR, "Error rollback for merge");
+            TrinoException trinoException = new TrinoException(JDBC_ERROR, "Error rollback");
             exceptions.forEach(trinoException::addSuppressed);
             throw trinoException;
         }
