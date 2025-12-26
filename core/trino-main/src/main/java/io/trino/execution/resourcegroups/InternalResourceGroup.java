@@ -33,13 +33,14 @@ import org.weakref.jmx.Nested;
 
 import java.time.Duration;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -84,6 +85,7 @@ public class InternalResourceGroup
     private final ResourceGroupId id;
     private final BiConsumer<InternalResourceGroup, Boolean> jmxExportListener;
     private final Executor executor;
+    private final AtomicBoolean resourceUsageStagingInProgress;
 
     // Configuration
     // =============
@@ -122,12 +124,10 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private Queue<InternalResourceGroup> eligibleSubGroups = new FifoQueue<>();
     // Sub groups whose memory usage may be out of date. Most likely because they have a running query.
-    @GuardedBy("root")
-    private final Set<InternalResourceGroup> dirtySubGroups = new HashSet<>();
+    private final Set<InternalResourceGroup> dirtySubGroups = ConcurrentHashMap.newKeySet();
     @GuardedBy("root")
     private UpdateablePriorityQueue<ManagedQueryExecution> queuedQueries = new FifoQueue<>();
-    @GuardedBy("root")
-    private final Map<ManagedQueryExecution, ResourceUsage> runningQueries = new HashMap<>();
+    private final Map<ManagedQueryExecution, StagedResourceUsage> runningQueries = new ConcurrentHashMap<>();
     @GuardedBy("root")
     private int descendantRunningQueries;
     @GuardedBy("root")
@@ -154,10 +154,12 @@ public class InternalResourceGroup
         if (parent.isPresent()) {
             id = new ResourceGroupId(parent.get().id, name);
             root = parent.get().root;
+            resourceUsageStagingInProgress = root.resourceUsageStagingInProgress;
         }
         else {
             id = new ResourceGroupId(name);
             root = this;
+            resourceUsageStagingInProgress = new AtomicBoolean();
         }
     }
 
@@ -743,7 +745,7 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock to start a query");
         synchronized (root) {
-            runningQueries.put(query, ZERO);
+            runningQueries.put(query, StagedResourceUsage.zero());
             InternalResourceGroup group = this;
             group.getStartedQueries().update(1);
             while (group.parent.isPresent()) {
@@ -760,13 +762,63 @@ public class InternalResourceGroup
 
     public void updateGroupsAndProcessQueuedQueries()
     {
-        synchronized (root) {
-            updateResourceUsageAndGetDelta();
+        boolean acquired = acquireResourceUsageStaging();
+        if (acquired) {
+            try {
+                // Resource usage updates use a two-phase algorithm to keep stats consistent across the
+                // entire resource group tree while minimizing lock contention:
+                //
+                // 1. Staging (without root lock): Read current usage from queries into "staged" slot.
+                //    This step is expensive as it aggregates stats across stages and tasks.
+                //
+                // 2. Applying deltas (with root lock): Compute delta = staged - current, update current,
+                //    and propagate deltas up the group hierarchy to root.
+                stageResourceUsage();
+                synchronized (root) {
+                    updateResourceUsageAndGetDelta();
+                }
+            }
+            finally {
+                releaseResourceUsageStaging();
+            }
+        }
 
+        synchronized (root) {
             while (internalStartNext()) {
                 // start all the queries we can
             }
         }
+    }
+
+    private void stageResourceUsage()
+    {
+        for (Map.Entry<ManagedQueryExecution, StagedResourceUsage> entry : runningQueries.entrySet()) {
+            ManagedQueryExecution query = entry.getKey();
+            StagedResourceUsage resourceUsage = entry.getValue();
+
+            ResourceUsage newResourceUsage = new ResourceUsage(
+                    query.getTotalCpuTime().toMillis(),
+                    query.getTotalMemoryReservation().toBytes(),
+                    query.getBasicQueryInfo().getQueryStats().getPhysicalInputDataSize().toBytes());
+            resourceUsage.stage(newResourceUsage);
+        }
+
+        for (InternalResourceGroup subGroup : dirtySubGroups) {
+            subGroup.stageResourceUsage();
+        }
+    }
+
+    private boolean acquireResourceUsageStaging()
+    {
+        if (resourceUsageStagingInProgress.get()) {
+            return false;
+        }
+        return resourceUsageStagingInProgress.compareAndSet(false, true);
+    }
+
+    private void releaseResourceUsageStaging()
+    {
+        resourceUsageStagingInProgress.set(false);
     }
 
     public void generateQuotas(long elapsedSeconds)
@@ -786,23 +838,24 @@ public class InternalResourceGroup
 
     private void queryFinished(ManagedQueryExecution query)
     {
+        // CPU and data scan are measured cumulatively (i.e. total CPU & physical input data used until this moment by the query).
+        // Memory is measured instantaneously (how much memory the query is using at this moment). At query completion, memory usage drops to zero.
+        ResourceUsage finalUsage = new ResourceUsage(
+                query.getTotalCpuTime().toMillis(),
+                0L,
+                query.getBasicQueryInfo().getQueryStats().getPhysicalInputDataSize().toBytes());
+
         synchronized (root) {
             if (!runningQueries.containsKey(query) && !queuedQueries.contains(query)) {
                 // Query has already been cleaned up
                 return;
             }
 
-            ResourceUsage lastUsage = runningQueries.get(query);
+            StagedResourceUsage lastUsage = runningQueries.get(query);
 
             // The query is present in runningQueries
             if (lastUsage != null) {
-                // CPU and data scan are measured cumulatively (i.e. total CPU & physical input data used until this moment by the query).
-                // Memory is measured instantaneously (how much memory the query is using at this moment). At query completion, memory usage drops to zero.
-                ResourceUsage finalUsage = new ResourceUsage(
-                        query.getTotalCpuTime().toMillis(),
-                        0L,
-                        query.getBasicQueryInfo().getQueryStats().getPhysicalInputDataSize().toBytes());
-                ResourceUsage delta = finalUsage.subtract(lastUsage);
+                ResourceUsage delta = finalUsage.subtract(lastUsage.getCurrent());
 
                 runningQueries.remove(query);
 
@@ -831,8 +884,9 @@ public class InternalResourceGroup
             }
 
             updateEligibility();
-            root.triggerProcessQueuedQueries();
         }
+
+        root.triggerProcessQueuedQueries();
     }
 
     private ResourceUsage updateResourceUsageAndGetDelta()
@@ -841,18 +895,13 @@ public class InternalResourceGroup
         synchronized (root) {
             ResourceUsage groupUsageDelta = ZERO;
 
-            for (Map.Entry<ManagedQueryExecution, ResourceUsage> entry : runningQueries.entrySet()) {
-                ManagedQueryExecution query = entry.getKey();
-                ResourceUsage oldResourceUsage = entry.getValue();
-
-                ResourceUsage newResourceUsage = new ResourceUsage(
-                        query.getTotalCpuTime().toMillis(),
-                        query.getTotalMemoryReservation().toBytes(),
-                        query.getBasicQueryInfo().getQueryStats().getPhysicalInputDataSize().toBytes());
+            for (StagedResourceUsage resourceUsage : runningQueries.values()) {
+                ResourceUsage oldResourceUsage = resourceUsage.getCurrent();
+                ResourceUsage newResourceUsage = resourceUsage.getStaged();
 
                 // Compute delta and update usage
                 ResourceUsage queryUsageDelta = newResourceUsage.subtract(oldResourceUsage);
-                entry.setValue(newResourceUsage);
+                resourceUsage.promoteStagedToCurrent();
                 groupUsageDelta = groupUsageDelta.add(queryUsageDelta);
             }
 
@@ -1078,5 +1127,42 @@ public class InternalResourceGroup
     public int hashCode()
     {
         return Objects.hash(id);
+    }
+
+    private static class StagedResourceUsage
+    {
+        private volatile ResourceUsage currentResourceUsage;
+        private volatile ResourceUsage stagedResourceUsage;
+
+        private StagedResourceUsage()
+        {
+            this.currentResourceUsage = ZERO;
+            this.stagedResourceUsage = ZERO;
+        }
+
+        public static StagedResourceUsage zero()
+        {
+            return new StagedResourceUsage();
+        }
+
+        public ResourceUsage getCurrent()
+        {
+            return currentResourceUsage;
+        }
+
+        public ResourceUsage getStaged()
+        {
+            return stagedResourceUsage;
+        }
+
+        public void promoteStagedToCurrent()
+        {
+            currentResourceUsage = stagedResourceUsage;
+        }
+
+        public void stage(ResourceUsage resourceUsage)
+        {
+            stagedResourceUsage = requireNonNull(resourceUsage, "resourceUsage is null");
+        }
     }
 }
