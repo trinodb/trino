@@ -288,6 +288,14 @@ final class TestDuckDbConnectorTest
                 .hasStackTraceContaining("Table with name %s does not exist", tableName);
     }
 
+    @Test
+    @Override
+    public void testDropTableIfExistsConcurrently()
+    {
+        assertThatThrownBy(super::testDropTableIfExistsConcurrently)
+                .hasMessageMatching(".*TransactionContext Error: Catalog write-write conflict on alter with.*|.*Table with name.* does not exist.*");
+    }
+
     @Override
     protected SqlExecutor onRemoteDatabase()
     {

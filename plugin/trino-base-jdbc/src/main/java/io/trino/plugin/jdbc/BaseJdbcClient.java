@@ -1450,13 +1450,37 @@ public abstract class BaseJdbcClient
     public void dropTable(ConnectorSession session, JdbcTableHandle handle)
     {
         verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s", handle);
-        dropTable(session, handle.asPlainTable().getRemoteTableName(), false);
+        dropTable(session, handle.asPlainTable().getRemoteTableName(), handle.asPlainTable().getSchemaTableName(), false);
     }
 
     protected void dropTable(ConnectorSession session, RemoteTableName remoteTableName, boolean temporaryTable)
     {
+        dropTable(session, remoteTableName, remoteTableName.getSchemaTableName(), temporaryTable);
+    }
+
+    protected void dropTable(ConnectorSession session, RemoteTableName remoteTableName, SchemaTableName schemaTableName, boolean temporaryTable)
+    {
         String sql = "DROP TABLE " + quoted(remoteTableName);
-        execute(session, sql);
+        try {
+            execute(session, sql);
+        }
+        catch (Throwable e) {
+            if (!(e instanceof TrinoException exception)) {
+                throw e;
+            }
+            if (isTableNotFoundException(exception)) {
+                throw new TableNotFoundException(schemaTableName);
+            }
+            throw exception;
+        }
+    }
+
+    protected boolean isTableNotFoundException(TrinoException exception)
+    {
+        if (exception.getCause() instanceof SQLException sqlException) {
+            return "42S02".equals(sqlException.getSQLState());
+        }
+        return false;
     }
 
     @Override
