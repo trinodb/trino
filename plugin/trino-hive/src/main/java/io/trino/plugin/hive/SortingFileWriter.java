@@ -19,13 +19,6 @@ import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInputFile;
-import io.trino.orc.OrcDataSink;
-import io.trino.orc.OrcDataSource;
-import io.trino.orc.OrcDataSourceId;
-import io.trino.orc.OrcReaderOptions;
-import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
-import io.trino.plugin.hive.orc.HdfsOrcDataSource;
 import io.trino.plugin.hive.util.MergingPageIterator;
 import io.trino.plugin.hive.util.SortBuffer;
 import io.trino.plugin.hive.util.TempFileReader;
@@ -75,7 +68,6 @@ public final class SortingFileWriter
     private final List<SortOrder> sortOrders;
     private final FileWriter outputWriter;
     private final SortBuffer sortBuffer;
-    private final TempFileSinkFactory tempFileSinkFactory;
     private final Queue<TempFile> tempFiles = new PriorityQueue<>(comparing(TempFile::size));
     private final AtomicLong nextFileId = new AtomicLong();
     private final TypeOperators typeOperators;
@@ -93,8 +85,7 @@ public final class SortingFileWriter
             List<Integer> sortFields,
             List<SortOrder> sortOrders,
             PageSorter pageSorter,
-            TypeOperators typeOperators,
-            TempFileSinkFactory tempFileSinkFactory)
+            TypeOperators typeOperators)
     {
         checkArgument(maxOpenTempFiles >= 2, "maxOpenTempFiles must be at least two");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
@@ -105,7 +96,6 @@ public final class SortingFileWriter
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
         this.outputWriter = requireNonNull(outputWriter, "outputWriter is null");
         this.sortBuffer = new SortBuffer(maxMemory, types, sortFields, sortOrders, pageSorter);
-        this.tempFileSinkFactory = requireNonNull(tempFileSinkFactory, "tempFileSinkFactory is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
     }
 
@@ -234,15 +224,9 @@ public final class SortingFileWriter
             Collection<Iterator<Page>> iterators = new ArrayList<>();
 
             for (TempFile tempFile : files) {
-                TrinoInputFile inputFile = fileSystem.newInputFile(tempFile.location());
-                OrcDataSource dataSource = new HdfsOrcDataSource(
-                        new OrcDataSourceId(tempFile.location().toString()),
-                        inputFile.length(),
-                        new OrcReaderOptions(),
-                        inputFile,
-                        new FileFormatDataSourceStats());
-                closer.register(dataSource);
-                iterators.add(new TempFileReader(types, dataSource));
+                TempFileReader reader = new TempFileReader(types, fileSystem, tempFile.location());
+                closer.register(reader);
+                iterators.add(reader);
             }
 
             new MergingPageIterator(iterators, types, sortFields, sortOrders, typeOperators)
@@ -261,7 +245,7 @@ public final class SortingFileWriter
     {
         Location tempFile = getTempFileName();
 
-        try (TempFileWriter writer = new TempFileWriter(types, tempFileSinkFactory.createSink(fileSystem, tempFile))) {
+        try (TempFileWriter writer = new TempFileWriter(types, fileSystem, tempFile)) {
             consumer.accept(writer);
             writer.close();
             tempFiles.add(new TempFile(tempFile, writer.getWrittenBytes()));
@@ -295,11 +279,5 @@ public final class SortingFileWriter
             checkArgument(size >= 0, "size is negative");
             requireNonNull(location, "location is null");
         }
-    }
-
-    public interface TempFileSinkFactory
-    {
-        OrcDataSink createSink(TrinoFileSystem fileSystem, Location location)
-                throws IOException;
     }
 }

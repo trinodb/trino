@@ -25,6 +25,7 @@ import com.google.errorprone.annotations.Immutable;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.lang.String.format;
 
@@ -101,12 +102,31 @@ public class ClientTypeSignatureParameter
 
     public ClientTypeSignature getTypeSignature()
     {
-        return getValue(ParameterKind.TYPE, ClientTypeSignature.class);
+        switch (kind) {
+            case NAMED_TYPE:
+                return getNamedTypeSignature().getTypeSignature();
+            case TYPE:
+                return (ClientTypeSignature) value;
+            default:
+                throw new IllegalArgumentException(format("Parameter kind is [%s]", kind));
+        }
     }
 
     public Long getLongLiteral()
     {
         return getValue(ParameterKind.LONG, Long.class);
+    }
+
+    public Optional<String> getName()
+    {
+        switch (kind) {
+            case NAMED_TYPE:
+                return getNamedTypeSignature().getName();
+            case TYPE:
+                return Optional.empty();
+            default:
+                throw new IllegalArgumentException(format("Parameter kind is [%s]", kind));
+        }
     }
 
     public NamedClientTypeSignature getNamedTypeSignature()

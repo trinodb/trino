@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.slice.Slice;
@@ -29,14 +30,18 @@ import io.trino.spi.Page;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogVersion;
 import io.trino.spi.exchange.ExchangeId;
+import io.trino.spi.type.Type;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.util.Ciphers;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 
+import java.util.List;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.SystemSessionProperties.isSourcePagesValidationEnabled;
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -55,6 +60,7 @@ public class ExchangeOperator
         private final PagesSerdeFactory serdeFactory;
         private final RetryPolicy retryPolicy;
         private final ExchangeManagerRegistry exchangeManagerRegistry;
+        private final List<Type> types;
         private ExchangeDataSource exchangeDataSource;
         private boolean closed;
 
@@ -67,7 +73,8 @@ public class ExchangeOperator
                 DirectExchangeClientSupplier directExchangeClientSupplier,
                 PagesSerdeFactory serdeFactory,
                 RetryPolicy retryPolicy,
-                ExchangeManagerRegistry exchangeManagerRegistry)
+                ExchangeManagerRegistry exchangeManagerRegistry,
+                List<Type> types)
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
@@ -75,6 +82,7 @@ public class ExchangeOperator
             this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
             this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         }
 
         @Override
@@ -115,6 +123,13 @@ public class ExchangeOperator
                     noMoreSplitsTracker,
                     operatorInstanceId);
             noMoreSplitsTracker.operatorAdded(operatorInstanceId);
+
+            if (isSourcePagesValidationEnabled(operatorContext.getSession())) {
+                return new OutputValidatingSourceOperator(
+                        exchangeOperator,
+                        types,
+                        () -> "ExchangeOperator(%s); taskId=%s; operatorId=%s".formatted(sourceId, operatorContext.getDriverContext().getTaskId(), operatorContext.getOperatorId()));
+            }
             return exchangeOperator;
         }
 

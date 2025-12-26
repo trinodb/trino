@@ -33,6 +33,8 @@ import static java.util.Collections.singletonList;
 public final class VarcharType
         extends AbstractVariableWidthType
 {
+    public static final String NAME = "varchar";
+
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = TypeOperatorDeclaration.builder(Slice.class)
             .addOperators(DEFAULT_READ_OPERATORS)
             .addOperators(DEFAULT_COMPARABLE_OPERATORS)
@@ -75,8 +77,8 @@ public final class VarcharType
     {
         super(
                 new TypeSignature(
-                        StandardTypes.VARCHAR,
-                        singletonList(TypeSignatureParameter.numericParameter(length))),
+                        NAME,
+                        singletonList(TypeParameter.numericParameter(length))),
                 Slice.class);
 
         if (length < 0) {
@@ -104,6 +106,12 @@ public final class VarcharType
     public boolean isUnbounded()
     {
         return length == UNBOUNDED_LENGTH;
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME + (isUnbounded() ? "" : "(" + length + ")");
     }
 
     @Override

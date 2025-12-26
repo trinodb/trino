@@ -86,7 +86,7 @@ public abstract class TarDownloadingJdkProvider
                     String downloadUri = getDownloadUri(architecture.imageArch());
                     String fullName = "JDK distribution '%s' for %s".formatted(getDescription(), architecture.imageArch());
 
-                    verify(!isNullOrEmpty(downloadUri), "There is no download uri for " + fullName);
+                    verify(!isNullOrEmpty(downloadUri), "There is no download uri for %s", fullName);
                     Path targetDownloadPath = downloadPath.resolve(getName() + "-" + architecture.imageArch().toString().toLowerCase(ENGLISH) + ".tar.gz");
                     Path extractPath = downloadPath.resolve(getName() + "-" + architecture.imageArch().toString().toLowerCase(ENGLISH));
 

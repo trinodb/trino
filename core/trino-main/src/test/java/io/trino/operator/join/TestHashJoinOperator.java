@@ -30,6 +30,7 @@ import io.trino.execution.TaskStateMachine;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorAssertion;
 import io.trino.operator.OperatorContext;
@@ -116,13 +117,13 @@ public class TestHashJoinOperator
     private static final int PARTITION_COUNT = 4;
     private static final SingleStreamSpillerFactory SINGLE_STREAM_SPILLER_FACTORY = new DummySpillerFactory();
     private static final PartitioningSpillerFactory PARTITIONING_SPILLER_FACTORY = new GenericPartitioningSpillerFactory(SINGLE_STREAM_SPILLER_FACTORY);
-    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
     private static final long SMALL_MEMORY_POOL_BYTES = DataSize.of(1, DataSize.Unit.MEGABYTE).toBytes();
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
+    private static final NullSafeHashCompiler HASH_COMPILER = new NullSafeHashCompiler(new TypeOperators());
     private final PartitionFunctionProvider partitionFunctionProvider = new PartitionFunctionProvider(
-            TYPE_OPERATORS,
+            HASH_COMPILER,
             CatalogServiceProvider.fail());
 
     @AfterAll
@@ -252,7 +253,7 @@ public class TestHashJoinOperator
                 Optional.empty(),
                 OptionalInt.of(1),
                 PARTITIONING_SPILLER_FACTORY,
-                TYPE_OPERATORS);
+                HASH_COMPILER);
 
         instantiateBuildDrivers(buildSideSetup, taskContext);
         buildLookupSource(executor, buildSideSetup);
@@ -1209,7 +1210,7 @@ public class TestHashJoinOperator
                 ImmutableList.of(BIGINT),
                 1,
                 false,
-                TYPE_OPERATORS);
+                HASH_COMPILER);
         try (HashBuilderOperator operator = new HashBuilderOperator(
                 operatorContext,
                 lookupSourceFactory,
@@ -1284,7 +1285,7 @@ public class TestHashJoinOperator
                 ImmutableList.of(BIGINT),
                 2,
                 false,
-                TYPE_OPERATORS);
+                HASH_COMPILER);
 
         try (HashBuilderOperator operator = new HashBuilderOperator(
                 operatorContext,
@@ -1355,7 +1356,7 @@ public class TestHashJoinOperator
                 ImmutableList.of(VARCHAR),
                 2,
                 false,
-                TYPE_OPERATORS);
+                HASH_COMPILER);
 
         try (HashBuilderOperator operator = new HashBuilderOperator(
                 operatorContext,
@@ -1427,7 +1428,7 @@ public class TestHashJoinOperator
                 Optional.empty(),
                 OptionalInt.of(1),
                 PARTITIONING_SPILLER_FACTORY,
-                TYPE_OPERATORS);
+                HASH_COMPILER);
 
         // drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1470,7 +1471,7 @@ public class TestHashJoinOperator
                 Optional.empty(),
                 OptionalInt.of(1),
                 PARTITIONING_SPILLER_FACTORY,
-                TYPE_OPERATORS);
+                HASH_COMPILER);
 
         // drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1519,7 +1520,7 @@ public class TestHashJoinOperator
                 Optional.empty(),
                 OptionalInt.of(1),
                 PARTITIONING_SPILLER_FACTORY,
-                TYPE_OPERATORS);
+                HASH_COMPILER);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1571,7 +1572,7 @@ public class TestHashJoinOperator
                 Optional.empty(),
                 OptionalInt.of(1),
                 PARTITIONING_SPILLER_FACTORY,
-                TYPE_OPERATORS);
+                HASH_COMPILER);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1622,7 +1623,7 @@ public class TestHashJoinOperator
                 Optional.empty(),
                 OptionalInt.of(1),
                 PARTITIONING_SPILLER_FACTORY,
-                TYPE_OPERATORS);
+                HASH_COMPILER);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1746,7 +1747,7 @@ public class TestHashJoinOperator
                 Optional.empty(),
                 OptionalInt.of(1),
                 PARTITIONING_SPILLER_FACTORY,
-                TYPE_OPERATORS);
+                HASH_COMPILER);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1773,7 +1774,7 @@ public class TestHashJoinOperator
                 Optional.empty(),
                 OptionalInt.of(1),
                 PARTITIONING_SPILLER_FACTORY,
-                TYPE_OPERATORS);
+                HASH_COMPILER);
     }
 
     private DriverTestContext createDriverTestContext()

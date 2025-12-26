@@ -15,6 +15,11 @@ package io.trino.plugin.lakehouse;
 
 import org.junit.jupiter.api.Test;
 
+import static io.trino.plugin.deltalake.DeltaLakeTableType.DATA;
+import static io.trino.plugin.deltalake.DeltaLakeTableType.HISTORY;
+import static io.trino.plugin.deltalake.DeltaLakeTableType.PARTITIONS;
+import static io.trino.plugin.deltalake.DeltaLakeTableType.PROPERTIES;
+import static io.trino.plugin.deltalake.DeltaLakeTableType.TRANSACTIONS;
 import static io.trino.plugin.lakehouse.TableType.DELTA;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -58,5 +63,28 @@ public class TestLakehouseDeltaConnectorSmokeTest
                    location = \\E's3://test-bucket-.*/tpch/region.*'\\Q,
                    type = 'DELTA'
                 )\\E""");
+    }
+
+    @Test
+    void testSelectMetadataTable()
+    {
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$history\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$transactions\"")).matches("VALUES (CAST(1 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$properties\"")).matches("VALUES (CAST(3 AS BIGINT))");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$partitions\"")).matches("VALUES (CAST(0 AS BIGINT))");
+
+        // This test should get updated if a new system table is added
+        assertThat(io.trino.plugin.deltalake.DeltaLakeTableType.values())
+                .containsExactly(
+                        DATA,
+                        HISTORY,
+                        TRANSACTIONS,
+                        PROPERTIES,
+                        PARTITIONS);
+
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$files\""))
+                .failure().hasMessageMatching(".* Table .* does not exist");
+        assertThat(query("SELECT count(*) FROM lakehouse.tpch.\"region$timeline\""))
+                .failure().hasMessageMatching(".* Table .* does not exist");
     }
 }

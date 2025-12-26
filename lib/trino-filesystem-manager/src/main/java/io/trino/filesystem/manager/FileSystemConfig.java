@@ -84,10 +84,10 @@ public class FileSystemConfig
         return nativeGcsEnabled;
     }
 
-    @Config("fs.native-local.enabled")
-    public FileSystemConfig setNativeLocalEnabled(boolean nativeLocalEnabled)
+    @Config("fs.native-gcs.enabled")
+    public FileSystemConfig setNativeGcsEnabled(boolean nativeGcsEnabled)
     {
-        this.nativeLocalEnabled = nativeLocalEnabled;
+        this.nativeGcsEnabled = nativeGcsEnabled;
         return this;
     }
 
@@ -96,10 +96,10 @@ public class FileSystemConfig
         return nativeLocalEnabled;
     }
 
-    @Config("fs.native-gcs.enabled")
-    public FileSystemConfig setNativeGcsEnabled(boolean nativeGcsEnabled)
+    @Config("fs.native-local.enabled")
+    public FileSystemConfig setNativeLocalEnabled(boolean nativeLocalEnabled)
     {
-        this.nativeGcsEnabled = nativeGcsEnabled;
+        this.nativeLocalEnabled = nativeLocalEnabled;
         return this;
     }
 

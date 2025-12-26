@@ -18,7 +18,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.matching.Property;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 
 import java.util.List;
 import java.util.Objects;
@@ -98,7 +98,7 @@ public class SimpleTypePattern
         return Property.property("baseName", Type::getBaseName);
     }
 
-    private static Property<Type, ?, TypeSignatureParameter> parameter(int i)
+    private static Property<Type, ?, TypeParameter> parameter(int i)
     {
         return Property.property(format("parameter(%s)", i), type -> type.getTypeSignature().getParameters().get(i));
     }

@@ -32,6 +32,9 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.Binding;
 import io.trino.sql.gen.CallSiteBinder;
@@ -339,7 +342,7 @@ public class InColumnarFilterGenerator
         // https://github.com/trinodb/trino/issues/17213
         // Until we support HASH_SWITCH strategy for code generation here, we treat structural type as an unsupported case
         // and fall back to existing expression evaluator for small lists
-        if (!type.getTypeParameters().isEmpty()) {
+        if (type instanceof ArrayType || type instanceof MapType || type instanceof RowType) {
             throw new UnsupportedOperationException("Structural type not supported");
         }
         if (values.size() >= 8) {

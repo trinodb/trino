@@ -309,6 +309,7 @@ public abstract class TestAvroBase
             }
         }
 
+        RowType type = (RowType) new BaseAvroTypeBlockHandler().typeFor(schema);
         try (AvroFileWriter fileWriter = new AvroFileWriter(
                 trinoLocalFilesystem.newOutputFile(temp2).create(),
                 schema,
@@ -316,7 +317,8 @@ public abstract class TestAvroBase
                 compressionKind,
                 ImmutableMap.of(),
                 schema.getFields().stream().map(Schema.Field::name).collect(toImmutableList()),
-                new BaseAvroTypeBlockHandler().typeFor(schema).getTypeParameters(), false)) {
+                type.getFieldTypes(),
+                false)) {
             for (Page p : pages.build()) {
                 fileWriter.write(p);
             }

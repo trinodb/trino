@@ -1967,7 +1967,7 @@ class QueryPlanner
 
         for (WindowOperation windowMeasure : scopeAwareDistinct(subPlan, windowMeasures)) {
             ResolvedWindow window = analysis.getWindow(windowMeasure);
-            checkState(window != null, "no resolved window for: " + windowMeasure);
+            checkState(window != null, "no resolved window for: %s", windowMeasure);
 
             // pre-project inputs
             ImmutableList.Builder<io.trino.sql.tree.Expression> inputsBuilder = ImmutableList.<io.trino.sql.tree.Expression>builder()

@@ -39,6 +39,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.CallSiteBinder;
@@ -128,8 +129,8 @@ public class RowToRowCast
     @Override
     public FunctionDependencyDeclaration getFunctionDependencies(BoundSignature boundSignature)
     {
-        List<Type> toTypes = boundSignature.getReturnType().getTypeParameters();
-        List<Type> fromTypes = boundSignature.getArgumentType(0).getTypeParameters();
+        List<Type> toTypes = ((RowType) boundSignature.getReturnType()).getFieldTypes();
+        List<Type> fromTypes = ((RowType) boundSignature.getArgumentType(0)).getFieldTypes();
 
         FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
         for (int i = 0; i < toTypes.size(); i++) {
@@ -143,9 +144,9 @@ public class RowToRowCast
     @Override
     public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        Type fromType = boundSignature.getArgumentType(0);
-        Type toType = boundSignature.getReturnType();
-        if (fromType.getTypeParameters().size() != toType.getTypeParameters().size()) {
+        RowType fromType = (RowType) boundSignature.getArgumentType(0);
+        RowType toType = (RowType) boundSignature.getReturnType();
+        if (fromType.getFieldTypes().size() != toType.getFieldTypes().size()) {
             throw new TrinoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "the size of fromType and toType must match");
         }
         Class<?> castOperatorClass = generateRowCast(fromType, toType, functionDependencies);
@@ -157,10 +158,10 @@ public class RowToRowCast
                 methodHandle);
     }
 
-    private static Class<?> generateRowCast(Type fromType, Type toType, FunctionDependencies functionDependencies)
+    private static Class<?> generateRowCast(RowType fromType, RowType toType, FunctionDependencies functionDependencies)
     {
-        List<Type> toTypes = toType.getTypeParameters();
-        List<Type> fromTypes = fromType.getTypeParameters();
+        List<Type> toTypes = toType.getFieldTypes();
+        List<Type> fromTypes = fromType.getFieldTypes();
 
         CallSiteBinder binder = new CallSiteBinder();
 

@@ -55,6 +55,7 @@ import java.util.function.LongConsumer;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.trino.SystemSessionProperties.isSourcePagesValidationEnabled;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.WorkProcessor.TransformationState.finished;
 import static io.trino.operator.WorkProcessor.TransformationState.ofResult;
@@ -88,7 +89,6 @@ public class ScanFilterAndProjectOperator
             PageProcessor pageProcessor,
             TableHandle table,
             List<ColumnHandle> columns,
-            List<Type> columnTypes,
             DynamicFilter dynamicFilter,
             List<Type> types,
             DataSize minOutputPageSize,
@@ -102,7 +102,6 @@ public class ScanFilterAndProjectOperator
                         pageProcessor,
                         table,
                         columns,
-                        columnTypes,
                         dynamicFilter,
                         types,
                         memoryTrackingContext.aggregateUserMemoryContext(),
@@ -187,7 +186,6 @@ public class ScanFilterAndProjectOperator
         final PageProcessor pageProcessor;
         final TableHandle table;
         final List<ColumnHandle> columns;
-        final List<Type> columnTypes;
         final DynamicFilter dynamicFilter;
         final List<Type> types;
         final LocalMemoryContext memoryContext;
@@ -204,7 +202,6 @@ public class ScanFilterAndProjectOperator
                 PageProcessor pageProcessor,
                 TableHandle table,
                 List<ColumnHandle> columns,
-                List<Type> columnTypes,
                 DynamicFilter dynamicFilter,
                 List<Type> types,
                 AggregatedMemoryContext aggregatedMemoryContext,
@@ -217,7 +214,6 @@ public class ScanFilterAndProjectOperator
             this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-            this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
             this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.memoryContext = aggregatedMemoryContext.newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
@@ -247,7 +243,7 @@ public class ScanFilterAndProjectOperator
                 source = new EmptyPageSource();
             }
             else {
-                source = pageSourceProvider.createPageSource(session, split, table, columns, columnTypes, dynamicFilter);
+                source = pageSourceProvider.createPageSource(session, split, table, columns, dynamicFilter);
             }
 
             pageSource = source;
@@ -362,7 +358,6 @@ public class ScanFilterAndProjectOperator
         private final PageSourceProvider pageSourceProvider;
         private final TableHandle table;
         private final List<ColumnHandle> columns;
-        private final List<Type> columnTypes;
         private final DynamicFilter dynamicFilter;
         private final List<Type> types;
         private final DataSize minOutputPageSize;
@@ -377,7 +372,6 @@ public class ScanFilterAndProjectOperator
                 Function<DynamicFilter, PageProcessor> pageProcessor,
                 TableHandle table,
                 List<ColumnHandle> columns,
-                List<Type> columnTypes,
                 DynamicFilter dynamicFilter,
                 List<Type> types,
                 DataSize minOutputPageSize,
@@ -389,7 +383,6 @@ public class ScanFilterAndProjectOperator
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-            this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
             this.dynamicFilter = dynamicFilter;
             this.types = requireNonNull(types, "types is null");
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
@@ -426,7 +419,16 @@ public class ScanFilterAndProjectOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, Optional.of(sourceId), getOperatorType());
-            return new WorkProcessorSourceOperatorAdapter(operatorContext, this);
+
+            WorkProcessorSourceOperatorAdapter operator = new WorkProcessorSourceOperatorAdapter(operatorContext, this);
+
+            if (isSourcePagesValidationEnabled(operatorContext.getSession())) {
+                return new OutputValidatingSourceOperator(
+                        operator,
+                        types,
+                        () -> "ScanFilterAndProjectOperator(%s); taskId=%s; operatorId=%s".formatted(table, operatorContext.getDriverContext().getTaskId(), operatorContext.getOperatorId()));
+            }
+            return operator;
         }
 
         @Override
@@ -445,7 +447,6 @@ public class ScanFilterAndProjectOperator
                     pageProcessor.apply(dynamicFilter),
                     table,
                     columns,
-                    columnTypes,
                     dynamicFilter,
                     types,
                     minOutputPageSize,

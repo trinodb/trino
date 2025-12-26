@@ -229,11 +229,6 @@ public final class FlatHash
         }
     }
 
-    public void computeHashes(Block[] blocks, long[] hashes, int offset, int length)
-    {
-        flatHashStrategy.hashBlocksBatched(blocks, hashes, offset, length);
-    }
-
     public int putIfAbsent(Block[] blocks, int position)
     {
         long hash = flatHashStrategy.hash(blocks, position);

@@ -784,9 +784,10 @@ class StageList extends React.Component {
             )
         }
 
-        const renderedStages = stages.map((stage) => (
-            <StageSummary key={stage.stageId} stage={stage} taskRetriesEnabled={taskRetriesEnabled} />
-        ))
+        const renderedStages = stages
+            .slice()
+            .sort((stageA, stageB) => getStageNumber(stageA.stageId) - getStageNumber(stageB.stageId))
+            .map((stage) => <StageSummary key={stage.stageId} stage={stage} taskRetriesEnabled={taskRetriesEnabled} />)
 
         return (
             <div className="row">

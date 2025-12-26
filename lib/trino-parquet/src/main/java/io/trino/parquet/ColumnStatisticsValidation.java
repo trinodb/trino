@@ -44,9 +44,17 @@ class ColumnStatisticsValidation
     public ColumnStatisticsValidation(Type type)
     {
         this.type = requireNonNull(type, "type is null");
-        this.fieldBuilders = type.getTypeParameters().stream()
-                .map(ColumnStatisticsValidation::new)
-                .collect(toImmutableList());
+        this.fieldBuilders = switch (type) {
+            case ArrayType arrayType -> ImmutableList.of(new ColumnStatisticsValidation(arrayType.getElementType()));
+            case MapType mapType -> ImmutableList.of(
+                    new ColumnStatisticsValidation(mapType.getKeyType()),
+                    new ColumnStatisticsValidation(mapType.getValueType()));
+            case RowType rowType -> rowType.getFields().stream()
+                    .map(RowType.Field::getType)
+                    .map(ColumnStatisticsValidation::new)
+                    .collect(toImmutableList());
+            default -> ImmutableList.of();
+        };
     }
 
     public void addBlock(Block block)

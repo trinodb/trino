@@ -54,6 +54,7 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
         "deprecated.legacy-timestamp",
         "deprecated.legacy-unnest-array-rows",
         "deprecated.legacy-update-delete-implementation",
+        "deprecated.omit-datetime-type-precision",
         "experimental-syntax-enabled",
         "experimental.aggregation-operator-unspill-memory-limit",
         "experimental.filter-and-project-min-output-page-row-count",
@@ -82,6 +83,14 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
 })
 public class FeaturesConfig
 {
+    public enum DataIntegrityVerification
+    {
+        NONE,
+        ABORT,
+        RETRY,
+        /**/;
+    }
+
     @VisibleForTesting
     public static final String SPILLER_SPILL_PATH = "spiller-spill-path";
 
@@ -96,7 +105,6 @@ public class FeaturesConfig
     private CompressionCodec exchangeCompressionCodec = NONE;
     private boolean exchangeVectorizedSerdeEnabled = true;
     private boolean pagesIndexEagerCompactionEnabled;
-    private boolean omitDateTimeTypePrecision;
     private int maxRecursionDepth = 10;
 
     private int re2JDfaStatesLimit = Integer.MAX_VALUE;
@@ -125,27 +133,6 @@ public class FeaturesConfig
     private boolean faultTolerantExecutionExchangeEncryptionEnabled = true;
 
     private boolean legacyArithmeticDecimalOperators;
-
-    public enum DataIntegrityVerification
-    {
-        NONE,
-        ABORT,
-        RETRY,
-        /**/;
-    }
-
-    public boolean isOmitDateTimeTypePrecision()
-    {
-        return omitDateTimeTypePrecision;
-    }
-
-    @Config("deprecated.omit-datetime-type-precision")
-    @ConfigDescription("Enable compatibility mode for legacy clients when rendering datetime type names with default precision")
-    public FeaturesConfig setOmitDateTimeTypePrecision(boolean value)
-    {
-        this.omitDateTimeTypePrecision = value;
-        return this;
-    }
 
     public boolean isRedistributeWrites()
     {

@@ -111,9 +111,8 @@ public final class TestingUnnesterUtil
 
             if (type instanceof ArrayType arrayType) {
                 Type elementType = arrayType.getElementType();
-                if (elementType instanceof RowType) {
-                    List<Type> rowTypes = elementType.getTypeParameters();
-                    Block[] blocks = buildExpectedUnnestedArrayOfRowBlock(inputBlock, rowTypes, maxCardinalities, totalEntries);
+                if (elementType instanceof RowType rowType) {
+                    Block[] blocks = buildExpectedUnnestedArrayOfRowBlock(inputBlock, rowType.getFieldTypes(), maxCardinalities, totalEntries);
                     for (Block block : blocks) {
                         outputBlocks[outputChannel++] = block;
                     }
@@ -146,9 +145,8 @@ public final class TestingUnnesterUtil
         for (Type unnestType : unnestTypes) {
             if (unnestType instanceof ArrayType arrayType) {
                 Type elementType = arrayType.getElementType();
-                if (elementType instanceof RowType) {
-                    List<Type> rowTypes = elementType.getTypeParameters();
-                    outputTypes.addAll(rowTypes);
+                if (elementType instanceof RowType rowType) {
+                    outputTypes.addAll(rowType.getFieldTypes());
                 }
                 else {
                     outputTypes.add(elementType);

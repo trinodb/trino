@@ -208,6 +208,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
+import static io.trino.testing.TestingMetadata.STALE_MV_STALENESS;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -5797,6 +5798,22 @@ public class TestAnalyzer
     public void testAnalyzeFreshMaterializedView()
     {
         analyze("SELECT * FROM fresh_materialized_view");
+        analyze("SELECT * FROM fresh_materialized_view_non_existent_table");
+        assertFails("REFRESH MATERIALIZED VIEW fresh_materialized_view_non_existent_table")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
+    }
+
+    @Test
+    public void testAnalyzeStaleMaterializedView()
+    {
+        analyze("SELECT * FROM stale_materialized_view");
+        assertFails("SELECT * FROM stale_materialized_view_non_existent_table")
+                .hasErrorCode(INVALID_VIEW)
+                .hasMessage("line 1:15: Failed analyzing stored view 'tpch.s1.stale_materialized_view_non_existent_table': line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
+        assertFails("REFRESH MATERIALIZED VIEW stale_materialized_view_non_existent_table")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:18: Table 'tpch.s1.non_existent_table' does not exist");
     }
 
     @Test
@@ -5832,6 +5849,23 @@ public class TestAnalyzer
                 accessControlManager)
                 .hasErrorCode(PERMISSION_DENIED)
                 .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.fresh_materialized_view");
+        accessControlManager.reset();
+
+        // Deny access to the table referenced by the underlying query
+        accessControlManager.denyIdentityTable((_, table) -> !"t1".equals(table));
+        // When an MV is fresh or within the grace period, analysis of the underlying query is not performed,
+        // so access control checks on the tables referenced by the query are not executed.
+        analyze(CLIENT_SESSION, "SELECT * FROM fresh_materialized_view", accessControlManager);
+        assertFails(CLIENT_SESSION, "REFRESH MATERIALIZED VIEW fresh_materialized_view", accessControlManager)
+                .hasErrorCode(PERMISSION_DENIED)
+                .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.t1");
+        // Now we check that when the MV is stale, access to the underlying tables is checked.
+        assertFails(CLIENT_SESSION, "SELECT * FROM stale_materialized_view", accessControlManager)
+                .hasErrorCode(PERMISSION_DENIED)
+                .hasMessage("Access Denied: View owner does not have sufficient privileges: View owner 'some user' cannot create view that selects from tpch.s1.t1");
+        assertFails(CLIENT_SESSION, "REFRESH MATERIALIZED VIEW stale_materialized_view", accessControlManager)
+                .hasErrorCode(PERMISSION_DENIED)
+                .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.t1");
     }
 
     @Test
@@ -8074,26 +8108,69 @@ public class TestAnalyzer
                         ImmutableList.of(new ColumnMetadata("a", BIGINT))),
                 FAIL));
 
+        MaterializedViewDefinition materializedView = new MaterializedViewDefinition(
+                "SELECT a, b FROM t1",
+                Optional.of(TPCH_CATALOG),
+                Optional.of("s1"),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
+                Optional.of(STALE_MV_STALENESS.minusHours(1)), // Minus 1 hour to make MVs not marked as fresh become stale immediately. This doesn’t affect those marked as fresh.
+                Optional.empty(),
+                Optional.empty(),
+                Identity.ofUser("some user"),
+                ImmutableList.of(),
+                // t3 has a, b column and hidden column x
+                Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3")));
+
         QualifiedObjectName freshMaterializedView = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view");
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedView,
-                new MaterializedViewDefinition(
-                        "SELECT a, b FROM t1",
-                        Optional.of(TPCH_CATALOG),
-                        Optional.of("s1"),
-                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Identity.ofUser("some user"),
-                        ImmutableList.of(),
-                        // t3 has a, b column and hidden column x
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3"))),
+                materializedView,
                 ImmutableMap.of(),
                 false,
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedView.asSchemaTableName());
+
+        QualifiedObjectName staleMaterializedView = new QualifiedObjectName(TPCH_CATALOG, "s1", "stale_materialized_view");
+        inSetupTransaction(session -> metadata.createMaterializedView(
+                session,
+                staleMaterializedView,
+                materializedView,
+                ImmutableMap.of(),
+                false,
+                false));
+
+        MaterializedViewDefinition materializedViewNonExistentTable = new MaterializedViewDefinition(
+                "SELECT a, b FROM non_existent_table",
+                Optional.of(TPCH_CATALOG),
+                Optional.of("s1"),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
+                Optional.of(STALE_MV_STALENESS.minusHours(1)), // Minus 1 hour to make MVs not marked as fresh become stale immediately. This doesn’t affect those marked as fresh.
+                Optional.empty(),
+                Optional.empty(),
+                Identity.ofUser("some user"),
+                ImmutableList.of(),
+                // t3 has a, b column and hidden column x
+                Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3")));
+
+        QualifiedObjectName freshMaterializedViewNonExistentTable = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_non_existent_table");
+        inSetupTransaction(session -> metadata.createMaterializedView(
+                session,
+                freshMaterializedViewNonExistentTable,
+                materializedViewNonExistentTable,
+                ImmutableMap.of(),
+                false,
+                false));
+        testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedViewNonExistentTable.asSchemaTableName());
+
+        QualifiedObjectName staleMaterializedViewNonExistentTable = new QualifiedObjectName(TPCH_CATALOG, "s1", "stale_materialized_view_non_existent_table");
+        inSetupTransaction(session -> metadata.createMaterializedView(
+                session,
+                staleMaterializedViewNonExistentTable,
+                materializedViewNonExistentTable,
+                ImmutableMap.of(),
+                false,
+                false));
 
         QualifiedObjectName freshMaterializedViewMismatchedColumnCount = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_count");
         inSetupTransaction(session -> metadata.createMaterializedView(

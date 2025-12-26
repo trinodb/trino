@@ -90,20 +90,17 @@ public class ProtobufRowEncoder
             return true;
         }
 
-        if (type instanceof ArrayType) {
-            checkArgument(type.getTypeParameters().size() == 1, "expecting exactly one type parameter for array");
-            return isSupportedType(type.getTypeParameters().get(0));
+        if (type instanceof ArrayType arrayType) {
+            return isSupportedType(arrayType.getElementType());
         }
 
-        if (type instanceof MapType) {
-            List<Type> typeParameters = type.getTypeParameters();
-            checkArgument(typeParameters.size() == 2, "expecting exactly two type parameters for map");
-            return isSupportedType(typeParameters.get(0)) && isSupportedType(typeParameters.get(1));
+        if (type instanceof MapType mapType) {
+            return isSupportedType(mapType.getKeyType()) && isSupportedType(mapType.getValueType());
         }
 
         if (type instanceof RowType rowType) {
             checkArgument(rowType.getFields().stream().allMatch(field -> field.getName().isPresent()), "expecting name for field in rows");
-            for (Type fieldType : type.getTypeParameters()) {
+            for (Type fieldType : rowType.getFieldTypes()) {
                 if (!isSupportedType(fieldType)) {
                     return false;
                 }
@@ -264,17 +261,17 @@ public class ProtobufRowEncoder
             checkArgument(value instanceof SqlTimestamp, "value should be an instance of SqlTimestamp");
             return encodeTimestamp((SqlTimestamp) value);
         }
-        if (type instanceof ArrayType) {
+        if (type instanceof ArrayType arrayType) {
             checkArgument(value instanceof List, "value should be an instance of List<Object>");
-            return encodeArray(fieldDescriptor, type, (List<Object>) value);
+            return encodeArray(fieldDescriptor, arrayType, (List<Object>) value);
         }
-        if (type instanceof MapType) {
+        if (type instanceof MapType mapType) {
             checkArgument(value instanceof Map, "value should be an instance of Map<Object, Object>");
-            return encodeMap(fieldDescriptor, type, (Map<Object, Object>) value);
+            return encodeMap(fieldDescriptor, mapType, (Map<Object, Object>) value);
         }
-        if (type instanceof RowType) {
+        if (type instanceof RowType rowType) {
             checkArgument(value instanceof List, "value should be an instance of List<Object>");
-            return encodeRow(fieldDescriptor, type, (List<Object>) value);
+            return encodeRow(fieldDescriptor, rowType, (List<Object>) value);
         }
         return value;
     }
@@ -293,14 +290,14 @@ public class ProtobufRowEncoder
         }
     }
 
-    private List<Object> encodeArray(FieldDescriptor fieldDescriptor, Type type, List<Object> value)
+    private List<Object> encodeArray(FieldDescriptor fieldDescriptor, ArrayType type, List<Object> value)
     {
         return value.stream()
-                .map(entry -> encodeObject(fieldDescriptor, type.getTypeParameters().get(0), entry))
+                .map(entry -> encodeObject(fieldDescriptor, type.getElementType(), entry))
                 .collect(toImmutableList());
     }
 
-    private List<DynamicMessage> encodeMap(FieldDescriptor fieldDescriptor, Type type, Map<Object, Object> value)
+    private List<DynamicMessage> encodeMap(FieldDescriptor fieldDescriptor, MapType type, Map<Object, Object> value)
     {
         Descriptor descriptor = fieldDescriptor.getMessageType();
         ImmutableList.Builder<DynamicMessage> dynamicMessageListBuilder = ImmutableList.builder();
@@ -311,27 +308,26 @@ public class ProtobufRowEncoder
                     builder,
                     encodeObject(
                             descriptor.findFieldByNumber(1),
-                            type.getTypeParameters().get(0),
+                            type.getKeyType(),
                             entry.getKey()));
             setField(
                     descriptor.findFieldByNumber(2),
                     builder,
                     encodeObject(
                             descriptor.findFieldByNumber(2),
-                            type.getTypeParameters().get(1),
+                            type.getValueType(),
                             entry.getValue()));
             dynamicMessageListBuilder.add(builder.build());
         }
         return dynamicMessageListBuilder.build();
     }
 
-    private DynamicMessage encodeRow(FieldDescriptor fieldDescriptor, Type type, List<Object> value)
+    private DynamicMessage encodeRow(FieldDescriptor fieldDescriptor, RowType type, List<Object> value)
     {
         Descriptor descriptor = fieldDescriptor.getMessageType();
         DynamicMessage.Builder builder = DynamicMessage.newBuilder(descriptor);
-        RowType rowType = (RowType) type;
         int index = 0;
-        for (RowType.Field field : rowType.getFields()) {
+        for (RowType.Field field : type.getFields()) {
             checkArgument(field.getName().isPresent(), "FieldName is absent");
             setField(
                     descriptor.findFieldByName(field.getName().get()),

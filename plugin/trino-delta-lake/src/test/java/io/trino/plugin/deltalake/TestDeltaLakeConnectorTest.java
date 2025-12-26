@@ -3045,7 +3045,7 @@ public class TestDeltaLakeConnectorTest
                 "EXPLAIN SELECT root.f2 FROM " + tableName,
                 "ScanProject\\[table = (.*)]",
                 "expr := root.1",
-                "root := root:row\\(f1 bigint, f2 bigint\\):REGULAR");
+                "root := root:row\\(\"f1\" bigint, \"f2\" bigint\\):REGULAR");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -3064,7 +3064,7 @@ public class TestDeltaLakeConnectorTest
                 "expr(.*) := .*\\$subscript\\(.*, bigint '1'\\).0",
                 "id(.*) := id:bigint:REGULAR",
                 // _array:array\\(row\\(child bigint\\)\\) is a symbol name, not a dereference expression.
-                "(.*) := _array:array\\(row\\(child bigint\\)\\):REGULAR",
+                "(.*) := _array:array\\(row\\(\"child\" bigint\\)\\):REGULAR",
                 "(.*) := _map:map\\(bigint, bigint\\):REGULAR",
                 "(.*) := _row#child:bigint:REGULAR");
     }
@@ -4409,29 +4409,6 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
-    public void testQueriesWithoutCheckpointFiltering()
-    {
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "false")
-                .build();
-
-        String tableName = "test_without_checkpoint_filtering_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (col INT) " +
-                "WITH (checkpoint_interval=3)");
-
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 1", 1);
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 2, 3", 2);
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 4, 5", 2);
-
-        assertQuery(session, "SELECT * FROM " + tableName, "VALUES 1, 2, 3, 4, 5");
-        assertUpdate(session, "UPDATE " + tableName + " SET col = 44 WHERE col = 4", 1);
-        assertUpdate(session, "DELETE FROM " + tableName + " WHERE col = 3", 1);
-        assertQuery(session, "SELECT * FROM " + tableName, "VALUES 1, 2, 44, 5");
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
     void testAddTimestampNtzColumnToCdfEnabledTable()
     {
         try (TestTable table = newTrinoTable("test_timestamp_ntz", "(x int) WITH (change_data_feed_enabled = true)")) {
@@ -4681,7 +4658,7 @@ public class TestDeltaLakeConnectorTest
         try (TestTable testTable = newTrinoTable(
                 "test_timestamp_coercion_on_create_table_as_with_row_type",
                 "AS SELECT CAST(row(%s) AS row(value timestamp(6))) ts".formatted(actualValue))) {
-            assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("row(value timestamp(6))");
+            assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("row(\"value\" timestamp(6))");
             assertThat(query("SELECT ts.value FROM " + testTable.getName()))
                     .skippingTypesCheck()
                     .matches("VALUES " + expectedValue);
@@ -4694,7 +4671,7 @@ public class TestDeltaLakeConnectorTest
         try (TestTable testTable = newTrinoTable(
                 "test_char_coercion_on_create_table_as_with_row_type",
                 "AS SELECT CAST(row(%s) AS row(value %s)) col".formatted(actualValue, actualTypeLiteral))) {
-            assertThat(getColumnType(testTable.getName(), "col")).isEqualTo("row(value varchar)");
+            assertThat(getColumnType(testTable.getName(), "col")).isEqualTo("row(\"value\" varchar)");
             assertThat(query("SELECT col.value FROM " + testTable.getName()))
                     .skippingTypesCheck()
                     .matches("VALUES " + expectedValue);
@@ -4847,7 +4824,7 @@ public class TestDeltaLakeConnectorTest
 
         testAddColumnWithTypeCoercion("array(char(10))", "array(varchar)");
         testAddColumnWithTypeCoercion("map(char(20), char(30))", "map(varchar, varchar)");
-        testAddColumnWithTypeCoercion("row(x char(40))", "row(x varchar)");
+        testAddColumnWithTypeCoercion("row(x char(40))", "row(\"x\" varchar)");
     }
 
     private void testAddColumnWithTypeCoercion(String columnType, String expectedColumnType)
@@ -5435,59 +5412,6 @@ public class TestDeltaLakeConnectorTest
             assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'", "VALUES 1");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2");
         }
-    }
-
-    @Test
-    public void testReadVersionedTableWithoutCheckpointFiltering()
-    {
-        String tableName = "test_without_checkpoint_filtering_" + randomNameSuffix();
-
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "false")
-                .build();
-
-        assertUpdate("CREATE TABLE " + tableName + "(col INT) WITH (checkpoint_interval = 3)");
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 1", 1);
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 2, 3", 2);
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 4, 5", 2);
-
-        assertQueryReturnsEmptyResult(session, "SELECT * FROM " + tableName + " FOR VERSION AS OF 0");
-        assertQuery(session, "SELECT * FROM " + tableName + " FOR VERSION AS OF 1", "VALUES 1");
-        assertQuery(session, "SELECT * FROM " + tableName + " FOR VERSION AS OF 2", "VALUES 1, 2, 3");
-        assertQuery(session, "SELECT * FROM " + tableName + " FOR VERSION AS OF 3", "VALUES 1, 2, 3, 4, 5");
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testReadTemporalVersionedTableWithoutCheckpointFiltering()
-    {
-        String tableName = "test_without_checkpoint_filtering_temporal_" + randomNameSuffix();
-
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "false")
-                .build();
-
-        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
-
-        assertUpdate("CREATE TABLE " + tableName + "(col INT) WITH (checkpoint_interval = 3)");
-        String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
-
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 1", 1);
-        String timeAfterInsert1 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
-
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 2, 3", 2);
-        String timeAfterInsert2 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
-
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 4, 5", 2);
-        String timeAfterInsert3 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
-
-        assertQueryReturnsEmptyResult(session, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'");
-        assertQuery(session, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert1 + "'", "VALUES 1");
-        assertQuery(session, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert2 + "'", "VALUES 1, 2, 3");
-        assertQuery(session, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert3 + "'", "VALUES 1, 2, 3, 4, 5");
-
-        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

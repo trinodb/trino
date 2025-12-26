@@ -82,8 +82,8 @@ After opening the project in IntelliJ, double check that the Java SDK is
 properly configured for the project:
 
 * Open the File menu and select Project Structure
-* In the SDKs section, ensure that JDK 24 is selected (create one if none exist)
-* In the Project section, ensure the Project language level is set to 24
+* In the SDKs section, ensure that JDK 25 is selected (create one if none exist)
+* In the Project section, ensure the Project language level is set to 25
 
 ### Running a testing server
 

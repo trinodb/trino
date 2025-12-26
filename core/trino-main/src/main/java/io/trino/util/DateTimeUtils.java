@@ -18,10 +18,12 @@ import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimeZoneKey;
+import io.trino.sql.tree.IntervalLiteral;
 import org.joda.time.DateTime;
 import org.joda.time.DurationFieldType;
 import org.joda.time.MutablePeriod;
 import org.joda.time.Period;
+import org.joda.time.PeriodType;
 import org.joda.time.ReadWritablePeriod;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -34,6 +36,7 @@ import org.joda.time.format.PeriodFormatterBuilder;
 import org.joda.time.format.PeriodParser;
 
 import java.time.DateTimeException;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,6 +49,10 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.sql.tree.IntervalLiteral.IntervalField;
+import static io.trino.sql.tree.IntervalLiteral.IntervalField.DAY;
+import static io.trino.sql.tree.IntervalLiteral.IntervalField.SECOND;
+import static io.trino.sql.tree.IntervalLiteral.Sign.NEGATIVE;
+import static io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE;
 import static io.trino.util.DateTimeZoneIndex.getChronology;
 import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static java.lang.Math.toIntExact;
@@ -254,6 +261,19 @@ public final class DateTimeUtils
         throw invalidQualifier(startField, endField.orElse(startField));
     }
 
+    public static IntervalLiteral formatDayTimeInterval(Duration duration)
+    {
+        long millis = duration.toMillis();
+        IntervalLiteral.Sign sign = millis < 0 ? NEGATIVE : POSITIVE;
+        Period period = new Period(Math.abs(millis)).normalizedStandard(PeriodType.dayTime());
+        // Always use INTERVAL DAY TO SECOND. The output is more verbose
+        // (e.g., "1 0:00:00" instead of "1"), but this avoids the need to
+        // determine the minimal field range and choose a specialized formatter.
+        String value = INTERVAL_DAY_SECOND_FORMATTER.print(period);
+
+        return new IntervalLiteral(value, sign, DAY, Optional.of(SECOND));
+    }
+
     private static long parsePeriodMillis(PeriodFormatter periodFormatter, String value)
     {
         Period period = parsePeriod(periodFormatter, value);
@@ -337,7 +357,12 @@ public final class DateTimeUtils
 
         List<PeriodParser> parsers = new ArrayList<>();
 
-        PeriodFormatterBuilder builder = new PeriodFormatterBuilder();
+        PeriodFormatterBuilder builder = new PeriodFormatterBuilder()
+                // Ensures zero-valued fields are printed instead of omitted. This affects printing only, not parsing.
+                // Example for INTERVAL HOUR TO SECOND:
+                //   With printZeroIfSupported():    "2:00:45"
+                //   Without printZeroIfSupported(): "2::45"
+                .printZeroIfSupported();
         switch (startField) {
             case YEAR:
                 builder.appendYears();
@@ -372,6 +397,12 @@ public final class DateTimeUtils
                     break;
                 }
                 builder.appendLiteral(":");
+                // Ensures fixed-width, zero-padded minutes. This affects printing only, not parsing.
+                // Applies to the next appended field (minutes).
+                // Example for INTERVAL HOUR TO MINUTE:
+                //   With minimumPrintedDigits(2): "2:05"
+                //   Without minimumPrintedDigits(2): "2:5"
+                builder.minimumPrintedDigits(2);
                 // fall through
 
             case MINUTE:
@@ -381,6 +412,12 @@ public final class DateTimeUtils
                     break;
                 }
                 builder.appendLiteral(":");
+                // Ensures fixed-width, zero-padded seconds. This affects printing only, not parsing.
+                // Applies to the next appended field (seconds).
+                // Example for INTERVAL HOUR TO SECOND:
+                //   With minimumPrintedDigits(2): "2:05:07"
+                //   Without minimumPrintedDigits(2): "2:05:7"
+                builder.minimumPrintedDigits(2);
                 // fall through
 
             case SECOND:

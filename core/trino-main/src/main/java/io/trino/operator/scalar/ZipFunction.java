@@ -24,8 +24,8 @@ import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -68,7 +68,7 @@ public final class ZipFunction
                         .typeVariableConstraints(typeParameters.stream().map(TypeVariableConstraint::typeVariable).collect(toImmutableList()))
                         .returnType(arrayType(rowType(typeParameters.stream()
                                 .map(TypeSignature::new)
-                                .map(TypeSignatureParameter::anonymousField)
+                                .map(TypeParameter::anonymousField)
                                 .collect(toImmutableList()))))
                         .argumentTypes(typeParameters.stream()
                                 .map(name -> arrayType(new TypeSignature(name)))

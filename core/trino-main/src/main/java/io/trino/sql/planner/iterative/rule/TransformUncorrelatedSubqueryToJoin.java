@@ -71,7 +71,8 @@ public class TransformUncorrelatedSubqueryToJoin
 
         checkState(
                 correlatedJoinNode.getType() == RIGHT || correlatedJoinNode.getType() == FULL,
-                "unexpected CorrelatedJoin type: " + correlatedJoinNode.getType());
+                "unexpected CorrelatedJoin type: %s",
+                correlatedJoinNode.getType());
 
         // handle RIGHT and FULL correlated join ON TRUE
         JoinType type;

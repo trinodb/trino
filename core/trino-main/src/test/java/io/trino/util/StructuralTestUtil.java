@@ -32,7 +32,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -71,15 +71,15 @@ public final class StructuralTestUtil
     public static MapType mapType(Type keyType, Type valueType)
     {
         return (MapType) TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
-                TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
+                TypeParameter.typeParameter(keyType.getTypeSignature()),
+                TypeParameter.typeParameter(valueType.getTypeSignature())));
     }
 
     public static SqlRow sqlRowOf(RowType rowType, Object... values)
     {
         return RowValueBuilder.buildRowValue(rowType, fieldBuilders -> {
             for (int i = 0; i < values.length; i++) {
-                appendToBlockBuilder(rowType.getTypeParameters().get(i), values[i], fieldBuilders.get(i));
+                appendToBlockBuilder(rowType.getFields().get(i).getType(), values[i], fieldBuilders.get(i));
             }
         });
     }
@@ -90,18 +90,18 @@ public final class StructuralTestUtil
         if (element == null) {
             blockBuilder.appendNull();
         }
-        else if (type instanceof ArrayType && element instanceof Iterable<?>) {
+        else if (type instanceof ArrayType arrayType && element instanceof Iterable<?>) {
             ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
                 for (Object subElement : (Iterable<?>) element) {
-                    appendToBlockBuilder(type.getTypeParameters().get(0), subElement, elementBuilder);
+                    appendToBlockBuilder(arrayType.getElementType(), subElement, elementBuilder);
                 }
             });
         }
-        else if (type instanceof RowType && element instanceof Iterable<?>) {
+        else if (type instanceof RowType rowType && element instanceof Iterable<?>) {
             ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
                 int field = 0;
                 for (Object subElement : (Iterable<?>) element) {
-                    appendToBlockBuilder(type.getTypeParameters().get(field), subElement, fieldBuilders.get(field));
+                    appendToBlockBuilder(rowType.getFields().get(field).getType(), subElement, fieldBuilders.get(field));
                     field++;
                 }
             });

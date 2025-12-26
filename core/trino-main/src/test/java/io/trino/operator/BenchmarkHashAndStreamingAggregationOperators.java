@@ -240,6 +240,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
         {
             SpillerFactory spillerFactory = (types, localSpillContext, aggregatedMemoryContext) -> null;
 
+            NullSafeHashCompiler hashCompiler = new NullSafeHashCompiler(TYPE_OPERATORS);
             return new HashAggregationOperatorFactory(
                     0,
                     new PlanNodeId("test"),
@@ -258,7 +259,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     succinctBytes(8),
                     succinctBytes(Integer.MAX_VALUE),
                     spillerFactory,
-                    new FlatHashStrategyCompiler(TYPE_OPERATORS),
+                    new FlatHashStrategyCompiler(TYPE_OPERATORS, hashCompiler),
                     Optional.empty());
         }
 

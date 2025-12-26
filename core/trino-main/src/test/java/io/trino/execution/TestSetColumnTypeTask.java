@@ -140,7 +140,7 @@ public class TestSetColumnTypeTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeSetColumnType(asQualifiedName(tableName), QualifiedName.of("col", "b"), toSqlType(INTEGER), false)))
                 .hasErrorCode(COLUMN_NOT_FOUND)
-                .hasMessageContaining("Field 'b' does not exist within row(a bigint)");
+                .hasMessageContaining("Field 'b' does not exist within row(\"a\" bigint)");
     }
 
     @Test
@@ -155,7 +155,7 @@ public class TestSetColumnTypeTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeSetColumnType(asQualifiedName(tableName), QualifiedName.of("col", "a"), toSqlType(INTEGER), false)))
                 .hasErrorCode(AMBIGUOUS_NAME)
-                .hasMessageContaining("Field path [col, a] within row(a bigint, a bigint) is ambiguous");
+                .hasMessageContaining("Field path [col, a] within row(\"a\" bigint, \"a\" bigint) is ambiguous");
     }
 
     private static ConnectorTableMetadata rowTable(QualifiedObjectName tableName, Field... fields)

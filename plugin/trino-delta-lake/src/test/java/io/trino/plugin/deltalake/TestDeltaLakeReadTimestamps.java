@@ -85,8 +85,7 @@ public class TestDeltaLakeReadTimestamps
     public static ZoneId getJvmTestTimeZone()
     {
         ZoneId zone = ZoneId.systemDefault();
-        checkState(TEST_TIME_ZONE.equals(zone), "Assumed JVM time zone was " +
-                TEST_TIME_ZONE.getId() + ", but found " + zone.getId());
+        checkState(TEST_TIME_ZONE.equals(zone), "Assumed JVM time zone was %s, but found %s", TEST_TIME_ZONE.getId(), zone.getId());
         return zone;
     }
 

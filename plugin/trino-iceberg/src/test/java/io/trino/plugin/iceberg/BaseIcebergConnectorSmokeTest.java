@@ -116,7 +116,7 @@ public abstract class BaseIcebergConnectorSmokeTest
                         "WITH \\(\n" +
                         "   format = '" + format.name() + "',\n" +
                         "   format_version = 2,\n" +
-                        format("   location = '.*/" + schemaName + "/region.*'\n") +
+                        "   location = '.*/" + schemaName + "/region.*'\n" +
                         "\\)");
     }
 
@@ -225,6 +225,18 @@ public abstract class BaseIcebergConnectorSmokeTest
         assertThat(query("SELECT a, b  FROM " + tableName + " FOR VERSION AS OF " + v1SnapshotId))
                 .matches("VALUES (BIGINT '42', -385e-1)");
 
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testRecreateTableWithSameName()
+    {
+        String tableName = "test_recreate_table_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'INDIA')");
+        assertUpdate("DROP TABLE " + tableName);
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 'Trino' data", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('Trino')");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -391,7 +403,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     public void testCreateTableWithTrailingSpaceInLocation()
     {
         String tableName = "test_create_table_with_trailing_space_" + randomNameSuffix();
-        String tableLocationWithTrailingSpace = schemaPath() + tableName + " ";
+        String tableLocationWithTrailingSpace = schemaPath() + "/" + tableName + " ";
 
         assertQuerySucceeds(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace));
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'INDIA', true)");
@@ -848,8 +860,8 @@ public abstract class BaseIcebergConnectorSmokeTest
         int metadataPreviousVersionCount = 5;
         String tableName = "test_metadata_delete_after_commit_enabled" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(_bigint BIGINT, _varchar VARCHAR)");
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES extra_properties = MAP(ARRAY['write.metadata.delete-after-commit.enabled'], ARRAY['true'])");
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES extra_properties = MAP(ARRAY['write.metadata.previous-versions-max'], ARRAY['" + metadataPreviousVersionCount + "'])");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES delete_after_commit_enabled = true");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES max_previous_versions = " + metadataPreviousVersionCount);
         String tableLocation = getTableLocation(tableName);
 
         Map<String, Long> historyMetadataFiles = getMetadataFileAndUpdatedMillis(fileSystem, tableLocation);

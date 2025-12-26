@@ -48,6 +48,7 @@ import static java.lang.invoke.MethodHandles.lookup;
 public final class TimeType
         extends AbstractLongType
 {
+    public static final String NAME = "time";
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(TimeType.class, lookup(), long.class);
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
@@ -72,7 +73,7 @@ public final class TimeType
 
     private TimeType(int precision)
     {
-        super(new TypeSignature(StandardTypes.TIME, TypeSignatureParameter.numericParameter(precision)));
+        super(new TypeSignature(NAME, TypeParameter.numericParameter(precision)));
         this.precision = precision;
     }
 
@@ -87,6 +88,12 @@ public final class TimeType
     public int getPrecision()
     {
         return precision;
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME + "(" + precision + ")";
     }
 
     @Override

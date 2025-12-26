@@ -43,7 +43,6 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.VersionParser;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.PageType;
@@ -78,8 +77,6 @@ import static io.trino.parquet.ParquetTestUtils.createParquetWriter;
 import static io.trino.parquet.ParquetTestUtils.generateInputPages;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
 import static io.trino.parquet.metadata.HiddenColumnChunkMetadata.isHiddenColumn;
-import static io.trino.parquet.writer.ParquetWriterOptions.DEFAULT_BLOOM_FILTER_FPP;
-import static io.trino.parquet.writer.ParquetWriters.BLOOM_FILTER_EXPECTED_ENTRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -447,9 +444,16 @@ public class TestParquetWriter
                 ParquetReaderOptions.defaultOptions());
 
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
-        // Check that bloom filters are right after each other
-        int bloomFilterSize = Integer.highestOneBit(BlockSplitBloomFilter.optimalNumOfBits(BLOOM_FILTER_EXPECTED_ENTRIES, DEFAULT_BLOOM_FILTER_FPP) / 8) << 1;
-        for (BlockMetadata block : parquetMetadata.getBlocks()) {
+        List<BlockMetadata> blocks = parquetMetadata.getBlocks();
+        assertThat(blocks.size()).isGreaterThan(1);
+
+        ColumnChunkMetadata lastRowGroupLastColumn = blocks.getLast().columns().getLast();
+        long lastColumnEndOffset = lastRowGroupLastColumn.getStartingPos() + lastRowGroupLastColumn.getTotalSize();
+        // First bloom filter should start after the data of the last row-group
+        assertThat(blocks.getFirst().columns().getFirst().getBloomFilterOffset()).isEqualTo(lastColumnEndOffset);
+
+        ImmutableList.Builder<Long> bloomFilterOffsetsBuilder = ImmutableList.builder();
+        for (BlockMetadata block : blocks) {
             for (int i = 0; i < block.columns().size(); i++) {
                 ColumnChunkMetadata chunkMetaData = block.columns().get(i);
                 assertThat(hasBloomFilter(chunkMetaData)).isTrue();
@@ -457,15 +461,20 @@ public class TestParquetWriter
                 assertThat(chunkMetaData.getEncodingStats().hasDictionaryEncodedPages()).isFalse();
                 assertThat(chunkMetaData.getEncodingStats().hasNonDictionaryEncodedPages()).isTrue();
 
-                if (i < block.columns().size() - 1) {
-                    assertThat(chunkMetaData.getBloomFilterOffset() + bloomFilterSize + 17) // + 17 bytes for Bloom filter metadata
-                            .isEqualTo(block.columns().get(i + 1).getBloomFilterOffset());
-                }
+                bloomFilterOffsetsBuilder.add(chunkMetaData.getBloomFilterOffset());
             }
         }
-        int rowGroupCount = parquetMetadata.getBlocks().size();
-        assertThat(rowGroupCount).isGreaterThanOrEqualTo(2);
+        // Check that bloom filters are right after each other
+        List<Long> bloomFilterOffsets = bloomFilterOffsetsBuilder.build();
+        int bloomFilterSize = 65536;
+        for (int i = 1; i < bloomFilterOffsets.size(); i++) {
+            long previousOffset = bloomFilterOffsets.get(i - 1);
+            long currentOffset = bloomFilterOffsets.get(i);
+            assertThat(currentOffset).isGreaterThan(previousOffset);
+            assertThat(currentOffset - previousOffset).isLessThanOrEqualTo(bloomFilterSize + 17); // + 17 bytes for Bloom filter metadata
+        }
 
+        int rowGroupCount = blocks.size();
         TupleDomain<String> predicate = TupleDomain.withColumnDomains(
                 ImmutableMap.of(
                         "columnA", Domain.singleValue(type, data.get(data.size() / 2))));

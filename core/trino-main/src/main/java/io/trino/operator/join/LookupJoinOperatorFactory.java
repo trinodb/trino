@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.trino.operator.HashGenerator;
 import io.trino.operator.JoinOperatorType;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.ProcessorContext;
 import io.trino.operator.WorkProcessor;
@@ -26,7 +27,6 @@ import io.trino.operator.join.JoinProbe.JoinProbeFactory;
 import io.trino.operator.join.LookupOuterOperator.LookupOuterOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -78,7 +78,7 @@ public class LookupJoinOperatorFactory
             List<Type> buildOutputTypes,
             JoinOperatorType joinOperatorType,
             JoinProbeFactory joinProbeFactory,
-            TypeOperators typeOperators,
+            NullSafeHashCompiler hashCompiler,
             OptionalInt totalOperatorsCount,
             List<Integer> probeJoinChannels,
             PartitioningSpillerFactory partitioningSpillerFactory)
@@ -112,7 +112,7 @@ public class LookupJoinOperatorFactory
         List<Type> hashTypes = probeJoinChannels.stream()
                 .map(probeTypes::get)
                 .collect(toImmutableList());
-        this.probeHashGenerator = createChannelsHashGenerator(hashTypes, Ints.toArray(probeJoinChannels), typeOperators);
+        this.probeHashGenerator = createChannelsHashGenerator(hashTypes, Ints.toArray(probeJoinChannels), hashCompiler);
 
         this.partitioningSpillerFactory = requireNonNull(partitioningSpillerFactory, "partitioningSpillerFactory is null");
     }

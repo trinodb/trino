@@ -42,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.trino.SystemSessionProperties.isSourcePagesValidationEnabled;
 import static java.util.Objects.requireNonNull;
 
 public class TableScanOperator
@@ -56,7 +57,7 @@ public class TableScanOperator
         private final PageSourceProvider pageSourceProvider;
         private final TableHandle table;
         private final List<ColumnHandle> columns;
-        private final List<Type> types;
+        private final List<Type> columnTypes;
         private final DynamicFilter dynamicFilter;
         private boolean closed;
 
@@ -66,8 +67,8 @@ public class TableScanOperator
                 PlanNodeId sourceId,
                 PageSourceProviderFactory pageSourceProvider,
                 TableHandle table,
-                Iterable<ColumnHandle> columns,
-                List<Type> types,
+                List<ColumnHandle> columns,
+                List<Type> columnTypes,
                 DynamicFilter dynamicFilter)
         {
             this.operatorId = operatorId;
@@ -75,7 +76,7 @@ public class TableScanOperator
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
             this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
             this.pageSourceProvider = pageSourceProvider.createPageSourceProvider(table.catalogHandle());
         }
@@ -91,14 +92,22 @@ public class TableScanOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, Optional.of(sourceId), TableScanOperator.class.getSimpleName());
-            return new TableScanOperator(
+
+            TableScanOperator operator = new TableScanOperator(
                     operatorContext,
                     sourceId,
                     pageSourceProvider,
                     table,
                     columns,
-                    types,
                     dynamicFilter);
+
+            if (isSourcePagesValidationEnabled(operatorContext.getSession())) {
+                return new OutputValidatingSourceOperator(
+                        operator,
+                        columnTypes,
+                        () -> "TableScanOperator(%s); taskId=%s; operatorId=%s".formatted(table, operatorContext.getDriverContext().getTaskId(), operatorContext.getOperatorId()));
+            }
+            return operator;
         }
 
         @Override
@@ -113,7 +122,6 @@ public class TableScanOperator
     private final PageSourceProvider pageSourceProvider;
     private final TableHandle table;
     private final List<ColumnHandle> columns;
-    private final List<Type> types;
     private final DynamicFilter dynamicFilter;
     private final LocalMemoryContext memoryContext;
     private final SettableFuture<Void> blocked = SettableFuture.create();
@@ -134,8 +142,7 @@ public class TableScanOperator
             PlanNodeId sourceId,
             PageSourceProvider pageSourceProvider,
             TableHandle table,
-            Iterable<ColumnHandle> columns,
-            List<Type> types,
+            List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
@@ -143,7 +150,6 @@ public class TableScanOperator
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.table = requireNonNull(table, "table is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         this.memoryContext = operatorContext.newLocalUserMemoryContext(TableScanOperator.class.getSimpleName());
     }
@@ -264,7 +270,7 @@ public class TableScanOperator
             if (!dynamicFilter.getCurrentPredicate().isAll()) {
                 operatorContext.recordDynamicFilterSplitProcessed(1L);
             }
-            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, types, dynamicFilter);
+            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, dynamicFilter);
         }
 
         SourcePage sourcePage = source.getNextSourcePage();

@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>332</version>
+        <version>334</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>479-SNAPSHOT</version>
+    <version>480-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -143,14 +143,14 @@
     <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">
         <connection>scm:git:git://github.com/trinodb/trino.git</connection>
         <developerConnection>scm:git:git@github.com:trinodb/trino.git</developerConnection>
-        <tag>476</tag>
+        <tag>479</tag>
         <url>https://github.com/trinodb/trino</url>
     </scm>
 
     <properties>
         <project.build.targetJdk>25</project.build.targetJdk>
         <!-- for reproducible build support, updated by release plugin -->
-        <project.build.outputTimestamp>2025-10-29T18:00:28Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2025-12-15T02:35:04Z</project.build.outputTimestamp>
         <!-- TODO remove this property when no module overrides it -->
         <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
 
@@ -186,28 +186,24 @@
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.1</dep.avro.version>
-        <dep.aws-sdk.version>1.12.794</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.796</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.8.0</dep.confluent.version>
         <dep.docker.images.version>119</dep.docker.images.version>
         <dep.drift.version>1.24</dep.drift.version>
-        <dep.flyway.version>11.17.2</dep.flyway.version>
+        <dep.flyway.version>11.19.0</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.4</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
-        <dep.gib.version>4.5.6</dep.gib.version>
         <dep.httpcore5.version>5.3.6</dep.httpcore5.version>
-        <dep.iceberg.version>1.10.0</dep.iceberg.version>
+        <dep.iceberg.version>1.10.1</dep.iceberg.version>
         <dep.jna.version>5.18.1</dep.jna.version>
         <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
-        <dep.kafka-clients.version>4.1.1</dep.kafka-clients.version>
         <dep.okhttp.version>5.3.2</dep.okhttp.version>
         <dep.okio.version>3.16.4</dep.okio.version>
         <dep.parquet.version>1.16.0</dep.parquet.version>
-        <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.8</dep.protobuf.version>
-        <dep.snowflake.version>3.27.1</dep.snowflake.version>
         <dep.swagger.version>2.2.41</dep.swagger.version>
         <dep.takari.version>2.3.2</dep.takari.version>
         <dep.tcnative.version>2.0.74.Final</dep.tcnative.version>
@@ -228,7 +224,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.3.2</version>
+                <version>1.3.3</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -284,7 +280,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.50.0</version>
+                <version>3.51.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -292,7 +288,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>2.0.2</version>
+                <version>2.0.3</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -300,7 +296,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.39.5</version>
+                <version>2.39.6</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -308,7 +304,7 @@
             <dependency>
                 <groupId>com.adobe.testing</groupId>
                 <artifactId>s3mock-testcontainers</artifactId>
-                <version>4.10.0</version>
+                <version>4.11.0</version>
             </dependency>
 
             <dependency>
@@ -447,7 +443,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>3.1.10</version>
+                <version>3.1.11</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
@@ -618,7 +614,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor-v3</artifactId>
-                <version>3.3</version>
+                <version>3.4</version>
             </dependency>
 
             <dependency>
@@ -913,13 +909,13 @@
             <dependency>
                 <groupId>io.projectreactor</groupId>
                 <artifactId>reactor-core</artifactId>
-                <version>3.8.0</version>
+                <version>3.8.1</version>
             </dependency>
 
             <dependency>
                 <groupId>io.projectreactor.netty</groupId>
                 <artifactId>reactor-netty-core</artifactId>
-                <version>1.3.0</version>
+                <version>1.3.1</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
@@ -1659,7 +1655,7 @@
             <dependency>
                 <groupId>net.snowflake</groupId>
                 <artifactId>snowflake-jdbc</artifactId>
-                <version>${dep.snowflake.version}</version>
+                <version>3.27.1</version>
             </dependency>
 
             <dependency>
@@ -1871,7 +1867,7 @@
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-text</artifactId>
-                <version>1.14.0</version>
+                <version>1.15.0</version>
             </dependency>
 
             <dependency>
@@ -1895,7 +1891,7 @@
             <dependency>
                 <groupId>org.apache.httpcomponents.client5</groupId>
                 <artifactId>httpclient5</artifactId>
-                <version>5.5.1</version>
+                <version>5.5.2</version>
             </dependency>
 
             <dependency>
@@ -1963,6 +1959,12 @@
 
             <dependency>
                 <groupId>org.apache.iceberg</groupId>
+                <artifactId>iceberg-gcp</artifactId>
+                <version>${dep.iceberg.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.iceberg</groupId>
                 <artifactId>iceberg-orc</artifactId>
                 <version>${dep.iceberg.version}</version>
                 <exclusions>
@@ -1998,7 +2000,7 @@
             <dependency>
                 <groupId>org.apache.kafka</groupId>
                 <artifactId>kafka-clients</artifactId>
-                <version>${dep.kafka-clients.version}</version>
+                <version>4.1.1</version>
             </dependency>
 
             <dependency>
@@ -2177,7 +2179,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.52.0</version>
+                <version>3.52.1</version>
             </dependency>
 
             <dependency>
@@ -2415,7 +2417,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
-                    <version>${dep.plugin.failsafe.version}</version>
+                    <version>${dep.plugin.surefire.version}</version>
                 </plugin>
 
                 <plugin>
@@ -2942,6 +2944,7 @@
                                     -Xep:ExtendsObject:ERROR \
                                     -Xep:FallThrough:ERROR \
                                     -Xep:Finalize:ERROR \
+                                    -Xep:FormatStringShouldUsePlaceholders:ERROR \
                                     -Xep:GetClassOnEnum:ERROR \
                                     <!-- TODO enable globally -->
                                     -Xep:GuardedBy:${trino.error-prone.guarded-by} \
@@ -3050,7 +3053,7 @@
                     <plugin>
                         <groupId>io.github.gitflow-incremental-builder</groupId>
                         <artifactId>gitflow-incremental-builder</artifactId>
-                        <version>${dep.gib.version}</version>
+                        <version>4.5.6</version>
                         <extensions>true</extensions>
                         <configuration>
                             <compareToMergeBase>true</compareToMergeBase>

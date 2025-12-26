@@ -62,7 +62,6 @@ import static java.lang.String.format;
 import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static java.util.stream.Collectors.joining;
 
 public class IterativeOptimizer
         implements AdaptivePlanOptimizer
@@ -256,7 +255,7 @@ public class IterativeOptimizer
 
         PlanNode expression = context.memo.getNode(group);
         for (PlanNode child : expression.getSources()) {
-            checkState(child instanceof GroupReference, "Expected child to be a group reference. Found: " + child.getClass().getName());
+            checkState(child instanceof GroupReference, "Expected child to be a group reference. Found: %s", child.getClass().getName());
 
             if (exploreGroup(((GroupReference) child).getGroupId(), context, changedPlanNodeIds)) {
                 progress = true;
@@ -368,22 +367,29 @@ public class IterativeOptimizer
         public void checkTimeoutNotExhausted()
         {
             if (NANOSECONDS.toMillis(nanoTime() - startTimeInNanos) >= timeoutInMilliseconds) {
-                String message = format("The optimizer exhausted the time limit of %d ms", timeoutInMilliseconds);
+                StringBuilder message = new StringBuilder(format("The optimizer exhausted the time limit of %d ms", timeoutInMilliseconds));
                 List<QueryPlanOptimizerStatistics> topRulesByTime = iterativeOptimizerStatsCollector.getTopRuleStats(5);
                 if (topRulesByTime.isEmpty()) {
-                    message += ": no rules invoked";
+                    message.append(": no rules invoked");
                 }
                 else {
-                    message += ": Top rules: " + topRulesByTime.stream()
-                            .map(ruleStats -> format(
-                                    "%s: %s ms, %s invocations, %s applications",
-                                    ruleStats.rule(),
-                                    NANOSECONDS.toMillis(ruleStats.totalTime()),
-                                    ruleStats.invocations(),
-                                    ruleStats.applied()))
-                            .collect(joining(",\n\t\t", "{\n\t\t", " }"));
+                    message.append(": Top rules: {");
+                    long timeThreshold = topRulesByTime.getFirst().totalTime() / 1000;
+                    for (QueryPlanOptimizerStatistics ruleStats : topRulesByTime) {
+                        if (timeThreshold > ruleStats.totalTime()) {
+                            // The next rule considered is less than 0.1% of the top rule, skip the rest
+                            break;
+                        }
+                        message.append(format(
+                                "\n\t\t%s: %s ms, %s invocations, %s applications",
+                                ruleStats.rule(),
+                                NANOSECONDS.toMillis(ruleStats.totalTime()),
+                                ruleStats.invocations(),
+                                ruleStats.applied()));
+                    }
+                    message.append("}");
                 }
-                throw new TrinoException(OPTIMIZER_TIMEOUT, message);
+                throw new TrinoException(OPTIMIZER_TIMEOUT, message.toString());
             }
         }
 

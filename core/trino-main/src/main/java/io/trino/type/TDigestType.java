@@ -21,17 +21,17 @@ import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.SqlVarbinary;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeSignature;
 
 public class TDigestType
         extends AbstractVariableWidthType
 {
+    public static final String NAME = "tdigest";
     public static final TDigestType TDIGEST = new TDigestType();
 
     private TDigestType()
     {
-        super(new TypeSignature(StandardTypes.TDIGEST), TDigest.class);
+        super(new TypeSignature(NAME), TDigest.class);
     }
 
     @Override
@@ -47,6 +47,12 @@ public class TDigestType
     {
         Slice serialized = ((TDigest) value).serialize();
         ((VariableWidthBlockBuilder) blockBuilder).writeEntry(serialized);
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override

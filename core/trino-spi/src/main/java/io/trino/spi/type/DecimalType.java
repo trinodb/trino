@@ -22,7 +22,7 @@ import java.util.List;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.Decimals.MAX_PRECISION;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static io.trino.spi.type.TypeSignatureParameter.numericParameter;
+import static io.trino.spi.type.TypeParameter.numericParameter;
 import static java.lang.String.format;
 
 public abstract sealed class DecimalType
@@ -30,6 +30,7 @@ public abstract sealed class DecimalType
         implements FixedWidthType
         permits LongDecimalType, ShortDecimalType
 {
+    public static final String NAME = "decimal";
     public static final int DEFAULT_SCALE = 0;
     public static final int DEFAULT_PRECISION = MAX_PRECISION;
 
@@ -64,9 +65,15 @@ public abstract sealed class DecimalType
 
     DecimalType(int precision, int scale, Class<?> javaType, Class<? extends ValueBlock> valueBlockType)
     {
-        super(new TypeSignature(StandardTypes.DECIMAL, buildTypeParameters(precision, scale)), javaType, valueBlockType);
+        super(new TypeSignature(NAME, buildTypeParameters(precision, scale)), javaType, valueBlockType);
         this.precision = precision;
         this.scale = scale;
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME + "(" + precision + "," + scale + ")";
     }
 
     @Override
@@ -96,7 +103,7 @@ public abstract sealed class DecimalType
         return precision <= MAX_SHORT_PRECISION;
     }
 
-    private static List<TypeSignatureParameter> buildTypeParameters(int precision, int scale)
+    private static List<TypeParameter> buildTypeParameters(int precision, int scale)
     {
         return List.of(numericParameter(precision), numericParameter(scale));
     }

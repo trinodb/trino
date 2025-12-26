@@ -1495,14 +1495,14 @@ public class TestJdbcPreparedStatement
     private Connection createConnection(boolean explicitPrepare)
             throws SQLException
     {
-        String url = format("jdbc:trino://%s?explicitPrepare=" + explicitPrepare, server.getAddress());
+        String url = format("jdbc:trino://%s?explicitPrepare=%s", server.getAddress(), explicitPrepare);
         return DriverManager.getConnection(url, "test", null);
     }
 
     private Connection createConnection(String catalog, String schema, boolean explicitPrepare)
             throws SQLException
     {
-        String url = format("jdbc:trino://%s/%s/%s?explicitPrepare=" + explicitPrepare, server.getAddress(), catalog, schema);
+        String url = format("jdbc:trino://%s/%s/%s?explicitPrepare=%s", server.getAddress(), catalog, schema, explicitPrepare);
         return DriverManager.getConnection(url, "test", null);
     }
 

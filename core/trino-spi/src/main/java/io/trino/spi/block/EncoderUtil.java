@@ -17,32 +17,22 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import jakarta.annotation.Nullable;
 import jdk.incubator.vector.ByteVector;
-import jdk.incubator.vector.IntVector;
-import jdk.incubator.vector.LongVector;
-import jdk.incubator.vector.ShortVector;
-import jdk.incubator.vector.VectorMask;
-import jdk.incubator.vector.VectorSpecies;
+import jdk.incubator.vector.VectorOperators;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Optional;
 
-import static java.util.Objects.checkFromIndexSize;
-
 final class EncoderUtil
 {
-    private static final VectorSpecies<Long> LONG_SPECIES = LongVector.SPECIES_PREFERRED;
-    private static final VectorSpecies<Integer> INT_SPECIES = IntVector.SPECIES_PREFERRED;
-    private static final VectorSpecies<Byte> BYTE_SPECIES = ByteVector.SPECIES_PREFERRED;
-    private static final VectorSpecies<Short> SHORT_SPECIES = ShortVector.SPECIES_PREFERRED;
+    private static final ByteVector NULL_BIT_SHIFTS = ByteVector.fromArray(ByteVector.SPECIES_64, new byte[] {7, 6, 5, 4, 3, 2, 1, 0}, 0);
 
     private EncoderUtil() {}
 
     /**
      * Append null values for the block as a stream of bits.
      */
-    @SuppressWarnings({"NarrowingCompoundAssignment", "ImplicitNumericConversion"})
-    public static void encodeNullsAsBits(SliceOutput sliceOutput, @Nullable boolean[] isNull, int offset, int length)
+    public static void encodeNullsAsBitsScalar(SliceOutput sliceOutput, @Nullable boolean[] isNull, int offset, int length)
     {
         sliceOutput.writeBoolean(isNull != null);
         if (isNull == null) {
@@ -55,27 +45,63 @@ final class EncoderUtil
         byte[] packedIsNull = new byte[(length + 7) / 8];
         int currentByte = 0;
         for (int position = 0; position < (length & ~0b111); position += 8) {
-            byte value = 0;
-            value |= (isNull[position + offset] ? 1 : 0) << 7;
-            value |= (isNull[position + offset + 1] ? 1 : 0) << 6;
-            value |= (isNull[position + offset + 2] ? 1 : 0) << 5;
-            value |= (isNull[position + offset + 3] ? 1 : 0) << 4;
-            value |= (isNull[position + offset + 4] ? 1 : 0) << 3;
-            value |= (isNull[position + offset + 5] ? 1 : 0) << 2;
-            value |= (isNull[position + offset + 6] ? 1 : 0) << 1;
-            value |= (isNull[position + offset + 7] ? 1 : 0);
-            packedIsNull[currentByte++] = value;
+            int value = ((isNull[position + offset] ? 1 : 0) << 7) |
+                    ((isNull[position + offset + 1] ? 1 : 0) << 6) |
+                    ((isNull[position + offset + 2] ? 1 : 0) << 5) |
+                    ((isNull[position + offset + 3] ? 1 : 0) << 4) |
+                    ((isNull[position + offset + 4] ? 1 : 0) << 3) |
+                    ((isNull[position + offset + 5] ? 1 : 0) << 2) |
+                    ((isNull[position + offset + 6] ? 1 : 0) << 1) |
+                    (isNull[position + offset + 7] ? 1 : 0);
+            packedIsNull[currentByte++] = (byte) (value & 0xFF);
         }
 
         // write last null bits
         if ((length & 0b111) > 0) {
-            byte value = 0;
+            int value = 0;
             int mask = 0b1000_0000;
             for (int position = length & ~0b111; position < length; position++) {
                 value |= isNull[position + offset] ? mask : 0;
                 mask >>>= 1;
             }
-            packedIsNull[currentByte++] = value;
+            packedIsNull[currentByte++] = (byte) (value & 0xFF);
+        }
+
+        sliceOutput.writeBytes(packedIsNull, 0, currentByte);
+    }
+
+    /**
+     * Implementation of {@link EncoderUtil#encodeNullsAsBitsScalar(SliceOutput, boolean[], int, int)} using the vector API
+     */
+    public static void encodeNullsAsBitsVectorized(SliceOutput sliceOutput, @Nullable boolean[] isNull, int offset, int length)
+    {
+        sliceOutput.writeBoolean(isNull != null);
+        if (isNull == null) {
+            return;
+        }
+        // inlined from Objects.checkFromIndexSize
+        if ((length | offset) < 0 || length > isNull.length - offset) {
+            throw new IndexOutOfBoundsException("Invalid offset: %s, length: %s for size: %s".formatted(offset, length, isNull.length));
+        }
+        byte[] packedIsNull = new byte[(length + 7) / 8];
+        int currentByte = 0;
+        int position = 0;
+        while (position < ByteVector.SPECIES_64.loopBound(length)) {
+            packedIsNull[currentByte++] = ByteVector.fromBooleanArray(ByteVector.SPECIES_64, isNull, position + offset)
+                    .lanewise(VectorOperators.LSHL, NULL_BIT_SHIFTS)
+                    .reduceLanes(VectorOperators.OR);
+            position += ByteVector.SPECIES_64.length();
+        }
+
+        // write last null bits
+        if (position < length) {
+            int value = 0;
+            int mask = 0b1000_0000;
+            for (; position < length; position++) {
+                value |= isNull[position + offset] ? mask : 0;
+                mask >>>= 1;
+            }
+            packedIsNull[currentByte++] = (byte) (value & 0xFF);
         }
 
         sliceOutput.writeBytes(packedIsNull, 0, currentByte);
@@ -84,13 +110,13 @@ final class EncoderUtil
     /**
      * Decode the bit stream created by encodeNullsAsBits.
      */
-    public static Optional<boolean[]> decodeNullBits(SliceInput sliceInput, int positionCount)
+    public static Optional<boolean[]> decodeNullBitsScalar(SliceInput sliceInput, int positionCount)
     {
         return Optional.ofNullable(retrieveNullBits(sliceInput, positionCount))
-                .map(packedIsNull -> decodeNullBits(packedIsNull, positionCount));
+                .map(packedIsNull -> decodeNullBitsScalar(packedIsNull, positionCount));
     }
 
-    public static boolean[] decodeNullBits(byte[] packedIsNull, int positionCount)
+    public static boolean[] decodeNullBitsScalar(byte[] packedIsNull, int positionCount)
     {
         // read null bits 8 at a time
         boolean[] valueIsNull = new boolean[positionCount];
@@ -120,6 +146,42 @@ final class EncoderUtil
         return valueIsNull;
     }
 
+    /**
+     * Implementation of {@link EncoderUtil#decodeNullBitsScalar(SliceInput, int)} that uses the vector API
+     */
+    public static Optional<boolean[]> decodeNullBitsVectorized(SliceInput sliceInput, int positionCount)
+    {
+        return Optional.ofNullable(retrieveNullBits(sliceInput, positionCount))
+                .map(packedIsNull -> decodeNullBitsVectorized(packedIsNull, positionCount));
+    }
+
+    public static boolean[] decodeNullBitsVectorized(byte[] packedIsNull, int positionCount)
+    {
+        // read null bits 8 at a time
+        boolean[] valueIsNull = new boolean[positionCount];
+        int currentByte = 0;
+        int position = 0;
+        while (position < ByteVector.SPECIES_64.loopBound(positionCount)) {
+            // equivalent of ((value >>> shift) & 1) != 0
+            ByteVector.broadcast(ByteVector.SPECIES_64, packedIsNull[currentByte++])
+                    .lanewise(VectorOperators.LSHR, NULL_BIT_SHIFTS)
+                    .intoBooleanArray(valueIsNull, position);
+            position += ByteVector.SPECIES_64.length();
+        }
+
+        // read last null bits
+        if (position < positionCount) {
+            byte value = packedIsNull[currentByte];
+            int mask = 0b1000_0000;
+            for (; position < positionCount; position++) {
+                valueIsNull[position] = ((value & mask) != 0);
+                mask >>>= 1;
+            }
+        }
+
+        return valueIsNull;
+    }
+
     @Nullable
     public static byte[] retrieveNullBits(SliceInput sliceInput, int positionCount)
     {
@@ -132,149 +194,5 @@ final class EncoderUtil
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    static void compactBytesWithNullsVectorized(SliceOutput sliceOutput, byte[] values, boolean[] isNull, int offset, int length)
-    {
-        checkFromIndexSize(offset, length, values.length);
-        checkFromIndexSize(offset, length, isNull.length);
-        byte[] compacted = new byte[length];
-        int valuesIndex = 0;
-        int compactedIndex = 0;
-        for (; valuesIndex < BYTE_SPECIES.loopBound(length); valuesIndex += BYTE_SPECIES.length()) {
-            VectorMask<Byte> mask = BYTE_SPECIES.loadMask(isNull, valuesIndex + offset).not();
-            ByteVector.fromArray(BYTE_SPECIES, values, valuesIndex + offset)
-                    .compress(mask)
-                    .intoArray(compacted, compactedIndex);
-            compactedIndex += mask.trueCount();
-        }
-        for (; valuesIndex < length; valuesIndex++) {
-            compacted[compactedIndex] = values[valuesIndex + offset];
-            compactedIndex += isNull[valuesIndex + offset] ? 0 : 1;
-        }
-        sliceOutput.writeInt(compactedIndex);
-        sliceOutput.writeBytes(compacted, 0, compactedIndex);
-    }
-
-    static void compactBytesWithNullsScalar(SliceOutput sliceOutput, byte[] values, boolean[] isNull, int offset, int length)
-    {
-        checkFromIndexSize(offset, length, values.length);
-        checkFromIndexSize(offset, length, isNull.length);
-        byte[] compacted = new byte[length];
-        int compactedIndex = 0;
-        for (int i = 0; i < length; i++) {
-            compacted[compactedIndex] = values[i + offset];
-            compactedIndex += isNull[i + offset] ? 0 : 1;
-        }
-        sliceOutput.writeInt(compactedIndex);
-        sliceOutput.writeBytes(compacted, 0, compactedIndex);
-    }
-
-    static void compactShortsWithNullsVectorized(SliceOutput sliceOutput, short[] values, boolean[] isNull, int offset, int length)
-    {
-        checkFromIndexSize(offset, length, values.length);
-        checkFromIndexSize(offset, length, isNull.length);
-        short[] compacted = new short[length];
-        int valuesIndex = 0;
-        int compactedIndex = 0;
-        for (; valuesIndex < SHORT_SPECIES.loopBound(length); valuesIndex += SHORT_SPECIES.length()) {
-            VectorMask<Short> mask = SHORT_SPECIES.loadMask(isNull, valuesIndex + offset).not();
-            ShortVector.fromArray(SHORT_SPECIES, values, valuesIndex + offset)
-                    .compress(mask)
-                    .intoArray(compacted, compactedIndex);
-            compactedIndex += mask.trueCount();
-        }
-        for (; valuesIndex < length; valuesIndex++) {
-            compacted[compactedIndex] = values[valuesIndex + offset];
-            compactedIndex += isNull[valuesIndex + offset] ? 0 : 1;
-        }
-        sliceOutput.writeInt(compactedIndex);
-        sliceOutput.writeShorts(compacted, 0, compactedIndex);
-    }
-
-    static void compactShortsWithNullsScalar(SliceOutput sliceOutput, short[] values, boolean[] isNull, int offset, int length)
-    {
-        checkFromIndexSize(offset, length, values.length);
-        checkFromIndexSize(offset, length, isNull.length);
-        short[] compacted = new short[length];
-        int compactedIndex = 0;
-        for (int i = 0; i < length; i++) {
-            compacted[compactedIndex] = values[i + offset];
-            compactedIndex += isNull[i + offset] ? 0 : 1;
-        }
-        sliceOutput.writeInt(compactedIndex);
-        sliceOutput.writeShorts(compacted, 0, compactedIndex);
-    }
-
-    static void compactIntsWithNullsVectorized(SliceOutput sliceOutput, int[] values, boolean[] isNull, int offset, int length)
-    {
-        checkFromIndexSize(offset, length, values.length);
-        checkFromIndexSize(offset, length, isNull.length);
-        int[] compacted = new int[length];
-        int valuesIndex = 0;
-        int compactedIndex = 0;
-        for (; valuesIndex < INT_SPECIES.loopBound(length); valuesIndex += INT_SPECIES.length()) {
-            VectorMask<Integer> mask = INT_SPECIES.loadMask(isNull, valuesIndex + offset).not();
-            IntVector.fromArray(INT_SPECIES, values, valuesIndex + offset)
-                    .compress(mask)
-                    .intoArray(compacted, compactedIndex);
-            compactedIndex += mask.trueCount();
-        }
-        for (; valuesIndex < length; valuesIndex++) {
-            compacted[compactedIndex] = values[valuesIndex + offset];
-            compactedIndex += isNull[valuesIndex + offset] ? 0 : 1;
-        }
-        sliceOutput.writeInt(compactedIndex);
-        sliceOutput.writeInts(compacted, 0, compactedIndex);
-    }
-
-    static void compactIntsWithNullsScalar(SliceOutput sliceOutput, int[] values, boolean[] isNull, int offset, int length)
-    {
-        checkFromIndexSize(offset, length, values.length);
-        checkFromIndexSize(offset, length, isNull.length);
-        int[] compacted = new int[length];
-        int compactedIndex = 0;
-        for (int i = 0; i < length; i++) {
-            compacted[compactedIndex] = values[i + offset];
-            compactedIndex += isNull[i + offset] ? 0 : 1;
-        }
-        sliceOutput.writeInt(compactedIndex);
-        sliceOutput.writeInts(compacted, 0, compactedIndex);
-    }
-
-    static void compactLongsWithNullsVectorized(SliceOutput sliceOutput, long[] values, boolean[] isNull, int offset, int length)
-    {
-        checkFromIndexSize(offset, length, values.length);
-        checkFromIndexSize(offset, length, isNull.length);
-        long[] compacted = new long[length];
-        int valuesIndex = 0;
-        int compactedIndex = 0;
-        for (; valuesIndex < LONG_SPECIES.loopBound(length); valuesIndex += LONG_SPECIES.length()) {
-            VectorMask<Long> mask = LONG_SPECIES.loadMask(isNull, valuesIndex + offset).not();
-            LongVector.fromArray(LONG_SPECIES, values, valuesIndex + offset)
-                    .compress(mask)
-                    .intoArray(compacted, compactedIndex);
-            compactedIndex += mask.trueCount();
-        }
-        for (; valuesIndex < length; valuesIndex++) {
-            compacted[compactedIndex] = values[valuesIndex + offset];
-            compactedIndex += isNull[valuesIndex + offset] ? 0 : 1;
-        }
-        sliceOutput.writeInt(compactedIndex);
-        sliceOutput.writeLongs(compacted, 0, compactedIndex);
-    }
-
-    static void compactLongsWithNullsScalar(SliceOutput sliceOutput, long[] values, boolean[] isNull, int offset, int length)
-    {
-        checkFromIndexSize(offset, length, values.length);
-        checkFromIndexSize(offset, length, isNull.length);
-        long[] compacted = new long[length];
-        int compactedIndex = 0;
-        for (int i = 0; i < length; i++) {
-            compacted[compactedIndex] = values[i + offset];
-            compactedIndex += isNull[i + offset] ? 0 : 1;
-        }
-        sliceOutput.writeInt(compactedIndex);
-        sliceOutput.writeLongs(compacted, 0, compactedIndex);
     }
 }

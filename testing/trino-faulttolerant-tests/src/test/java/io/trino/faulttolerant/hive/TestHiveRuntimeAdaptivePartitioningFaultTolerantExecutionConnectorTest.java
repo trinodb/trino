@@ -16,7 +16,6 @@ package io.trino.faulttolerant.hive;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.BaseHiveConnectorTest;
 import io.trino.plugin.hive.HiveQueryRunner;
@@ -54,10 +53,7 @@ public class TestHiveRuntimeAdaptivePartitioningFaultTolerantExecutionConnectorT
 
         return createHiveQueryRunner(HiveQueryRunner.builder()
                 .setExtraProperties(extraPropertiesWithRuntimeAdaptivePartitioning.buildOrThrow())
-                .setAdditionalSetup(runner -> {
-                    runner.installPlugin(new FileSystemExchangePlugin());
-                    runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
-                }));
+                .withExchange("filesystem", getExchangeManagerProperties(minioStorage)));
     }
 
     @Test

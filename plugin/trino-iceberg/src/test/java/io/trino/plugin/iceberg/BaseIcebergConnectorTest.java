@@ -292,13 +292,13 @@ public abstract class BaseIcebergConnectorTest
         try (TestTable table = newTrinoTable(
                 "test_add_row_field_case_insensitivity_",
                 "AS SELECT CAST(row(row(2)) AS row(\"CHILD\" row(grandchild_1 integer))) AS col")) {
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(CHILD row(grandchild_1 integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"CHILD\" row(\"grandchild_1\" integer))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.child.grandchild_2 integer");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(CHILD row(grandchild_1 integer, grandchild_2 integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"CHILD\" row(\"grandchild_1\" integer, \"grandchild_2\" integer))");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.CHILD.grandchild_3 integer");
-            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(CHILD row(grandchild_1 integer, grandchild_2 integer, grandchild_3 integer))");
+            assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(\"CHILD\" row(\"grandchild_1\" integer, \"grandchild_2\" integer, \"grandchild_3\" integer))");
         }
     }
 
@@ -1287,8 +1287,8 @@ public abstract class BaseIcebergConnectorTest
 
         assertQuery("SHOW COLUMNS FROM " + tableName, "VALUES " +
                 "('c1', 'bigint', '', ''), " +
-                "('renamed_partitioned_parent', 'row(child varchar)', '', ''), " +
-                "('renamed_parent', 'row(child varchar)', '', '')");
+                "('renamed_partitioned_parent', 'row(\"child\" varchar)', '', ''), " +
+                "('renamed_parent', 'row(\"child\" varchar)', '', '')");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -3408,7 +3408,7 @@ public abstract class BaseIcebergConnectorTest
     public void testTruncateIntegerTransform(String dataType)
     {
         String table = format("test_truncate_%s_transform", dataType);
-        assertUpdate(format("CREATE TABLE " + table + " (d %s, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 10)'])", dataType));
+        assertUpdate(format("CREATE TABLE %s (d %s, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 10)'])", table, dataType));
         String select = "SELECT partition.d_trunc, record_count, data.d.min AS d_min, data.d.max AS d_max, data.b.min AS b_min, data.b.max AS b_max FROM \"" + table + "$partitions\"";
 
         assertUpdate("INSERT INTO " + table + " VALUES" +
@@ -7229,6 +7229,44 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testUpdatingDeleteAfterCommitEnabled()
+    {
+        try (TestTable table = newTrinoTable("test_delete_after_commit_enabled", "(x int)")) {
+            assertThat(getTableProperties(table.getName()))
+                    .doesNotContainKey("write.metadata.delete-after-commit.enabled");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES delete_after_commit_enabled = true");
+            assertThat(getTableProperties(table.getName()))
+                    .containsEntry("write.metadata.delete-after-commit.enabled", "true");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES delete_after_commit_enabled = false");
+            assertThat(getTableProperties(table.getName()))
+                    .containsEntry("write.metadata.delete-after-commit.enabled", "false");
+        }
+    }
+
+    @Test
+    public void testUpdatingMaxPreviousVersions()
+    {
+        try (TestTable table = newTrinoTable("test_max_previous_versions", "(x int)")) {
+            assertThat(getTableProperties(table.getName()))
+                    .doesNotContainKey("write.metadata.previous-versions-max");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES max_previous_versions = 5");
+            assertThat(getTableProperties(table.getName()))
+                    .containsEntry("write.metadata.previous-versions-max", "5");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES max_previous_versions = 1");
+            assertThat(getTableProperties(table.getName()))
+                    .containsEntry("write.metadata.previous-versions-max", "1");
+
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES max_previous_versions = 0",
+                    ".* max_previous_versions must be greater than or equal to 1");
+        }
+    }
+
+    @Test
     public void testUpdatingInvalidTableProperty()
     {
         String tableName = "test_updating_invalid_table_property_" + randomNameSuffix();
@@ -9010,22 +9048,22 @@ public abstract class BaseIcebergConnectorTest
                 .add(new TypeCoercionTestSetup("MAP(ARRAY[CHAR 'key'], ARRAY[CHAR 'value'])", "map(varchar, varchar)", "MAP(ARRAY['key'], ARRAY['value'])"))
                 .add(new TypeCoercionTestSetup("MAP(ARRAY[CHAR 'key'], ARRAY[ARRAY[CHAR 'value']])", "map(varchar, array(varchar))", "MAP(ARRAY['key'], ARRAY[ARRAY['value']])"))
                 // TODO Add test case for MAP type with ARRAY keys once https://github.com/trinodb/trino/issues/1146 is resolved
-                .add(new TypeCoercionTestSetup("CAST(ROW('a') AS ROW(x CHAR))", "row(x varchar)", "CAST(ROW('a') AS ROW(x VARCHAR))"))
-                .add(new TypeCoercionTestSetup("CAST(ROW(ROW('a')) AS ROW(x ROW(y CHAR)))", "row(x row(y varchar))", "CAST(ROW(ROW('a')) AS ROW(x ROW(y VARCHAR)))"))
+                .add(new TypeCoercionTestSetup("CAST(ROW('a') AS ROW(x CHAR))", "row(\"x\" varchar)", "CAST(ROW('a') AS ROW(x VARCHAR))"))
+                .add(new TypeCoercionTestSetup("CAST(ROW(ROW('a')) AS ROW(x ROW(y CHAR)))", "row(\"x\" row(\"y\" varchar))", "CAST(ROW(ROW('a')) AS ROW(x ROW(y VARCHAR)))"))
                 // tinyint -> integer
                 .add(new TypeCoercionTestSetup("ARRAY[TINYINT '127']", "array(integer)", "ARRAY[127]"))
                 .add(new TypeCoercionTestSetup("ARRAY[ARRAY[TINYINT '127']]", "array(array(integer))", "ARRAY[ARRAY[127]]"))
                 .add(new TypeCoercionTestSetup("MAP(ARRAY[TINYINT '1'], ARRAY[TINYINT '10'])", "map(integer, integer)", "MAP(ARRAY[1], ARRAY[10])"))
                 .add(new TypeCoercionTestSetup("MAP(ARRAY[TINYINT '1'], ARRAY[ARRAY[TINYINT '10']])", "map(integer, array(integer))", "MAP(ARRAY[1], ARRAY[ARRAY[10]])"))
-                .add(new TypeCoercionTestSetup("CAST(ROW(127) AS ROW(x TINYINT))", "row(x integer)", "CAST(ROW(127) AS ROW(x INTEGER))"))
-                .add(new TypeCoercionTestSetup("CAST(ROW(ROW(127)) AS ROW(x ROW(y TINYINT)))", "row(x row(y integer))", "CAST(ROW(ROW(127)) AS ROW(x ROW(y INTEGER)))"))
+                .add(new TypeCoercionTestSetup("CAST(ROW(127) AS ROW(x TINYINT))", "row(\"x\" integer)", "CAST(ROW(127) AS ROW(x INTEGER))"))
+                .add(new TypeCoercionTestSetup("CAST(ROW(ROW(127)) AS ROW(x ROW(y TINYINT)))", "row(\"x\" row(\"y\" integer))", "CAST(ROW(ROW(127)) AS ROW(x ROW(y INTEGER)))"))
                 // smallint -> integer
                 .add(new TypeCoercionTestSetup("ARRAY[SMALLINT '32767']", "array(integer)", "ARRAY[32767]"))
                 .add(new TypeCoercionTestSetup("ARRAY[ARRAY[SMALLINT '32767']]", "array(array(integer))", "ARRAY[ARRAY[32767]]"))
                 .add(new TypeCoercionTestSetup("MAP(ARRAY[SMALLINT '1'], ARRAY[SMALLINT '10'])", "map(integer, integer)", "MAP(ARRAY[1], ARRAY[10])"))
                 .add(new TypeCoercionTestSetup("MAP(ARRAY[SMALLINT '1'], ARRAY[ARRAY[SMALLINT '10']])", "map(integer, array(integer))", "MAP(ARRAY[1], ARRAY[ARRAY[10]])"))
-                .add(new TypeCoercionTestSetup("CAST(ROW(32767) AS ROW(x SMALLINT))", "row(x integer)", "CAST(ROW(32767) AS ROW(x INTEGER))"))
-                .add(new TypeCoercionTestSetup("CAST(ROW(ROW(32767)) AS ROW(x ROW(y SMALLINT)))", "row(x row(y integer))", "CAST(ROW(ROW(32767)) AS ROW(x ROW(y INTEGER)))"))
+                .add(new TypeCoercionTestSetup("CAST(ROW(32767) AS ROW(x SMALLINT))", "row(\"x\" integer)", "CAST(ROW(32767) AS ROW(x INTEGER))"))
+                .add(new TypeCoercionTestSetup("CAST(ROW(ROW(32767)) AS ROW(x ROW(y SMALLINT)))", "row(\"x\" row(\"y\" integer))", "CAST(ROW(ROW(32767)) AS ROW(x ROW(y INTEGER)))"))
                 .build();
     }
 
@@ -9099,22 +9137,22 @@ public abstract class BaseIcebergConnectorTest
 
         testAddColumnWithTypeCoercion("array(char(10))", "array(varchar)");
         testAddColumnWithTypeCoercion("map(char(20), char(30))", "map(varchar, varchar)");
-        testAddColumnWithTypeCoercion("row(x char(40))", "row(x varchar)");
+        testAddColumnWithTypeCoercion("row(x char(40))", "row(\"x\" varchar)");
 
         testAddColumnWithTypeCoercion("array(tinyint)", "array(integer)");
         testAddColumnWithTypeCoercion("map(tinyint, tinyint)", "map(integer, integer)");
-        testAddColumnWithTypeCoercion("row(x tinyint)", "row(x integer)");
+        testAddColumnWithTypeCoercion("row(x tinyint)", "row(\"x\" integer)");
 
         testAddColumnWithTypeCoercion("array(smallint)", "array(integer)");
         testAddColumnWithTypeCoercion("map(smallint, smallint)", "map(integer, integer)");
-        testAddColumnWithTypeCoercion("row(x smallint)", "row(x integer)");
+        testAddColumnWithTypeCoercion("row(x smallint)", "row(\"x\" integer)");
     }
 
     private void testAddColumnWithTypeCoercion(String columnType, String expectedColumnType)
     {
         try (TestTable testTable = newTrinoTable("test_coercion_add_column", "(a varchar, b row(x integer))")) {
             assertUpdate("ALTER TABLE " + testTable.getName() + " ADD COLUMN b.y " + columnType);
-            assertThat(getColumnType(testTable.getName(), "b")).isEqualTo("row(x integer, y %s)".formatted(expectedColumnType));
+            assertThat(getColumnType(testTable.getName(), "b")).isEqualTo("row(\"x\" integer, \"y\" %s)".formatted(expectedColumnType));
 
             assertUpdate("ALTER TABLE " + testTable.getName() + " ADD COLUMN c " + columnType);
             assertThat(getColumnType(testTable.getName(), "c")).isEqualTo(expectedColumnType);

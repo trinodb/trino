@@ -223,7 +223,7 @@ public class MongoPageSource
                     type.writeLong(output, packDateTimeWithZone(((Date) value).getTime(), UTC_KEY));
                 }
                 else {
-                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for " + javaType.getSimpleName() + ":" + type.getTypeSignature());
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for " + javaType.getSimpleName() + ":" + type.getDisplayName());
                 }
             }
             else if (javaType == double.class) {
@@ -248,7 +248,7 @@ public class MongoPageSource
                 writeBlock(output, type, value);
             }
             else {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for " + javaType.getSimpleName() + ":" + type.getTypeSignature());
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for " + javaType.getSimpleName() + ":" + type.getDisplayName());
             }
         }
         catch (ClassCastException ignore) {
@@ -295,7 +295,7 @@ public class MongoPageSource
             type.writeSlice(output, jsonParse(utf8Slice(toVarcharValue(value))));
         }
         else {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getDisplayName());
         }
     }
 
@@ -380,7 +380,7 @@ public class MongoPageSource
             }
         }
         else {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getTypeSignature());
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getDisplayName());
         }
 
         // not a convertible value

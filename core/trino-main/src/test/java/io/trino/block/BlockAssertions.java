@@ -237,12 +237,11 @@ public final class BlockAssertions
 
             return mapType.createBlockFromKeyValue(Optional.ofNullable(isNull), offsets, keyBlock, valueBlock);
         }
-        if (type instanceof RowType) {
-            List<Type> fieldTypes = type.getTypeParameters();
-            Block[] fieldBlocks = new Block[fieldTypes.size()];
+        if (type instanceof RowType rowType) {
+            Block[] fieldBlocks = new Block[rowType.getFields().size()];
 
             for (int i = 0; i < fieldBlocks.length; i++) {
-                fieldBlocks[i] = createRandomBlockForType(fieldTypes.get(i), positionCount, nullRate);
+                fieldBlocks[i] = createRandomBlockForType(rowType.getFields().get(i).getType(), positionCount, nullRate);
             }
 
             return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, Optional.ofNullable(isNull), fieldBlocks);

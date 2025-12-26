@@ -30,6 +30,7 @@ public abstract sealed class TimestampType
         implements FixedWidthType
         permits LongTimestampType, ShortTimestampType
 {
+    public static final String NAME = "timestamp";
     public static final int MAX_PRECISION = 12;
 
     public static final int MAX_SHORT_PRECISION = 6;
@@ -61,7 +62,7 @@ public abstract sealed class TimestampType
 
     TimestampType(int precision, Class<?> javaType, Class<? extends ValueBlock> valueBlockType)
     {
-        super(new TypeSignature(StandardTypes.TIMESTAMP, TypeSignatureParameter.numericParameter(precision)), javaType, valueBlockType);
+        super(new TypeSignature(NAME, TypeParameter.numericParameter(precision)), javaType, valueBlockType);
         this.precision = precision;
     }
 
@@ -73,6 +74,12 @@ public abstract sealed class TimestampType
     public final boolean isShort()
     {
         return precision <= MAX_SHORT_PRECISION;
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME + "(" + precision + ")";
     }
 
     @Override

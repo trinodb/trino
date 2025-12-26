@@ -53,7 +53,7 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeNotFoundException;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis.PredicateCoercions;
@@ -1093,7 +1093,7 @@ public class ExpressionAnalyzer
         {
             Type baseType = process(node.getBase(), context);
             // Subscript on Row hasn't got a dedicated operator. Its Type is resolved by hand.
-            if (baseType instanceof RowType) {
+            if (baseType instanceof RowType rowType) {
                 if (!(node.getIndex() instanceof LongLiteral)) {
                     throw semanticException(EXPRESSION_NOT_CONSTANT, node.getIndex(), "Subscript expression on ROW requires a constant index");
                 }
@@ -1105,7 +1105,7 @@ public class ExpressionAnalyzer
                 if (indexValue <= 0) {
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, node.getIndex(), "Invalid subscript index: %s. ROW indices start at 1", indexValue);
                 }
-                List<Type> rowTypes = baseType.getTypeParameters();
+                List<Type> rowTypes = rowType.getFieldTypes();
                 if (indexValue > rowTypes.size()) {
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, node.getIndex(), "Subscript index out of bounds: %s, max value is %s", indexValue, rowTypes.size());
                 }
@@ -1120,7 +1120,7 @@ public class ExpressionAnalyzer
         protected Type visitArray(Array node, Context context)
         {
             Type type = coerceToSingleType(context, "All ARRAY elements", node.getValues());
-            Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeSignatureParameter.typeParameter(type.getTypeSignature())));
+            Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeParameter.typeParameter(type.getTypeSignature())));
             return setExpressionType(node, arrayType);
         }
 
@@ -1349,7 +1349,7 @@ public class ExpressionAnalyzer
 
             if (node.getWindow().isPresent()) {
                 ResolvedWindow window = getResolvedWindow.apply(node);
-                checkState(window != null, "no resolved window for: " + node);
+                checkState(window != null, "no resolved window for: %s", node);
 
                 analyzeWindow(window, context.inWindow(), (Node) node.getWindow().get());
                 windowFunctions.add(NodeRef.of(node));
@@ -1710,7 +1710,7 @@ public class ExpressionAnalyzer
         protected Type visitWindowOperation(WindowOperation node, Context context)
         {
             ResolvedWindow window = getResolvedWindow.apply(node);
-            checkState(window != null, "no resolved window for: " + node);
+            checkState(window != null, "no resolved window for: %s", node);
 
             if (window.getFrame().isEmpty()) {
                 throw semanticException(INVALID_WINDOW_MEASURE, node, "Measure %s is not defined in the corresponding window", node.getName().getValue());
@@ -2448,8 +2448,8 @@ public class ExpressionAnalyzer
             Type type = analyzeSubquery(node, context);
 
             // the implied type of a scalar subquery is that of the unique field in the single-column row
-            if (type instanceof RowType && ((RowType) type).getFields().size() == 1) {
-                type = type.getTypeParameters().getFirst();
+            if (type instanceof RowType rowType && rowType.getFields().size() == 1) {
+                type = rowType.getFieldTypes().getFirst();
             }
 
             setExpressionType(node, type);

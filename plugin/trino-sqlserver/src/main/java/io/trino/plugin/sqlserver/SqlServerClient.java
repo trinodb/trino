@@ -129,6 +129,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -363,9 +364,9 @@ public class SqlServerClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionConsumer)
     {
-        JdbcOutputTableHandle table = super.beginCreateTable(session, tableMetadata);
+        JdbcOutputTableHandle table = super.beginCreateTable(session, tableMetadata, rollbackActionConsumer);
         enableTableLockOnBulkLoadTableOption(session, table);
         return table;
     }

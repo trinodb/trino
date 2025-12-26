@@ -46,6 +46,7 @@ public class FlatGroupByHash
     private static final double SMALL_DICTIONARIES_MAX_CARDINALITY_RATIO = 0.25;
 
     private final FlatHash flatHash;
+    private final InterpretedHashGenerator hashGenerator;
     private final int groupByChannelCount;
 
     private final boolean processDictionary;
@@ -69,6 +70,7 @@ public class FlatGroupByHash
             UpdateMemory checkMemoryReservation)
     {
         this.flatHash = new FlatHash(hashStrategyCompiler.getFlatHashStrategy(hashTypes), cacheHashValue, expectedSize, checkMemoryReservation);
+        this.hashGenerator = hashStrategyCompiler.getInterpretedHashGenerator(hashTypes);
         this.groupByChannelCount = hashTypes.size();
 
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
@@ -83,6 +85,7 @@ public class FlatGroupByHash
     public FlatGroupByHash(FlatGroupByHash other)
     {
         this.flatHash = other.flatHash.copy();
+        this.hashGenerator = other.hashGenerator;
         groupByChannelCount = other.groupByChannelCount;
         processDictionary = other.processDictionary;
         dictionaryLookBack = other.dictionaryLookBack == null ? null : other.dictionaryLookBack.copy();
@@ -358,7 +361,7 @@ public class FlatGroupByHash
                     return false;
                 }
 
-                flatHash.computeHashes(blocks, hashes, lastPosition, batchSize);
+                hashGenerator.hashBlocksBatched(blocks, hashes, lastPosition, batchSize);
                 for (int i = 0; i < batchSize; i++) {
                     flatHash.putIfAbsent(blocks, lastPosition + i, hashes[i]);
                 }
@@ -524,7 +527,7 @@ public class FlatGroupByHash
                     return false;
                 }
 
-                flatHash.computeHashes(blocks, hashes, lastPosition, batchSize);
+                hashGenerator.hashBlocksBatched(blocks, hashes, lastPosition, batchSize);
                 for (int i = 0, position = lastPosition; i < batchSize; i++, position++) {
                     groupIds[position] = flatHash.putIfAbsent(blocks, position, hashes[i]);
                 }

@@ -13,12 +13,18 @@
  */
 package io.trino.type;
 
+import io.trino.sql.ExpressionFormatter;
 import io.trino.sql.query.QueryAssertions;
+import io.trino.sql.query.QueryAssertions.ExpressionAssertProvider.Result;
+import io.trino.sql.tree.IntervalLiteral;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+
+import java.time.Duration;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.OperatorType.ADD;
@@ -32,6 +38,7 @@ import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static io.trino.util.DateTimeUtils.formatDayTimeInterval;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -522,5 +529,75 @@ public class TestIntervalDayTime
 
         assertThat(assertions.operator(INDETERMINATE, "INTERVAL '45' MINUTE TO SECOND"))
                 .isEqualTo(false);
+    }
+
+    @Test
+    void testIntervalDayTimeRoundTrip()
+    {
+        testIntervalDayTimeRoundTrip("INTERVAL '0' SECOND", "INTERVAL '0 0:00:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL -'0' SECOND", "INTERVAL '0 0:00:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '0.000' SECOND", "INTERVAL '0 0:00:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '0.4' SECOND", "INTERVAL '0 0:00:00.400' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '0.04' SECOND", "INTERVAL '0 0:00:00.040' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '0.040' SECOND", "INTERVAL '0 0:00:00.040' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '45' SECOND", "INTERVAL '0 0:00:45' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL -'45' SECOND", "INTERVAL -'0 0:00:45' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '0.555' SECOND", "INTERVAL '0 0:00:00.555' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '59.999' SECOND", "INTERVAL '0 0:00:59.999' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '60' SECOND", "INTERVAL '0 0:01:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '61' SECOND", "INTERVAL '0 0:01:01' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '3661' SECOND", "INTERVAL '0 1:01:01' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '90061' SECOND", "INTERVAL '1 1:01:01' DAY TO SECOND");
+
+        testIntervalDayTimeRoundTrip("INTERVAL '0' MINUTE", "INTERVAL '0 0:00:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL -'0' MINUTE", "INTERVAL '0 0:00:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '25' MINUTE", "INTERVAL '0 0:25:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL -'25' MINUTE", "INTERVAL -'0 0:25:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '15:30' MINUTE TO SECOND", "INTERVAL '0 0:15:30' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '59:00.999' MINUTE TO SECOND", "INTERVAL '0 0:59:00.999' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '60' MINUTE", "INTERVAL '0 1:00:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '61' MINUTE", "INTERVAL '0 1:01:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '1500' MINUTE", "INTERVAL '1 1:00:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '1501' MINUTE", "INTERVAL '1 1:01:00' DAY TO SECOND");
+
+        testIntervalDayTimeRoundTrip("INTERVAL '0' HOUR", "INTERVAL '0 0:00:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL -'0' HOUR", "INTERVAL '0 0:00:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '8' HOUR", "INTERVAL '0 8:00:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL -'8' HOUR", "INTERVAL -'0 8:00:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '2:45' HOUR TO MINUTE", "INTERVAL '0 2:45:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '2:00:45' HOUR TO SECOND", "INTERVAL '0 2:00:45' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '1:30:45' HOUR TO SECOND", "INTERVAL '0 1:30:45' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '1:00:00.999' HOUR TO SECOND", "INTERVAL '0 1:00:00.999' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '24' HOUR", "INTERVAL '1 0:00:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '25' HOUR", "INTERVAL '1 1:00:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '17520' HOUR", "INTERVAL '730 0:00:00' DAY TO SECOND");
+
+        testIntervalDayTimeRoundTrip("INTERVAL '0' DAY", "INTERVAL '0 0:00:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL -'0' DAY", "INTERVAL '0 0:00:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '340' DAY", "INTERVAL '340 0:00:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL -'340' DAY", "INTERVAL -'340 0:00:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '2 6' DAY TO HOUR", "INTERVAL '2 6:00:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '3 0:30' DAY TO MINUTE", "INTERVAL '3 0:30:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '3 12:30' DAY TO MINUTE", "INTERVAL '3 12:30:00' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '1 0:00:15' DAY TO SECOND", "INTERVAL '1 0:00:15' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '1 4:20:15' DAY TO SECOND", "INTERVAL '1 4:20:15' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '1 0:00:00.999' DAY TO SECOND", "INTERVAL '1 0:00:00.999' DAY TO SECOND");
+        testIntervalDayTimeRoundTrip("INTERVAL '1 23:59:59.999' DAY TO SECOND", "INTERVAL '1 23:59:59.999' DAY TO SECOND");
+    }
+
+    private void testIntervalDayTimeRoundTrip(@Language("SQL") String input, @Language("SQL") String expectedFormatted)
+    {
+        Result evaluatedResult = assertions.expression(input).evaluate();
+        assertThat(evaluatedResult.type()).isEqualTo(IntervalDayTimeType.INTERVAL_DAY_TIME);
+        SqlIntervalDayTime originalInterval = (SqlIntervalDayTime) evaluatedResult.value();
+
+        Duration duration = Duration.ofMillis(originalInterval.getMillis());
+        IntervalLiteral formattedLiteral = formatDayTimeInterval(duration);
+        String formatted = ExpressionFormatter.formatExpression(formattedLiteral);
+        assertThat(formatted).isEqualTo(expectedFormatted);
+
+        Result reparsedResult = assertions.expression(formatted).evaluate();
+        SqlIntervalDayTime reparsedInterval = (SqlIntervalDayTime) reparsedResult.value();
+        assertThat(reparsedInterval).isEqualTo(originalInterval);
     }
 }

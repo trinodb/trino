@@ -68,14 +68,14 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeParameter;
+import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -204,16 +204,18 @@ public final class HiveTestUtils
     public static MapType mapType(Type keyType, Type valueType)
     {
         return (MapType) TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
-                TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
+                TypeParameter.typeParameter(keyType.getTypeSignature()),
+                TypeParameter.typeParameter(valueType.getTypeSignature())));
     }
 
-    public static RowType rowType(List<NamedTypeSignature> elementTypeSignatures)
+    public static RowType rowType(List<Field> elementTypeSignatures)
     {
         return (RowType) TESTING_TYPE_MANAGER.getParameterizedType(
                 StandardTypes.ROW,
                 elementTypeSignatures.stream()
-                        .map(TypeSignatureParameter::namedTypeParameter)
+                        .map(field -> TypeParameter.typeParameter(
+                                Optional.of(field.name()),
+                                field.type()))
                         .collect(toImmutableList()));
     }
 
@@ -227,7 +229,7 @@ public final class HiveTestUtils
             Collection<?> hiveArray = (Collection<?>) hiveValue;
             return buildArrayValue(arrayType, hiveArray.size(), valueBuilder -> {
                 for (Object subElement : hiveArray) {
-                    appendToBlockBuilder(type.getTypeParameters().get(0), subElement, valueBuilder);
+                    appendToBlockBuilder(arrayType.getElementType(), subElement, valueBuilder);
                 }
             });
         }
@@ -235,7 +237,7 @@ public final class HiveTestUtils
             return buildRowValue(rowType, fields -> {
                 int fieldIndex = 0;
                 for (Object subElement : (Iterable<?>) hiveValue) {
-                    appendToBlockBuilder(type.getTypeParameters().get(fieldIndex), subElement, fields.get(fieldIndex));
+                    appendToBlockBuilder(rowType.getFields().get(fieldIndex).getType(), subElement, fields.get(fieldIndex));
                     fieldIndex++;
                 }
             });
@@ -296,4 +298,6 @@ public final class HiveTestUtils
         long lsb = buffer.getLong();
         return new UUID(msb, lsb);
     }
+
+    record Field(String name, TypeSignature type) {}
 }

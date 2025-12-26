@@ -870,8 +870,8 @@ public class TestHiveStorageFormats
                     .containsOnly(row(
                             format("array(%s)", type),
                             format("map(%1$s, %1$s)", type),
-                            format("row(col %s)", type),
-                            format("array(map(%1$s, row(col array(%1$s))))", type))));
+                            format("row(\"col\" %s)", type),
+                            format("array(map(%1$s, row(\"col\" array(%1$s))))", type))));
 
             // Check the values as varchar
             softly.check(() -> assertThat(onTrino()

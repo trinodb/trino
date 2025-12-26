@@ -24,6 +24,7 @@ public abstract sealed class TimeWithTimeZoneType
         implements FixedWidthType
         permits LongTimeWithTimeZoneType, ShortTimeWithTimeZoneType
 {
+    public static final String NAME = "time with time zone";
     public static final int MAX_PRECISION = 12;
     public static final int MAX_SHORT_PRECISION = 9;
 
@@ -55,7 +56,7 @@ public abstract sealed class TimeWithTimeZoneType
 
     protected TimeWithTimeZoneType(int precision, Class<?> javaType, Class<? extends ValueBlock> valueBlockType)
     {
-        super(new TypeSignature(StandardTypes.TIME_WITH_TIME_ZONE, TypeSignatureParameter.numericParameter(precision)), javaType, valueBlockType);
+        super(new TypeSignature(NAME, TypeParameter.numericParameter(precision)), javaType, valueBlockType);
         this.precision = precision;
     }
 
@@ -67,6 +68,12 @@ public abstract sealed class TimeWithTimeZoneType
     public final boolean isShort()
     {
         return precision <= MAX_SHORT_PRECISION;
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return "time(" + precision + ") with time zone";
     }
 
     @Override

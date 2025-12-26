@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.trino.RowPagesBuilder;
 import io.trino.Session;
 import io.trino.operator.DriverContext;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex;
@@ -93,7 +94,7 @@ public class BenchmarkHashBuildAndJoinOperators
     private static final int HASH_BUILD_OPERATOR_ID = 1;
     private static final int HASH_JOIN_OPERATOR_ID = 2;
     private static final PlanNodeId TEST_PLAN_NODE_ID = new PlanNodeId("test");
-    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
+    private static final NullSafeHashCompiler HASH_COMPILER = new NullSafeHashCompiler(new TypeOperators());
 
     @State(Scope.Benchmark)
     public static class BuildContext
@@ -313,7 +314,7 @@ public class BenchmarkHashBuildAndJoinOperators
                         .collect(toImmutableList()),
                 partitionCount,
                 false,
-                TYPE_OPERATORS);
+                HASH_COMPILER);
         return new JoinBridgeManager<>(
                 false,
                 factory,
@@ -354,7 +355,7 @@ public class BenchmarkHashBuildAndJoinOperators
                                     .map(channel -> buildContext.getTypes().get(channel))
                                     .collect(toImmutableList()),
                             Ints.toArray(buildContext.getHashChannels()),
-                            TYPE_OPERATORS),
+                            HASH_COMPILER),
                     partitionCount);
 
             for (Page page : buildContext.getBuildPages()) {

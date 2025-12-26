@@ -11,13 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.split;
+package io.trino.operator;
 
 import com.google.common.base.Joiner;
+import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ValueBlock;
-import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
@@ -30,8 +30,16 @@ public final class PageValidations
 {
     private PageValidations() {}
 
-    public static void validateOutputPageTypes(SourcePage page, List<Type> expectedTypes, Supplier<String> debugContextSupplier)
+    public static void validateOutputPageTypes(Page page, List<Type> expectedTypes, Supplier<String> debugContextSupplier)
     {
+        if (page.getPositionCount() == 0) {
+            // Ignore empty pages. It is valid for connectors/table functions to produce empty pages (with arbitrary block list)
+            // interleaved with pages with data. Example of such behavior can be found in TableChangesFunctionProcessor (this is not exactly
+            // related to SourcePage, but illustrates the contract, which is the same for Pages and SourcePages).
+            // Empty pages are filtered out by Driver.
+            return;
+        }
+
         if (page.getChannelCount() != expectedTypes.size()) {
             throw new TrinoException(
                     GENERIC_INTERNAL_ERROR,
@@ -43,6 +51,7 @@ public final class PageValidations
                             expectedTypes));
         }
 
+        // Avoid allocation on the happy path
         List<String> mismatches = null;
         for (int channel = 0; channel < expectedTypes.size(); channel++) {
             Type type = expectedTypes.get(channel);
@@ -70,9 +79,9 @@ public final class PageValidations
         return type.getValueBlockType().isInstance(underlyingValueBlock);
     }
 
-    private static String blocksDebugInfo(SourcePage page)
+    private static String blocksDebugInfo(Page page)
     {
-        ArrayList<String> debugInfos = new ArrayList<>();
+        List<String> debugInfos = new ArrayList<>();
         for (int i = 0; i < page.getChannelCount(); i++) {
             debugInfos.add(blockDebugInfo(page.getBlock(i)));
         }

@@ -207,6 +207,7 @@ jobs:
         timeout-minutes: 15
         with:
           cache: restore
+          cleanup-node: true # fix "No space left on device" error
           java-version: 25.0.1
       - name: Maven Install
         run: |
@@ -912,7 +913,7 @@ jobs:
             - suite-delta-lake-databricks154
             - suite-delta-lake-databricks164
             - suite-delta-lake-databricks173
-            # - suite-exasol
+            - suite-exasol
             - suite-ranger
             - suite-gcs
             - suite-hive4

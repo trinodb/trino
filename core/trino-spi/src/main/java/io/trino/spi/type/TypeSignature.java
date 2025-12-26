@@ -24,7 +24,7 @@ import java.util.Locale;
 import java.util.Objects;
 
 import static io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
-import static io.trino.spi.type.TypeSignatureParameter.typeParameter;
+import static io.trino.spi.type.TypeParameter.typeParameter;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toUnmodifiableList;
@@ -36,17 +36,17 @@ public final class TypeSignature
     private static final String TIMESTAMP_WITHOUT_TIME_ZONE = "timestamp without time zone";
 
     private final String base;
-    private final List<TypeSignatureParameter> parameters;
+    private final List<TypeParameter> parameters;
     private final boolean calculated;
 
     private int hashCode;
 
-    public TypeSignature(String base, TypeSignatureParameter... parameters)
+    public TypeSignature(String base, TypeParameter... parameters)
     {
         this(base, asList(parameters));
     }
 
-    public TypeSignature(String base, List<TypeSignatureParameter> parameters)
+    public TypeSignature(String base, List<TypeParameter> parameters)
     {
         checkArgument(base != null, "base is null");
         this.base = base;
@@ -55,7 +55,7 @@ public final class TypeSignature
         checkArgument(parameters != null, "parameters is null");
         this.parameters = List.copyOf(parameters);
 
-        this.calculated = parameters.stream().anyMatch(TypeSignatureParameter::isCalculated);
+        this.calculated = parameters.stream().anyMatch(TypeParameter::isCalculated);
     }
 
     public String getBase()
@@ -63,7 +63,7 @@ public final class TypeSignature
         return base;
     }
 
-    public List<TypeSignatureParameter> getParameters()
+    public List<TypeParameter> getParameters()
     {
         return parameters;
     }
@@ -71,12 +71,13 @@ public final class TypeSignature
     public List<TypeSignature> getTypeParametersAsTypeSignatures()
     {
         List<TypeSignature> result = new ArrayList<>();
-        for (TypeSignatureParameter parameter : parameters) {
-            if (parameter.getKind() != ParameterKind.TYPE) {
-                throw new IllegalStateException(
-                        format("Expected all parameters to be TypeSignatures but [%s] was found", parameter));
+        for (TypeParameter parameter : parameters) {
+            if (parameter instanceof TypeParameter.Type(_, TypeSignature type)) {
+                result.add(type);
             }
-            result.add(parameter.getTypeSignature());
+            else {
+                throw new IllegalStateException(format("Expected all parameters to be TypeSignatures but [%s] was found", parameter));
+            }
         }
         return result;
     }
@@ -106,8 +107,8 @@ public final class TypeSignature
 
         if (base.equalsIgnoreCase(StandardTypes.VARCHAR) &&
                 (parameters.size() == 1) &&
-                parameters.get(0).isLongLiteral() &&
-                parameters.get(0).getLongLiteral() == VarcharType.UNBOUNDED_LENGTH) {
+                parameters.get(0) instanceof TypeParameter.Numeric(long length) &&
+                length == VarcharType.UNBOUNDED_LENGTH) {
             return base;
         }
 
@@ -185,7 +186,7 @@ public final class TypeSignature
         return new TypeSignature(StandardTypes.ARRAY, typeParameter(elementType));
     }
 
-    public static TypeSignature arrayType(TypeSignatureParameter elementType)
+    public static TypeSignature arrayType(TypeParameter elementType)
     {
         return new TypeSignature(StandardTypes.ARRAY, elementType);
     }
@@ -200,30 +201,30 @@ public final class TypeSignature
         return new TypeSignature(
                 name,
                 Arrays.stream(parameters)
-                        .map(TypeSignatureParameter::typeParameter)
+                        .map(TypeParameter::typeParameter)
                         .collect(toUnmodifiableList()));
     }
 
     public static TypeSignature functionType(TypeSignature first, TypeSignature... rest)
     {
-        List<TypeSignatureParameter> parameters = new ArrayList<>();
+        List<TypeParameter> parameters = new ArrayList<>();
         parameters.add(typeParameter(first));
 
         Arrays.stream(rest)
-                .map(TypeSignatureParameter::typeParameter)
+                .map(TypeParameter::typeParameter)
                 .forEach(parameters::add);
 
         return new TypeSignature("function", parameters);
     }
 
-    public static TypeSignature rowType(TypeSignatureParameter... fields)
+    public static TypeSignature rowType(TypeParameter... fields)
     {
         return rowType(Arrays.asList(fields));
     }
 
-    public static TypeSignature rowType(List<TypeSignatureParameter> fields)
+    public static TypeSignature rowType(List<TypeParameter> fields)
     {
-        checkArgument(fields.stream().allMatch(parameter -> parameter.getKind() == ParameterKind.NAMED_TYPE), "Parameters for ROW type must be NAMED_TYPE parameters");
+        checkArgument(fields.stream().allMatch(parameter -> parameter instanceof TypeParameter.Type), "Parameters for ROW type must be TYPE parameters");
 
         return new TypeSignature(StandardTypes.ROW, fields);
     }

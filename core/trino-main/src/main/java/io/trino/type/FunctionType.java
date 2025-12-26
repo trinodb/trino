@@ -21,8 +21,8 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 
 import java.util.List;
 import java.util.Objects;
@@ -47,16 +47,16 @@ public class FunctionType
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }
 
-    private static List<TypeSignatureParameter> typeParameters(List<Type> argumentTypes, Type returnType)
+    private static List<TypeParameter> typeParameters(List<Type> argumentTypes, Type returnType)
     {
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
-        ImmutableList.Builder<TypeSignatureParameter> builder = ImmutableList.builder();
+        ImmutableList.Builder<TypeParameter> builder = ImmutableList.builder();
         argumentTypes.stream()
                 .map(Type::getTypeSignature)
-                .map(TypeSignatureParameter::typeParameter)
+                .map(TypeParameter::typeParameter)
                 .forEach(builder::add);
-        builder.add(TypeSignatureParameter.typeParameter(returnType.getTypeSignature()));
+        builder.add(TypeParameter.typeParameter(returnType.getTypeSignature()));
         return builder.build();
     }
 
@@ -85,7 +85,12 @@ public class FunctionType
     @Override
     public String getDisplayName()
     {
-        List<String> names = getTypeParameters().stream()
+        List<Type> types = ImmutableList.<Type>builder()
+                .addAll(argumentTypes)
+                .add(returnType)
+                .build();
+
+        List<String> names = types.stream()
                 .map(Type::getDisplayName)
                 .collect(toImmutableList());
         return "function(" + Joiner.on(",").join(names) + ")";
@@ -94,13 +99,13 @@ public class FunctionType
     @Override
     public final Class<?> getJavaType()
     {
-        throw new UnsupportedOperationException(getTypeSignature() + " type does not have a Java type");
+        throw new UnsupportedOperationException(getDisplayName() + " type does not have a Java type");
     }
 
     @Override
     public Class<? extends ValueBlock> getValueBlockType()
     {
-        throw new UnsupportedOperationException(getTypeSignature() + " type does not have a ValueBlock type");
+        throw new UnsupportedOperationException(getDisplayName() + " type does not have a ValueBlock type");
     }
 
     @Override

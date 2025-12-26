@@ -3114,10 +3114,11 @@ public abstract class BaseHiveConnectorTest
                     // make sure that we will get one file per bucket regardless of writer count configured
                     getParallelWriteSession(getSession()),
                     format(
-                            "INSERT INTO " + tableName + " " +
+                            "INSERT INTO %s " +
                                     "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
                                     "FROM tpch.tiny.orders " +
                                     "WHERE orderstatus = '%s'",
+                            tableName,
                             orderStatus),
                     format("SELECT count(*) FROM orders WHERE orderstatus = '%s'", orderStatus));
         }
@@ -3173,7 +3174,7 @@ public abstract class BaseHiveConnectorTest
                     // make sure that we will get one file per bucket regardless of writer count configured
                     getParallelWriteSession(getSession()),
                     format(
-                            "INSERT INTO " + tableName + " " +
+                            "INSERT INTO %s " +
                                     "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
                                     "FROM tpch.tiny.orders " +
                                     "WHERE orderstatus = '%s' AND length(comment) %% 2 = 0 " +
@@ -3181,7 +3182,7 @@ public abstract class BaseHiveConnectorTest
                                     "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
                                     "FROM tpch.tiny.orders " +
                                     "WHERE orderstatus = '%s' AND length(comment) %% 2 = 1",
-                            orderStatus, orderStatus),
+                            tableName, orderStatus, orderStatus),
                     format("SELECT count(*) FROM orders WHERE orderstatus = '%s'", orderStatus));
         }
 

@@ -46,6 +46,7 @@ public class TestFileResourceGroupConfigurationManager
 {
     private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty());
     private static final long MEMORY_POOL_SIZE = 31415926535900L; // arbitrary uneven value for testing
+    private static final String QUERY = "select 1";
 
     @Test
     public void testInvalid()
@@ -190,6 +191,22 @@ public class TestFileResourceGroupConfigurationManager
     }
 
     @Test
+    public void testMatchByQueryText()
+    {
+        ManagerSpec managerSpec = managerSpec(
+                resourceGroupSpec("group"),
+                ImmutableList.of(selectorSpec(groupIdTemplate("group")).queryTextPattern("(?i).+FROM tableX")));
+
+        FileResourceGroupConfigurationManager manager = new FileResourceGroupConfigurationManager(listener -> {}, managerSpec);
+
+        assertThat(manager.match(queryTextSelectionCriteria("select 1"))).isEmpty();
+        assertThat(manager.match(queryTextSelectionCriteria("select * from tableY"))).isEmpty();
+        assertThat(manager.match(queryTextSelectionCriteria("select * from tableX")))
+                .map(SelectionContext::getContext)
+                .isEqualTo(Optional.of(groupIdTemplate("group")));
+    }
+
+    @Test
     public void testConfiguration()
     {
         FileResourceGroupConfigurationManager manager = parse("resource_groups_config.json");
@@ -264,6 +281,7 @@ public class TestFileResourceGroupConfigurationManager
                 Optional.of("jdbc#powerfulbi"),
                 ImmutableSet.of("hipri"),
                 EMPTY_RESOURCE_ESTIMATES,
+                QUERY,
                 Optional.of("select")));
         assertThat(selectionContext.getResourceGroupId().toString()).isEqualTo("global.adhoc.bi-powerfulbi.Alice");
         TestingResourceGroup resourceGroup = new TestingResourceGroup(selectionContext.getResourceGroupId());
@@ -281,6 +299,7 @@ public class TestFileResourceGroupConfigurationManager
                 Optional.empty(),
                 ImmutableSet.of(),
                 EMPTY_RESOURCE_ESTIMATES,
+                QUERY,
                 Optional.empty()));
         assertThat(selectionContext.getResourceGroupId().toString()).isEqualTo("global.adhoc.other.Amanda");
         resourceGroup = new TestingResourceGroup(selectionContext.getResourceGroupId());
@@ -339,7 +358,7 @@ public class TestFileResourceGroupConfigurationManager
 
     private static SelectionCriteria userAndSourceSelectionCriteria(String user, String source)
     {
-        return new SelectionCriteria(true, user, ImmutableSet.of(), user, Optional.empty(), Optional.of(source), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
+        return new SelectionCriteria(true, user, ImmutableSet.of(), user, Optional.empty(), Optional.of(source), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, QUERY, Optional.empty());
     }
 
     private static SelectionCriteria userSelectionCriteria(String user)
@@ -349,17 +368,22 @@ public class TestFileResourceGroupConfigurationManager
 
     private static SelectionCriteria identitySelectionCriteria(String user, String originalUser, Optional<String> authenticatedUser)
     {
-        return new SelectionCriteria(true, user, ImmutableSet.of(), originalUser, authenticatedUser, Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
+        return new SelectionCriteria(true, user, ImmutableSet.of(), originalUser, authenticatedUser, Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, QUERY, Optional.empty());
+    }
+
+    private static SelectionCriteria queryTextSelectionCriteria(String queryText)
+    {
+        return new SelectionCriteria(true, "test_user", ImmutableSet.of(), "test_user", Optional.empty(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, queryText, Optional.empty());
     }
 
     private static SelectionCriteria queryTypeSelectionCriteria(String queryType)
     {
-        return new SelectionCriteria(true, "test_user", ImmutableSet.of(), "test_user", Optional.empty(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of(queryType));
+        return new SelectionCriteria(true, "test_user", ImmutableSet.of(), "test_user", Optional.empty(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, QUERY, Optional.of(queryType));
     }
 
     private static SelectionCriteria userGroupsSelectionCriteria(String... groups)
     {
-        return new SelectionCriteria(true, "test_user", ImmutableSet.copyOf(groups), "test_user", Optional.empty(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
+        return new SelectionCriteria(true, "test_user", ImmutableSet.copyOf(groups), "test_user", Optional.empty(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, QUERY, Optional.empty());
     }
 
     private static SelectionCriteria userAndUserGroupsSelectionCriteria(String user, String group, String... groups)
@@ -375,6 +399,7 @@ public class TestFileResourceGroupConfigurationManager
                 Optional.empty(),
                 ImmutableSet.of(),
                 EMPTY_RESOURCE_ESTIMATES,
+                QUERY,
                 Optional.empty());
     }
 }

@@ -23,13 +23,11 @@ import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.LongVariableConstraint;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
-import io.trino.spi.type.NamedTypeSignature;
-import io.trino.spi.type.ParameterKind;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.type.FunctionType;
 import io.trino.type.JsonType;
@@ -212,7 +210,7 @@ public class SignatureBinder
             return typeVariables.getTypeVariable(baseType).getTypeSignature();
         }
 
-        List<TypeSignatureParameter> parameters = typeSignature.getParameters().stream()
+        List<TypeParameter> parameters = typeSignature.getParameters().stream()
                 .map(typeSignatureParameter -> applyBoundVariables(typeSignatureParameter, typeVariables))
                 .collect(toList());
 
@@ -284,20 +282,22 @@ public class SignatureBinder
         // type with nested literal parameters
         if (isTypeWithLiteralParameters(declaredTypeSignature)) {
             for (int i = 0; i < declaredTypeSignature.getParameters().size(); i++) {
-                TypeSignatureParameter typeSignatureParameter = declaredTypeSignature.getParameters().get(i);
-                Long actualLongBinding = actualType.getTypeSignature().getParameters().get(i).getLongLiteral();
-                if (typeSignatureParameter.getKind() == ParameterKind.VARIABLE) {
-                    if (bindings.containsLongVariable(typeSignatureParameter.getVariable())) {
-                        Long existingLongBinding = bindings.getLongVariable(typeSignatureParameter.getVariable());
-                        verifyBoundSignature(actualLongBinding.equals(existingLongBinding), boundSignature, declaredSignature);
+                TypeParameter parameter = declaredTypeSignature.getParameters().get(i);
+                Long actualLongBinding = ((TypeParameter.Numeric) actualType.getTypeSignature().getParameters().get(i)).value();
+                switch (parameter) {
+                    case TypeParameter.Variable(String variable) -> {
+                        if (bindings.containsLongVariable(variable)) {
+                            Long existingLongBinding = bindings.getLongVariable(variable);
+                            verifyBoundSignature(actualLongBinding.equals(existingLongBinding), boundSignature, declaredSignature);
+                        }
+                        else {
+                            bindings.setLongVariable(variable, actualLongBinding);
+                        }
                     }
-                    else {
-                        bindings.setLongVariable(typeSignatureParameter.getVariable(), actualLongBinding);
+                    case TypeParameter.Numeric numeric -> {
+                        verifyBoundSignature(actualLongBinding.equals(numeric.value()), boundSignature, declaredSignature);
                     }
-                }
-                else {
-                    verify(typeSignatureParameter.getKind() == ParameterKind.LONG);
-                    verifyBoundSignature(actualLongBinding.equals(typeSignatureParameter.getLongLiteral()), boundSignature, declaredSignature);
+                    default -> throw new UnsupportedOperationException("Unexpected type signature parameter: " + parameter);
                 }
             }
             return;
@@ -313,9 +313,8 @@ public class SignatureBinder
 
         verifyBoundSignature(declaredTypeSignature.getParameters().size() == actualTypeParameters.size(), boundSignature, declaredSignature);
         for (int i = 0; i < declaredTypeSignature.getParameters().size(); i++) {
-            TypeSignatureParameter typeSignatureParameter = declaredTypeSignature.getParameters().get(i);
-            TypeSignature typeSignature = typeSignatureParameter.getTypeSignatureOrNamedTypeSignature()
-                    .orElseThrow(() -> new UnsupportedOperationException("Types with both type parameters and literal parameters at the same time are not supported"));
+            TypeParameter typeParameter = declaredTypeSignature.getParameters().get(i);
+            TypeSignature typeSignature = ((TypeParameter.Type) typeParameter).type();
             Type actualTypeParameter = actualTypeParameters.get(i);
             extractBoundVariables(boundSignature, declaredSignature, typeVariableConstraints, bindings, actualTypeParameter, typeSignature);
         }
@@ -344,22 +343,18 @@ public class SignatureBinder
 
     private static void checkNoLiteralVariableUsageAcrossTypes(TypeSignature typeSignature, Map<String, TypeSignature> existingUsages)
     {
-        List<TypeSignatureParameter> variables = typeSignature.getParameters().stream()
-                .filter(TypeSignatureParameter::isVariable)
-                .collect(toList());
-        for (TypeSignatureParameter variable : variables) {
-            TypeSignature existing = existingUsages.get(variable.getVariable());
-            if (existing != null && !existing.equals(typeSignature)) {
-                throw new UnsupportedOperationException("Literal parameters may not be shared across different types");
+        for (TypeParameter parameter : typeSignature.getParameters()) {
+            switch (parameter) {
+                case TypeParameter.Variable(String name) -> {
+                    TypeSignature existing = existingUsages.get(name);
+                    if (existing != null && !existing.equals(typeSignature)) {
+                        throw new UnsupportedOperationException("Literal parameters may not be shared across different types");
+                    }
+                    existingUsages.put(name, typeSignature);
+                }
+                case TypeParameter.Type(_, TypeSignature type) -> checkNoLiteralVariableUsageAcrossTypes(type, existingUsages);
+                default -> {}
             }
-            existingUsages.put(variable.getVariable(), typeSignature);
-        }
-
-        for (TypeSignatureParameter parameter : typeSignature.getParameters()) {
-            if (parameter.isLongLiteral() || parameter.isVariable()) {
-                continue;
-            }
-            checkNoLiteralVariableUsageAcrossTypes(parameter.getTypeSignatureOrNamedTypeSignature().get(), existingUsages);
         }
     }
 
@@ -476,10 +471,8 @@ public class SignatureBinder
         }
 
         ImmutableList.Builder<TypeSignature> formalTypeParameterTypeSignatures = ImmutableList.builder();
-        for (TypeSignatureParameter formalTypeParameter : formalTypeSignature.getParameters()) {
-            TypeSignature typeSignature = formalTypeParameter.getTypeSignatureOrNamedTypeSignature()
-                    .orElseThrow(() -> new UnsupportedOperationException("Types with both type parameters and literal parameters at the same time are not supported"));
-            formalTypeParameterTypeSignatures.add(typeSignature);
+        for (TypeParameter formalTypeParameter : formalTypeSignature.getParameters()) {
+            formalTypeParameterTypeSignatures.add(((TypeParameter.Type) formalTypeParameter).type());
         }
 
         return appendConstraintSolvers(
@@ -495,20 +488,9 @@ public class SignatureBinder
             return ImmutableSet.of(typeSignature.getBase());
         }
         ImmutableSet.Builder<String> variables = ImmutableSet.builder();
-        for (TypeSignatureParameter parameter : typeSignature.getParameters()) {
-            switch (parameter.getKind()) {
-                case TYPE:
-                    variables.addAll(typeVariablesOf(parameter.getTypeSignature()));
-                    break;
-                case NAMED_TYPE:
-                    variables.addAll(typeVariablesOf(parameter.getNamedTypeSignature().getTypeSignature()));
-                    break;
-                case LONG:
-                    break;
-                case VARIABLE:
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unknown parameter kind: " + parameter.getKind());
+        for (TypeParameter parameter : typeSignature.getParameters()) {
+            if (parameter instanceof TypeParameter.Type(_, TypeSignature type)) {
+                variables.addAll(typeVariablesOf(type));
             }
         }
 
@@ -518,21 +500,11 @@ public class SignatureBinder
     private static Set<String> longVariablesOf(TypeSignature typeSignature)
     {
         ImmutableSet.Builder<String> variables = ImmutableSet.builder();
-        for (TypeSignatureParameter parameter : typeSignature.getParameters()) {
-            switch (parameter.getKind()) {
-                case TYPE:
-                    variables.addAll(longVariablesOf(parameter.getTypeSignature()));
-                    break;
-                case NAMED_TYPE:
-                    variables.addAll(longVariablesOf(parameter.getNamedTypeSignature().getTypeSignature()));
-                    break;
-                case LONG:
-                    break;
-                case VARIABLE:
-                    variables.add(parameter.getVariable());
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unknown parameter kind: " + parameter.getKind());
+        for (TypeParameter parameter : typeSignature.getParameters()) {
+            switch (parameter) {
+                case TypeParameter.Type type -> variables.addAll(longVariablesOf(type.type()));
+                case TypeParameter.Variable variable -> variables.add(variable.name());
+                case TypeParameter.Numeric numeric -> {}
             }
         }
 
@@ -542,8 +514,7 @@ public class SignatureBinder
     private static boolean isTypeWithLiteralParameters(TypeSignature typeSignature)
     {
         return typeSignature.getParameters().stream()
-                .map(TypeSignatureParameter::getKind)
-                .allMatch(kind -> kind == ParameterKind.LONG || kind == ParameterKind.VARIABLE);
+                .allMatch(value -> value instanceof TypeParameter.Numeric || value instanceof TypeParameter.Variable);
     }
 
     private Optional<TypeVariables> iterativeSolve(List<TypeConstraintSolver> constraints)
@@ -604,34 +575,19 @@ public class SignatureBinder
                 .allMatch(typeVariables::containsTypeVariable);
     }
 
-    private static TypeSignatureParameter applyBoundVariables(TypeSignatureParameter parameter, TypeVariables typeVariables)
+    private static TypeParameter applyBoundVariables(TypeParameter parameter, TypeVariables typeVariables)
     {
-        ParameterKind parameterKind = parameter.getKind();
-        switch (parameterKind) {
-            case TYPE: {
-                TypeSignature typeSignature = parameter.getTypeSignature();
-                return TypeSignatureParameter.typeParameter(applyBoundVariables(typeSignature, typeVariables));
-            }
-            case NAMED_TYPE: {
-                NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
-                TypeSignature typeSignature = namedTypeSignature.getTypeSignature();
-                return TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(
-                        namedTypeSignature.getFieldName(),
-                        applyBoundVariables(typeSignature, typeVariables)));
-            }
-            case VARIABLE: {
-                String variableName = parameter.getVariable();
+        return switch (parameter) {
+            case TypeParameter.Type type -> TypeParameter.typeParameter(type.name(), applyBoundVariables(type.type(), typeVariables));
+            case TypeParameter.Variable(String variable) -> {
                 checkState(
-                        typeVariables.containsLongVariable(variableName),
-                        "Variable is not bound: %s", variableName);
-                Long variableValue = typeVariables.getLongVariable(variableName);
-                return TypeSignatureParameter.numericParameter(variableValue);
+                        typeVariables.containsLongVariable(variable),
+                        "Variable is not bound: %s", variable);
+                Long variableValue = typeVariables.getLongVariable(variable);
+                yield TypeParameter.numericParameter(variableValue);
             }
-            case LONG: {
-                return parameter;
-            }
-        }
-        throw new IllegalStateException("Unknown parameter kind: " + parameter.getKind());
+            case TypeParameter.Numeric _ -> parameter;
+        };
     }
 
     private static List<TypeSignature> expandVarargFormalTypeSignature(List<TypeSignature> formalTypeSignatures, int actualArity)
@@ -832,33 +788,34 @@ public class SignatureBinder
         @Override
         public SolverReturnStatus update(BoundVariables bindings)
         {
-            ImmutableList.Builder<TypeSignatureParameter> originalTypeTypeParametersBuilder = ImmutableList.builder();
-            List<TypeSignatureParameter> parameters = formalTypeSignature.getParameters();
+            ImmutableList.Builder<TypeParameter> originalTypeTypeParametersBuilder = ImmutableList.builder();
+            List<TypeParameter> parameters = formalTypeSignature.getParameters();
             for (int i = 0; i < parameters.size(); i++) {
-                TypeSignatureParameter typeSignatureParameter = parameters.get(i);
-                if (typeSignatureParameter.getKind() == ParameterKind.VARIABLE) {
-                    if (bindings.containsLongVariable(typeSignatureParameter.getVariable())) {
-                        originalTypeTypeParametersBuilder.add(TypeSignatureParameter.numericParameter(bindings.getLongVariable(typeSignatureParameter.getVariable())));
-                    }
-                    else {
-                        // if an existing value doesn't exist for the given variable name, use the value that comes from the actual type.
-                        Optional<Type> type = typeCoercion.coerceTypeBase(actualType, formalTypeSignature.getBase());
-                        if (type.isEmpty()) {
-                            return SolverReturnStatus.UNSOLVABLE;
+                TypeParameter parameter = parameters.get(i);
+
+                switch (parameter) {
+                    case TypeParameter.Variable(String variable) -> {
+                        if (bindings.containsLongVariable(variable)) {
+                            originalTypeTypeParametersBuilder.add(TypeParameter.numericParameter(bindings.getLongVariable(variable)));
                         }
-                        verify(
-                                type.get().getBaseName().equals(formalTypeSignature.getBase()),
-                                "Unexpected coerce result for %s and %s: %s",
-                                actualType,
-                                formalTypeSignature.getBase(),
-                                type.get());
-                        TypeSignature typeSignature = type.get().getTypeSignature();
-                        originalTypeTypeParametersBuilder.add(TypeSignatureParameter.numericParameter(typeSignature.getParameters().get(i).getLongLiteral()));
+                        else {
+                            // if an existing value doesn't exist for the given variable name, use the value that comes from the actual type.
+                            Optional<Type> type = typeCoercion.coerceTypeBase(actualType, formalTypeSignature.getBase());
+                            if (type.isEmpty()) {
+                                return SolverReturnStatus.UNSOLVABLE;
+                            }
+                            verify(
+                                    type.get().getBaseName().equals(formalTypeSignature.getBase()),
+                                    "Unexpected coerce result for %s and %s: %s",
+                                    actualType,
+                                    formalTypeSignature.getBase(),
+                                    type.get());
+                            TypeSignature typeSignature = type.get().getTypeSignature();
+                            originalTypeTypeParametersBuilder.add(TypeParameter.numericParameter(((TypeParameter.Numeric) typeSignature.getParameters().get(i)).value()));
+                        }
                     }
-                }
-                else {
-                    verify(typeSignatureParameter.getKind() == ParameterKind.LONG);
-                    originalTypeTypeParametersBuilder.add(typeSignatureParameter);
+                    case TypeParameter.Numeric _ -> originalTypeTypeParametersBuilder.add(parameter);
+                    case TypeParameter.Type type -> throw new UnsupportedOperationException("Unexpected type signature parameter: " + parameter);
                 }
             }
             Type originalType = typeManager.getType(new TypeSignature(formalTypeSignature.getBase(), originalTypeTypeParametersBuilder.build()));
@@ -872,20 +829,22 @@ public class SignatureBinder
             }
             SolverReturnStatus result = SolverReturnStatus.UNCHANGED_SATISFIED;
             for (int i = 0; i < parameters.size(); i++) {
-                TypeSignatureParameter typeSignatureParameter = parameters.get(i);
-                long commonSuperLongLiteral = commonSuperTypeSignature.getParameters().get(i).getLongLiteral();
-                if (typeSignatureParameter.getKind() == ParameterKind.VARIABLE) {
-                    String variableName = typeSignatureParameter.getVariable();
-                    if (!bindings.containsLongVariable(variableName) || !bindings.getLongVariable(variableName).equals(commonSuperLongLiteral)) {
-                        bindings.setLongVariable(variableName, commonSuperLongLiteral);
-                        result = SolverReturnStatus.CHANGED;
+                TypeParameter parameter = parameters.get(i);
+                long commonSuperLongLiteral = ((TypeParameter.Numeric) commonSuperTypeSignature.getParameters().get(i)).value();
+
+                switch (parameter) {
+                    case TypeParameter.Variable(String name) -> {
+                        if (!bindings.containsLongVariable(name) || !bindings.getLongVariable(name).equals(commonSuperLongLiteral)) {
+                            bindings.setLongVariable(name, commonSuperLongLiteral);
+                            result = SolverReturnStatus.CHANGED;
+                        }
                     }
-                }
-                else {
-                    verify(typeSignatureParameter.getKind() == ParameterKind.LONG);
-                    if (commonSuperLongLiteral != typeSignatureParameter.getLongLiteral()) {
-                        return SolverReturnStatus.UNSOLVABLE;
+                    case TypeParameter.Numeric numeric -> {
+                        if (commonSuperLongLiteral != numeric.value()) {
+                            return SolverReturnStatus.UNSOLVABLE;
+                        }
                     }
+                    default -> throw new UnsupportedOperationException("Unexpected type signature parameter: " + parameter);
                 }
             }
             return result;

@@ -20,6 +20,10 @@ import io.trino.spi.type.MapType;
 
 import java.util.Optional;
 
+import static io.trino.spi.block.EncoderUtil.decodeNullBitsScalar;
+import static io.trino.spi.block.EncoderUtil.decodeNullBitsVectorized;
+import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsScalar;
+import static io.trino.spi.block.EncoderUtil.encodeNullsAsBitsVectorized;
 import static io.trino.spi.block.MapBlock.createMapBlockInternal;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static io.trino.spi.block.MapHashTables.HashBuildMode.DUPLICATE_NOT_CHECKED;
@@ -29,6 +33,13 @@ public class MapBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "MAP";
+
+    private final boolean vectorizeNullBitPacking;
+
+    public MapBlockEncoding(boolean vectorizeNullBitPacking)
+    {
+        this.vectorizeNullBitPacking = vectorizeNullBitPacking;
+    }
 
     @Override
     public String getName()
@@ -75,7 +86,13 @@ public class MapBlockEncoding
         for (int position = 0; position < positionCount + 1; position++) {
             sliceOutput.writeInt(offsets[offsetBase + position] - entriesStartOffset);
         }
-        EncoderUtil.encodeNullsAsBits(sliceOutput, mapBlock.getRawMapIsNull(), offsetBase, positionCount);
+
+        if (vectorizeNullBitPacking) {
+            encodeNullsAsBitsVectorized(sliceOutput, mapBlock.getRawMapIsNull(), offsetBase, positionCount);
+        }
+        else {
+            encodeNullsAsBitsScalar(sliceOutput, mapBlock.getRawMapIsNull(), offsetBase, positionCount);
+        }
     }
 
     @Override
@@ -110,7 +127,13 @@ public class MapBlockEncoding
         int positionCount = sliceInput.readInt();
         int[] offsets = new int[positionCount + 1];
         sliceInput.readInts(offsets);
-        Optional<boolean[]> mapIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
+        Optional<boolean[]> mapIsNull;
+        if (vectorizeNullBitPacking) {
+            mapIsNull = decodeNullBitsVectorized(sliceInput, positionCount);
+        }
+        else {
+            mapIsNull = decodeNullBitsScalar(sliceInput, positionCount);
+        }
         MapHashTables hashTables = new MapHashTables(mapType, DUPLICATE_NOT_CHECKED, positionCount, Optional.ofNullable(hashTable));
         return createMapBlockInternal(mapType, 0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTables);
     }

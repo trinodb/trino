@@ -19,8 +19,10 @@ import org.jdbi.v3.core.HandleCallback;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
 
+import java.net.SocketTimeoutException;
 import java.time.Duration;
 
+import static com.google.common.base.Throwables.getCausalChain;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 
 public final class TestingRedshiftServer
@@ -69,6 +71,8 @@ public final class TestingRedshiftServer
                 exception.getMessage().matches(".* concurrent transaction.*")
                         || exception.getMessage().matches(".*deadlock detected.*")
                         || exception.getMessage().matches(".*could not open relation with OID.*")
-                        || exception.getMessage().matches(".*The connection attempt failed.*"));
+                        || exception.getMessage().matches(".*The connection attempt failed.*")
+                        || getCausalChain(exception).stream()
+                        .anyMatch(e -> e instanceof SocketTimeoutException));
     }
 }

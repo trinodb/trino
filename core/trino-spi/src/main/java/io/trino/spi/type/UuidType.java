@@ -55,6 +55,7 @@ public class UuidType
         extends AbstractType
         implements FixedWidthType
 {
+    public static final String NAME = "uuid";
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(UuidType.class, lookup(), Slice.class);
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
@@ -62,7 +63,7 @@ public class UuidType
 
     private UuidType()
     {
-        super(new TypeSignature(StandardTypes.UUID), Slice.class, Int128ArrayBlock.class);
+        super(new TypeSignature(NAME), Slice.class, Int128ArrayBlock.class);
     }
 
     @Override
@@ -90,6 +91,12 @@ public class UuidType
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
         return new Int128ArrayBlockBuilder(null, positionCount);
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override

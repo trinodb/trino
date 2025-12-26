@@ -27,12 +27,13 @@ import static java.util.Collections.singletonList;
 public class QuantileDigestType
         extends AbstractVariableWidthType
 {
+    public static final String NAME = "qdigest";
     private final Type valueType;
 
     @JsonCreator
     public QuantileDigestType(Type valueType)
     {
-        super(new TypeSignature(StandardTypes.QDIGEST, TypeSignatureParameter.typeParameter(valueType.getTypeSignature())), Slice.class);
+        super(new TypeSignature(NAME, TypeParameter.typeParameter(valueType.getTypeSignature())), Slice.class);
         this.valueType = valueType;
     }
 
@@ -69,6 +70,12 @@ public class QuantileDigestType
     public Type getValueType()
     {
         return valueType;
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME + "(" + valueType.getDisplayName() + ")";
     }
 
     @Override

@@ -44,7 +44,7 @@ public final class TestingTypeManager
     public Type getType(TypeSignature signature)
     {
         for (Type type : TYPES) {
-            if (signature.getBase().equals(type.getTypeSignature().getBase())) {
+            if (signature.getBase().equals(type.getBaseName())) {
                 return type;
             }
         }
@@ -56,7 +56,10 @@ public final class TestingTypeManager
                     typeOperators);
             case StandardTypes.ARRAY -> new ArrayType(getType(signature.getTypeParametersAsTypeSignatures().get(0)));
             case StandardTypes.ROW -> RowType.from(signature.getParameters().stream()
-                    .map(namedType -> new RowType.Field(namedType.getNamedTypeSignature().getName(), getType(namedType.getNamedTypeSignature().getTypeSignature())))
+                    .map(parameter -> {
+                        TypeParameter.Type typeParameter = (TypeParameter.Type) parameter;
+                        return new RowType.Field(typeParameter.name(), getType(typeParameter.type()));
+                    })
                     .collect(toImmutableList()));
             default -> throw new TypeNotFoundException(signature);
         };

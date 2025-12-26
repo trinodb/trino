@@ -27,6 +27,12 @@ public final class TestingIdType
     }
 
     @Override
+    public String getDisplayName()
+    {
+        return NAME;
+    }
+
+    @Override
     public boolean isOrderable()
     {
         return false;

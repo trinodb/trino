@@ -22,7 +22,6 @@ import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.function.IsNull;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.type.AbstractVariableWidthType;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeOperatorDeclaration;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
@@ -36,6 +35,7 @@ import static io.trino.spi.function.OperatorType.XX_HASH_64;
 public class GeometryType
         extends AbstractVariableWidthType
 {
+    public static final String NAME = "Geometry";
     public static final GeometryType GEOMETRY = new GeometryType();
 
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION =
@@ -46,7 +46,7 @@ public class GeometryType
 
     private GeometryType()
     {
-        super(new TypeSignature(StandardTypes.GEOMETRY), Slice.class);
+        super(new TypeSignature(NAME), Slice.class);
     }
 
     protected GeometryType(TypeSignature signature)
@@ -58,6 +58,12 @@ public class GeometryType
     public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
     {
         return TYPE_OPERATOR_DECLARATION;
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return NAME;
     }
 
     @Override
