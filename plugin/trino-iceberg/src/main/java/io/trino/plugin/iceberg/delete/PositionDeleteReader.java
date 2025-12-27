@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
-import io.trino.plugin.iceberg.delete.DeleteManager.DeletePageSourceProvider;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
@@ -32,6 +31,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.IntConsumer;
+import java.util.function.ObjIntConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -39,6 +40,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
@@ -76,7 +78,7 @@ public final class PositionDeleteReader
         for (DeleteFile deleteFile : positionDeleteFiles) {
             if (shouldLoadPositionDeleteFile(deleteFile, startRowPosition, endRowPosition)) {
                 try (ConnectorPageSource pageSource = deletePageSourceProvider.openDeletes(deleteFile, deleteColumns, deleteDomain)) {
-                    readPositionDeletes(pageSource, targetPath, deletionVector);
+                    readMultiFilePositionDeletes(pageSource, targetPath, deletionVector::add);
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException(e);
@@ -99,7 +101,24 @@ public final class PositionDeleteReader
                 (positionUpperBound.isEmpty() || positionUpperBound.get() >= startRowPosition.get());
     }
 
-    private static void readPositionDeletes(ConnectorPageSource pageSource, Slice targetPath, DeletionVector.Builder deletionVector)
+    public static void readSingleFilePositionDeletes(ConnectorPageSource pageSource, IntConsumer filePositionConsumer)
+    {
+        while (!pageSource.isFinished()) {
+            SourcePage page = pageSource.getNextSourcePage();
+            if (page == null) {
+                continue;
+            }
+
+            Block posBlock = page.getBlock(0);
+
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                long filePosition = BIGINT.getLong(posBlock, position);
+                filePositionConsumer.accept(toIntExact(filePosition));
+            }
+        }
+    }
+
+    private static void readMultiFilePositionDeletes(ConnectorPageSource pageSource, Slice targetPath, IntConsumer filePositionConsumer)
     {
         CachingVarcharComparator comparator = new CachingVarcharComparator(targetPath);
         while (!pageSource.isFinished()) {
@@ -111,14 +130,41 @@ public final class PositionDeleteReader
             Block pathBlock = page.getBlock(0);
             Block posBlock = page.getBlock(1);
 
+            // TODO: add specialized code for RLE and dictionary blocks
             for (int position = 0; position < page.getPositionCount(); position++) {
                 int result = comparator.compare(pathBlock, position);
                 if (result > 0) {
+                    // deletion files are sorted by path, so we're done
                     return;
                 }
                 if (result == 0) {
-                    deletionVector.add(BIGINT.getLong(posBlock, position));
+                    filePositionConsumer.accept(toIntExact(BIGINT.getLong(posBlock, position)));
                 }
+            }
+        }
+    }
+
+    public static void readMultiFilePositionDeletes(ConnectorPageSource pageSource, ObjIntConsumer<String> filePositionConsumer)
+    {
+        while (!pageSource.isFinished()) {
+            SourcePage page = pageSource.getNextSourcePage();
+            if (page == null) {
+                continue;
+            }
+
+            Block pathBlock = page.getBlock(0);
+            Block posBlock = page.getBlock(1);
+
+            Slice lastPath = null;
+            String pathString = null;
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                Slice path = VARCHAR.getSlice(pathBlock, position);
+                if (lastPath != path) {
+                    lastPath = path;
+                    pathString = path.toStringUtf8();
+                }
+                long filePosition = BIGINT.getLong(posBlock, position);
+                filePositionConsumer.accept(pathString, toIntExact(filePosition));
             }
         }
     }
@@ -139,6 +185,13 @@ public final class PositionDeleteReader
         {
             checkArgument(!block.isNull(position), "position is null");
             Slice next = VARCHAR.getSlice(block, position);
+            return compare(next);
+        }
+
+        public int compare(Slice next)
+        {
+            // The expected case is a dictionary block with many entries for the
+            // same path. Only perform a comparison if the object has changed.
             if (value != next) {
                 value = next;
                 result = value.compareTo(reference);

@@ -90,7 +90,8 @@ public class PositionDeleteWriter
                 partition.map(PartitionData::toJson),
                 FileContent.POSITION_DELETES,
                 Optional.of(dataFilePath),
-                writer.getFileMetrics().splitOffsets());
+                writer.getFileMetrics().splitOffsets(),
+                Optional.empty());
     }
 
     public void abort()
