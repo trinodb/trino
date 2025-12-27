@@ -14,6 +14,8 @@
 package io.trino.plugin.exchange.filesystem.local;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Level;
+import io.airlift.log.Logging;
 import io.trino.plugin.exchange.filesystem.AbstractTestExchangeManager;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeManagerFactory;
 import io.trino.plugin.exchange.filesystem.TestExchangeManagerContext;
@@ -22,6 +24,11 @@ import io.trino.spi.exchange.ExchangeManager;
 public class TestLocalFileSystemExchangeManager
         extends AbstractTestExchangeManager
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("io.trino.bootstrap.exchange", Level.ERROR);
+    }
+
     @Override
     protected ExchangeManager createExchangeManager()
     {
