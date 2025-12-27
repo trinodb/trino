@@ -173,6 +173,7 @@ public class IcebergPageSinkProvider
         ConnectorPageSink pageSink = createPageSink(session, tableHandle);
 
         return new IcebergMergeSink(
+                merge.getTableHandle().getFormatVersion(),
                 locationProvider,
                 fileWriterFactory,
                 fileSystemFactory.create(session.getIdentity(), tableHandle.fileIoProperties()),
