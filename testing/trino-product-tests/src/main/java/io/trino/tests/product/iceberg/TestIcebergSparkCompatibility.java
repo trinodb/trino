@@ -2127,6 +2127,70 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
+    // Test that Spark can read deletion vectors (DVs) written by Trino in format version 3
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testSparkReadsTrinoV3DeletionVectors(StorageFormat storageFormat)
+    {
+        String tableName = toLowerCase(format("test_spark_reads_trino_v3_dv_%s_%s", storageFormat.name(), randomNameSuffix()));
+        String sparkTableName = sparkTableName(tableName);
+        String trinoTableName = trinoTableName(tableName);
+
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + "(a INT, b INT) WITH(partitioning = ARRAY['b'], format_version = 3, format = '" + storageFormat.name() + "')");
+        onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (1, 2), (2, 2), (3, 2), (11, 12), (12, 12), (13, 12)");
+        // Delete rows from multiple partitions in a single statement - this creates deletion vectors in v3
+        onTrino().executeQuery("DELETE FROM " + trinoTableName + " WHERE a IN (3, 13)");
+
+        List<Row> expected = ImmutableList.of(row(1, 2), row(2, 2), row(11, 12), row(12, 12));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+
+        // Delete entire partition
+        onTrino().executeQuery("DELETE FROM " + trinoTableName + " WHERE b = 2");
+
+        expected = ImmutableList.of(row(11, 12), row(12, 12));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+
+        // Delete additional row from file that already has a DV
+        onTrino().executeQuery("DELETE FROM " + trinoTableName + " WHERE a = 12");
+        expected = ImmutableList.of(row(11, 12));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
+    // Test that Trino can read deletion vectors (DVs) written by Spark in format version 3
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testTrinoReadsSparkV3DeletionVectors(StorageFormat storageFormat)
+    {
+        String tableName = toLowerCase(format("test_trino_reads_spark_v3_dv_%s_%s", storageFormat.name(), randomNameSuffix()));
+        String sparkTableName = sparkTableName(tableName);
+        String trinoTableName = trinoTableName(tableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(a INT, b INT) " +
+                "USING ICEBERG PARTITIONED BY (b) " +
+                "TBLPROPERTIES ('format-version'='3', 'write.delete.mode'='merge-on-read', " +
+                "'write.format.default'='" + storageFormat.name() + "')");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, 2), (2, 2), (3, 2), (11, 12), (12, 12), (13, 12)");
+        // Delete one row - this creates a deletion vector in v3
+        onSpark().executeQuery("DELETE FROM " + sparkTableName + " WHERE a = 13");
+        // Delete entire partition
+        onSpark().executeQuery("DELETE FROM " + sparkTableName + " WHERE b = 2");
+
+        List<Row> expected = ImmutableList.of(row(11, 12), row(12, 12));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+
+        // Delete additional row from file that already has a DV
+        onSpark().executeQuery("DELETE FROM " + sparkTableName + " WHERE a = 12");
+        expected = ImmutableList.of(row(11, 12));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
     public void testDeleteAfterPartitionEvolution(StorageFormat storageFormat)
     {

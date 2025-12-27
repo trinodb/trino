@@ -32,17 +32,24 @@ import io.trino.testing.sql.TestTable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
-import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileFormat;
-import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.data.GenericRecord;
+import org.apache.iceberg.data.Record;
+import org.apache.iceberg.data.parquet.GenericParquetWriter;
+import org.apache.iceberg.deletes.BaseDVFileWriter;
+import org.apache.iceberg.deletes.DVFileWriter;
+import org.apache.iceberg.deletes.PositionDeleteIndex;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.hadoop.HadoopTables;
+import org.apache.iceberg.io.DataWriter;
+import org.apache.iceberg.io.OutputFileFactory;
+import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
 
@@ -50,18 +57,21 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.UUID;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.apache.iceberg.Files.localInput;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergV3
         extends AbstractTestQueryFramework
@@ -172,55 +182,50 @@ public class TestIcebergV3
     }
 
     @Test
-    void testDeleteV3TableFails()
+    void testDeleteV3Table()
     {
-        String tableName = "test_delete_v3_fails_" + randomNameSuffix();
+        try (TestTable table = newTrinoTable("test_delete_v3", "(id integer) WITH (format_version = 3)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2, 3, 4, 5", 5);
 
-        assertUpdate("CREATE TABLE " + tableName + " (id integer) WITH (format_version = 3)");
-        assertUpdate("INSERT INTO " + tableName + " VALUES 1, 2, 3", 3);
+            // First delete - creates initial DV
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id = 2", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (INTEGER '1'), (INTEGER '3'), (INTEGER '4'), (INTEGER '5')");
 
-        assertThat(query("DELETE FROM " + tableName + " WHERE id = 2"))
-                .failure()
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("Iceberg table updates for format version 3 are not supported yet");
+            // Second delete - merges with existing DV
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id = 4", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (INTEGER '1'), (INTEGER '3'), (INTEGER '5')");
 
-        assertUpdate("DROP TABLE " + tableName);
+            // Third delete - another merge
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id = 1", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (INTEGER '3'), (INTEGER '5')");
+        }
     }
 
     @Test
-    void testUpdateV3TableFails()
+    void testUpdateV3Table()
     {
-        String tableName = "test_update_v3_fails_" + randomNameSuffix();
+        try (TestTable table = newTrinoTable("test_update_v3", "(id integer, v varchar) WITH (format_version = 3)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'a'), (2, 'b')", 2);
 
-        assertUpdate("CREATE TABLE " + tableName + " (id integer, v varchar) WITH (format_version = 3)");
-        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b')", 2);
-
-        assertThat(query("UPDATE " + tableName + " SET v = 'bb' WHERE id = 2"))
-                .failure()
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("Iceberg table updates for format version 3 are not supported yet");
-
-        assertUpdate("DROP TABLE " + tableName);
+            assertUpdate("UPDATE " + table.getName() + " SET v = 'bb' WHERE id = 2", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (INTEGER '1', VARCHAR 'a'), (INTEGER '2', VARCHAR 'bb')");
+        }
     }
 
     @Test
-    void testMergeV3TableFails()
+    void testMergeV3Table()
     {
-        String tableName = "test_merge_v3_fails_" + randomNameSuffix();
+        try (TestTable table = newTrinoTable("test_merge_v3", "(id integer, v varchar) WITH (format_version = 3)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'a'), (2, 'b')", 2);
 
-        assertUpdate("CREATE TABLE " + tableName + " (id integer, v varchar) WITH (format_version = 3)");
-        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b')", 2);
-
-        assertThat(query(
-                "MERGE INTO " + tableName + " t " +
-                        "USING (VALUES (2, 'bb')) AS s(id, v) " +
-                        "ON (t.id = s.id) " +
-                        "WHEN MATCHED THEN UPDATE SET v = s.v"))
-                .failure()
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("Iceberg table updates for format version 3 are not supported yet");
-
-        assertUpdate("DROP TABLE " + tableName);
+            assertUpdate("MERGE INTO " + table.getName() + " t USING (VALUES (2, 'bb')) AS s(id, v) ON (t.id = s.id) WHEN MATCHED THEN UPDATE SET v = s.v", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (INTEGER '1', VARCHAR 'a'), (INTEGER '2', VARCHAR 'bb')");
+        }
     }
 
     @Test
@@ -751,68 +756,249 @@ public class TestIcebergV3
     }
 
     @Test
-    void testV3RejectsDeletionVectorsPuffinDeleteFile()
-            throws IOException
+    void testIcebergWritesAndTrinoReadsDeletionVector()
+            throws Exception
     {
-        String temp = "tmp_v3_dv_src_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + temp + " (id INTEGER) WITH (format = 'ORC')");
-        assertUpdate("INSERT INTO " + temp + " VALUES 1", 1);
-
-        String dataFilePath = (String) computeScalar("SELECT \"$path\" FROM " + temp);
-        long dataFileSize = getFileSize(dataFilePath);
-
-        String hadoopTableName = "hadoop_v3_dv_" + randomNameSuffix();
-        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
-
-        Schema schema = new Schema(Types.NestedField.optional(1, "id", Types.IntegerType.get()));
+        Path hadoopTableLocation = dataDirectory.resolve("deletion_vector" + randomNameSuffix());
 
         Table icebergTable = new HadoopTables(new Configuration(false)).create(
-                schema,
+                new Schema(Types.NestedField.optional(1, "id", Types.IntegerType.get())),
                 PartitionSpec.unpartitioned(),
                 SortOrder.unsorted(),
                 ImmutableMap.of(
                         "format-version", "3",
-                        "write.format.default", "ORC"),
+                        "write.format.default", "PARQUET"),
                 hadoopTableLocation.toString());
 
-        DataFile dataFile = orcDataFile(dataFilePath, dataFileSize);
-        icebergTable.newFastAppend()
-                .appendFile(dataFile)
-                .commit();
+        // Write a data file with 5 rows: ids 0 to 4
+        String dataPath = hadoopTableLocation.resolve("data")
+                .resolve("data-" + UUID.randomUUID() + ".parquet")
+                .toString();
+        try (DataWriter<Record> writer = Parquet.writeData(icebergTable.io().newOutputFile(dataPath))
+                .forTable(icebergTable)
+                .withSpec(icebergTable.spec())
+                .withPartition(null) // unpartitioned
+                .createWriterFunc(GenericParquetWriter::create)
+                .build()) {
+            Record record = GenericRecord.create(icebergTable.schema());
+            for (int i = 0; i < 5; i++) {
+                record.setField("id", i);
+                writer.write(record);
+            }
+            writer.close();
 
-        // Create a "fake" deletion-vector delete file entry:
-        // - format = PUFFIN (this is what Trino rejects)
-        // - referencedDataFile/contentOffset/contentSizeInBytes populated enough for Iceberg to accept it
-        // We intentionally do not create an actual puffin file; Trino will fail before reading it.
-        String puffinPath = hadoopTableLocation.resolve("data").resolve("dv-" + randomNameSuffix() + ".puffin").toString();
-        DeleteFile puffinDeleteFile = FileMetadata.deleteFileBuilder(PartitionSpec.unpartitioned())
-                .ofPositionDeletes()
-                .withPath(puffinPath)
-                .withFormat(FileFormat.PUFFIN)
-                .withFileSizeInBytes(123)
-                .withRecordCount(0)
-                .withReferencedDataFile(dataFile.location())
-                .withContentOffset(0)
-                .withContentSizeInBytes(0)
-                .build();
+            icebergTable.newFastAppend()
+                    .appendFile(writer.toDataFile())
+                    .commit();
+        }
 
-        icebergTable.newRowDelta()
-                .addDeletes(puffinDeleteFile)
-                .commit();
+        // Write a deletion vector for rows 0 and 3
+        try (DVFileWriter dvWriter = new BaseDVFileWriter(
+                OutputFileFactory.builderFor(icebergTable, 1, 1).format(FileFormat.PUFFIN).build(),
+                _ -> PositionDeleteIndex.empty())) {
+            dvWriter.delete(dataPath, 0L, icebergTable.spec(), null);
+            dvWriter.delete(dataPath, 3L, icebergTable.spec(), null);
+            dvWriter.close();
+
+            icebergTable.newRowDelta()
+                    .addDeletes(getOnlyElement(dvWriter.result().deleteFiles()))
+                    .commit();
+        }
 
         String registered = "registered_v3_dv_" + randomNameSuffix();
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
                 .formatted(registered, hadoopTableLocation));
 
-        assertThatThrownBy(() -> getQueryRunner().execute("SELECT * FROM " + registered))
-                .rootCause()
-                .hasMessageContaining("Iceberg deletion vector is not supported yet");
+        assertThat(query("SELECT * FROM " + registered))
+                .matches("VALUES (1), (2), (4)");
 
-        // Use unregister_table instead of DROP TABLE to avoid deleting the underlying files before deleteRecursively
-        assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '%s')".formatted(registered));
-        deleteRecursively(hadoopTableLocation, ALLOW_INSECURE);
+        assertUpdate("DROP TABLE " + registered);
+    }
 
-        assertUpdate("DROP TABLE " + temp);
+    @Test
+    void testTrinoWritesAndReadsDeletionVector()
+    {
+        try (TestTable table = newTrinoTable("trino_v3_dv_delete", "(id INTEGER) WITH (format = 'PARQUET', format_version = 3)")) {
+            // 1000 rows: 1..1000
+            for (int i = 0; i < 10; i++) {
+                assertUpdate("INSERT INTO " + table.getName() + " SELECT x FROM UNNEST(sequence(%s, %s)) t(x)".formatted(i * 100 + 1, (i + 1) * 100), 100);
+            }
+
+            // verify insert
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 2 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '1000', INTEGER '1', INTEGER '1000', BIGINT '500', BIGINT '200', BIGINT '10')");
+
+            // delete nothing
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE random() > 1", 0);
+
+            // verify nothing deleted and no deletion vectors created
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 2 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '1000', INTEGER '1', INTEGER '1000', BIGINT '500', BIGINT '200', BIGINT '10')");
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '0')");
+
+            // delete evens => 500 rows removed
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 2 = 0", 500);
+
+            // verify delete
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 2 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '500', INTEGER '1', INTEGER '999', BIGINT '0', BIGINT '100', BIGINT '10')");
+
+            // Check DV via $files: cardinality 500, 10 PUFFIN entries, 1 file
+            assertThat(query("SELECT sum(record_count), count(*), count_if(file_format = 'PUFFIN'), count(distinct file_path) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '500', BIGINT '10', BIGINT '10', BIGINT '1')");
+
+            // delete multiples of 5 => 100 rows removed
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 5 = 0", 100);
+
+            // verify delete
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 2 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '400', INTEGER '1', INTEGER '999', BIGINT '0', BIGINT '0', BIGINT '10')");
+
+            // Check DV via $files: cardinality 600, 10 PUFFIN entries, 1 file
+            assertThat(query("SELECT sum(record_count), count(*), count_if(file_format = 'PUFFIN'), count(distinct file_path) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '600', BIGINT '10', BIGINT '10', BIGINT '1')");
+        }
+    }
+
+    @Test
+    void testTrinoWritesAndReadsDeletionVectorPartitioned()
+    {
+        try (TestTable table = newTrinoTable("trino_v3_dv_delete_part", "(id INTEGER) WITH (format = 'PARQUET', format_version = 3, partitioning = ARRAY['bucket(id, 7)'])")) {
+            for (int i = 0; i < 10; i++) {
+                assertUpdate("INSERT INTO " + table.getName() + " SELECT x FROM UNNEST(sequence(%s, %s)) t(x)".formatted(i * 100 + 1, (i + 1) * 100), 100);
+            }
+
+            // verify insert
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 2 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '1000', INTEGER '1', INTEGER '1000', BIGINT '500', BIGINT '200', BIGINT '70')");
+
+            // delete evens => 500 rows removed
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 2 = 0", 500);
+
+            // verify delete
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 2 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '500', INTEGER '1', INTEGER '999', BIGINT '0', BIGINT '100', BIGINT '70')");
+
+            // Check DV via $files: cardinality 500, PUFFIN delete entry for each data file
+            assertThat(query("SELECT sum(record_count), count(*), count_if(file_format = 'PUFFIN'), count(distinct file_path) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '500', BIGINT '70', BIGINT '70', BIGINT '1')");
+
+            // delete multiples of 5 => 100 rows removed
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 5 = 0", 100);
+
+            // verify delete
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 2 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '400', INTEGER '1', INTEGER '999', BIGINT '0', BIGINT '0', BIGINT '70')");
+
+            // Check DV via $files again: cardinality 600, PUFFIN delete entry for each data file, 2 total puffin files (not all partitions are modified)
+            assertThat(query("SELECT sum(record_count), count(*), count_if(file_format = 'PUFFIN'), count(distinct file_path) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '600', BIGINT '70', BIGINT '70', BIGINT '2')");
+
+            // delete odds => 400 rows removed
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 2 = 1", 400);
+
+            // verify delete
+            assertThat(query("SELECT count(*) FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '0')");
+
+            // Check DV via $files again: cardinality 1000, PUFFIN delete entry for each data file, only 1 puffin file since all rows are now deleted
+            assertThat(query("SELECT sum(record_count), count(*), count_if(file_format = 'PUFFIN'), count(distinct file_path) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '1000', BIGINT '70', BIGINT '70', BIGINT '1')");
+
+            // re-insert 100 rows
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x FROM UNNEST(sequence(1, 100)) t(x)", 100);
+            assertThat(query("SELECT count(*), min(id), max(id) FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '100', INTEGER '1', INTEGER '100')");
+            assertThat(query("SELECT sum(record_count), count(*), count_if(file_format = 'PUFFIN'), count(distinct file_path) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '1000', BIGINT '70', BIGINT '70', BIGINT '1')");
+        }
+    }
+
+    @Test
+    void testV2ToV3MigrationWithDeletes()
+    {
+        try (TestTable table = newTrinoTable("trino_v2_to_v3_dv_migration", "(id INTEGER, grp INTEGER) WITH (format = 'PARQUET', format_version = 2)")) {
+            // 1000 rows: id=1..1000, grp cycles 0..6 (just to have a second column)
+            for (int i = 0; i < 10; i++) {
+                assertUpdate("INSERT INTO " + table.getName() + " SELECT x, x %% 7 FROM UNNEST(sequence(%s, %s)) t(x)".formatted(i * 100 + 1, (i + 1) * 100), 100);
+            }
+
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 3 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '1000', INTEGER '1', INTEGER '1000', BIGINT '333', BIGINT '200', BIGINT '10')");
+
+            // v2 delete files (legacy position deletes)
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 3 = 0", 333);
+
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 3 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '667', INTEGER '1', INTEGER '1000', BIGINT '0', BIGINT '134', BIGINT '10')");
+
+            // Ensure we produced legacy delete files and no Puffin yet
+            assertThat(query("SELECT count_if(file_format <> 'PUFFIN') > 0, count_if(file_format = 'PUFFIN') > 0 FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (true, false)");
+
+            // Upgrade table to v3
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES format_version = 3");
+
+            // Verify data still correct after upgrade
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 3 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '667', INTEGER '1', INTEGER '1000', BIGINT '0', BIGINT '134', BIGINT '10')");
+
+            // Additional deletes in v3 should be recorded as deletion vectors and still respect the v2 deletes
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 5 = 0", 134);
+
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 3 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '533', INTEGER '1', INTEGER '998', BIGINT '0', BIGINT '0', BIGINT '10')");
+
+            // Ensure v3 deletion vectors (Puffin) are present after the upgrade
+            assertThat(query("SELECT count_if(file_format <> 'PUFFIN') > 0, count_if(file_format = 'PUFFIN') > 0 FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (true, true)");
+
+            // delete remaining rows
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 3 > 0", 533);
+            assertThat(query("SELECT count(*) FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '0')");
+
+            // We still have both legacy delete files because they are shared across multiple files (not single-file position deletes)
+            assertThat(query("SELECT count_if(file_format <> 'PUFFIN') > 0, count_if(file_format = 'PUFFIN') > 0 FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (true, true)");
+        }
+    }
+
+    @Test
+    void testV3DeletionVectorWithExistingEqualityDeletes()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_v3_dv_with_equality", "(id INTEGER, grp INTEGER) WITH (format = 'PARQUET', format_version = 2)")) {
+            // Insert data: 100 rows with id=1..100, grp=id%5
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x, x % 5 FROM UNNEST(sequence(1, 100)) t(x)", 100);
+
+            assertThat(query("SELECT count(*), count_if(grp = 0), count_if(grp = 1) FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '100', BIGINT '20', BIGINT '20')");
+
+            // Add equality delete for grp = 1
+            Table icebergTable = loadTable(table.getName());
+            writeEqualityDeleteForTable(icebergTable, fileSystemFactory, java.util.Optional.empty(), java.util.Optional.empty(), ImmutableMap.of("grp", 1), java.util.Optional.empty());
+
+            // Verify equality delete applied
+            assertThat(query("SELECT count(*), count_if(grp = 0), count_if(grp = 1) FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '80', BIGINT '20', BIGINT '0')");
+
+            // Upgrade to v3
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES format_version = 3");
+
+            // Verify data still correct after upgrade (equality deletes still work)
+            assertThat(query("SELECT count(*), count_if(grp = 0), count_if(grp = 1) FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '80', BIGINT '20', BIGINT '0')");
+
+            // Delete some rows using deletion vectors (id % 10 = 0 -> 10 rows, none overlap with grp=1)
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 10 = 0", 10);
+
+            // Verify both equality deletes and deletion vectors work together
+            // 80 - 10 = 70 rows remain; grp=0 had 20 rows, 10 deleted (10,20,30,40,50,60,70,80,90,100 all have grp=0)
+            assertThat(query("SELECT count(*), count_if(grp = 0), count_if(grp = 1), count_if(id % 10 = 0) FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '70', BIGINT '10', BIGINT '0', BIGINT '0')");
+        }
     }
 
     private static DataFile orcDataFile(String dataFilePath, long size)

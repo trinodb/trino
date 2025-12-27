@@ -28,6 +28,7 @@ import java.util.zip.CRC32;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_DELETION_VECTOR_TOO_LARGE;
 
 public final class DeletionVector
 {
@@ -141,7 +142,7 @@ public final class DeletionVector
         }
         long bufferSize = LENGTH_SIZE_BYTES + size + CRC_SIZE_BYTES;
         if (bufferSize > Integer.MAX_VALUE) {
-            throw new TrinoException(ICEBERG_BAD_DATA, "Can't serialize deletion vector > 2GB");
+            throw new TrinoException(ICEBERG_DELETION_VECTOR_TOO_LARGE, "Can't serialize deletion vector > 2GB");
         }
         return (int) size;
     }

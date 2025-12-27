@@ -17,11 +17,8 @@ import com.google.common.base.VerifyException;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
-import io.trino.plugin.iceberg.IcebergPageSourceProvider.ReaderPageSourceWithRowPositions;
 import io.trino.plugin.iceberg.delete.EqualityDeleteFilter.EqualityDeleteFilterBuilder;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.Schema;
 
@@ -61,32 +58,46 @@ public class DeleteManager
             List<DeleteFile> deleteFiles,
             List<IcebergColumnHandle> readColumns,
             Schema tableSchema,
-            ReaderPageSourceWithRowPositions readerPageSourceWithRowPositions,
+            Optional<Long> startRowPosition,
+            Optional<Long> endRowPosition,
+            DeletionVectorReader deletionVectorReader,
             DeletePageSourceProvider deletePageSourceProvider)
     {
         if (deleteFiles.isEmpty()) {
             return Optional.empty();
         }
 
+        Optional<DeleteFile> deletionVectorFile = Optional.empty();
         List<DeleteFile> positionDeleteFiles = new ArrayList<>();
         List<DeleteFile> equalityDeleteFiles = new ArrayList<>();
         for (DeleteFile deleteFile : deleteFiles) {
             switch (deleteFile.content()) {
-                case POSITION_DELETES -> positionDeleteFiles.add(deleteFile);
+                case POSITION_DELETES -> {
+                    if (deleteFile.isDeletionVector()) {
+                        if (deletionVectorFile.isPresent()) {
+                            throw new TrinoException(ICEBERG_BAD_DATA, "Multiple deletion vector files found for data file: " + dataFilePath);
+                        }
+                        deletionVectorFile = Optional.of(deleteFile);
+                    }
+                    else {
+                        positionDeleteFiles.add(deleteFile);
+                    }
+                }
                 case EQUALITY_DELETES -> equalityDeleteFiles.add(deleteFile);
                 case DATA -> throw new VerifyException("DATA is not delete file type");
             }
         }
 
-        Optional<Long> startRowPosition = readerPageSourceWithRowPositions.startRowPosition();
-        Optional<Long> endRowPosition = readerPageSourceWithRowPositions.endRowPosition();
-        Optional<DeletionVector> deletionVector = PositionDeleteReader.readPositionDeletes(
-                dataFilePath,
-                positionDeleteFiles,
-                startRowPosition,
-                endRowPosition,
-                deletePageSourceProvider,
-                typeManager);
+        // by spec "Readers can safely ignore position delete files if there is a DV for a data file"
+        Optional<DeletionVector> deletionVector = deletionVectorFile
+                .map(deletionVectorReader::read)
+                .or(() -> PositionDeleteReader.readPositionDeletes(
+                        dataFilePath,
+                        positionDeleteFiles,
+                        startRowPosition,
+                        endRowPosition,
+                        deletePageSourceProvider,
+                        typeManager));
 
         Optional<RowPredicate> positionDeletes = deletionVector
                 .map(vector -> {
@@ -110,12 +121,9 @@ public class DeleteManager
         return positionDeletes.or(() -> equalityDeletes);
     }
 
-    public interface DeletePageSourceProvider
+    public interface DeletionVectorReader
     {
-        ConnectorPageSource openDeletes(
-                DeleteFile delete,
-                List<IcebergColumnHandle> deleteColumns,
-                TupleDomain<IcebergColumnHandle> tupleDomain);
+        DeletionVector read(DeleteFile deleteFile);
     }
 
     private List<EqualityDeleteFilter> createEqualityDeleteFilter(List<DeleteFile> equalityDeleteFiles, Schema schema, DeletePageSourceProvider deletePageSourceProvider)

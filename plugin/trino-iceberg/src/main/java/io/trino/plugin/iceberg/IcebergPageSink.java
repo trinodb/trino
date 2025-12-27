@@ -436,7 +436,8 @@ public class IcebergPageSink
                 writeContext.getPartitionData().map(PartitionData::toJson),
                 DATA,
                 Optional.empty(),
-                writer.getFileMetrics().splitOffsets());
+                writer.getFileMetrics().splitOffsets(),
+                Optional.empty());
 
         commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
     }
