@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.OrcColumn;
@@ -53,6 +54,7 @@ import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteManager;
+import io.trino.plugin.iceberg.delete.DeletionVector;
 import io.trino.plugin.iceberg.delete.RowPredicate;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIoFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
@@ -377,8 +379,10 @@ public class IcebergPageSourceProvider
                             deletes,
                             requiredColumns,
                             tableSchema,
-                            readerPageSourceWithRowPositions,
-                            (deleteFile, deleteColumns, tupleDomain) -> openDeletes(session, fileSystem, deleteFile, deleteColumns, tupleDomain)));
+                            readerPageSourceWithRowPositions.startRowPosition(),
+                            readerPageSourceWithRowPositions.endRowPosition(),
+                            (deleteFile) -> readDeletionVector(fileSystem, deleteFile),
+                            (deleteFile, deleteColumns, tupleDomain) -> openDeleteFile(session, fileSystem, deleteFile, deleteColumns, tupleDomain)));
             pageSource = TransformConnectorPageSource.create(pageSource, page -> {
                 try {
                     Optional<RowPredicate> rowPredicate = deletePredicate.get();
@@ -483,7 +487,20 @@ public class IcebergPageSourceProvider
         return requiredColumns.build();
     }
 
-    private ConnectorPageSource openDeletes(
+    private static DeletionVector readDeletionVector(TrinoFileSystem fileSystem, DeleteFile delete)
+    {
+        verify(delete.isDeletionVector(), "Not a deletion vector: %s", delete);
+        TrinoInputFile trinoInputFile = fileSystem.newInputFile(Location.of(delete.path()), delete.fileSizeInBytes());
+        try (TrinoInput trinoInput = trinoInputFile.newInput()) {
+            Slice slice = trinoInput.readFully(delete.contentOffset().orElseThrow(), toIntExact(delete.contentSizeInBytes().orElseThrow()));
+            return DeletionVector.builder().deserialize(slice).build().orElseThrow();
+        }
+        catch (IOException e) {
+            throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, "Failed to read deletion vector file: " + delete.path(), e);
+        }
+    }
+
+    public ConnectorPageSource openDeleteFile(
             ConnectorSession session,
             TrinoFileSystem fileSystem,
             DeleteFile delete,

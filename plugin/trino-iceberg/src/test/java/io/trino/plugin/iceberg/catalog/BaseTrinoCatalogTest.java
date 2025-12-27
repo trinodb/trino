@@ -70,6 +70,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERT
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
+import static io.trino.plugin.iceberg.delete.DeletionVectorWriter.UNSUPPORTED_DELETION_VECTOR_WRITER;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -147,6 +148,7 @@ public abstract class BaseTrinoCatalogTest
                     },
                     TABLE_STATISTICS_READER,
                     new TableStatisticsWriter(new NodeVersion("test-version")),
+                    UNSUPPORTED_DELETION_VECTOR_WRITER,
                     Optional.empty(),
                     false,
                     _ -> false,
@@ -185,6 +187,7 @@ public abstract class BaseTrinoCatalogTest
                     },
                     TABLE_STATISTICS_READER,
                     new TableStatisticsWriter(new NodeVersion("test-version")),
+                    UNSUPPORTED_DELETION_VECTOR_WRITER,
                     Optional.empty(),
                     false,
                     _ -> false,
