@@ -3368,7 +3368,7 @@ public abstract class BaseConnectorTest
 
         try (TestTable table = newTrinoTable("test_set_default", "(col int DEFAULT 123)")) {
             if (!hasBehavior(SUPPORTS_DROP_DEFAULT_COLUMN_VALUE)) {
-                assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN nationkey DROP DEFAULT", ".* Catalog '.*' does not support default value for column .*");
+                assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col DROP DEFAULT", ".* Catalog '.*' does not support default value for column .*");
                 return;
             }
 
