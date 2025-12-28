@@ -114,6 +114,7 @@
         <module>plugin/trino-singlestore</module>
         <module>plugin/trino-snowflake</module>
         <module>plugin/trino-spooling-filesystem</module>
+        <module>plugin/trino-sqlite</module>
         <module>plugin/trino-sqlserver</module>
         <module>plugin/trino-teradata-functions</module>
         <module>plugin/trino-thrift</module>
@@ -1388,6 +1389,12 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-sqlite</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-sqlserver</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -2285,6 +2292,12 @@
                 <groupId>org.sonatype.aether</groupId>
                 <artifactId>aether-api</artifactId>
                 <version>1.13.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.xerial</groupId>
+                <artifactId>sqlite-jdbc</artifactId>
+                <version>3.51.1.0</version>
             </dependency>
 
             <dependency>
