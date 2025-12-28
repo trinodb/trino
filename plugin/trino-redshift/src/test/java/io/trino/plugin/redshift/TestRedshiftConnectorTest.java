@@ -112,7 +112,8 @@ public class TestRedshiftConnectorTest
                  SUPPORTS_MAP_TYPE,
                  SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
                  SUPPORTS_ROW_TYPE,
-                 SUPPORTS_SET_COLUMN_TYPE -> false;
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_SET_NOT_NULL_CONSTRAINT -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
