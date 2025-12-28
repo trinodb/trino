@@ -78,31 +78,21 @@ public final class ParquetTypeUtils
      */
     public static ColumnIO getArrayElementColumn(ColumnIO columnIO)
     {
-        while (columnIO instanceof GroupColumnIO && !columnIO.getType().isRepetition(REPEATED)) {
-            columnIO = ((GroupColumnIO) columnIO).getChild(0);
+        if(columnIO instanceof PrimitiveColumnIO ) {
+            return columnIO;
+        } else if (columnIO instanceof GroupColumnIO groupColumnIO) {
+            // Group wrapper for List/Map/Row
+            if (groupColumnIO.getType().getLogicalTypeAnnotation() != null
+                    || groupColumnIO.getChildrenCount() > 1) {
+                return groupColumnIO;
+            } else {
+                if (groupColumnIO.getChildrenCount() == 1) {
+                    // Group with one field, get element column from the child
+                    return getArrayElementColumn(groupColumnIO.getChild(0));
+                }
+            }
         }
-
-        /* If array has a standard 3-level structure with middle level repeated group with a single field:
-         *  optional group my_list (LIST) {
-         *     repeated group element {
-         *        required binary str (UTF8);
-         *     };
-         *  }
-         */
-        if (columnIO instanceof GroupColumnIO groupColumnIO &&
-                columnIO.getType().getLogicalTypeAnnotation() == null &&
-                groupColumnIO.getChildrenCount() == 1 &&
-                !columnIO.getName().equals("array") &&
-                !columnIO.getName().equals(columnIO.getParent().getName() + "_tuple")) {
-            return groupColumnIO.getChild(0);
-        }
-
-        /* Backward-compatibility support for 2-level arrays where a repeated field is not a group:
-         *   optional group my_list (LIST) {
-         *      repeated int32 element;
-         *   }
-         */
-        return columnIO;
+        return null;
     }
 
     public static Map<List<String>, ColumnDescriptor> getDescriptors(MessageType fileSchema, MessageType requestedSchema)
