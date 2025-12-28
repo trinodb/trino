@@ -87,8 +87,12 @@ public final class ParquetTypeUtils
                 return groupColumnIO;
             } else {
                 if (groupColumnIO.getChildrenCount() == 1) {
-                    // Group with one field, get element column from the child
-                    return getArrayElementColumn(groupColumnIO.getChild(0));
+                    if (groupColumnIO.getType().isRepetition(REPEATED)) {
+                        // Group is a Bag, get child column
+                        return getArrayElementColumn(groupColumnIO.getChild(0));
+                    } else {
+                        return groupColumnIO;
+                    }
                 }
             }
         }
