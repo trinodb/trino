@@ -79,7 +79,8 @@ public abstract class BaseMySqlConnectorTest
                  SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
                  SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_ROW_TYPE,
-                 SUPPORTS_SET_COLUMN_TYPE -> false;
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_SET_NOT_NULL_CONSTRAINT -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }

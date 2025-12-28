@@ -171,6 +171,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_DEFAULT_COL
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_FIELD_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_FIELD_TYPE_IN_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_FIELD_TYPE_IN_MAP;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TRUNCATE;
@@ -3896,6 +3897,61 @@ public abstract class BaseConnectorTest
         return (String) computeScalar(format("SELECT data_type FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = '%s' AND column_name = '%s'",
                 tableName,
                 columnName));
+    }
+
+    @Test
+    public void testSetNotNullConstraint()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
+
+        if (!hasBehavior(SUPPORTS_SET_NOT_NULL_CONSTRAINT)) {
+            try (TestTable table = newTrinoTable("test_set_not_null_", "(col integer)")) {
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " ALTER COLUMN col SET NOT NULL",
+                        "This connector does not support setting a not null constraint");
+            }
+            return;
+        }
+
+        try (TestTable table = newTrinoTable("test_set_not_null_", "(col integer)")) {
+            assertThat(columnIsNullable(table.getName(), "col")).isTrue();
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET NOT NULL");
+            assertThat(columnIsNullable(table.getName(), "col")).isFalse();
+
+            assertThat(query("INSERT INTO " + table.getName() + " VALUES NULL"))
+                    .failure()
+                    .hasMessage("NULL value not allowed for NOT NULL column: col");
+        }
+    }
+
+    @Test
+    public void testSetNotNullConstraintOnNonEmptyTable()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_NOT_NULL_CONSTRAINT));
+
+        try (TestTable table = newTrinoTable("test_set_not_null_on_non_empty_", "(col integer)")) {
+            assertThat(columnIsNullable(table.getName(), "col")).isTrue();
+            // table is not empty but the column doesn't contain null value
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2", 2);
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET NOT NULL");
+            assertThat(columnIsNullable(table.getName(), "col")).isFalse();
+
+            assertThat(query("INSERT INTO " + table.getName() + " VALUES NULL"))
+                    .failure()
+                    .hasMessage("NULL value not allowed for NOT NULL column: col");
+        }
+
+        try (TestTable table = newTrinoTable("test_set_not_null_on_non_empty_with_null_", "(col integer)")) {
+            assertThat(columnIsNullable(table.getName(), "col")).isTrue();
+            // table is not empty but the column contains null value
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, NULL", 2);
+
+            assertThat(query("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET NOT NULL"))
+                    .failure()
+                    .hasMessage("ERROR: column \"col\" contains null values");
+        }
     }
 
     @Test

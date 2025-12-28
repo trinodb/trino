@@ -61,6 +61,7 @@ public abstract class BaseMariaDbConnectorTest
                  SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_ROW_TYPE,
                  SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_SET_NOT_NULL_CONSTRAINT,
                  SUPPORTS_MERGE,
                  SUPPORTS_ROW_LEVEL_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);

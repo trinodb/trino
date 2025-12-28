@@ -84,6 +84,7 @@ public class TestClickHouseConnectorTest
                  SUPPORTS_ROW_TYPE,
                  SUPPORTS_ADD_COLUMN_WITH_POSITION,
                  SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_SET_NOT_NULL_CONSTRAINT,
                  SUPPORTS_UPDATE,
                  SUPPORTS_MERGE -> false;
             default -> super.hasBehavior(connectorBehavior);
