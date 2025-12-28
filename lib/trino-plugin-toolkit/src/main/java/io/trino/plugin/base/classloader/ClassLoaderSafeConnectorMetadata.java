@@ -414,6 +414,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void setNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            delegate.setNotNullConstraint(session, tableHandle, column);
+        }
+    }
+
+    @Override
     public void dropNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {

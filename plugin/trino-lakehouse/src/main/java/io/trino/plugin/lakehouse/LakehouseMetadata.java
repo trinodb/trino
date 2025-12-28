@@ -457,6 +457,12 @@ public class LakehouseMetadata
     }
 
     @Override
+    public void setNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        forHandle(tableHandle).setNotNullConstraint(session, tableHandle, column);
+    }
+
+    @Override
     public void dropNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
         forHandle(tableHandle).dropNotNullConstraint(session, tableHandle, column);

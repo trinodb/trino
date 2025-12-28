@@ -524,6 +524,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public void setNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        Span span = startSpan("setNotNullConstraint", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.setNotNullConstraint(session, tableHandle, column);
+        }
+    }
+
+    @Override
     public void dropNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
         Span span = startSpan("dropNotNull", tableHandle);

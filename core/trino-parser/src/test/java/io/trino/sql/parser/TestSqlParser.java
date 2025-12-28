@@ -190,6 +190,7 @@ import io.trino.sql.tree.SessionProperty;
 import io.trino.sql.tree.SetAuthorizationStatement;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetDefaultValue;
+import io.trino.sql.tree.SetNotNullConstraint;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
@@ -4249,6 +4250,28 @@ public class TestSqlParser
                                 new Identifier(location(1, 27), "t", false))),
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 42), "b", false))),
                         simpleType(location(1, 58), "double"),
+                        true));
+    }
+
+    @Test
+    void testAlterColumnSetNotNullConstraint()
+    {
+        assertThat(statement("ALTER TABLE foo.t ALTER COLUMN a SET NOT NULL"))
+                .isEqualTo(new SetNotNullConstraint(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 13), "foo", false),
+                                new Identifier(location(1, 17), "t", false))),
+                        new Identifier(location(1, 32), "a", false),
+                        false));
+
+        assertThat(statement("ALTER TABLE IF EXISTS foo.t ALTER COLUMN a SET NOT NULL"))
+                .isEqualTo(new SetNotNullConstraint(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 23), "foo", false),
+                                new Identifier(location(1, 27), "t", false))),
+                        new Identifier(location(1, 42), "a", false),
                         true));
     }
 

@@ -1045,6 +1045,14 @@ public final class MetadataManager
     }
 
     @Override
+    public void setNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle column)
+    {
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
+        metadata.setNotNullConstraint(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), column);
+    }
+
+    @Override
     public void dropNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle column)
     {
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
