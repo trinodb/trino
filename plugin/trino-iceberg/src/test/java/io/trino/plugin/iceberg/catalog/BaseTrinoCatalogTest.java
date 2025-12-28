@@ -110,7 +110,7 @@ public abstract class BaseTrinoCatalogTest
         catalog.createNamespace(SESSION, namespace, namespaceProperties, new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
         assertThat(catalog.listNamespaces(SESSION)).contains(namespace);
         assertThat(catalog.loadNamespaceMetadata(SESSION, namespace)).isEqualTo(namespaceProperties);
-        assertThat(catalog.defaultTableLocation(SESSION, new SchemaTableName(namespace, "table"))).isEqualTo(namespaceLocation.replaceAll("/$", "") + "/table");
+        assertThat(catalog.defaultTableLocation(SESSION, new SchemaTableName(namespace, "table"))).contains(namespaceLocation.replaceAll("/$", "") + "/table");
         catalog.dropNamespace(SESSION, namespace);
         assertThat(catalog.listNamespaces(SESSION)).doesNotContain(namespace);
     }
@@ -380,8 +380,8 @@ public abstract class BaseTrinoCatalogTest
 
         catalog.createNamespace(SESSION, namespace, namespaceProperties, new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
         try {
-            String location1 = catalog.defaultTableLocation(SESSION, schemaTableName);
-            String location2 = catalog.defaultTableLocation(SESSION, schemaTableName);
+            String location1 = catalog.defaultTableLocation(SESSION, schemaTableName).orElseThrow();
+            String location2 = catalog.defaultTableLocation(SESSION, schemaTableName).orElseThrow();
             assertThat(location1)
                     .isNotEqualTo(location2);
 
@@ -619,7 +619,7 @@ public abstract class BaseTrinoCatalogTest
             throws Exception
     {
         try {
-            return catalog.defaultTableLocation(session, schemaTableName);
+            return catalog.defaultTableLocation(session, schemaTableName).orElseThrow();
         }
         catch (TrinoException e) {
             if (!e.getErrorCode().equals(HIVE_DATABASE_LOCATION_ERROR.toErrorCode())) {

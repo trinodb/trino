@@ -919,7 +919,7 @@ public class TrinoGlueCatalog
     }
 
     @Override
-    public String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName)
+    public Optional<String> defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName)
     {
         String databaseLocation = stats.getGetDatabase().call(() ->
                 glueClient.getDatabase(x -> x.name(schemaTableName.getSchemaName()))
@@ -940,7 +940,7 @@ public class TrinoGlueCatalog
             databaseLocation = appendPath(defaultSchemaLocation.get(), schemaDirectoryName);
         }
 
-        return appendPath(databaseLocation, tableName);
+        return Optional.of(appendPath(databaseLocation, tableName));
     }
 
     @Override

@@ -306,7 +306,7 @@ public abstract class AbstractTrinoCatalog
         }
         SchemaTableName storageTableName = new SchemaTableName(viewName.getSchemaName(), tableNameWithType(viewName.getTableName(), MATERIALIZED_VIEW_STORAGE));
         String tableLocation = getTableLocation(materializedViewProperties)
-                .orElseGet(() -> defaultTableLocation(session, viewName));
+                .orElseGet(() -> defaultTableLocation(session, viewName).orElse(null));
         List<ColumnMetadata> columns = columnsForMaterializedView(definition, materializedViewProperties);
 
         Schema schema = schemaFromMetadata(columns);
@@ -349,7 +349,7 @@ public abstract class AbstractTrinoCatalog
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, materializedViewProperties, Optional.empty());
         String tableLocation = getTableLocation(tableMetadata.getProperties())
-                .orElseGet(() -> defaultTableLocation(session, tableMetadata.getTable()));
+                .orElseGet(() -> defaultTableLocation(session, tableMetadata.getTable()).orElse(null));
         Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session, false, tableLocation, _ -> false);
         AppendFiles appendFiles = transaction.newAppend();
         commit(appendFiles, session);

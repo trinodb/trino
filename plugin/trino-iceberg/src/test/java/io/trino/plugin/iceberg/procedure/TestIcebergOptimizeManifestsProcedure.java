@@ -31,7 +31,6 @@ import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -241,7 +240,7 @@ final class TestIcebergOptimizeManifestsProcedure
                         new Schema(Types.NestedField.required(1, "x", Types.LongType.get())),
                         PartitionSpec.unpartitioned(),
                         SortOrder.unsorted(),
-                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, tableName)),
+                        catalog.defaultTableLocation(SESSION, tableName),
                         ImmutableMap.of())
                 .commitTransaction();
         assertThat(catalog.loadTable(SESSION, tableName).currentSnapshot()).isNull();

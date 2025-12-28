@@ -49,6 +49,7 @@ import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
@@ -624,7 +625,7 @@ public class TrinoRestCatalog
     }
 
     @Override
-    public String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName)
+    public Optional<String> defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName)
     {
         String tableName = createLocationForTable(schemaTableName.getTableName());
 
@@ -633,10 +634,10 @@ public class TrinoRestCatalog
         if (databaseLocation == null) {
             // Iceberg REST catalog doesn't require location property.
             // S3 Tables doesn't return the property.
-            return null;
+            return Optional.empty();
         }
 
-        return appendPath(databaseLocation, tableName);
+        return Optional.of(appendPath(databaseLocation, tableName));
     }
 
     private String createLocationForTable(String baseTableName)
@@ -667,7 +668,7 @@ public class TrinoRestCatalog
                 .withDefaultNamespace(toRemoteNamespace(session, toNamespace(schemaViewName.getSchemaName())))
                 .withDefaultCatalog(definition.getCatalog().orElse(null))
                 .withProperties(properties.buildOrThrow())
-                .withLocation(defaultTableLocation(session, schemaViewName));
+                .withLocation(defaultTableLocation(session, schemaViewName).orElse(null));
         try {
             if (replace) {
                 viewBuilder.createOrReplace();
@@ -874,6 +875,12 @@ public class TrinoRestCatalog
         }
 
         replaceViewVersion.commit();
+    }
+
+    public boolean isS3Tables()
+    {
+        String warehouse = restSessionCatalog.properties().get(CatalogProperties.WAREHOUSE_LOCATION);
+        return warehouse != null && warehouse.startsWith("s3tablescatalog/") && "sigv4".equals(restSessionCatalog.properties().get("rest.auth.type"));
     }
 
     private SessionCatalog.SessionContext convert(ConnectorSession session)

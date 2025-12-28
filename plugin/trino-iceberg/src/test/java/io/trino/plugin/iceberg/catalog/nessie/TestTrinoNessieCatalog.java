@@ -158,7 +158,7 @@ public class TestTrinoNessieCatalog
             File expectedSchemaDirectory = new File(tmpDirectory.toFile(), namespace);
             File expectedTableDirectory = new File(expectedSchemaDirectory, schemaTableName.getTableName());
             assertThat(catalogWithDefaultLocation.defaultTableLocation(SESSION, schemaTableName))
-                    .isEqualTo(expectedTableDirectory.toPath().toAbsolutePath().toString());
+                    .contains(expectedTableDirectory.toPath().toAbsolutePath().toString());
         }
         finally {
             catalogWithDefaultLocation.dropNamespace(SESSION, namespace);

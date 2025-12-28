@@ -317,7 +317,7 @@ public class TrinoSnowflakeCatalog
     }
 
     @Override
-    public String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName)
+    public Optional<String> defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName)
     {
         throw new TrinoException(NOT_SUPPORTED, "Snowflake managed Iceberg tables do not support modifications");
     }

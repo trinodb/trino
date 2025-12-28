@@ -257,7 +257,7 @@ public class TestTrinoGlueCatalog
         try {
             File expectedSchemaDirectory = new File(tmpDirectory.toFile(), namespace + ".db");
             File expectedTableDirectory = new File(expectedSchemaDirectory, schemaTableName.getTableName());
-            assertThat(catalogWithDefaultLocation.defaultTableLocation(SESSION, schemaTableName)).isEqualTo(expectedTableDirectory.toPath().toAbsolutePath().toString());
+            assertThat(catalogWithDefaultLocation.defaultTableLocation(SESSION, schemaTableName)).contains(expectedTableDirectory.toPath().toAbsolutePath().toString());
         }
         finally {
             try {
