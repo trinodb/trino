@@ -652,12 +652,12 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session)
+    public Connection getConnection(ConnectorSession session, boolean readOnly)
             throws SQLException
     {
         Connection connection = connectionFactory.openConnection(session);
         try {
-            connection.setReadOnly(true);
+            connection.setReadOnly(readOnly);
         }
         catch (SQLException e) {
             connection.close();

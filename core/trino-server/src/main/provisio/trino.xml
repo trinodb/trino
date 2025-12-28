@@ -278,6 +278,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/sqlite">
+        <artifact id="${project.groupId}:trino-sqlite:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/sqlserver">
         <artifact id="${project.groupId}:trino-sqlserver:zip:${project.version}">
             <unpack />

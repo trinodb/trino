@@ -33,21 +33,21 @@ public class DriverConnectionFactory
 {
     private final Driver driver;
     private final String connectionUrl;
-    private final Properties connectionProperties;
+    private final Properties sessionProperties;
     private final CredentialPropertiesProvider credentialPropertiesProvider;
     private final TracingDataSource dataSource;
 
     public DriverConnectionFactory(
             Driver driver,
             String connectionUrl,
-            Properties connectionProperties,
+            Properties sessionProperties,
             CredentialPropertiesProvider credentialPropertiesProvider,
             OpenTelemetry openTelemetry)
     {
         this.driver = requireNonNull(driver, "driver is null");
         this.connectionUrl = requireNonNull(connectionUrl, "connectionUrl is null");
-        this.connectionProperties = new Properties();
-        this.connectionProperties.putAll(requireNonNull(connectionProperties, "connectionProperties is null"));
+        this.sessionProperties = new Properties();
+        this.sessionProperties.putAll(requireNonNull(sessionProperties, "sessionProperties is null"));
         this.credentialPropertiesProvider = requireNonNull(credentialPropertiesProvider, "credentialPropertiesProvider is null");
         this.dataSource = new TracingDataSource(requireNonNull(openTelemetry, "openTelemetry is null"), driver, connectionUrl);
     }
@@ -56,17 +56,26 @@ public class DriverConnectionFactory
     public Connection openConnection(ConnectorSession session)
             throws SQLException
     {
-        Properties properties = getCredentialProperties(session.getIdentity());
+        return openConnection(session, new Properties());
+    }
+
+    @Override
+    public Connection openConnection(ConnectorSession session, Properties connectionProperties)
+            throws SQLException
+    {
+        Properties properties = getConnectionProperties(session.getIdentity(), connectionProperties);
         Connection connection = dataSource.getConnection(properties);
         checkState(connection != null, "Driver returned null connection, make sure the connection URL '%s' is valid for the driver %s", connectionUrl, driver);
         return connection;
     }
 
-    private Properties getCredentialProperties(ConnectorIdentity identity)
+    private Properties getConnectionProperties(ConnectorIdentity identity, Properties connectionProperties)
     {
         Properties properties = new Properties();
-        properties.putAll(connectionProperties);
+        properties.putAll(sessionProperties);
         properties.putAll(credentialPropertiesProvider.getCredentialProperties(identity));
+        // Connection properties take precedence over session and credential properties.
+        properties.putAll(connectionProperties);
         return properties;
     }
 
