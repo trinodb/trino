@@ -800,4 +800,9 @@ public abstract class AbstractTestQueryFramework
                         "as this can easily lead to OutOfMemoryErrors and other types of test flakiness.");
         return afterClassCloser.register(resource);
     }
+
+    protected String canonicalize(String value)
+    {
+        return value;
+    }
 }
