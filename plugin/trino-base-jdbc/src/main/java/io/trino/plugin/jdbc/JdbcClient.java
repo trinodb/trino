@@ -241,7 +241,13 @@ public interface JdbcClient
 
     String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters);
 
-    Connection getConnection(ConnectorSession session)
+    default Connection getConnection(ConnectorSession session)
+            throws SQLException
+    {
+        return getConnection(session, true);
+    }
+
+    Connection getConnection(ConnectorSession session, boolean readOnly)
             throws SQLException;
 
     Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
