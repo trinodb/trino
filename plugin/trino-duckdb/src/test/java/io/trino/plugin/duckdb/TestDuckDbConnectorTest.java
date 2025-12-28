@@ -73,7 +73,8 @@ final class TestDuckDbConnectorTest
                  SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_ROW_TYPE,
                  SUPPORTS_MERGE,
-                 SUPPORTS_ROW_LEVEL_UPDATE -> false;
+                 SUPPORTS_ROW_LEVEL_UPDATE,
+                 SUPPORTS_SET_NOT_NULL_CONSTRAINT -> false;
 
             default -> super.hasBehavior(connectorBehavior);
         };

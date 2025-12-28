@@ -1516,4 +1516,10 @@ public class TestPostgreSqlConnectorTest
         onRemoteDatabase().execute(format("ALTER TABLE %s ADD CONSTRAINT %s PRIMARY KEY (%s)", tableName, "pk_" + tableName, primaryKey));
         return testTable;
     }
+
+    @Override
+    protected String errorMessageRegexTestSetNotNullConstraintOnNonEmptyTable()
+    {
+        return "ERROR: column \"col\" contains null values";
+    }
 }

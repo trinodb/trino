@@ -99,6 +99,7 @@ public class TestIgniteConnectorTest
                  SUPPORTS_RENAME_TABLE,
                  SUPPORTS_ROW_TYPE,
                  SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_SET_NOT_NULL_CONSTRAINT,
                  SUPPORTS_TRUNCATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
