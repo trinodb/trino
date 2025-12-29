@@ -87,15 +87,32 @@ public final class ParquetTypeUtils
                 return groupColumnIO;
             } else {
                 if (groupColumnIO.getChildrenCount() == 1) {
+
+                    //optional group test (LIST) {
+                    //    repeated group array {
+                    //        optional binary test (STRING);
+                    //    }
+                    //}
+
+                    //optional group test (LIST) {
+                    //    repeated group bag {
+                    //        group array {
+                    //            optional binary test (STRING);
+                    //        }
+                    //    }
+                    //}
                     if (groupColumnIO.getType().isRepetition(REPEATED)) {
-                        return groupColumnIO.getChild(0);
-                    } else {
-                        return groupColumnIO;
+                        if(arrayElementType instanceof RowType) {
+                            if(groupColumnIO.getChild(0) instanceof PrimitiveColumnIO) {
+                                return groupColumnIO;
+                            }
+                        }
+                        return getArrayElementColumn(arrayElementType, groupColumnIO.getChild(0));
                     }
                 }
             }
         }
-        return null;
+        return columnIO;
     }
 
     public static Map<List<String>, ColumnDescriptor> getDescriptors(MessageType fileSchema, MessageType requestedSchema)
