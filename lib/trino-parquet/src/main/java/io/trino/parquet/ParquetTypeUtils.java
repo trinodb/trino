@@ -91,7 +91,7 @@ public final class ParquetTypeUtils
                 }
             }
         }
-        return null;
+        return columnIO;
     }
 
     public static Map<List<String>, ColumnDescriptor> getDescriptors(MessageType fileSchema, MessageType requestedSchema)
