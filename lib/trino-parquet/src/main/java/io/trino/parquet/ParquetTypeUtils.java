@@ -76,23 +76,18 @@ public final class ParquetTypeUtils
      * 4. Otherwise, the repeated field's type is the element type with the repeated field's repetition.
      * https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists
      */
-    public static ColumnIO getArrayElementColumn(ColumnIO columnIO)
+    public static ColumnIO getArrayElementColumn(Type arrayElementType, ColumnIO columnIO)
     {
         if(columnIO instanceof PrimitiveColumnIO ) {
             return columnIO;
         } else if (columnIO instanceof GroupColumnIO groupColumnIO) {
             // Group wrapper for List/Map/Row
             if (groupColumnIO.getType().getLogicalTypeAnnotation() != null
-                    || groupColumnIO.getChildrenCount() > 1) {
+                    || arrayElementType instanceof RowType) {
                 return groupColumnIO;
             } else {
                 if (groupColumnIO.getChildrenCount() == 1) {
-                    if (groupColumnIO.getType().isRepetition(REPEATED)) {
-                        // Group is a Bag, get child column
-                        return getArrayElementColumn(groupColumnIO.getChild(0));
-                    } else {
-                        return groupColumnIO;
-                    }
+                    return getArrayElementColumn(arrayElementType, groupColumnIO.getChild(0));
                 }
             }
         }
@@ -352,7 +347,7 @@ public final class ParquetTypeUtils
             if (groupColumnIO.getChildrenCount() != 1) {
                 return Optional.empty();
             }
-            Optional<Field> field = constructField(arrayType.getElementType(), getArrayElementColumn(groupColumnIO.getChild(0)), false);
+            Optional<Field> field = constructField(arrayType.getElementType(), getArrayElementColumn(arrayType.getElementType(), groupColumnIO.getChild(0)), false);
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
         }
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
