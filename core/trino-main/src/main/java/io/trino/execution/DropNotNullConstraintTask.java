@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
@@ -24,6 +25,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.DropNotNullConstraint;
 import io.trino.sql.tree.Expression;
 
@@ -34,19 +36,20 @@ import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
 
 public class DropNotNullConstraintTask
         implements DataDefinitionTask<DropNotNullConstraint>
 {
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final AccessControl accessControl;
 
     @Inject
-    public DropNotNullConstraintTask(Metadata metadata, AccessControl accessControl)
+    public DropNotNullConstraintTask(PlannerContext plannerContext, AccessControl accessControl)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -64,6 +67,7 @@ public class DropNotNullConstraintTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
+        Metadata metadata = plannerContext.getMetadata();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
@@ -95,6 +99,10 @@ public class DropNotNullConstraintTask
         }
         if (columnMetadata.isNullable()) {
             throw semanticException(NOT_SUPPORTED, statement, "Column is already nullable");
+        }
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        if (!plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
+            throw semanticException(NOT_SUPPORTED, statement, "Catalog '%s' does not support NOT NULL for column '%s'", catalogHandle, column);
         }
         metadata.dropNotNullConstraint(session, tableHandle, columnHandle);
         return immediateVoidFuture();
