@@ -46,6 +46,8 @@
 
 ## Kafka connector
 
+## Lakehouse connector
+
 ## Loki connector
 
 ## MariaDB connector
