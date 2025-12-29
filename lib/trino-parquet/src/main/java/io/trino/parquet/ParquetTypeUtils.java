@@ -81,18 +81,19 @@ public final class ParquetTypeUtils
         if(columnIO instanceof PrimitiveColumnIO ) {
             return columnIO;
         } else if (columnIO instanceof GroupColumnIO groupColumnIO) {
-            // Group Bag for List/Map/Row
+            // List/Map/Row
             if (groupColumnIO.getType().getLogicalTypeAnnotation() != null
                     || groupColumnIO.getChildrenCount() > 1) {
                 return groupColumnIO;
             } else {
                 if (groupColumnIO.getChildrenCount() == 1) {
                     if (groupColumnIO.getType().isRepetition(REPEATED)) {
-                        if (arrayElementType instanceof RowType) {
-                           return groupColumnIO;
-                        }
                         // Group is a Bag, get child column
-                        return getArrayElementColumn(arrayElementType, groupColumnIO.getChild(0));
+                        ColumnIO clo = getArrayElementColumn(arrayElementType, groupColumnIO.getChild(0));
+                        if (clo instanceof PrimitiveColumnIO && arrayElementType instanceof RowType) {
+                            return groupColumnIO;
+                        }
+                        return clo;
                     } else {
                         return groupColumnIO;
                     }
