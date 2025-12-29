@@ -92,7 +92,7 @@ final class TestSingleStoreLatestTypeMapping
     @Test
     void testSingleStoreCreatedParameterizedVarcharUnicodeEmoji()
     {
-        try (TestTable table = new TestTable(singleStoreServer::execute, "tpch.test_unsupported_bigint", "(value varchar(1) CHARACTER SET utf8)")) {
+        try (TestTable table = new TestTable(singleStoreServer::execute, "tpch.test_unsupported_varchar_unicode", "(value varchar(1) CHARACTER SET utf8)")) {
             assertThatThrownBy(() -> singleStoreServer.execute(format("INSERT INTO %s VALUES ('😂')", table.getName())))
                     .hasMessageContaining("Data invalid");
         }
