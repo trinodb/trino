@@ -70,39 +70,58 @@ public final class ParquetTypeUtils
     }
 
     /* For backward-compatibility, the type of elements in LIST-annotated structures should always be determined by the following rules:
-     * 1. If the repeated field is not a group, then its type is the element type and elements are required.
-     * 2. If the repeated field is a group with multiple fields, then its type is the element type and elements are required.
-     * 3. If the repeated field is a group with one field and is named either array or uses the LIST-annotated group's name with _tuple appended then the repeated type is the element type and elements are required.
-     * 4. Otherwise, the repeated field's type is the element type with the repeated field's repetition.
      * https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists
      */
-    public static ColumnIO getArrayElementColumn(ColumnIO columnIO)
+    public static ColumnIO getArrayElementColumn(ColumnIO repeatedColumnIO)
     {
-        while (columnIO instanceof GroupColumnIO && !columnIO.getType().isRepetition(REPEATED)) {
-            columnIO = ((GroupColumnIO) columnIO).getChild(0);
+        // Rule: The field annotated with LIST must have a single REPEATED child.
+        if (!repeatedColumnIO.getType().isRepetition(REPEATED)) {
+            throw new IllegalArgumentException("Invalid LIST structure: child must be REPEATED.");
         }
 
-        /* If array has a standard 3-level structure with middle level repeated group with a single field:
-         *  optional group my_list (LIST) {
-         *     repeated group element {
-         *        required binary str (UTF8);
-         *     };
-         *  }
-         */
-        if (columnIO instanceof GroupColumnIO groupColumnIO &&
-                columnIO.getType().getLogicalTypeAnnotation() == null &&
-                groupColumnIO.getChildrenCount() == 1 &&
-                !columnIO.getName().equals("array") &&
-                !columnIO.getName().equals(columnIO.getParent().getName() + "_tuple")) {
-            return groupColumnIO.getChild(0);
+        // Rule: If the repeated field is NOT a group, it is the element type (e.g., repeated int32).
+        if (!(repeatedColumnIO instanceof GroupColumnIO)) {
+            return repeatedColumnIO;
         }
 
-        /* Backward-compatibility support for 2-level arrays where a repeated field is not a group:
-         *   optional group my_list (LIST) {
-         *      repeated int32 element;
-         *   }
-         */
-        return columnIO;
+        GroupColumnIO repeatedGroup = (GroupColumnIO) repeatedColumnIO;
+        int childrenCount = repeatedGroup.getChildrenCount();
+
+        // Rule: If the repeated field is a group with MULTIPLE fields, it is the element type.
+        // This handles legacy structures where the "repeated" layer is the struct itself.
+        if (childrenCount > 1) {
+            return repeatedGroup;
+        }
+
+        // Rule: If the repeated field is a group with ONE field, apply specific name checks.
+        if (childrenCount == 1) {
+            ColumnIO child = repeatedGroup.getChild(0);
+            String repeatedName = repeatedGroup.getType().getName();
+            String childName = child.getType().getName();
+
+            // 1. Modern Standard: LIST -> repeated group "list" -> element "element"
+            if (repeatedName.equals("list") && childName.equals("element")) {
+                return child;
+            }
+
+            // 2. Legacy Exception: If the single child is REPEATED, the repeated group is the element.
+            // Spec: "If the repeated field is a group with one field with repeated repetition..."
+            if (child.getType().isRepetition(REPEATED)) {
+                return repeatedGroup;
+            }
+
+            // 3. Legacy Exception: Special Names
+            // Spec: If named "array" or [parent_name]_tuple, the repeated group is the element.
+            if (repeatedName.equals("array") || repeatedName.endsWith("_tuple")) {
+                return repeatedGroup;
+            }
+
+            // 4. Default for 3-level: Even if names aren't "list"/"element",
+            // if it's a single-field group, it's usually the wrapper.
+            return child;
+        }
+
+        return repeatedGroup;
     }
 
     public static Map<List<String>, ColumnDescriptor> getDescriptors(MessageType fileSchema, MessageType requestedSchema)
