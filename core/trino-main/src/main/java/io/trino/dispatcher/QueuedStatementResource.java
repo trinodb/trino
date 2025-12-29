@@ -363,7 +363,7 @@ public class QueuedStatementResource
 
         public boolean isSubmissionAbandoned()
         {
-            return ABANDONED.equals(submissionGate.get());
+            return submissionGate.get() == ABANDONED;
         }
 
         public boolean isCreated()
