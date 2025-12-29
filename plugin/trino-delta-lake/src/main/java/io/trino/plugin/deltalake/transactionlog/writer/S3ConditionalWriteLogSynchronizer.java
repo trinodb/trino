@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.transactionlog.writer;
 
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.FileMayHaveAlreadyExistedException;
@@ -35,6 +36,8 @@ import static java.util.Objects.requireNonNull;
 public class S3ConditionalWriteLogSynchronizer
         implements TransactionLogSynchronizer
 {
+    private static final Logger log = Logger.get(S3ConditionalWriteLogSynchronizer.class);
+
     private final DeltaLakeFileSystemFactory fileSystemFactory;
 
     @Inject
@@ -66,7 +69,16 @@ public class S3ConditionalWriteLogSynchronizer
                     Slice readBack = trinoInput.readFully(0, entryContents.length + 1);
                     // The contents are unique per query, so if they match, we know we created it
                     boolean createdByUs = readBack.equals(Slices.wrappedBuffer(entryContents));
-                    if (!createdByUs) {
+                    if (createdByUs) {
+                        // This should be a rare situation. Since we're masking a potential problem, log so that it surfaces if it becomes frequent.
+                        log.warn(
+                                """
+                                Potential conflict falsely detected while writing Transaction Log entry %s to S3. \
+                                This may happen in rare cases when network retries are involved. \
+                                If this happens frequently, consider inspecting network infrastructure between Trino and S3.""",
+                                newLogEntryPath);
+                    }
+                    else {
                         throw new TransactionConflictException("Conflict detected while writing Transaction Log entry %s to S3".formatted(newLogEntryPath), mayExistException);
                     }
                 }
