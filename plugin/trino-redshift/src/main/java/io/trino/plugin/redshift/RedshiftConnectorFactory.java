@@ -16,6 +16,7 @@ package io.trino.plugin.redshift;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.trino.plugin.base.ConnectorContextModule;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
 import io.trino.plugin.jdbc.JdbcModule;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
@@ -46,6 +47,7 @@ public class RedshiftConnectorFactory
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
                 new ConnectorContextModule(catalogName, context),
+                new ConnectorObjectNameGeneratorModule("io.trino.plugin.redshift", "io.trino.plugin.redshift"),
                 new JdbcModule(),
                 new CredentialProviderModule(),
                 new ExtraCredentialsBasedIdentityCacheMappingModule(),

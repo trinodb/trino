@@ -17,6 +17,7 @@ import com.google.inject.Injector;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.trino.plugin.base.ConnectorContextModule;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -49,6 +50,7 @@ public class JmxConnectorFactory
                 "io.trino.bootstrap.catalog." + catalogName,
                 new MBeanServerModule(),
                 new ConnectorContextModule(catalogName, context),
+                new ConnectorObjectNameGeneratorModule("io.trino.plugin.jmx", "trino.plugin.jmx"),
                 binder -> {
                     configBinder(binder).bindConfig(JmxConnectorConfig.class);
                     binder.bind(JmxConnector.class).in(Scopes.SINGLETON);
