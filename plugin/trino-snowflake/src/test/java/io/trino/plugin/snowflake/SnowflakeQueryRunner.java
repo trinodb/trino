@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
@@ -41,9 +42,16 @@ public final class SnowflakeQueryRunner
         Builder builder = new Builder()
                 .addConnectorProperty("connection-url", TestingSnowflakeServer.TEST_URL)
                 .addConnectorProperty("connection-user", TestingSnowflakeServer.TEST_USER)
-                .addConnectorProperty("connection-password", TestingSnowflakeServer.TEST_PASSWORD)
                 .addConnectorProperty("snowflake.database", TestingSnowflakeServer.TEST_DATABASE)
                 .addConnectorProperty("snowflake.warehouse", TestingSnowflakeServer.TEST_WAREHOUSE);
+
+        checkArgument(
+                TestingSnowflakeServer.TEST_PRIVATE_KEY.isPresent() ^ TestingSnowflakeServer.TEST_PASSWORD.isPresent(),
+                "Exactly one of PrivateKey or Password must be set");
+        TestingSnowflakeServer.TEST_PRIVATE_KEY
+                .ifPresent(privateKey -> builder.addConnectorProperty("snowflake.private-key", privateKey));
+        TestingSnowflakeServer.TEST_PASSWORD
+                .ifPresent(password -> builder.addConnectorProperty("connection-password", password));
         TestingSnowflakeServer.TEST_ROLE.ifPresent(role -> builder.addConnectorProperty("snowflake.role", role));
         return builder;
     }
