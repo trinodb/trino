@@ -1894,6 +1894,32 @@ SELECT json_format(JSON '[1, 2, 3]'); -- '[1,2,3]'
 SELECT json_format(JSON '"a"');       -- '"a"'
 ```
 
+:::{function} json_format(json, indent_spaces) -> varchar
+:no-index:
+Returns the JSON text serialized from the input JSON value with specified
+indentation. The `indent_spaces` parameter specifies the number of spaces to use
+for indentation. This is useful for formatting JSON output in a human-readable
+format, especially when working with clients that cannot handle large integers
+in compact JSON strings.
+
+```
+SELECT json_format(JSON '{"a": 1, "b": 2}', 2);
+-- '{
+--   "a" : 1,
+--   "b" : 2
+-- }'
+
+SELECT json_format(JSON '{"id": 9223372036854775807}', 2);
+-- '{
+--   "id" : 9223372036854775807
+-- }'
+```
+
+When `indent_spaces` is 0, the function returns the compact format (same as
+the single-argument version). The `indent_spaces` parameter must be
+non-negative.
+:::
+
 :::{note}
 {func}`json_format` and `CAST(json AS VARCHAR)` have completely
 different semantics.
