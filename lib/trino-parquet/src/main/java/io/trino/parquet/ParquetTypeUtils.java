@@ -81,17 +81,25 @@ public final class ParquetTypeUtils
         if(columnIO instanceof PrimitiveColumnIO ) {
             return columnIO;
         } else if (columnIO instanceof GroupColumnIO groupColumnIO) {
-            // Group wrapper for List/Map/Row
+            // Group Bag for List/Map/Row
             if (groupColumnIO.getType().getLogicalTypeAnnotation() != null
-                    || arrayElementType instanceof RowType) {
+                    || groupColumnIO.getChildrenCount() > 1) {
                 return groupColumnIO;
             } else {
                 if (groupColumnIO.getChildrenCount() == 1) {
-                    return getArrayElementColumn(arrayElementType, groupColumnIO.getChild(0));
+                    if (groupColumnIO.getType().isRepetition(REPEATED)) {
+                        if (arrayElementType instanceof RowType) {
+                           return groupColumnIO;
+                        }
+                        // Group is a Bag, get child column
+                        return getArrayElementColumn(arrayElementType, groupColumnIO.getChild(0));
+                    } else {
+                        return groupColumnIO;
+                    }
                 }
             }
         }
-        return columnIO;
+        return null;
     }
 
     public static Map<List<String>, ColumnDescriptor> getDescriptors(MessageType fileSchema, MessageType requestedSchema)
