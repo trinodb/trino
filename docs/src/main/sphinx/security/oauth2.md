@@ -126,6 +126,9 @@ The following configuration properties are available:
   - The public identifier of the Trino client.
 * - `http-server.authentication.oauth2.client-secret`
   - The secret used to authorize Trino client with the authorization server.
+* - `http-server.authentication.oauth2.require-audience`
+  - Require a valid audience. If false (default), access tokens
+    without an aud claim will be accepeted.
 * - `http-server.authentication.oauth2.additional-audiences`
   - Additional audiences to trust in addition to the client ID which is
     always a trusted audience.
