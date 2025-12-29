@@ -142,7 +142,7 @@ final class TestSetNotNullConstraintConstraintTask
 
     private ListenableFuture<Void> executeSetNotNullConstraint(QualifiedName table, Identifier column, boolean tableExists)
     {
-        return new SetNotNullConstraintTask(plannerContext.getMetadata(), new AllowAllAccessControl())
+        return new SetNotNullConstraintTask(plannerContext, new AllowAllAccessControl())
                 .execute(new SetNotNullConstraint(new NodeLocation(1, 1), table, column, tableExists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 

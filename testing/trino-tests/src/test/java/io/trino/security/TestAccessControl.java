@@ -989,7 +989,7 @@ public class TestAccessControl
 
         assertAccessDenied("ALTER TABLE " + tableName + " ALTER COLUMN orderkey SET NOT NULL", "Cannot alter a column for table .*." + tableName + ".*", privilege(tableName, ALTER_COLUMN));
         assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "ALTER TABLE " + tableName + " ALTER COLUMN orderkey SET NOT NULL"))
-                .hasMessage("This connector does not support setting a not null constraint"); // Update this test once Black Hole connector supports a not null constraint
+                .hasMessage("line 1:1: Catalog 'blackhole' does not support NOT NULL for column 'orderkey'"); // Update this test once Black Hole connector supports a not null constraint
     }
 
     @Test
