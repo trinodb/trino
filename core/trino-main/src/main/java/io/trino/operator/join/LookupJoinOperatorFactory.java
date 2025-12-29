@@ -119,6 +119,18 @@ public class LookupJoinOperatorFactory
 
     private LookupJoinOperatorFactory(LookupJoinOperatorFactory other)
     {
+        this(other, other.totalOperatorsCount, true);
+    }
+
+    /**
+     * Private constructor for creating a copy with adjusted totalOperatorsCount.
+     *
+     * @param other the factory to copy from
+     * @param adjustedTotalOperatorsCount the adjusted total operators count
+     * @param incrementProbeFactoryCount whether to increment probe factory count (true for duplicate, false for adjust)
+     */
+    private LookupJoinOperatorFactory(LookupJoinOperatorFactory other, OptionalInt adjustedTotalOperatorsCount, boolean incrementProbeFactoryCount)
+    {
         requireNonNull(other, "other is null");
         checkArgument(!other.closed, "cannot duplicated closed OperatorFactory");
 
@@ -132,12 +144,31 @@ public class LookupJoinOperatorFactory
         joinProbeFactory = other.joinProbeFactory;
         outerOperatorFactory = other.outerOperatorFactory;
         joinBridgeManager = other.joinBridgeManager;
-        totalOperatorsCount = other.totalOperatorsCount;
+        totalOperatorsCount = adjustedTotalOperatorsCount;
         probeHashGenerator = other.probeHashGenerator;
         partitioningSpillerFactory = other.partitioningSpillerFactory;
 
         closed = false;
-        joinBridgeManager.incrementProbeFactoryCount();
+        if (incrementProbeFactoryCount) {
+            joinBridgeManager.incrementProbeFactoryCount();
+        }
+    }
+
+    /**
+     * Creates a new factory with an adjusted totalOperatorsCount.
+     * This is used when the factory will be duplicated by addLookupOuterDrivers,
+     * and we need to account for the additional operators that will be created.
+     *
+     * @param additionalOperators the number of additional operators from outer drivers
+     * @return a new factory with the adjusted count, or this factory if no adjustment needed
+     */
+    public LookupJoinOperatorFactory withAdjustedTotalOperatorsCount(int additionalOperators)
+    {
+        if (totalOperatorsCount.isEmpty() || additionalOperators == 0) {
+            return this;
+        }
+        OptionalInt adjusted = OptionalInt.of(totalOperatorsCount.getAsInt() + additionalOperators);
+        return new LookupJoinOperatorFactory(this, adjusted, false);
     }
 
     @Override
