@@ -3950,8 +3950,13 @@ public abstract class BaseConnectorTest
 
             assertThat(query("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET NOT NULL"))
                     .failure()
-                    .hasMessage("ERROR: column \"col\" contains null values");
+                    .hasMessageMatching(errorMessageRegexTestSetNotNullConstraintOnNonEmptyTable());
         }
+    }
+
+    protected String errorMessageRegexTestSetNotNullConstraintOnNonEmptyTable()
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Test
