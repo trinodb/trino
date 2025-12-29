@@ -88,12 +88,7 @@ public final class ParquetTypeUtils
             } else {
                 if (groupColumnIO.getChildrenCount() == 1) {
                     if (groupColumnIO.getType().isRepetition(REPEATED)) {
-                        // Group is a Bag, get child column
-                        ColumnIO clo = getArrayElementColumn(arrayElementType, groupColumnIO.getChild(0));
-                        if (clo instanceof PrimitiveColumnIO && arrayElementType instanceof RowType) {
-                            return groupColumnIO;
-                        }
-                        return clo;
+                        return groupColumnIO.getChild(0);
                     } else {
                         return groupColumnIO;
                     }
