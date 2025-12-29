@@ -57,6 +57,8 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.RowType.anonymousRow;
+import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.SqlDecimal.decimal;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -529,8 +531,8 @@ public class TestArrayOperators
                         ]'
                         """))
                 .hasType(new ArrayType(RowType.from(ImmutableList.of(
-                        RowType.field("k1", BIGINT),
-                        RowType.field("k2", VARCHAR)))))
+                        field("k1", BIGINT),
+                        field("k2", VARCHAR)))))
                 .isEqualTo(asList(
                         asList(1L, "two"),
                         asList(3L, null),
@@ -4814,5 +4816,32 @@ public class TestArrayOperators
         assertThat(assertions.function("flatten", "ARRAY[NULL, ARRAY[MAP(ARRAY[3, 4], ARRAY[3, 4])]]"))
                 .hasType(new ArrayType(mapType(INTEGER, INTEGER)))
                 .isEqualTo(ImmutableList.of(ImmutableMap.of(3, 3, 4, 4)));
+    }
+
+    @Test
+    public void testFirstMatch()
+    {
+        assertThat(assertions.expression("""
+                first_match(
+                    CAST(
+                        ARRAY[row('goodbye', 'mars'), row('hello', 'world')]
+                    AS
+                        array(row(greeting varchar, planet varchar))),
+                    element -> element.planet = 'world')
+                """))
+                .hasType(rowType(field("greeting", VARCHAR), field("planet", VARCHAR)))
+                .isEqualTo(ImmutableList.of("hello", "world"));
+
+        assertThat(assertions.expression("first_match(ARRAY[4, 5, 6, 7], element -> mod(element, 3) = 0)"))
+                .hasType(INTEGER)
+                .isEqualTo(6);
+
+        assertThat(assertions.expression("first_match(ARRAY[], e -> TRUE)"))
+                .hasType(UNKNOWN)
+                .isNull();
+
+        assertThat(assertions.expression("first_match(ARRAY['foo', 'bar'], e -> FALSE)"))
+                .hasType(createVarcharType(3))
+                .isNull();
     }
 }

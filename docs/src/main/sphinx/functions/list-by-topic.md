@@ -74,6 +74,7 @@ For more details, see {doc}`array`
 - {func}`contains`
 - {func}`element_at`
 - {func}`filter`
+- {func}`first_match`
 - {func}`flatten`
 - {func}`ngrams`
 - {func}`none_match`
