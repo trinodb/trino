@@ -368,10 +368,10 @@ public class RetryingJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionConsumer)
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionCollector)
     {
         // no retrying as it could be not idempotent operation
-        return delegate.beginCreateTable(session, tableMetadata, rollbackActionConsumer);
+        return delegate.beginCreateTable(session, tableMetadata, rollbackActionCollector);
     }
 
     @Override
@@ -400,11 +400,11 @@ public class RetryingJdbcClient
             ConnectorSession session,
             JdbcTableHandle handle,
             Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
-            Consumer<Runnable> rollbackActionConsumer,
+            Consumer<Runnable> rollbackActionCollector,
             RetryMode retryMode)
     {
         // no retrying as it could be not idempotent operation
-        return delegate.beginMerge(session, handle, updateColumnHandles, rollbackActionConsumer, retryMode);
+        return delegate.beginMerge(session, handle, updateColumnHandles, rollbackActionCollector, retryMode);
     }
 
     @Override
