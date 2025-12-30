@@ -230,7 +230,8 @@ public abstract class BaseDataDefinitionTaskTest
                 columns,
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of());
+                ImmutableList.of(),
+                false);
     }
 
     private static QueryStateMachine stateMachine(TransactionManager transactionManager, MetadataManager metadata, AccessControl accessControl, Session session)
@@ -669,7 +670,8 @@ public abstract class BaseDataDefinitionTaskTest
                             view.getColumns(),
                             comment,
                             view.getRunAsIdentity(),
-                            view.getPath()));
+                            view.getPath(),
+                            view.isWithAlias()));
         }
 
         @Override
@@ -702,7 +704,8 @@ public abstract class BaseDataDefinitionTaskTest
                                     .collect(toImmutableList()),
                             view.getComment(),
                             view.getRunAsIdentity(),
-                            view.getPath()));
+                            view.getPath(),
+                            view.isWithAlias()));
         }
 
         @Override

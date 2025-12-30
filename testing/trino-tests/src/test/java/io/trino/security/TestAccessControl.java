@@ -195,7 +195,8 @@ public class TestAccessControl
                             Optional.of("comment"),
                             Optional.of("admin"),
                             false,
-                            ImmutableList.of());
+                            ImmutableList.of(),
+                            false);
                     ConnectorViewDefinition definitionRunAsInvoker = new ConnectorViewDefinition(
                             "SELECT 1 AS test",
                             Optional.of("mock"),
@@ -204,7 +205,8 @@ public class TestAccessControl
                             Optional.of("comment"),
                             Optional.empty(),
                             true,
-                            ImmutableList.of());
+                            ImmutableList.of(),
+                            false);
                     return ImmutableMap.of(
                             new SchemaTableName("default", "test_view_definer"), definitionRunAsDefiner,
                             new SchemaTableName("default", "test_view_invoker"), definitionRunAsInvoker);

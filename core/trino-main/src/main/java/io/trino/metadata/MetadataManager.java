@@ -1607,7 +1607,8 @@ public final class MetadataManager
                         .collect(toImmutableList()),
                 view.getComment(),
                 runAsIdentity,
-                view.getPath());
+                view.getPath(),
+                view.isWithAlias());
     }
 
     private Optional<ConnectorViewDefinition> getViewInternal(Session session, QualifiedObjectName viewName)

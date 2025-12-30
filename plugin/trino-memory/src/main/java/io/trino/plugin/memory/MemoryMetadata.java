@@ -556,7 +556,8 @@ public class MemoryMetadata
                 comment,
                 view.getOwner(),
                 view.isRunAsInvoker(),
-                view.getPath()));
+                view.getPath(),
+                view.isWithAlias()));
     }
 
     @Override
@@ -573,7 +574,8 @@ public class MemoryMetadata
                 view.getComment(),
                 view.getOwner(),
                 view.isRunAsInvoker(),
-                view.getPath()));
+                view.getPath(),
+                view.isWithAlias()));
     }
 
     @Override

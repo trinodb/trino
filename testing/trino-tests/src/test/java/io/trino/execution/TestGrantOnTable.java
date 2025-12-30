@@ -88,7 +88,8 @@ public class TestGrantOnTable
                                         Optional.empty(),
                                         Optional.empty(),
                                         true,
-                                        ImmutableList.of())))
+                                        ImmutableList.of(),
+                                        false)))
                 .withGetMaterializedViews((connectorSession, prefix) ->
                         ImmutableMap.of(
                                 materializedView, new ConnectorMaterializedViewDefinition(

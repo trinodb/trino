@@ -422,7 +422,8 @@ public abstract class BaseTrinoCatalogTest
                 Optional.empty(),
                 Optional.of(SESSION.getUser()),
                 false,
-                ImmutableList.of());
+                ImmutableList.of(),
+                false);
 
         try {
             catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
@@ -522,7 +523,8 @@ public abstract class BaseTrinoCatalogTest
                                 Optional.empty(),
                                 Optional.of(SESSION.getUser()),
                                 false,
-                                ImmutableList.of()),
+                                ImmutableList.of(),
+                                false),
                         false);
                 closer.register(() -> catalog.dropView(SESSION, view));
                 allTables.add(new TableInfo(view, getViewType()));

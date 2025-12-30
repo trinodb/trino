@@ -116,6 +116,7 @@ public abstract class AbstractTrinoCatalog
 {
     public static final String TRINO_CREATED_BY_VALUE = "Trino Iceberg connector";
     public static final String ICEBERG_VIEW_RUN_AS_OWNER = "trino.run-as-owner";
+    public static final String ICEBERG_VIEW_WITH_ALIAS = "trino.with-alias";
 
     protected static final String TRINO_CREATED_BY = HiveMetadata.TRINO_CREATED_BY;
     protected static final String TRINO_QUERY_ID_NAME = HiveMetadata.TRINO_QUERY_ID_NAME;

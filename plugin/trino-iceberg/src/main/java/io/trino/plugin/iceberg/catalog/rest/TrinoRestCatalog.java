@@ -100,6 +100,7 @@ import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.SUPPORTED_SCHEMA_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.ICEBERG_VIEW_RUN_AS_OWNER;
+import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.ICEBERG_VIEW_WITH_ALIAS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -660,6 +661,7 @@ public class TrinoRestCatalog
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         definition.getOwner().ifPresent(owner -> properties.put(ICEBERG_VIEW_RUN_AS_OWNER, owner));
         definition.getComment().ifPresent(comment -> properties.put(COMMENT, comment));
+        properties.put(ICEBERG_VIEW_WITH_ALIAS, String.valueOf(definition.isWithAlias()));
         Schema schema = IcebergUtil.schemaFromViewColumns(typeManager, definition.getColumns());
         ViewBuilder viewBuilder = restSessionCatalog.buildView(convert(session), toRemoteView(session, schemaViewName, true));
         viewBuilder = viewBuilder.withSchema(schema)
@@ -761,7 +763,8 @@ public class TrinoRestCatalog
             }
 
             Optional<String> owner = Optional.ofNullable(view.properties().get(ICEBERG_VIEW_RUN_AS_OWNER));
-            return Optional.of(new ConnectorViewDefinition(sqlView.sql(), catalog, schema, viewColumns, comment, owner, owner.isEmpty(), null));
+            boolean withAlias = Boolean.parseBoolean(view.properties().getOrDefault(ICEBERG_VIEW_WITH_ALIAS, "false"));
+            return Optional.of(new ConnectorViewDefinition(sqlView.sql(), catalog, schema, viewColumns, comment, owner, owner.isEmpty(), null, withAlias));
         });
     }
 

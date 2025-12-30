@@ -106,7 +106,8 @@ class TestConnectorViewDefinition
                 Optional.of("comment"),
                 Optional.of("test_owner"),
                 false,
-                ImmutableList.of()));
+                ImmutableList.of(),
+                false));
     }
 
     private static void assertBaseView(ConnectorViewDefinition view)

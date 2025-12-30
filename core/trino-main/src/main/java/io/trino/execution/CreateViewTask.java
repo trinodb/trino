@@ -13,6 +13,7 @@
  */
 package io.trino.execution;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
@@ -29,7 +30,9 @@ import io.trino.spi.security.Identity;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.Field;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.ColumnComment;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
@@ -40,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -48,6 +52,7 @@ import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.tree.CreateView.Security.INVOKER;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class CreateViewTask
@@ -112,10 +117,24 @@ public class CreateViewTask
         Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, stateMachine.getWarningCollector(), stateMachine.getPlanOptimizersStatsCollector())
                 .analyze(statement);
 
-        List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())
-                .getVisibleFields().stream()
-                .map(field -> new ViewColumn(field.getName().get(), field.getType().getTypeId(), Optional.empty()))
-                .collect(toImmutableList());
+        ImmutableList.Builder<ViewColumn> columns = ImmutableList.builder();
+        Optional<List<ColumnComment>> columnComments = statement.getColumnComments();
+        boolean withAlias = columnComments.isPresent();
+        if (withAlias) {
+            int aliasPosition = 0;
+            for (Field field : analysis.getOutputDescriptor(statement.getQuery()).getVisibleFields()) {
+                ColumnComment columnComment = columnComments.get().get(aliasPosition);
+                String columnName = getOnlyElement(columnComment.getName().getOriginalParts()).getValue().toLowerCase(ENGLISH);
+                columns.add(new ViewColumn(columnName, field.getType().getTypeId(), columnComment.getComment()));
+                aliasPosition++;
+            }
+        }
+        else {
+            analysis.getOutputDescriptor(statement.getQuery())
+                    .getVisibleFields().stream()
+                    .map(field -> new ViewColumn(field.getName().get(), field.getType().getTypeId(), Optional.empty()))
+                    .forEach(columns::add);
+        }
 
         // use DEFINER security by default
         Optional<Identity> owner = Optional.of(session.getIdentity());
@@ -140,13 +159,14 @@ public class CreateViewTask
                 sql,
                 session.getCatalog(),
                 session.getSchema(),
-                columns,
+                columns.build(),
                 statement.getComment(),
                 owner,
                 session.getPath().getPath().stream()
                         // system path elements currently are not stored
                         .filter(element -> !element.getCatalogName().equals(GlobalSystemConnector.NAME))
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()),
+                withAlias);
 
         metadata.createView(session, name, definition, properties, statement.isReplace());
 

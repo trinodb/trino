@@ -189,7 +189,8 @@ public class TestEventListenerBasic
                                                 Optional.empty(),
                                                 Optional.empty(),
                                                 true,
-                                                ImmutableList.of()),
+                                                ImmutableList.of(),
+                                                false),
                                         new SchemaTableName("default", "test_view_nesting"), new ConnectorViewDefinition(
                                                 "SELECT test_column FROM mock.default.test_view",
                                                 Optional.empty(),
@@ -198,7 +199,8 @@ public class TestEventListenerBasic
                                                 Optional.empty(),
                                                 Optional.empty(),
                                                 true,
-                                                ImmutableList.of()),
+                                                ImmutableList.of(),
+                                                false),
                                         new SchemaTableName("default", "test_view_with_row_filter"), new ConnectorViewDefinition(
                                                 "SELECT test_varchar AS test_column FROM mock.default.test_table_with_row_filter",
                                                 Optional.empty(),
@@ -207,7 +209,8 @@ public class TestEventListenerBasic
                                                 Optional.empty(),
                                                 Optional.empty(),
                                                 true,
-                                                ImmutableList.of()),
+                                                ImmutableList.of(),
+                                                false),
                                         new SchemaTableName("default", "test_view_with_redirect"), new ConnectorViewDefinition(
                                                 "SELECT nationkey AS test_column FROM mock.default.nation_redirect",
                                                 Optional.empty(),
@@ -216,7 +219,8 @@ public class TestEventListenerBasic
                                                 Optional.empty(),
                                                 Optional.empty(),
                                                 true,
-                                                ImmutableList.of())))
+                                                ImmutableList.of(),
+                                                false)))
                         .withGetMaterializedViews((connectorSession, prefix) -> {
                             ConnectorMaterializedViewDefinition definitionStale = new ConnectorMaterializedViewDefinition(
                                     "SELECT nationkey AS test_column FROM tpch.tiny.nation",

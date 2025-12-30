@@ -90,7 +90,8 @@ public class TestMockConnector
                                                 Optional.empty(),
                                                 Optional.of("alice"),
                                                 false,
-                                                ImmutableList.of())))
+                                                ImmutableList.of(),
+                                                false)))
                                 .withGetMaterializedViewProperties(() -> ImmutableList.of(
                                         durationProperty(
                                                 "refresh_interval",

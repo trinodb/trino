@@ -623,6 +623,13 @@
                                     <new>method java.lang.String io.trino.spi.type.Type::getDisplayName() @ io.trino.spi.type.AbstractType</new>
                                     <justification>Don't rely on TypeSignature for deriving the display name</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.connector.ConnectorViewDefinition::&lt;init&gt;(java.lang.String, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorViewDefinition.ViewColumn&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, boolean, java.util.List&lt;io.trino.spi.connector.CatalogSchemaName&gt;)</old>
+                                    <new>method void io.trino.spi.connector.ConnectorViewDefinition::&lt;init&gt;(java.lang.String, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorViewDefinition.ViewColumn&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, boolean, java.util.List&lt;io.trino.spi.connector.CatalogSchemaName&gt;, boolean)</new>
+                                    <justification>Add Support for column aliases and comments in CREATE VIEW statements</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

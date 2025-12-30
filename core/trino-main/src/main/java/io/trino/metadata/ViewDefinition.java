@@ -34,6 +34,7 @@ public class ViewDefinition
     private final Optional<String> comment;
     private final Optional<Identity> runAsIdentity;
     private final List<CatalogSchemaName> path;
+    private final boolean withAlias;
 
     public ViewDefinition(
             String originalSql,
@@ -42,7 +43,8 @@ public class ViewDefinition
             List<ViewColumn> columns,
             Optional<String> comment,
             Optional<Identity> runAsIdentity,
-            List<CatalogSchemaName> path)
+            List<CatalogSchemaName> path,
+            boolean withAlias)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
@@ -51,6 +53,7 @@ public class ViewDefinition
         this.comment = requireNonNull(comment, "comment is null");
         this.runAsIdentity = requireNonNull(runAsIdentity, "runAsIdentity is null");
         this.path = requireNonNull(path, "path is null");
+        this.withAlias = withAlias;
         checkArgument(schema.isEmpty() || catalog.isPresent(), "catalog must be present if schema is present");
         checkArgument(!columns.isEmpty(), "columns list is empty");
     }
@@ -95,6 +98,11 @@ public class ViewDefinition
         return path;
     }
 
+    public boolean isWithAlias()
+    {
+        return withAlias;
+    }
+
     public ConnectorViewDefinition toConnectorViewDefinition()
     {
         return new ConnectorViewDefinition(
@@ -107,7 +115,8 @@ public class ViewDefinition
                 comment,
                 runAsIdentity.map(Identity::getUser),
                 runAsIdentity.isEmpty(),
-                path);
+                path,
+                withAlias);
     }
 
     @Override
@@ -121,6 +130,7 @@ public class ViewDefinition
                 .add("comment", comment.orElse(null))
                 .add("runAsIdentity", runAsIdentity.orElse(null))
                 .add("path", path)
+                .add("withAlias", withAlias)
                 .toString();
     }
 }

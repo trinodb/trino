@@ -1598,7 +1598,8 @@ public class HiveMetadata
                 comment,
                 definition.getOwner(),
                 definition.isRunAsInvoker(),
-                definition.getPath());
+                definition.getPath(),
+                definition.isWithAlias());
 
         replaceView(session, viewName, view, newDefinition);
     }
@@ -1620,7 +1621,8 @@ public class HiveMetadata
                 definition.getComment(),
                 definition.getOwner(),
                 definition.isRunAsInvoker(),
-                definition.getPath());
+                definition.getPath(),
+                definition.isWithAlias());
 
         replaceView(session, viewName, view, newDefinition);
     }
@@ -2982,7 +2984,8 @@ public class HiveMetadata
                                 definition.getComment(),
                                 view.getOwner(),
                                 false,
-                                definition.getPath());
+                                definition.getPath(),
+                                definition.isWithAlias());
                     }
                     return Optional.of(definition);
                 });

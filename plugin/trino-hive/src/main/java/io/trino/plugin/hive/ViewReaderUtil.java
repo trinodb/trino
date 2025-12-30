@@ -265,7 +265,8 @@ public final class ViewReaderUtil
                         Optional.ofNullable(table.getParameters().get(TABLE_COMMENT)),
                         Optional.empty(), // will be filled in later by HiveMetadata
                         hiveViewsRunAsInvoker,
-                        ImmutableList.of());
+                        ImmutableList.of(),
+                        false);
             }
             catch (Throwable e) {
                 throw new TrinoException(HIVE_VIEW_TRANSLATION_ERROR,

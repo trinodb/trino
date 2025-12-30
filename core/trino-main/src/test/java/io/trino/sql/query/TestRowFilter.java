@@ -89,7 +89,8 @@ public class TestRowFilter
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 false,
-                ImmutableList.of());
+                ImmutableList.of(),
+                false);
 
         runner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withGetViews((s, prefix) -> ImmutableMap.of(new SchemaTableName("default", "nation_view"), view))

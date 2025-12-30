@@ -95,7 +95,8 @@ final class TestRefreshViewTask
                         ImmutableList.of(new ViewColumn("test", TypeId.of("bigint"), Optional.empty())),
                         Optional.empty(),
                         Optional.empty(),
-                        ImmutableList.of()),
+                        ImmutableList.of(),
+                        false),
                 ImmutableMap.of(),
                 false);
 
@@ -138,7 +139,8 @@ final class TestRefreshViewTask
                                 new ViewColumn("column_to_be_dropped", TypeId.of("bigint"), Optional.empty())),
                         Optional.empty(),
                         Optional.empty(),
-                        ImmutableList.of()),
+                        ImmutableList.of(),
+                        false),
                 ImmutableMap.of(),
                 false);
 
@@ -169,7 +171,8 @@ final class TestRefreshViewTask
                         ImmutableList.of(new ViewColumn("test", TypeId.of("bigint"), Optional.empty())),
                         Optional.empty(),
                         Optional.empty(),
-                        ImmutableList.of()),
+                        ImmutableList.of(),
+                        false),
                 ImmutableMap.of(),
                 false);
 
@@ -201,7 +204,8 @@ final class TestRefreshViewTask
                         ImmutableList.of(new ViewColumn("test", TypeId.of("bigint"), Optional.empty())),
                         Optional.empty(),
                         Optional.empty(),
-                        ImmutableList.of()),
+                        ImmutableList.of(),
+                        false),
                 ImmutableMap.of(),
                 false);
 
@@ -232,7 +236,8 @@ final class TestRefreshViewTask
                         ImmutableList.of(new ViewColumn("test", TypeId.of("bigint"), Optional.empty())),
                         Optional.empty(),
                         Optional.empty(),
-                        ImmutableList.of()),
+                        ImmutableList.of(),
+                        false),
                 ImmutableMap.of(),
                 false);
 
@@ -259,7 +264,8 @@ final class TestRefreshViewTask
                         ImmutableList.of(new ViewColumn("test", TypeId.of("bigint"), Optional.empty())),
                         Optional.empty(),
                         Optional.empty(),
-                        ImmutableList.of()),
+                        ImmutableList.of(),
+                        false),
                 ImmutableMap.of(),
                 false);
 
@@ -286,7 +292,8 @@ final class TestRefreshViewTask
                         ImmutableList.of(new ViewColumn("test", TypeId.of("bigint"), Optional.empty())),
                         Optional.empty(),
                         Optional.of(Identity.ofUser("owner")),
-                        ImmutableList.of()),
+                        ImmutableList.of(),
+                        false),
                 ImmutableMap.of(),
                 false);
 

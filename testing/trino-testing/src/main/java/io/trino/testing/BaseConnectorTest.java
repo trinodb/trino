@@ -2027,6 +2027,37 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testShowCreateViewWithColumnComment()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));
+        checkState(getSession().getCatalog().isPresent(), "catalog is not set");
+        checkState(getSession().getSchema().isPresent(), "schema is not set");
+
+        String viewName = "test_show_create_view" + randomNameSuffix();
+        assertUpdate("DROP VIEW IF EXISTS " + viewName);
+        String ddl = format(
+                "CREATE VIEW %s.%s.%s (\n" +
+                        "   id COMMENT 'id',\n" +
+                        "   name COMMENT 'name'\n" +
+                        ") SECURITY DEFINER AS\n" +
+                        "SELECT *\n" +
+                        "FROM\n" +
+                        "  (\n" +
+                        " VALUES \n" +
+                        "     ROW(1, 'one')\n" +
+                        "   , ROW(2, 't')\n" +
+                        ")  t (col1, col2)",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                viewName);
+        assertUpdate(ddl);
+
+        assertThat(computeScalar("SHOW CREATE VIEW " + viewName)).isEqualTo(ddl);
+
+        assertUpdate("DROP VIEW " + viewName);
+    }
+
+    @Test
     public void testRenameMaterializedView()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
@@ -4705,6 +4736,34 @@ public abstract class BaseConnectorTest
             // comment set to empty
             assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS ''");
             assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("");
+        }
+    }
+
+    @Test
+    public void testCreateViewWithColumnComment()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_COMMENT_ON_VIEW_COLUMN));
+
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_create_view_with_column_comment", "(test_comment1 COMMENT 'comment1', test_comment2, test_comment3 COMMENT 'comment3')", "SELECT * FROM region")) {
+            assertThat(getColumnComment(view.getName(), "test_comment1")).isEqualTo("comment1");
+            assertThat(getColumnComment(view.getName(), "test_comment2")).isEqualTo(null);
+            assertThat(getColumnComment(view.getName(), "test_comment3")).isEqualTo("comment3");
+            assertQuery("SELECT * FROM " + view.getName(), "SELECT * FROM region");
+        }
+    }
+
+    @Test
+    public void testCreateViewWithColumnAlias()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));
+
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_create_view_with_column_alias", "(test_alias1, test_alias2, test_alias3)", "SELECT * FROM region")) {
+            assertQuery("SELECT test_alias1, test_alias2, test_alias3 FROM " + view.getName() + "", "SELECT * FROM region");
+        }
+
+        // test with query with duplicate column name
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_create_view_with_column_alias", "(test_alias1, test_alias2, test_alias3)", "SELECT regionKey, regionKey, regionKey FROM region")) {
+            assertQuery("SELECT test_alias1, test_alias2, test_alias3 FROM " + view.getName() + "", "SELECT regionKey, regionKey, regionKey FROM region");
         }
     }
 
