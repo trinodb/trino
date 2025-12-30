@@ -187,7 +187,7 @@ public class TestIcebergCopyOnWriteDeleteOperations
             return "data/" + filename;
         }
 
-        public String newDataLocation(PartitionSpec spec, PartitionData data, String filename)
+        public String newDataLocation(PartitionSpec _spec, PartitionData _data, String filename)
         {
             return "data/" + filename;
         }

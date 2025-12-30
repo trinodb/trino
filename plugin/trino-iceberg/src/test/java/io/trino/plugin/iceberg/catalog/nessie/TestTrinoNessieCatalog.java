@@ -107,6 +107,7 @@ public class TestTrinoNessieCatalog
         return new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS);
     }
 
+    @Override
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
     {
         Path tmpDirectory = null;
