@@ -29,6 +29,7 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.security.ViewSecurity;
 
 import java.security.Principal;
 import java.util.Collection;
@@ -313,7 +314,7 @@ public interface AccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName);
+    void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName, Optional<ViewSecurity> security);
 
     /**
      * Check if identity is allowed to rename the specified view.

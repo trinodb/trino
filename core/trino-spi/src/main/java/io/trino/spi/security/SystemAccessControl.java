@@ -567,7 +567,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanCreateView(SystemSecurityContext context, CatalogSchemaTableName view)
+    default void checkCanCreateView(SystemSecurityContext context, CatalogSchemaTableName view, Optional<ViewSecurity> security)
     {
         denyCreateView(view.toString());
     }

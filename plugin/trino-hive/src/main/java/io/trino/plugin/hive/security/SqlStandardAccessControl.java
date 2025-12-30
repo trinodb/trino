@@ -36,6 +36,7 @@ import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.security.ViewSecurity;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -373,7 +374,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
+    public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName, Optional<ViewSecurity> security)
     {
         if (!isDatabaseOwner(context, viewName.getSchemaName())) {
             denyCreateView(viewName.toString());

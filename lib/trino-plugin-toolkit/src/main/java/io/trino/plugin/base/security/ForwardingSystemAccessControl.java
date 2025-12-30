@@ -29,6 +29,7 @@ import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.security.ViewSecurity;
 import io.trino.spi.type.Type;
 
 import java.security.Principal;
@@ -318,9 +319,9 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanCreateView(SystemSecurityContext context, CatalogSchemaTableName view)
+    public void checkCanCreateView(SystemSecurityContext context, CatalogSchemaTableName view, Optional<ViewSecurity> security)
     {
-        delegate().checkCanCreateView(context, view);
+        delegate().checkCanCreateView(context, view, security);
     }
 
     @Override

@@ -18,6 +18,7 @@ import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.security.ViewSecurity;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -399,7 +400,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
+    default void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName, Optional<ViewSecurity> security)
     {
         denyCreateView(viewName.toString());
     }

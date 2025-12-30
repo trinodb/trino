@@ -555,7 +555,7 @@ public class TestFileBasedSystemAccessControl
                     SecurityContext bobContext = new SecurityContext(transactionId, bob, queryId, queryStart);
                     SecurityContext nonAsciiContext = new SecurityContext(transactionId, nonAsciiUser, queryId, queryStart);
 
-                    accessControlManager.checkCanCreateView(aliceContext, aliceView);
+                    accessControlManager.checkCanCreateView(aliceContext, aliceView, Optional.empty());
                     accessControlManager.checkCanDropView(aliceContext, aliceView);
                     accessControlManager.checkCanSelectFromColumns(aliceContext, aliceView, ImmutableSet.of());
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, aliceTable, ImmutableSet.of());
@@ -564,7 +564,7 @@ public class TestFileBasedSystemAccessControl
                     accessControlManager.checkCanGrantTablePrivilege(aliceContext, SELECT, aliceTable, new TrinoPrincipal(USER, "grantee"), true);
                     accessControlManager.checkCanRevokeTablePrivilege(aliceContext, SELECT, aliceTable, new TrinoPrincipal(USER, "revokee"), true);
 
-                    accessControlManager.checkCanCreateView(aliceContext, staffView);
+                    accessControlManager.checkCanCreateView(aliceContext, staffView, Optional.empty());
                     accessControlManager.checkCanDropView(aliceContext, staffView);
                     accessControlManager.checkCanSelectFromColumns(aliceContext, staffView, ImmutableSet.of());
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, staffTable, ImmutableSet.of());
@@ -573,7 +573,7 @@ public class TestFileBasedSystemAccessControl
                     accessControlManager.checkCanGrantTablePrivilege(aliceContext, SELECT, staffTable, new TrinoPrincipal(USER, "grantee"), true);
                     accessControlManager.checkCanRevokeTablePrivilege(aliceContext, SELECT, staffTable, new TrinoPrincipal(USER, "revokee"), true);
 
-                    assertThatThrownBy(() -> accessControlManager.checkCanCreateView(bobContext, aliceView))
+                    assertThatThrownBy(() -> accessControlManager.checkCanCreateView(bobContext, aliceView, Optional.empty()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
                     assertThatThrownBy(() -> accessControlManager.checkCanDropView(bobContext, aliceView))
@@ -598,7 +598,7 @@ public class TestFileBasedSystemAccessControl
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
 
-                    accessControlManager.checkCanCreateView(bobContext, staffView);
+                    accessControlManager.checkCanCreateView(bobContext, staffView, Optional.empty());
                     accessControlManager.checkCanDropView(bobContext, staffView);
                     accessControlManager.checkCanSelectFromColumns(bobContext, staffView, ImmutableSet.of());
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, staffTable, ImmutableSet.of());
@@ -607,7 +607,7 @@ public class TestFileBasedSystemAccessControl
                     accessControlManager.checkCanGrantTablePrivilege(bobContext, SELECT, staffTable, new TrinoPrincipal(USER, "grantee"), true);
                     accessControlManager.checkCanRevokeTablePrivilege(bobContext, SELECT, staffTable, new TrinoPrincipal(USER, "revokee"), true);
 
-                    assertThatThrownBy(() -> accessControlManager.checkCanCreateView(nonAsciiContext, aliceView))
+                    assertThatThrownBy(() -> accessControlManager.checkCanCreateView(nonAsciiContext, aliceView, Optional.empty()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
                     assertThatThrownBy(() -> accessControlManager.checkCanDropView(nonAsciiContext, aliceView))
@@ -632,7 +632,7 @@ public class TestFileBasedSystemAccessControl
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
 
-                    assertThatThrownBy(() -> accessControlManager.checkCanCreateView(nonAsciiContext, staffView))
+                    assertThatThrownBy(() -> accessControlManager.checkCanCreateView(nonAsciiContext, staffView, Optional.empty()))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog staff-catalog");
                     assertThatThrownBy(() -> accessControlManager.checkCanDropView(nonAsciiContext, staffView))
@@ -675,7 +675,7 @@ public class TestFileBasedSystemAccessControl
                 });
 
         assertThatThrownBy(() -> transaction(transactionManager, metadata, accessControlManager).execute(transactionId -> {
-            accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId, queryStart), aliceView);
+            accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId, queryStart), aliceView, Optional.empty());
         })).isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Access Denied: Cannot create view alice-catalog.schema.view");
 
@@ -695,7 +695,7 @@ public class TestFileBasedSystemAccessControl
                 .hasMessage("Access Denied: Cannot revoke privilege SELECT on table alice-catalog.schema.table");
 
         assertThatThrownBy(() -> transaction(transactionManager, metadata, accessControlManager).execute(transactionId -> {
-            accessControlManager.checkCanCreateView(new SecurityContext(transactionId, bob, queryId, queryStart), aliceView);
+            accessControlManager.checkCanCreateView(new SecurityContext(transactionId, bob, queryId, queryStart), aliceView, Optional.empty());
         })).isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Access Denied: Cannot access catalog alice-catalog");
     }
@@ -834,9 +834,9 @@ public class TestFileBasedSystemAccessControl
 
         transaction(transactionManager, metadata, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId, queryStart), aliceView);
-                    accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId, queryStart), aliceView);
-                    accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId, queryStart), aliceView);
+                    accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId, queryStart), aliceView, Optional.empty());
+                    accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId, queryStart), aliceView, Optional.empty());
+                    accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId, queryStart), aliceView, Optional.empty());
                 });
 
         Files.copy(getResourcePath("security-config-file-with-unknown-rules.json"), configFile, REPLACE_EXISTING);
@@ -844,14 +844,14 @@ public class TestFileBasedSystemAccessControl
 
         assertThatThrownBy(() -> transaction(transactionManager, metadata, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId, queryStart), aliceView);
+                    accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId, queryStart), aliceView, Optional.empty());
                 }))
                 .isInstanceOf(UncheckedIOException.class)
                 .hasMessageStartingWith("Failed to convert JSON tree node");
         // test if file based cached control was not cached somewhere
         assertThatThrownBy(() -> transaction(transactionManager, metadata, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId, queryStart), aliceView);
+                    accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId, queryStart), aliceView, Optional.empty());
                 }))
                 .isInstanceOf(UncheckedIOException.class)
                 .hasMessageStartingWith("Failed to convert JSON tree node");
@@ -861,7 +861,7 @@ public class TestFileBasedSystemAccessControl
 
         transaction(transactionManager, metadata, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId, queryStart), aliceView);
+                    accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId, queryStart), aliceView, Optional.empty());
                 });
     }
 
