@@ -93,7 +93,7 @@ public final class IcebergParquetColumnIOConverter
             checkArgument(subColumns.size() == 1, "Not an array: %s", context);
             ColumnIdentity elementIdentity = getOnlyElement(subColumns);
             // TODO validate column ID
-            Optional<Field> field = constructField(new FieldContext(arrayType.getElementType(), elementIdentity), getArrayElementColumn(groupColumnIO.getChild(0)));
+            Optional<Field> field = constructField(new FieldContext(arrayType.getElementType(), elementIdentity), getArrayElementColumn(arrayType.getElementType(), groupColumnIO.getChild(0)));
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
         }
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
