@@ -7229,6 +7229,44 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testUpdatingDeleteAfterCommitEnabled()
+    {
+        try (TestTable table = newTrinoTable("test_delete_after_commit_enabled", "(x int)")) {
+            assertThat(getTableProperties(table.getName()))
+                    .doesNotContainKey("write.metadata.delete-after-commit.enabled");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES delete_after_commit_enabled = true");
+            assertThat(getTableProperties(table.getName()))
+                    .containsEntry("write.metadata.delete-after-commit.enabled", "true");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES delete_after_commit_enabled = false");
+            assertThat(getTableProperties(table.getName()))
+                    .containsEntry("write.metadata.delete-after-commit.enabled", "false");
+        }
+    }
+
+    @Test
+    public void testUpdatingMaxPreviousVersions()
+    {
+        try (TestTable table = newTrinoTable("test_max_previous_versions", "(x int)")) {
+            assertThat(getTableProperties(table.getName()))
+                    .doesNotContainKey("write.metadata.previous-versions-max");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES max_previous_versions = 5");
+            assertThat(getTableProperties(table.getName()))
+                    .containsEntry("write.metadata.previous-versions-max", "5");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES max_previous_versions = 1");
+            assertThat(getTableProperties(table.getName()))
+                    .containsEntry("write.metadata.previous-versions-max", "1");
+
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES max_previous_versions = 0",
+                    ".* max_previous_versions must be greater than or equal to 1");
+        }
+    }
+
+    @Test
     public void testUpdatingInvalidTableProperty()
     {
         String tableName = "test_updating_invalid_table_property_" + randomNameSuffix();

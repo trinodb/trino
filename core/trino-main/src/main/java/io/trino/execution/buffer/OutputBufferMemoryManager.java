@@ -65,7 +65,7 @@ final class OutputBufferMemoryManager
     @GuardedBy("this")
     private final TDigest bufferUtilization = new TDigest();
     @GuardedBy("this")
-    private long lastBufferUtilizationRecordTime = -1;
+    private long lastBufferUtilizationRecordTime;
     @GuardedBy("this")
     private double lastBufferUtilization;
 
@@ -76,6 +76,7 @@ final class OutputBufferMemoryManager
         this.maxBufferedBytes = maxBufferedBytes;
         this.memoryContextSupplier = Suppliers.memoize(memoryContextSupplier::get);
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
+        this.lastBufferUtilizationRecordTime = ticker.read();
         this.lastBufferUtilization = 0;
     }
 
@@ -137,15 +138,9 @@ final class OutputBufferMemoryManager
     private synchronized void recordBufferUtilization(long currentBufferedBytes)
     {
         long recordTime = ticker.read();
-        if (lastBufferUtilizationRecordTime != -1) {
-            bufferUtilization.add(lastBufferUtilization, (double) recordTime - this.lastBufferUtilizationRecordTime);
-        }
-        double utilization = getUtilization(currentBufferedBytes);
-        // skip recording of buffer utilization until data is put into buffer
-        if (lastBufferUtilizationRecordTime != -1 || utilization != 0.0) {
-            lastBufferUtilizationRecordTime = recordTime;
-            lastBufferUtilization = utilization;
-        }
+        bufferUtilization.add(lastBufferUtilization, (double) recordTime - this.lastBufferUtilizationRecordTime);
+        lastBufferUtilizationRecordTime = recordTime;
+        lastBufferUtilization = getUtilization(currentBufferedBytes);
     }
 
     public ListenableFuture<Void> getBufferBlockedFuture()

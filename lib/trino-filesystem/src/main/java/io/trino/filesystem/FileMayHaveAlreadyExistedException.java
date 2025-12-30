@@ -11,14 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.resourcegroups;
+package io.trino.filesystem;
 
-import io.trino.server.ResourceGroupInfo;
-import io.trino.spi.resourcegroups.ResourceGroupId;
-
-import java.util.Optional;
-
-public interface ResourceGroupInfoProvider
+public class FileMayHaveAlreadyExistedException
+        extends TrinoFileSystemException
 {
-    Optional<ResourceGroupInfo> tryGetResourceGroupInfo(ResourceGroupId id);
+    public FileMayHaveAlreadyExistedException(String message, Throwable cause)
+    {
+        super(message, cause);
+    }
 }

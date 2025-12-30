@@ -74,6 +74,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -828,12 +829,13 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionConsumer)
     {
         try {
             if (shouldUseFaultTolerantExecution(session)) {
                 // Create the target table
-                createTable(session, tableMetadata);
+                JdbcOutputTableHandle destinationTableHandle = createTable(session, tableMetadata, tableMetadata.getTable().getTableName());
+                rollbackActionConsumer.accept(() -> rollbackCreateDestinationTable(session, destinationTableHandle.getRemoteTableName()));
                 // Create the temporary table
                 ColumnMetadata pageSinkIdColumn = getPageSinkIdColumn(
                         tableMetadata.getColumns().stream().map(ColumnMetadata::getName).toList());
@@ -846,6 +848,11 @@ public abstract class BaseJdbcClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    protected void rollbackCreateDestinationTable(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        dropTable(session, remoteTableName, false);
     }
 
     protected JdbcOutputTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, String targetTableName)
@@ -1212,7 +1219,7 @@ public abstract class BaseJdbcClient
             ConnectorSession session,
             JdbcTableHandle handle,
             Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
-            List<Runnable> rollbackActions,
+            Consumer<Runnable> rollbackActionConsumer,
             RetryMode retryMode)
     {
         if (!supportsMerge()) {
@@ -1232,14 +1239,14 @@ public abstract class BaseJdbcClient
         JdbcTableHandle plainTable = new JdbcTableHandle(schemaTableName, remoteTableName, Optional.empty());
 
         JdbcOutputTableHandle outputTableHandle = beginInsertTable(session, plainTable, columns);
-        rollbackActions.add(() -> rollbackCreateTable(session, outputTableHandle));
+        rollbackActionConsumer.accept(() -> rollbackCreateTable(session, outputTableHandle));
 
         try {
             return new JdbcMergeTableHandle(
                     handle,
                     outputTableHandle,
-                    beginUpdate(session, plainTable, columns, primaryKeys, updateColumnHandles, rollbackActions),
-                    beginDelete(session, plainTable, primaryKeys, rollbackActions),
+                    beginUpdate(session, plainTable, columns, primaryKeys, updateColumnHandles, rollbackActionConsumer),
+                    beginDelete(session, plainTable, primaryKeys, rollbackActionConsumer),
                     primaryKeys,
                     columns,
                     updateColumnHandles);
@@ -1255,7 +1262,7 @@ public abstract class BaseJdbcClient
             List<JdbcColumnHandle> columns,
             List<JdbcColumnHandle> primaryKeys,
             Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
-            List<Runnable> rollbackActions)
+            Consumer<Runnable> rollbackActionConsumer)
             throws SQLException
     {
         if (isNonTransactionalMerge(session)) {
@@ -1294,7 +1301,7 @@ public abstract class BaseJdbcClient
                     generateTemporaryTableName(session),
                     Optional.of(getPageSinkIdColumn(updatedColumnNames)));
 
-            rollbackActions.add(() -> rollbackCreateTable(session, temporaryTableHandle));
+            rollbackActionConsumer.accept(() -> rollbackCreateTable(session, temporaryTableHandle));
             outputHandles.put(caseNumber, temporaryTableHandle);
         }
 
@@ -1305,14 +1312,14 @@ public abstract class BaseJdbcClient
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
             List<JdbcColumnHandle> primaryKeys,
-            List<Runnable> rollbackActions)
+            Consumer<Runnable> rollbackActionConsumer)
     {
         if (isNonTransactionalMerge(session)) {
             return Optional.empty();
         }
 
         JdbcOutputTableHandle handle = beginInsertTable(session, (JdbcTableHandle) tableHandle, primaryKeys);
-        rollbackActions.add(() -> rollbackCreateTable(session, handle));
+        rollbackActionConsumer.accept(() -> rollbackCreateTable(session, handle));
         return Optional.of(handle);
     }
 

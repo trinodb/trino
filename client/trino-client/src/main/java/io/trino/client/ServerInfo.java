@@ -107,16 +107,20 @@ public class ServerInfo
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
         ServerInfo that = (ServerInfo) o;
-        return Objects.equals(nodeVersion, that.nodeVersion) &&
-                Objects.equals(environment, that.environment);
+        return coordinator == that.coordinator
+                && starting == that.starting
+                && Objects.equals(nodeVersion, that.nodeVersion)
+                && Objects.equals(environment, that.environment)
+                && Objects.equals(uptime, that.uptime)
+                && Objects.equals(coordinatorId, that.coordinatorId)
+                && Objects.equals(nodeId, that.nodeId);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(nodeVersion, environment);
+        return Objects.hash(nodeVersion, environment, coordinator, starting, uptime, coordinatorId, nodeId);
     }
 
     @Override

@@ -34,10 +34,13 @@ import { darkTheme, lightTheme } from './theme'
 import trinoLogo from './assets/trino.svg'
 import { QueryDetails } from './components/QueryDetails'
 import { WorkerStatus } from './components/WorkerStatus'
+import { loader } from '@monaco-editor/react'
+import * as monaco from 'monaco-editor'
 
 const App = () => {
     const config = useConfigStore()
     const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)')
+    loader.config({ monaco })
 
     const themeToUse = () => {
         if (config.theme === ThemeStore.Auto) {

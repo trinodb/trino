@@ -74,7 +74,6 @@ public class TestIcebergMotoConnectorSmokeTest
                         .put("s3.aws-secret-key", MOTO_SECRET_KEY)
                         .put("s3.path-style-access", "true")
                         .put("iceberg.register-table-procedure.enabled", "true")
-                        .put("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
                         .buildOrThrow())
                 .setSchemaInitializer(SchemaInitializer.builder()
                         .withSchemaName(schemaName)

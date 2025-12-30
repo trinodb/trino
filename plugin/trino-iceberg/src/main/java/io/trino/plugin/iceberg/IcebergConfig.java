@@ -63,6 +63,8 @@ public class IcebergConfig
     private IcebergFileFormat fileFormat = PARQUET;
     private HiveCompressionOption compressionCodec = HiveCompressionOption.ZSTD;
     private Optional<Integer> maxCommitRetry = Optional.empty();
+    private Optional<Boolean> deleteAfterCommitEnabled = Optional.empty();
+    private Optional<Integer> maxPreviousVersions = Optional.empty();
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
     private boolean uniqueTableLocation = true;
@@ -150,6 +152,32 @@ public class IcebergConfig
     public IcebergConfig setMaxCommitRetry(Integer maxCommitRetry)
     {
         this.maxCommitRetry = Optional.ofNullable(maxCommitRetry);
+        return this;
+    }
+
+    public Optional<Boolean> isDeleteAfterCommitEnabled()
+    {
+        return deleteAfterCommitEnabled;
+    }
+
+    @Config("iceberg.delete-after-commit-enabled")
+    @ConfigDescription("Whether to delete old tracked metadata files after each table commit")
+    public IcebergConfig setDeleteAfterCommitEnabled(Boolean deleteAfterCommitEnabled)
+    {
+        this.deleteAfterCommitEnabled = Optional.ofNullable(deleteAfterCommitEnabled);
+        return this;
+    }
+
+    public Optional<@Min(1) Integer> getMaxPreviousVersions()
+    {
+        return maxPreviousVersions;
+    }
+
+    @Config("iceberg.max-previous-versions")
+    @ConfigDescription("The number of old metadata files to keep")
+    public IcebergConfig setMaxPreviousVersions(Integer maxPreviousVersions)
+    {
+        this.maxPreviousVersions = Optional.ofNullable(maxPreviousVersions);
         return this;
     }
 

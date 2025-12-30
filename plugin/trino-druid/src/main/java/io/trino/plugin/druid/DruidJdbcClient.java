@@ -74,6 +74,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -476,7 +477,7 @@ public class DruidJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionConsumer)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
     }

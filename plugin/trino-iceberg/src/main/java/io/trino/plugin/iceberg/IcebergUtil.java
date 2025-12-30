@@ -129,10 +129,12 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergMetadata.calculateTableCompressionProperties;
 import static io.trino.plugin.iceberg.IcebergTableProperties.COMPRESSION_CODEC;
 import static io.trino.plugin.iceberg.IcebergTableProperties.DATA_LOCATION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.DELETE_AFTER_COMMIT_ENABLED;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_COMMIT_RETRY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.MAX_PREVIOUS_VERSIONS;
 import static io.trino.plugin.iceberg.IcebergTableProperties.OBJECT_STORE_LAYOUT_ENABLED_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP_PROPERTY;
@@ -141,8 +143,10 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPER
 import static io.trino.plugin.iceberg.IcebergTableProperties.PROTECTED_ICEBERG_NATIVE_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SUPPORTED_PROPERTIES;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getMaxPreviousVersions;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
+import static io.trino.plugin.iceberg.IcebergTableProperties.isDeleteAfterCommitEnabled;
 import static io.trino.plugin.iceberg.IcebergTableProperties.validateCompression;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
@@ -188,6 +192,8 @@ import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
+import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
+import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
@@ -346,6 +352,16 @@ public final class IcebergUtil
         if (icebergTable.properties().containsKey(COMMIT_NUM_RETRIES)) {
             int commitNumRetries = parseInt(icebergTable.properties().get(COMMIT_NUM_RETRIES));
             properties.put(MAX_COMMIT_RETRY, commitNumRetries);
+        }
+
+        if (icebergTable.properties().containsKey(METADATA_DELETE_AFTER_COMMIT_ENABLED)) {
+            boolean deleteAfterCommitEnabled = parseBoolean(icebergTable.properties().get(METADATA_DELETE_AFTER_COMMIT_ENABLED));
+            properties.put(DELETE_AFTER_COMMIT_ENABLED, deleteAfterCommitEnabled);
+        }
+
+        if (icebergTable.properties().containsKey(METADATA_PREVIOUS_VERSIONS_MAX)) {
+            int maxPreviousVersions = parseInt(icebergTable.properties().get(METADATA_PREVIOUS_VERSIONS_MAX));
+            properties.put(MAX_PREVIOUS_VERSIONS, maxPreviousVersions);
         }
 
         // iceberg ORC format bloom filter properties
@@ -905,6 +921,10 @@ public final class IcebergUtil
         propertiesBuilder.put(FORMAT_VERSION, Integer.toString(IcebergTableProperties.getFormatVersion(tableMetadata.getProperties())));
         IcebergTableProperties.getMaxCommitRetry(tableMetadata.getProperties())
                 .ifPresent(value -> propertiesBuilder.put(COMMIT_NUM_RETRIES, Integer.toString(value)));
+        isDeleteAfterCommitEnabled(tableMetadata.getProperties())
+                .ifPresent(value -> propertiesBuilder.put(METADATA_DELETE_AFTER_COMMIT_ENABLED, Boolean.toString(value)));
+        getMaxPreviousVersions(tableMetadata.getProperties())
+                .ifPresent(value -> propertiesBuilder.put(METADATA_PREVIOUS_VERSIONS_MAX, Integer.toString(value)));
 
         Optional<HiveCompressionCodec> compressionCodec = IcebergTableProperties.getCompressionCodec(tableMetadata.getProperties());
 

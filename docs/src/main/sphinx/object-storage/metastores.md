@@ -488,7 +488,7 @@ following properties:
     `s3://my_bucket/warehouse_location`
 * - `iceberg.rest-catalog.security`
   - The type of security to use (default: `NONE`). Possible values are `NONE`, 
-    `SIGV4` or `OAUTH2`. `OAUTH2` requires either a `token` or `credential`.
+    `SIGV4`, `GOOGLE` or `OAUTH2`. `OAUTH2` requires either a `token` or a `credential`.
 * - `iceberg.rest-catalog.session`
   - Session information included when communicating with the REST Catalog.
     Options are `NONE` or `USER` (default: `NONE`).
@@ -522,6 +522,9 @@ following properties:
   - Enable view endpoints. Defaults to `true`.
 * - `iceberg.rest-catalog.signing-name`
   - AWS SigV4 signing service name. Defaults to `execute-api`.
+* - `iceberg.rest-catalog.google-project-id`
+  - Google Cloud project name. This property must be set when `iceberg.rest-catalog.security` 
+    config property is set to `GOOGLE`. Example: `development-123456`.
 * - `iceberg.rest-catalog.case-insensitive-name-matching`
   - Match namespace, table, and view names case insensitively. Defaults to `false`.
 * - `iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl`
@@ -548,6 +551,22 @@ iceberg.rest-catalog.uri=https://dbc-12345678-9999.cloud.databricks.com/api/2.1/
 iceberg.security=read_only
 iceberg.rest-catalog.security=OAUTH2
 iceberg.rest-catalog.oauth2.token=***
+```
+
+`iceberg.rest-catalog.security` must be `GOOGLE` when connecting to BigLake metastore
+using an Iceberg REST catalog.
+
+```properties
+connector.name=iceberg
+iceberg.catalog.type=rest
+iceberg.unique-table-location=false
+iceberg.rest-catalog.warehouse=gs://example-bucket
+iceberg.rest-catalog.uri=https://biglake.googleapis.com/iceberg/v1beta/restcatalog
+iceberg.rest-catalog.security=GOOGLE
+iceberg.rest-catalog.google-project-id=example-project-id
+iceberg.rest-catalog.view-endpoints-enabled=false
+fs.native-gcs.enable=true
+gcs.json-key-file-path=/path/to/gcs_keyfile.json
 ```
 
 The REST catalog supports [view management](sql-view-management) 

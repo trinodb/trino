@@ -801,23 +801,18 @@ public class TestRedshiftTypeMapping
 
     private void runTestCases(String tableName, List<TestCase> testCases)
     {
-        // Must use CTAS instead of TestTable because if the table is created before the insert,
-        // the type mapping will treat it as TIME(6) no matter what it was created as.
-        getTrinoExecutor().execute(format(
-                "CREATE TABLE %s AS SELECT * FROM (VALUES %s) AS t (id, value)",
+        try (TestTable table = new TestTable(
+                getTrinoExecutor(),
                 tableName,
-                testCases.stream()
-                        .map(testCase -> format("(%d, %s)", testCase.id(), testCase.input()))
-                        .collect(joining("), (", "(", ")"))));
-        try {
+                format("AS SELECT * FROM (VALUES %s) AS t (id, value)",
+                        testCases.stream()
+                                .map(testCase -> format("(%d, %s)", testCase.id(), testCase.input()))
+                                .collect(joining("), (", "(", ")"))))) {
             assertQuery(
-                    format("SELECT value FROM %s ORDER BY id", tableName),
+                    format("SELECT value FROM %s ORDER BY id", table.getName()),
                     testCases.stream()
                             .map(TestCase::expected)
                             .collect(joining("), (", "VALUES (", ")")));
-        }
-        finally {
-            getTrinoExecutor().execute("DROP TABLE " + tableName);
         }
     }
 

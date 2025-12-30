@@ -120,6 +120,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -1075,7 +1076,7 @@ public class MySqlClient
             ConnectorSession session,
             JdbcTableHandle handle,
             Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
-            List<Runnable> rollbackActions,
+            Consumer<Runnable> rollbackActionConsumer,
             RetryMode retryMode)
     {
         if (retryMode != NO_RETRIES) {
@@ -1086,7 +1087,7 @@ public class MySqlClient
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support MERGE with transactional execution");
         }
 
-        return super.beginMerge(session, handle, updateColumnHandles, rollbackActions, retryMode);
+        return super.beginMerge(session, handle, updateColumnHandles, rollbackActionConsumer, retryMode);
     }
 
     @Override

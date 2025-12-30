@@ -23,6 +23,8 @@ import static com.google.common.math.LongMath.saturatedSubtract;
 @Immutable
 final class ResourceUsage
 {
+    public static final ResourceUsage ZERO = new ResourceUsage(0, 0, 0);
+
     private final long cpuUsageMillis;
     private final long memoryUsageBytes;
     private final long physicalInputDataUsageBytes;

@@ -11,14 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.resourcegroups;
+package io.trino.plugin.iceberg.catalog.rest;
 
-import io.trino.server.ResourceGroupInfo;
-import io.trino.spi.resourcegroups.ResourceGroupId;
+import com.google.inject.Binder;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 
-import java.util.Optional;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
-public interface ResourceGroupInfoProvider
+public class GoogleSecurityModule
+        extends AbstractConfigurationAwareModule
 {
-    Optional<ResourceGroupInfo> tryGetResourceGroupInfo(ResourceGroupId id);
+    @Override
+    protected void setup(Binder binder)
+    {
+        configBinder(binder).bindConfig(GoogleSecurityConfig.class);
+        binder.bind(SecurityProperties.class).to(GoogleAuthProperties.class);
+    }
 }

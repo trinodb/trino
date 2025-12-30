@@ -75,7 +75,6 @@ final class TestIcebergS3TablesConnectorSmokeTest
                 .addIcebergProperty("iceberg.rest-catalog.security", "sigv4")
                 .addIcebergProperty("iceberg.rest-catalog.signing-name", "glue")
                 .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
-                .addIcebergProperty("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
                 .addIcebergProperty("fs.native-s3.enabled", "true")
                 .addIcebergProperty("s3.region", AWS_REGION)
                 .addIcebergProperty("s3.aws-access-key", AWS_ACCESS_KEY_ID)
