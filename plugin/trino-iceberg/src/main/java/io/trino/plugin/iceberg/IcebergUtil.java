@@ -143,10 +143,10 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPER
 import static io.trino.plugin.iceberg.IcebergTableProperties.PROTECTED_ICEBERG_NATIVE_PROPERTIES;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SUPPORTED_PROPERTIES;
-import static io.trino.plugin.iceberg.IcebergTableProperties.getMaxPreviousVersions;
 import static io.trino.plugin.iceberg.IcebergTableProperties.WRITE_DELETE_MODE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.WRITE_MERGE_MODE;
 import static io.trino.plugin.iceberg.IcebergTableProperties.WRITE_UPDATE_MODE;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getMaxPreviousVersions;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
 import static io.trino.plugin.iceberg.IcebergTableProperties.isDeleteAfterCommitEnabled;
