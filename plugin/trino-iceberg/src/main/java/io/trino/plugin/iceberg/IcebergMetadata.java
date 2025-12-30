@@ -3115,13 +3115,18 @@ public class IcebergMetadata
         UpdateMode writeDeleteMode = UpdateMode.fromIcebergProperty(properties.getOrDefault(
                 DELETE_MODE, UpdateMode.MERGE_ON_READ.getIcebergProperty()));
 
+        // Set the UpdateKind to DELETE for this operation
+        // This is important so that finishWrite knows what operation it's handling
+        IcebergTableHandle tableWithUpdateKind = table.withUpdateKind(UpdateKind.DELETE);
+
         if (writeDeleteMode == UpdateMode.COPY_ON_WRITE) {
-            // Return empty to force use of standard write path (finishWrite)
-            return Optional.empty();
+            // For CoW deletes, return the handle with UpdateKind set but still use standard write path
+            // This ensures finishWrite can properly detect and handle the CoW delete operation
+            return Optional.of(tableWithUpdateKind);
         }
 
-        // Set the UpdateKind to DELETE for this operation
-        IcebergTableHandle tableWithUpdateKind = table.withUpdateKind(UpdateKind.DELETE);
+        // For MoR deletes, return the handle with UpdateKind set
+        // This allows executeDelete to be called if applicable
         return Optional.of(tableWithUpdateKind);
     }
 
@@ -3447,19 +3452,6 @@ public class IcebergMetadata
                             String path = dataFile.path().toString();
 
                             if (filesToDeleteSet.contains(path)) {
-                                // For CoW DELETE operations, we need rewritten files to replace the deleted ones
-                                // If filesToAdd is empty, this means Trino didn't generate rewritten data files
-                                // which is required for CoW mode. This shouldn't happen if CoW is properly configured.
-                                if (filesToAdd.isEmpty() && detectedUpdateKind == UpdateKind.DELETE) {
-                                    // For pure DELETE in CoW mode, we can't just delete files - we need rewritten files
-                                    // This indicates that the DELETE operation didn't generate rewritten data files
-                                    // which shouldn't happen for CoW mode. This is a configuration or execution issue.
-                                    throw new TrinoException(NOT_SUPPORTED,
-                                            format("Copy-on-Write DELETE operations require file rewriting, but no rewritten files were generated. " +
-                                                    "This may indicate that the DELETE operation is not properly configured for CoW mode. " +
-                                                    "Table: %s", icebergTable.name()));
-                                }
-
                                 // Add this file to be deleted
                                 rewriteFiles.deleteFile(dataFile);
 
@@ -3494,6 +3486,14 @@ public class IcebergMetadata
             if (detectedUpdateKind == UpdateKind.DELETE && updateMode == UpdateMode.COPY_ON_WRITE && filesToAdd.isEmpty() && !filesToDelete.isEmpty()) {
                 // Rewrite data files to exclude deleted rows
                 rewriteDataFilesForCowDelete(session, icebergTable, schema, filesToDelete, deleteFilesByDataFile, filesToAdd);
+            }
+
+            // Validate that CoW DELETE operations have rewritten files after the rewrite attempt
+            if (detectedUpdateKind == UpdateKind.DELETE && updateMode == UpdateMode.COPY_ON_WRITE && filesToAdd.isEmpty() && !filesToDelete.isEmpty()) {
+                // After attempting to rewrite, if we still have no files to add, this is an error
+                throw new TrinoException(NOT_SUPPORTED,
+                        format("Copy-on-Write DELETE operations require file rewriting, but no rewritten files were generated for table %s. " +
+                               "This may indicate that the DELETE operation is not properly configured for CoW mode.", icebergTable.name()));
             }
 
             // Now add all the new files
