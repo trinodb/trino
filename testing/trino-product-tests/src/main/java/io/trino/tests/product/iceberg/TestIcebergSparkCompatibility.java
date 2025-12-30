@@ -227,6 +227,138 @@ public class TestIcebergSparkCompatibility
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
 
+        String namedValues =
+                """
+                SELECT\s
+                VARCHAR 'a_string' _string\s
+                , 1000000000000000 _bigint\s
+                , 1000000000 _integer\s
+                , REAL '10000000.123' _real\s
+                , DOUBLE '100000000000.123' _double\s
+                , DECIMAL '123456.78' _short_decimal\s
+                , DECIMAL '1234567890123456789.0123456789012345678' _long_decimal\s
+                , true _boolean\s
+                , TIMESTAMP '2020-06-28 14:16:00.123456' _timestamp\s
+                , TIMESTAMP '2021-08-03 08:32:21.123456 Europe/Warsaw' _timestamptz\s
+                , DATE '1950-06-28' _date\s
+                , X'000102f0feff' _binary\s
+                , UUID '406caec7-68b9-4778-81b2-a12ece70c8b1' _uuid\s
+                """;
+
+        switch (createMode) {
+            case CREATE_TABLE_AND_INSERT:
+                onTrino().executeQuery(
+                        """
+                        CREATE TABLE %s (
+                          _string VARCHAR
+                        , _bigint BIGINT
+                        , _integer INTEGER
+                        , _real REAL
+                        , _double DOUBLE
+                        , _short_decimal decimal(8,2)
+                        , _long_decimal decimal(38,19)
+                        , _boolean BOOLEAN
+                        , _timestamp TIMESTAMP
+                        , _timestamptz timestamp(6) with time zone
+                        , _date DATE
+                        , _binary VARBINARY
+                        , _uuid UUID
+                        ) WITH (format = '%s')""".formatted(trinoTableName, storageFormat));
+
+                onTrino().executeQuery(format("INSERT INTO %s %s", trinoTableName, namedValues));
+                break;
+
+            case CREATE_TABLE_AS_SELECT:
+                onTrino().executeQuery(format("CREATE TABLE %s AS %s", trinoTableName, namedValues));
+                break;
+
+            case CREATE_TABLE_WITH_NO_DATA_AND_INSERT:
+                onTrino().executeQuery(format("CREATE TABLE %s AS %s WITH NO DATA", trinoTableName, namedValues));
+                onTrino().executeQuery(format("INSERT INTO %s %s", trinoTableName, namedValues));
+                break;
+
+            default:
+                throw new UnsupportedOperationException("Unsupported create mode: " + createMode);
+        }
+
+        Row row = row(
+                "a_string",
+                1000000000000000L,
+                1000000000,
+                10000000.123F,
+                100000000000.123,
+                new BigDecimal("123456.78"),
+                new BigDecimal("1234567890123456789.0123456789012345678"),
+                true,
+                "2020-06-28 14:16:00.123456",
+                "2021-08-03 06:32:21.123456 UTC", // Iceberg's timestamptz stores point in time, without zone
+                "1950-06-28",
+                new byte[] {0, 1, 2, -16, -2, -1},
+                "406caec7-68b9-4778-81b2-a12ece70c8b1");
+        assertThat(onTrino().executeQuery(
+                """
+                 SELECT\s
+                   _string
+                 , _bigint
+                 , _integer
+                 , _real
+                 , _double
+                 , _short_decimal
+                 , _long_decimal
+                 , _boolean
+                 , CAST(_timestamp AS varchar)
+                 , CAST(_timestamptz AS varchar)
+                 , CAST(_date AS varchar)
+                 , _binary
+                 , _uuid
+                  FROM %s""".formatted(trinoTableName)))
+                .containsOnly(row);
+
+        assertThat(onSpark().executeQuery(
+                """
+                 SELECT\s
+                   _string
+                 , _bigint
+                 , _integer
+                 , _real
+                 , _double
+                 , _short_decimal
+                 , _long_decimal
+                 , _boolean
+                 , CAST(_timestamp AS string)
+                 , CAST(_timestamptz AS string) || ' UTC'
+                 , CAST(_date AS string)
+                 , _binary
+                 , _uuid
+                  FROM %s""".formatted(sparkTableName)))
+                .containsOnly(row);
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @DataProvider
+    public Object[][] testSparkReadingTrinoDataDataProvider()
+    {
+        return Stream.of(storageFormats())
+                .map(array -> getOnlyElement(asList(array)))
+                .flatMap(storageFormat -> Stream.of(
+                        new Object[] {storageFormat, CREATE_TABLE_AND_INSERT},
+                        new Object[] {storageFormat, CREATE_TABLE_AS_SELECT},
+                        new Object[] {storageFormat, CREATE_TABLE_WITH_NO_DATA_AND_INSERT}))
+                .toArray(Object[][]::new);
+    }
+
+    // HMS-only test that covers all format versions (v1, v2, v3)
+    // Non-HMS catalogs (Nessie, REST, JDBC) don't fully support v1 and v3 yet
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "testSparkReadingTrinoDataWithVersionsDataProvider")
+    public void testSparkReadingTrinoDataWithVersions(StorageFormat storageFormat, CreateMode createMode, int specVersion)
+    {
+        String baseTableName = toLowerCase("test_spark_reading_primitive_types_" + storageFormat + "_" + createMode + "_v" + specVersion);
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+
         String namedValues = "SELECT " +
                 "  VARCHAR 'a_string' _string " +
                 ", 1000000000000000 _bigint " +
@@ -262,19 +394,20 @@ public class TestIcebergSparkCompatibility
                                 ", _binary VARBINARY" +
                                 ", _uuid UUID" +
                                 //", _time time(6)" + -- per https://iceberg.apache.org/spark-writes/ Iceberg's time is currently not supported with Spark
-                                ") WITH (format = '%s')",
+                                ") WITH (format = '%s', format_version = %d)",
                         trinoTableName,
-                        storageFormat));
+                        storageFormat,
+                        specVersion));
 
                 onTrino().executeQuery(format("INSERT INTO %s %s", trinoTableName, namedValues));
                 break;
 
             case CREATE_TABLE_AS_SELECT:
-                onTrino().executeQuery(format("CREATE TABLE %s AS %s", trinoTableName, namedValues));
+                onTrino().executeQuery(format("CREATE TABLE %s WITH (format_version = %d) AS %s", trinoTableName, specVersion, namedValues));
                 break;
 
             case CREATE_TABLE_WITH_NO_DATA_AND_INSERT:
-                onTrino().executeQuery(format("CREATE TABLE %s AS %s WITH NO DATA", trinoTableName, namedValues));
+                onTrino().executeQuery(format("CREATE TABLE %s WITH (format_version = %d) AS %s WITH NO DATA", trinoTableName, specVersion, namedValues));
                 onTrino().executeQuery(format("INSERT INTO %s %s", trinoTableName, namedValues));
                 break;
 
@@ -340,14 +473,15 @@ public class TestIcebergSparkCompatibility
     }
 
     @DataProvider
-    public Object[][] testSparkReadingTrinoDataDataProvider()
+    public Object[][] testSparkReadingTrinoDataWithVersionsDataProvider()
     {
         return Stream.of(storageFormats())
                 .map(array -> getOnlyElement(asList(array)))
-                .flatMap(storageFormat -> Stream.of(
-                        new Object[] {storageFormat, CREATE_TABLE_AND_INSERT},
-                        new Object[] {storageFormat, CREATE_TABLE_AS_SELECT},
-                        new Object[] {storageFormat, CREATE_TABLE_WITH_NO_DATA_AND_INSERT}))
+                .flatMap(storageFormat -> Stream.of(1, 2, 3)
+                        .flatMap(specVersion -> Stream.of(
+                                new Object[] {storageFormat, CREATE_TABLE_AND_INSERT, specVersion},
+                                new Object[] {storageFormat, CREATE_TABLE_AS_SELECT, specVersion},
+                                new Object[] {storageFormat, CREATE_TABLE_WITH_NO_DATA_AND_INSERT, specVersion})))
                 .toArray(Object[][]::new);
     }
 

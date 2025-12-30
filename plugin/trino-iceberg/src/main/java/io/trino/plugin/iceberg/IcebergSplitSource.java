@@ -35,6 +35,7 @@ import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.SplitWeight;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -52,6 +53,7 @@ import jakarta.annotation.Nullable;
 import org.apache.iceberg.BaseFileScanTask;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.ContentFile;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -114,6 +116,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.Math.clamp;
@@ -726,6 +729,7 @@ public class IcebergSplitSource
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),
                 task.deletes().stream()
+                        .peek(file -> verifyNotDeletionVector(task, file))
                         .map(DeleteFile::fromIceberg)
                         .collect(toImmutableList()),
                 SplitWeight.fromProportion(clamp(getSplitWeight(task), minimumAssignedSplitWeight, 1.0)),
@@ -733,6 +737,13 @@ public class IcebergSplitSource
                 fileIoProperties,
                 cachingHostAddressProvider.getHosts(getSplitKey(task.file().location(), task.start(), task.length()), ImmutableList.of()),
                 task.file().dataSequenceNumber());
+    }
+
+    private static void verifyNotDeletionVector(FileScanTask task, org.apache.iceberg.DeleteFile deleteFile)
+    {
+        if (deleteFile.format() == FileFormat.PUFFIN) {
+            throw new TrinoException(NOT_SUPPORTED, "Iceberg deletion vector is not supported yet: data file %s, delete file %s".formatted(task.file().location(), deleteFile.location()));
+        }
     }
 
     private double getSplitWeight(FileScanTask task)
