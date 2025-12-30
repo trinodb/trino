@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.ManifestContent;
 import org.apache.iceberg.ManifestFile;
-import org.apache.iceberg.PartitionData;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.io.LocationProvider;
@@ -188,6 +187,7 @@ public class TestIcebergCopyOnWriteDeleteOperations
         }
 
         @Override
+        @SuppressWarnings("unused")
         public String newDataLocation(PartitionSpec spec, StructLike data, String filename)
         {
             return "data/" + filename;
