@@ -357,7 +357,7 @@ public class AzureBlobFileSystemExchangeStorage
         }
 
         @Override
-        public synchronized long getRetainedSize()
+        public long getRetainedSize()
         {
             return INSTANCE_SIZE + bufferRetainedSize;
         }
