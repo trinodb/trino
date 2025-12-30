@@ -374,6 +374,7 @@ import static io.trino.spi.StandardErrorCode.UNSUPPORTED_SUBQUERY;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_RECURSIVE;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_STALE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH_WITHIN_GRACE_PERIOD;
 import static io.trino.spi.connector.StandardWarningCode.REDUNDANT_ORDER_BY;
 import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.spi.function.FunctionKind.WINDOW;
@@ -444,7 +445,6 @@ class StatementAnalyzer
     private final TypeCoercion typeCoercion;
     private final Session session;
     private final SqlParser sqlParser;
-    private final SessionTimeProvider sessionTimeProvider;
     private final GroupProvider groupProvider;
     private final AccessControl accessControl;
     private final TransactionManager transactionManager;
@@ -463,7 +463,6 @@ class StatementAnalyzer
             Analysis analysis,
             PlannerContext plannerContext,
             SqlParser sqlParser,
-            SessionTimeProvider sessionTimeProvider,
             GroupProvider groupProvider,
             AccessControl accessControl,
             TransactionManager transactionManager,
@@ -482,7 +481,6 @@ class StatementAnalyzer
         this.metadata = plannerContext.getMetadata();
         this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.sessionTimeProvider = requireNonNull(sessionTimeProvider, "sessionTimeProvider is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -744,7 +742,7 @@ class StatementAnalyzer
             TableHandle targetTableHandle = metadata.getTableHandle(session, targetTable)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Table '%s' does not exist", targetTable));
 
-            analysis.setSkipMaterializedViewRefresh(metadata.getMaterializedViewFreshness(session, name).getFreshness() == FRESH);
+            analysis.setSkipMaterializedViewRefresh(metadata.getMaterializedViewFreshness(session, name, false).getFreshness() == FRESH);
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle);
             List<String> insertColumns = tableMetadata.columns().stream()
@@ -2377,10 +2375,17 @@ class StatementAnalyzer
 
         private boolean isMaterializedViewSufficientlyFresh(Session session, QualifiedObjectName name, MaterializedViewDefinition materializedViewDefinition)
         {
-            MaterializedViewFreshness materializedViewFreshness = metadata.getMaterializedViewFreshness(session, name);
+            boolean gracePeriodZero = materializedViewDefinition.getGracePeriod()
+                    .map(Duration::isZero)
+                    .orElse(false);
+
+            // Do not allow connectors to optimize freshness checks when the grace period is zero,
+            // so that this special case is handled in the analyzer rather than duplicating the logic across all connectors.
+            boolean considerGracePeriod = !gracePeriodZero;
+            MaterializedViewFreshness materializedViewFreshness = metadata.getMaterializedViewFreshness(session, name, considerGracePeriod);
             MaterializedViewFreshness.Freshness freshness = materializedViewFreshness.getFreshness();
 
-            if (freshness == FRESH) {
+            if (freshness == FRESH || freshness == FRESH_WITHIN_GRACE_PERIOD) {
                 return true;
             }
             Optional<Instant> lastFreshTime = materializedViewFreshness.getLastFreshTime();
@@ -2392,16 +2397,15 @@ class StatementAnalyzer
                 // Unlimited grace period
                 return true;
             }
-            Duration gracePeriod = materializedViewDefinition.getGracePeriod().get();
-            if (gracePeriod.isZero()) {
+            if (gracePeriodZero) {
                 // Consider 0 as a special value meaning "do not accept any staleness". This makes 0 more reliable, and more likely what user wanted,
                 // regardless of lastFreshTime, query time or rounding.
                 return false;
             }
 
+            Duration gracePeriod = materializedViewDefinition.getGracePeriod().get();
             // Can be negative
-            // TODO should we compare lastFreshTime with session.start() or with current time? The freshness is calculated with respect to current state of things.
-            Duration staleness = Duration.between(lastFreshTime.get(), sessionTimeProvider.getStart(session));
+            Duration staleness = Duration.between(lastFreshTime.get(), session.getStart());
             return staleness.compareTo(gracePeriod) <= 0;
         }
 

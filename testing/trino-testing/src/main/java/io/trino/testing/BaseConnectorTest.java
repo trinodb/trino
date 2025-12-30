@@ -93,7 +93,7 @@ import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
-import static io.trino.server.testing.TestingSystemSessionProperties.TESTING_SESSION_TIME;
+import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
@@ -1518,7 +1518,7 @@ public abstract class BaseConnectorTest
             Session defaultSession = getSession();
             Session futureSession = Session.builder(defaultSession)
                     // This gets ignored: .setStart(...)
-                    .setSystemProperty(TESTING_SESSION_TIME, Instant.now().plus(1, ChronoUnit.DAYS).toString())
+                    .setSystemProperty(SESSION_START_TIME_PROPERTY, Instant.now().plus(1, ChronoUnit.DAYS).toString())
                     .build();
 
             PlanMatchPattern readFromBaseTables = anyTree(
@@ -1638,7 +1638,7 @@ public abstract class BaseConnectorTest
         Session defaultSession = getSession();
         Session futureSession = Session.builder(defaultSession)
                 // This gets ignored: .setStart(...)
-                .setSystemProperty(TESTING_SESSION_TIME, Instant.now().plus(1, ChronoUnit.DAYS).toString())
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, Instant.now().plus(1, ChronoUnit.DAYS).toString())
                 .build();
 
         PlanMatchPattern readFromBaseTables = anyTree(
@@ -1716,7 +1716,7 @@ public abstract class BaseConnectorTest
         Session defaultSession = getSession();
         Session futureSession = Session.builder(defaultSession)
                 // This gets ignored: .setStart(...)
-                .setSystemProperty(TESTING_SESSION_TIME, Instant.now().plus(1, ChronoUnit.DAYS).toString())
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, Instant.now().plus(1, ChronoUnit.DAYS).toString())
                 .build();
 
         PlanMatchPattern readFromBaseTables = anyTree(
