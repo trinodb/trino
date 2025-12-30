@@ -24,6 +24,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
 import io.airlift.units.ThreadCount;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.hive.HiveCompressionOption;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -35,6 +36,7 @@ import java.util.Optional;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -91,6 +93,7 @@ public class DeltaLakeConfig
     private boolean registerTableProcedureEnabled;
     private boolean projectionPushdownEnabled = true;
     private boolean queryPartitionFilterRequired;
+    private ColumnMappingMode columnMappingMode = ColumnMappingMode.NAME;
     private boolean deletionVectorsEnabled;
     private boolean deltaLogFileSystemCacheDisabled;
     private int metadataParallelism = 8;
@@ -531,6 +534,20 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setQueryPartitionFilterRequired(boolean queryPartitionFilterRequired)
     {
         this.queryPartitionFilterRequired = queryPartitionFilterRequired;
+        return this;
+    }
+
+    public ColumnMappingMode getColumnMappingMode()
+    {
+        return columnMappingMode;
+    }
+
+    @Config("delta.column-mapping-mode")
+    @ConfigDescription("Column mapping mode")
+    public DeltaLakeConfig setColumnMappingMode(ColumnMappingMode columnMappingMode)
+    {
+        checkArgument(columnMappingMode != ColumnMappingMode.UNKNOWN, "Column mapping mode UNKNOWN is not supported");
+        this.columnMappingMode = columnMappingMode;
         return this;
     }
 

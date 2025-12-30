@@ -174,6 +174,7 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                        a_varchar varchar
                     )
                     WITH (
+                       column_mapping_mode = 'NAME',
                        location = '%s'
                     )""";
             assertThat(tableDefinition).isEqualTo(expected.formatted(schema, tableName, location));
