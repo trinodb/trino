@@ -192,7 +192,7 @@
         <dep.docker.images.version>119</dep.docker.images.version>
         <dep.drift.version>1.24</dep.drift.version>
         <dep.flyway.version>11.19.1</dep.flyway.version>
-        <dep.frontend-maven-plugin.version>1.15.4</dep.frontend-maven-plugin.version>
+        <dep.frontend-maven-plugin.version>2.0.0</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
         <dep.httpcore5.version>5.4</dep.httpcore5.version>
