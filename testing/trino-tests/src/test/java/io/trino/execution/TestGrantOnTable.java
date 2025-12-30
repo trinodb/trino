@@ -202,8 +202,8 @@ public class TestGrantOnTable
         queryRunner.execute(admin, format("GRANT %s ON TABLE table_one TO %s WITH GRANT OPTION", privilege, username));
 
         assertThat(assertions.query(user, "SHOW TABLES FROM default")).matches("VALUES (VARCHAR 'table_one')");
-        assertUpdate(queryRunner, user, format("GRANT %s ON TABLE table_one TO %s", privilege, randomUsername()), OptionalLong.empty(), Optional.empty());
-        assertUpdate(queryRunner, user, format("GRANT %s ON TABLE table_one TO %s WITH GRANT OPTION", privilege, randomUsername()), OptionalLong.empty(), Optional.empty());
+        assertUpdate(queryRunner, user, format("GRANT %s ON TABLE table_one TO %s", privilege, randomUsername()), OptionalLong.empty());
+        assertUpdate(queryRunner, user, format("GRANT %s ON TABLE table_one TO %s WITH GRANT OPTION", privilege, randomUsername()), OptionalLong.empty());
     }
 
     @Test
