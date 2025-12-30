@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import static java.lang.reflect.Modifier.isPublic;
 import static java.lang.reflect.Modifier.isStatic;
@@ -33,6 +34,7 @@ public final class OptionsPrinter
 {
     private static final Joiner JOINER = Joiner.on(" \\\n")
             .skipNulls();
+    private static final Pattern NO_PREFIX_PATTERN = Pattern.compile("--no-");
 
     private OptionsPrinter() {}
 
@@ -82,7 +84,7 @@ public final class OptionsPrinter
 
         if (value instanceof Boolean) {
             if ((boolean) value) {
-                return annotation.names()[0].replaceFirst("--no-", "--");
+                return NO_PREFIX_PATTERN.matcher(annotation.names()[0]).replaceFirst("--");
             }
             if (annotation.negatable()) {
                 return annotation.names()[0];
