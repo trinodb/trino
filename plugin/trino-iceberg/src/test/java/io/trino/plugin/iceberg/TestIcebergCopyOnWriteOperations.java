@@ -801,7 +801,7 @@ public class TestIcebergCopyOnWriteOperations
         assertUpdate("INSERT INTO " + morTableName + " VALUES " + insertValues, dataSize);
 
         // Perform identical delete operations
-        String deleteQuery = "DELETE FROM %s WHERE id % 3 = 0";
+        String deleteQuery = "DELETE FROM %s WHERE id %% 3 = 0";
         MaterializedResultWithPlan cowResult = executeWithPlanIfSupported(String.format(deleteQuery, cowTableName));
         MaterializedResultWithPlan morResult = executeWithPlanIfSupported(String.format(deleteQuery, morTableName));
 
