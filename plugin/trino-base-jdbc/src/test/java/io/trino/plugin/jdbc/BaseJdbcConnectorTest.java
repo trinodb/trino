@@ -1563,7 +1563,7 @@ public abstract class BaseJdbcConnectorTest
 
             String query = "SELECT * FROM " + sleepingView.getName();
             Future<?> future = executor.submit(() -> assertQueryFails(query, "Query killed. Message: Killed by test"));
-            QueryId queryId = getQueryId(query);
+            QueryId queryId = getQueryId(getQueryRunner(), query);
             assertEventually(() -> assertThat(runningTracingEvent.hasHappened()).isTrue());
             stopTracingDatabaseEvent(runningTracingEvent);
 
@@ -1586,13 +1586,13 @@ public abstract class BaseJdbcConnectorTest
         throw new UnsupportedOperationException();
     }
 
-    private QueryId getQueryId(String query)
+    public static QueryId getQueryId(QueryRunner queryRunner, String query)
             throws Exception
     {
         for (int i = 0; i < 100; i++) {
-            MaterializedResult queriesResult = getQueryRunner().execute(format(
+            MaterializedResult queriesResult = queryRunner.execute(format(
                     "SELECT query_id FROM system.runtime.queries WHERE query = '%s' AND query NOT LIKE '%%system.runtime.queries%%'",
-                    query));
+                    query.replaceAll("'", "''")));
             int rowCount = queriesResult.getRowCount();
             if (rowCount == 0) {
                 Thread.sleep(100);
