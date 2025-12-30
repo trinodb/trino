@@ -3268,7 +3268,6 @@ public class IcebergMetadata
         }
 
         // Create the appropriate update operation based on the update mode
-        SnapshotUpdate<?> update;
         RowDelta rowDelta = null;
         RewriteFiles rewriteFiles = null;
 
@@ -3279,14 +3278,12 @@ public class IcebergMetadata
             RewriteFiles localRewriteFiles = transaction.newRewrite();
             snapshotId.map(icebergTable::snapshot).ifPresent(s -> localRewriteFiles.validateFromSnapshot(s.snapshotId()));
             rewriteFiles = localRewriteFiles;
-            update = localRewriteFiles;
         }
         else {
             // For Merge-on-Read mode or when update kind is not specified, use RowDelta
             RowDelta localRowDelta = transaction.newRowDelta();
             snapshotId.map(icebergTable::snapshot).ifPresent(s -> localRowDelta.validateFromSnapshot(s.snapshotId()));
             rowDelta = localRowDelta;
-            update = localRowDelta;
         }
         TupleDomain<IcebergColumnHandle> dataColumnPredicate = finalTableHandle.getEnforcedPredicate().filter((column, domain) -> !isMetadataColumnId(column.getId()));
         TupleDomain<IcebergColumnHandle> effectivePredicate = dataColumnPredicate.intersect(finalTableHandle.getUnenforcedPredicate());
@@ -3496,7 +3493,7 @@ public class IcebergMetadata
             // we need to rewrite the data files to exclude deleted rows
             if (detectedUpdateKind == UpdateKind.DELETE && updateMode == UpdateMode.COPY_ON_WRITE && filesToAdd.isEmpty() && !filesToDelete.isEmpty()) {
                 // Rewrite data files to exclude deleted rows
-                rewriteDataFilesForCowDelete(session, icebergTable, schema, filesToDelete, deleteFilesByDataFile, filesToAdd, rewriteFiles);
+                rewriteDataFilesForCowDelete(session, icebergTable, schema, filesToDelete, deleteFilesByDataFile, filesToAdd);
             }
 
             // Now add all the new files
@@ -3537,7 +3534,6 @@ public class IcebergMetadata
      * @param filesToDelete Set of data file paths that need to be rewritten
      * @param deleteFilesByDataFile Map of data file paths to their associated delete files
      * @param filesToAdd Map to add newly created data files (output parameter)
-     * @param rewriteFiles The RewriteFiles operation to add new files to
      */
     private void rewriteDataFilesForCowDelete(
             ConnectorSession session,
@@ -3545,8 +3541,7 @@ public class IcebergMetadata
             Schema schema,
             Set<String> filesToDelete,
             Map<String, List<DeleteFile>> deleteFilesByDataFile,
-            Map<String, DataFile> filesToAdd,
-            RewriteFiles rewriteFiles)
+            Map<String, DataFile> filesToAdd)
     {
         // Get the current snapshot to read data files from
         Snapshot currentSnapshot = icebergTable.currentSnapshot();
