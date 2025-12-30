@@ -27,13 +27,16 @@ import io.trino.grammar.type.TypeCalculationParser.TypeCalculationContext;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.tree.NodeLocation;
 import org.antlr.v4.runtime.ANTLRErrorListener;
+import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.DefaultErrorStrategy;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.atn.PredictionMode;
+import org.antlr.v4.runtime.misc.ParseCancellationException;
 
 import java.math.BigInteger;
 import java.util.Map;
@@ -85,20 +88,20 @@ public final class TypeCalculation
         lexer.addErrorListener(ERROR_LISTENER);
 
         parser.removeErrorListeners();
-        parser.addErrorListener(ERROR_LISTENER);
 
         ParserRuleContext tree;
         try {
             // first, try parsing with potentially faster SLL mode
             parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
+            parser.setErrorHandler(new BailErrorStrategy());
             tree = parser.typeCalculation();
         }
-        catch (ParsingException ex) {
+        catch (ParseCancellationException e) {
             // if we fail, parse with LL mode
-            tokenStream.seek(0); // rewind input stream
             parser.reset();
-
             parser.getInterpreter().setPredictionMode(PredictionMode.LL);
+            parser.setErrorHandler(new DefaultErrorStrategy());
+            parser.addErrorListener(ERROR_LISTENER);
             tree = parser.typeCalculation();
         }
         return tree;
