@@ -273,9 +273,11 @@ Hive connector documentation.
     catalog specific use.
   - `false`
 * - `hive.query-partition-filter-required-schemas`
-  - Allow specifying the list of schemas for which Trino will enforce that
-    queries use a filter on partition keys for source tables. The list can be
-    specified using the `hive.query-partition-filter-required-schemas`,
+  - Allow specifying the list of schema names or regex patterns for which Trino
+    will enforce that queries use a filter on partition keys for source tables.
+    Each entry can be an exact schema name (e.g., `schema1`) or a regular
+    expression pattern (e.g., `schema.*` to match all schemas starting with "schema").
+    The list can be specified using the `hive.query-partition-filter-required-schemas`,
     or the `query_partition_filter_required_schemas` session property. The list
     is taken into consideration only if the `hive.query-partition-filter-required`
     configuration property or the `query_partition_filter_required` session
