@@ -142,11 +142,6 @@ public final class DateTimes
         return multiplyExact(epochMillis, MICROSECONDS_PER_MILLISECOND);
     }
 
-    public static long epochSecondToMicrosWithRounding(long epochSecond, long picoOfSecond)
-    {
-        return epochSecond * MICROSECONDS_PER_SECOND + roundDiv(picoOfSecond, PICOSECONDS_PER_MICROSECOND);
-    }
-
     public static int getMicrosOfSecond(long epochMicros)
     {
         return floorMod(epochMicros, MICROSECONDS_PER_SECOND);

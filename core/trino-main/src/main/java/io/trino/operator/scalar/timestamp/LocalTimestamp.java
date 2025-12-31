@@ -20,16 +20,12 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.TimestampType;
 import io.trino.type.DateTimes;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-
-import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
-import static io.trino.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
-import static io.trino.type.DateTimes.epochSecondToMicrosWithRounding;
-import static io.trino.type.DateTimes.round;
 
 @ScalarFunction(value = "$localtimestamp", hidden = true)
 public final class LocalTimestamp
@@ -43,11 +39,8 @@ public final class LocalTimestamp
             ConnectorSession session,
             @SqlNullable @SqlType("timestamp(p)") Long dummy) // need a dummy value since the type inferencer can't bind type arguments exclusively from return type
     {
-        Instant start = LocalDateTime.ofInstant(session.getStart(), session.getTimeZoneKey().getZoneId())
-                .toInstant(ZoneOffset.UTC);
-
-        long epochMicros = epochSecondToMicrosWithRounding(start.getEpochSecond(), ((long) start.getNano()) * PICOSECONDS_PER_NANOSECOND);
-        return round(epochMicros, (int) (MAX_SHORT_PRECISION - precision));
+        LongTimestamp withoutRounding = localTimestamp(TimestampType.MAX_PRECISION, session, (LongTimestamp) null);
+        return TimestampToTimestampCast.longToShort(precision, withoutRounding);
     }
 
     @LiteralParameters("p")
