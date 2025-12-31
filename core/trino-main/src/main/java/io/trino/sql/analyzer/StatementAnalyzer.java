@@ -2388,8 +2388,8 @@ class StatementAnalyzer
             if (freshness == FRESH || freshness == FRESH_WITHIN_GRACE_PERIOD) {
                 return true;
             }
-            Optional<Instant> lastFreshTime = materializedViewFreshness.getLastFreshTime();
-            if (lastFreshTime.isEmpty()) {
+            Optional<Instant> lastKnownFreshTime = materializedViewFreshness.getLastKnownFreshTime();
+            if (lastKnownFreshTime.isEmpty()) {
                 // E.g. never refreshed, or connector not updated to report fresh time
                 return false;
             }
@@ -2399,13 +2399,13 @@ class StatementAnalyzer
             }
             if (gracePeriodZero) {
                 // Consider 0 as a special value meaning "do not accept any staleness". This makes 0 more reliable, and more likely what user wanted,
-                // regardless of lastFreshTime, query time or rounding.
+                // regardless of lastKnownFreshTime, query time or rounding.
                 return false;
             }
 
             Duration gracePeriod = materializedViewDefinition.getGracePeriod().get();
             // Can be negative
-            Duration staleness = Duration.between(lastFreshTime.get(), session.getStart());
+            Duration staleness = Duration.between(lastKnownFreshTime.get(), session.getStart());
             return staleness.compareTo(gracePeriod) <= 0;
         }
 
