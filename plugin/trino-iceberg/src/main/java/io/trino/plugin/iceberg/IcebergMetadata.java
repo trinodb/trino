@@ -3974,14 +3974,14 @@ public class IcebergMetadata
             }
         }
 
-        Optional<Instant> lastFreshTime = firstTableChange
+        Optional<Instant> lastKnownFreshTime = firstTableChange
                 .map(Instant::ofEpochMilli)
                 .or(() -> refreshTime);
         if (hasStaleIcebergTables) {
-            return new MaterializedViewFreshness(STALE, lastFreshTime);
+            return new MaterializedViewFreshness(STALE, lastKnownFreshTime);
         }
         if (hasUnknownTables) {
-            return new MaterializedViewFreshness(UNKNOWN, lastFreshTime);
+            return new MaterializedViewFreshness(UNKNOWN, lastKnownFreshTime);
         }
         return new MaterializedViewFreshness(FRESH, Optional.empty());
     }
