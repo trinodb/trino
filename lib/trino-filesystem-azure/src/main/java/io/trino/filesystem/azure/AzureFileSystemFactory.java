@@ -130,7 +130,7 @@ public class AzureFileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        return new AzureFileSystem(httpClient, concurrencyPolicy, uploadExecutor, tracingOptions, auth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart);
+        return new AzureFileSystem(httpClient, concurrencyPolicy, uploadExecutor, tracingOptions, withVendedAuth(identity, auth), endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize, multipart);
     }
 
     public static HttpClient createAzureHttpClient(ConnectionProvider connectionProvider, EventLoopGroup eventLoopGroup, HttpClientOptions clientOptions)
@@ -145,5 +145,14 @@ public class AzureFileSystemFactory
                 .connectionProvider(connectionProvider)
                 .eventLoopGroup(eventLoopGroup)
                 .build();
+    }
+
+    private static AzureAuth withVendedAuth(ConnectorIdentity identity, AzureAuth defaultAuth)
+    {
+        if (identity.getExtraCredentials().containsKey(AzureFileSystemConstants.EXTRA_USE_VENDED_TOKEN) &&
+                identity.getExtraCredentials().get(AzureFileSystemConstants.EXTRA_USE_VENDED_TOKEN).equalsIgnoreCase("true")) {
+            return new AzureVendedAuth(identity.getExtraCredentials(), defaultAuth);
+        }
+        return defaultAuth;
     }
 }
