@@ -282,6 +282,7 @@ public class HudiPageSourceProvider
                 }
             }
             catch (IOException _) {
+                // ignore
             }
             if (e instanceof TrinoException trinoException) {
                 throw trinoException;
