@@ -31,7 +31,7 @@ public class RedisRecordSet
         implements RecordSet
 {
     private final RedisSplit split;
-    private final RedisJedisManager jedisManager;
+    private final RedisClientManager clientManager;
 
     private final RowDecoder keyDecoder;
     private final RowDecoder valueDecoder;
@@ -41,14 +41,14 @@ public class RedisRecordSet
 
     RedisRecordSet(
             RedisSplit split,
-            RedisJedisManager jedisManager,
+            RedisClientManager clientManager,
             List<RedisColumnHandle> columnHandles,
             RowDecoder keyDecoder,
             RowDecoder valueDecoder)
     {
         this.split = requireNonNull(split, "split is null");
 
-        this.jedisManager = requireNonNull(jedisManager, "jedisManager is null");
+        this.clientManager = requireNonNull(clientManager, "clientManager is null");
 
         this.keyDecoder = requireNonNull(keyDecoder, "keyDecoder is null");
         this.valueDecoder = requireNonNull(valueDecoder, "valueDecoder is null");
@@ -70,6 +70,6 @@ public class RedisRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new RedisRecordCursor(keyDecoder, valueDecoder, split, columnHandles, jedisManager);
+        return new RedisRecordCursor(keyDecoder, valueDecoder, split, columnHandles, clientManager);
     }
 }
