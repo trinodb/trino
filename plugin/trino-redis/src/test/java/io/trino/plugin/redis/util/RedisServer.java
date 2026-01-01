@@ -15,7 +15,10 @@ package io.trino.plugin.redis.util;
 
 import com.google.common.net.HostAndPort;
 import org.testcontainers.containers.GenericContainer;
-import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.Connection;
+import redis.clients.jedis.DefaultJedisClientConfig;
+import redis.clients.jedis.Protocol;
+import redis.clients.jedis.RedisClient;
 
 import java.io.Closeable;
 
@@ -30,7 +33,7 @@ public class RedisServer
     public static final String PASSWORD = "password";
 
     private final GenericContainer<?> container;
-    private final JedisPool jedisPool;
+    private final RedisClient redisClient;
 
     public RedisServer()
     {
@@ -43,24 +46,30 @@ public class RedisServer
                 .withExposedPorts(PORT);
         if (setAccessControl) {
             container.withCommand("redis-server", "--requirepass", PASSWORD);
-            container.start();
-            jedisPool = new JedisPool(container.getHost(), container.getMappedPort(PORT), null, PASSWORD);
-            jedisPool.getResource().aclSetUser(USER, "on", ">" + PASSWORD, "~*:*", "+@all");
         }
-        else {
-            container.start();
-            jedisPool = new JedisPool(container.getHost(), container.getMappedPort(PORT));
+        container.start();
+
+        DefaultJedisClientConfig.Builder clientConfig = DefaultJedisClientConfig.builder();
+        if (setAccessControl) {
+            clientConfig.password(PASSWORD);
+        }
+        redisClient = RedisClient.builder()
+                .hostAndPort(container.getHost(), container.getMappedPort(PORT))
+                .clientConfig(clientConfig.build())
+                .build();
+        if (setAccessControl) {
+            aclSetUser(USER, "on", ">" + PASSWORD, "~*:*", "+@all");
         }
     }
 
-    public JedisPool getJedisPool()
+    public RedisClient getClient()
     {
-        return jedisPool;
+        return redisClient;
     }
 
-    public void destroyJedisPool()
+    public void closeClient()
     {
-        jedisPool.destroy();
+        redisClient.close();
     }
 
     public HostAndPort getHostAndPort()
@@ -71,7 +80,20 @@ public class RedisServer
     @Override
     public void close()
     {
-        jedisPool.destroy();
+        redisClient.close();
         container.close();
+    }
+
+    private void aclSetUser(String user, String... rules)
+    {
+        String[] args = new String[2 + rules.length];
+        args[0] = "SETUSER";
+        args[1] = user;
+        System.arraycopy(rules, 0, args, 2, rules.length);
+
+        try (Connection connection = redisClient.getPool().getResource()) {
+            connection.sendCommand(Protocol.Command.ACL, args);
+            connection.getStatusCodeReply();
+        }
     }
 }
