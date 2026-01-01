@@ -45,7 +45,7 @@ public class IcebergColumnHandle
 
     // Iceberg reserved row ids begin at INTEGER.MAX_VALUE and count down. Starting with MIN_VALUE here to avoid conflicts.
     public static final int TRINO_MERGE_ROW_ID = Integer.MIN_VALUE;
-    public static final String TRINO_ROW_ID_NAME = "$row_id";
+    public static final String TRINO_MERGE_ROW_ID_NAME = "$merge_row_id";
 
     public static final int TRINO_MERGE_PARTITION_SPEC_ID = Integer.MIN_VALUE + 1;
     public static final int TRINO_MERGE_PARTITION_DATA = Integer.MIN_VALUE + 2;
