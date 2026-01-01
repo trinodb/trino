@@ -29,6 +29,7 @@ import io.trino.spi.predicate.TupleDomain;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
@@ -56,6 +57,7 @@ public class IcebergSplit
     private final TupleDomain<IcebergColumnHandle> fileStatisticsDomain;
     private final Map<String, String> fileIoProperties;
     private final long dataSequenceNumber;
+    private final OptionalLong fileFirstRowId;
     private final List<HostAddress> addresses;
 
     @JsonCreator
@@ -72,7 +74,8 @@ public class IcebergSplit
             @JsonProperty("splitWeight") SplitWeight splitWeight,
             @JsonProperty("fileStatisticsDomain") TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
             @JsonProperty("fileIoProperties") Map<String, String> fileIoProperties,
-            @JsonProperty("dataSequenceNumber") long dataSequenceNumber)
+            @JsonProperty("dataSequenceNumber") long dataSequenceNumber,
+            @JsonProperty("fileFirstRowId") OptionalLong fileFirstRowId)
     {
         this(
                 path,
@@ -89,7 +92,8 @@ public class IcebergSplit
                 fileStatisticsDomain,
                 fileIoProperties,
                 ImmutableList.of(),
-                dataSequenceNumber);
+                dataSequenceNumber,
+                fileFirstRowId);
     }
 
     public IcebergSplit(
@@ -107,7 +111,8 @@ public class IcebergSplit
             TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
             Map<String, String> fileIoProperties,
             List<HostAddress> addresses,
-            long dataSequenceNumber)
+            long dataSequenceNumber,
+            OptionalLong fileFirstRowId)
     {
         this.path = requireNonNull(path, "path is null");
         this.start = start;
@@ -124,6 +129,7 @@ public class IcebergSplit
         this.fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.dataSequenceNumber = dataSequenceNumber;
+        this.fileFirstRowId = requireNonNull(fileFirstRowId, "fileFirstRowId is null");
     }
 
     @JsonIgnore
@@ -222,6 +228,12 @@ public class IcebergSplit
         return dataSequenceNumber;
     }
 
+    @JsonProperty
+    public OptionalLong getFileFirstRowId()
+    {
+        return fileFirstRowId;
+    }
+
     @Override
     public long getRetainedSizeInBytes()
     {
@@ -235,7 +247,8 @@ public class IcebergSplit
                 + fileStatisticsDomain.getRetainedSizeInBytes(IcebergColumnHandle::getRetainedSizeInBytes)
                 + estimatedSizeOf(fileIoProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf)
                 + SIZE_OF_LONG // dataSequenceNumber
-                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes);
+                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
+                + (fileFirstRowId.isPresent() ? SIZE_OF_LONG : 0);
     }
 
     @Override
