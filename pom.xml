@@ -2177,12 +2177,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.checkerframework</groupId>
-                <artifactId>checker-qual</artifactId>
-                <version>3.52.1</version>
-            </dependency>
-
-            <dependency>
                 <groupId>org.codehaus.plexus</groupId>
                 <artifactId>plexus-utils</artifactId>
                 <version>4.0.2</version>
