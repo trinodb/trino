@@ -16,12 +16,12 @@ final aggregation over ()
                                     scan item
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPLICATE, BROADCAST, [])
-                                final aggregation over (ws_item_sk_8)
+                                final aggregation over (ws_item_sk_12)
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, [ws_item_sk_8])
-                                            partial aggregation over (ws_item_sk_8)
+                                        remote exchange (REPARTITION, HASH, [ws_item_sk_12])
+                                            partial aggregation over (ws_item_sk_12)
                                                 join (INNER, REPLICATED):
-                                                    dynamic filter (ws_sold_date_sk_39::EQUAL)
+                                                    dynamic filter (ws_sold_date_sk_43::EQUAL)
                                                         scan web_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])

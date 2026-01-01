@@ -647,6 +647,7 @@ public class TestIcebergV3
         assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, v VARCHAR) WITH (format = 'PARQUET', format_version = 3)");
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
 
+        // Validate metadata-level invariants (existing coverage)
         BaseTable table = loadTable(tableName);
         table.refresh();
 
@@ -664,13 +665,127 @@ public class TestIcebergV3
             fileCount++;
             totalRecords += file.recordCount();
 
-            // These are the lineage “inputs” Iceberg uses to materialize _row_id and last_updated_sequence_number
             assertThat(file.firstRowId()).as("data file firstRowId must be set in v3").isNotNull();
             assertThat(file.dataSequenceNumber()).as("data file dataSequenceNumber must be set").isNotNull();
         }
 
         assertThat(fileCount).isGreaterThan(0);
         assertThat(totalRecords).isEqualTo(3);
+
+        assertThat(query("SELECT \"$row_id\" FROM " + tableName))
+                .matches("VALUES (BIGINT '0'), (BIGINT '1'), (BIGINT '2')");
+
+        assertQuery("SELECT count(DISTINCT \"$last_updated_sequence_number\") FROM " + tableName, "VALUES 1");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testRowLineageUpgradeBehavior()
+    {
+        String tableName = "test_v2_to_v3_row_lineage_" + randomNameSuffix();
+
+        // Create a v2 table and write an initial snapshot. v2 snapshots do not have row IDs assigned.
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, v VARCHAR) WITH (format = 'PARQUET', format_version = 2)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+
+        BaseTable table = loadTable(tableName);
+        table.refresh();
+        long v2SnapshotId = table.currentSnapshot().snapshotId();
+
+        // v2 snapshot:
+        // - $row_id is NULL for all rows because row IDs are only assigned starting in v3 snapshots with first-row-id assignment.
+        // - $last_updated_sequence_number is still non-null because Trino synthesizes it from the file data sequence number.
+        // - distinct_lusn_values_in_snapshot is 1 because all rows come from the same commit.
+        assertThat(query(
+                "SELECT " +
+                        "  count(*) AS row_count, " +
+                        "  count_if(\"$row_id\" IS NULL) AS row_id_nulls, " +
+                        "  count_if(\"$last_updated_sequence_number\" IS NULL) AS lusn_nulls, " +
+                        "  count(DISTINCT \"$row_id\") AS distinct_row_id, " +
+                        "  count(DISTINCT \"$last_updated_sequence_number\") AS distinct_lusn_values_in_snapshot " +
+                        "FROM " + tableName + " FOR VERSION AS OF " + v2SnapshotId))
+                .matches("VALUES (BIGINT '3', BIGINT '3', BIGINT '0', BIGINT '0', BIGINT '1')");
+
+        // Upgrade the table metadata to v3. This does not rewrite old snapshots, so existing rows still have NULL $row_id.
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 3");
+
+        table.refresh();
+        long postUpgradeSnapshotId = table.currentSnapshot().snapshotId();
+
+        // Immediately after upgrade (no new snapshot yet):
+        // - still reading the pre-upgrade data files, so $row_id remains NULL for all rows
+        // - Trino still synthesizes $last_updated_sequence_number, so it remains non-null
+        assertThat(query(
+                "SELECT " +
+                        "  count(*) AS row_count, " +
+                        "  count_if(\"$row_id\" IS NULL) AS row_id_nulls, " +
+                        "  count_if(\"$last_updated_sequence_number\" IS NULL) AS lusn_nulls, " +
+                        "  count(DISTINCT \"$row_id\") AS distinct_row_id, " +
+                        "  count(DISTINCT \"$last_updated_sequence_number\") AS distinct_lusn_values_in_snapshot " +
+                        "FROM " + tableName + " FOR VERSION AS OF " + postUpgradeSnapshotId))
+                .matches("VALUES (BIGINT '3', BIGINT '3', BIGINT '0', BIGINT '0', BIGINT '1')");
+
+        // Create the first post-upgrade snapshot. This is when Iceberg assigns first-row-id ranges to manifests/files,
+        // and $row_id becomes materializable for all rows visible in the new snapshot.
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4, 'd')", 1);
+
+        table.refresh();
+        long firstAssignedSnapshotId = table.currentSnapshot().snapshotId();
+
+        // After the first v3 snapshot:
+        // - all rows should have non-null $row_id and non-null $last_updated_sequence_number
+        // - $row_id should be unique across the 4 rows
+        // - distinct_lusn_values_in_snapshot is 2 because the snapshot contains rows written in two different commits
+        //   (the original v2 insert commit and this post-upgrade insert commit)
+        assertThat(query(
+                "SELECT " +
+                        "  count(*) AS row_count, " +
+                        "  count_if(\"$row_id\" IS NULL) AS row_id_nulls, " +
+                        "  count_if(\"$last_updated_sequence_number\" IS NULL) AS lusn_nulls, " +
+                        "  count(DISTINCT \"$row_id\") AS distinct_row_id, " +
+                        "  count(DISTINCT \"$last_updated_sequence_number\") AS distinct_lusn_values_in_snapshot " +
+                        "FROM " + tableName + " FOR VERSION AS OF " + firstAssignedSnapshotId))
+                .matches("VALUES (BIGINT '4', BIGINT '0', BIGINT '0', BIGINT '4', BIGINT '2')");
+
+        // Baseline snapshot for "before update" comparisons.
+        long beforeUpdateSnapshotId = firstAssignedSnapshotId;
+
+        // Update one row, producing a new snapshot.
+        assertUpdate("UPDATE " + tableName + " SET v = 'bb' WHERE id = 2", 1);
+
+        // Value updated.
+        assertThat(query("SELECT v FROM " + tableName + " WHERE id = 2"))
+                .matches("VALUES (VARCHAR 'bb')");
+
+        // Current expected behavior: UPDATE does not preserve $row_id (it behaves like delete+insert with a new row id).
+        assertThat(query(
+                "SELECT " +
+                        "  (SELECT \"$row_id\" FROM " + tableName + " WHERE id = 2) = " +
+                        "  (SELECT \"$row_id\" FROM " + tableName + " FOR VERSION AS OF " + beforeUpdateSnapshotId + " WHERE id = 2)"))
+                .matches("VALUES (BOOLEAN 'false')");
+
+        // The updated row should have a higher last-updated sequence number than it did in the baseline snapshot.
+        assertThat(query(
+                "SELECT " +
+                        "  (SELECT \"$last_updated_sequence_number\" FROM " + tableName + " WHERE id = 2) > " +
+                        "  (SELECT \"$last_updated_sequence_number\" FROM " + tableName + " FOR VERSION AS OF " + beforeUpdateSnapshotId + " WHERE id = 2)"))
+                .matches("VALUES (BOOLEAN 'true')");
+
+        // After the update:
+        // - still no NULLs for $row_id or $last_updated_sequence_number
+        // - $row_id remains unique
+        // - distinct_lusn_values_in_snapshot is 3 because the table now contains rows written across three commits:
+        //   initial v2 insert, first post-upgrade insert, and this update commit.
+        assertThat(query(
+                "SELECT " +
+                        "  count(*) AS row_count, " +
+                        "  count_if(\"$row_id\" IS NULL) AS row_id_nulls, " +
+                        "  count_if(\"$last_updated_sequence_number\" IS NULL) AS lusn_nulls, " +
+                        "  count(DISTINCT \"$row_id\") AS distinct_row_id, " +
+                        "  count(DISTINCT \"$last_updated_sequence_number\") AS distinct_lusn_values_in_snapshot " +
+                        "FROM " + tableName))
+                .matches("VALUES (BIGINT '4', BIGINT '0', BIGINT '0', BIGINT '4', BIGINT '3')");
 
         assertUpdate("DROP TABLE " + tableName);
     }

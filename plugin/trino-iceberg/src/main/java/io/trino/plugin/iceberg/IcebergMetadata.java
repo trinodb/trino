@@ -276,8 +276,10 @@ import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_ROW_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_ROW_ID_NAME;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.lastUpdatedSequenceNumberColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.rowIdColumnHandle;
 import static io.trino.plugin.iceberg.IcebergDefaultValues.formatIcebergDefaultAsSql;
 import static io.trino.plugin.iceberg.IcebergDefaultValues.parseDefaultValue;
 import static io.trino.plugin.iceberg.IcebergDefaultValues.toIcebergLiteral;
@@ -292,7 +294,9 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_MODIFIED_TIME;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.LAST_UPDATED_SEQUENCE_NUMBER;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.PARTITION;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.ROW_ID;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergPartitionFunction.Transform.BUCKET;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getExpireSnapshotMinRetention;
@@ -1036,6 +1040,8 @@ public class IcebergMetadata
         for (IcebergColumnHandle columnHandle : getTopLevelColumns(SchemaParser.fromJson(table.getTableSchemaJson()), typeManager)) {
             columnHandles.put(columnHandle.getName(), columnHandle);
         }
+        columnHandles.put(ROW_ID.getColumnName(), rowIdColumnHandle());
+        columnHandles.put(LAST_UPDATED_SEQUENCE_NUMBER.getColumnName(), lastUpdatedSequenceNumberColumnHandle());
         columnHandles.put(PARTITION.getColumnName(), partitionColumnHandle());
         columnHandles.put(FILE_PATH.getColumnName(), pathColumnHandle());
         columnHandles.put(FILE_MODIFIED_TIME.getColumnName(), fileModifiedTimeColumnHandle());
