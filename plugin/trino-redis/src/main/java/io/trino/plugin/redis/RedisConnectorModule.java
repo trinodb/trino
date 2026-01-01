@@ -32,7 +32,7 @@ public class RedisConnectorModule
         binder.bind(RedisSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(RedisRecordSetProvider.class).in(Scopes.SINGLETON);
 
-        binder.bind(RedisJedisManager.class).in(Scopes.SINGLETON);
+        binder.bind(RedisClientManager.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(RedisConnectorConfig.class);
 
