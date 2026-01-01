@@ -33,7 +33,9 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_MODIFIED_TIME;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.LAST_UPDATED_SEQUENCE_NUMBER;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.PARTITION;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.ROW_ID;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.IS_DELETED;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
@@ -183,6 +185,18 @@ public class IcebergColumnHandle
     }
 
     @JsonIgnore
+    public boolean isRowIdColumn()
+    {
+        return id == ROW_ID.getId();
+    }
+
+    @JsonIgnore
+    public boolean isLastUpdatedSequenceNumberColumn()
+    {
+        return id == LAST_UPDATED_SEQUENCE_NUMBER.getId();
+    }
+
+    @JsonIgnore
     public boolean isRowPositionColumn()
     {
         return id == ROW_POSITION.fieldId();
@@ -254,6 +268,38 @@ public class IcebergColumnHandle
                 + sizeOf(nullable)
                 + sizeOf(comment, SizeOf::estimatedSizeOf)
                 + sizeOf(id);
+    }
+
+    public static IcebergColumnHandle rowIdColumnHandle()
+    {
+        return IcebergColumnHandle.required(columnIdentity(ROW_ID))
+                .columnType(ROW_ID.getType())
+                .build();
+    }
+
+    public static ColumnMetadata rowIdColumnMetadata()
+    {
+        return ColumnMetadata.builder()
+                .setName(ROW_ID.getColumnName())
+                .setType(ROW_ID.getType())
+                .setHidden(true)
+                .build();
+    }
+
+    public static IcebergColumnHandle lastUpdatedSequenceNumberColumnHandle()
+    {
+        return IcebergColumnHandle.required(columnIdentity(LAST_UPDATED_SEQUENCE_NUMBER))
+                .columnType(LAST_UPDATED_SEQUENCE_NUMBER.getType())
+                .build();
+    }
+
+    public static ColumnMetadata lastUpdatedSequenceNumberColumnMetadata()
+    {
+        return ColumnMetadata.builder()
+                .setName(LAST_UPDATED_SEQUENCE_NUMBER.getColumnName())
+                .setType(LAST_UPDATED_SEQUENCE_NUMBER.getType())
+                .setHidden(true)
+                .build();
     }
 
     public static IcebergColumnHandle partitionColumnHandle()
