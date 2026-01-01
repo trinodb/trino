@@ -191,7 +191,6 @@
         <dep.confluent.version>7.8.0</dep.confluent.version>
         <dep.docker.images.version>119</dep.docker.images.version>
         <dep.drift.version>1.24</dep.drift.version>
-        <dep.flyway.version>11.20.0</dep.flyway.version>
         <dep.frontend-maven-plugin.version>2.0.0</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v24.12.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.7.0</dep.frontend-npm.version>
@@ -2195,30 +2194,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.flywaydb</groupId>
-                <artifactId>flyway-core</artifactId>
-                <version>${dep.flyway.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.flywaydb</groupId>
-                <artifactId>flyway-database-oracle</artifactId>
-                <version>${dep.flyway.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.flywaydb</groupId>
-                <artifactId>flyway-database-postgresql</artifactId>
-                <version>${dep.flyway.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.flywaydb</groupId>
-                <artifactId>flyway-mysql</artifactId>
-                <version>${dep.flyway.version}</version>
-            </dependency>
-
-            <dependency>
                 <groupId>org.hdrhistogram</groupId>
                 <artifactId>HdrHistogram</artifactId>
                 <version>2.2.2</version>
@@ -2672,21 +2647,6 @@
                                 </conflictingDependencies>
                                 <resources>
                                     <resource>git.properties</resource>
-                                </resources>
-                            </exception>
-                            <exception>
-                                <conflictingDependencies>
-                                    <dependency>
-                                        <groupId>org.flywaydb</groupId>
-                                        <artifactId>flyway-database-oracle</artifactId>
-                                    </dependency>
-                                    <dependency>
-                                        <groupId>org.flywaydb</groupId>
-                                        <artifactId>flyway-mysql</artifactId>
-                                    </dependency>
-                                </conflictingDependencies>
-                                <resources>
-                                    <resource>org/flywaydb/database/version.txt</resource>
                                 </resources>
                             </exception>
                             <exception>

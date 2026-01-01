@@ -15,6 +15,7 @@
     <description>Trino - Resource group configuration managers</description>
 
     <properties>
+        <dep.flyway.version>11.20.0</dep.flyway.version>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
     </properties>
 
@@ -99,6 +100,7 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
+            <version>${dep.flyway.version}</version>
         </dependency>
 
         <dependency>
@@ -167,18 +169,21 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-oracle</artifactId>
+            <version>${dep.flyway.version}</version>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-postgresql</artifactId>
+            <version>${dep.flyway.version}</version>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-mysql</artifactId>
+            <version>${dep.flyway.version}</version>
             <scope>runtime</scope>
         </dependency>
 
