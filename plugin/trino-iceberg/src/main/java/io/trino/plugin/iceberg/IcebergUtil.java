@@ -118,10 +118,12 @@ import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnMetadata;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.lastUpdatedSequenceNumberColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnMetadata;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.rowIdColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
@@ -443,6 +445,8 @@ public final class IcebergUtil
                 .forEach(columns::add);
         columns.add(partitionColumnMetadata());
         columns.add(pathColumnMetadata());
+        columns.add(rowIdColumnMetadata());
+        columns.add(lastUpdatedSequenceNumberColumnMetadata());
         columns.add(fileModifiedTimeColumnMetadata());
         return columns.build();
     }
