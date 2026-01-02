@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.delete;
+package io.trino.plugin.iceberg;
 
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
@@ -22,7 +22,7 @@ import java.util.Arrays;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.iceberg.IcebergPageSink.getIcebergValue;
 
-final class TrinoRow
+public final class TrinoRow
         implements StructLike
 {
     private final Object[] values;

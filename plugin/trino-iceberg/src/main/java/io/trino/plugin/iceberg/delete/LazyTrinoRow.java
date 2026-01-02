@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.delete;
 
+import io.trino.plugin.iceberg.TrinoRow;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.StructLike;
