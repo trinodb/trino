@@ -13,166 +13,44 @@
  */
 package io.trino.plugin.iceberg.functions.tablechanges;
 
-import com.google.common.io.Closer;
-import io.trino.plugin.iceberg.IcebergFileFormat;
-import io.trino.plugin.iceberg.PartitionData;
-import io.trino.spi.SplitWeight;
-import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
-import io.trino.spi.type.DateTimeEncoding;
-import org.apache.iceberg.AddedRowsScanTask;
-import org.apache.iceberg.ChangelogScanTask;
-import org.apache.iceberg.DeletedDataFileScanTask;
 import org.apache.iceberg.IncrementalChangelogScan;
-import org.apache.iceberg.PartitionSpecParser;
-import org.apache.iceberg.SplittableScanTask;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.io.CloseableIterable;
-import org.apache.iceberg.io.CloseableIterator;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static com.google.common.collect.Iterators.singletonIterator;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static java.util.Collections.emptyIterator;
-import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import static io.trino.plugin.iceberg.IcebergUtil.rowLevelOperationMode;
 
 public class TableChangesSplitSource
         implements ConnectorSplitSource
 {
-    private final Table icebergTable;
-    private final IncrementalChangelogScan tableScan;
-    private final long targetSplitSize;
-    private final Closer closer = Closer.create();
-
-    private CloseableIterable<ChangelogScanTask> changelogScanIterable;
-    private CloseableIterator<ChangelogScanTask> changelogScanIterator;
-    private Iterator<? extends ChangelogScanTask> fileTasksIterator = emptyIterator();
+    private final ConnectorSplitSource delegate;
 
     public TableChangesSplitSource(
             Table icebergTable,
             IncrementalChangelogScan tableScan)
     {
-        this.icebergTable = requireNonNull(icebergTable, "table is null");
-        this.tableScan = requireNonNull(tableScan, "tableScan is null");
-        this.targetSplitSize = tableScan.targetSplitSize();
+        this.delegate = switch (rowLevelOperationMode(icebergTable)) {
+            case COPY_ON_WRITE -> new CopyOnWriteTableChangesSplitSource(icebergTable, tableScan);
+            case MERGE_ON_READ -> new MergeOnReadTableChangesSplitSource(icebergTable, tableScan);
+        };
     }
 
     @Override
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
     {
-        if (changelogScanIterable == null) {
-            try {
-                this.changelogScanIterable = closer.register(tableScan.planFiles());
-                this.changelogScanIterator = closer.register(changelogScanIterable.iterator());
-            }
-            catch (UnsupportedOperationException e) {
-                throw new TrinoException(NOT_SUPPORTED, "Table uses features which are not yet supported by the table_changes function", e);
-            }
-        }
-
-        List<ConnectorSplit> splits = new ArrayList<>(maxSize);
-        while (splits.size() < maxSize && (fileTasksIterator.hasNext() || changelogScanIterator.hasNext())) {
-            if (!fileTasksIterator.hasNext()) {
-                ChangelogScanTask wholeFileTask = changelogScanIterator.next();
-                fileTasksIterator = splitIfPossible(wholeFileTask, targetSplitSize);
-                continue;
-            }
-
-            ChangelogScanTask next = fileTasksIterator.next();
-            splits.add(toIcebergSplit(next));
-        }
-        return completedFuture(new ConnectorSplitBatch(splits, isFinished()));
+        return delegate.getNextBatch(maxSize);
     }
 
     @Override
     public boolean isFinished()
     {
-        return changelogScanIterator != null && !changelogScanIterator.hasNext() && !fileTasksIterator.hasNext();
+        return delegate.isFinished();
     }
 
     @Override
     public void close()
     {
-        try {
-            closer.close();
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Iterator<? extends ChangelogScanTask> splitIfPossible(ChangelogScanTask wholeFileScan, long targetSplitSize)
-    {
-        if (wholeFileScan instanceof AddedRowsScanTask) {
-            return ((SplittableScanTask<AddedRowsScanTask>) wholeFileScan).split(targetSplitSize).iterator();
-        }
-
-        if (wholeFileScan instanceof DeletedDataFileScanTask) {
-            return ((SplittableScanTask<DeletedDataFileScanTask>) wholeFileScan).split(targetSplitSize).iterator();
-        }
-
-        return singletonIterator(wholeFileScan);
-    }
-
-    private ConnectorSplit toIcebergSplit(ChangelogScanTask task)
-    {
-        // TODO: Support DeletedRowsScanTask (requires https://github.com/apache/iceberg/pull/6182)
-        if (task instanceof AddedRowsScanTask addedRowsScanTask) {
-            return toSplit(addedRowsScanTask);
-        }
-        else if (task instanceof DeletedDataFileScanTask deletedDataFileScanTask) {
-            return toSplit(deletedDataFileScanTask);
-        }
-        else {
-            throw new TrinoException(NOT_SUPPORTED, "ChangelogScanTask type is not supported:" + task);
-        }
-    }
-
-    private TableChangesSplit toSplit(AddedRowsScanTask task)
-    {
-        return new TableChangesSplit(
-                TableChangesSplit.ChangeType.ADDED_FILE,
-                task.commitSnapshotId(),
-                DateTimeEncoding.packDateTimeWithZone(icebergTable.snapshot(task.commitSnapshotId()).timestampMillis(), UTC_KEY),
-                task.changeOrdinal(),
-                task.file().location(),
-                task.start(),
-                task.length(),
-                task.file().fileSizeInBytes(),
-                task.file().recordCount(),
-                IcebergFileFormat.fromIceberg(task.file().format()),
-                PartitionSpecParser.toJson(task.spec()),
-                PartitionData.toJson(task.file().partition()),
-                SplitWeight.standard(),
-                icebergTable.io().properties());
-    }
-
-    private TableChangesSplit toSplit(DeletedDataFileScanTask task)
-    {
-        return new TableChangesSplit(
-                TableChangesSplit.ChangeType.DELETED_FILE,
-                task.commitSnapshotId(),
-                DateTimeEncoding.packDateTimeWithZone(icebergTable.snapshot(task.commitSnapshotId()).timestampMillis(), UTC_KEY),
-                task.changeOrdinal(),
-                task.file().location(),
-                task.start(),
-                task.length(),
-                task.file().fileSizeInBytes(),
-                task.file().recordCount(),
-                IcebergFileFormat.fromIceberg(task.file().format()),
-                PartitionSpecParser.toJson(task.spec()),
-                PartitionData.toJson(task.file().partition()),
-                SplitWeight.standard(),
-                icebergTable.io().properties());
+        delegate.close();
     }
 }
