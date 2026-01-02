@@ -23,9 +23,7 @@ import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimestampType;
 import io.trino.type.DateTimes;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 
 @ScalarFunction(value = "$localtimestamp", hidden = true)
 public final class LocalTimestamp
@@ -50,9 +48,7 @@ public final class LocalTimestamp
             ConnectorSession session,
             @SqlNullable @SqlType("timestamp(p)") LongTimestamp dummy) // need a dummy value since the type inferencer can't bind type arguments exclusively from return type
     {
-        Instant start = LocalDateTime.ofInstant(session.getStart(), session.getTimeZoneKey().getZoneId())
-                .toInstant(ZoneOffset.UTC);
-
-        return DateTimes.longTimestamp(precision, start);
+        LocalDateTime localDateTime = LocalDateTime.ofInstant(session.getStart(), session.getTimeZoneKey().getZoneId());
+        return TimestampToTimestampCast.longToLong(precision, DateTimes.longTimestamp(localDateTime));
     }
 }
