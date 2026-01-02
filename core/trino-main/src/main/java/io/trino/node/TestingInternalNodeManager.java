@@ -35,6 +35,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
+import static java.util.function.Predicate.not;
 
 @ThreadSafe
 public class TestingInternalNodeManager
@@ -63,7 +64,8 @@ public class TestingInternalNodeManager
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
-                ImmutableSet.of(currentNode));
+                ImmutableSet.of(currentNode),
+                1);
         this.nodeStateEventExecutor = newSingleThreadExecutor(daemonThreadsNamed("node-state-events-%s"));
     }
 
@@ -100,7 +102,10 @@ public class TestingInternalNodeManager
                 ImmutableSet.of(),
                 newActiveNodes.stream()
                         .filter(InternalNode::isCoordinator)
-                        .collect(toImmutableSet())));
+                        .collect(toImmutableSet()),
+                (int) newActiveNodes.stream()
+                        .filter(not(InternalNode::isCoordinator))
+                        .count()));
     }
 
     public synchronized void removeNode(InternalNode internalNode)
@@ -119,7 +124,10 @@ public class TestingInternalNodeManager
                 ImmutableSet.of(),
                 newActiveNodes.stream()
                         .filter(InternalNode::isCoordinator)
-                        .collect(toImmutableSet())));
+                        .collect(toImmutableSet()),
+                (int) newActiveNodes.stream()
+                        .filter(not(InternalNode::isCoordinator))
+                        .count()));
     }
 
     @GuardedBy("this")
