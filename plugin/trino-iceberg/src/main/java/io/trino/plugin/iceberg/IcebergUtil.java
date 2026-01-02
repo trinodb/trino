@@ -66,6 +66,7 @@ import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SnapshotUpdate;
@@ -187,11 +188,13 @@ import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Comparator.comparing;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.RowLevelOperationMode.MERGE_ON_READ;
 import static org.apache.iceberg.TableProperties.AVRO_COMPRESSION;
 import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
+import static org.apache.iceberg.TableProperties.MERGE_MODE;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED;
@@ -1270,5 +1273,11 @@ public final class IcebergUtil
             case DATA -> ManifestFiles.read(manifest, fileIO);
             case DELETES -> ManifestFiles.readDeleteManifest(manifest, fileIO, specsById);
         };
+    }
+
+    public static RowLevelOperationMode rowLevelOperationMode(Table table)
+    {
+        // Trino uses MoR by default unlike Spark
+        return RowLevelOperationMode.fromName(table.properties().getOrDefault(MERGE_MODE, MERGE_ON_READ.modeName()));
     }
 }
