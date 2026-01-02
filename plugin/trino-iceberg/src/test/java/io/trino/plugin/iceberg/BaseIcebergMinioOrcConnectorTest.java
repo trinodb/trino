@@ -43,14 +43,14 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
  * Iceberg connector test ORC and with S3-compatible storage (but without real metastore).
  */
 @Execution(SAME_THREAD)
-public class TestIcebergMinioOrcConnectorTest
+public abstract class BaseIcebergMinioOrcConnectorTest
         extends BaseIcebergConnectorTest
 {
     private final String bucketName = "test-iceberg-orc-" + randomNameSuffix();
 
-    public TestIcebergMinioOrcConnectorTest()
+    public BaseIcebergMinioOrcConnectorTest(int formatVersion)
     {
-        super(ORC);
+        super(ORC, formatVersion);
     }
 
     @Override
@@ -65,6 +65,7 @@ public class TestIcebergMinioOrcConnectorTest
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
+                                .put("iceberg.format-version", String.valueOf(formatVersion))
                                 .put("fs.hadoop.enabled", "true")
                                 .put("fs.native-s3.enabled", "true")
                                 .put("s3.aws-access-key", MINIO_ACCESS_KEY)
