@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.util;
 
+import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import io.trino.filesystem.Location;
 import org.apache.iceberg.PartitionSpec;
@@ -20,27 +21,36 @@ import org.apache.iceberg.StructLike;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.io.LocationProvider;
 
-import java.util.Base64;
 import java.util.Map;
 
 import static com.google.common.hash.Hashing.murmur3_32_fixed;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.iceberg.TableProperties.WRITE_OBJECT_STORE_PARTITIONED_PATHS;
+import static org.apache.iceberg.TableProperties.WRITE_OBJECT_STORE_PARTITIONED_PATHS_DEFAULT;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
+import static org.apache.iceberg.util.PropertyUtil.propertyAsBoolean;
 
 // based on org.apache.iceberg.LocationProviders.ObjectStoreLocationProvider
 public class ObjectStoreLocationProvider
         implements LocationProvider
 {
     private static final HashFunction HASH_FUNC = murmur3_32_fixed();
-    private static final Base64.Encoder BASE64_ENCODER = Base64.getUrlEncoder().withoutPadding();
+    // Length of entropy generated in the file location
+    private static final int HASH_BINARY_STRING_BITS = 20;
+    // Entropy generated will be divided into dirs with this lengths
+    private static final int ENTROPY_DIR_LENGTH = 4;
+    // Will create DEPTH many dirs from the entropy
+    private static final int ENTROPY_DIR_DEPTH = 3;
     private final String storageLocation;
     private final String context;
+    private final boolean includePartitionPaths;
 
     public ObjectStoreLocationProvider(String tableLocation, Map<String, String> properties)
     {
         this.storageLocation = stripTrailingSlash(dataLocation(properties, tableLocation));
         // if the storage location is within the table prefix, don't add table and database name context
         this.context = storageLocation.startsWith(stripTrailingSlash(tableLocation)) ? null : pathContext(tableLocation);
+        this.includePartitionPaths = propertyAsBoolean(properties, WRITE_OBJECT_STORE_PARTITIONED_PATHS, WRITE_OBJECT_STORE_PARTITIONED_PATHS_DEFAULT);
     }
 
     @SuppressWarnings("deprecation")
@@ -62,7 +72,10 @@ public class ObjectStoreLocationProvider
     @Override
     public String newDataLocation(PartitionSpec spec, StructLike partitionData, String filename)
     {
-        return newDataLocation("%s/%s".formatted(spec.partitionToPath(partitionData), filename));
+        if (includePartitionPaths) {
+            return newDataLocation("%s/%s".formatted(spec.partitionToPath(partitionData), filename));
+        }
+        return newDataLocation(filename);
     }
 
     @Override
@@ -72,7 +85,12 @@ public class ObjectStoreLocationProvider
         if (context != null) {
             return "%s/%s/%s/%s".formatted(storageLocation, hash, context, filename);
         }
-        return "%s/%s/%s".formatted(storageLocation, hash, filename);
+        if (includePartitionPaths) {
+            // if partition paths are included, add last part of entropy as dir before partition names
+            return "%s/%s/%s".formatted(storageLocation, hash, filename);
+        }
+        // if partition paths are not included, append last part of entropy with `-` to file name
+        return "%s/%s-%s".formatted(storageLocation, hash, filename);
     }
 
     private static String pathContext(String tableLocation)
@@ -99,7 +117,33 @@ public class ObjectStoreLocationProvider
 
     private static String computeHash(String fileName)
     {
-        byte[] bytes = HASH_FUNC.hashString(fileName, UTF_8).asBytes();
-        return BASE64_ENCODER.encodeToString(bytes);
+        HashCode hashCode = HASH_FUNC.hashString(fileName, UTF_8);
+
+        // {@link Integer#toBinaryString} excludes leading zeros, which we want to preserve.
+        // force the first bit to be set to get around that.
+        String hashAsBinaryString = Integer.toBinaryString(hashCode.asInt() | Integer.MIN_VALUE);
+        // Limit hash length to HASH_BINARY_STRING_BITS
+        String hash = hashAsBinaryString.substring(hashAsBinaryString.length() - HASH_BINARY_STRING_BITS);
+        return dirsFromHash(hash);
+    }
+
+    private static String dirsFromHash(String hash)
+    {
+        StringBuilder hashWithDirs = new StringBuilder();
+
+        for (int i = 0; i < ENTROPY_DIR_DEPTH * ENTROPY_DIR_LENGTH; i += ENTROPY_DIR_LENGTH) {
+            if (i > 0) {
+                hashWithDirs.append("/");
+            }
+            hashWithDirs.append(hash, i, Math.min(i + ENTROPY_DIR_LENGTH, hash.length()));
+        }
+
+        if (hash.length() > ENTROPY_DIR_DEPTH * ENTROPY_DIR_LENGTH) {
+            hashWithDirs
+                    .append("/")
+                    .append(hash, ENTROPY_DIR_DEPTH * ENTROPY_DIR_LENGTH, hash.length());
+        }
+
+        return hashWithDirs.toString();
     }
 }
