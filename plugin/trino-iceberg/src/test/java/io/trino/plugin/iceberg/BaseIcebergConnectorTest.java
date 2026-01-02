@@ -195,13 +195,15 @@ public abstract class BaseIcebergConnectorTest
     private static final Pattern WITH_CLAUSE_EXTRACTOR = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
 
     protected final IcebergFileFormat format;
+    protected final int formatVersion;
 
     protected TrinoFileSystem fileSystem;
     protected TimeUnit storageTimePrecision;
 
-    protected BaseIcebergConnectorTest(IcebergFileFormat format)
+    protected BaseIcebergConnectorTest(IcebergFileFormat format, int formatVersion)
     {
         this.format = requireNonNull(format, "format is null");
+        this.formatVersion = formatVersion;
     }
 
     @Override
@@ -217,6 +219,7 @@ public abstract class BaseIcebergConnectorTest
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.file-format", format.name())
+                        .put("iceberg.format-version", String.valueOf(formatVersion))
                         // Only allow some extra properties. Add "sorted_by" so that we can test that the property is disallowed by the connector explicitly.
                         .put("iceberg.allowed-extra-properties", "extra.property.one,extra.property.two,extra.property.three,sorted_by")
                         // Allows testing the sorting writer flushing to the file system with smaller tables
@@ -414,7 +417,7 @@ public abstract class BaseIcebergConnectorTest
                         ")\n" +
                         "WITH (\n" +
                         "   format = '" + format.name() + "',\n" +
-                        "   format_version = 2,\n" +
+                        "   format_version = " + formatVersion + ",\n" +
                         "   location = '\\E.*/tpch/orders-.*\\Q'\n" +
                         ")\\E");
     }
@@ -1994,11 +1997,12 @@ public abstract class BaseIcebergConnectorTest
                 """
                         WITH (
                            format = '%s',
-                           format_version = 2,
+                           format_version = %s,
                            location = '%s',
                            partitioning = ARRAY['adate']
                         )""",
                 format,
+                formatVersion,
                 tempDirPath));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy0 (LIKE test_create_table_like_original, col2 INTEGER)");
@@ -2010,10 +2014,11 @@ public abstract class BaseIcebergConnectorTest
                 """
                         WITH (
                            format = '%s',
-                           format_version = 2,
+                           format_version = %s,
                            location = '%s'
                         )""",
                 format,
+                formatVersion,
                 getTableLocation("test_create_table_like_copy1")));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
@@ -2021,10 +2026,11 @@ public abstract class BaseIcebergConnectorTest
                 """
                         WITH (
                            format = '%s',
-                           format_version = 2,
+                           format_version = %s,
                            location = '%s'
                         )""",
                 format,
+                formatVersion,
                 getTableLocation("test_create_table_like_copy2")));
         assertUpdate("DROP TABLE test_create_table_like_copy2");
 
@@ -5418,7 +5424,7 @@ public abstract class BaseIcebergConnectorTest
                     .hasSizeGreaterThan(workerCount);
 
             // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
-            computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+                computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
             assertThat(query("SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
                     .matches("VALUES (BIGINT '65', VARCHAR 'eleven zwölf trzynaście quatorze пʼятнадцять')");
             List<String> updatedFiles = getActiveFiles(tableName);
