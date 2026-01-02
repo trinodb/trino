@@ -39,12 +39,12 @@ import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestIcebergParquetConnectorTest
+public abstract class BaseIcebergParquetConnectorTest
         extends BaseIcebergConnectorTest
 {
-    public TestIcebergParquetConnectorTest()
+    public BaseIcebergParquetConnectorTest(int formatVersion)
     {
-        super(PARQUET);
+        super(PARQUET, 3);
     }
 
     @Override
