@@ -139,7 +139,6 @@ import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
-import static io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior.INLINE;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.QueryUtil.aliased;
@@ -567,7 +566,7 @@ public final class ShowQueriesRewrite
                     false,
                     viewDefinition.get().getGracePeriod()
                             .map(DateTimeUtils::formatDayTimeInterval),
-                    Optional.of(toSqlWhenStaleBehavior(viewDefinition.get().getWhenStaleBehavior().orElse(INLINE))),
+                    Optional.of(toSqlWhenStaleBehavior(viewDefinition.get().getWhenStaleBehavior())),
                     propertyNodes,
                     viewDefinition.get().getComment())).trim();
             return singleValueQuery("Create Materialized View", sql);
