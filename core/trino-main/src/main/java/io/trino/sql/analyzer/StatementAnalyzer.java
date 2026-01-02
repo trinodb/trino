@@ -2415,7 +2415,7 @@ class StatementAnalyzer
 
         private static boolean shouldFailWhenStale(MaterializedViewDefinition materializedViewDefinition)
         {
-            WhenStaleBehavior whenStale = materializedViewDefinition.getWhenStaleBehavior().orElse(WhenStaleBehavior.INLINE);
+            WhenStaleBehavior whenStale = materializedViewDefinition.getWhenStaleBehavior();
             return switch (whenStale) {
                 case WhenStaleBehavior.INLINE -> false;
                 case WhenStaleBehavior.FAIL -> true;

@@ -63,6 +63,7 @@ import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createP
 import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.spi.RefreshType.FULL;
 import static io.trino.spi.RefreshType.INCREMENTAL;
+import static io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior.INLINE;
 import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampWithTimeZoneParametricType.TIMESTAMP_WITH_TIME_ZONE;
@@ -182,8 +183,8 @@ public class TestMaterializedViews
             return null;
         });
 
-        createFreshAndStaleMaterializedViews("fresh_materialized_view", planTester, metadata, Optional.empty());
-        createFreshAndStaleMaterializedViews("fresh_materialized_view_when_stale_fail", planTester, metadata, Optional.of(WhenStaleBehavior.FAIL));
+        createFreshAndStaleMaterializedViews("fresh_materialized_view", planTester, metadata, INLINE);
+        createFreshAndStaleMaterializedViews("fresh_materialized_view_when_stale_fail", planTester, metadata, WhenStaleBehavior.FAIL);
 
         MaterializedViewDefinition materializedViewDefinitionWithCasts = new MaterializedViewDefinition(
                 "SELECT a, b FROM test_table",
@@ -191,7 +192,7 @@ public class TestMaterializedViews
                 Optional.of(SCHEMA),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
                 Optional.empty(),
-                Optional.empty(),
+                INLINE,
                 Optional.empty(),
                 Identity.ofUser("some user"),
                 ImmutableList.of(),
@@ -226,7 +227,7 @@ public class TestMaterializedViews
                 Optional.of(SCHEMA),
                 ImmutableList.of(new ViewColumn("id", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("ts", timestampWithTimezone3.getTypeId(), Optional.empty())),
                 Optional.empty(),
-                Optional.empty(),
+                INLINE,
                 Optional.empty(),
                 Identity.ofUser("some user"),
                 ImmutableList.of(),
@@ -248,7 +249,7 @@ public class TestMaterializedViews
         return planTester;
     }
 
-    private void createFreshAndStaleMaterializedViews(String name, PlanTester planTester, Metadata metadata, Optional<WhenStaleBehavior> whenStaleBehavior)
+    private void createFreshAndStaleMaterializedViews(String name, PlanTester planTester, Metadata metadata, WhenStaleBehavior whenStaleBehavior)
     {
         QualifiedObjectName freshMaterializedView = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, name);
         MaterializedViewDefinition materializedViewDefinition = new MaterializedViewDefinition(
@@ -297,7 +298,7 @@ public class TestMaterializedViews
                 Optional.of(SCHEMA),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of(STALE_MV_STALENESS.plusHours(1)),
-                Optional.empty(),
+                INLINE,
                 Optional.empty(),
                 Identity.ofUser("some user"),
                 ImmutableList.of(),

@@ -51,6 +51,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.execution.ParameterExtractor.bindParameters;
+import static io.trino.metadata.MaterializedViewDefinition.DEFAULT_WHEN_STALE_BEHAVIOR;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -60,7 +61,6 @@ import static io.trino.spi.connector.ConnectorCapabilities.MATERIALIZED_VIEW_WHE
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
 import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.tree.CreateMaterializedView.WhenStaleBehavior.INLINE;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -159,13 +159,10 @@ public class CreateMaterializedViewTask
                     return Duration.ofMillis(milliseconds);
                 });
 
-        Optional<WhenStaleBehavior> whenStale = statement.getWhenStaleBehavior()
-                .map(whenStaleBehavior -> {
-                    if (!isWhenStaleBehaviorSupported(session, whenStaleBehavior, catalogHandle)) {
-                        throw semanticException(NOT_SUPPORTED, statement, "Catalog '%s' does not support WHEN STALE", catalogName);
-                    }
-                    return toConnectorWhenStaleBehavior(whenStaleBehavior);
-                });
+        WhenStaleBehavior whenStale = toConnectorWhenStaleBehavior(statement.getWhenStaleBehavior());
+        if (!isWhenStaleBehaviorSupported(session, whenStale, catalogHandle)) {
+            throw semanticException(NOT_SUPPORTED, statement, "Catalog '%s' does not support WHEN STALE", catalogName);
+        }
 
         MaterializedViewDefinition definition = new MaterializedViewDefinition(
                 sql,
@@ -195,15 +192,18 @@ public class CreateMaterializedViewTask
         return analysis;
     }
 
-    private boolean isWhenStaleBehaviorSupported(Session session, CreateMaterializedView.WhenStaleBehavior whenStaleBehavior, CatalogHandle catalogHandle)
+    private boolean isWhenStaleBehaviorSupported(Session session, WhenStaleBehavior whenStale, CatalogHandle catalogHandle)
     {
-        // INLINE is always supported as it's the default behavior
-        return whenStaleBehavior == INLINE || plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(MATERIALIZED_VIEW_WHEN_STALE_BEHAVIOR);
+        return whenStale == DEFAULT_WHEN_STALE_BEHAVIOR ||
+               plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(MATERIALIZED_VIEW_WHEN_STALE_BEHAVIOR);
     }
 
-    private static WhenStaleBehavior toConnectorWhenStaleBehavior(CreateMaterializedView.WhenStaleBehavior whenStale)
+    private static WhenStaleBehavior toConnectorWhenStaleBehavior(Optional<CreateMaterializedView.WhenStaleBehavior> whenStale)
     {
-        return switch (whenStale) {
+        if (whenStale.isEmpty()) {
+            return DEFAULT_WHEN_STALE_BEHAVIOR;
+        }
+        return switch (whenStale.get()) {
             case INLINE -> WhenStaleBehavior.INLINE;
             case FAIL -> WhenStaleBehavior.FAIL;
         };

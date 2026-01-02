@@ -26,13 +26,16 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior.INLINE;
 import static java.util.Objects.requireNonNull;
 
 public class MaterializedViewDefinition
         extends ViewDefinition
 {
+    public static final WhenStaleBehavior DEFAULT_WHEN_STALE_BEHAVIOR = INLINE;
+
     private final Optional<Duration> gracePeriod;
-    private final Optional<WhenStaleBehavior> whenStaleBehavior;
+    private final WhenStaleBehavior whenStaleBehavior;
     private final Optional<CatalogSchemaTableName> storageTable;
 
     public MaterializedViewDefinition(
@@ -41,7 +44,7 @@ public class MaterializedViewDefinition
             Optional<String> schema,
             List<ViewColumn> columns,
             Optional<Duration> gracePeriod,
-            Optional<WhenStaleBehavior> whenStaleBehavior,
+            WhenStaleBehavior whenStaleBehavior,
             Optional<String> comment,
             Identity owner,
             List<CatalogSchemaName> path,
@@ -59,7 +62,7 @@ public class MaterializedViewDefinition
         return gracePeriod;
     }
 
-    public Optional<WhenStaleBehavior> getWhenStaleBehavior()
+    public WhenStaleBehavior getWhenStaleBehavior()
     {
         return whenStaleBehavior;
     }
@@ -80,7 +83,7 @@ public class MaterializedViewDefinition
                         .map(column -> new ConnectorMaterializedViewDefinition.Column(column.name(), column.type(), column.comment()))
                         .collect(toImmutableList()),
                 getGracePeriod(),
-                whenStaleBehavior,
+                Optional.of(whenStaleBehavior),
                 getComment(),
                 getRunAsIdentity().map(Identity::getUser),
                 getPath());
@@ -95,7 +98,7 @@ public class MaterializedViewDefinition
                 .add("schema", getSchema().orElse(null))
                 .add("columns", getColumns())
                 .add("gracePeriod", gracePeriod.orElse(null))
-                .add("whenStaleBehavior", whenStaleBehavior.orElse(null))
+                .add("whenStaleBehavior", whenStaleBehavior)
                 .add("comment", getComment().orElse(null))
                 .add("runAsIdentity", getRunAsIdentity())
                 .add("path", getPath())
