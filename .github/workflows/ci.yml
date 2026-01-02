@@ -882,7 +882,7 @@ jobs:
           echo "Impacted plugin features:"
           cat impacted-features.log
       - name: Product tests artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: product tests and server tarball
           path: |
