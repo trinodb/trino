@@ -20,6 +20,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
+import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.avro.Avro;
 import org.apache.iceberg.avro.AvroIterable;
@@ -32,19 +33,28 @@ import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergAvroDataConversion.serializeToTrinoBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER;
+import static org.apache.iceberg.MetadataColumns.ROW_ID;
 
 public class IcebergAvroPageSource
         implements ConnectorPageSource
 {
+    private static final Set<String> ROW_LINEAGE_COLUMN_NAMES = Set.of(
+            ROW_ID.name(),
+            LAST_UPDATED_SEQUENCE_NUMBER.name());
+
     private final CloseableIterator<Record> recordIterator;
 
     private final List<String> columnNames;
@@ -67,6 +77,8 @@ public class IcebergAvroPageSource
             List<String> columnNames,
             List<Type> columnTypes,
             boolean appendRowNumberColumn,
+            OptionalLong fileFirstRowId,
+            long dataSequenceNumber,
             AggregatedMemoryContext memoryUsage)
     {
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
@@ -77,11 +89,23 @@ public class IcebergAvroPageSource
                 columnNames.size() == columnTypes.size(),
                 "names and types must correspond one-to-one-to-one");
 
+        // Build idToConstant map for row lineage columns so PlannedDataReader can properly
+        // skip these fields when they exist in the file but are not being projected
+        Map<Integer, Object> idToConstant = new HashMap<>();
+        if (fileFirstRowId.isPresent()) {
+            idToConstant.put(ROW_ID.fieldId(), fileFirstRowId.getAsLong());
+            idToConstant.put(LAST_UPDATED_SEQUENCE_NUMBER.fieldId(), dataSequenceNumber);
+        }
+
+        // Metadata row-lineage columns are not part of table schema JSON, but can be physically present in v3 files.
+        Schema schemaForProjection = columnNames.stream().anyMatch(ROW_LINEAGE_COLUMN_NAMES::contains)
+                ? MetadataColumns.schemaWithRowLineage(fileSchema)
+                : fileSchema;
         // The column orders in the generated schema might be different from the original order
-        Schema readSchema = fileSchema.select(columnNames);
+        Schema readSchema = schemaForProjection.select(columnNames);
         Avro.ReadBuilder builder = Avro.read(file)
                 .project(readSchema)
-                .createReaderFunc(_ -> PlannedDataReader.create(readSchema))
+                .createReaderFunc(_ -> PlannedDataReader.create(readSchema, idToConstant))
                 .split(start, length);
         nameMapping.ifPresent(builder::withNameMapping);
         AvroIterable<Record> avroReader = builder.build();
