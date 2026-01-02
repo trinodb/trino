@@ -189,6 +189,9 @@ values. Typical usage does not require you to configure them.
     the [VACUUM](delta-lake-vacuum) procedure. The equivalent catalog session
     property is `vacuum_min_retention`.
   - `7 DAYS`
+* - `delta.column-mapping-mode`
+  - Column mapping mode. Possible values are: `ID`, `NAME`, and `NONE`.
+  - `NAME`
 * - `delta.deletion-vectors-enabled`
   - Set to `true` for enabling deletion vectors by default when creating new tables.
   - `false`
@@ -768,7 +771,7 @@ The following table properties are available for use:
     * `NAME`
     * `NONE`
 
-    Defaults to `NONE`.
+    Defaults to `NAME`.
 * - `deletion_vectors_enabled`
   - Enables deletion vectors.
 :::
