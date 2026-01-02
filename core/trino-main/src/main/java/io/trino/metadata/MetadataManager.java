@@ -334,7 +334,18 @@ public final class MetadataManager
         return executeHandle.map(handle -> new TableExecuteHandle(
                 catalogHandle,
                 tableHandle.transaction(),
+                tableHandle.connectorHandle(),
                 handle));
+    }
+
+    @Override
+    public Set<String> getColumnNamesForTableExecute(Session session, TableExecuteHandle tableExecuteHandle)
+    {
+        CatalogHandle catalogHandle = tableExecuteHandle.catalogHandle();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        return metadata.getColumnNamesForTableExecute(session.toConnectorSession(catalogHandle), tableExecuteHandle.tableHandle(), tableExecuteHandle.connectorHandle());
     }
 
     @Override

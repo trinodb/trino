@@ -219,6 +219,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public Set<String> getColumnNamesForTableExecute(ConnectorSession connectorSession, ConnectorTableHandle tableHandle, ConnectorTableExecuteHandle connectorTableExecuteHandle)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getColumnNamesForTableExecute(connectorSession, tableHandle, connectorTableExecuteHandle);
+        }
+    }
+
+    @Override
     public Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
