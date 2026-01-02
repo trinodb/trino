@@ -56,6 +56,7 @@ public class UnnestNode
         this.mappings = ImmutableList.copyOf(mappings);
         this.ordinalitySymbol = requireNonNull(ordinalitySymbol, "ordinalitySymbol is null");
         this.joinType = requireNonNull(joinType, "joinType is null");
+        checkArgument(joinType != JoinType.ASOF && joinType != JoinType.ASOF_LEFT, "ASOF joins are not supported for UNNEST");
     }
 
     @Override

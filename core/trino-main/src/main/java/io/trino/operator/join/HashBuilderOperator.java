@@ -77,6 +77,7 @@ public class HashBuilderOperator
         private final List<Integer> hashChannels;
         private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
         private final Optional<Integer> sortChannel;
+        private final boolean sortedPositionLinksDescendingOrder;
         private final List<JoinFilterFunctionFactory> searchFunctionFactories;
         private final PagesIndex.Factory pagesIndexFactory;
 
@@ -97,6 +98,7 @@ public class HashBuilderOperator
                 List<Integer> hashChannels,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
                 Optional<Integer> sortChannel,
+                boolean sortedPositionLinksDescendingOrder,
                 List<JoinFilterFunctionFactory> searchFunctionFactories,
                 int expectedPositions,
                 PagesIndex.Factory pagesIndexFactory,
@@ -115,6 +117,7 @@ public class HashBuilderOperator
             this.hashChannels = ImmutableList.copyOf(requireNonNull(hashChannels, "hashChannels is null"));
             this.filterFunctionFactory = requireNonNull(filterFunctionFactory, "filterFunctionFactory is null");
             this.sortChannel = sortChannel;
+            this.sortedPositionLinksDescendingOrder = sortedPositionLinksDescendingOrder;
             this.searchFunctionFactories = ImmutableList.copyOf(searchFunctionFactories);
             this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
             this.spillEnabled = spillEnabled;
@@ -141,6 +144,7 @@ public class HashBuilderOperator
                     hashChannels,
                     filterFunctionFactory,
                     sortChannel,
+                    sortedPositionLinksDescendingOrder,
                     searchFunctionFactories,
                     expectedPositions,
                     pagesIndexFactory,
@@ -215,6 +219,7 @@ public class HashBuilderOperator
     private final List<Integer> hashChannels;
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
     private final Optional<Integer> sortChannel;
+    private final boolean sortedPositionLinksDescendingOrder;
     private final List<JoinFilterFunctionFactory> searchFunctionFactories;
 
     private final PagesIndex index;
@@ -247,6 +252,7 @@ public class HashBuilderOperator
             List<Integer> hashChannels,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<Integer> sortChannel,
+            boolean sortedPositionLinksDescendingOrder,
             List<JoinFilterFunctionFactory> searchFunctionFactories,
             int expectedPositions,
             PagesIndex.Factory pagesIndexFactory,
@@ -261,6 +267,7 @@ public class HashBuilderOperator
         this.partitionIndex = partitionIndex;
         this.filterFunctionFactory = filterFunctionFactory;
         this.sortChannel = sortChannel;
+        this.sortedPositionLinksDescendingOrder = sortedPositionLinksDescendingOrder;
         this.searchFunctionFactories = searchFunctionFactories;
         this.localUserMemoryContext = new CoarseGrainLocalMemoryContext(operatorContext.localUserMemoryContext(), memorySyncGranularity);
         this.localRevocableMemoryContext = new CoarseGrainLocalMemoryContext(operatorContext.localRevocableMemoryContext(), memorySyncGranularity);
@@ -650,7 +657,7 @@ public class HashBuilderOperator
 
     private LookupSourceSupplier buildLookupSource()
     {
-        LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.of(outputChannels), hashArraySizeSupplier);
+        LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, filterFunctionFactory, sortChannel, sortedPositionLinksDescendingOrder, searchFunctionFactories, Optional.of(outputChannels), hashArraySizeSupplier);
         checkState(lookupSourceSupplier == null, "lookupSourceSupplier is already set");
         this.lookupSourceSupplier = partition;
         return partition;

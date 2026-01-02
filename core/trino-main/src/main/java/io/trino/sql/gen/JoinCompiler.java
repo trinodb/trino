@@ -1004,7 +1004,7 @@ public class JoinCompiler
         {
             this.pagesHashStrategyFactory = pagesHashStrategyFactory;
             try {
-                constructor = joinHashSupplierClass.getConstructor(Session.class, PagesHashStrategy.class, LongArrayList.class, List.class, Optional.class, Optional.class, List.class, HashArraySizeSupplier.class, OptionalInt.class);
+                constructor = joinHashSupplierClass.getConstructor(Session.class, PagesHashStrategy.class, LongArrayList.class, List.class, Optional.class, Optional.class, boolean.class, List.class, HashArraySizeSupplier.class, OptionalInt.class);
             }
             catch (NoSuchMethodException e) {
                 throw new RuntimeException(e);
@@ -1018,12 +1018,13 @@ public class JoinCompiler
                 List<ObjectArrayList<Block>> channels,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
                 Optional<Integer> sortChannel,
+                boolean sortedPositionLinksDescendingOrder,
                 List<JoinFilterFunctionFactory> searchFunctionFactories,
                 HashArraySizeSupplier hashArraySizeSupplier)
         {
             PagesHashStrategy pagesHashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels);
             try {
-                return constructor.newInstance(session, pagesHashStrategy, addresses, channels, filterFunctionFactory, sortChannel, searchFunctionFactories, hashArraySizeSupplier, singleBigintJoinChannel);
+                return constructor.newInstance(session, pagesHashStrategy, addresses, channels, filterFunctionFactory, sortChannel, sortedPositionLinksDescendingOrder, searchFunctionFactories, hashArraySizeSupplier, singleBigintJoinChannel);
             }
             catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);

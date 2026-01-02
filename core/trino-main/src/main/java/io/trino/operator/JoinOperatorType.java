@@ -31,8 +31,8 @@ public class JoinOperatorType
     public static JoinOperatorType ofJoinNodeType(JoinType joinNodeType, boolean outputSingleMatch, boolean waitForBuild)
     {
         return switch (joinNodeType) {
-            case INNER -> innerJoin(outputSingleMatch, waitForBuild);
-            case LEFT -> probeOuterJoin(outputSingleMatch);
+            case INNER, ASOF -> innerJoin(outputSingleMatch, waitForBuild);
+            case LEFT, ASOF_LEFT -> probeOuterJoin(outputSingleMatch);
             case RIGHT -> lookupOuterJoin(waitForBuild);
             case FULL -> fullOuterJoin();
         };

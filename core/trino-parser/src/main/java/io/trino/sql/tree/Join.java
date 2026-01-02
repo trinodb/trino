@@ -28,7 +28,13 @@ public class Join
 {
     public enum Type
     {
-        CROSS, INNER, LEFT, RIGHT, FULL, IMPLICIT
+        CROSS, INNER, LEFT, RIGHT, FULL, ASOF, ASOF_LEFT, IMPLICIT;
+
+        @Override
+        public String toString()
+        {
+            return name().replace('_', ' ');
+        }
     }
 
     public Join(Type type, Relation left, Relation right, Optional<JoinCriteria> criteria)

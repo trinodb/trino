@@ -544,7 +544,7 @@ public final class PropertyDerivations
             boolean unordered = spillPossible(session, node.getType());
 
             return switch (node.getType()) {
-                case INNER -> {
+                case INNER, ASOF -> {
                     probeProperties = probeProperties.translate(column -> filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column));
                     buildProperties = buildProperties.translate(column -> filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column));
 
@@ -567,7 +567,7 @@ public final class PropertyDerivations
                             .unordered(unordered)
                             .build();
                 }
-                case LEFT -> ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
+                case LEFT, ASOF_LEFT -> ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
                         .unordered(unordered)
                         .build();
                 case RIGHT -> ActualProperties.builderFrom(buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
@@ -847,6 +847,7 @@ public final class PropertyDerivations
                 case RIGHT, FULL -> ActualProperties.builderFrom(translatedProperties)
                         .local(ImmutableList.of())
                         .build();
+                case ASOF, ASOF_LEFT -> throw new IllegalStateException("ASOF joins are not supported by UNNEST");
             };
         }
 
@@ -926,7 +927,7 @@ public final class PropertyDerivations
             return false;
         }
         return switch (joinType) {
-            case INNER, LEFT -> true;
+            case INNER, LEFT, ASOF, ASOF_LEFT -> true;
             // Even though join might not have "spillable" property set yet
             // it might still be set as spillable later on by AddLocalExchanges.
             case RIGHT, FULL -> false; // Currently there is no spill support for outer on the build side.
