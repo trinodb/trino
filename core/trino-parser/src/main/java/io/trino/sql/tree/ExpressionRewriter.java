@@ -270,7 +270,7 @@ public class ExpressionRewriter<C>
         return rewriteExpression(node, context, treeRewriter);
     }
 
-    public Expression rewriteIntervalDayTimeDataType(IntervalDayTimeDataType node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    public Expression rewriteIntervalDayTimeDataType(IntervalDataType node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
     }
