@@ -75,8 +75,7 @@ public final class ExecuteProcedure
 
     public void doExecute(ConnectorSession session, String query)
     {
-        try (Connection connection = jdbcClient.getConnection(session)) {
-            connection.setReadOnly(false);
+        try (Connection connection = jdbcClient.getConnection(session, false)) {
             try (Statement statement = connection.createStatement()) {
                 //noinspection SqlSourceToSinkFlow
                 statement.executeUpdate(query);

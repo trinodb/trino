@@ -18,6 +18,7 @@ import jakarta.annotation.PreDestroy;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Properties;
 
 @FunctionalInterface
 public interface ConnectionFactory
@@ -25,6 +26,12 @@ public interface ConnectionFactory
 {
     Connection openConnection(ConnectorSession session)
             throws SQLException;
+
+    default Connection openConnection(ConnectorSession session, Properties properties)
+            throws SQLException
+    {
+        return openConnection(session);
+    }
 
     @Override
     @PreDestroy

@@ -22,6 +22,7 @@ import org.weakref.jmx.Nested;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Properties;
 
 import static java.util.Objects.requireNonNull;
 
@@ -43,6 +44,13 @@ public class StatisticsAwareConnectionFactory
             throws SQLException
     {
         return openConnection.wrap(() -> delegate.openConnection(session));
+    }
+
+    @Override
+    public Connection openConnection(ConnectorSession session, Properties properties)
+            throws SQLException
+    {
+        return openConnection.wrap(() -> delegate.openConnection(session, properties));
     }
 
     @Override

@@ -17,6 +17,7 @@ import io.trino.spi.connector.ConnectorSession;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Properties;
 
 import static java.util.Objects.requireNonNull;
 
@@ -36,7 +37,19 @@ public final class ConfiguringConnectionFactory
     public Connection openConnection(ConnectorSession session)
             throws SQLException
     {
-        Connection connection = delegate.openConnection(session);
+        return configureConnection(delegate.openConnection(session));
+    }
+
+    @Override
+    public Connection openConnection(ConnectorSession session, Properties properties)
+            throws SQLException
+    {
+        return configureConnection(delegate.openConnection(session, properties));
+    }
+
+    private Connection configureConnection(Connection connection)
+            throws SQLException
+    {
         try {
             configurator.configure(connection);
         }

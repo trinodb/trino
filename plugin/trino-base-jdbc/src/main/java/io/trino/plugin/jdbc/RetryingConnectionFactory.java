@@ -21,6 +21,7 @@ import io.trino.spi.connector.ConnectorSession;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Properties;
 
 import static java.util.Objects.requireNonNull;
 
@@ -44,6 +45,22 @@ public class RetryingConnectionFactory
         try {
             return Failsafe.with(retryPolicy)
                     .get(() -> delegate.openConnection(session));
+        }
+        catch (FailsafeException ex) {
+            if (ex.getCause() instanceof SQLException) {
+                throw (SQLException) ex.getCause();
+            }
+            throw ex;
+        }
+    }
+
+    @Override
+    public Connection openConnection(ConnectorSession session, Properties properties)
+            throws SQLException
+    {
+        try {
+            return Failsafe.with(retryPolicy)
+                    .get(() -> delegate.openConnection(session, properties));
         }
         catch (FailsafeException ex) {
             if (ex.getCause() instanceof SQLException) {
