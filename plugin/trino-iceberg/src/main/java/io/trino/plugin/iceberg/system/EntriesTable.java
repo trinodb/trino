@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.system;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.util.PageListBuilder;
 import io.trino.spi.block.ArrayBlockBuilder;
@@ -66,6 +67,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
+import static org.apache.iceberg.MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER;
+import static org.apache.iceberg.MetadataColumns.ROW_ID;
 import static org.apache.iceberg.MetadataTableType.ALL_ENTRIES;
 import static org.apache.iceberg.MetadataTableType.ENTRIES;
 
@@ -89,7 +92,12 @@ public class EntriesTable
                 metadataTableType,
                 executor);
         checkArgument(metadataTableType == ALL_ENTRIES || metadataTableType == ENTRIES, "Unexpected metadata table type: %s", metadataTableType);
-        idToTypeMapping = primitiveFieldTypes(icebergTable.schema());
+        idToTypeMapping = ImmutableMap.<Integer, PrimitiveType>builder()
+                .putAll(primitiveFieldTypes(icebergTable.schema()))
+                // Row id and last updated sequence number may be written to v3 file, so we need to have a type mapping for them
+                .put(ROW_ID.fieldId(), (PrimitiveType) ROW_ID.type())
+                .put(LAST_UPDATED_SEQUENCE_NUMBER.fieldId(), (PrimitiveType) LAST_UPDATED_SEQUENCE_NUMBER.type())
+                .buildOrThrow();
         primitiveFields = IcebergUtil.primitiveFields(icebergTable.schema()).stream()
                 .sorted(Comparator.comparing(NestedField::name))
                 .collect(toImmutableList());
