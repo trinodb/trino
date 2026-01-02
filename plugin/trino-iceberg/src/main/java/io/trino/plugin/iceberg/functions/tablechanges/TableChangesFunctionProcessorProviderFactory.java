@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.functions.tablechanges;
 
 import com.google.inject.Inject;
 import io.trino.plugin.base.classloader.ClassLoaderSafeTableFunctionSplitProcessor;
+import io.trino.plugin.iceberg.ForIcebergCopyOnWriteTableChangesProcessor;
 import io.trino.plugin.iceberg.IcebergPageSourceProvider;
 import io.trino.plugin.iceberg.IcebergPageSourceProviderFactory;
 import io.trino.spi.connector.ConnectorSession;
@@ -24,27 +25,31 @@ import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.function.table.TableFunctionProcessorProviderFactory;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
 
+import java.util.concurrent.ExecutorService;
+
 import static java.util.Objects.requireNonNull;
 
 public class TableChangesFunctionProcessorProviderFactory
         implements TableFunctionProcessorProviderFactory
 {
     private final IcebergPageSourceProviderFactory icebergPageSourceProviderFactory;
+    private final ExecutorService tableChangesProcessorExecutor;
 
     @Inject
-    public TableChangesFunctionProcessorProviderFactory(IcebergPageSourceProviderFactory icebergPageSourceProviderFactory)
+    public TableChangesFunctionProcessorProviderFactory(IcebergPageSourceProviderFactory icebergPageSourceProviderFactory, @ForIcebergCopyOnWriteTableChangesProcessor ExecutorService tableChangesProcessorExecutor)
     {
         this.icebergPageSourceProviderFactory = requireNonNull(icebergPageSourceProviderFactory, "icebergPageSourceProviderFactory is null");
+        this.tableChangesProcessorExecutor = requireNonNull(tableChangesProcessorExecutor, "tableChangesProcessorExecutor is null");
     }
 
     @Override
     public TableFunctionProcessorProvider createTableFunctionProcessorProvider()
     {
         IcebergPageSourceProvider pageSourceProvider = (IcebergPageSourceProvider) icebergPageSourceProviderFactory.createPageSourceProvider();
-        return new TableChangesFunctionProcessorProvider(pageSourceProvider);
+        return new TableChangesFunctionProcessorProvider(pageSourceProvider, tableChangesProcessorExecutor);
     }
 
-    private record TableChangesFunctionProcessorProvider(IcebergPageSourceProvider icebergPageSourceProvider)
+    private record TableChangesFunctionProcessorProvider(IcebergPageSourceProvider icebergPageSourceProvider, ExecutorService tableChangesProcessorExecutor)
             implements TableFunctionProcessorProvider
     {
         @Override
@@ -55,7 +60,8 @@ public class TableChangesFunctionProcessorProviderFactory
                             session,
                             (TableChangesFunctionHandle) handle,
                             (TableChangesSplit) split,
-                            icebergPageSourceProvider),
+                            icebergPageSourceProvider,
+                            tableChangesProcessorExecutor),
                     getClass().getClassLoader());
         }
     }

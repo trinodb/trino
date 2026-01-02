@@ -40,6 +40,7 @@ public class IcebergExecutorModule
         closingBinder(binder).registerExecutor(Key.get(ListeningExecutorService.class, ForIcebergSplitSource.class));
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergSplitManager.class));
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergPlanning.class));
+        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergCopyOnWriteTableChangesProcessor.class));
     }
 
     @Singleton
@@ -95,5 +96,18 @@ public class IcebergExecutorModule
         return newFixedThreadPool(
                 config.getFileDeleteThreads(),
                 daemonThreadsNamed("iceberg-file-delete-" + catalogName + "-%s"));
+    }
+
+    @Provides
+    @Singleton
+    @ForIcebergCopyOnWriteTableChangesProcessor
+    public ExecutorService createIcebergCopyOnWriteTableChangesExecutor(CatalogName catalogName, IcebergConfig config)
+    {
+        if (config.getPlanningThreads() == 0) {
+            return newDirectExecutorService();
+        }
+        return newFixedThreadPool(
+                config.getTableChangesProcessorThreads(),
+                daemonThreadsNamed("iceberg-copy-on-write-table-changes-" + catalogName + "-%s"));
     }
 }

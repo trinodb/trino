@@ -2200,6 +2200,49 @@ public class TestIcebergSparkCompatibility
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testTableChangesForCopyOnWriteTables(StorageFormat storageFormat)
+    {
+        String baseTableName = toLowerCase("test_table_changes_" + storageFormat + randomNameSuffix());
+        String sparkTableName = sparkTableName(baseTableName);
+
+        String snapshotTrinoTableName = trinoTableName("\"" + baseTableName + "$snapshots\"");
+
+        onSpark().executeQuery(format(
+                "CREATE TABLE %s (" +
+                "x BIGINT, " +
+                "y STRING, " +
+                "part STRING) "
+                + " USING ICEBERG"
+                + " TBLPROPERTIES ('write.format.default' = '%s', 'write.delete.mode' = 'copy-on-write')",
+                sparkTableName,
+                storageFormat));
+
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (5, 'a', 'p1'), (4, 'b', 'p1')");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (5, 'a', 'p2'), (4, 'b', 'p2')");
+
+        long snapshotAfterInsert = getCurrentSnapshotId(snapshotTrinoTableName);
+
+        onSpark().executeQuery("UPDATE " + sparkTableName + " SET y = 'updated' WHERE x = 5");
+
+        long snapshotAfterUpdate = getCurrentSnapshotId(snapshotTrinoTableName);
+
+        assertThat(onTrino().executeQuery("SELECT x, y, _change_type, _change_version_id, _change_ordinal " +
+                                          "FROM TABLE(iceberg.system.table_changes('%s', '%s', %s, %s))".formatted(TEST_SCHEMA_NAME, baseTableName, snapshotAfterInsert, snapshotAfterUpdate)))
+                .containsOnly(
+                        row(5, "a", "delete", snapshotAfterUpdate, 0),
+                        row(5, "a", "delete", snapshotAfterUpdate, 0),
+                        row(5, "updated", "insert", snapshotAfterUpdate, 0),
+                        row(5, "updated", "insert", snapshotAfterUpdate, 0));
+    }
+
+    private long getCurrentSnapshotId(String snapshotsTableName)
+    {
+        List<?> row = onTrino().executeQuery("SELECT snapshot_id FROM " + snapshotsTableName + " ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES").row(0);
+        assertThat(row).hasSize(1);
+        return ((Long) row.getFirst()).longValue();
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
     public void testSparkReadsTrinoTableAfterCleaningUp(StorageFormat storageFormat)
     {
         String baseTableName = toLowerCase("test_spark_reads_trino_partitioned_table_after_expiring_snapshots" + storageFormat);
