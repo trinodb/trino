@@ -120,9 +120,8 @@ class TestLocalTimestamp
         assertLocalTimestamp(Instant.ofEpochSecond(baseSeconds, 999_999_999), 4, baseZonedMicros + 1_000_000);
         assertLocalTimestamp(Instant.ofEpochSecond(baseSeconds, 999_999_999), 5, baseZonedMicros + 1_000_000);
         assertLocalTimestamp(Instant.ofEpochSecond(baseSeconds, 999_999_999), 6, baseZonedMicros + 1_000_000);
-        // TODO (https://github.com/trinodb/trino/issues/27807) this currently fails
-//        assertLocalTimestamp(Instant.ofEpochSecond(baseSeconds, 999_999_999), 7, addNanos(baseZonedLong, 1_000_000_000));
-//        assertLocalTimestamp(Instant.ofEpochSecond(baseSeconds, 999_999_999), 8, addNanos(baseZonedLong, 1_000_000_000));
+        assertLocalTimestamp(Instant.ofEpochSecond(baseSeconds, 999_999_999), 7, addNanos(baseZonedLong, 1_000_000_000));
+        assertLocalTimestamp(Instant.ofEpochSecond(baseSeconds, 999_999_999), 8, addNanos(baseZonedLong, 1_000_000_000));
         assertLocalTimestamp(Instant.ofEpochSecond(baseSeconds, 999_999_999), 9, addNanos(baseZonedLong, 999_999_999));
         assertLocalTimestamp(Instant.ofEpochSecond(baseSeconds, 999_999_999), 10, addNanos(baseZonedLong, 999_999_999));
         assertLocalTimestamp(Instant.ofEpochSecond(baseSeconds, 999_999_999), 11, addNanos(baseZonedLong, 999_999_999));
