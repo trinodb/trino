@@ -20,3 +20,6 @@ updates:
       exclude:
         - io.airlift:*
         - io.trino:*
+    ignore:
+      # Airbase and Airlift are best updated together. Update Airbase only when updating Airlift.
+      - dependency-name: "io.airlift:airbase"
