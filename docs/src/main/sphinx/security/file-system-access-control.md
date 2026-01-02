@@ -906,7 +906,7 @@ These table functions can be used to access or modify the underlying data of
 the catalog.
 
 The following example allows the `admin` user to execute `system.query` table function from
-any catalog, and all users to create, drop, and execute functions (including from views)
+this catalog, and all users to create, drop, and execute functions (including from views)
 in the `function` schema of this catalog:
 
 ```json
