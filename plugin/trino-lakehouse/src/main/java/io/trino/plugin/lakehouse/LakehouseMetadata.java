@@ -183,6 +183,12 @@ public class LakehouseMetadata
     }
 
     @Override
+    public Set<ColumnHandle> getColumnHandlesForTableExecute(ConnectorSession connectorSession, ConnectorTableHandle tableHandle, ConnectorTableExecuteHandle connectorTableExecuteHandle)
+    {
+        return forHandle(tableHandle).getColumnHandlesForTableExecute(connectorSession, tableHandle, connectorTableExecuteHandle);
+    }
+
+    @Override
     public Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         return forHandle(tableExecuteHandle).getLayoutForTableExecute(session, tableExecuteHandle);
