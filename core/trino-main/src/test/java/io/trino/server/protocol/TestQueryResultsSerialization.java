@@ -44,7 +44,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestQueryResultsSerialization
 {
-    private static final List<Column> COLUMNS = ImmutableList.of(new Column("_col0", BIGINT, new ClientTypeSignature("bigint")));
+    private static final List<Column> COLUMNS = ImmutableList.of(new Column("_cat0", "_sch0", "_tab0", "_col0", "_lab0", BIGINT, new ClientTypeSignature("bigint")));
 
     // As close as possible to the server mapper (client mapper differs)
     private static final JsonCodec<QueryResults> SERVER_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
@@ -63,7 +63,11 @@ public class TestQueryResultsSerialization
                   "id" : "20160128_214710_00012_rk68b",
                   "infoUri" : "http://coordinator/query.html?20160128_214710_00012_rk68b",
                   "columns" : [ {
+                    "catalog" : "_cat0",
+                    "schema" : "_sch0",
+                    "table" : "_tab0",
                     "name" : "_col0",
+                    "label" : "_lab0",
                     "type" : "bigint",
                     "typeSignature" : {
                       "rawType" : "bigint",
@@ -143,7 +147,11 @@ public class TestQueryResultsSerialization
                     "id" : "20160128_214710_00012_rk68b",
                     "infoUri" : "http://coordinator/query.html?20160128_214710_00012_rk68b",
                     "columns" : [ {
+                      "catalog" : "_cat0",
+                      "schema" : "_sch0",
+                      "table" : "_tab0",
                       "name" : "_col0",
+                      "label" : "_lab0",
                       "type" : "bigint",
                       "typeSignature" : {
                         "rawType" : "bigint",
@@ -187,7 +195,7 @@ public class TestQueryResultsSerialization
                 URI.create("http://coordinator/query.html?20160128_214710_00012_rk68b"),
                 null,
                 null,
-                ImmutableList.of(new Column("_col0", BIGINT, new ClientTypeSignature(BIGINT))),
+                ImmutableList.of(new Column("_cat0", "_sch0", "_tab0", "_col0", "_lab0", BIGINT, new ClientTypeSignature(BIGINT))),
                 data,
                 StatementStats.builder()
                         .setState("FINISHED")
