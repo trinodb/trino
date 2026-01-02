@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>334</version>
+        <version>335</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -182,7 +182,9 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>387</dep.airlift.version>
+        <dep.airlift.version>390</dep.airlift.version>
+        <!-- TODO (https://github.com/trinodb/trino/issues/27825) temporary downgrade -->
+        <dep.jmxutils.version>1.26</dep.jmxutils.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.1</dep.avro.version>
@@ -2478,6 +2480,12 @@
                     <artifactId>maven-enforcer-plugin</artifactId>
                     <configuration>
                         <rules>
+                            <requireUpperBoundDeps>
+                                <excludes combine.children="append">
+                                    <!-- TODO (https://github.com/trinodb/trino/issues/27825) update separately -->
+                                    <exclude>org.weakref:jmxutils</exclude>
+                                </excludes>
+                            </requireUpperBoundDeps>
                             <bannedDependencies>
                                 <excludes combine.children="append">
                                     <!-- We don't use log4j2, additionally versions < 2.15.0 are vulnerable to the RCE Log4Shell (CVE-2021-44228) -->
