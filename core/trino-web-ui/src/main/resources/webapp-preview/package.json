@@ -12,8 +12,9 @@
     "preview": "vite preview",
     "prettier:format": "prettier --write \"./src/**/*.{ts,tsx}\"",
     "prettier:check": "prettier --check \"./src/**/*.{ts,tsx}\"",
-    "check": "npm install && npm run lint && npm run prettier:check",
-    "check:clean": "npm clean-install && npm run lint && npm run prettier:check"
+    "check": "npm install && npm run lint && npm run prettier:check && npm run check:licenses",
+    "check:clean": "npm clean-install && npm run lint && npm run prettier:check",
+    "check:licenses": "if grep -q -i '\"license\": \"AGPL-' package-lock.json ; then echo '\\033[0;31mAGPL license found in package-lock.json'; fi"
   },
   "dependencies": {
     "@dagrejs/dagre": "^1.1.5",
