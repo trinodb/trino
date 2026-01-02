@@ -353,9 +353,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionConsumer)
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionCollector)
     {
-        return stats.getBeginCreateTable().wrap(() -> delegate().beginCreateTable(session, tableMetadata, rollbackActionConsumer));
+        return stats.getBeginCreateTable().wrap(() -> delegate().beginCreateTable(session, tableMetadata, rollbackActionCollector));
     }
 
     @Override
@@ -381,10 +381,10 @@ public final class StatisticsAwareJdbcClient
             ConnectorSession session,
             JdbcTableHandle handle,
             Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
-            Consumer<Runnable> rollbackActionConsumer,
+            Consumer<Runnable> rollbackActionCollector,
             RetryMode retryMode)
     {
-        return stats.getBeginMergeTable().wrap(() -> delegate().beginMerge(session, handle, updateColumnHandles, rollbackActionConsumer, retryMode));
+        return stats.getBeginMergeTable().wrap(() -> delegate().beginMerge(session, handle, updateColumnHandles, rollbackActionCollector, retryMode));
     }
 
     @Override

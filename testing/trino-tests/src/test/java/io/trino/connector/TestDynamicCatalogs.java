@@ -37,7 +37,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.OptionalLong;
 
 import static io.trino.connector.FileCatalogStore.computeCatalogVersion;
@@ -74,14 +73,14 @@ public class TestDynamicCatalogs
 
         assertQuery(queryRunner, session, "SHOW CATALOGS", h2QueryRunner, "VALUES 'healthy_catalog', 'system'", false, false);
 
-        assertUpdate(queryRunner, session, "CREATE CATALOG %s USING memory WITH (\"memory.max-data-per-node\" = '128MB')".formatted(catalogName), OptionalLong.empty(), Optional.empty());
+        assertUpdate(queryRunner, session, "CREATE CATALOG %s USING memory WITH (\"memory.max-data-per-node\" = '128MB')".formatted(catalogName), OptionalLong.empty());
         assertQuery(queryRunner, session, "SHOW CATALOGS", h2QueryRunner, "VALUES 'healthy_catalog', '" + catalogName + "', 'system'", false, false);
 
-        assertUpdate(queryRunner, session, "CREATE TABLE %s.default.test_table (age INT)".formatted(catalogName), OptionalLong.empty(), Optional.empty());
-        assertUpdate(queryRunner, session, "INSERT INTO %s.default.test_table VALUES (10)".formatted(catalogName), OptionalLong.of(1), Optional.empty());
+        assertUpdate(queryRunner, session, "CREATE TABLE %s.default.test_table (age INT)".formatted(catalogName), OptionalLong.empty());
+        assertUpdate(queryRunner, session, "INSERT INTO %s.default.test_table VALUES (10)".formatted(catalogName), OptionalLong.of(1));
         assertQuery(queryRunner, session, "SELECT * FROM %s.default.test_table".formatted(catalogName), h2QueryRunner, "VALUES (10)", false, false);
 
-        assertUpdate(queryRunner, session, "DROP CATALOG " + catalogName, OptionalLong.empty(), Optional.empty());
+        assertUpdate(queryRunner, session, "DROP CATALOG " + catalogName, OptionalLong.empty());
         assertQuery(queryRunner, session, "SHOW CATALOGS", h2QueryRunner, "VALUES 'healthy_catalog', 'system'", false, false);
     }
 
@@ -109,7 +108,7 @@ public class TestDynamicCatalogs
         assertQueryFails(queryRunner, session, "SELECT * FROM %s.default.test_table".formatted(BROKEN_CATALOG), ".*Catalog '%s' failed to initialize and is disabled.*".formatted(BROKEN_CATALOG));
         assertQueryFails(queryRunner, session, "CREATE CATALOG %s USING memory WITH (\"memory.max-data-per-node\" = '128MB')".formatted(BROKEN_CATALOG), ".*Catalog '%s' already exists.*".formatted(BROKEN_CATALOG));
 
-        assertUpdate(queryRunner, session, "DROP CATALOG " + BROKEN_CATALOG, OptionalLong.empty(), Optional.empty());
+        assertUpdate(queryRunner, session, "DROP CATALOG " + BROKEN_CATALOG, OptionalLong.empty());
         assertQuery(queryRunner, session, "SHOW CATALOGS", h2QueryRunner, "VALUES 'healthy_catalog', 'system'", false, false);
     }
 
@@ -133,11 +132,11 @@ public class TestDynamicCatalogs
         H2QueryRunner h2QueryRunner = new H2QueryRunner();
 
         assertQuery(queryRunner, session, "SHOW CATALOGS", h2QueryRunner, "VALUES 'healthy_catalog', '" + PREPOPULATED_CATALOG + "', 'system'", false, false);
-        assertUpdate(queryRunner, session, "CREATE TABLE %s.default.test_table (age INT)".formatted(PREPOPULATED_CATALOG), OptionalLong.empty(), Optional.empty());
+        assertUpdate(queryRunner, session, "CREATE TABLE %s.default.test_table (age INT)".formatted(PREPOPULATED_CATALOG), OptionalLong.empty());
         assertQueryReturnsEmptyResult(queryRunner, session, "SELECT * FROM %s.default.test_table".formatted(PREPOPULATED_CATALOG));
         assertQueryFails(queryRunner, session, "CREATE CATALOG %s USING memory WITH (\"memory.max-data-per-node\" = '128MB')".formatted(PREPOPULATED_CATALOG), ".*Catalog '%s' already exists.*".formatted(PREPOPULATED_CATALOG));
 
-        assertUpdate(queryRunner, session, "DROP CATALOG " + PREPOPULATED_CATALOG, OptionalLong.empty(), Optional.empty());
+        assertUpdate(queryRunner, session, "DROP CATALOG " + PREPOPULATED_CATALOG, OptionalLong.empty());
         assertQuery(queryRunner, session, "SHOW CATALOGS", h2QueryRunner, "VALUES 'healthy_catalog', 'system'", false, false);
     }
 
