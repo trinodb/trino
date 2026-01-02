@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
+import io.trino.plugin.iceberg.TrinoRow;
 import io.trino.plugin.iceberg.delete.DeleteManager.DeletePageSourceProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
