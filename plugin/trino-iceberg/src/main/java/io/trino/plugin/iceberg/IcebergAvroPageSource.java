@@ -32,15 +32,19 @@ import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergAvroDataConversion.serializeToTrinoBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER;
+import static org.apache.iceberg.MetadataColumns.ROW_ID;
 
 public class IcebergAvroPageSource
         implements ConnectorPageSource
@@ -67,6 +71,8 @@ public class IcebergAvroPageSource
             List<String> columnNames,
             List<Type> columnTypes,
             boolean appendRowNumberColumn,
+            OptionalLong fileFirstRowId,
+            long dataSequenceNumber,
             AggregatedMemoryContext memoryUsage)
     {
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
@@ -77,11 +83,19 @@ public class IcebergAvroPageSource
                 columnNames.size() == columnTypes.size(),
                 "names and types must correspond one-to-one-to-one");
 
+        // Build idToConstant map for row lineage columns so PlannedDataReader can properly
+        // skip these fields when they exist in the file but are not being projected
+        Map<Integer, Object> idToConstant = new HashMap<>();
+        if (fileFirstRowId.isPresent()) {
+            idToConstant.put(ROW_ID.fieldId(), fileFirstRowId.getAsLong());
+            idToConstant.put(LAST_UPDATED_SEQUENCE_NUMBER.fieldId(), dataSequenceNumber);
+        }
+
         // The column orders in the generated schema might be different from the original order
         Schema readSchema = fileSchema.select(columnNames);
         Avro.ReadBuilder builder = Avro.read(file)
                 .project(readSchema)
-                .createReaderFunc(_ -> PlannedDataReader.create(readSchema))
+                .createReaderFunc(_ -> PlannedDataReader.create(readSchema, idToConstant))
                 .split(start, length);
         nameMapping.ifPresent(builder::withNameMapping);
         AvroIterable<Record> avroReader = builder.build();

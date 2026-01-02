@@ -229,19 +229,78 @@ public class TestIcebergV3
     }
 
     @Test
-    void testOptimizeV3TableFails()
+    void testOptimizePreservesRowLineage()
     {
-        String tableName = "test_optimize_v3_fails_" + randomNameSuffix();
+        String tableName = "test_optimize_preserves_row_lineage_" + randomNameSuffix();
 
-        // Small table, created through Trino
-        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 3) AS " +
-                "SELECT nationkey, name FROM tpch.tiny.nation", 25);
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, v VARCHAR) WITH (format = 'PARQUET', format_version = 3)");
 
-        // OPTIMIZE must fail for v3
-        assertThat(query("ALTER TABLE " + tableName + " EXECUTE optimize"))
-                .failure()
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessageContaining("OPTIMIZE is not supported for Iceberg table format version > 2");
+        // Two inserts to reliably create multiple files so OPTIMIZE actually rewrites something.
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4, 'd'), (5, 'e')", 2);
+
+        BaseTable table = loadTable(tableName);
+        table.refresh();
+        long beforeOptimizeSnapshotId = table.currentSnapshot().snapshotId();
+
+        // Before: row_id materialized (no nulls), unique, and we have > 1 data file.
+        assertThat(query(
+                "SELECT " +
+                        "  count(*) AS row_count, " +
+                        "  count_if(\"$row_id\" IS NULL) AS row_id_nulls, " +
+                        "  count(DISTINCT \"$row_id\") AS distinct_row_id, " +
+                        "  count(DISTINCT \"$last_updated_sequence_number\") AS distinct_last_updated_sequence_number, " +
+                        "  count(DISTINCT \"$path\") AS distinct_data_files " +
+                        "FROM " + tableName + " FOR VERSION AS OF " + beforeOptimizeSnapshotId))
+                .matches("VALUES (BIGINT '5', BIGINT '0', BIGINT '5', BIGINT '2', BIGINT '2')");
+
+        // Run OPTIMIZE (threshold large so all our tiny files qualify).
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize (file_size_threshold => '1GB')");
+
+        table.refresh();
+        long afterOptimizeSnapshotId = table.currentSnapshot().snapshotId();
+        assertThat(afterOptimizeSnapshotId).isNotEqualTo(beforeOptimizeSnapshotId);
+
+        // After:
+        // still 5 rows
+        // row_id still unique
+        // row lineage preserved ($row_id and $last_updated_sequence_number match before/after)
+        assertThat(query(
+                "SELECT " +
+                        "  count(*) AS rows, " +
+                        "  count(DISTINCT a.\"$row_id\") AS distinct_row_id, " +
+                        "  count(DISTINCT a.\"$last_updated_sequence_number\") AS distinct_last_updated_sequence_number, " +
+                        "  count_if(b.\"$path\" <> a.\"$path\") AS moved, " +
+                        "  count_if(b.\"$row_id\" = a.\"$row_id\" AND b.\"$last_updated_sequence_number\" = a.\"$last_updated_sequence_number\") AS lineage_ok " +
+                        "FROM " + tableName + " FOR VERSION AS OF " + beforeOptimizeSnapshotId + " b " +
+                        "FULL OUTER JOIN " + tableName + " FOR VERSION AS OF " + afterOptimizeSnapshotId + " a USING (id)"))
+                .matches("VALUES (BIGINT '5', BIGINT '5',  BIGINT '2', BIGINT '5', BIGINT '5')");
+
+        // Append again after optimize; existing row_ids should remain stable and new rows get new ids.
+        assertUpdate("INSERT INTO " + tableName + " VALUES (6, 'f'), (7, 'g')", 2);
+
+        table.refresh();
+        long afterAppendSnapshotId = table.currentSnapshot().snapshotId();
+
+        // Now 7 rows, no null row_ids, and still unique
+        assertThat(query(
+                "SELECT " +
+                        "  count(*) AS row_count, " +
+                        "  count_if(\"$row_id\" IS NULL) AS row_id_nulls, " +
+                        "  count(DISTINCT \"$row_id\") AS distinct_row_id, " +
+                        "  count(DISTINCT \"$last_updated_sequence_number\") AS distinct_last_updated_sequence_number " +
+                        "FROM " + tableName + " FOR VERSION AS OF " + afterAppendSnapshotId))
+                .matches("VALUES (BIGINT '7', BIGINT '0', BIGINT '7', BIGINT '3')");
+
+        // Existing rows keep their row_id and LUSN across a pure append.
+        assertThat(query(
+                "SELECT count(*) = count_if(" +
+                        "  o.\"$row_id\" = n.\"$row_id\" AND " +
+                        "  o.\"$last_updated_sequence_number\" = n.\"$last_updated_sequence_number\") " +
+                        "FROM " + tableName + " FOR VERSION AS OF " + afterOptimizeSnapshotId + " o " +
+                        "JOIN " + tableName + " FOR VERSION AS OF " + afterAppendSnapshotId + " n USING (id) " +
+                        "WHERE id <= 5"))
+                .matches("VALUES (BOOLEAN 'true')");
 
         assertUpdate("DROP TABLE " + tableName);
     }
