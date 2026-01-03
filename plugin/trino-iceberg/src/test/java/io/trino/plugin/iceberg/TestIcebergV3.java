@@ -40,15 +40,25 @@ import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.data.GenericRecord;
+import org.apache.iceberg.data.Record;
+import org.apache.iceberg.data.parquet.GenericParquetWriter;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.hadoop.HadoopTables;
+import org.apache.iceberg.io.DataWriter;
+import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Comparator;
+import java.util.List;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
@@ -57,6 +67,7 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.apache.iceberg.Files.localInput;
+import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
@@ -200,6 +211,185 @@ public class TestIcebergV3
                 .hasMessageContaining("OPTIMIZE is not supported for Iceberg table format version > 2");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testTimestampNano()
+            throws IOException
+    {
+        String tableName = "test_timestamp_nano_" + randomNameSuffix();
+        Path tableLocation = dataDirectory.resolve(tableName);
+
+        // Create table with timestamp_nano column using Iceberg API
+        Schema schema = new Schema(
+                Types.NestedField.required(1, "id", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "ts_nano", Types.TimestampNanoType.withoutZone()));
+
+        Table table = new HadoopTables(new Configuration(false)).create(
+                schema,
+                PartitionSpec.unpartitioned(),
+                SortOrder.unsorted(),
+                ImmutableMap.of(FORMAT_VERSION, "3"),
+                tableLocation.toString());
+
+        // Write data with nanosecond precision
+        String dataPath = tableLocation.resolve("data")
+                .resolve("data-" + UUID.randomUUID() + ".parquet")
+                .toString();
+        try (DataWriter<Record> writer = Parquet.writeData(table.io().newOutputFile(dataPath))
+                .forTable(table)
+                .withSpec(table.spec())
+                .withPartition(null)
+                .createWriterFunc(GenericParquetWriter::create)
+                .build()) {
+            Record record = GenericRecord.create(schema);
+            record.setField("id", 1);
+            // 2024-01-15 12:30:45.123456789
+            record.setField("ts_nano", LocalDateTime.of(2024, 1, 15, 12, 30, 45, 123456789));
+            writer.write(record);
+            writer.close();
+
+            table.newFastAppend()
+                    .appendFile(writer.toDataFile())
+                    .commit();
+        }
+
+        // Register table in Trino and verify
+        String registered = "registered_timestamp_nano_" + randomNameSuffix();
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(registered, tableLocation));
+
+        assertThat(query("SELECT id, ts_nano FROM " + registered))
+                .matches("VALUES (1, TIMESTAMP '2024-01-15 12:30:45.123456789')");
+
+        assertUpdate("DROP TABLE " + registered);
+        deleteRecursively(tableLocation);
+    }
+
+    @Test
+    void testTrinoTimestampNano()
+    {
+        for (String format : List.of("PARQUET", "ORC", "AVRO")) {
+            String tableName = "test_trino_timestamp_nano_" + randomNameSuffix();
+
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, ts_nano TIMESTAMP(9)) WITH (format_version = 3, format = '" + format + "')");
+
+            // Insert with full nanosecond precision
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, TIMESTAMP '2024-01-15 12:30:45.123456789')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, TIMESTAMP '2024-06-30 23:59:59.999999999')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, NULL)", 1);
+
+            // Verify data is read back correctly with nanosecond precision preserved
+            assertThat(query("SELECT id, ts_nano FROM " + tableName + " ORDER BY id"))
+                    .matches("VALUES " +
+                            "(INTEGER '1', TIMESTAMP '2024-01-15 12:30:45.123456789'), " +
+                            "(INTEGER '2', TIMESTAMP '2024-06-30 23:59:59.999999999'), " +
+                            "(INTEGER '3', NULL)");
+
+            // Test that nanosecond precision differences are preserved
+            assertUpdate("INSERT INTO " + tableName + " VALUES (4, TIMESTAMP '2024-01-15 12:30:45.123456780')", 1);
+
+            // Verify all rows including the one with different nanosecond precision
+            assertThat(query("SELECT id, ts_nano FROM " + tableName + " ORDER BY id"))
+                    .matches("VALUES " +
+                            "(INTEGER '1', TIMESTAMP '2024-01-15 12:30:45.123456789'), " +
+                            "(INTEGER '2', TIMESTAMP '2024-06-30 23:59:59.999999999'), " +
+                            "(INTEGER '3', NULL), " +
+                            "(INTEGER '4', TIMESTAMP '2024-01-15 12:30:45.123456780')");
+
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    void testTimestampNanoWithTimeZone()
+            throws IOException
+    {
+        String tableName = "test_timestamp_nano_tz_" + randomNameSuffix();
+        Path tableLocation = dataDirectory.resolve(tableName);
+
+        // Create table with timestamp_nano (with UTC adjustment) column using Iceberg API
+        Schema schema = new Schema(
+                Types.NestedField.required(1, "id", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "ts_nano_tz", Types.TimestampNanoType.withZone()));
+
+        Table table = new HadoopTables(new Configuration(false)).create(
+                schema,
+                PartitionSpec.unpartitioned(),
+                SortOrder.unsorted(),
+                ImmutableMap.of(FORMAT_VERSION, "3"),
+                tableLocation.toString());
+
+        // Write data with nanosecond precision
+        String dataPath = tableLocation.resolve("data")
+                .resolve("data-" + UUID.randomUUID() + ".parquet")
+                .toString();
+        try (DataWriter<Record> writer = Parquet.writeData(table.io().newOutputFile(dataPath))
+                .forTable(table)
+                .withSpec(table.spec())
+                .withPartition(null)
+                .createWriterFunc(GenericParquetWriter::create)
+                .build()) {
+            Record record = GenericRecord.create(schema);
+            record.setField("id", 1);
+            // 2024-01-15 12:30:45.123456789 UTC
+            record.setField("ts_nano_tz", OffsetDateTime.of(2024, 1, 15, 12, 30, 45, 123456789, ZoneOffset.UTC));
+            writer.write(record);
+            writer.close();
+
+            table.newFastAppend()
+                    .appendFile(writer.toDataFile())
+                    .commit();
+        }
+
+        // Register table in Trino and verify
+        String registered = "registered_timestamp_nano_tz_" + randomNameSuffix();
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(registered, tableLocation));
+
+        assertThat(query("SELECT id, ts_nano_tz FROM " + registered))
+                .matches("VALUES (1, TIMESTAMP '2024-01-15 12:30:45.123456789 UTC')");
+
+        assertUpdate("DROP TABLE " + registered);
+        deleteRecursively(tableLocation);
+    }
+
+    @Test
+    void testTrinoTimestampNanoWithTimeZone()
+    {
+        for (String format : List.of("PARQUET", "ORC", "AVRO")) {
+            String tableName = "test_trino_timestamp_nano_tz_" + randomNameSuffix();
+
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, ts_nano_tz TIMESTAMP(9) WITH TIME ZONE) WITH (format_version = 3, format = '" + format + "')");
+
+            // Insert with full nanosecond precision
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, TIMESTAMP '2024-01-15 12:30:45.123456789 UTC')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, TIMESTAMP '2024-06-30 23:59:59.999999999 UTC')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, NULL)", 1);
+            // Insert with non-UTC timezone - should be normalized to UTC when read back
+            assertUpdate("INSERT INTO " + tableName + " VALUES (4, TIMESTAMP '2024-01-15 18:00:45.123456789 +05:30')", 1);
+
+            // Verify data is read back correctly with nanosecond precision preserved
+            // Note: row 4 was inserted as +05:30 but reads back as UTC
+            assertThat(query("SELECT id, ts_nano_tz FROM " + tableName + " ORDER BY id"))
+                    .matches("VALUES " +
+                            "(INTEGER '1', TIMESTAMP '2024-01-15 12:30:45.123456789 UTC'), " +
+                            "(INTEGER '2', TIMESTAMP '2024-06-30 23:59:59.999999999 UTC'), " +
+                            "(INTEGER '3', NULL), " +
+                            "(INTEGER '4', TIMESTAMP '2024-01-15 12:30:45.123456789 UTC')");
+
+            // Test that nanosecond precision differences are preserved
+            assertUpdate("INSERT INTO " + tableName + " VALUES (5, TIMESTAMP '2024-01-15 12:30:45.123456780 UTC')", 1);
+
+            // Verify all rows including the one with different nanosecond precision
+            assertThat(query("SELECT id, ts_nano_tz FROM " + tableName + " ORDER BY id"))
+                    .matches("VALUES " +
+                            "(INTEGER '1', TIMESTAMP '2024-01-15 12:30:45.123456789 UTC'), " +
+                            "(INTEGER '2', TIMESTAMP '2024-06-30 23:59:59.999999999 UTC'), " +
+                            "(INTEGER '3', NULL), " +
+                            "(INTEGER '4', TIMESTAMP '2024-01-15 12:30:45.123456789 UTC'), " +
+                            "(INTEGER '5', TIMESTAMP '2024-01-15 12:30:45.123456780 UTC')");
+
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     @Test

@@ -15,14 +15,19 @@ package io.trino.plugin.iceberg.util;
 
 import com.google.common.math.LongMath;
 import io.trino.spi.block.Block;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
+import static java.lang.Math.toIntExact;
 import static java.math.RoundingMode.UNNECESSARY;
 
 public final class Timestamps
@@ -45,5 +50,35 @@ public final class Timestamps
     public static LongTimestampWithTimeZone getTimestampTz(Block block, int position)
     {
         return (LongTimestampWithTimeZone) TIMESTAMP_TZ_MICROS.getObject(block, position);
+    }
+
+    // Nano timestamp conversions (local timestamp without timezone)
+
+    public static LongTimestamp timestampFromNanos(long epochNanos)
+    {
+        long epochMicros = floorDiv(epochNanos, NANOSECONDS_PER_MICROSECOND);
+        int picosOfMicro = toIntExact(floorMod(epochNanos, NANOSECONDS_PER_MICROSECOND)) * PICOSECONDS_PER_NANOSECOND;
+        return new LongTimestamp(epochMicros, picosOfMicro);
+    }
+
+    public static long timestampToNanos(LongTimestamp timestamp)
+    {
+        return (timestamp.getEpochMicros() * NANOSECONDS_PER_MICROSECOND) +
+                (timestamp.getPicosOfMicro() / PICOSECONDS_PER_NANOSECOND);
+    }
+
+    // Nano timestamp with timezone conversions (instant, stored as UTC)
+
+    public static LongTimestampWithTimeZone timestampTzFromNanos(long epochNanos)
+    {
+        long epochMillis = floorDiv(epochNanos, NANOSECONDS_PER_MILLISECOND);
+        int picosOfMilli = toIntExact(floorMod(epochNanos, NANOSECONDS_PER_MILLISECOND)) * PICOSECONDS_PER_NANOSECOND;
+        return LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picosOfMilli, UTC_KEY);
+    }
+
+    public static long timestampTzToNanos(LongTimestampWithTimeZone timestamp)
+    {
+        return (timestamp.getEpochMillis() * NANOSECONDS_PER_MILLISECOND) +
+                (timestamp.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND);
     }
 }
