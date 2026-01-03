@@ -284,6 +284,15 @@ public abstract class BaseIcebergConnectorTest
         };
     }
 
+    @Override
+    @Test
+    public void testCreateTableWithDefaultColumn()
+    {
+        String tableName = "test_default_value_" + randomNameSuffix();
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + tableName + " (x int DEFAULT 1)"))
+                .hasMessageContaining("Default column values are not supported for Iceberg table format version < 3");
+    }
+
     @Test
     public void testAddRowFieldCaseInsensitivity()
     {
