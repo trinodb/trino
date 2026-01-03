@@ -177,6 +177,7 @@ import org.apache.iceberg.SortField;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
@@ -392,7 +393,9 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -622,6 +625,7 @@ public class IcebergMetadata
 
         if (endVersion.isPresent()) {
             long snapshotId = getSnapshotIdFromVersion(session, table, endVersion.get());
+            validateTableForTrino(table, Optional.of(snapshotId));
             return tableHandleForSnapshot(
                     session,
                     tableName,
@@ -630,7 +634,42 @@ public class IcebergMetadata
                     schemaFor(table, snapshotId),
                     Optional.empty());
         }
+        validateTableForTrino(table, Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId));
         return tableHandleForCurrentSnapshot(session, tableName, table);
+    }
+
+    // TODO: Remove when Iceberg v3 is fully supported
+    private static void validateTableForTrino(BaseTable table, Optional<Long> tableSnapshotId)
+    {
+        Snapshot snapshot = tableSnapshotId
+                .map(table::snapshot)
+                .orElse(table.currentSnapshot());
+        if (snapshot == null) {
+            // the snapshot does not exist, this is an error that will be handled elsewhere
+            return;
+        }
+
+        TableMetadata metadata = table.operations().current();
+        if (metadata.formatVersion() < 3) {
+            return;
+        }
+
+        Schema schema = metadata.schemasById().get(snapshot.schemaId());
+        if (schema == null) {
+            schema = metadata.schema();
+        }
+
+        // Reject schema default values (initial-default / write-default)
+        for (Types.NestedField field : schema.columns()) {
+            if (field.initialDefault() != null || field.writeDefault() != null) {
+                throw new TrinoException(NOT_SUPPORTED, "Iceberg v3 column default values are not supported");
+            }
+        }
+
+        // Reject Iceberg table encryption
+        if (!metadata.encryptionKeys().isEmpty() || snapshot.keyId() != null) {
+            throw new TrinoException(NOT_SUPPORTED, "Iceberg table encryption is not supported");
+        }
     }
 
     private IcebergTableHandle tableHandleForCurrentSnapshot(ConnectorSession session, SchemaTableName tableName, BaseTable table)
@@ -1246,22 +1285,29 @@ public class IcebergMetadata
     @Override
     public Optional<io.trino.spi.type.Type> getSupportedType(ConnectorSession session, Map<String, Object> tableProperties, io.trino.spi.type.Type type)
     {
-        io.trino.spi.type.Type newType = coerceType(type);
+        int formatVersion = IcebergTableProperties.getFormatVersion(tableProperties);
+        io.trino.spi.type.Type newType = coerceType(type, formatVersion >= 3);
         if (type.equals(newType)) {
             return Optional.empty();
         }
         return Optional.of(newType);
     }
 
-    private io.trino.spi.type.Type coerceType(io.trino.spi.type.Type type)
+    private io.trino.spi.type.Type coerceType(io.trino.spi.type.Type type, boolean nanosAllowed)
     {
         if (type == TINYINT || type == SMALLINT) {
             return INTEGER;
         }
-        if (type instanceof TimestampWithTimeZoneType) {
+        if (type instanceof TimestampWithTimeZoneType timestampTzType) {
+            if (nanosAllowed && timestampTzType.getPrecision() > 6) {
+                return TIMESTAMP_TZ_NANOS;
+            }
             return TIMESTAMP_TZ_MICROS;
         }
-        if (type instanceof TimestampType) {
+        if (type instanceof TimestampType timestampType) {
+            if (nanosAllowed && timestampType.getPrecision() > 6) {
+                return TIMESTAMP_NANOS;
+            }
             return TIMESTAMP_MICROS;
         }
         if (type instanceof TimeType) {
@@ -1271,14 +1317,14 @@ public class IcebergMetadata
             return VARCHAR;
         }
         if (type instanceof ArrayType arrayType) {
-            return new ArrayType(coerceType(arrayType.getElementType()));
+            return new ArrayType(coerceType(arrayType.getElementType(), nanosAllowed));
         }
         if (type instanceof MapType mapType) {
-            return new MapType(coerceType(mapType.getKeyType()), coerceType(mapType.getValueType()), typeManager.getTypeOperators());
+            return new MapType(coerceType(mapType.getKeyType(), nanosAllowed), coerceType(mapType.getValueType(), nanosAllowed), typeManager.getTypeOperators());
         }
         if (type instanceof RowType rowType) {
             return RowType.from(rowType.getFields().stream()
-                    .map(field -> new RowType.Field(field.getName(), coerceType(field.getType())))
+                    .map(field -> new RowType.Field(field.getName(), coerceType(field.getType(), nanosAllowed)))
                     .collect(toImmutableList()));
         }
         return type;
@@ -1689,12 +1735,27 @@ public class IcebergMetadata
 
         Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
 
+        verifyTableVersionForExecute(ADD_FILES, 2, icebergTable);
+
         return Optional.of(new IcebergTableExecuteHandle(
                 tableHandle.getSchemaTableName(),
                 ADD_FILES,
                 new IcebergAddFilesHandle(location, format, recursiveDirectory),
                 icebergTable.location(),
                 icebergTable.io().properties()));
+    }
+
+    private static void verifyTableVersionForExecute(IcebergTableProcedureId icebergTableProcedureId, int maxVersion, Table icebergTable)
+    {
+        int tableFormatVersion = formatVersion(icebergTable);
+        if (tableFormatVersion > maxVersion) {
+            throw new TrinoException(NOT_SUPPORTED, format(
+                    "%s is not supported for Iceberg table format version > %d. Table %s format version is %s.",
+                    icebergTableProcedureId.name(),
+                    maxVersion,
+                    icebergTable.name(),
+                    tableFormatVersion));
+        }
     }
 
     private Optional<ConnectorTableExecuteHandle> getTableHandleForAddFilesFromTable(ConnectorSession session, ConnectorAccessControl accessControl, IcebergTableHandle tableHandle, Map<String, Object> executeProperties)
@@ -1716,6 +1777,8 @@ public class IcebergMetadata
                 .collect(toImmutableSet()));
 
         Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
+
+        verifyTableVersionForExecute(ADD_FILES_FROM_TABLE, OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION, icebergTable);
 
         checkProcedureArgument(
                 icebergTable.schema().columns().size() >= sourceTable.getDataColumns().size(),
@@ -1853,15 +1916,7 @@ public class IcebergMetadata
 
         validateNotModifyingOldSnapshot(table, icebergTable);
 
-        int tableFormatVersion = formatVersion(icebergTable);
-        if (tableFormatVersion > OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION) {
-            throw new TrinoException(NOT_SUPPORTED, format(
-                    "%s is not supported for Iceberg table format version > %d. Table %s format version is %s.",
-                    OPTIMIZE.name(),
-                    OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION,
-                    table.getSchemaTableName(),
-                    tableFormatVersion));
-        }
+        verifyTableVersionForExecute(OPTIMIZE, OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION, icebergTable);
 
         beginTransaction(icebergTable);
 
@@ -3119,8 +3174,12 @@ public class IcebergMetadata
 
     private static void verifyTableVersionForUpdate(IcebergTableHandle table)
     {
-        if (table.getFormatVersion() < 2) {
+        int formatVersion = table.getFormatVersion();
+        if (formatVersion < 2) {
             throw new TrinoException(NOT_SUPPORTED, "Iceberg table updates require at least format version 2");
+        }
+        if (formatVersion > 2) {
+            throw new TrinoException(NOT_SUPPORTED, "Iceberg table updates for format version %s are not supported yet".formatted(formatVersion));
         }
     }
 

@@ -798,6 +798,41 @@ public final class ValueDecoders
         };
     }
 
+    public ValueDecoder<int[]> getInt64TimestampNanosToLongTimestampWithTimeZoneDecoder(ParquetEncoding encoding)
+    {
+        ValueDecoder<long[]> delegate = getLongDecoder(encoding);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(int[] values, int offset, int length)
+            {
+                long[] buffer = new long[length];
+                delegate.read(buffer, 0, length);
+                // decoded values are epochNanos, convert to (packed epochMillisUtc, picosOfMilli)
+                for (int i = 0; i < length; i++) {
+                    long epochNanos = buffer[i];
+                    encodeFixed12(
+                            packDateTimeWithZone(floorDiv(epochNanos, NANOSECONDS_PER_MILLISECOND), UTC_KEY),
+                            floorMod(epochNanos, NANOSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_NANOSECOND,
+                            values,
+                            i + offset);
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
     public ValueDecoder<long[]> getFloatToDoubleDecoder(ParquetEncoding encoding)
     {
         ValueDecoder<int[]> delegate = getRealDecoder(encoding);
