@@ -52,6 +52,7 @@ import jakarta.annotation.Nullable;
 import org.apache.iceberg.BaseFileScanTask;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.ContentFile;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -726,13 +727,29 @@ public class IcebergSplitSource
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),
                 task.deletes().stream()
+                        .peek(df -> verifyDeletionVectorReferencesDataFile(task, df))
                         .map(DeleteFile::fromIceberg)
                         .collect(toImmutableList()),
                 SplitWeight.fromProportion(clamp(getSplitWeight(task), minimumAssignedSplitWeight, 1.0)),
                 taskWithDomain.fileStatisticsDomain(),
                 fileIoProperties,
                 cachingHostAddressProvider.getHosts(getSplitKey(task.file().location(), task.start(), task.length()), ImmutableList.of()),
-                task.file().dataSequenceNumber());
+                task.file().dataSequenceNumber(),
+                Optional.ofNullable(task.file().firstRowId()));
+    }
+
+    private static void verifyDeletionVectorReferencesDataFile(FileScanTask task, org.apache.iceberg.DeleteFile deleteFile)
+    {
+        if (deleteFile.format() != FileFormat.PUFFIN || deleteFile.contentOffset() == null || deleteFile.contentSizeInBytes() == null) {
+            // not a DV blob
+            return;
+        }
+
+        String referenced = deleteFile.referencedDataFile();
+        verify(referenced != null, "Deletion vector is missing referencedDataFile: %s", deleteFile.location());
+
+        verify(referenced.equals(task.file().location()),
+                "Deletion vector referencedDataFile mismatch: referenced=%s dataFile=%s dv=%s", referenced, task.file().location(), deleteFile.location());
     }
 
     private double getSplitWeight(FileScanTask task)

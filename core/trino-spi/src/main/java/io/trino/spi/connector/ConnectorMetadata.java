@@ -51,6 +51,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
@@ -136,6 +137,14 @@ public interface ConnectorMetadata
             RetryMode retryMode)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support table procedures");
+    }
+
+    default Set<String> getColumnNamesForTableExecute(ConnectorSession connectorSession, ConnectorTableHandle tableHandle, ConnectorTableExecuteHandle connectorTableExecuteHandle)
+    {
+        return getTableMetadata(connectorSession, tableHandle).getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .map(ColumnMetadata::getName)
+                .collect(Collectors.toSet());
     }
 
     default Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)

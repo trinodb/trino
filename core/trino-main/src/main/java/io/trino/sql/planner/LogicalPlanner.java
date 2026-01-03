@@ -121,6 +121,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -987,10 +988,6 @@ public class LogicalPlanner
         PlanNode sourcePlanRoot = sourcePlanBuilder.getRoot();
 
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-        List<String> columnNames = tableMetadata.columns().stream()
-                .filter(column -> !column.isHidden()) // todo this filter is redundant
-                .map(ColumnMetadata::getName)
-                .collect(toImmutableList());
 
         TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(
                 executeHandle,
@@ -998,10 +995,26 @@ public class LogicalPlanner
                 tableName.asSchemaTableName(),
                 metadata.getInsertWriterScalingOptions(session, tableHandle));
 
+        Set<String> expectedColumnNames = metadata.getColumnNamesForTableExecute(session, executeHandle);
+
+        RelationType descriptor = tableScanPlan.getDescriptor();
+        List<String> columnNames = new ArrayList<>();
+        List<Symbol> symbols = new ArrayList<>();
+        List<Field> fields = List.copyOf(descriptor.getAllFields());
+        for (int fieldIndex = 0; fieldIndex < fields.size(); fieldIndex++) {
+            Field field = fields.get(fieldIndex);
+            String fieldName = field.getName().orElseThrow();
+            // There is an assumption that the table scan is producing columns in the same order as the table metadata columns
+            String columnName = tableMetadata.columns().get(fieldIndex).getName();
+            verify(fieldName.equals(columnName), "Field name %s does not match column name %s", fieldName, columnName);
+            if (expectedColumnNames.contains(fieldName)) {
+                columnNames.add(fieldName);
+                symbols.add(tableScanPlan.getFieldMappings().get(fieldIndex));
+            }
+        }
+        verify(expectedColumnNames.size() == columnNames.size(), "Expected column names %s do not match actual column names %s", expectedColumnNames, columnNames);
+
         Optional<TableLayout> layout = metadata.getLayoutForTableExecute(session, executeHandle);
-
-        List<Symbol> symbols = visibleFields(tableScanPlan);
-
         // todo extract common method to be used here and in createTableWriterPlan()
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
         if (layout.isPresent()) {
