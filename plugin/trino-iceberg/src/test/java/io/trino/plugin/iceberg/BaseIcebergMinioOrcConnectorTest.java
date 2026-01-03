@@ -168,12 +168,34 @@ public abstract class BaseIcebergMinioOrcConnectorTest
     @Override
     protected Optional<TypeCoercionTestSetup> filterTypeCoercionOnCreateTableAsSelectProvider(TypeCoercionTestSetup setup)
     {
+        TypeCoercionTestSetup adjustedSetup = super.filterTypeCoercionOnCreateTableAsSelectProvider(setup).orElseThrow();
+
         if (setup.sourceValueLiteral().equals("TIMESTAMP '1969-12-31 23:59:59.999999499999'")) {
-            return Optional.of(setup.withNewValueLiteral("TIMESTAMP '1970-01-01 00:00:00.999999'"));
+            return Optional.of(adjustedSetup.withNewValueLiteral(adjustedSetup.newColumnType().equals("timestamp(9)")
+                    ? "TIMESTAMP '1970-01-01 00:00:00.999999500'"
+                    : "TIMESTAMP '1970-01-01 00:00:00.999999'"));
         }
         if (setup.sourceValueLiteral().equals("TIMESTAMP '1969-12-31 23:59:59.9999994'")) {
-            return Optional.of(setup.withNewValueLiteral("TIMESTAMP '1970-01-01 00:00:00.999999'"));
+            return Optional.of(adjustedSetup.withNewValueLiteral(adjustedSetup.newColumnType().equals("timestamp(9)")
+                    ? "TIMESTAMP '1970-01-01 00:00:00.999999400'"
+                    : "TIMESTAMP '1970-01-01 00:00:00.999999'"));
         }
-        return Optional.of(setup);
+        if (setup.sourceValueLiteral().equals("TIMESTAMP '1969-12-31 23:59:59.9999995'") &&
+                adjustedSetup.newColumnType().equals("timestamp(9)")) {
+            return Optional.of(adjustedSetup.withNewValueLiteral("TIMESTAMP '1970-01-01 00:00:00.999999500'"));
+        }
+        if (setup.sourceValueLiteral().equals("TIMESTAMP '1969-12-31 23:59:59.999999999499'") &&
+                adjustedSetup.newColumnType().equals("timestamp(9)")) {
+            return Optional.of(adjustedSetup.withNewValueLiteral("TIMESTAMP '1970-01-01 00:00:00.999999999'"));
+        }
+        if (setup.sourceValueLiteral().equals("TIMESTAMP '1969-12-31 23:59:59.9999999994'") &&
+                adjustedSetup.newColumnType().equals("timestamp(9)")) {
+            return Optional.of(adjustedSetup.withNewValueLiteral("TIMESTAMP '1970-01-01 00:00:00.999999999'"));
+        }
+        if (setup.sourceValueLiteral().equals("TIMESTAMP '1969-12-31 23:59:59.9999999995'") &&
+                adjustedSetup.newColumnType().equals("timestamp(9)")) {
+            return Optional.of(adjustedSetup.withNewValueLiteral("TIMESTAMP '1970-01-01 00:00:00.000000000'"));
+        }
+        return Optional.of(adjustedSetup);
     }
 }
