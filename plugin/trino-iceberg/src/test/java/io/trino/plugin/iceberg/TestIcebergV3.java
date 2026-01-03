@@ -166,9 +166,28 @@ public class TestIcebergV3
         assertUpdate("CREATE TABLE " + tableName + " (id integer, v varchar) WITH (format_version = 3)");
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b')", 2);
 
+        // Capture row_id before update
+        BaseTable table = loadTable(tableName);
+        table.refresh();
+        long beforeUpdateSnapshotId = table.currentSnapshot().snapshotId();
+
         assertUpdate("UPDATE " + tableName + " SET v = 'bb' WHERE id = 2", 1);
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES (INTEGER '1', VARCHAR 'a'), (INTEGER '2', VARCHAR 'bb')");
+
+        // Verify row_id is preserved for the updated row
+        assertThat(query(
+                "SELECT " +
+                        "  (SELECT \"$row_id\" FROM " + tableName + " WHERE id = 2) = " +
+                        "  (SELECT \"$row_id\" FROM " + tableName + " FOR VERSION AS OF " + beforeUpdateSnapshotId + " WHERE id = 2)"))
+                .matches("VALUES (BOOLEAN 'true')");
+
+        // Verify non-updated row also preserved its row_id
+        assertThat(query(
+                "SELECT " +
+                        "  (SELECT \"$row_id\" FROM " + tableName + " WHERE id = 1) = " +
+                        "  (SELECT \"$row_id\" FROM " + tableName + " FOR VERSION AS OF " + beforeUpdateSnapshotId + " WHERE id = 1)"))
+                .matches("VALUES (BOOLEAN 'true')");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -181,9 +200,28 @@ public class TestIcebergV3
         assertUpdate("CREATE TABLE " + tableName + " (id integer, v varchar) WITH (format_version = 3)");
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b')", 2);
 
+        // Capture row_id before merge
+        BaseTable table = loadTable(tableName);
+        table.refresh();
+        long beforeMergeSnapshotId = table.currentSnapshot().snapshotId();
+
         assertUpdate("MERGE INTO " + tableName + " t USING (VALUES (2, 'bb')) AS s(id, v) ON (t.id = s.id) WHEN MATCHED THEN UPDATE SET v = s.v", 1);
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES (INTEGER '1', VARCHAR 'a'), (INTEGER '2', VARCHAR 'bb')");
+
+        // Verify row_id is preserved for the merged (updated) row
+        assertThat(query(
+                "SELECT " +
+                        "  (SELECT \"$row_id\" FROM " + tableName + " WHERE id = 2) = " +
+                        "  (SELECT \"$row_id\" FROM " + tableName + " FOR VERSION AS OF " + beforeMergeSnapshotId + " WHERE id = 2)"))
+                .matches("VALUES (BOOLEAN 'true')");
+
+        // Verify non-merged row also preserved its row_id
+        assertThat(query(
+                "SELECT " +
+                        "  (SELECT \"$row_id\" FROM " + tableName + " WHERE id = 1) = " +
+                        "  (SELECT \"$row_id\" FROM " + tableName + " FOR VERSION AS OF " + beforeMergeSnapshotId + " WHERE id = 1)"))
+                .matches("VALUES (BOOLEAN 'true')");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -527,12 +565,12 @@ public class TestIcebergV3
         assertThat(query("SELECT v FROM " + tableName + " WHERE id = 2"))
                 .matches("VALUES (VARCHAR 'bb')");
 
-        // Current expected behavior: UPDATE does not preserve $row_id (it behaves like delete+insert with a new row id).
+        // UPDATE preserves $row_id (source row id is copied to the new row).
         assertThat(query(
                 "SELECT " +
                         "  (SELECT \"$row_id\" FROM " + tableName + " WHERE id = 2) = " +
                         "  (SELECT \"$row_id\" FROM " + tableName + " FOR VERSION AS OF " + beforeUpdateSnapshotId + " WHERE id = 2)"))
-                .matches("VALUES (BOOLEAN 'false')");
+                .matches("VALUES (BOOLEAN 'true')");
 
         // The updated row should have a higher last-updated sequence number than it did in the baseline snapshot.
         assertThat(query(
