@@ -22,6 +22,7 @@ import io.trino.plugin.iceberg.delete.DeletionVector;
 import io.trino.plugin.iceberg.delete.PositionDeleteWriter;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
@@ -48,9 +49,9 @@ import java.util.concurrent.CompletableFuture;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
-import static io.trino.spi.connector.MergePage.createDeleteAndInsertPages;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -103,32 +104,41 @@ public class IcebergMergeSink
     @Override
     public void storeMergedRows(Page page)
     {
-        MergePage mergePage = createDeleteAndInsertPages(page, columnCount);
+        MergePage mergePage = MergePage.createDeleteAndInsertPages(page, columnCount);
 
-        mergePage.getInsertionsPage().ifPresent(insertPageSink::appendPage);
-
-        mergePage.getDeletionsPage().ifPresent(deletions -> {
-            List<Block> fields = RowBlock.getRowFieldsFromBlock(deletions.getBlock(deletions.getChannelCount() - 1));
-            Block fieldPathBlock = fields.get(0);
-            Block rowPositionBlock = fields.get(1);
-            Block partitionSpecIdBlock = fields.get(2);
-            Block partitionDataBlock = fields.get(3);
-            for (int position = 0; position < fieldPathBlock.getPositionCount(); position++) {
-                Slice filePath = VarcharType.VARCHAR.getSlice(fieldPathBlock, position);
-                long rowPosition = BIGINT.getLong(rowPositionBlock, position);
-
-                int index = position;
-                FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, _ -> {
-                    int partitionSpecId = INTEGER.getInt(partitionSpecIdBlock, index);
-                    String partitionData = VarcharType.VARCHAR.getSlice(partitionDataBlock, index).toStringUtf8();
-                    return new FileDeletion(partitionSpecId, partitionData);
-                });
-
-                deletion.rowsToDelete().add(rowPosition);
+        mergePage.getDeletionsPage().ifPresent(this::processRemovals);
+        mergePage.getInsertionsPage().ifPresent(insertionsPage -> {
+            if (formatVersion >= 3) {
+                insertPageSink.appendPage(createInsertionsPageWithRowId(insertionsPage, page));
+            }
+            else {
+                insertPageSink.appendPage(insertionsPage);
             }
         });
 
         writtenBytes = insertPageSink.getCompletedBytes();
+    }
+
+    private void processRemovals(Page removals)
+    {
+        List<Block> fields = RowBlock.getRowFieldsFromBlock(removals.getBlock(removals.getChannelCount() - 1));
+        Block filePathBlock = fields.get(0);
+        Block rowPositionBlock = fields.get(1);
+        Block partitionSpecIdBlock = fields.get(2);
+        Block partitionDataBlock = fields.get(3);
+        for (int position = 0; position < filePathBlock.getPositionCount(); position++) {
+            Slice filePath = VarcharType.VARCHAR.getSlice(filePathBlock, position);
+            long rowPosition = BIGINT.getLong(rowPositionBlock, position);
+
+            int index = position;
+            FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, _ -> {
+                int partitionSpecId = INTEGER.getInt(partitionSpecIdBlock, index);
+                String partitionData = VarcharType.VARCHAR.getSlice(partitionDataBlock, index).toStringUtf8();
+                return new FileDeletion(partitionSpecId, partitionData);
+            });
+
+            deletion.rowsToDelete().add(rowPosition);
+        }
     }
 
     @Override
@@ -225,6 +235,62 @@ public class IcebergMergeSink
                 .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
                 .toArray(Type[]::new);
         return Optional.of(PartitionData.fromJson(partitionDataAsJson, columnTypes));
+    }
+
+    private Page createInsertionsPageWithRowId(Page insertionsPage, Page inputPage)
+    {
+        Block[] blocks = new Block[columnCount + 1];
+        for (int channel = 0; channel < columnCount; channel++) {
+            blocks[channel] = insertionsPage.getBlock(channel);
+        }
+        blocks[columnCount] = createRowIdBlock(inputPage, columnCount, insertionsPage.getPositionCount());
+        return new Page(insertionsPage.getPositionCount(), blocks);
+    }
+
+    private static Block createRowIdBlock(Page inputPage, int dataColumnCount, int additionCount)
+    {
+        // For V3, preserve source_row_id on UPDATE_INSERT rows when it is available.
+        // Rows updated from pre-lineage files in upgraded v2->v3 tables legitimately have
+        // a null source_row_id, in which case Iceberg assigns a fresh row ID to the new row.
+        Block operationBlock = inputPage.getBlock(dataColumnCount);
+        Block mergeRowIdBlock = inputPage.getBlock(dataColumnCount + 2);
+        List<Block> mergeRowIdFields = RowBlock.getRowFieldsFromBlock(mergeRowIdBlock);
+        Block sourceRowIdBlock = mergeRowIdFields.get(4);
+
+        long[] rowIdValues = new long[additionCount];
+        boolean[] rowIdNulls = new boolean[additionCount];
+
+        int additionIndex = 0;
+        for (int position = 0; position < inputPage.getPositionCount(); position++) {
+            byte operation = TINYINT.getByte(operationBlock, position);
+            switch (operation) {
+                case INSERT_OPERATION_NUMBER -> {
+                    verify(additionIndex < additionCount, "INSERT row must be selected as an addition");
+                    rowIdNulls[additionIndex] = true;
+                    additionIndex++;
+                }
+                case UPDATE_INSERT_OPERATION_NUMBER -> {
+                    verify(additionIndex < additionCount, "UPDATE_INSERT row must be selected as an addition");
+                    if (sourceRowIdBlock.isNull(position)) {
+                        rowIdNulls[additionIndex] = true;
+                    }
+                    else {
+                        rowIdValues[additionIndex] = BIGINT.getLong(sourceRowIdBlock, position);
+                        rowIdNulls[additionIndex] = false;
+                    }
+                    additionIndex++;
+                }
+                case DELETE_OPERATION_NUMBER, UPDATE_DELETE_OPERATION_NUMBER -> {
+                    // This helper produces source row IDs only for additions (INSERT/UPDATE_INSERT).
+                    // DELETE and UPDATE_DELETE rows are consumed by the deletion path, not this additions block.
+                }
+                case UPDATE_OPERATION_NUMBER -> throw new IllegalArgumentException("UPDATE must be represented as UPDATE_DELETE followed by UPDATE_INSERT in Iceberg");
+                default -> throw new IllegalArgumentException("Invalid merge operation: " + operation);
+            }
+        }
+        verify(additionIndex == additionCount, "Additions produced did not match planned additions");
+
+        return new LongArrayBlock(additionCount, Optional.of(rowIdNulls), rowIdValues);
     }
 
     private static class FileDeletion
