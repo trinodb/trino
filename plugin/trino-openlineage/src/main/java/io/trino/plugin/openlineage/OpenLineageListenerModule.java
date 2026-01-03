@@ -18,19 +18,26 @@ import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.openlineage.client.OpenLineage;
 import io.openlineage.client.OpenLineageClient;
+import io.trino.plugin.kafka.KafkaSecurityConfig;
+import io.trino.plugin.kafka.security.KafkaSslConfig;
 import io.trino.plugin.openlineage.transport.OpenLineageTransportConfig;
 import io.trino.plugin.openlineage.transport.OpenLineageTransportCreator;
 import io.trino.plugin.openlineage.transport.console.OpenLineageConsoleTransport;
 import io.trino.plugin.openlineage.transport.http.OpenLineageHttpTransport;
 import io.trino.plugin.openlineage.transport.http.OpenLineageHttpTransportConfig;
+import io.trino.plugin.openlineage.transport.kafka.OpenLineageKafkaTransport;
+import io.trino.plugin.openlineage.transport.kafka.OpenLineageKafkaTransportConfig;
 import io.trino.spi.eventlistener.EventListener;
+import org.apache.kafka.common.security.auth.SecurityProtocol;
 
 import java.net.URI;
 
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.openlineage.OpenLineageTransport.CONSOLE;
 import static io.trino.plugin.openlineage.OpenLineageTransport.HTTP;
+import static io.trino.plugin.openlineage.OpenLineageTransport.KAFKA;
 
 public class OpenLineageListenerModule
         extends AbstractConfigurationAwareModule
@@ -63,6 +70,25 @@ public class OpenLineageListenerModule
                     configBinder(internalBinder).bindConfig(OpenLineageListenerConfig.class);
                     configBinder(internalBinder).bindConfig(OpenLineageHttpTransportConfig.class);
                     internalBinder.bind(OpenLineageTransportCreator.class).to(OpenLineageHttpTransport.class);
+                    internalBinder.bind(OpenLineageClient.class).toProvider(OpenLineageClientProvider.class).in(Scopes.SINGLETON);
+                    internalBinder.bind(EventListener.class)
+                            .to(OpenLineageListener.class)
+                            .in(Scopes.SINGLETON);
+                }));
+
+        install(conditionalModule(
+                OpenLineageTransportConfig.class,
+                config -> config.getTransport().equals(KAFKA),
+                internalBinder -> {
+                    internalBinder.bind(OpenLineage.class).toInstance(createOpenLineage());
+                    configBinder(internalBinder).bindConfig(OpenLineageListenerConfig.class);
+                    configBinder(internalBinder).bindConfig(OpenLineageKafkaTransportConfig.class);
+                    newOptionalBinder(internalBinder, KafkaSslConfig.class);
+                    install(conditionalModule(
+                            KafkaSecurityConfig.class,
+                            securityConfig -> securityConfig.getSecurityProtocol().orElse(SecurityProtocol.PLAINTEXT) == SecurityProtocol.SSL,
+                            sslBinder -> configBinder(sslBinder).bindConfig(KafkaSslConfig.class)));
+                    internalBinder.bind(OpenLineageTransportCreator.class).to(OpenLineageKafkaTransport.class);
                     internalBinder.bind(OpenLineageClient.class).toProvider(OpenLineageClientProvider.class).in(Scopes.SINGLETON);
                     internalBinder.bind(EventListener.class)
                             .to(OpenLineageListener.class)
