@@ -32,12 +32,16 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.type.TypeManager;
+import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.io.LocationProvider;
+import org.apache.iceberg.types.Types;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -96,6 +100,11 @@ public class IcebergPageSinkProvider
     private ConnectorPageSink createPageSink(ConnectorSession session, IcebergWritableTableHandle tableHandle)
     {
         Schema schema = SchemaParser.fromJson(tableHandle.schemaAsJson());
+        return createPageSink(session, tableHandle, schema);
+    }
+
+    private IcebergPageSink createPageSink(ConnectorSession session, IcebergWritableTableHandle tableHandle, Schema schema)
+    {
         String partitionSpecJson = tableHandle.partitionsSpecsAsJson().get(tableHandle.partitionSpecId());
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, partitionSpecJson);
         LocationProvider locationProvider = getLocationProvider(tableHandle.name(), tableHandle.outputPath(), tableHandle.storageProperties());
@@ -170,10 +179,23 @@ public class IcebergPageSinkProvider
         LocationProvider locationProvider = getLocationProvider(tableHandle.name(), tableHandle.outputPath(), tableHandle.storageProperties());
         Schema schema = SchemaParser.fromJson(tableHandle.schemaAsJson());
         Map<Integer, PartitionSpec> partitionsSpecs = transformValues(tableHandle.partitionsSpecsAsJson(), json -> PartitionSpecParser.fromJson(schema, json));
-        ConnectorPageSink pageSink = createPageSink(session, tableHandle);
+
+        int formatVersion = merge.getTableHandle().getFormatVersion();
+
+        Schema outputSchema;
+        if (formatVersion >= 3) {
+            // For v3 tables, IcebergMergeSink passes source row ID as an extra column for row lineage
+            List<Types.NestedField> columns = new ArrayList<>(schema.columns());
+            columns.add(MetadataColumns.ROW_ID);
+            outputSchema = new Schema(columns);
+        }
+        else {
+            outputSchema = SchemaParser.fromJson(tableHandle.schemaAsJson());
+        }
+        ConnectorPageSink pageSink = createPageSink(session, tableHandle, outputSchema);
 
         return new IcebergMergeSink(
-                merge.getTableHandle().getFormatVersion(),
+                formatVersion,
                 locationProvider,
                 fileWriterFactory,
                 fileSystemFactory.create(session.getIdentity(), tableHandle.fileIoProperties()),
