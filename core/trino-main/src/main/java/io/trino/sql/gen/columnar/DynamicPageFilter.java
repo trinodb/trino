@@ -30,7 +30,6 @@ import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.relational.RowExpression;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
@@ -135,31 +134,34 @@ public final class DynamicPageFilter
                 .map(Optional::get)
                 .collect(toImmutableList());
         return () -> new DynamicFilterEvaluator(
-                subExpressionEvaluators.stream().map(Supplier::get).collect(toImmutableList()),
+                subExpressionEvaluators.stream().map(Supplier::get).toArray(FilterEvaluator[]::new),
                 selectivityThreshold);
     }
 
     static final class DynamicFilterEvaluator
             implements FilterEvaluator
     {
-        private final List<FilterEvaluator> subFilterEvaluators;
+        private final FilterEvaluator[] subFilterEvaluators;
         private final EffectiveFilterProfiler profiler;
 
-        private DynamicFilterEvaluator(List<FilterEvaluator> subFilterEvaluators, double selectivityThreshold)
+        private DynamicFilterEvaluator(FilterEvaluator[] subFilterEvaluators, double selectivityThreshold)
         {
             this.subFilterEvaluators = subFilterEvaluators;
-            this.profiler = new EffectiveFilterProfiler(selectivityThreshold, subFilterEvaluators.size());
+            this.profiler = new EffectiveFilterProfiler(selectivityThreshold, subFilterEvaluators.length);
         }
 
         @Override
         public SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, SourcePage page)
         {
             long filterTimeNanos = 0;
-            for (int filterIndex = 0; filterIndex < subFilterEvaluators.size(); filterIndex++) {
+            for (int filterIndex = 0; filterIndex < subFilterEvaluators.length; filterIndex++) {
                 if (!profiler.isFilterEffective(filterIndex)) {
                     continue;
                 }
-                FilterEvaluator evaluator = subFilterEvaluators.get(filterIndex);
+                if (activePositions.isEmpty()) {
+                    break;
+                }
+                FilterEvaluator evaluator = subFilterEvaluators[filterIndex];
                 SelectionResult result = evaluator.evaluate(session, activePositions, page);
                 profiler.recordSelectivity(activePositions, result.selectedPositions(), filterIndex);
                 filterTimeNanos += result.filterTimeNanos();
@@ -169,38 +171,35 @@ public final class DynamicPageFilter
         }
     }
 
-    private static class EffectiveFilterProfiler
+    private static final class EffectiveFilterProfiler
     {
         private static final int MIN_SAMPLE_POSITIONS = 2047;
 
         private final double selectivityThreshold;
         private final long[] filterInputPositions;
         private final long[] filterOutputPositions;
-        private final IntOpenHashSet ineffectiveFilterChannels;
+        private final boolean[] filterChannelIneffective;
 
         private EffectiveFilterProfiler(double selectivityThreshold, int filterCount)
         {
             this.selectivityThreshold = selectivityThreshold;
             this.filterInputPositions = new long[filterCount];
             this.filterOutputPositions = new long[filterCount];
-            this.ineffectiveFilterChannels = new IntOpenHashSet(filterCount);
+            this.filterChannelIneffective = new boolean[filterCount];
         }
 
         private void recordSelectivity(SelectedPositions inputPositions, SelectedPositions selectedPositions, int filterIndex)
         {
             filterInputPositions[filterIndex] += inputPositions.size();
+            long filterInputPositions = this.filterInputPositions[filterIndex];
             filterOutputPositions[filterIndex] += selectedPositions.size();
-            if (filterInputPositions[filterIndex] < MIN_SAMPLE_POSITIONS) {
-                return;
-            }
-            if (filterOutputPositions[filterIndex] > (selectivityThreshold * filterInputPositions[filterIndex])) {
-                ineffectiveFilterChannels.add(filterIndex);
-            }
+            long filterOutputPositions = this.filterOutputPositions[filterIndex];
+            filterChannelIneffective[filterIndex] = filterInputPositions >= MIN_SAMPLE_POSITIONS & filterOutputPositions > (selectivityThreshold * filterInputPositions);
         }
 
         private boolean isFilterEffective(int filterIndex)
         {
-            return !ineffectiveFilterChannels.contains(filterIndex);
+            return !filterChannelIneffective[filterIndex];
         }
     }
 }
