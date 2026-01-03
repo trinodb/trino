@@ -61,6 +61,8 @@ public class IcebergColumnHandle
     public static final String DATA_CHANGE_ORDINAL_NAME = "_change_ordinal";
     public static final int DATA_CHANGE_ORDINAL_ID = Integer.MIN_VALUE + 6;
 
+    public static final int TRINO_MERGE_SOURCE_ROW_ID = Integer.MIN_VALUE + 7;
+
     private final ColumnIdentity baseColumnIdentity;
     private final Type baseType;
     // The list of field ids to indicate the projected part of the top-level column represented by baseColumnIdentity

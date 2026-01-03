@@ -745,7 +745,26 @@ public class IcebergPageSourceProvider
                 }
                 else if (column.isMergeRowIdColumn()) {
                     appendRowNumberColumn = true;
-                    transforms.transform(MergeRowIdTransform.create(utf8Slice(inputFile.location().toString()), partitionSpecId, utf8Slice(partitionData)));
+                    Integer sourceRowIdOrdinal = baseColumnIdToOrdinal.get(IcebergMetadataColumn.ROW_ID.getId());
+                    if (sourceRowIdOrdinal == null && fileColumnsByIcebergId.containsKey(IcebergMetadataColumn.ROW_ID.getId())) {
+                        IcebergColumnHandle rowIdColumn = IcebergColumnHandle.rowIdColumnHandle();
+                        sourceRowIdOrdinal = baseColumns.size();
+                        baseColumns.add(rowIdColumn);
+                        baseColumnIdToOrdinal.put(rowIdColumn.getId(), sourceRowIdOrdinal);
+
+                        OrcColumn orcBaseColumn = requireNonNull(fileColumnsByIcebergId.get(rowIdColumn.getId()));
+                        fileReadColumns.add(orcBaseColumn);
+                        fileReadTypes.add(getOrcReadType(rowIdColumn.getType(), typeManager));
+                        projectedLayouts.add(IcebergOrcProjectedLayout.createProjectedLayout(
+                                orcBaseColumn,
+                                projectionsByFieldId.getOrDefault(rowIdColumn.getId(), ImmutableList.of())));
+                    }
+                    transforms.transform(MergeRowIdTransform.create(
+                            utf8Slice(inputFile.location().toString()),
+                            partitionSpecId,
+                            utf8Slice(partitionData),
+                            fileFirstRowId,
+                            sourceRowIdOrdinal));
                 }
                 else if (column.isRowPositionColumn()) {
                     appendRowNumberColumn = true;
@@ -1007,7 +1026,17 @@ public class IcebergPageSourceProvider
             // Mapping from Iceberg field ID to Parquet fields.
             Map<Integer, org.apache.parquet.schema.Type> parquetIdToFieldName = createParquetIdToFieldMapping(fileSchema);
 
-            MessageType requestedSchema = getMessageType(columns, fileSchema.getName(), parquetIdToFieldName);
+            List<IcebergColumnHandle> columnsForRead = columns;
+            if (columns.stream().anyMatch(IcebergColumnHandle::isMergeRowIdColumn) &&
+                    columns.stream().noneMatch(IcebergColumnHandle::isRowIdColumn) &&
+                    parquetIdToFieldName.containsKey(IcebergMetadataColumn.ROW_ID.getId())) {
+                columnsForRead = ImmutableList.<IcebergColumnHandle>builder()
+                        .addAll(columns)
+                        .add(IcebergColumnHandle.rowIdColumnHandle())
+                        .build();
+            }
+
+            MessageType requestedSchema = getMessageType(columnsForRead, fileSchema.getName(), parquetIdToFieldName);
             Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
             TupleDomain<ColumnDescriptor> parquetTupleDomain = options.isIgnoreStatistics() ? TupleDomain.all() : getParquetTupleDomain(descriptorsByPath, effectivePredicate);
             TupleDomainParquetPredicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, UTC);
@@ -1040,7 +1069,26 @@ public class IcebergPageSourceProvider
                 }
                 else if (column.isMergeRowIdColumn()) {
                     appendRowNumberColumn = true;
-                    transforms.transform(MergeRowIdTransform.create(utf8Slice(inputFile.location().toString()), partitionSpecId, utf8Slice(partitionData)));
+                    Integer sourceRowIdOrdinal = baseColumnIdToOrdinal.get(IcebergMetadataColumn.ROW_ID.getId());
+                    if (sourceRowIdOrdinal == null && parquetIdToFieldName.containsKey(IcebergMetadataColumn.ROW_ID.getId())) {
+                        IcebergColumnHandle rowIdColumn = IcebergColumnHandle.rowIdColumnHandle();
+                        String parquetFieldName = requireNonNull(parquetIdToFieldName.get(rowIdColumn.getId())).getName();
+                        Optional<Field> field = IcebergParquetColumnIOConverter.constructField(
+                                new FieldContext(rowIdColumn.getType(), rowIdColumn.getColumnIdentity()),
+                                messageColumnIO.getChild(parquetFieldName));
+                        if (field.isPresent()) {
+                            sourceRowIdOrdinal = nextOrdinal;
+                            nextOrdinal++;
+                            baseColumnIdToOrdinal.put(rowIdColumn.getId(), sourceRowIdOrdinal);
+                            parquetColumnFieldsBuilder.add(new Column(parquetFieldName, field.get()));
+                        }
+                    }
+                    transforms.transform(MergeRowIdTransform.create(
+                            utf8Slice(inputFile.location().toString()),
+                            partitionSpecId,
+                            utf8Slice(partitionData),
+                            fileFirstRowId,
+                            sourceRowIdOrdinal));
                 }
                 else if (column.isRowPositionColumn()) {
                     appendRowNumberColumn = true;
@@ -1262,7 +1310,21 @@ public class IcebergPageSourceProvider
                 }
                 else if (column.isMergeRowIdColumn()) {
                     appendRowNumberColumn = true;
-                    transforms.transform(MergeRowIdTransform.create(utf8Slice(file.location()), partitionSpecId, utf8Slice(partitionData)));
+                    Integer sourceRowIdOrdinal = baseColumnIdToOrdinal.get(IcebergMetadataColumn.ROW_ID.getId());
+                    if (sourceRowIdOrdinal == null && fileColumnsByIcebergId.containsKey(IcebergMetadataColumn.ROW_ID.getId())) {
+                        IcebergColumnHandle rowIdColumn = IcebergColumnHandle.rowIdColumnHandle();
+                        sourceRowIdOrdinal = nextOrdinal;
+                        nextOrdinal++;
+                        baseColumnIdToOrdinal.put(rowIdColumn.getId(), sourceRowIdOrdinal);
+                        columnNames.add(getAvroColumnName(rowIdColumn));
+                        columnTypes.add(rowIdColumn.getType());
+                    }
+                    transforms.transform(MergeRowIdTransform.create(
+                            utf8Slice(file.location()),
+                            partitionSpecId,
+                            utf8Slice(partitionData),
+                            fileFirstRowId,
+                            sourceRowIdOrdinal));
                 }
                 else if (column.isRowPositionColumn()) {
                     appendRowNumberColumn = true;
@@ -1663,28 +1725,60 @@ public class IcebergPageSourceProvider
         }
     }
 
-    private record MergeRowIdTransform(VariableWidthBlock filePath, IntArrayBlock partitionSpecId, VariableWidthBlock partitionData)
+    private record MergeRowIdTransform(VariableWidthBlock filePath, IntArrayBlock partitionSpecId, VariableWidthBlock partitionData, OptionalLong fileFirstRowId, Integer sourceRowIdChannel)
             implements Function<SourcePage, Block>
     {
-        private static Function<SourcePage, Block> create(Slice filePath, int partitionSpecId, Slice partitionData)
+        private static Function<SourcePage, Block> create(Slice filePath, int partitionSpecId, Slice partitionData, OptionalLong fileFirstRowId, Integer sourceRowIdChannel)
         {
             return new MergeRowIdTransform(
                     new VariableWidthBlock(1, filePath, new int[] {0, filePath.length()}, Optional.empty()),
                     new IntArrayBlock(1, Optional.empty(), new int[] {partitionSpecId}),
-                    new VariableWidthBlock(1, partitionData, new int[] {0, partitionData.length()}, Optional.empty()));
+                    new VariableWidthBlock(1, partitionData, new int[] {0, partitionData.length()}, Optional.empty()),
+                    fileFirstRowId,
+                    sourceRowIdChannel);
         }
 
         @Override
         public Block apply(SourcePage page)
         {
             Block rowPosition = page.getBlock(page.getChannelCount() - 1);
+            int positionCount = page.getPositionCount();
+
+            Block storedSourceRowId = sourceRowIdChannel == null ? null : page.getBlock(sourceRowIdChannel);
+
+            Block sourceRowIdBlock;
+            if (storedSourceRowId != null && !storedSourceRowId.mayHaveNull()) {
+                sourceRowIdBlock = storedSourceRowId;
+            }
+            else if (fileFirstRowId.isPresent()) {
+                long firstRowId = fileFirstRowId.getAsLong();
+                long[] rowIds = new long[positionCount];
+                for (int i = 0; i < positionCount; i++) {
+                    if (storedSourceRowId != null && !storedSourceRowId.isNull(i)) {
+                        rowIds[i] = BIGINT.getLong(storedSourceRowId, i);
+                    }
+                    else {
+                        rowIds[i] = addExact(firstRowId, BIGINT.getLong(rowPosition, i));
+                    }
+                }
+                sourceRowIdBlock = new LongArrayBlock(positionCount, Optional.empty(), rowIds);
+            }
+            else if (storedSourceRowId != null) {
+                sourceRowIdBlock = storedSourceRowId;
+            }
+            else {
+                // No row IDs available (v2 table or file without row IDs assigned)
+                sourceRowIdBlock = RunLengthEncodedBlock.create(BIGINT.createNullBlock(), positionCount);
+            }
+
             Block[] fields = {
                     RunLengthEncodedBlock.create(filePath, rowPosition.getPositionCount()),
                     rowPosition,
-                    RunLengthEncodedBlock.create(partitionSpecId, rowPosition.getPositionCount()),
-                    RunLengthEncodedBlock.create(partitionData, rowPosition.getPositionCount())
+                    RunLengthEncodedBlock.create(partitionSpecId, positionCount),
+                    RunLengthEncodedBlock.create(partitionData, positionCount),
+                    sourceRowIdBlock
             };
-            return RowBlock.fromFieldBlocks(rowPosition.getPositionCount(), fields);
+            return RowBlock.fromFieldBlocks(positionCount, fields);
         }
     }
 
