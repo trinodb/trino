@@ -19,6 +19,7 @@ import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 
 import static io.trino.geospatial.GeometryUtils.contains;
+import static io.trino.geospatial.GeometryUtils.estimateMemorySize;
 import static io.trino.geospatial.GeometryUtils.jsonFromJtsGeometry;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -32,6 +33,20 @@ final class TestGeometryUtils
         assertThat(json)
                 .isNotNull()
                 .doesNotContain("crs");
+    }
+
+    @Test
+    void testEstimateMemorySize()
+            throws ParseException
+    {
+        Geometry point = new WKTReader().read("POINT (1 1)");
+        Geometry lineString = new WKTReader().read("LINESTRING (1 1, 2 2)");
+        Geometry geometryCollection = new WKTReader().read("GEOMETRYCOLLECTION (POINT (1 1), LINESTRING (1 1, 2 2))");
+
+        assertThat(estimateMemorySize(null)).isZero();
+        assertThat(estimateMemorySize(point)).isPositive();
+        assertThat(estimateMemorySize(geometryCollection))
+                .isGreaterThan(estimateMemorySize(point) + estimateMemorySize(lineString));
     }
 
     @Test

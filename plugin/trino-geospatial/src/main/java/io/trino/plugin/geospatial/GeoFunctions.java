@@ -13,14 +13,11 @@
  */
 package io.trino.plugin.geospatial;
 
-import com.esri.core.geometry.Envelope;
-import com.esri.core.geometry.NonSimpleResult.Reason;
 import com.esri.core.geometry.WktExportFlags;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.geospatial.GeometryType;
@@ -28,7 +25,6 @@ import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.Rectangle;
 import io.trino.geospatial.serde.GeometrySerde;
 import io.trino.geospatial.serde.GeometrySerializationType;
-import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -41,6 +37,7 @@ import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryCollection;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -75,13 +72,6 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.esri.core.geometry.GeometryEngine.geometryToWkt;
-import static com.esri.core.geometry.NonSimpleResult.Reason.Clustering;
-import static com.esri.core.geometry.NonSimpleResult.Reason.Cracking;
-import static com.esri.core.geometry.NonSimpleResult.Reason.CrossOver;
-import static com.esri.core.geometry.NonSimpleResult.Reason.DegenerateSegments;
-import static com.esri.core.geometry.NonSimpleResult.Reason.OGCDisconnectedInterior;
-import static com.esri.core.geometry.NonSimpleResult.Reason.OGCPolygonSelfTangency;
-import static com.esri.core.geometry.NonSimpleResult.Reason.OGCPolylineSelfTangency;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.geospatial.GeometryType.GEOMETRY_COLLECTION;
@@ -93,9 +83,9 @@ import static io.trino.geospatial.GeometryType.POINT;
 import static io.trino.geospatial.GeometryType.POLYGON;
 import static io.trino.geospatial.GeometryUtils.jsonFromJtsGeometry;
 import static io.trino.geospatial.GeometryUtils.jtsGeometryFromJson;
-import static io.trino.geospatial.serde.GeometrySerde.deserializeEnvelope;
 import static io.trino.geospatial.serde.GeometrySerde.serialize;
 import static io.trino.geospatial.serde.JtsGeometrySerde.deserialize;
+import static io.trino.geospatial.serde.JtsGeometrySerde.deserializeEnvelope;
 import static io.trino.geospatial.serde.JtsGeometrySerde.deserializeType;
 import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
@@ -129,15 +119,6 @@ public final class GeoFunctions
     private static final Slice EMPTY_MULTIPOINT = serialize(GEOMETRY_FACTORY.createMultiPoint());
     private static final double EARTH_RADIUS_KM = 6371.01;
     private static final double EARTH_RADIUS_M = EARTH_RADIUS_KM * 1000.0;
-    private static final Map<Reason, String> NON_SIMPLE_REASONS = ImmutableMap.<Reason, String>builder()
-            .put(DegenerateSegments, "Degenerate segments")
-            .put(Clustering, "Repeated points")
-            .put(Cracking, "Intersecting or overlapping segments")
-            .put(CrossOver, "Self-intersection")
-            .put(OGCPolylineSelfTangency, "Self-tangency")
-            .put(OGCPolygonSelfTangency, "Self-tangency")
-            .put(OGCDisconnectedInterior, "Disconnected interior")
-            .buildOrThrow();
     private static final Block EMPTY_ARRAY_OF_INTS = IntegerType.INTEGER.createFixedSizeBlockBuilder(0).build();
 
     private static final float MIN_LATITUDE = -90;
@@ -315,7 +296,7 @@ public final class GeoFunctions
     public static Slice toSphericalGeography(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
         // "every point in input is in range" <=> "the envelope of input is in range"
-        org.locationtech.jts.geom.Envelope envelope = JtsGeometrySerde.deserializeEnvelope(input);
+        Envelope envelope = deserializeEnvelope(input);
         if (!envelope.isNull()) {
             checkLatitude(envelope.getMinY());
             checkLatitude(envelope.getMaxY());
@@ -489,7 +470,7 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stIsEmpty(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        return deserializeEnvelope(input).isEmpty();
+        return deserializeEnvelope(input).isNull();
     }
 
     @Description("Returns TRUE if this Geometry has no anomalous geometric points, such as self intersection or self tangency")
@@ -680,10 +661,10 @@ public final class GeoFunctions
     public static Double stXMax(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
         Envelope envelope = deserializeEnvelope(input);
-        if (envelope.isEmpty()) {
+        if (envelope.isNull()) {
             return null;
         }
-        return envelope.getXMax();
+        return envelope.getMaxX();
     }
 
     @SqlNullable
@@ -693,10 +674,10 @@ public final class GeoFunctions
     public static Double stYMax(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
         Envelope envelope = deserializeEnvelope(input);
-        if (envelope.isEmpty()) {
+        if (envelope.isNull()) {
             return null;
         }
-        return envelope.getYMax();
+        return envelope.getMaxY();
     }
 
     @SqlNullable
@@ -706,10 +687,10 @@ public final class GeoFunctions
     public static Double stXMin(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
         Envelope envelope = deserializeEnvelope(input);
-        if (envelope.isEmpty()) {
+        if (envelope.isNull()) {
             return null;
         }
-        return envelope.getXMin();
+        return envelope.getMinX();
     }
 
     @SqlNullable
@@ -719,10 +700,10 @@ public final class GeoFunctions
     public static Double stYMin(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
         Envelope envelope = deserializeEnvelope(input);
-        if (envelope.isEmpty()) {
+        if (envelope.isNull()) {
             return null;
         }
-        return envelope.getYMin();
+        return envelope.getMinY();
     }
 
     @SqlNullable
@@ -1160,7 +1141,7 @@ public final class GeoFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice stEnvelope(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        org.locationtech.jts.geom.Envelope envelope = JtsGeometrySerde.deserializeEnvelope(input);
+        Envelope envelope = deserializeEnvelope(input);
         if (envelope.isNull()) {
             return EMPTY_POLYGON;
         }
@@ -1173,7 +1154,7 @@ public final class GeoFunctions
     @SqlType("array(" + StandardTypes.GEOMETRY + ")")
     public static Block stEnvelopeAsPts(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        org.locationtech.jts.geom.Envelope envelope = JtsGeometrySerde.deserializeEnvelope(input);
+        Envelope envelope = deserializeEnvelope(input);
         if (envelope.isNull()) {
             return null;
         }
@@ -1249,10 +1230,10 @@ public final class GeoFunctions
     public static Slice stIntersection(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
         if (deserializeType(left) == GeometrySerializationType.ENVELOPE && deserializeType(right) == GeometrySerializationType.ENVELOPE) {
-            org.locationtech.jts.geom.Envelope leftEnvelope = JtsGeometrySerde.deserializeEnvelope(left);
-            org.locationtech.jts.geom.Envelope rightEnvelope = JtsGeometrySerde.deserializeEnvelope(right);
+            Envelope leftEnvelope = deserializeEnvelope(left);
+            Envelope rightEnvelope = deserializeEnvelope(right);
 
-            org.locationtech.jts.geom.Envelope intersection = leftEnvelope.intersection(rightEnvelope);
+            Envelope intersection = leftEnvelope.intersection(rightEnvelope);
             if (intersection.isNull()) {
                 return EMPTY_POLYGON;
             }
@@ -1299,7 +1280,7 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stContains(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(left, right, org.locationtech.jts.geom.Envelope::contains)) {
+        if (!envelopes(left, right, Envelope::contains)) {
             return false;
         }
         Geometry leftGeometry = deserialize(left);
@@ -1314,7 +1295,7 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stCrosses(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(left, right, org.locationtech.jts.geom.Envelope::intersects)) {
+        if (!envelopes(left, right, Envelope::intersects)) {
             return false;
         }
         Geometry leftGeometry = deserialize(left);
@@ -1329,7 +1310,7 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stDisjoint(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(left, right, org.locationtech.jts.geom.Envelope::intersects)) {
+        if (!envelopes(left, right, Envelope::intersects)) {
             return true;
         }
         Geometry leftGeometry = deserialize(left);
@@ -1356,7 +1337,7 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stIntersects(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(left, right, org.locationtech.jts.geom.Envelope::intersects)) {
+        if (!envelopes(left, right, Envelope::intersects)) {
             return false;
         }
         Geometry leftGeometry = deserialize(left);
@@ -1371,7 +1352,7 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stOverlaps(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(left, right, org.locationtech.jts.geom.Envelope::intersects)) {
+        if (!envelopes(left, right, Envelope::intersects)) {
             return false;
         }
         Geometry leftGeometry = deserialize(left);
@@ -1398,7 +1379,7 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stTouches(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(left, right, org.locationtech.jts.geom.Envelope::intersects)) {
+        if (!envelopes(left, right, Envelope::intersects)) {
             return false;
         }
         Geometry leftGeometry = deserialize(left);
@@ -1414,7 +1395,7 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stWithin(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(right, left, org.locationtech.jts.geom.Envelope::contains)) {
+        if (!envelopes(right, left, Envelope::contains)) {
             return false;
         }
         Geometry leftGeometry = deserialize(left);
@@ -1438,12 +1419,12 @@ public final class GeoFunctions
     public static Block spatialPartitions(@SqlType(StandardTypes.KDB_TREE) Object kdbTree, @SqlType(StandardTypes.GEOMETRY) Slice geometry)
     {
         Envelope envelope = deserializeEnvelope(geometry);
-        if (envelope.isEmpty()) {
+        if (envelope.isNull()) {
             // Empty geometry
             return null;
         }
 
-        return spatialPartitions((KdbTree) kdbTree, new Rectangle(envelope.getXMin(), envelope.getYMin(), envelope.getXMax(), envelope.getYMax()));
+        return spatialPartitions((KdbTree) kdbTree, new Rectangle(envelope.getMinX(), envelope.getMinY(), envelope.getMaxX(), envelope.getMaxY()));
     }
 
     @ScalarFunction("from_geojson_geometry")
@@ -1491,11 +1472,11 @@ public final class GeoFunctions
         }
 
         Envelope envelope = deserializeEnvelope(geometry);
-        if (envelope.isEmpty()) {
+        if (envelope.isNull()) {
             return null;
         }
 
-        Rectangle expandedEnvelope2D = new Rectangle(envelope.getXMin() - distance, envelope.getYMin() - distance, envelope.getXMax() + distance, envelope.getYMax() + distance);
+        Rectangle expandedEnvelope2D = new Rectangle(envelope.getMinX() - distance, envelope.getMinY() - distance, envelope.getMaxX() + distance, envelope.getMaxY() + distance);
         return spatialPartitions((KdbTree) kdbTree, expandedEnvelope2D);
     }
 
@@ -1647,8 +1628,8 @@ public final class GeoFunctions
 
     private static boolean envelopes(Slice left, Slice right, EnvelopesPredicate predicate)
     {
-        org.locationtech.jts.geom.Envelope leftEnvelope = JtsGeometrySerde.deserializeEnvelope(left);
-        org.locationtech.jts.geom.Envelope rightEnvelope = JtsGeometrySerde.deserializeEnvelope(right);
+        Envelope leftEnvelope = deserializeEnvelope(left);
+        Envelope rightEnvelope = deserializeEnvelope(right);
         if (leftEnvelope.isNull() || rightEnvelope.isNull()) {
             return false;
         }
@@ -1657,7 +1638,7 @@ public final class GeoFunctions
 
     private interface EnvelopesPredicate
     {
-        boolean apply(org.locationtech.jts.geom.Envelope left, org.locationtech.jts.geom.Envelope right);
+        boolean apply(Envelope left, Envelope right);
     }
 
     @SqlNullable
