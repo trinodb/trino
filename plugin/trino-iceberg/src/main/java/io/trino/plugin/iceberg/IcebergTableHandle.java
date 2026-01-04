@@ -73,6 +73,9 @@ public class IcebergTableHandle
     // ANALYZE only. Coordinator-only
     private final Optional<Boolean> forAnalyze;
 
+    // Tracks the specific update operation being performed (DELETE, UPDATE, MERGE)
+    private final Optional<UpdateKind> updateKind;
+
     @JsonCreator
     @DoNotCall // For JSON deserialization only
     public static IcebergTableHandle fromJsonForDeserializationOnly(
@@ -89,7 +92,8 @@ public class IcebergTableHandle
             @JsonProperty("projectedColumns") Set<IcebergColumnHandle> projectedColumns,
             @JsonProperty("nameMappingJson") Optional<String> nameMappingJson,
             @JsonProperty("tableLocation") String tableLocation,
-            @JsonProperty("storageProperties") Map<String, String> storageProperties)
+            @JsonProperty("storageProperties") Map<String, String> storageProperties,
+            @JsonProperty("updateKind") Optional<UpdateKind> updateKind)
     {
         return new IcebergTableHandle(
                 schemaName,
@@ -110,7 +114,8 @@ public class IcebergTableHandle
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
-                Optional.empty());
+                Optional.empty(),
+                updateKind);
     }
 
     public IcebergTableHandle(
@@ -132,7 +137,8 @@ public class IcebergTableHandle
             boolean recordScannedFiles,
             Optional<DataSize> maxScannedFileSize,
             Set<IcebergColumnHandle> constraintColumns,
-            Optional<Boolean> forAnalyze)
+            Optional<Boolean> forAnalyze,
+            Optional<UpdateKind> updateKind)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -153,6 +159,7 @@ public class IcebergTableHandle
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
         this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
         this.forAnalyze = requireNonNull(forAnalyze, "forAnalyze is null");
+        this.updateKind = requireNonNull(updateKind, "updateKind is null");
     }
 
     @JsonProperty
@@ -273,6 +280,47 @@ public class IcebergTableHandle
         return forAnalyze;
     }
 
+    @JsonProperty
+    public Optional<UpdateKind> getUpdateKind()
+    {
+        return updateKind;
+    }
+
+    /**
+     * Creates a new handle with the specified update kind.
+     * <p>
+     * This is used to track the type of write operation (DELETE, UPDATE, MERGE)
+     * so that the appropriate write mode (MERGE_ON_READ or COPY_ON_WRITE)
+     * can be selected based on the table properties.
+     *
+     * @param kind The type of update operation being performed
+     * @return A new handle with the update kind set
+     */
+    public IcebergTableHandle withUpdateKind(UpdateKind kind)
+    {
+        return new IcebergTableHandle(
+                schemaName,
+                tableName,
+                tableType,
+                snapshotId,
+                tableSchemaJson,
+                partitionSpecJson,
+                formatVersion,
+                unenforcedPredicate,
+                enforcedPredicate,
+                limit,
+                projectedColumns,
+                nameMappingJson,
+                tableLocation,
+                storageProperties,
+                tablePartitioning,
+                recordScannedFiles,
+                maxScannedFileSize,
+                constraintColumns,
+                forAnalyze,
+                Optional.of(kind));
+    }
+
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -304,7 +352,8 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
-                forAnalyze);
+                forAnalyze,
+                updateKind);
     }
 
     public IcebergTableHandle forAnalyze()
@@ -328,7 +377,8 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
-                Optional.of(true));
+                Optional.of(true),
+                updateKind);
     }
 
     public IcebergTableHandle forOptimize(boolean recordScannedFiles, DataSize maxScannedFileSize)
@@ -352,7 +402,8 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 Optional.of(maxScannedFileSize),
                 constraintColumns,
-                forAnalyze);
+                forAnalyze,
+                updateKind);
     }
 
     public IcebergTableHandle withTablePartitioning(Optional<IcebergTablePartitioning> requiredTablePartitioning)
@@ -376,7 +427,8 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
-                forAnalyze);
+                forAnalyze,
+                updateKind);
     }
 
     @Override
@@ -407,7 +459,8 @@ public class IcebergTableHandle
                 Objects.equals(storageProperties, that.storageProperties) &&
                 Objects.equals(maxScannedFileSize, that.maxScannedFileSize) &&
                 Objects.equals(constraintColumns, that.constraintColumns) &&
-                Objects.equals(forAnalyze, that.forAnalyze);
+                Objects.equals(forAnalyze, that.forAnalyze) &&
+                Objects.equals(updateKind, that.updateKind);
     }
 
     @Override
@@ -431,7 +484,8 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
-                forAnalyze);
+                forAnalyze,
+                updateKind);
     }
 
     @Override
