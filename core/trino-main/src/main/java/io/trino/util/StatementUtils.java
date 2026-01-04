@@ -59,6 +59,7 @@ import io.trino.execution.RollbackTask;
 import io.trino.execution.SetAuthorizationTask;
 import io.trino.execution.SetColumnTypeTask;
 import io.trino.execution.SetDefaultValueTask;
+import io.trino.execution.SetNotNullConstraintTask;
 import io.trino.execution.SetPathTask;
 import io.trino.execution.SetPropertiesTask;
 import io.trino.execution.SetRoleTask;
@@ -123,6 +124,7 @@ import io.trino.sql.tree.Rollback;
 import io.trino.sql.tree.SetAuthorizationStatement;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetDefaultValue;
+import io.trino.sql.tree.SetNotNullConstraint;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
@@ -249,6 +251,7 @@ public final class StatementUtils
             .add(dataDefinitionStatement(SetDefaultValue.class, SetDefaultValueTask.class))
             .add(dataDefinitionStatement(DropDefaultValue.class, DropDefaultValueTask.class))
             .add(dataDefinitionStatement(SetColumnType.class, SetColumnTypeTask.class))
+            .add(dataDefinitionStatement(SetNotNullConstraint.class, SetNotNullConstraintTask.class))
             .add(dataDefinitionStatement(DropNotNullConstraint.class, DropNotNullConstraintTask.class))
             .add(dataDefinitionStatement(SetPath.class, SetPathTask.class))
             .add(dataDefinitionStatement(SetRole.class, SetRoleTask.class))

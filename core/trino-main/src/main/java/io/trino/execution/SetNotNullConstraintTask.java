@@ -26,8 +26,8 @@ import io.trino.security.AccessControl;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.tree.DropNotNullConstraint;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.SetNotNullConstraint;
 
 import java.util.List;
 
@@ -40,14 +40,14 @@ import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONST
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
 
-public class DropNotNullConstraintTask
-        implements DataDefinitionTask<DropNotNullConstraint>
+public class SetNotNullConstraintTask
+        implements DataDefinitionTask<SetNotNullConstraint>
 {
     private final PlannerContext plannerContext;
     private final AccessControl accessControl;
 
     @Inject
-    public DropNotNullConstraintTask(PlannerContext plannerContext, AccessControl accessControl)
+    public SetNotNullConstraintTask(PlannerContext plannerContext, AccessControl accessControl)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -56,12 +56,12 @@ public class DropNotNullConstraintTask
     @Override
     public String getName()
     {
-        return "DROP NOT NULL";
+        return "SET NOT NULL";
     }
 
     @Override
     public ListenableFuture<Void> execute(
-            DropNotNullConstraint statement,
+            SetNotNullConstraint statement,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
@@ -97,14 +97,14 @@ public class DropNotNullConstraintTask
         if (columnMetadata.isHidden()) {
             throw semanticException(NOT_SUPPORTED, statement, "Cannot modify hidden column");
         }
-        if (columnMetadata.isNullable()) {
-            throw semanticException(NOT_SUPPORTED, statement, "Column is already nullable");
+        if (!columnMetadata.isNullable()) {
+            throw semanticException(NOT_SUPPORTED, statement, "Column is already not nullable");
         }
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
         if (!plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
             throw semanticException(NOT_SUPPORTED, statement, "Catalog '%s' does not support NOT NULL for column '%s'", catalogHandle, column);
         }
-        metadata.dropNotNullConstraint(session, tableHandle, columnHandle);
+        metadata.setNotNullConstraint(session, tableHandle, columnHandle);
         return immediateVoidFuture();
     }
 }
