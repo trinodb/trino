@@ -51,6 +51,11 @@ public class PositionDeleteWriter
     private final IcebergFileWriter writer;
     private final IcebergFileFormat fileFormat;
 
+    public IcebergFileWriter getWriter()
+    {
+        return writer;
+    }
+
     public PositionDeleteWriter(
             String dataFilePath,
             PartitionSpec partitionSpec,
