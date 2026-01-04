@@ -24,12 +24,18 @@ import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDropTableTask
@@ -43,6 +49,38 @@ public class TestDropTableTask
         assertThat(metadata.getTableHandle(testSession, tableName)).isPresent();
 
         getFutureValue(executeDropTable(asQualifiedName(tableName), false));
+        assertThat(metadata.getTableHandle(testSession, tableName)).isEmpty();
+    }
+
+    @Test
+    void testDropExistingTableIfExistsConcurrently()
+    {
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
+        assertThat(metadata.getTableHandle(testSession, tableName)).isPresent();
+
+        int threads = 4;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+
+        ImmutableList.Builder<Future<?>> dropTableFutures = ImmutableList.builder();
+        for (int i = 0; i < threads; i++) {
+            Runnable dropTableTask = () -> {
+                try {
+                    barrier.await(10, SECONDS);
+                }
+                catch (Throwable e) {
+                    throw new RuntimeException(e);
+                }
+                getFutureValue(executeDropTable(asQualifiedName(tableName), true));
+            };
+            dropTableFutures.add(executor.submit(dropTableTask));
+        }
+
+        for (Future<?> dropTableFuture : dropTableFutures.build()) {
+            getFutureValue(dropTableFuture);
+        }
+
         assertThat(metadata.getTableHandle(testSession, tableName)).isEmpty();
     }
 

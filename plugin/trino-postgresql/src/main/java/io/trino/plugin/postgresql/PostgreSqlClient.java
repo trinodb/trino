@@ -1511,6 +1511,15 @@ public class PostgreSqlClient
         execute(session, sql);
     }
 
+    @Override
+    protected boolean isTableNotFoundException(TrinoException exception)
+    {
+        if (exception.getCause() instanceof SQLException sqlException) {
+            return sqlException.getSQLState().equals("42P01");
+        }
+        return false;
+    }
+
     private static ColumnMapping timestampWithTimeZoneColumnMapping(int precision)
     {
         // PostgreSQL supports timestamptz precision up to microseconds

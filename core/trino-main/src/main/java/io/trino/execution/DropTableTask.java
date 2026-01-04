@@ -21,6 +21,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.security.AccessControl;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.Expression;
 
@@ -85,7 +86,17 @@ public class DropTableTask
         QualifiedObjectName tableName = redirectionAwareTableHandle.redirectedTableName().orElse(originalTableName);
         accessControl.checkCanDropTable(session.toSecurityContext(), tableName);
 
-        metadata.dropTable(session, redirectionAwareTableHandle.tableHandle().get(), tableName.asCatalogSchemaTableName());
+        try {
+            metadata.dropTable(session, redirectionAwareTableHandle.tableHandle().get(), tableName.asCatalogSchemaTableName());
+        }
+        catch (TableNotFoundException e) {
+            if (!statement.isExists()) {
+                throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
+            }
+            // This means we verified that the table existed, but by the time we executed DROP TABLE
+            // it may have already been dropped by another concurrent thread or task.
+            // Since DROP TABLE IF EXISTS is used, this case should be treated as successful.
+        }
 
         return immediateVoidFuture();
     }
