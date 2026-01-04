@@ -15,15 +15,19 @@ package io.trino.geospatial;
 
 import io.trino.spi.TrinoException;
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.CoordinateSequence;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryCollection;
 import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.LinearRing;
 import org.locationtech.jts.geom.MultiLineString;
 import org.locationtech.jts.geom.MultiPoint;
 import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
+import org.locationtech.jts.geom.impl.CoordinateArraySequence;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.geojson.GeoJsonReader;
 import org.locationtech.jts.io.geojson.GeoJsonWriter;
@@ -34,11 +38,20 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
 public final class GeometryUtils
 {
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
+    private static final long POINT_INSTANCE_SIZE = instanceSize(Point.class);
+    private static final long LINE_STRING_INSTANCE_SIZE = instanceSize(LineString.class);
+    private static final long LINEAR_RING_INSTANCE_SIZE = instanceSize(LinearRing.class);
+    private static final long POLYGON_INSTANCE_SIZE = instanceSize(Polygon.class);
+    private static final long GEOMETRY_COLLECTION_INSTANCE_SIZE = instanceSize(GeometryCollection.class);
+    private static final long COORDINATE_ARRAY_SEQUENCE_INSTANCE_SIZE = instanceSize(CoordinateArraySequence.class);
+    private static final long COORDINATE_INSTANCE_SIZE = instanceSize(Coordinate.class);
 
     private GeometryUtils() {}
 
@@ -66,6 +79,43 @@ public final class GeometryUtils
     public static boolean isEsriNaN(double d)
     {
         return Double.isNaN(d) || Double.isNaN(translateFromAVNaN(d));
+    }
+
+    /**
+     * Do a best-effort attempt to estimate the memory size of a JTS geometry.
+     */
+    public static long estimateMemorySize(Geometry geometry)
+    {
+        if (geometry == null) {
+            return 0;
+        }
+
+        if (geometry instanceof Point point) {
+            return POINT_INSTANCE_SIZE + getCoordinateSequenceMemorySize(point.getCoordinateSequence());
+        }
+        if (geometry instanceof LinearRing linearRing) {
+            return LINEAR_RING_INSTANCE_SIZE + getCoordinateSequenceMemorySize(linearRing.getCoordinateSequence());
+        }
+        if (geometry instanceof LineString lineString) {
+            return LINE_STRING_INSTANCE_SIZE + getCoordinateSequenceMemorySize(lineString.getCoordinateSequence());
+        }
+        if (geometry instanceof Polygon polygon) {
+            long size = POLYGON_INSTANCE_SIZE + sizeOfObjectArray(polygon.getNumInteriorRing());
+            size += estimateMemorySize(polygon.getExteriorRing());
+            for (int i = 0; i < polygon.getNumInteriorRing(); i++) {
+                size += estimateMemorySize(polygon.getInteriorRingN(i));
+            }
+            return size;
+        }
+        if (geometry instanceof GeometryCollection geometryCollection) {
+            long size = GEOMETRY_COLLECTION_INSTANCE_SIZE + sizeOfObjectArray(geometryCollection.getNumGeometries());
+            for (int i = 0; i < geometryCollection.getNumGeometries(); i++) {
+                size += estimateMemorySize(geometryCollection.getGeometryN(i));
+            }
+            return size;
+        }
+
+        return instanceSize(geometry.getClass());
     }
 
     public static Geometry jtsGeometryFromJson(String json)
@@ -179,5 +229,12 @@ public final class GeometryUtils
         else {
             output.add(geometry);
         }
+    }
+
+    private static long getCoordinateSequenceMemorySize(CoordinateSequence coordinateSequence)
+    {
+        return COORDINATE_ARRAY_SEQUENCE_INSTANCE_SIZE +
+                sizeOfObjectArray(coordinateSequence.size()) +
+                (long) coordinateSequence.size() * COORDINATE_INSTANCE_SIZE;
     }
 }
