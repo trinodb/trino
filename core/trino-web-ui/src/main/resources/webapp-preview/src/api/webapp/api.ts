@@ -13,6 +13,14 @@
  */
 import { api, ApiResponse } from '../base.ts'
 
+export interface Cluster {
+    nodeVersion: {
+        version: string
+    }
+    environment: string
+    uptime: string
+}
+
 export interface Stats {
     runningQueries: number
     blockedQueries: number
@@ -352,6 +360,10 @@ export interface QueryStatusInfo extends QueryInfoBase {
 
 export interface WorkerTaskInfo {
     dummy: string
+}
+
+export async function clusterApi(): Promise<ApiResponse<Cluster>> {
+    return await api.get<Cluster>('/ui/api/cluster')
 }
 
 export async function statsApi(): Promise<ApiResponse<Stats>> {
