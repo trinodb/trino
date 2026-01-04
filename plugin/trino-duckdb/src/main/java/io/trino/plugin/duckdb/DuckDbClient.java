@@ -295,4 +295,13 @@ public final class DuckDbClient
             }
         };
     }
+
+    @Override
+    protected boolean isTableNotFoundException(TrinoException exception)
+    {
+        if (exception.getCause() instanceof SQLException sqlException) {
+            return "42S02".equals(sqlException.getSQLState());
+        }
+        return false;
+    }
 }
