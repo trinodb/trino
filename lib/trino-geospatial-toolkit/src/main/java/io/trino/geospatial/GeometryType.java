@@ -63,7 +63,7 @@ public enum GeometryType
         return switch (type) {
             case "Point" -> POINT;
             case "MultiPoint" -> MULTI_POINT;
-            case "LineString" -> LINE_STRING;
+            case "LineString", "LinearRing" -> LINE_STRING;
             case "MultiLineString" -> MULTI_LINE_STRING;
             case "Polygon" -> POLYGON;
             case "MultiPolygon" -> MULTI_POLYGON;

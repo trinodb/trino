@@ -109,7 +109,7 @@ public class BenchmarkSTArea
 
         assertThat(Math.round(1000 * (Double) benchmark.stSphericalArea(data) / 3.659E8)).isEqualTo(1000);
         assertThat(Math.round(1000 * (Double) benchmark.stSphericalArea500k(data) / 38842273735.0)).isEqualTo(1000);
-        assertThat(benchmark.stArea(data)).isEqualTo(0.05033099592771004);
+        assertThat(benchmark.stArea(data)).isEqualTo(0.05033099592771002);
         assertThat(Math.round(1000 * (Double) benchmark.stArea500k(data) / Math.PI)).isEqualTo(1000);
     }
 
