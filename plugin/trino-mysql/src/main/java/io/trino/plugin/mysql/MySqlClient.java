@@ -15,6 +15,7 @@ package io.trino.plugin.mysql;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -120,6 +121,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.BiFunction;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -183,6 +186,10 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.mysql.MySqlTableProperties.PRIMARY_KEY_PROPERTY;
+import static io.trino.plugin.mysql.DorisTableProperties.BUCKETS_PROPERTY;
+import static io.trino.plugin.mysql.DorisTableProperties.DISTRIBUTED_BY_PROPERTY;
+import static io.trino.plugin.mysql.DorisTableProperties.KEY_BY_PROPERTY;
+import static io.trino.plugin.mysql.DorisTableProperties.MODEL_TYPE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -228,6 +235,8 @@ public class MySqlClient
 {
     private static final Logger log = Logger.get(MySqlClient.class);
 
+    private static final Splitter TABLE_PROPERTY_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
+
     private static final int MAX_SUPPORTED_DATE_TIME_PRECISION = 6;
     // MySQL driver returns width of timestamp types instead of precision.
     // 19 characters are used for zero-precision timestamps while others
@@ -244,6 +253,8 @@ public class MySqlClient
 
     private final Type jsonType;
     private final boolean statisticsEnabled;
+    private final int datetimeColumnSize;
+    private final boolean isDoris;
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 
@@ -270,6 +281,7 @@ public class MySqlClient
     @Inject
     public MySqlClient(
             BaseJdbcConfig config,
+            MySqlConfig mySqlConfig,
             JdbcStatisticsConfig statisticsConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
@@ -280,6 +292,8 @@ public class MySqlClient
         super("`", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
         this.statisticsEnabled = statisticsConfig.isEnabled();
+        this.datetimeColumnSize = mySqlConfig.getDatetimeColumnSize();
+        this.isDoris = mySqlConfig.isDoris();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
@@ -323,7 +337,10 @@ public class MySqlClient
     @Override
     protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
-        PreparedQuery preparedQuery = new PreparedQuery(format("SELECT * FROM %s", quoted(remoteTableName)), ImmutableList.of());
+        if (isDoris) {
+            return ImmutableMap.of();
+        }
+        PreparedQuery preparedQuery = new PreparedQuery(format("SELECT * FROM %s", quoted(tableHandle.asPlainTable().getRemoteTableName())), ImmutableList.of());
 
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty())) {
             ResultSetMetaData metadata = preparedStatement.getMetaData();
@@ -384,10 +401,10 @@ public class MySqlClient
     @Override
     protected boolean filterSchema(String schemaName)
     {
-        if (schemaName.equalsIgnoreCase("mysql")
-                || schemaName.equalsIgnoreCase("sys")) {
-            return false;
-        }
+//        if (schemaName.equalsIgnoreCase("mysql")
+//                || schemaName.equalsIgnoreCase("sys")) {
+//            return false;
+//        }
         return super.filterSchema(schemaName);
     }
 
@@ -465,10 +482,19 @@ public class MySqlClient
     @Override
     public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
     {
-        String sql = format(
-                "ALTER TABLE %s COMMENT = %s",
-                quoted(handle.asPlainTable().getRemoteTableName()),
-                mysqlVarcharLiteral(comment.orElse(NO_COMMENT))); // An empty character removes the existing comment in MySQL
+        String sql = "";
+        if (isDoris) {
+            sql = format(
+                    "ALTER TABLE %s MODIFY COMMENT %s",
+                    quoted(handle.asPlainTable().getRemoteTableName()),
+                    mysqlVarcharLiteral(comment.orElse(NO_COMMENT)));
+        }
+        else {
+            sql = format(
+                    "ALTER TABLE %s COMMENT = %s",
+                    quoted(handle.asPlainTable().getRemoteTableName()),
+                    mysqlVarcharLiteral(comment.orElse(NO_COMMENT))); // An empty character removes the existing comment in MySQL
+        }
         execute(session, sql);
     }
 
@@ -483,6 +509,37 @@ public class MySqlClient
     @Override
     protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
+        if (isDoris) {
+            List<String> distributedBy = DorisTableProperties.getDistributedBy(tableMetadata.getProperties())
+                    .stream().map(this::quoted).toList();
+            checkArgument(!distributedBy.isEmpty(), "table need distributed_by properties");
+            String modelTypeSql = "";
+            DorisEngineType modelType = DorisTableProperties.getModelType(tableMetadata.getProperties());
+            List<String> keyBy = DorisTableProperties.getKeyBy(tableMetadata.getProperties())
+                    .stream().map(this::quoted).toList();
+            //判断是否默认 默认不添加模型
+            if (modelType != null) {
+                checkArgument(!keyBy.isEmpty(), "table need key_by properties");
+                switch (modelType) {
+                    case DUPLICATE ->
+                            modelTypeSql = format("DUPLICATE KEY ( %s )", join(",", keyBy));
+                    case UNIQUE ->
+                            modelTypeSql = format("UNIQUE KEY ( %s )", join(",", keyBy));
+                    case AGGREGATE ->
+//                            modelTypeSql = format("AGGREGATE KEY ( %s )", join(",", keyBy));
+                        //todo 暂不支持，AGGREGATE需要指定统计列的统计方法
+                            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with aggregate");
+                    default -> modelTypeSql = "";
+                }
+            }
+            String tablePropertiesSql = format("%s COMMENT '%s' " +
+                            " DISTRIBUTED BY HASH( %s ) BUCKETS %s PROPERTIES ( " +
+                            "'replication_allocation' = 'tag.location.default: 1' )",
+                    modelTypeSql, tableMetadata.getComment().orElse(NO_COMMENT), join(",", distributedBy),
+                    DorisTableProperties.getBuckets(tableMetadata.getProperties()).orElse(1));
+            return ImmutableList.of(format("CREATE TABLE %s (%s) %s", quoted(remoteTableName),
+                    join(", ", columns), tablePropertiesSql));
+        }
         ImmutableList.Builder<String> columnDefinitions = ImmutableList.builder();
         columnDefinitions.addAll(columns);
 
@@ -517,14 +574,18 @@ public class MySqlClient
     @Override
     protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
     {
-        if (column.getComment() != null) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+//        if (column.getComment() != null) {
+//            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+//        }
+        String comment = column.getComment();
+        if (comment == null || comment.isEmpty()) {
+            comment = NO_COMMENT;
         }
-
-        return "%s %s %s".formatted(
+        return "%s %s %s COMMENT '%s'".formatted(
                 quoted(columnName),
                 toWriteMapping(session, column.getType()).getDataType(),
-                column.isNullable() ? "NULL" : "NOT NULL");
+                column.isNullable() ? "NULL" : "NOT NULL",
+                comment);
     }
 
     private static String mysqlVarcharLiteral(String value)
@@ -679,7 +740,19 @@ public class MySqlClient
 
     private Optional<ColumnMapping> mysqlDateTimeToTrinoTimestamp(JdbcTypeHandle typeHandle)
     {
-        TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.requiredColumnSize()));
+        int timestampColumnSize;
+        if (isDoris) {
+            if (datetimeColumnSize == 0) {
+                timestampColumnSize = 23;
+            }
+            else {
+                timestampColumnSize = datetimeColumnSize;
+            }
+        }
+        else {
+            timestampColumnSize = typeHandle.requiredColumnSize();
+        }
+        TimestampType timestampType = createTimestampType(getTimestampPrecision(timestampColumnSize));
         checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
         return Optional.of(ColumnMapping.longMapping(
                 timestampType,
@@ -835,7 +908,10 @@ public class MySqlClient
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         if (type == BOOLEAN) {
-            return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
+            if (isDoris) {
+                return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
+            }
+            return WriteMapping.booleanMapping("bit", booleanWriteFunction());
         }
         if (type == TINYINT) {
             return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
@@ -857,7 +933,11 @@ public class MySqlClient
         }
 
         if (type instanceof DecimalType decimalType) {
-            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            int scale = decimalType.getScale();
+            if (isDoris && scale == 0) {
+                scale = 2;
+            }
+            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), scale);
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
@@ -865,6 +945,10 @@ public class MySqlClient
         }
 
         if (type == DATE) {
+            if (isDoris) {
+                //todo 确认后续doris版本是否需要datev2
+                return WriteMapping.longMapping("datev2", mySqlDateWriteFunctionUsingLocalDate());
+            }
             return WriteMapping.longMapping("date", mySqlDateWriteFunctionUsingLocalDate());
         }
 
@@ -904,7 +988,10 @@ public class MySqlClient
 
         if (type instanceof VarcharType varcharType) {
             String dataType;
-            if (varcharType.isUnbounded()) {
+            if (isDoris) {
+                dataType = "string";
+            }
+            else if (varcharType.isUnbounded()) {
                 dataType = "longtext";
             }
             else if (varcharType.getBoundedLength() <= 255) {
@@ -984,6 +1071,9 @@ public class MySqlClient
     protected void renameColumn(ConnectorSession session, Connection connection, RemoteTableName remoteTableName, String remoteColumnName, String newRemoteColumnName)
             throws SQLException
     {
+        if (isDoris) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support rename column name");
+        }
         String sql = format(
                 "ALTER TABLE %s RENAME COLUMN %s TO %s",
                 quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
@@ -1011,10 +1101,35 @@ public class MySqlClient
     }
 
     @Override
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
+    {
+        if (isDoris) {
+            try (Connection connection = connectionFactory.openConnection(session)) {
+                String remoteColumnName = getIdentifierMapping().toRemoteColumnName(getRemoteIdentifiers(connection), column.getName());
+                String sql = format(
+                        "ALTER TABLE %s ADD COLUMN %s",
+                        quoted(handle.asPlainTable().getRemoteTableName()),
+                        getColumnDefinitionSql(session, column, remoteColumnName));
+                execute(session, connection, sql);
+            }
+            catch (SQLException e) {
+                throw new TrinoException(JDBC_ERROR, e);
+            }
+        }
+        else {
+            super.addColumn(session, handle, column);
+        }
+    }
+
+    @Override
     protected void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
     {
         String tableCopyFormat = "CREATE TABLE %s AS SELECT * FROM %s WHERE 0 = 1";
-        if (isGtidMode(connection)) {
+        if (isDoris) {
+            tableCopyFormat = "CREATE TABLE %s PROPERTIES( 'replication_allocation' = 'tag.location.default: 1') " +
+                    "AS SELECT * FROM %s WHERE 0 = 1";
+        }
+        else if (isGtidMode(connection)) {
             tableCopyFormat = "CREATE TABLE %s LIKE %s";
         }
         String sql = format(
@@ -1037,6 +1152,22 @@ public class MySqlClient
         RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
         verify(remoteTableName.getSchemaName().isEmpty());
         renameTable(session, null, remoteTableName.getCatalogName().orElse(null), remoteTableName.getTableName(), newTableName);
+    }
+
+    @Override
+    protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+            throws SQLException
+    {
+        if (isDoris) {
+            execute(session, connection, format(
+                    "ALTER TABLE %s RENAME %s",
+                    quoted(catalogName, remoteSchemaName, remoteTableName),
+                    quoted(newRemoteTableName)));
+        }
+        else {
+            super.renameTable(session, connection, catalogName, remoteSchemaName, remoteTableName,
+                    newRemoteSchemaName, newRemoteTableName);
+        }
     }
 
     @Override
