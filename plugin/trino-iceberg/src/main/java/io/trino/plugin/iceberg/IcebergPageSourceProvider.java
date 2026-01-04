@@ -447,7 +447,16 @@ public class IcebergPageSourceProvider
         }
 
         Set<IcebergColumnHandle> partitionColumns = partitionKeys.keySet().stream()
-                .map(fieldId -> getColumnHandle(tableSchema.findField(fieldId), typeManager))
+                .map(fieldId -> {
+                    Types.NestedField field = tableSchema.findField(fieldId);
+                    if (field == null) {
+                        // This can happen if the field no longer exists in the schema due to schema evolution
+                        // Return null and filter out nulls below
+                        return null;
+                    }
+                    return getColumnHandle(field, typeManager);
+                })
+                .filter(Objects::nonNull)
                 .collect(toImmutableSet());
         Supplier<Map<ColumnHandle, NullableValue>> partitionValues = memoize(() -> getPartitionValues(partitionColumns, partitionKeys));
         if (!partitionMatchesPredicate(partitionColumns, partitionValues, unenforcedPredicate)) {

@@ -73,6 +73,7 @@ import io.trino.plugin.iceberg.system.RefsTable;
 import io.trino.plugin.iceberg.system.SnapshotsTable;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.ErrorCode;
+import io.trino.spi.Page;
 import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -90,6 +91,7 @@ import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
@@ -102,6 +104,7 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
@@ -114,6 +117,7 @@ import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
@@ -153,14 +157,18 @@ import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.DeleteFiles;
+import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.IcebergManifestUtils;
 import org.apache.iceberg.IsolationLevel;
+import org.apache.iceberg.ManifestContent;
 import org.apache.iceberg.ManifestFile;
+import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.MetadataColumns;
+import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -192,6 +200,7 @@ import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.Term;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
@@ -201,6 +210,7 @@ import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.types.Types.StructType;
 import org.apache.iceberg.util.StructLikeWrapper;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Instant;
@@ -249,6 +259,7 @@ import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.collect.Sets.difference;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.filesystem.Locations.isS3Tables;
 import static io.trino.plugin.base.filter.UtcConstraintExtractor.extractTupleDomain;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
@@ -400,8 +411,11 @@ import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
+import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
+import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 import static org.apache.iceberg.MetadataTableType.ALL_ENTRIES;
 import static org.apache.iceberg.MetadataTableType.ENTRIES;
 import static org.apache.iceberg.ReachableFileUtil.metadataFileLocations;
@@ -415,9 +429,11 @@ import static org.apache.iceberg.SnapshotSummary.TOTAL_RECORDS_PROP;
 import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
+import static org.apache.iceberg.TableProperties.DELETE_MODE;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.MANIFEST_TARGET_SIZE_BYTES;
 import static org.apache.iceberg.TableProperties.MANIFEST_TARGET_SIZE_BYTES_DEFAULT;
+import static org.apache.iceberg.TableProperties.MERGE_MODE;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.MIN_SNAPSHOTS_TO_KEEP;
@@ -425,6 +441,7 @@ import static org.apache.iceberg.TableProperties.MIN_SNAPSHOTS_TO_KEEP_DEFAULT;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static org.apache.iceberg.TableProperties.PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX;
+import static org.apache.iceberg.TableProperties.UPDATE_MODE;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.TableUtil.formatVersion;
@@ -456,6 +473,9 @@ public class IcebergMetadata
             .add(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)
             .add(PARTITIONING_PROPERTY)
             .add(SORTED_BY_PROPERTY)
+            .add(IcebergTableProperties.WRITE_DELETE_MODE)
+            .add(IcebergTableProperties.WRITE_UPDATE_MODE)
+            .add(IcebergTableProperties.WRITE_MERGE_MODE)
             .build();
     private static final String SYSTEM_SCHEMA = "system";
 
@@ -484,6 +504,8 @@ public class IcebergMetadata
     private final Executor metadataFetchingExecutor;
     private final ExecutorService icebergPlanningExecutor;
     private final ExecutorService icebergFileDeleteExecutor;
+    private final IcebergPageSourceProvider pageSourceProvider;
+    private final IcebergFileWriterFactory fileWriterFactory;
     private final Map<IcebergTableHandle, AtomicReference<TableStatistics>> tableStatisticsCache = new ConcurrentHashMap<>();
 
     private Transaction transaction;
@@ -502,7 +524,9 @@ public class IcebergMetadata
             ExecutorService icebergScanExecutor,
             Executor metadataFetchingExecutor,
             ExecutorService icebergPlanningExecutor,
-            ExecutorService icebergFileDeleteExecutor)
+            ExecutorService icebergFileDeleteExecutor,
+            IcebergPageSourceProvider pageSourceProvider,
+            IcebergFileWriterFactory fileWriterFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
@@ -517,6 +541,8 @@ public class IcebergMetadata
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
         this.icebergPlanningExecutor = requireNonNull(icebergPlanningExecutor, "icebergPlanningExecutor is null");
         this.icebergFileDeleteExecutor = requireNonNull(icebergFileDeleteExecutor, "icebergFileDeleteExecutor is null");
+        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
     }
 
     @Override
@@ -671,7 +697,8 @@ public class IcebergMetadata
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
-                Optional.of(false));
+                Optional.of(false),
+                Optional.empty());
     }
 
     private Optional<IcebergTablePartitioning> getTablePartitioning(ConnectorSession session, Table icebergTable)
@@ -2516,6 +2543,24 @@ public class IcebergMetadata
             updateProperties.set(WRITE_DATA_LOCATION, dataLocation);
         }
 
+        if (properties.containsKey(IcebergTableProperties.WRITE_DELETE_MODE)) {
+            UpdateMode writeDeleteMode = (UpdateMode) properties.get(IcebergTableProperties.WRITE_DELETE_MODE)
+                    .orElseThrow(() -> new IllegalArgumentException("The write_delete_mode property cannot be empty"));
+            updateProperties.set(DELETE_MODE, writeDeleteMode.getIcebergProperty());
+        }
+
+        if (properties.containsKey(IcebergTableProperties.WRITE_UPDATE_MODE)) {
+            UpdateMode writeUpdateMode = (UpdateMode) properties.get(IcebergTableProperties.WRITE_UPDATE_MODE)
+                    .orElseThrow(() -> new IllegalArgumentException("The write_update_mode property cannot be empty"));
+            updateProperties.set(UPDATE_MODE, writeUpdateMode.getIcebergProperty());
+        }
+
+        if (properties.containsKey(IcebergTableProperties.WRITE_MERGE_MODE)) {
+            UpdateMode writeMergeMode = (UpdateMode) properties.get(IcebergTableProperties.WRITE_MERGE_MODE)
+                    .orElseThrow(() -> new IllegalArgumentException("The write_merge_mode property cannot be empty"));
+            updateProperties.set(MERGE_MODE, writeMergeMode.getIcebergProperty());
+        }
+
         try {
             updateProperties.commit();
         }
@@ -3057,11 +3102,30 @@ public class IcebergMetadata
     public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
-        TupleDomain<IcebergColumnHandle> medataColumnPredicate = table.getEnforcedPredicate().filter((column, domain) -> isMetadataColumnId(column.getId()));
-        if (!medataColumnPredicate.isAll()) {
+        TupleDomain<IcebergColumnHandle> metadataColumnPredicate = table.getEnforcedPredicate().filter((column, domain) -> isMetadataColumnId(column.getId()));
+        if (!metadataColumnPredicate.isAll()) {
             return Optional.empty();
         }
-        return Optional.of(handle);
+
+        // Check if the table uses Copy-on-Write mode for deletes
+        // CoW deletes must go through the standard write path (finishWrite) to handle file rewriting
+        // Only MoR deletes can use the optimized executeDelete path
+        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        Map<String, String> properties = icebergTable.properties();
+        UpdateMode writeDeleteMode = UpdateMode.fromIcebergProperty(properties.getOrDefault(
+                DELETE_MODE, UpdateMode.MERGE_ON_READ.getIcebergProperty()));
+
+        if (writeDeleteMode == UpdateMode.COPY_ON_WRITE) {
+            // For CoW deletes, return empty to force use of standard write path (finishWrite)
+            // This prevents Trino from trying to use executeDelete, which doesn't support CoW
+            // The UpdateKind will be set automatically in finishWrite based on the operation type
+            return Optional.empty();
+        }
+
+        // For MoR deletes, return the handle with UpdateKind set
+        // This allows executeDelete to be called if applicable
+        IcebergTableHandle tableWithUpdateKind = table.withUpdateKind(UpdateKind.DELETE);
+        return Optional.of(tableWithUpdateKind);
     }
 
     @Override
@@ -3087,7 +3151,11 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorPartitioningHandle> getUpdateLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getInsertLayout(session, tableHandle)
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        // Set UpdateKind for UPDATE operations
+        IcebergTableHandle tableWithUpdateKind = table.withUpdateKind(UpdateKind.UPDATE);
+
+        return getInsertLayout(session, tableWithUpdateKind)
                 .flatMap(ConnectorTableLayout::getPartitioning)
                 .map(IcebergPartitioningHandle.class::cast)
                 .map(IcebergPartitioningHandle::forUpdate);
@@ -3104,8 +3172,11 @@ public class IcebergMetadata
 
         beginTransaction(icebergTable);
 
-        IcebergWritableTableHandle insertHandle = newWritableTableHandle(table.getSchemaTableName(), icebergTable);
-        return new IcebergMergeTableHandle(table, insertHandle);
+        // Set the UpdateKind to MERGE for this operation
+        IcebergTableHandle tableHandleWithUpdateKind = table.withUpdateKind(UpdateKind.MERGE);
+
+        IcebergWritableTableHandle insertHandle = newWritableTableHandle(tableHandleWithUpdateKind.getSchemaTableName(), icebergTable);
+        return new IcebergMergeTableHandle(tableHandleWithUpdateKind, insertHandle);
     }
 
     @Override
@@ -3125,12 +3196,15 @@ public class IcebergMetadata
 
     private static void validateNotModifyingOldSnapshot(IcebergTableHandle table, Table icebergTable)
     {
-        if (table.getSnapshotId().isPresent() && (table.getSnapshotId().get() != icebergTable.currentSnapshot().snapshotId())) {
+        Snapshot currentSnapshot = icebergTable.currentSnapshot();
+        if (table.getSnapshotId().isPresent() &&
+                (currentSnapshot == null || table.getSnapshotId().get() != currentSnapshot.snapshotId())) {
             throw new TrinoException(NOT_SUPPORTED, "Modifying old snapshot is not supported in Iceberg");
         }
     }
 
     private void finishWrite(ConnectorSession session, IcebergTableHandle table, Collection<Slice> fragments)
+            throws IllegalStateException
     {
         Table icebergTable = transaction.table();
 
@@ -3145,53 +3219,172 @@ public class IcebergMetadata
             return;
         }
 
-        Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
+        // Detect operation type if not already set:
+        // - UPDATE: has both POSITION_DELETES and DATA tasks (DELETE_ROW_AND_INSERT_ROW pattern)
+        // - DELETE: has only POSITION_DELETES tasks (no DATA tasks)
+        // - MERGE: already set in beginMerge()
+        UpdateKind detectedUpdateKind = table.getUpdateKind().orElse(null);
+        IcebergTableHandle tableHandle = table;
+        if (detectedUpdateKind == null) {
+            boolean hasDeletes = commitTasks.stream().anyMatch(task -> task.content() == FileContent.POSITION_DELETES);
+            boolean hasData = commitTasks.stream().anyMatch(task -> task.content() == FileContent.DATA);
+            if (hasDeletes && hasData) {
+                // This is an UPDATE operation (DELETE + INSERT pattern)
+                detectedUpdateKind = UpdateKind.UPDATE;
+                tableHandle = table.withUpdateKind(UpdateKind.UPDATE);
+            }
+            else if (hasDeletes && !hasData) {
+                // This is a DELETE operation (only POSITION_DELETES, no DATA)
+                detectedUpdateKind = UpdateKind.DELETE;
+                tableHandle = table.withUpdateKind(UpdateKind.DELETE);
+            }
+        }
 
-        RowDelta rowDelta = transaction.newRowDelta();
-        table.getSnapshotId().map(icebergTable::snapshot).ifPresent(s -> rowDelta.validateFromSnapshot(s.snapshotId()));
-        TupleDomain<IcebergColumnHandle> dataColumnPredicate = table.getEnforcedPredicate().filter((column, domain) -> !isMetadataColumnId(column.getId()));
-        TupleDomain<IcebergColumnHandle> effectivePredicate = dataColumnPredicate.intersect(table.getUnenforcedPredicate());
+        Schema schema = SchemaParser.fromJson(tableHandle.getTableSchemaJson());
+
+        // Determine the update mode to use based on the update kind and table properties
+        UpdateMode updateMode = UpdateMode.MERGE_ON_READ; // Default to MOR
+        Map<String, String> icebergProperties = icebergTable.properties();
+
+        if (detectedUpdateKind != null) {
+            switch (detectedUpdateKind) {
+                case DELETE:
+                    // Read from Iceberg property (stored as DELETE_MODE) with fallback to default
+                    updateMode = UpdateMode.fromIcebergProperty(icebergProperties.getOrDefault(
+                            DELETE_MODE,
+                            UpdateMode.MERGE_ON_READ.getIcebergProperty()));
+                    break;
+                case UPDATE:
+                    // Read from Iceberg property (stored as UPDATE_MODE) with fallback to default
+                    updateMode = UpdateMode.fromIcebergProperty(icebergProperties.getOrDefault(
+                            UPDATE_MODE,
+                            UpdateMode.MERGE_ON_READ.getIcebergProperty()));
+                    break;
+                case MERGE:
+                    // Read from Iceberg property (stored as MERGE_MODE) with fallback to default
+                    updateMode = UpdateMode.fromIcebergProperty(icebergProperties.getOrDefault(
+                            MERGE_MODE,
+                            UpdateMode.MERGE_ON_READ.getIcebergProperty()));
+                    break;
+                default:
+                    updateMode = UpdateMode.MERGE_ON_READ;
+            }
+        }
+
+        // Create the appropriate update operation based on the update mode
+        RowDelta rowDelta = null;
+        RewriteFiles rewriteFiles = null;
+
+        final IcebergTableHandle finalTableHandle = tableHandle;
+        Optional<Long> snapshotId = finalTableHandle.getSnapshotId();
+        // For MERGE with CoW, we use a special two-phase commit approach, so don't create rewriteFiles
+        // For other CoW operations (DELETE, UPDATE), use RewriteFiles
+        if (updateMode == UpdateMode.COPY_ON_WRITE && detectedUpdateKind != null && detectedUpdateKind != UpdateKind.MERGE) {
+            // For Copy-on-Write mode (except MERGE), use RewriteFiles
+            RewriteFiles localRewriteFiles = transaction.newRewrite();
+            snapshotId.map(icebergTable::snapshot).ifPresent(s -> localRewriteFiles.validateFromSnapshot(s.snapshotId()));
+            rewriteFiles = localRewriteFiles;
+        }
+        else if (updateMode == UpdateMode.COPY_ON_WRITE && detectedUpdateKind == UpdateKind.MERGE) {
+            // For MERGE with CoW, we'll use RowDelta in the second phase, but don't create it here yet
+            // We'll create it after committing the first transaction
+            rowDelta = null;
+            rewriteFiles = null;
+        }
+        else {
+            // For Merge-on-Read mode or when update kind is not specified, use RowDelta
+            RowDelta localRowDelta = transaction.newRowDelta();
+            snapshotId.map(icebergTable::snapshot).ifPresent(s -> localRowDelta.validateFromSnapshot(s.snapshotId()));
+            rowDelta = localRowDelta;
+        }
+        TupleDomain<IcebergColumnHandle> dataColumnPredicate = finalTableHandle.getEnforcedPredicate().filter((column, domain) -> !isMetadataColumnId(column.getId()));
+        TupleDomain<IcebergColumnHandle> effectivePredicate = dataColumnPredicate.intersect(finalTableHandle.getUnenforcedPredicate());
         if (isFileBasedConflictDetectionEnabled(session)) {
-            effectivePredicate = effectivePredicate.intersect(extractTupleDomainsFromCommitTasks(table, icebergTable, commitTasks, typeManager));
+            effectivePredicate = effectivePredicate.intersect(extractTupleDomainsFromCommitTasks(finalTableHandle, icebergTable, commitTasks, typeManager));
         }
 
         effectivePredicate = effectivePredicate.filter((_, domain) -> isConvertibleToIcebergExpression(domain));
 
         if (!effectivePredicate.isAll()) {
-            rowDelta.conflictDetectionFilter(toIcebergExpression(effectivePredicate));
+            if (rowDelta != null) {
+                rowDelta.conflictDetectionFilter(toIcebergExpression(effectivePredicate));
+            }
+            // For RewriteFiles, we don't set a conflict detection filter as it works differently
         }
+
         IsolationLevel isolationLevel = IsolationLevel.fromName(icebergTable.properties().getOrDefault(DELETE_ISOLATION_LEVEL, DELETE_ISOLATION_LEVEL_DEFAULT));
-        if (isolationLevel == IsolationLevel.SERIALIZABLE) {
-            rowDelta.validateNoConflictingDataFiles();
+
+        if (rowDelta != null) {
+            if (isolationLevel == IsolationLevel.SERIALIZABLE) {
+                rowDelta.validateNoConflictingDataFiles();
+            }
+
+            // Ensure a row that is updated by this commit was not deleted by a separate commit
+            rowDelta.validateDeletedFiles();
+            rowDelta.validateNoConflictingDeleteFiles();
+            rowDelta.scanManifestsWith(icebergScanExecutor);
+        }
+        else if (rewriteFiles != null) {
+            // For RewriteFiles, we'll configure scanning behavior
+            rewriteFiles.scanManifestsWith(icebergScanExecutor);
         }
 
-        // Ensure a row that is updated by this commit was not deleted by a separate commit
-        rowDelta.validateDeletedFiles();
-        rowDelta.validateNoConflictingDeleteFiles();
-        rowDelta.scanManifestsWith(icebergScanExecutor);
-
+        // In CoW mode, we need to track both files to add and files to delete/rewrite
+        Map<String, DataFile> filesToAdd = new HashMap<>();
+        Set<String> filesToDelete = new HashSet<>();
         ImmutableSet.Builder<String> referencedDataFiles = ImmutableSet.builder();
+        // For CoW DELETE operations, track delete files so we can rewrite data files to exclude deleted rows
+        Map<String, List<DeleteFile>> deleteFilesByDataFile = new HashMap<>();
+
+        // First, process all tasks to build the sets of files to add and delete
         for (CommitTaskData task : commitTasks) {
             PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.partitionSpecJson());
             Type[] partitionColumnTypes = partitionSpec.fields().stream()
                     .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
                     .toArray(Type[]::new);
+
             switch (task.content()) {
                 case POSITION_DELETES -> {
-                    FileMetadata.Builder deleteBuilder = FileMetadata.deleteFileBuilder(partitionSpec)
-                            .withPath(task.path())
-                            .withFormat(task.fileFormat().toIceberg())
-                            .ofPositionDeletes()
-                            .withFileSizeInBytes(task.fileSizeInBytes())
-                            .withMetrics(task.metrics().metrics());
-                    task.fileSplitOffsets().ifPresent(deleteBuilder::withSplitOffsets);
-                    if (!partitionSpec.fields().isEmpty()) {
-                        String partitionDataJson = task.partitionDataJson()
-                                .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
-                        deleteBuilder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+                    if (rowDelta != null) {
+                        // For MOR mode, add deletes as usual
+                        FileMetadata.Builder deleteBuilder = FileMetadata.deleteFileBuilder(partitionSpec)
+                                .withPath(task.path())
+                                .withFormat(task.fileFormat().toIceberg())
+                                .ofPositionDeletes()
+                                .withFileSizeInBytes(task.fileSizeInBytes())
+                                .withMetrics(task.metrics().metrics());
+                        task.fileSplitOffsets().ifPresent(deleteBuilder::withSplitOffsets);
+                        if (!partitionSpec.fields().isEmpty()) {
+                            String partitionDataJson = task.partitionDataJson()
+                                    .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
+                            deleteBuilder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+                        }
+                        rowDelta.addDeletes(deleteBuilder.build());
+                        task.referencedDataFile().ifPresent(referencedDataFiles::add);
                     }
-                    rowDelta.addDeletes(deleteBuilder.build());
-                    task.referencedDataFile().ifPresent(referencedDataFiles::add);
+                    else if (rewriteFiles != null || (updateMode == UpdateMode.COPY_ON_WRITE && (detectedUpdateKind == UpdateKind.MERGE || detectedUpdateKind == UpdateKind.UPDATE || detectedUpdateKind == UpdateKind.DELETE))) {
+                        // For CoW mode (DELETE, UPDATE, MERGE), mark the referenced data file for deletion
+                        // It will be replaced by a rewritten file that doesn't contain the deleted rows
+                        String referencedDataFile = task.referencedDataFile().orElse(null);
+                        if (referencedDataFile != null) {
+                            filesToDelete.add(referencedDataFile);
+                            // Build the delete file to track which rows need to be excluded when rewriting
+                            FileMetadata.Builder deleteBuilder = FileMetadata.deleteFileBuilder(partitionSpec)
+                                    .withPath(task.path())
+                                    .withFormat(task.fileFormat().toIceberg())
+                                    .ofPositionDeletes()
+                                    .withFileSizeInBytes(task.fileSizeInBytes())
+                                    .withMetrics(task.metrics().metrics());
+                            task.fileSplitOffsets().ifPresent(deleteBuilder::withSplitOffsets);
+                            if (!partitionSpec.fields().isEmpty()) {
+                                String partitionDataJson = task.partitionDataJson()
+                                        .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
+                                deleteBuilder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+                            }
+                            DeleteFile deleteFile = deleteBuilder.build();
+                            deleteFilesByDataFile.computeIfAbsent(referencedDataFile, k -> new ArrayList<>()).add(deleteFile);
+                        }
+                    }
                 }
                 case DATA -> {
                     DataFiles.Builder builder = DataFiles.builder(partitionSpec)
@@ -3204,14 +3397,542 @@ public class IcebergMetadata
                                 .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
                         builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
                     }
-                    rowDelta.addRows(builder.build());
+
+                    DataFile dataFile = builder.build();
+                    if (rowDelta != null) {
+                        // For MOR mode, add new rows as usual
+                        rowDelta.addRows(dataFile);
+                    }
+                    else if (rewriteFiles != null || (updateMode == UpdateMode.COPY_ON_WRITE && (detectedUpdateKind == UpdateKind.MERGE || detectedUpdateKind == UpdateKind.UPDATE || detectedUpdateKind == UpdateKind.DELETE))) {
+                        // For CoW mode (DELETE, UPDATE, MERGE), store this file to be added later
+                        filesToAdd.put(task.path(), dataFile);
+                    }
                 }
                 default -> throw new UnsupportedOperationException("Unsupported task content: " + task.content());
             }
         }
 
-        rowDelta.validateDataFilesExist(referencedDataFiles.build());
-        commitUpdateAndTransaction(rowDelta, session, transaction, "write");
+        if (rowDelta != null) {
+            // For MOR mode
+            rowDelta.validateDataFilesExist(referencedDataFiles.build());
+            commitUpdateAndTransaction(rowDelta, session, transaction, "write");
+        }
+        else if (rewriteFiles != null || (updateMode == UpdateMode.COPY_ON_WRITE && (detectedUpdateKind == UpdateKind.MERGE || detectedUpdateKind == UpdateKind.UPDATE || detectedUpdateKind == UpdateKind.DELETE))) {
+            // For CoW mode
+            // Optimized approach: Read manifests directly instead of scanning all files
+            // This is much more efficient for large tables as we only read manifest metadata
+            // instead of creating FileScanTasks for every data file in the table.
+            // Performance improvement: O(manifest_count) instead of O(data_file_count)
+            // Snapshot isolation ensures the snapshot we read from remains consistent
+            // throughout this operation, protecting against concurrent modifications
+            if (!filesToDelete.isEmpty()) {
+                // Build an immutable set for fast O(1) lookup
+                Set<String> filesToDeleteSet = ImmutableSet.copyOf(filesToDelete);
+                int remainingFiles = filesToDeleteSet.size();
+
+                // Read manifests from current snapshot to get DataFile objects for files to delete
+                Snapshot currentSnapshot = icebergTable.currentSnapshot();
+                if (currentSnapshot == null) {
+                    // This should not happen: if we have files to delete, the table must have a snapshot
+                    // This indicates an internal consistency error in the transaction state
+                    throw new TrinoException(ICEBERG_INVALID_METADATA,
+                            format("Internal error: Table has no current snapshot but %d file(s) are marked for deletion. " +
+                                   "This indicates a problem with the transaction state.", filesToDelete.size()));
+                }
+
+                List<ManifestFile> manifests = loadAllManifestsFromSnapshot(icebergTable, currentSnapshot);
+
+                // Read data files from manifests, filtering by paths we need
+                for (ManifestFile manifest : manifests) {
+                    // Only read data manifests (not delete manifests)
+                    if (manifest.content() != ManifestContent.DATA) {
+                        continue;
+                    }
+
+                    // Early termination: if we've found all files, stop reading manifests
+                    if (remainingFiles == 0) {
+                        break;
+                    }
+
+                    try (ManifestReader<DataFile> manifestReader = ManifestFiles.read(manifest, icebergTable.io())) {
+                        for (DataFile dataFile : manifestReader) {
+                            String path = dataFile.path().toString();
+
+                            if (filesToDeleteSet.contains(path)) {
+                                // Add this file to be deleted (skip for MERGE as we handle it differently)
+                                if (rewriteFiles != null) {
+                                    rewriteFiles.deleteFile(dataFile);
+                                }
+
+                                // Track that this file is being replaced
+                                referencedDataFiles.add(path);
+
+                                remainingFiles--;
+                                // Early termination within manifest if all files found
+                                if (remainingFiles == 0) {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    catch (IOException e) {
+                        throw new TrinoException(ICEBERG_FILESYSTEM_ERROR,
+                                "Error reading manifest file: " + manifest.path(), e);
+                    }
+                }
+
+                // Validate that all files to delete were found in the table's manifests
+                if (remainingFiles > 0) {
+                    throw new TrinoException(ICEBERG_INVALID_METADATA,
+                            format("Could not find %d file(s) to delete in table manifests for Copy-on-Write operation. " +
+                                    "The files may have been removed by a concurrent operation. " +
+                                    "Table: %s", remainingFiles, icebergTable.name()));
+                }
+            }
+
+            // For CoW DELETE, UPDATE, and MERGE operations, if we have files to delete,
+            // we need to rewrite the data files to exclude deleted rows
+            // For DELETE: filesToAdd will be empty (only rewriting)
+            // For UPDATE: filesToAdd will contain new data files with updated rows (these should be kept)
+            //   The rewrite creates files with non-updated rows, and new data files contain updated rows
+            //   Both should be added - rewritten files for non-updated rows, new data files for updated rows
+            // For MERGE: filesToAdd may contain new files (insertions), but we still need to rewrite files with deletes
+            if ((detectedUpdateKind == UpdateKind.DELETE || detectedUpdateKind == UpdateKind.UPDATE || detectedUpdateKind == UpdateKind.MERGE)
+                    && updateMode == UpdateMode.COPY_ON_WRITE && !filesToDelete.isEmpty()) {
+                // Rewrite data files to exclude deleted rows
+                rewriteDataFilesForCowDelete(session, icebergTable, schema, filesToDelete, deleteFilesByDataFile, filesToAdd);
+            }
+
+            // Validate that CoW DELETE operations have rewritten files after the rewrite attempt
+            // Note: MERGE operations may have filesToAdd from insertions, so we only validate DELETE operations
+            if (detectedUpdateKind == UpdateKind.DELETE && updateMode == UpdateMode.COPY_ON_WRITE && filesToAdd.isEmpty() && !filesToDelete.isEmpty()) {
+                // After attempting to rewrite, if we still have no files to add, this is an error
+                throw new TrinoException(NOT_SUPPORTED,
+                        format("Copy-on-Write DELETE operations require file rewriting, but no rewritten files were generated for table %s. " +
+                               "This may indicate that the DELETE operation is not properly configured for CoW mode.", icebergTable.name()));
+            }
+
+            // Now add all the new files (skip for MERGE as we handle it in the second phase)
+            // For UPDATE operations in CoW mode, we need to be careful:
+            // - Rewritten files contain non-updated rows (excludes deleted rows)
+            // - New data files contain updated rows
+            // Both should be added, but we need to make sure we're not duplicating
+            if (rewriteFiles != null) {
+                for (DataFile dataFile : filesToAdd.values()) {
+                    rewriteFiles.addFile(dataFile);
+                }
+            }
+
+            // Set dataSequenceNumber to avoid contention with concurrent operations
+            // This is important for CoW operations to ensure proper snapshot isolation
+            // Use the snapshot we validated from, or current snapshot if no validation was set
+            Snapshot snapshotForSequence = snapshotId.map(icebergTable::snapshot).orElse(icebergTable.currentSnapshot());
+            if (snapshotForSequence != null && rewriteFiles != null) {
+                rewriteFiles.dataSequenceNumber(snapshotForSequence.sequenceNumber());
+            }
+
+            if (detectedUpdateKind == UpdateKind.MERGE && updateMode == UpdateMode.COPY_ON_WRITE) {
+                // For MERGE operations with copy-on-write mode, we need to handle the operation differently
+                // Instead of using RewriteFiles, which triggers Iceberg's validation that prevents MERGE operations
+                // that legitimately add more records than they replace, we'll use a new transaction approach
+                // This is a special case just for MERGE operations with CoW mode
+                // Note: rewriteFiles was not created for MERGE, so we can commit the transaction directly
+                // The position delete files are already written and committed by PositionDeleteWriter
+                // Commit the current transaction (this commits the position delete files)
+                commitTransaction(transaction, "merge with cow - prepare");
+                // Clear the transaction field so we can start a new one
+                transaction = null;
+                // Reload the table to get the latest state after the first commit
+                icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
+                // Create a new transaction with the refreshed table
+                beginTransaction(icebergTable);
+                // Create a fresh RowDelta in the new transaction
+                RowDelta specialMergeDelta = transaction.newRowDelta();
+
+                // Configure RowDelta similar to how we configure it for MoR mode
+                // Re-use the isolationLevel variable from above
+                if (isolationLevel == IsolationLevel.SERIALIZABLE) {
+                    specialMergeDelta.validateNoConflictingDataFiles();
+                }
+                specialMergeDelta.validateDeletedFiles();
+                specialMergeDelta.validateNoConflictingDeleteFiles();
+                specialMergeDelta.scanManifestsWith(icebergScanExecutor);
+
+                // For each data file to delete, we need to tell RowDelta about it
+                for (String path : filesToDelete) {
+                    DataFile file = getFileFromManifest(icebergTable, path);
+                    if (file != null) {
+                        // Use RowDelta API to delete file
+                        specialMergeDelta.removeRows(file);
+                    }
+                }
+
+                // Then add all the new files (including rewritten files from CoW operations)
+                for (DataFile file : filesToAdd.values()) {
+                    // Add new data files to the delta
+                    specialMergeDelta.addRows(file);
+                }
+
+                // Note: In CoW mode, position delete files are consumed during the rewrite process
+                // and should NOT be added to the transaction. The rewritten data files already exclude
+                // the deleted rows, so we don't need to track the delete files separately.
+
+                // Set data sequence number just like we do for RewriteFiles
+                // Re-use the snapshotForSequence variable from above
+                if (snapshotForSequence != null) {
+                    // Use the correct method for setting sequence number
+                    specialMergeDelta.validateFromSnapshot(snapshotForSequence.snapshotId());
+                }
+
+                // Use RowDelta for the commit instead of RewriteFiles to bypass the validation
+                // Use commitUpdateAndTransaction to ensure proper transaction tracking (same as MoR mode)
+                commitUpdateAndTransaction(specialMergeDelta, session, transaction, "merge with cow");
+            }
+            else {
+                // For other operations (DELETE, UPDATE), use standard REPLACE semantics with RewriteFiles
+                commitUpdateAndTransaction(rewriteFiles, session, transaction, "write");
+            }
+        }
+        // Update done!
+    }
+
+    /**
+     * Retrieves a DataFile object from the table's current manifests by matching the file path.
+     *
+     * @param table The Iceberg table
+     * @param path The path of the file to find
+     * @return The DataFile if found, null otherwise
+     */
+    private static DataFile getFileFromManifest(Table table, String path)
+    {
+        if (table.currentSnapshot() == null) {
+            // No snapshot yet
+            return null;
+        }
+        List<ManifestFile> dataManifests = table.currentSnapshot().dataManifests(table.io());
+        for (ManifestFile manifest : dataManifests) {
+            try (ManifestReader<DataFile> reader = ManifestFiles.read(manifest, table.io())) {
+                // Use the reader iterator directly as scan() method may not exist
+                for (DataFile file : reader) {
+                    if (file.path().equals(path)) {
+                        return file;
+                    }
+                }
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Rewrites data files for CoW DELETE operations by reading the original data files,
+     * applying position deletes to filter out deleted rows, and writing new data files.
+     * <p>
+     * This method handles the Copy-on-Write rewrite logic for DELETE operations where
+     * we need to create new data files that exclude the rows specified in delete files.
+     * <p>
+     * The implementation:
+     * 1. For each data file to be rewritten, reads the position delete files
+     * 2. Reads the original data file
+     * 3. Filters out rows at positions specified in the delete files
+     * 4. Writes a new data file with the remaining rows
+     * 5. Adds the new file to filesToAdd for inclusion in the RewriteFiles operation
+     *
+     * @param session The connector session
+     * @param icebergTable The Iceberg table
+     * @param schema The table schema
+     * @param filesToDelete Set of data file paths that need to be rewritten
+     * @param deleteFilesByDataFile Map of data file paths to their associated delete files
+     * @param filesToAdd Map to add newly created data files (output parameter)
+     */
+    private void rewriteDataFilesForCowDelete(
+            ConnectorSession session,
+            Table icebergTable,
+            Schema schema,
+            Set<String> filesToDelete,
+            Map<String, List<DeleteFile>> deleteFilesByDataFile,
+            Map<String, DataFile> filesToAdd)
+    {
+        // Get the current snapshot to read data files from
+        Snapshot currentSnapshot = icebergTable.currentSnapshot();
+        if (currentSnapshot == null) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA,
+                    "Cannot rewrite files: table has no current snapshot");
+        }
+
+        // Load all manifests to find the DataFile objects for files we need to rewrite
+        List<ManifestFile> manifests = loadAllManifestsFromSnapshot(icebergTable, currentSnapshot);
+        Map<String, DataFile> dataFileMap = new HashMap<>();
+
+        // Build a map of file paths to DataFile objects
+        for (ManifestFile manifest : manifests) {
+            if (manifest.content() != ManifestContent.DATA) {
+                continue;
+            }
+            try (ManifestReader<DataFile> manifestReader = ManifestFiles.read(manifest, icebergTable.io())) {
+                for (DataFile dataFile : manifestReader) {
+                    String path = dataFile.path().toString();
+                    if (filesToDelete.contains(path)) {
+                        dataFileMap.put(path, dataFile);
+                    }
+                }
+            }
+            catch (IOException e) {
+                throw new TrinoException(ICEBERG_FILESYSTEM_ERROR,
+                        "Error reading manifest file: " + manifest.path(), e);
+            }
+        }
+
+        // For each data file that needs to be rewritten
+        for (String dataFilePath : filesToDelete) {
+            DataFile originalDataFile = dataFileMap.get(dataFilePath);
+            if (originalDataFile == null) {
+                throw new TrinoException(ICEBERG_INVALID_METADATA,
+                        "Data file not found in manifests: " + dataFilePath);
+            }
+
+            List<DeleteFile> deleteFiles = deleteFilesByDataFile.getOrDefault(dataFilePath, ImmutableList.of());
+            if (deleteFiles.isEmpty()) {
+                // No delete files for this data file - skip rewriting
+                // This shouldn't happen, but handle gracefully
+                continue;
+            }
+
+            // Read position deletes to get the set of row positions to exclude
+            // Use the same bitmap implementation as DeleteManager
+            org.roaringbitmap.longlong.Roaring64Bitmap deletedPositions = new org.roaringbitmap.longlong.Roaring64Bitmap();
+            for (DeleteFile deleteFile : deleteFiles) {
+                if (deleteFile.content() != FileContent.POSITION_DELETES) {
+                    // Only handle position deletes for now
+                    continue;
+                }
+                readPositionDeletesFromDeleteFile(session, icebergTable, deleteFile, dataFilePath, deletedPositions);
+            }
+
+            if (deletedPositions.isEmpty()) {
+                // No rows to delete - skip rewriting this file
+                continue;
+            }
+
+            // Rewrite the data file excluding deleted rows
+            // Get all column handles for reading the data file
+            // Use the current table schema, not the schema from the table handle, to ensure
+            // partition field types are correctly resolved (schema evolution might have occurred)
+            Schema currentSchema = icebergTable.schema();
+            List<IcebergColumnHandle> allColumns = IcebergUtil.getTopLevelColumns(currentSchema, typeManager);
+            PartitionSpec partitionSpec = icebergTable.spec();
+            org.apache.iceberg.types.Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                    .map(field -> {
+                        org.apache.iceberg.types.Type sourceType = currentSchema.findType(field.sourceId());
+                        if (sourceType == null) {
+                            throw new TrinoException(ICEBERG_INVALID_METADATA,
+                                    format("Partition field source ID %d not found in table schema for file %s", field.sourceId(), dataFilePath));
+                        }
+                        return field.transform().getResultType(sourceType);
+                    })
+                    .toArray(org.apache.iceberg.types.Type[]::new);
+
+            // Get partition data from the original data file
+            Optional<PartitionData> partitionData = Optional.empty();
+            if (!partitionSpec.isUnpartitioned() && originalDataFile.partition() != null) {
+                partitionData = Optional.of(PartitionData.fromJson(
+                        PartitionData.toJson(originalDataFile.partition()),
+                        partitionColumnTypes));
+            }
+
+            // Generate output file path
+            LocationProvider locationProvider = icebergTable.locationProvider();
+            IcebergFileFormat fileFormat = IcebergFileFormat.fromIceberg(originalDataFile.format());
+            String fileName = fileFormat.toIceberg().addExtension(session.getQueryId() + "-" + randomUUID());
+            String outputPath = partitionData
+                    .map(partition -> locationProvider.newDataLocation(partitionSpec, partition, fileName))
+                    .orElseGet(() -> locationProvider.newDataLocation(fileName));
+
+            // Create file writer
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), icebergTable.io().properties());
+            IcebergFileWriter writer = fileWriterFactory.createDataFileWriter(
+                    fileSystem,
+                    Location.of(outputPath),
+                    currentSchema,
+                    session,
+                    fileFormat,
+                    MetricsConfig.getDefault(),
+                    icebergTable.properties());
+
+            // Read the data file and filter out deleted rows
+            // Row positions in Iceberg are 0-based within each data file
+            long currentRowPosition = 0;
+            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(
+                    session,
+                    allColumns,
+                    currentSchema,
+                    partitionSpec,
+                    partitionData.orElse(new PartitionData(new Object[partitionSpec.fields().size()])),
+                    ImmutableList.of(), // No deletes - we're reading the original file
+                    DynamicFilter.EMPTY,
+                    TupleDomain.all(),
+                    TupleDomain.all(),
+                    dataFilePath,
+                    0,
+                    originalDataFile.fileSizeInBytes(),
+                    originalDataFile.fileSizeInBytes(),
+                    originalDataFile.recordCount(),
+                    partitionData.map(PartitionData::toJson).orElse(""),
+                    fileFormat,
+                    icebergTable.io().properties(),
+                    originalDataFile.dataSequenceNumber(),
+                    Optional.empty())) {
+                while (!pageSource.isFinished()) {
+                    SourcePage sourcePage = pageSource.getNextSourcePage();
+                    if (sourcePage == null) {
+                        continue;
+                    }
+                    Page page = sourcePage.getPage();
+
+                    // Filter out deleted rows based on their position
+                    int[] positionsToKeep = new int[page.getPositionCount()];
+                    int keptCount = 0;
+                    for (int position = 0; position < page.getPositionCount(); position++) {
+                        long rowPosition = currentRowPosition + position;
+                        if (!deletedPositions.contains(rowPosition)) {
+                            positionsToKeep[keptCount++] = position;
+                        }
+                    }
+
+                    if (keptCount > 0) {
+                        // Create a filtered page with only non-deleted rows
+                        Block[] filteredBlocks = new Block[page.getChannelCount()];
+                        for (int channel = 0; channel < page.getChannelCount(); channel++) {
+                            filteredBlocks[channel] = page.getBlock(channel).copyPositions(positionsToKeep, 0, keptCount);
+                        }
+                        Page filteredPage = new Page(keptCount, filteredBlocks);
+                        writer.appendRows(filteredPage);
+                    }
+
+                    currentRowPosition += page.getPositionCount();
+                }
+            }
+            catch (IOException e) {
+                writer.rollback();
+                throw new TrinoException(ICEBERG_FILESYSTEM_ERROR,
+                        "Error reading data file for rewriting: " + dataFilePath, e);
+            }
+
+            // Commit the writer and get metrics
+            // writer.commit() returns a Closeable that represents a rollback action.
+            // This should only be closed if there is a failure after the commit succeeds.
+            // We keep the rollback handle until we successfully add the file to filesToAdd.
+            Closeable rollback = writer.commit();
+
+            try {
+                IcebergFileWriter.FileMetrics fileMetrics = writer.getFileMetrics();
+
+                // Create DataFile metadata for the new file
+                DataFiles.Builder builder = DataFiles.builder(partitionSpec)
+                        .withPath(outputPath)
+                        .withFormat(originalDataFile.format())
+                        .withFileSizeInBytes(writer.getWrittenBytes())
+                        .withMetrics(fileMetrics.metrics());
+                if (fileMetrics.splitOffsets().isPresent()) {
+                    builder.withSplitOffsets(fileMetrics.splitOffsets().get());
+                }
+                if (partitionData.isPresent()) {
+                    builder.withPartition(partitionData.get());
+                }
+
+                DataFile newDataFile = builder.build();
+                filesToAdd.put(outputPath, newDataFile);
+
+                // Success - file added to transaction. The rollback will be handled
+                // by the transaction rollback mechanism if the overall transaction fails.
+                // We don't need to close it here as it's just a cleanup lambda with no resources.
+                rollback = null;
+            }
+            catch (Exception e) {
+                // If we fail to add the file, clean up the committed file immediately
+                if (rollback != null) {
+                    try {
+                        rollback.close();
+                    }
+                    catch (IOException cleanupException) {
+                        e.addSuppressed(new IOException("Failed to cleanup file after error: " + outputPath, cleanupException));
+                    }
+                    rollback = null;
+                }
+                throw new TrinoException(ICEBERG_FILESYSTEM_ERROR,
+                        "Error creating DataFile metadata for rewritten file: " + outputPath, e);
+            }
+            finally {
+                // Ensure rollback is closed if an error occurred and it wasn't already closed
+                if (rollback != null) {
+                    try {
+                        rollback.close();
+                    }
+                    catch (IOException e) {
+                        // Log but don't throw - this is cleanup
+                        log.warn(e, "Error closing rollback handle for file: %s", outputPath);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Reads position deletes from a delete file and adds the deleted positions to the bitmap.
+     * Only positions for the specified data file path are included.
+     *
+     * @param session The connector session
+     * @param icebergTable The Iceberg table
+     * @param deleteFile The delete file to read from
+     * @param targetDataFilePath The data file path to filter deletes for
+     * @param deletedPositions The bitmap to populate with deleted positions
+     */
+    private void readPositionDeletesFromDeleteFile(
+            ConnectorSession session,
+            Table icebergTable,
+            DeleteFile deleteFile,
+            String targetDataFilePath,
+            org.roaringbitmap.longlong.Roaring64Bitmap deletedPositions)
+    {
+        // Get column handles for delete file columns (path and position)
+        IcebergColumnHandle deleteFilePath = IcebergUtil.getColumnHandle(DELETE_FILE_PATH, typeManager);
+        IcebergColumnHandle deleteFilePos = IcebergUtil.getColumnHandle(DELETE_FILE_POS, typeManager);
+        List<IcebergColumnHandle> deleteColumns = ImmutableList.of(deleteFilePath, deleteFilePos);
+
+        // Create a tuple domain to filter for the target data file path
+        Slice targetPath = utf8Slice(targetDataFilePath);
+        TupleDomain<IcebergColumnHandle> deleteDomain = TupleDomain.fromFixedValues(
+                ImmutableMap.of(deleteFilePath, NullableValue.of(VARCHAR, targetPath)));
+
+        // Open the delete file and read position deletes
+        try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(
+                session,
+                deleteColumns,
+                IcebergUtil.schemaFromHandles(deleteColumns),
+                icebergTable.spec(),
+                new PartitionData(new Object[icebergTable.spec().fields().size()]),
+                ImmutableList.of(), // No deletes for delete files themselves
+                DynamicFilter.EMPTY,
+                deleteDomain,
+                TupleDomain.all(),
+                deleteFile.path().toString(),
+                0,
+                deleteFile.fileSizeInBytes(),
+                deleteFile.fileSizeInBytes(),
+                0,
+                "",
+                IcebergFileFormat.fromIceberg(deleteFile.format()),
+                icebergTable.io().properties(),
+                0,
+                Optional.empty())) {
+            io.trino.plugin.iceberg.delete.PositionDeleteFilter.readPositionDeletes(pageSource, targetPath, deletedPositions);
+        }
+        catch (IOException e) {
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR,
+                    "Error reading delete file: " + deleteFile.path(), e);
+        }
     }
 
     static TupleDomain<IcebergColumnHandle> extractTupleDomainsFromCommitTasks(IcebergTableHandle table, Table icebergTable, List<CommitTaskData> commitTasks, TypeManager typeManager)
@@ -3312,10 +4033,25 @@ public class IcebergMetadata
 
         Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
 
-        DeleteFiles deleteFiles = icebergTable.newDelete()
+        // Safety check: CoW deletes must go through finishWrite, not executeDelete
+        // This method is only for MoR deletes that can be done with metadata-only operations
+        Map<String, String> properties = icebergTable.properties();
+        UpdateMode writeDeleteMode = UpdateMode.fromIcebergProperty(properties.getOrDefault(
+                DELETE_MODE, UpdateMode.MERGE_ON_READ.getIcebergProperty()));
+
+        if (writeDeleteMode == UpdateMode.COPY_ON_WRITE) {
+            throw new TrinoException(NOT_SUPPORTED,
+                    format("Copy-on-Write deletes cannot use executeDelete. " +
+                            "They must go through the standard write path (finishWrite) which handles file rewriting. " +
+                            "Table: %s", icebergTable.name()));
+        }
+
+        // Note: Copy-on-Write deletes are handled through the standard write path (finishWrite)
+        // This method is only called for Merge-on-Read deletes that can be done with metadata-only operations
+        DeleteFiles update = icebergTable.newDelete()
                 .deleteFromRowFilter(toIcebergExpression(handle.getEnforcedPredicate()))
                 .scanManifestsWith(icebergScanExecutor);
-        commitUpdate(deleteFiles, session, "delete");
+        commitUpdate(update, session, "delete");
 
         Map<String, String> summary = icebergTable.currentSnapshot().summary();
         String deletedRowsStr = summary.get(DELETED_RECORDS_PROP);
@@ -3376,7 +4112,8 @@ public class IcebergMetadata
                 table.isRecordScannedFiles(),
                 table.getMaxScannedFileSize(),
                 table.getConstraintColumns(),
-                table.getForAnalyze());
+                table.getForAnalyze(),
+                table.getUpdateKind());
 
         return Optional.of(new LimitApplicationResult<>(table, false, false));
     }
@@ -3477,7 +4214,8 @@ public class IcebergMetadata
                         table.isRecordScannedFiles(),
                         table.getMaxScannedFileSize(),
                         newConstraintColumns,
-                        table.getForAnalyze()),
+                        table.getForAnalyze(),
+                        table.getUpdateKind()),
                 remainingConstraint.transformKeys(ColumnHandle.class::cast),
                 extractionResult.remainingExpression(),
                 false));
@@ -3655,7 +4393,8 @@ public class IcebergMetadata
                 false, // recordScannedFiles does not affect stats
                 originalHandle.getMaxScannedFileSize(),
                 ImmutableSet.of(), // constraintColumns do not affect stats
-                Optional.empty()); // forAnalyze does not affect stats
+                Optional.empty(), // forAnalyze does not affect stats
+                originalHandle.getUpdateKind());
         return getIncrementally(
                 tableStatisticsCache,
                 cacheKey,
