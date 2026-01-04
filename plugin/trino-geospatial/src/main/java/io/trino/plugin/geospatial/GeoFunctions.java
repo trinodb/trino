@@ -67,6 +67,9 @@ import org.locationtech.jts.io.WKBReader;
 import org.locationtech.jts.io.kml.KMLReader;
 import org.locationtech.jts.linearref.LengthIndexedLine;
 import org.locationtech.jts.operation.distance.DistanceOp;
+import org.locationtech.jts.operation.overlayng.OverlayNG;
+import org.locationtech.jts.operation.overlayng.OverlayNGRobust;
+import org.locationtech.jts.operation.relateng.RelateNG;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -280,24 +283,7 @@ public final class GeoFunctions
     @SqlType(DOUBLE)
     public static double stArea(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
-
-        // The Esri geometry library does not support area for geometry collections. We compute the area
-        // of collections by summing the area of the individual components.
-        GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
-        if (type == GeometryType.GEOMETRY_COLLECTION) {
-            double area = 0.0;
-            GeometryCursor cursor = geometry.getEsriGeometryCursor();
-            while (true) {
-                com.esri.core.geometry.Geometry esriGeometry = cursor.next();
-                if (esriGeometry == null) {
-                    return area;
-                }
-
-                area += esriGeometry.calculateArea2D();
-            }
-        }
-        return geometry.getEsriGeometry().calculateArea2D();
+        return JtsGeometrySerde.deserialize(input).getArea();
     }
 
     @Description("Returns a Geometry type object from Well-Known Text representation (WKT)")
@@ -417,11 +403,11 @@ public final class GeoFunctions
             return input;
         }
 
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         if (geometry.isEmpty()) {
             return null;
         }
-        return serialize(geometry.buffer(distance));
+        return JtsGeometrySerde.serialize(geometry.buffer(distance));
     }
 
     @Description("Returns the Point value that is the mathematical centroid of a Geometry")
@@ -429,19 +415,18 @@ public final class GeoFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice stCentroid(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         validateType("ST_Centroid", geometry, EnumSet.of(POINT, MULTI_POINT, LINE_STRING, MULTI_LINE_STRING, POLYGON, MULTI_POLYGON));
-        GeometryType geometryType = GeometryType.getForEsriGeometryType(geometry.geometryType());
+        GeometryType geometryType = GeometryType.getForJtsGeometryType(geometry.getGeometryType());
         if (geometryType == GeometryType.POINT) {
             return input;
         }
 
-        int pointCount = ((MultiVertexGeometry) geometry.getEsriGeometry()).getPointCount();
-        if (pointCount == 0) {
-            return serialize(createFromEsriGeometry(new Point(), geometry.getEsriSpatialReference()));
+        if (geometry.isEmpty()) {
+            return JtsGeometrySerde.serialize(geometry.getFactory().createPoint());
         }
 
-        return serialize(geometry.centroid());
+        return JtsGeometrySerde.serialize(geometry.getCentroid());
     }
 
     @Description("Returns the minimum convex geometry that encloses all input geometries")
@@ -449,14 +434,14 @@ public final class GeoFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice stConvexHull(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         if (geometry.isEmpty()) {
             return input;
         }
-        if (GeometryType.getForEsriGeometryType(geometry.geometryType()) == POINT) {
+        if (GeometryType.getForJtsGeometryType(geometry.getGeometryType()) == POINT) {
             return input;
         }
-        return serialize(geometry.convexHull());
+        return JtsGeometrySerde.serialize(geometry.convexHull());
     }
 
     @Description("Return the coordinate dimension of the Geometry")
@@ -509,7 +494,7 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static boolean stIsSimple(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         return geometry.isEmpty() || geometry.isSimple();
     }
 
@@ -573,9 +558,9 @@ public final class GeoFunctions
     @SqlType(DOUBLE)
     public static double stLength(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         validateType("ST_Length", geometry, EnumSet.of(LINE_STRING, MULTI_LINE_STRING));
-        return geometry.getEsriGeometry().calculateLength2D();
+        return geometry.getLength();
     }
 
     @SqlNullable
@@ -1118,12 +1103,8 @@ public final class GeoFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice stBoundary(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
-        if (geometry.isEmpty() && GeometryType.getForEsriGeometryType(geometry.geometryType()) == LINE_STRING) {
-            // OCGGeometry#boundary crashes with NPE for LINESTRING EMPTY
-            return EMPTY_MULTIPOINT;
-        }
-        return serialize(geometry.boundary());
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
+        return JtsGeometrySerde.serialize(geometry.getBoundary());
     }
 
     @Description("Returns the bounding rectangular polygon of a Geometry")
@@ -1161,10 +1142,10 @@ public final class GeoFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice stDifference(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        OGCGeometry leftGeometry = deserialize(left);
-        OGCGeometry rightGeometry = deserialize(right);
-        verifySameSpatialReference(leftGeometry, rightGeometry);
-        return serialize(leftGeometry.difference(rightGeometry));
+        Geometry leftGeometry = JtsGeometrySerde.deserialize(left);
+        Geometry rightGeometry = JtsGeometrySerde.deserialize(right);
+        // Use OverlayNGRobust for better handling of edge cases and invalid geometries
+        return JtsGeometrySerde.serialize(OverlayNGRobust.overlay(leftGeometry, rightGeometry, OverlayNG.DIFFERENCE));
     }
 
     @SqlNullable
@@ -1173,9 +1154,8 @@ public final class GeoFunctions
     @SqlType(DOUBLE)
     public static Double stDistance(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        OGCGeometry leftGeometry = deserialize(left);
-        OGCGeometry rightGeometry = deserialize(right);
-        verifySameSpatialReference(leftGeometry, rightGeometry);
+        Geometry leftGeometry = JtsGeometrySerde.deserialize(left);
+        Geometry rightGeometry = JtsGeometrySerde.deserialize(right);
         return leftGeometry.isEmpty() || rightGeometry.isEmpty() ? null : leftGeometry.distance(rightGeometry);
     }
 
@@ -1255,10 +1235,10 @@ public final class GeoFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice stSymmetricDifference(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        OGCGeometry leftGeometry = deserialize(left);
-        OGCGeometry rightGeometry = deserialize(right);
-        verifySameSpatialReference(leftGeometry, rightGeometry);
-        return serialize(leftGeometry.symDifference(rightGeometry));
+        Geometry leftGeometry = JtsGeometrySerde.deserialize(left);
+        Geometry rightGeometry = JtsGeometrySerde.deserialize(right);
+        // Use OverlayNGRobust for better handling of edge cases and invalid geometries
+        return JtsGeometrySerde.serialize(OverlayNGRobust.overlay(leftGeometry, rightGeometry, OverlayNG.SYMDIFFERENCE));
     }
 
     @SqlNullable
@@ -1267,13 +1247,13 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stContains(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(left, right, Envelope::contains)) {
+        if (!envelopes(left, right, org.locationtech.jts.geom.Envelope::contains)) {
             return false;
         }
-        OGCGeometry leftGeometry = deserialize(left);
-        OGCGeometry rightGeometry = deserialize(right);
-        verifySameSpatialReference(leftGeometry, rightGeometry);
-        return leftGeometry.contains(rightGeometry);
+        Geometry leftGeometry = JtsGeometrySerde.deserialize(left);
+        Geometry rightGeometry = JtsGeometrySerde.deserialize(right);
+        // Use RelateNG for better handling of edge cases and invalid geometries
+        return RelateNG.relate(leftGeometry, rightGeometry).isContains();
     }
 
     @SqlNullable
@@ -1282,13 +1262,13 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stCrosses(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(left, right, Envelope::intersect)) {
+        if (!envelopes(left, right, org.locationtech.jts.geom.Envelope::intersects)) {
             return false;
         }
-        OGCGeometry leftGeometry = deserialize(left);
-        OGCGeometry rightGeometry = deserialize(right);
-        verifySameSpatialReference(leftGeometry, rightGeometry);
-        return leftGeometry.crosses(rightGeometry);
+        Geometry leftGeometry = JtsGeometrySerde.deserialize(left);
+        Geometry rightGeometry = JtsGeometrySerde.deserialize(right);
+        // Use RelateNG for better handling of edge cases and invalid geometries
+        return RelateNG.relate(leftGeometry, rightGeometry).isCrosses(leftGeometry.getDimension(), rightGeometry.getDimension());
     }
 
     @SqlNullable
@@ -1297,13 +1277,13 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stDisjoint(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(left, right, Envelope::intersect)) {
+        if (!envelopes(left, right, org.locationtech.jts.geom.Envelope::intersects)) {
             return true;
         }
-        OGCGeometry leftGeometry = deserialize(left);
-        OGCGeometry rightGeometry = deserialize(right);
-        verifySameSpatialReference(leftGeometry, rightGeometry);
-        return leftGeometry.disjoint(rightGeometry);
+        Geometry leftGeometry = JtsGeometrySerde.deserialize(left);
+        Geometry rightGeometry = JtsGeometrySerde.deserialize(right);
+        // Use RelateNG for better handling of edge cases and invalid geometries
+        return RelateNG.relate(leftGeometry, rightGeometry).isDisjoint();
     }
 
     @SqlNullable
@@ -1312,10 +1292,10 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stEquals(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        OGCGeometry leftGeometry = deserialize(left);
-        OGCGeometry rightGeometry = deserialize(right);
-        verifySameSpatialReference(leftGeometry, rightGeometry);
-        return leftGeometry.Equals(rightGeometry);
+        Geometry leftGeometry = JtsGeometrySerde.deserialize(left);
+        Geometry rightGeometry = JtsGeometrySerde.deserialize(right);
+        // Use RelateNG for better handling of edge cases and invalid geometries
+        return RelateNG.relate(leftGeometry, rightGeometry).isEquals(leftGeometry.getDimension(), rightGeometry.getDimension());
     }
 
     @SqlNullable
@@ -1324,13 +1304,13 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stIntersects(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(left, right, Envelope::intersect)) {
+        if (!envelopes(left, right, org.locationtech.jts.geom.Envelope::intersects)) {
             return false;
         }
-        OGCGeometry leftGeometry = deserialize(left);
-        OGCGeometry rightGeometry = deserialize(right);
-        verifySameSpatialReference(leftGeometry, rightGeometry);
-        return leftGeometry.intersects(rightGeometry);
+        Geometry leftGeometry = JtsGeometrySerde.deserialize(left);
+        Geometry rightGeometry = JtsGeometrySerde.deserialize(right);
+        // Use RelateNG for better handling of edge cases and invalid geometries
+        return RelateNG.relate(leftGeometry, rightGeometry).isIntersects();
     }
 
     @SqlNullable
@@ -1339,13 +1319,13 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stOverlaps(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(left, right, Envelope::intersect)) {
+        if (!envelopes(left, right, org.locationtech.jts.geom.Envelope::intersects)) {
             return false;
         }
-        OGCGeometry leftGeometry = deserialize(left);
-        OGCGeometry rightGeometry = deserialize(right);
-        verifySameSpatialReference(leftGeometry, rightGeometry);
-        return leftGeometry.overlaps(rightGeometry);
+        Geometry leftGeometry = JtsGeometrySerde.deserialize(left);
+        Geometry rightGeometry = JtsGeometrySerde.deserialize(right);
+        // Use RelateNG for better handling of edge cases and invalid geometries
+        return RelateNG.relate(leftGeometry, rightGeometry).isOverlaps(leftGeometry.getDimension(), rightGeometry.getDimension());
     }
 
     @SqlNullable
@@ -1354,10 +1334,10 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stRelate(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right, @SqlType(VARCHAR) Slice relation)
     {
-        OGCGeometry leftGeometry = deserialize(left);
-        OGCGeometry rightGeometry = deserialize(right);
-        verifySameSpatialReference(leftGeometry, rightGeometry);
-        return leftGeometry.relate(rightGeometry, relation.toStringUtf8());
+        Geometry leftGeometry = JtsGeometrySerde.deserialize(left);
+        Geometry rightGeometry = JtsGeometrySerde.deserialize(right);
+        // Use RelateNG for better handling of edge cases and invalid geometries
+        return RelateNG.relate(leftGeometry, rightGeometry, relation.toStringUtf8());
     }
 
     @SqlNullable
@@ -1366,13 +1346,13 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stTouches(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(left, right, Envelope::intersect)) {
+        if (!envelopes(left, right, org.locationtech.jts.geom.Envelope::intersects)) {
             return false;
         }
-        OGCGeometry leftGeometry = deserialize(left);
-        OGCGeometry rightGeometry = deserialize(right);
-        verifySameSpatialReference(leftGeometry, rightGeometry);
-        return leftGeometry.touches(rightGeometry);
+        Geometry leftGeometry = JtsGeometrySerde.deserialize(left);
+        Geometry rightGeometry = JtsGeometrySerde.deserialize(right);
+        // Use RelateNG for better handling of edge cases and invalid geometries
+        return RelateNG.relate(leftGeometry, rightGeometry).isTouches(leftGeometry.getDimension(), rightGeometry.getDimension());
     }
 
     @SuppressWarnings("ArgumentSelectionDefectChecker")
@@ -1382,13 +1362,13 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stWithin(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(right, left, Envelope::contains)) {
+        if (!envelopes(right, left, org.locationtech.jts.geom.Envelope::contains)) {
             return false;
         }
-        OGCGeometry leftGeometry = deserialize(left);
-        OGCGeometry rightGeometry = deserialize(right);
-        verifySameSpatialReference(leftGeometry, rightGeometry);
-        return leftGeometry.within(rightGeometry);
+        Geometry leftGeometry = JtsGeometrySerde.deserialize(left);
+        Geometry rightGeometry = JtsGeometrySerde.deserialize(right);
+        // Use RelateNG for better handling of edge cases and invalid geometries
+        return RelateNG.relate(leftGeometry, rightGeometry).isWithin();
     }
 
     @Description("Returns the type of the geometry")
@@ -1618,9 +1598,9 @@ public final class GeoFunctions
 
     private static boolean envelopes(Slice left, Slice right, EnvelopesPredicate predicate)
     {
-        Envelope leftEnvelope = deserializeEnvelope(left);
-        Envelope rightEnvelope = deserializeEnvelope(right);
-        if (leftEnvelope.isEmpty() || rightEnvelope.isEmpty()) {
+        org.locationtech.jts.geom.Envelope leftEnvelope = JtsGeometrySerde.deserializeEnvelope(left);
+        org.locationtech.jts.geom.Envelope rightEnvelope = JtsGeometrySerde.deserializeEnvelope(right);
+        if (leftEnvelope.isNull() || rightEnvelope.isNull()) {
             return false;
         }
         return predicate.apply(leftEnvelope, rightEnvelope);
@@ -1628,7 +1608,7 @@ public final class GeoFunctions
 
     private interface EnvelopesPredicate
     {
-        boolean apply(Envelope left, Envelope right);
+        boolean apply(org.locationtech.jts.geom.Envelope left, org.locationtech.jts.geom.Envelope right);
     }
 
     @SqlNullable

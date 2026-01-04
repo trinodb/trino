@@ -32,9 +32,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static io.trino.geospatial.GeometryUtils.isEsriNaN;
 import static io.trino.geospatial.GeometryUtils.translateToAVNaN;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
@@ -163,19 +163,18 @@ public final class JtsGeometrySerde
         List<Polygon> polygons = new ArrayList<>();
         for (int i = 0; i < partCount; i++) {
             Coordinate[] coordinates = readCoordinates(input, partLengths[i]);
-            if (isClockwise(coordinates)) {
+            // In ESRI format, clockwise rings are exterior (shell), counter-clockwise are interior (hole).
+            // However, for degenerate rings (collinear points), the area is 0 which isClockwise treats as false.
+            // If we don't have a shell yet, treat this ring as the shell regardless of winding order.
+            if (shell == null || isClockwise(coordinates)) {
                 // next polygon has started
                 if (shell != null) {
                     polygons.add(GEOMETRY_FACTORY.createPolygon(shell, holes.toArray(new LinearRing[0])));
                     holes.clear();
                 }
-                else {
-                    verify(holes.isEmpty(), "shell is null but holes found");
-                }
                 shell = GEOMETRY_FACTORY.createLinearRing(coordinates);
             }
             else {
-                verifyNotNull(shell, "shell is null but hole found");
                 holes.add(GEOMETRY_FACTORY.createLinearRing(coordinates));
             }
         }
@@ -191,10 +190,10 @@ public final class JtsGeometrySerde
     {
         List<Geometry> geometries = new ArrayList<>();
         while (input.available() > 0) {
-            // skip length
-            input.readInt();
-            GeometrySerializationType type = GeometrySerializationType.getForCode(input.readByte());
-            geometries.add(readGeometry(input, type));
+            int length = input.readInt();
+            BasicSliceInput nestedInput = input.readSlice(length).getInput();
+            GeometrySerializationType type = GeometrySerializationType.getForCode(nestedInput.readByte());
+            geometries.add(readGeometry(nestedInput, type));
         }
         return GEOMETRY_FACTORY.createGeometryCollection(geometries.toArray(new Geometry[0]));
     }
@@ -256,6 +255,109 @@ public final class JtsGeometrySerde
         return output.slice();
     }
 
+    public static Slice serialize(Envelope envelope)
+    {
+        requireNonNull(envelope, "envelope is null");
+        verify(!envelope.isNull());
+        DynamicSliceOutput output = new DynamicSliceOutput(1 + 4 * SIZE_OF_DOUBLE);
+        output.appendByte(GeometrySerializationType.ENVELOPE.code());
+        writeEnvelopeCoordinates(output, envelope);
+        return output.slice();
+    }
+
+    private static void writeEnvelopeCoordinates(SliceOutput output, Envelope envelope)
+    {
+        if (envelope.isNull()) {
+            output.writeDouble(NaN);
+            output.writeDouble(NaN);
+            output.writeDouble(NaN);
+            output.writeDouble(NaN);
+        }
+        else {
+            output.writeDouble(envelope.getMinX());
+            output.writeDouble(envelope.getMinY());
+            output.writeDouble(envelope.getMaxX());
+            output.writeDouble(envelope.getMaxY());
+        }
+    }
+
+    public static GeometrySerializationType deserializeType(Slice shape)
+    {
+        requireNonNull(shape, "shape is null");
+        BasicSliceInput input = shape.getInput();
+        verify(input.available() > 0);
+        return GeometrySerializationType.getForCode(input.readByte());
+    }
+
+    public static Envelope deserializeEnvelope(Slice shape)
+    {
+        requireNonNull(shape, "shape is null");
+        BasicSliceInput input = shape.getInput();
+        verify(input.available() > 0);
+
+        int length = input.available() - 1;
+        GeometrySerializationType type = GeometrySerializationType.getForCode(input.readByte());
+        return getEnvelope(input, type, length);
+    }
+
+    private static Envelope getEnvelope(BasicSliceInput input, GeometrySerializationType type, int length)
+    {
+        return switch (type) {
+            case POINT -> getPointEnvelope(input);
+            case MULTI_POINT, LINE_STRING, MULTI_LINE_STRING, POLYGON, MULTI_POLYGON -> getSimpleGeometryEnvelope(input, length);
+            case GEOMETRY_COLLECTION -> getGeometryCollectionOverallEnvelope(input);
+            case ENVELOPE -> readEnvelopeCoordinates(input);
+        };
+    }
+
+    private static Envelope getGeometryCollectionOverallEnvelope(BasicSliceInput input)
+    {
+        Envelope overallEnvelope = new Envelope();
+        while (input.available() > 0) {
+            int length = input.readInt() - 1;
+            GeometrySerializationType type = GeometrySerializationType.getForCode(input.readByte());
+            Envelope envelope = getEnvelope(input, type, length);
+            overallEnvelope.expandToInclude(envelope);
+        }
+        return overallEnvelope;
+    }
+
+    private static Envelope getSimpleGeometryEnvelope(BasicSliceInput input, int length)
+    {
+        // skip type injected by esri
+        input.readInt();
+
+        Envelope envelope = readEnvelopeCoordinates(input);
+
+        int skipLength = length - (4 * Double.BYTES) - Integer.BYTES;
+        verify(input.skip(skipLength) == skipLength);
+
+        return envelope;
+    }
+
+    private static Envelope getPointEnvelope(BasicSliceInput input)
+    {
+        double x = input.readDouble();
+        double y = input.readDouble();
+        if (isNaN(x) || isNaN(y)) {
+            return new Envelope();
+        }
+        return new Envelope(x, x, y, y);
+    }
+
+    private static Envelope readEnvelopeCoordinates(SliceInput input)
+    {
+        verify(input.available() > 0);
+        double xMin = input.readDouble();
+        double yMin = input.readDouble();
+        double xMax = input.readDouble();
+        double yMax = input.readDouble();
+        if (isEsriNaN(xMin) || isEsriNaN(yMin) || isEsriNaN(xMax) || isEsriNaN(yMax)) {
+            return new Envelope();
+        }
+        return new Envelope(xMin, xMax, yMin, yMax);
+    }
+
     private static void writeGeometry(Geometry geometry, DynamicSliceOutput output)
     {
         switch (geometry.getGeometryType()) {
@@ -265,7 +367,7 @@ public final class JtsGeometrySerde
             case "MultiPoint":
                 writeMultiPoint((MultiPoint) geometry, output);
                 return;
-            case "LineString":
+            case "LineString", "LinearRing":
                 writePolyline(geometry, output, false);
                 return;
             case "MultiLineString":
