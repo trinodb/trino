@@ -94,7 +94,7 @@ public class DropTableTask
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
             }
             // This means we verified that the table existed, but by the time we executed DROP TABLE
-            // it may have already been dropped by another concurrent thread or task.
+            // it may have already been dropped by another concurrent task or due to concurrent processes.
             // Since DROP TABLE IF EXISTS is used, this case should be treated as successful.
         }
 

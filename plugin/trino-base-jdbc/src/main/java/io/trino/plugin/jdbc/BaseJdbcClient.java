@@ -1465,21 +1465,15 @@ public abstract class BaseJdbcClient
             execute(session, sql);
         }
         catch (Throwable e) {
-            if (!(e instanceof TrinoException exception)) {
-                throw e;
-            }
-            if (isTableNotFoundException(exception)) {
+            if (e instanceof TrinoException exception && isTableNotFoundException(exception)) {
                 throw new TableNotFoundException(schemaTableName);
             }
-            throw exception;
+            throw e;
         }
     }
 
     protected boolean isTableNotFoundException(TrinoException exception)
     {
-        if (exception.getCause() instanceof SQLException sqlException) {
-            return "42S02".equals(sqlException.getSQLState());
-        }
         return false;
     }
 
