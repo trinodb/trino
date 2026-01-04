@@ -27,13 +27,10 @@ import com.esri.core.geometry.OperatorUnion;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.Polygon;
 import com.esri.core.geometry.Polyline;
-import com.esri.core.geometry.SpatialReference;
 import com.esri.core.geometry.WktExportFlags;
 import com.esri.core.geometry.ogc.OGCConcreteGeometryCollection;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCGeometryCollection;
-import com.esri.core.geometry.ogc.OGCLineString;
-import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
 import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
@@ -105,7 +102,6 @@ import static io.trino.geospatial.GeometryType.MULTI_POINT;
 import static io.trino.geospatial.GeometryType.MULTI_POLYGON;
 import static io.trino.geospatial.GeometryType.POINT;
 import static io.trino.geospatial.GeometryType.POLYGON;
-import static io.trino.geospatial.GeometryUtils.getPointCount;
 import static io.trino.geospatial.GeometryUtils.jsonFromJtsGeometry;
 import static io.trino.geospatial.GeometryUtils.jtsGeometryFromJson;
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
@@ -155,6 +151,7 @@ public final class GeoFunctions
             .buildOrThrow();
     private static final int NUMBER_OF_DIMENSIONS = 3;
     private static final Block EMPTY_ARRAY_OF_INTS = IntegerType.INTEGER.createFixedSizeBlockBuilder(0).build();
+    private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
 
     private static final float MIN_LATITUDE = -90;
     private static final float MAX_LATITUDE = 90;
@@ -196,8 +193,8 @@ public final class GeoFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice stLineString(@SqlType("array(" + StandardTypes.GEOMETRY + ")") Block input)
     {
-        MultiPath multipath = new Polyline();
-        OGCPoint previousPoint = null;
+        List<Coordinate> coordinates = new ArrayList<>();
+        Coordinate previousCoordinate = null;
         for (int i = 0; i < input.getPositionCount(); i++) {
             Slice slice = GEOMETRY.getSlice(input, i);
 
@@ -205,29 +202,28 @@ public final class GeoFunctions
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_LineString: null point at index %s", i + 1));
             }
 
-            OGCGeometry geometry = deserialize(slice);
-            if (!(geometry instanceof OGCPoint point)) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("ST_LineString takes only an array of valid points, %s was passed", geometry.geometryType()));
+            Geometry geometry = JtsGeometrySerde.deserialize(slice);
+            if (!(geometry instanceof org.locationtech.jts.geom.Point point)) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("ST_LineString takes only an array of valid points, %s was passed", geometry.getGeometryType()));
             }
 
             if (point.isEmpty()) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_LineString: empty point at index %s", i + 1));
             }
 
-            if (previousPoint == null) {
-                multipath.startPath(point.X(), point.Y());
+            Coordinate coordinate = point.getCoordinate();
+            if (previousCoordinate != null && coordinate.equals(previousCoordinate)) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT,
+                        format("Invalid input to ST_LineString: consecutive duplicate points at index %s", i + 1));
             }
-            else {
-                if (point.Equals(previousPoint)) {
-                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT,
-                            format("Invalid input to ST_LineString: consecutive duplicate points at index %s", i + 1));
-                }
-                multipath.lineTo(point.X(), point.Y());
-            }
-            previousPoint = point;
+            coordinates.add(coordinate);
+            previousCoordinate = coordinate;
         }
-        OGCLineString linestring = new OGCLineString(multipath, 0, null);
-        return serialize(linestring);
+        // A linestring needs 0 or >= 2 points; single point returns empty
+        if (coordinates.size() == 1) {
+            return JtsGeometrySerde.serialize(GEOMETRY_FACTORY.createLineString());
+        }
+        return JtsGeometrySerde.serialize(GEOMETRY_FACTORY.createLineString(coordinates.toArray(new Coordinate[0])));
     }
 
     @Description("Returns a Geometry type Point object with the given coordinate values")
@@ -235,8 +231,7 @@ public final class GeoFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice stPoint(@SqlType(DOUBLE) double x, @SqlType(DOUBLE) double y)
     {
-        OGCGeometry geometry = createFromEsriGeometry(new Point(x, y), null);
-        return serialize(geometry);
+        return JtsGeometrySerde.serialize(GEOMETRY_FACTORY.createPoint(new Coordinate(x, y)));
     }
 
     @SqlNullable
@@ -245,27 +240,27 @@ public final class GeoFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice stMultiPoint(@SqlType("array(" + StandardTypes.GEOMETRY + ")") Block input)
     {
-        MultiPoint multipoint = new MultiPoint();
+        List<org.locationtech.jts.geom.Point> points = new ArrayList<>();
         for (int i = 0; i < input.getPositionCount(); i++) {
             if (input.isNull(i)) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_MultiPoint: null at index %s", i + 1));
             }
 
             Slice slice = GEOMETRY.getSlice(input, i);
-            OGCGeometry geometry = deserialize(slice);
-            if (!(geometry instanceof OGCPoint point)) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_MultiPoint: geometry is not a point: %s at index %s", geometry.geometryType(), i + 1));
+            Geometry geometry = JtsGeometrySerde.deserialize(slice);
+            if (!(geometry instanceof org.locationtech.jts.geom.Point point)) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_MultiPoint: geometry is not a point: %s at index %s", geometry.getGeometryType(), i + 1));
             }
             if (point.isEmpty()) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_MultiPoint: empty point at index %s", i + 1));
             }
 
-            multipoint.add(point.X(), point.Y());
+            points.add(point);
         }
-        if (multipoint.getPointCount() == 0) {
+        if (points.isEmpty()) {
             return null;
         }
-        return serialize(createFromEsriGeometry(multipoint, null, true));
+        return JtsGeometrySerde.serialize(GEOMETRY_FACTORY.createMultiPoint(points.toArray(new org.locationtech.jts.geom.Point[0])));
     }
 
     @Description("Returns a Geometry type Polygon object from Well-Known Text representation (WKT)")
@@ -466,14 +461,14 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stIsClosed(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         validateType("ST_IsClosed", geometry, EnumSet.of(LINE_STRING, MULTI_LINE_STRING));
-        MultiPath lines = (MultiPath) geometry.getEsriGeometry();
-        int pathCount = lines.getPathCount();
-        for (int i = 0; i < pathCount; i++) {
-            Point start = lines.getPoint(lines.getPathStart(i));
-            Point end = lines.getPoint(lines.getPathEnd(i) - 1);
-            if (!end.equals(start)) {
+        if (geometry instanceof org.locationtech.jts.geom.LineString lineString) {
+            return lineString.isClosed();
+        }
+        org.locationtech.jts.geom.MultiLineString multiLineString = (org.locationtech.jts.geom.MultiLineString) geometry;
+        for (int i = 0; i < multiLineString.getNumGeometries(); i++) {
+            if (!((org.locationtech.jts.geom.LineString) multiLineString.getGeometryN(i)).isClosed()) {
                 return false;
             }
         }
@@ -569,29 +564,29 @@ public final class GeoFunctions
     @SqlType(DOUBLE)
     public static Double stSphericalLength(@SqlType(StandardTypes.SPHERICAL_GEOGRAPHY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         if (geometry.isEmpty()) {
             return null;
         }
 
         validateSphericalType("ST_Length", geometry, EnumSet.of(LINE_STRING, MULTI_LINE_STRING));
-        MultiPath lineString = (MultiPath) geometry.getEsriGeometry();
 
         double sum = 0;
 
-        // sum up paths on (multi)linestring
-        for (int path = 0; path < lineString.getPathCount(); path++) {
-            if (lineString.getPathSize(path) < 2) {
+        // Handle both LineString and MultiLineString
+        int numGeometries = geometry.getNumGeometries();
+        for (int g = 0; g < numGeometries; g++) {
+            org.locationtech.jts.geom.LineString lineString = (org.locationtech.jts.geom.LineString) geometry.getGeometryN(g);
+            Coordinate[] coordinates = lineString.getCoordinates();
+            if (coordinates.length < 2) {
                 continue;
             }
 
-            // sum up distances between adjacent points on this path
-            int pathStart = lineString.getPathStart(path);
-            Point previous = lineString.getPoint(pathStart);
-            for (int i = pathStart + 1; i < lineString.getPathEnd(path); i++) {
-                Point next = lineString.getPoint(i);
+            // sum up distances between adjacent points on this linestring
+            for (int i = 1; i < coordinates.length; i++) {
+                Coordinate previous = coordinates[i - 1];
+                Coordinate next = coordinates[i];
                 sum += greatCircleDistance(previous.getY(), previous.getX(), next.getY(), next.getX());
-                previous = next;
             }
         }
 
@@ -768,12 +763,12 @@ public final class GeoFunctions
     @SqlType(BIGINT)
     public static Long stNumInteriorRings(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         validateType("ST_NumInteriorRing", geometry, EnumSet.of(POLYGON));
         if (geometry.isEmpty()) {
             return null;
         }
-        return Long.valueOf(((OGCPolygon) geometry).numInteriorRing());
+        return (long) ((org.locationtech.jts.geom.Polygon) geometry).getNumInteriorRing();
     }
 
     @SqlNullable
@@ -782,16 +777,16 @@ public final class GeoFunctions
     @SqlType("array(" + StandardTypes.GEOMETRY + ")")
     public static Block stInteriorRings(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         validateType("ST_InteriorRings", geometry, EnumSet.of(POLYGON));
         if (geometry.isEmpty()) {
             return null;
         }
 
-        OGCPolygon polygon = (OGCPolygon) geometry;
-        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, polygon.numInteriorRing());
-        for (int i = 0; i < polygon.numInteriorRing(); i++) {
-            GEOMETRY.writeSlice(blockBuilder, serialize(polygon.interiorRingN(i)));
+        org.locationtech.jts.geom.Polygon polygon = (org.locationtech.jts.geom.Polygon) geometry;
+        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, polygon.getNumInteriorRing());
+        for (int i = 0; i < polygon.getNumInteriorRing(); i++) {
+            GEOMETRY.writeSlice(blockBuilder, JtsGeometrySerde.serialize(polygon.getInteriorRingN(i)));
         }
         return blockBuilder.build();
     }
@@ -801,15 +796,15 @@ public final class GeoFunctions
     @SqlType(INTEGER)
     public static long stNumGeometries(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         if (geometry.isEmpty()) {
             return 0;
         }
-        GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
+        GeometryType type = GeometryType.getForJtsGeometryType(geometry.getGeometryType());
         if (!type.isMultitype()) {
             return 1;
         }
-        return ((OGCGeometryCollection) geometry).numGeometries();
+        return geometry.getNumGeometries();
     }
 
     @Description("Returns a geometry that represents the point set union of the input geometries.")
@@ -880,23 +875,21 @@ public final class GeoFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice stGeometryN(@SqlType(StandardTypes.GEOMETRY) Slice input, @SqlType(INTEGER) long index)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         if (geometry.isEmpty()) {
             return null;
         }
-        GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
+        GeometryType type = GeometryType.getForJtsGeometryType(geometry.getGeometryType());
         if (!type.isMultitype()) {
             if (index == 1) {
                 return input;
             }
             return null;
         }
-        OGCGeometryCollection geometryCollection = ((OGCGeometryCollection) geometry);
-        if (index < 1 || index > geometryCollection.numGeometries()) {
+        if (index < 1 || index > geometry.getNumGeometries()) {
             return null;
         }
-        OGCGeometry ogcGeometry = geometryCollection.geometryN((int) index - 1);
-        return serialize(ogcGeometry);
+        return JtsGeometrySerde.serialize(geometry.getGeometryN((int) index - 1));
     }
 
     @SqlNullable
@@ -905,14 +898,14 @@ public final class GeoFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice stPointN(@SqlType(StandardTypes.GEOMETRY) Slice input, @SqlType(INTEGER) long index)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         validateType("ST_PointN", geometry, EnumSet.of(LINE_STRING));
 
-        OGCLineString linestring = (OGCLineString) geometry;
-        if (index < 1 || index > linestring.numPoints()) {
+        org.locationtech.jts.geom.LineString linestring = (org.locationtech.jts.geom.LineString) geometry;
+        if (index < 1 || index > linestring.getNumPoints()) {
             return null;
         }
-        return serialize(linestring.pointN(toIntExact(index) - 1));
+        return JtsGeometrySerde.serialize(linestring.getPointN(toIntExact(index) - 1));
     }
 
     @SqlNullable
@@ -921,22 +914,21 @@ public final class GeoFunctions
     @SqlType("array(" + StandardTypes.GEOMETRY + ")")
     public static Block stGeometries(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         if (geometry.isEmpty()) {
             return null;
         }
 
-        GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
+        GeometryType type = GeometryType.getForJtsGeometryType(geometry.getGeometryType());
         if (!type.isMultitype()) {
             BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, 1);
-            GEOMETRY.writeSlice(blockBuilder, serialize(geometry));
+            GEOMETRY.writeSlice(blockBuilder, JtsGeometrySerde.serialize(geometry));
             return blockBuilder.build();
         }
 
-        OGCGeometryCollection collection = (OGCGeometryCollection) geometry;
-        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, collection.numGeometries());
-        for (int i = 0; i < collection.numGeometries(); i++) {
-            GEOMETRY.writeSlice(blockBuilder, serialize(collection.geometryN(i)));
+        BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, geometry.getNumGeometries());
+        for (int i = 0; i < geometry.getNumGeometries(); i++) {
+            GEOMETRY.writeSlice(blockBuilder, JtsGeometrySerde.serialize(geometry.getGeometryN(i)));
         }
         return blockBuilder.build();
     }
@@ -947,14 +939,14 @@ public final class GeoFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice stInteriorRingN(@SqlType(StandardTypes.GEOMETRY) Slice input, @SqlType(INTEGER) long index)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         validateType("ST_InteriorRingN", geometry, EnumSet.of(POLYGON));
-        OGCPolygon polygon = (OGCPolygon) geometry;
-        if (index < 1 || index > polygon.numInteriorRing()) {
+        org.locationtech.jts.geom.Polygon polygon = (org.locationtech.jts.geom.Polygon) geometry;
+        if (index < 1 || index > polygon.getNumInteriorRing()) {
             return null;
         }
-        OGCGeometry interiorRing = polygon.interiorRingN(toIntExact(index) - 1);
-        return serialize(interiorRing);
+        Geometry interiorRing = polygon.getInteriorRingN(toIntExact(index) - 1);
+        return JtsGeometrySerde.serialize(interiorRing);
     }
 
     @Description("Returns the number of points in a Geometry")
@@ -962,7 +954,7 @@ public final class GeoFunctions
     @SqlType(BIGINT)
     public static long stNumPoints(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        return getPointCount(deserialize(input));
+        return JtsGeometrySerde.deserialize(input).getNumPoints();
     }
 
     @SqlNullable
@@ -971,10 +963,9 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stIsRing(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         validateType("ST_IsRing", geometry, EnumSet.of(LINE_STRING));
-        OGCLineString line = (OGCLineString) geometry;
-        return line.isClosed() && line.isSimple();
+        return ((org.locationtech.jts.geom.LineString) geometry).isRing();
     }
 
     @SqlNullable
@@ -983,14 +974,12 @@ public final class GeoFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice stStartPoint(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         validateType("ST_StartPoint", geometry, EnumSet.of(LINE_STRING));
         if (geometry.isEmpty()) {
             return null;
         }
-        MultiPath lines = (MultiPath) geometry.getEsriGeometry();
-        SpatialReference reference = geometry.getEsriSpatialReference();
-        return serialize(createFromEsriGeometry(lines.getPoint(0), reference));
+        return JtsGeometrySerde.serialize(((org.locationtech.jts.geom.LineString) geometry).getStartPoint());
     }
 
     @Description("Returns a \"simplified\" version of the given geometry")
@@ -1019,14 +1008,12 @@ public final class GeoFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice stEndPoint(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         validateType("ST_EndPoint", geometry, EnumSet.of(LINE_STRING));
         if (geometry.isEmpty()) {
             return null;
         }
-        MultiPath lines = (MultiPath) geometry.getEsriGeometry();
-        SpatialReference reference = geometry.getEsriSpatialReference();
-        return serialize(createFromEsriGeometry(lines.getPoint(lines.getPointCount() - 1), reference));
+        return JtsGeometrySerde.serialize(((org.locationtech.jts.geom.LineString) geometry).getEndPoint());
     }
 
     @SqlNullable
@@ -1076,12 +1063,12 @@ public final class GeoFunctions
     @SqlType(DOUBLE)
     public static Double stX(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         validateType("ST_X", geometry, EnumSet.of(POINT));
         if (geometry.isEmpty()) {
             return null;
         }
-        return ((OGCPoint) geometry).X();
+        return ((org.locationtech.jts.geom.Point) geometry).getX();
     }
 
     @SqlNullable
@@ -1090,12 +1077,12 @@ public final class GeoFunctions
     @SqlType(DOUBLE)
     public static Double stY(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         validateType("ST_Y", geometry, EnumSet.of(POINT));
         if (geometry.isEmpty()) {
             return null;
         }
-        return ((OGCPoint) geometry).Y();
+        return ((org.locationtech.jts.geom.Point) geometry).getY();
     }
 
     @Description("Returns the closure of the combinatorial boundary of this Geometry")
@@ -1187,12 +1174,12 @@ public final class GeoFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice stExteriorRing(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         validateType("ST_ExteriorRing", geometry, EnumSet.of(POLYGON));
         if (geometry.isEmpty()) {
             return null;
         }
-        return serialize(((OGCPolygon) geometry).exteriorRing());
+        return JtsGeometrySerde.serialize(((org.locationtech.jts.geom.Polygon) geometry).getExteriorRing());
     }
 
     @Description("Returns the Geometry value that represents the point set intersection of two Geometries")
@@ -1617,8 +1604,8 @@ public final class GeoFunctions
     @SqlType(DOUBLE)
     public static Double stSphericalDistance(@SqlType(StandardTypes.SPHERICAL_GEOGRAPHY) Slice left, @SqlType(StandardTypes.SPHERICAL_GEOGRAPHY) Slice right)
     {
-        OGCGeometry leftGeometry = deserialize(left);
-        OGCGeometry rightGeometry = deserialize(right);
+        Geometry leftGeometry = JtsGeometrySerde.deserialize(left);
+        Geometry rightGeometry = JtsGeometrySerde.deserialize(right);
         if (leftGeometry.isEmpty() || rightGeometry.isEmpty()) {
             return null;
         }
@@ -1626,8 +1613,8 @@ public final class GeoFunctions
         // TODO: support more SphericalGeography types.
         validateSphericalType("ST_Distance", leftGeometry, EnumSet.of(POINT));
         validateSphericalType("ST_Distance", rightGeometry, EnumSet.of(POINT));
-        Point leftPoint = (Point) leftGeometry.getEsriGeometry();
-        Point rightPoint = (Point) rightGeometry.getEsriGeometry();
+        org.locationtech.jts.geom.Point leftPoint = (org.locationtech.jts.geom.Point) leftGeometry;
+        org.locationtech.jts.geom.Point rightPoint = (org.locationtech.jts.geom.Point) rightGeometry;
 
         // greatCircleDistance returns distance in KM.
         return greatCircleDistance(leftPoint.getY(), leftPoint.getX(), rightPoint.getY(), rightPoint.getX()) * 1000;
@@ -1641,20 +1628,26 @@ public final class GeoFunctions
         }
     }
 
+    private static void validateSphericalType(String function, Geometry geometry, Set<GeometryType> validTypes)
+    {
+        GeometryType type = GeometryType.getForJtsGeometryType(geometry.getGeometryType());
+        if (!validTypes.contains(type)) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("When applied to SphericalGeography inputs, %s only supports %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
+        }
+    }
+
     @SqlNullable
     @Description("Returns the area of a geometry on the Earth's surface using spherical model")
     @ScalarFunction("ST_Area")
     @SqlType(DOUBLE)
     public static Double stSphericalArea(@SqlType(StandardTypes.SPHERICAL_GEOGRAPHY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         if (geometry.isEmpty()) {
             return null;
         }
 
         validateSphericalType("ST_Area", geometry, EnumSet.of(POLYGON, MULTI_POLYGON));
-
-        Polygon polygon = (Polygon) geometry.getEsriGeometry();
 
         // See https://www.movable-type.co.uk/scripts/latlong.html
         // and http://osgeo-org.1560.x6.nabble.com/Area-of-a-spherical-polygon-td3841625.html
@@ -1663,10 +1656,18 @@ public final class GeoFunctions
 
         double sphericalExcess = 0.0;
 
-        int numPaths = polygon.getPathCount();
-        for (int i = 0; i < numPaths; i++) {
-            double sign = polygon.isExteriorRing(i) ? 1.0 : -1.0;
-            sphericalExcess += sign * Math.abs(computeSphericalExcess(polygon, polygon.getPathStart(i), polygon.getPathEnd(i)));
+        // Handle both Polygon and MultiPolygon
+        int numPolygons = geometry.getNumGeometries();
+        for (int p = 0; p < numPolygons; p++) {
+            org.locationtech.jts.geom.Polygon polygon = (org.locationtech.jts.geom.Polygon) geometry.getGeometryN(p);
+
+            // Exterior ring (positive contribution)
+            sphericalExcess += Math.abs(computeSphericalExcess(polygon.getExteriorRing().getCoordinates()));
+
+            // Interior rings (negative contribution - holes)
+            for (int i = 0; i < polygon.getNumInteriorRing(); i++) {
+                sphericalExcess -= Math.abs(computeSphericalExcess(polygon.getInteriorRingN(i).getCoordinates()));
+            }
         }
 
         // Math.abs is required here because for Polygons with a 2D area of 0
@@ -1674,10 +1675,13 @@ public final class GeoFunctions
         return Math.abs(sphericalExcess * EARTH_RADIUS_M * EARTH_RADIUS_M);
     }
 
-    private static double computeSphericalExcess(Polygon polygon, int start, int end)
+    private static double computeSphericalExcess(Coordinate[] coordinates)
     {
+        int end = coordinates.length;
+        int start = 0;
+
         // Our calculations rely on not processing the same point twice
-        if (polygon.getPoint(end - 1).equals(polygon.getPoint(start))) {
+        if (coordinates[end - 1].equals(coordinates[start])) {
             end = end - 1;
         }
 
@@ -1686,23 +1690,22 @@ public final class GeoFunctions
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Polygon is not valid: a loop contains less then 3 vertices.");
         }
 
-        Point point = new Point();
         // Initialize the calculator with the last point
-        polygon.getPoint(end - 1, point);
+        Coordinate lastPoint = coordinates[end - 1];
 
         double sphericalExcess = 0;
         double courseDelta = 0;
         boolean firstPoint = true;
         double firstInitialBearing = 0;
         double previousFinalBearing = 0;
-        double previousPhi = toRadians(point.getY());
+        double previousPhi = toRadians(lastPoint.getY());
         double previousCos = Math.cos(previousPhi);
         double previousSin = Math.sin(previousPhi);
         double previousTan = Math.tan(previousPhi / 2);
-        double previousLongitude = toRadians(point.getX());
+        double previousLongitude = toRadians(lastPoint.getX());
 
         for (int i = start; i < end; i++) {
-            polygon.getPoint(i, point);
+            Coordinate point = coordinates[i];
             double phi = toRadians(point.getY());
             double tan = Math.tan(phi / 2);
             double longitude = toRadians(point.getX());
