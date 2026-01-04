@@ -3497,10 +3497,11 @@ public class IcebergMetadata
             //   The rewrite creates files with non-updated rows, and new data files contain updated rows
             //   Both should be added - rewritten files for non-updated rows, new data files for updated rows
             // For MERGE: filesToAdd may contain new files (insertions), but we still need to rewrite files with deletes
+            Set<String> rewrittenFilePaths = new HashSet<>();
             if ((detectedUpdateKind == UpdateKind.DELETE || detectedUpdateKind == UpdateKind.UPDATE || detectedUpdateKind == UpdateKind.MERGE)
                     && updateMode == UpdateMode.COPY_ON_WRITE && !filesToDelete.isEmpty()) {
                 // Rewrite data files to exclude deleted rows
-                rewriteDataFilesForCowDelete(session, icebergTable, schema, filesToDelete, deleteFilesByDataFile, filesToAdd);
+                rewriteDataFilesForCowDelete(session, icebergTable, schema, filesToDelete, deleteFilesByDataFile, filesToAdd, rewrittenFilePaths);
             }
 
             // Validate that CoW DELETE operations have rewritten files after the rewrite attempt
@@ -3558,18 +3559,25 @@ public class IcebergMetadata
                 specialMergeDelta.validateNoConflictingDeleteFiles();
                 specialMergeDelta.scanManifestsWith(icebergScanExecutor);
 
-                // For each data file to delete, we need to tell RowDelta about it
+                // For MERGE with CoW, we've already rewritten files to exclude deleted rows
+                // The rewritten files are in filesToAdd and replace the original files
+                // We need to remove the original files that were rewritten and add the new rewritten files
+                // Only remove files that were actually rewritten (have entries in rewrittenFilePaths)
                 for (String path : filesToDelete) {
-                    DataFile file = getFileFromManifest(icebergTable, path);
-                    if (file != null) {
-                        // Use RowDelta API to delete file
-                        specialMergeDelta.removeRows(file);
+                    if (rewrittenFilePaths.contains(path)) {
+                        // This file was rewritten - remove the old file and add the rewritten one
+                        DataFile file = getFileFromManifest(icebergTable, path);
+                        if (file != null) {
+                            // Remove all rows from the old file (it's being replaced by the rewritten file)
+                            specialMergeDelta.removeRows(file);
+                        }
                     }
+                    // If the file wasn't rewritten, it means it had no deletes, so we don't need to remove it
                 }
 
                 // Then add all the new files (including rewritten files from CoW operations)
                 for (DataFile file : filesToAdd.values()) {
-                    // Add new data files to the delta
+                    // Add new data files to the delta (includes rewritten files and new insertions)
                     specialMergeDelta.addRows(file);
                 }
 
@@ -3653,7 +3661,8 @@ public class IcebergMetadata
             Schema schema,
             Set<String> filesToDelete,
             Map<String, List<DeleteFile>> deleteFilesByDataFile,
-            Map<String, DataFile> filesToAdd)
+            Map<String, DataFile> filesToAdd,
+            Set<String> rewrittenFilePaths)
     {
         // Get the current snapshot to read data files from
         Snapshot currentSnapshot = icebergTable.currentSnapshot();
@@ -3844,6 +3853,8 @@ public class IcebergMetadata
 
                 DataFile newDataFile = builder.build();
                 filesToAdd.put(outputPath, newDataFile);
+                // Track that this file was rewritten (so we know which old files to remove for MERGE)
+                rewrittenFilePaths.add(dataFilePath);
 
                 // Success - file added to transaction. The rollback will be handled
                 // by the transaction rollback mechanism if the overall transaction fails.
