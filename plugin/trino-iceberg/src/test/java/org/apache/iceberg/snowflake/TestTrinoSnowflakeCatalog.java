@@ -21,9 +21,14 @@ import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.filesystem.s3.S3FileSystemFactory;
 import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.metastore.TableInfo;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.CommitTaskData;
+import io.trino.plugin.iceberg.IcebergConfig;
+import io.trino.plugin.iceberg.IcebergFileWriterFactory;
 import io.trino.plugin.iceberg.IcebergMetadata;
+import io.trino.plugin.iceberg.IcebergPageSourceProvider;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -223,13 +228,30 @@ public class TestTrinoSnowflakeCatalog
                 .contains(namespace);
 
         // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
+        io.trino.plugin.iceberg.IcebergFileSystemFactory fileSystemFactory = (identity, fileIoProperties) -> {
+                throw new UnsupportedOperationException();
+        };
+        FileFormatDataSourceStats fileFormatDataSourceStats = new FileFormatDataSourceStats();
+        IcebergPageSourceProvider pageSourceProvider = new IcebergPageSourceProvider(
+                fileSystemFactory,
+                FILE_IO_FACTORY,
+                fileFormatDataSourceStats,
+                null,
+                null,
+                TESTING_TYPE_MANAGER);
+
+        IcebergFileWriterFactory fileWriterFactory = new IcebergFileWriterFactory(
+                TESTING_TYPE_MANAGER,
+                new NodeVersion("test-version"),
+                fileFormatDataSourceStats,
+                new IcebergConfig(),
+                new OrcWriterConfig());
+
         ConnectorMetadata icebergMetadata = new IcebergMetadata(
                 PLANNER_CONTEXT.getTypeManager(),
                 jsonCodec(CommitTaskData.class),
                 catalog,
-                (connectorIdentity, fileIOProperties) -> {
-                    throw new UnsupportedOperationException();
-                },
+                fileSystemFactory,
                 TABLE_STATISTICS_READER,
                 new TableStatisticsWriter(new NodeVersion("test-version")),
                 Optional.empty(),
@@ -238,7 +260,9 @@ public class TestTrinoSnowflakeCatalog
                 newDirectExecutorService(),
                 directExecutor(),
                 newDirectExecutorService(),
-                newDirectExecutorService());
+                newDirectExecutorService(),
+                pageSourceProvider,
+                fileWriterFactory);
         assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                 .isTrue();
         assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
