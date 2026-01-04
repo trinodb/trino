@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.geospatial;
 
-import com.esri.core.geometry.WktExportFlags;
-import com.esri.core.geometry.ogc.OGCGeometry;
 import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -23,7 +21,7 @@ import io.airlift.slice.Slices;
 import io.trino.geospatial.GeometryType;
 import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.Rectangle;
-import io.trino.geospatial.serde.JtsGeometrySerde;
+import io.trino.geospatial.serde.EsriShapeReader;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -43,7 +41,6 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.io.ParseException;
-import org.locationtech.jts.io.WKBReader;
 import org.locationtech.jts.io.WKBWriter;
 import org.locationtech.jts.io.WKTReader;
 import org.locationtech.jts.io.WKTWriter;
@@ -56,8 +53,6 @@ import org.locationtech.jts.operation.overlayng.OverlayNGRobust;
 import org.locationtech.jts.operation.relateng.RelateNG;
 import org.locationtech.jts.operation.union.UnaryUnionOp;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -68,7 +63,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
-import static com.esri.core.geometry.GeometryEngine.geometryToWkt;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.geospatial.GeometryType.GEOMETRY_COLLECTION;
 import static io.trino.geospatial.GeometryType.LINE_STRING;
@@ -126,15 +120,6 @@ public final class GeoFunctions
 
     private static final int HADOOP_SHAPE_SIZE_WKID = 4;
     private static final int HADOOP_SHAPE_SIZE_TYPE = 1;
-    private static final int[] HADOOP_SHAPE_TYPES = {
-            WktExportFlags.wktExportDefaults,
-            WktExportFlags.wktExportPoint,
-            WktExportFlags.wktExportLineString,
-            WktExportFlags.wktExportPolygon,
-            WktExportFlags.wktExportMultiPoint,
-            WktExportFlags.wktExportMultiLineString,
-            WktExportFlags.wktExportMultiPolygon
-    };
 
     private static final Set<String> VALID_SPHERICAL_GEOGRAPHY_LEAF_TYPES = Set.of(
             "Point", "LineString", "LinearRing", "Polygon");
@@ -312,12 +297,41 @@ public final class GeoFunctions
     {
         requireNonNull(input, "input is null");
 
-        try {
-            OGCGeometry geometry = OGCGeometry.fromEsriShape(getShapeByteBuffer(input));
-            String wkt = geometryToWkt(geometry.getEsriGeometry(), getWktExportFlags(input));
-            return JtsGeometrySerde.serialize(new WKTReader().read(wkt));
+        // Check minimum length (SRID + type + at least some shape data)
+        int minOffset = HADOOP_SHAPE_SIZE_WKID + HADOOP_SHAPE_SIZE_TYPE;
+        if (input.length() <= minOffset) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Hadoop shape input is too short");
         }
-        catch (IndexOutOfBoundsException | UnsupportedOperationException | IllegalArgumentException | ParseException e) {
+
+        // Validate OGC type (valid types are 0-6)
+        byte hadoopShapeType = input.getByte(HADOOP_SHAPE_SIZE_WKID);
+        if (hadoopShapeType < 0 || hadoopShapeType > 6) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid Hadoop shape type: " + hadoopShapeType);
+        }
+
+        try {
+            Slice shapeSlice = input.slice(minOffset, input.length() - minOffset);
+
+            // Peek at ESRI shape type to validate it matches the OGC type
+            int esriShapeType = shapeSlice.getInt(0);  // peek at first 4 bytes
+            validateShapeTypeMatch(hadoopShapeType, esriShapeType);
+
+            Geometry geometry = EsriShapeReader.read(shapeSlice);
+
+            // For empty geometries, use the OGC type to determine the correct Multi type
+            // OGC types: 0=unknown, 1=point, 2=linestring, 3=polygon, 4=multipoint, 5=multilinestring, 6=multipolygon
+            if (geometry.isEmpty()) {
+                geometry = switch (hadoopShapeType) {
+                    case 4 -> GEOMETRY_FACTORY.createMultiPoint();
+                    case 5 -> GEOMETRY_FACTORY.createMultiLineString();
+                    case 6 -> GEOMETRY_FACTORY.createMultiPolygon();
+                    default -> geometry;
+                };
+            }
+
+            return serialize(geometry);
+        }
+        catch (IndexOutOfBoundsException | UnsupportedOperationException | IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid Hadoop shape", e);
         }
     }
@@ -1615,17 +1629,6 @@ public final class GeoFunctions
         }
     }
 
-    private static Geometry geomFromBinary(Slice input)
-    {
-        requireNonNull(input, "input is null");
-        try {
-            return new WKBReader().read(input.getBytes());
-        }
-        catch (ParseException e) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKB", e);
-        }
-    }
-
     private static Geometry geomFromKML(Slice input)
     {
         try {
@@ -1636,29 +1639,36 @@ public final class GeoFunctions
         }
     }
 
-    private static ByteBuffer getShapeByteBuffer(Slice input)
-    {
-        int offset = HADOOP_SHAPE_SIZE_WKID + HADOOP_SHAPE_SIZE_TYPE;
-        if (input.length() <= offset) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Hadoop shape input is too short");
-        }
-        return input.toByteBuffer(offset, input.length() - offset).slice().order(ByteOrder.LITTLE_ENDIAN);
-    }
-
-    private static int getWktExportFlags(Slice input)
-    {
-        byte hadoopShapeType = input.getByte(HADOOP_SHAPE_SIZE_WKID);
-        if (hadoopShapeType < 0 || hadoopShapeType >= HADOOP_SHAPE_TYPES.length) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid Hadoop shape type: " + hadoopShapeType);
-        }
-        return HADOOP_SHAPE_TYPES[hadoopShapeType];
-    }
-
     private static void validateType(String function, Geometry geometry, Set<GeometryType> validTypes)
     {
         GeometryType type = GeometryType.getForJtsGeometryType(geometry.getGeometryType());
         if (!validTypes.contains(type)) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
+        }
+    }
+
+    /**
+     * Validates that the ESRI shape type matches the expected OGC type from the Hadoop format.
+     * OGC types: 0=unknown, 1=point, 2=linestring, 3=polygon, 4=multipoint, 5=multilinestring, 6=multipolygon
+     * ESRI shape types: 0=null, 1=point, 3=polyline, 5=polygon, 8=multipoint
+     */
+    private static void validateShapeTypeMatch(byte ogcType, int esriShapeType)
+    {
+        // Map OGC type to expected ESRI shape type(s)
+        int expectedEsriType = switch (ogcType) {
+            case 0 -> esriShapeType; // Unknown - accept any
+            case 1 -> 1;  // Point -> Point
+            case 2 -> 3;  // LineString -> Polyline
+            case 3 -> 5;  // Polygon -> Polygon
+            case 4 -> 8;  // MultiPoint -> MultiPoint
+            case 5 -> 3;  // MultiLineString -> Polyline
+            case 6 -> 5;  // MultiPolygon -> Polygon
+            default -> -1; // Invalid
+        };
+
+        // Allow null shape (0) for any type as it represents empty geometry
+        if (esriShapeType != 0 && esriShapeType != expectedEsriType) {
+            throw new IllegalArgumentException("ESRI shape type " + esriShapeType + " does not match OGC type " + ogcType);
         }
     }
 
