@@ -19,11 +19,6 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.esri.geometry</groupId>
-            <artifactId>esri-geometry-api</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
         </dependency>
@@ -92,6 +87,11 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-geospatial-toolkit</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-plugin-toolkit</artifactId>
         </dependency>
 
@@ -118,6 +118,11 @@
         <dependency>
             <groupId>org.gaul</groupId>
             <artifactId>modernizer-maven-annotations</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.locationtech.jts</groupId>
+            <artifactId>jts-core</artifactId>
         </dependency>
 
         <dependency>
