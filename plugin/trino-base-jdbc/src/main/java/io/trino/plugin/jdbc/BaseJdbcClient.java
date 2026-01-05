@@ -1239,7 +1239,7 @@ public abstract class BaseJdbcClient
         JdbcTableHandle plainTable = new JdbcTableHandle(schemaTableName, remoteTableName, Optional.empty());
 
         JdbcOutputTableHandle outputTableHandle = beginInsertTable(session, plainTable, columns);
-        rollbackActionConsumer.accept(() -> rollbackCreateTable(session, outputTableHandle));
+        rollbackActionConsumer.accept(() -> rollbackTemporaryTableCreation(session, outputTableHandle));
 
         try {
             return new JdbcMergeTableHandle(
@@ -1301,7 +1301,7 @@ public abstract class BaseJdbcClient
                     generateTemporaryTableName(session),
                     Optional.of(getPageSinkIdColumn(updatedColumnNames)));
 
-            rollbackActionConsumer.accept(() -> rollbackCreateTable(session, temporaryTableHandle));
+            rollbackActionConsumer.accept(() -> rollbackTemporaryTableCreation(session, temporaryTableHandle));
             outputHandles.put(caseNumber, temporaryTableHandle);
         }
 
@@ -1319,7 +1319,7 @@ public abstract class BaseJdbcClient
         }
 
         JdbcOutputTableHandle handle = beginInsertTable(session, (JdbcTableHandle) tableHandle, primaryKeys);
-        rollbackActionConsumer.accept(() -> rollbackCreateTable(session, handle));
+        rollbackActionConsumer.accept(() -> rollbackTemporaryTableCreation(session, handle));
         return Optional.of(handle);
     }
 
@@ -1460,7 +1460,7 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void rollbackTemporaryTableCreation(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         if (handle.getTemporaryTableName().isPresent()) {
             dropTable(session,

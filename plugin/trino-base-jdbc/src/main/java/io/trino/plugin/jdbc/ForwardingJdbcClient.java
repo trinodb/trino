@@ -312,9 +312,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void rollbackTemporaryTableCreation(ConnectorSession session, JdbcOutputTableHandle handle)
     {
-        delegate().rollbackCreateTable(session, handle);
+        delegate().rollbackTemporaryTableCreation(session, handle);
     }
 
     @Override
