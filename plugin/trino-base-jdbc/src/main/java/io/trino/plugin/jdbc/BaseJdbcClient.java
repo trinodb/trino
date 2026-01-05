@@ -836,7 +836,7 @@ public abstract class BaseJdbcClient
             if (shouldUseFaultTolerantExecution(session)) {
                 // Create the target table
                 JdbcOutputTableHandle destinationTableHandle = createTable(session, tableMetadata, tableMetadata.getTable().getTableName());
-                rollbackActionCollector.accept(() -> rollbackCreateDestinationTable(session, destinationTableHandle.getRemoteTableName()));
+                rollbackActionCollector.accept(() -> rollbackDestinationTableCreation(session, destinationTableHandle.getRemoteTableName()));
                 // Create the temporary table
                 ColumnMetadata pageSinkIdColumn = getPageSinkIdColumn(
                         tableMetadata.getColumns().stream().map(ColumnMetadata::getName).toList());
@@ -851,7 +851,7 @@ public abstract class BaseJdbcClient
         }
     }
 
-    protected void rollbackCreateDestinationTable(ConnectorSession session, RemoteTableName remoteTableName)
+    protected void rollbackDestinationTableCreation(ConnectorSession session, RemoteTableName remoteTableName)
     {
         dropTable(session, remoteTableName, false);
     }
