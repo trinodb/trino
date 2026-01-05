@@ -123,7 +123,8 @@ public class BenchmarkSTArea
                     return Math.cos(angle) + " " + Math.sin(angle);
                 })
                 .collect(Collectors.joining(",")));
-        builder.append("))");
+        // Close the polygon ring by repeating the first vertex
+        builder.append(", 1.0 0.0))");
         return builder.toString();
     }
 }

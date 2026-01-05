@@ -51,9 +51,9 @@ public class TestGeometrySerialization
     @Test
     public void testMultiPoint()
     {
-        testSerialization("MULTIPOINT (0 0)");
-        testSerialization("MULTIPOINT (0 0, 0 0)");
-        testSerialization("MULTIPOINT (0 0, 1 1, 2 3)");
+        testSerialization("MULTIPOINT ((0 0))");
+        testSerialization("MULTIPOINT ((0 0), (0 0))");
+        testSerialization("MULTIPOINT ((0 0), (1 1), (2 3))");
         testSerialization("MULTIPOINT EMPTY");
     }
 
@@ -99,8 +99,8 @@ public class TestGeometrySerialization
     {
         testSerialization("MULTIPOLYGON (((30 20, 45 40, 10 40, 30 20)))");
         testSerialization("MULTIPOLYGON (((30 20, 45 40, 10 40, 30 20)), ((30 20, 45 40, 10 40, 30 20)))");
-        testSerialization("MULTIPOLYGON (((30 20, 45 40, 10 40, 30 20)), ((15 5, 40 10, 10 20, 15 5))), ((0 0, 0 1, 1 1, 1 0.5, 1 0, 0 0), (0.25 0.25, 0.25 0.75, 0.75 0.75, 0.75 0.25))");
-        testSerialization("MULTIPOLYGON (((30 20, 45 40, 10 40, 30 20)), ((0 0, 0 1, 1 1, 1 0, 0 0), (0.75 0.25, 0.75 0.75, 0.25 0.75, 0.25 0.25, 0.75 0.25)), ((15 5, 40 10, 10 20, 5 10, 15 5))), ((0 0, 0 1, 1 1, 1 0), (0.25 0.25, 0.25 0.75, 0.75 0.75, 0.75 0.25))");
+        testSerialization("MULTIPOLYGON (((30 20, 45 40, 10 40, 30 20)), ((15 5, 40 10, 10 20, 15 5)))");
+        testSerialization("MULTIPOLYGON (((30 20, 45 40, 10 40, 30 20)), ((0 0, 0 1, 1 1, 1 0, 0 0), (0.75 0.25, 0.75 0.75, 0.25 0.75, 0.25 0.25, 0.75 0.25)), ((15 5, 40 10, 10 20, 5 10, 15 5)))");
         testSerialization("MULTIPOLYGON (((30 20, 45 40, 10 40, 30 20)), ((0 0, 0 1, 1 1, 1 0, 0 0), (0.25 0.25, 0.25 0.75, 0.75 0.75, 0.75 0.25, 0.25 0.25)))");
         testSerialization("MULTIPOLYGON (" +
                 "((30 20, 45 40, 10 40, 30 20)), " +
@@ -149,10 +149,10 @@ public class TestGeometrySerialization
     @Test
     public void testDeserializeEnvelope()
     {
-        assertDeserializeEnvelope("MULTIPOINT (20 20, 25 25)", new Envelope(20, 20, 25, 25));
+        assertDeserializeEnvelope("MULTIPOINT ((20 20), (25 25))", new Envelope(20, 20, 25, 25));
         assertDeserializeEnvelope("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", new Envelope(1, 1, 5, 4));
-        assertDeserializeEnvelope("POLYGON ((0 0, 0 4, 4 0))", new Envelope(0, 0, 4, 4));
-        assertDeserializeEnvelope("MULTIPOLYGON (((0 0 , 0 2, 2 2, 2 0)), ((2 2, 2 4, 4 4, 4 2)))", new Envelope(0, 0, 4, 4));
+        assertDeserializeEnvelope("POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0))", new Envelope(0, 0, 4, 4));
+        assertDeserializeEnvelope("MULTIPOLYGON (((0 0 , 0 2, 2 2, 2 0, 0 0)), ((2 2, 2 4, 4 4, 4 2, 2 2)))", new Envelope(0, 0, 4, 4));
         assertDeserializeEnvelope("GEOMETRYCOLLECTION (POINT (3 7), LINESTRING (4 6, 7 10))", new Envelope(3, 6, 7, 10));
         assertDeserializeEnvelope("POLYGON EMPTY", new Envelope());
         assertDeserializeEnvelope("POINT (1 2)", new Envelope(1, 2, 1, 2));
@@ -165,15 +165,15 @@ public class TestGeometrySerialization
     {
         assertDeserializeType("POINT (1 2)", POINT);
         assertDeserializeType("POINT EMPTY", POINT);
-        assertDeserializeType("MULTIPOINT (20 20, 25 25)", MULTI_POINT);
+        assertDeserializeType("MULTIPOINT ((20 20), (25 25))", MULTI_POINT);
         assertDeserializeType("MULTIPOINT EMPTY", MULTI_POINT);
-        assertDeserializeType("LINESTRING (1 1, 5 1, 6 2))", LINE_STRING);
+        assertDeserializeType("LINESTRING (1 1, 5 1, 6 2)", LINE_STRING);
         assertDeserializeType("LINESTRING EMPTY", LINE_STRING);
         assertDeserializeType("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", MULTI_LINE_STRING);
         assertDeserializeType("MULTILINESTRING EMPTY", MULTI_LINE_STRING);
-        assertDeserializeType("POLYGON ((0 0, 0 4, 4 0))", POLYGON);
+        assertDeserializeType("POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0))", POLYGON);
         assertDeserializeType("POLYGON EMPTY", POLYGON);
-        assertDeserializeType("MULTIPOLYGON (((0 0 , 0 2, 2 2, 2 0)), ((2 2, 2 4, 4 4, 4 2)))", MULTI_POLYGON);
+        assertDeserializeType("MULTIPOLYGON (((0 0, 0 2, 2 2, 2 0, 0 0)), ((2 2, 2 4, 4 4, 4 2, 2 2)))", MULTI_POLYGON);
         assertDeserializeType("MULTIPOLYGON EMPTY", MULTI_POLYGON);
         assertDeserializeType("GEOMETRYCOLLECTION (POINT (3 7), LINESTRING (4 6, 7 10))", GEOMETRY_COLLECTION);
         assertDeserializeType("GEOMETRYCOLLECTION EMPTY", GEOMETRY_COLLECTION);

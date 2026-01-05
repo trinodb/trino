@@ -569,8 +569,8 @@ public class TestBingTileFunctions
         assertGeometryToBingTiles("POINT (60 30.12)", 15, ImmutableList.of("123030123010121"));
         assertGeometryToBingTiles("POINT (60 30.12)", 16, ImmutableList.of("1230301230101212"));
 
-        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10, 10 0))", 6, ImmutableList.of("122220", "122222", "122221", "122223"));
-        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10))", 6, ImmutableList.of("122220", "122222", "122221"));
+        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, ImmutableList.of("122220", "122222", "122221", "122223"));
+        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10, 0 0))", 6, ImmutableList.of("122220", "122222", "122221"));
 
         assertGeometryToBingTiles("POLYGON ((10 10, -10 10, -20 -15, 10 10))", 3, ImmutableList.of("033", "211", "122"));
         assertGeometryToBingTiles("POLYGON ((10 10, -10 10, -20 -15, 10 10))", 6, ImmutableList.of("211102", "211120", "033321", "033323", "211101", "211103", "211121", "033330", "033332", "211110", "211112", "033331", "033333", "211111", "122220", "122222", "122221"));
@@ -610,7 +610,7 @@ public class TestBingTileFunctions
                 .hasMessage("Longitude span for the geometry must be in [-180.00, 180.00] range");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("geometry_to_bing_tiles(geometry, zoom)")
-                .binding("geometry", "ST_GeometryFromText('POLYGON ((1000 10, -10 10, -20 -15))')")
+                .binding("geometry", "ST_GeometryFromText('POLYGON ((1000 10, -10 10, -20 -15, 1000 10))')")
                 .binding("zoom", Integer.toString(10))
                 .evaluate())
                 .hasMessage("Longitude span for the geometry must be in [-180.00, 180.00] range");
@@ -623,7 +623,7 @@ public class TestBingTileFunctions
                 .hasMessage("Latitude span for the geometry must be in [-85.05, 85.05] range");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("geometry_to_bing_tiles(geometry, zoom)")
-                .binding("geometry", "ST_GeometryFromText('POLYGON ((10 1000, -10 10, -20 -15))')")
+                .binding("geometry", "ST_GeometryFromText('POLYGON ((10 1000, -10 10, -20 -15, 10 1000))')")
                 .binding("zoom", Integer.toString(10))
                 .evaluate())
                 .hasMessage("Latitude span for the geometry must be in [-85.05, 85.05] range");

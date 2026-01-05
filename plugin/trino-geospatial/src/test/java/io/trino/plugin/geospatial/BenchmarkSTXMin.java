@@ -67,7 +67,7 @@ public class BenchmarkSTXMin
                 throws IOException
         {
             complexGeometry = stGeometryFromText(utf8Slice(loadPolygon("large_polygon.txt")));
-            simpleGeometry = stGeometryFromText(utf8Slice("POLYGON ((1 1, 4 1, 1 4))"));
+            simpleGeometry = stGeometryFromText(utf8Slice("POLYGON ((1 1, 4 1, 1 4, 1 1))"));
         }
     }
 
