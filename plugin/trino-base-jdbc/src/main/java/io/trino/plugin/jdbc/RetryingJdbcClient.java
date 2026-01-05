@@ -422,10 +422,10 @@ public class RetryingJdbcClient
     }
 
     @Override
-    public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void rollbackTemporaryTableCreation(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         // no retrying as it could be not idempotent operation
-        delegate.rollbackCreateTable(session, handle);
+        delegate.rollbackTemporaryTableCreation(session, handle);
     }
 
     @Override
