@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.geospatial;
 
-import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.locationtech.jts.geom.Geometry;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -58,8 +58,8 @@ public class BenchmarkGeometryToBingTiles
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private Slice geometry;
-        private Slice envelope;
+        private Geometry geometry;
+        private Geometry envelope;
         private int zoomLevel;
 
         @Setup

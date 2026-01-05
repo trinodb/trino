@@ -34,6 +34,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.io.Resources.getResource;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
 import static io.trino.plugin.geospatial.GeoTestUtils.spatiallyEquals;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
@@ -86,7 +87,7 @@ public class TestSphericalGeoFunctions
 
         BlockBuilder builder = SPHERICAL_GEOGRAPHY.createBlockBuilder(null, wktList.size());
         for (String wkt : wktList) {
-            SPHERICAL_GEOGRAPHY.writeSlice(builder, GeoFunctions.toSphericalGeography(GeoFunctions.stGeometryFromText(utf8Slice(wkt))));
+            SPHERICAL_GEOGRAPHY.writeSlice(builder, serialize(GeoFunctions.toSphericalGeography(GeoFunctions.stGeometryFromText(utf8Slice(wkt)))));
         }
         Block block = builder.build();
         for (int i = 0; i < wktList.size(); i++) {

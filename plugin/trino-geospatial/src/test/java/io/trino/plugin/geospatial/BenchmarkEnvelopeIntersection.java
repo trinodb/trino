@@ -15,6 +15,7 @@ package io.trino.plugin.geospatial;
 
 import io.airlift.slice.Slice;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.geom.Geometry;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -31,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.geospatial.serde.JtsGeometrySerde.deserialize;
+import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.geospatial.GeoFunctions.stEnvelope;
 import static io.trino.plugin.geospatial.GeoFunctions.stGeometryFromText;
@@ -48,23 +50,23 @@ public class BenchmarkEnvelopeIntersection
     @Benchmark
     public Slice envelopes(BenchmarkData data)
     {
-        return stIntersection(data.envelope, data.otherEnvelope);
+        return serialize(stIntersection(data.envelope, data.otherEnvelope));
     }
 
     @Benchmark
     public Slice geometries(BenchmarkData data)
     {
-        return stIntersection(data.geometry, data.otherGeometry);
+        return serialize(stIntersection(data.geometry, data.otherGeometry));
     }
 
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private Slice envelope;
-        private Slice otherEnvelope;
+        private Geometry envelope;
+        private Geometry otherEnvelope;
 
-        private Slice geometry;
-        private Slice otherGeometry;
+        private Geometry geometry;
+        private Geometry otherGeometry;
 
         @Setup
         public void setup()

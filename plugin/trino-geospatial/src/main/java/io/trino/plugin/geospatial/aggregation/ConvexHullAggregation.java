@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.geospatial.aggregation;
 
-import io.airlift.slice.Slice;
-import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
@@ -42,9 +40,8 @@ public final class ConvexHullAggregation
 
     @InputFunction
     public static void input(@AggregationState GeometryState state,
-            @SqlType(StandardTypes.GEOMETRY) Slice input)
+            @SqlType(StandardTypes.GEOMETRY) Geometry geometry)
     {
-        Geometry geometry = JtsGeometrySerde.deserialize(input);
         if (state.getGeometry() == null) {
             Geometry result = geometry.convexHull();
             result.setSRID(geometry.getSRID());
@@ -80,7 +77,7 @@ public final class ConvexHullAggregation
             out.appendNull();
         }
         else {
-            GEOMETRY.writeSlice(out, JtsGeometrySerde.serialize(state.getGeometry()));
+            GEOMETRY.writeObject(out, state.getGeometry());
         }
     }
 }

@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.geospatial;
 
-import io.airlift.slice.Slice;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.geom.Geometry;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -74,10 +74,10 @@ public class BenchmarkSTArea
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private Slice geometry;
-        private Slice geometry500k;
-        private Slice geography;
-        private Slice geography500k;
+        private Geometry geometry;
+        private Geometry geometry500k;
+        private Geometry geography;
+        private Geometry geography500k;
 
         @Setup
         public void setup()

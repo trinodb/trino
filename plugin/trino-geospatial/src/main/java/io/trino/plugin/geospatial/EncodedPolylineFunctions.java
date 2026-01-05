@@ -17,7 +17,6 @@ import com.google.common.base.Joiner;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.trino.geospatial.GeometryType;
-import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
@@ -54,9 +53,9 @@ public final class EncodedPolylineFunctions
     @Description("Decodes a polyline to a linestring")
     @ScalarFunction("from_encoded_polyline")
     @SqlType(StandardTypes.GEOMETRY)
-    public static Slice fromEncodedPolyline(@SqlType(StandardTypes.VARCHAR) Slice input)
+    public static Geometry fromEncodedPolyline(@SqlType(StandardTypes.VARCHAR) Slice input)
     {
-        return JtsGeometrySerde.serialize(decodePolyline(input.toStringUtf8()));
+        return decodePolyline(input.toStringUtf8());
     }
 
     private static LineString decodePolyline(String polyline)
@@ -104,9 +103,8 @@ public final class EncodedPolylineFunctions
     @Description("Encodes a linestring or multipoint geometry to a polyline")
     @ScalarFunction("to_encoded_polyline")
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice toEncodedPolyline(@SqlType(StandardTypes.GEOMETRY) Slice input)
+    public static Slice toEncodedPolyline(@SqlType(StandardTypes.GEOMETRY) Geometry geometry)
     {
-        Geometry geometry = JtsGeometrySerde.deserialize(input);
         validateType("encode_polyline", geometry, Set.of(LINE_STRING, MULTI_POINT));
         GeometryType geometryType = GeometryType.getForJtsGeometryType(geometry.getGeometryType());
         return switch (geometryType) {

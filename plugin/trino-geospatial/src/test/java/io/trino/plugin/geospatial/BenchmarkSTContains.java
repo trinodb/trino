@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.geospatial;
 
-import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.Point;
@@ -34,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.geospatial.serde.JtsGeometrySerde.deserialize;
 import static io.trino.geospatial.serde.JtsGeometrySerde.deserializeEnvelope;
+import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
 
@@ -66,13 +66,13 @@ public class BenchmarkSTContains
     @Benchmark
     public Object deserializeSimpleGeometry(BenchmarkData data)
     {
-        return deserialize(data.simpleGeometry);
+        return deserialize(serialize(data.simpleGeometry));
     }
 
     @Benchmark
     public Object deserializeEnvelopeSimpleGeometry(BenchmarkData data)
     {
-        return deserializeEnvelope(data.simpleGeometry);
+        return deserializeEnvelope(serialize(data.simpleGeometry));
     }
 
     @Benchmark
@@ -114,23 +114,23 @@ public class BenchmarkSTContains
     @Benchmark
     public Object benchmarkDeserialize(BenchmarkData data)
     {
-        return deserialize(data.geometry);
+        return deserialize(serialize(data.geometry));
     }
 
     @Benchmark
     public Object benchmarkDeserializeEnvelope(BenchmarkData data)
     {
-        return deserializeEnvelope(data.geometry);
+        return deserializeEnvelope(serialize(data.geometry));
     }
 
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private Slice geometry;
-        private Slice simpleGeometry;
-        private Slice innerPoint;
-        private Slice outerPointInEnvelope;
-        private Slice outerPointNotInEnvelope;
+        private Geometry geometry;
+        private Geometry simpleGeometry;
+        private Geometry innerPoint;
+        private Geometry outerPointInEnvelope;
+        private Geometry outerPointNotInEnvelope;
         private Geometry jtsGeometry;
         private Point innerJtsPoint;
         private Point outerJtsPointInEnvelope;
@@ -146,10 +146,10 @@ public class BenchmarkSTContains
             outerPointInEnvelope = GeoFunctions.stPoint(16.6667, 54.05);
             outerPointNotInEnvelope = GeoFunctions.stPoint(16.6333, 54.2);
 
-            jtsGeometry = deserialize(geometry);
-            innerJtsPoint = (Point) deserialize(innerPoint);
-            outerJtsPointInEnvelope = (Point) deserialize(outerPointInEnvelope);
-            outerJtsPointNotInEnvelope = (Point) deserialize(outerPointNotInEnvelope);
+            jtsGeometry = geometry;
+            innerJtsPoint = (Point) innerPoint;
+            outerJtsPointInEnvelope = (Point) outerPointInEnvelope;
+            outerJtsPointNotInEnvelope = (Point) outerPointNotInEnvelope;
         }
     }
 

@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.geospatial.aggregation;
 
-import io.airlift.slice.Slice;
-import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
@@ -41,9 +39,8 @@ public final class GeometryUnionAgg
     private GeometryUnionAgg() {}
 
     @InputFunction
-    public static void input(@AggregationState GeometryState state, @SqlType(StandardTypes.GEOMETRY) Slice input)
+    public static void input(@AggregationState GeometryState state, @SqlType(StandardTypes.GEOMETRY) Geometry geometry)
     {
-        Geometry geometry = JtsGeometrySerde.deserialize(input);
         if (state.getGeometry() == null) {
             state.setGeometry(geometry);
         }
@@ -76,7 +73,7 @@ public final class GeometryUnionAgg
             out.appendNull();
         }
         else {
-            GEOMETRY.writeSlice(out, JtsGeometrySerde.serialize(state.getGeometry()));
+            GEOMETRY.writeObject(out, state.getGeometry());
         }
     }
 }
