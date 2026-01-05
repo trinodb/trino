@@ -36,6 +36,7 @@ import static com.google.common.io.Resources.getResource;
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.plugin.geospatial.BingTile.fromCoordinates;
 import static io.trino.plugin.geospatial.BingTileType.BING_TILE;
+import static io.trino.plugin.geospatial.GeoTestUtils.assertSpatialEquals;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -448,9 +449,8 @@ public class TestBingTileFunctions
     @Test
     public void testBingTilePolygon()
     {
-        assertThat(assertions.function("ST_AsText", "bing_tile_polygon(bing_tile('123030123010121'))"))
-                .hasType(VARCHAR)
-                .isEqualTo("POLYGON ((59.996337890625 30.11662158281937, 60.00732421875 30.11662158281937, 60.00732421875 30.12612436422458, 59.996337890625 30.12612436422458, 59.996337890625 30.11662158281937))");
+        assertSpatialEquals(assertions, "bing_tile_polygon(bing_tile('123030123010121'))",
+                "POLYGON ((59.996337890625 30.11662158281937, 60.00732421875 30.11662158281937, 60.00732421875 30.12612436422458, 59.996337890625 30.12612436422458, 59.996337890625 30.11662158281937))");
 
         assertThat(assertions.function("ST_AsText", "ST_Centroid(bing_tile_polygon(bing_tile('123030123010121')))"))
                 .hasType(VARCHAR)

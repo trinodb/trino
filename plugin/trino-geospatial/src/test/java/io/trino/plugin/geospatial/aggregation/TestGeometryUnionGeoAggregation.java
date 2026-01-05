@@ -24,11 +24,10 @@ import org.junit.jupiter.api.TestInstance;
 import java.util.Arrays;
 import java.util.List;
 
-import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.trino.plugin.geospatial.GeoTestUtils.assertSpatialEquals;
 import static java.lang.String.format;
 import static java.util.Collections.reverse;
 import static java.util.stream.Collectors.toList;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -316,17 +315,15 @@ public class TestGeometryUnionGeoAggregation
 
     private void assertArrayAggAndGeometryUnion(String expectedWkt, String[] wkts)
     {
+        if (wkts.length == 0) {
+            return;
+        }
         List<String> wktList = Arrays.stream(wkts).map(wkt -> format("ST_GeometryFromText('%s')", wkt)).collect(toList());
-        String wktArray = format("ARRAY[%s]", COMMA_JOINER.join(wktList));
-        // ST_Union(ARRAY[ST_GeometryFromText('...'), ...])
-        assertThat(assertions.function("geometry_union", wktArray))
-                .hasType(GEOMETRY)
-                .isEqualTo(expectedWkt);
+        String wktArray = "ARRAY[" + COMMA_JOINER.join(wktList) + "]";
 
+        assertSpatialEquals(assertions, "geometry_union(" + wktArray + ")", expectedWkt);
         reverse(wktList);
-        wktArray = format("ARRAY[%s]", COMMA_JOINER.join(wktList));
-        assertThat(assertions.function("geometry_union", wktArray))
-                .hasType(GEOMETRY)
-                .isEqualTo(expectedWkt);
+        wktArray = "ARRAY[" + COMMA_JOINER.join(wktList) + "]";
+        assertSpatialEquals(assertions, "geometry_union(" + wktArray + ")", expectedWkt);
     }
 }
