@@ -34,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.geospatial.serde.JtsGeometrySerde.deserialize;
 import static io.trino.geospatial.serde.JtsGeometrySerde.deserializeEnvelope;
+import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
 
@@ -66,13 +67,13 @@ public class BenchmarkSTContains
     @Benchmark
     public Object deserializeSimpleGeometry(BenchmarkData data)
     {
-        return deserialize(data.simpleGeometry);
+        return deserialize(data.simpleGeometrySerialized);
     }
 
     @Benchmark
     public Object deserializeEnvelopeSimpleGeometry(BenchmarkData data)
     {
-        return deserializeEnvelope(data.simpleGeometry);
+        return deserializeEnvelope(data.simpleGeometrySerialized);
     }
 
     @Benchmark
@@ -114,23 +115,25 @@ public class BenchmarkSTContains
     @Benchmark
     public Object benchmarkDeserialize(BenchmarkData data)
     {
-        return deserialize(data.geometry);
+        return deserialize(data.geometrySerialized);
     }
 
     @Benchmark
     public Object benchmarkDeserializeEnvelope(BenchmarkData data)
     {
-        return deserializeEnvelope(data.geometry);
+        return deserializeEnvelope(data.geometrySerialized);
     }
 
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private Slice geometry;
-        private Slice simpleGeometry;
-        private Slice innerPoint;
-        private Slice outerPointInEnvelope;
-        private Slice outerPointNotInEnvelope;
+        private Geometry geometry;
+        private Slice geometrySerialized;
+        private Geometry simpleGeometry;
+        private Slice simpleGeometrySerialized;
+        private Geometry innerPoint;
+        private Geometry outerPointInEnvelope;
+        private Geometry outerPointNotInEnvelope;
         private Geometry jtsGeometry;
         private Point innerJtsPoint;
         private Point outerJtsPointInEnvelope;
@@ -141,15 +144,17 @@ public class BenchmarkSTContains
                 throws IOException
         {
             geometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice(loadPolygon("large_polygon.txt")));
+            geometrySerialized = serialize(geometry);
             simpleGeometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice("POLYGON ((16.5 54, 16.5 54.1, 16.8 54.1, 16.8 54, 16.5 54))"));
+            simpleGeometrySerialized = serialize(simpleGeometry);
             innerPoint = GeoFunctions.stPoint(16.6, 54.0167);
             outerPointInEnvelope = GeoFunctions.stPoint(16.6667, 54.05);
             outerPointNotInEnvelope = GeoFunctions.stPoint(16.6333, 54.2);
 
-            jtsGeometry = deserialize(geometry);
-            innerJtsPoint = (Point) deserialize(innerPoint);
-            outerJtsPointInEnvelope = (Point) deserialize(outerPointInEnvelope);
-            outerJtsPointNotInEnvelope = (Point) deserialize(outerPointNotInEnvelope);
+            jtsGeometry = geometry;
+            innerJtsPoint = (Point) innerPoint;
+            outerJtsPointInEnvelope = (Point) outerPointInEnvelope;
+            outerJtsPointNotInEnvelope = (Point) outerPointNotInEnvelope;
         }
     }
 

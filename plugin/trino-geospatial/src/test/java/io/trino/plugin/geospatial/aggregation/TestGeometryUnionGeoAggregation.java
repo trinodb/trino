@@ -20,6 +20,9 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKTReader;
 
 import java.util.Arrays;
 import java.util.List;
@@ -30,6 +33,7 @@ import static java.lang.String.format;
 import static java.util.Collections.reverse;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -341,5 +345,39 @@ public class TestGeometryUnionGeoAggregation
         assertThat(assertions.function("ST_SRID",
                         "geometry_union(ARRAY[ST_SetSRID(ST_Point(1, 2), 4326), ST_SetSRID(ST_Point(3, 4), 4326)])"))
                 .isEqualTo(4326);
+    }
+
+    @Test
+    public void testSridMismatchWithEmptyGeometryInput()
+            throws ParseException
+    {
+        GeometryState state = new GeometryStateFactory.SingleGeometryState();
+        state.setGeometry(geometry("POINT (1 2)", 4326));
+
+        assertThatThrownBy(() -> GeometryUnionAgg.input(state, geometry("POINT EMPTY", 3857)))
+                .hasMessage("SRID mismatch: 4326 vs 3857");
+    }
+
+    @Test
+    public void testEmptyGeometryCombinePropagatesWildcardSrid()
+            throws ParseException
+    {
+        GeometryState state = new GeometryStateFactory.SingleGeometryState();
+        state.setGeometry(geometry("POINT (1 2)", 0));
+
+        GeometryState otherState = new GeometryStateFactory.SingleGeometryState();
+        otherState.setGeometry(geometry("POINT EMPTY", 4326));
+
+        GeometryUnionAgg.combine(state, otherState);
+
+        assertThat(state.getGeometry().getSRID()).isEqualTo(4326);
+    }
+
+    private static Geometry geometry(String wkt, int srid)
+            throws ParseException
+    {
+        Geometry geometry = new WKTReader().read(wkt);
+        geometry.setSRID(srid);
+        return geometry;
     }
 }
