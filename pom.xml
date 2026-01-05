@@ -2895,6 +2895,7 @@
                                     -Xep:DepAnn:ERROR \
                                     -Xep:DeprecatedVariable:ERROR \
                                     -Xep:DistinctVarargsChecker:ERROR \
+                                    <!-- flags throwing exception factory methods and doesn't seem that useful -->
                                     -Xep:DoNotCallSuggester:OFF \
                                     -Xep:DoubleCheckedLocking:ERROR \
                                     -Xep:EmptyBlockTag:ERROR \
@@ -2917,6 +2918,9 @@
                                     <!-- TODO enable globally -->
                                     -Xep:GuardedBy:${trino.error-prone.guarded-by} \
                                     -Xep:HidingField:ERROR \
+                                    <!-- These methods are used in tests and other places where we want the
+                                         default time zone, and changing them simply to fix this warning would
+                                         make the code worse. -->
                                     -Xep:JavaTimeDefaultTimeZone:OFF \
                                     <!-- covered by Modernizer -->
                                     -Xep:JdkObsolete:OFF \
@@ -2952,6 +2956,7 @@
                                     -Xep:PreferredInterfaceType:OFF \
                                     -Xep:PrimitiveArrayPassedToVarargsMethod:ERROR \
                                     -Xep:RedundantNullCheck:ERROR \
+                                    <!-- disabled likely because we disagree with the suggested fix -->
                                     -Xep:RethrowReflectiveOperationExceptionAsLinkageError:OFF \
                                     -Xep:StaticAssignmentOfThrowable:ERROR \
                                     -Xep:StaticGuardedByInstance:ERROR \
@@ -2969,6 +2974,8 @@
                                     <!-- false positive from io.airlift.configuration.Config annotation -->
                                     -Xep:UnnecessaryQualifier:OFF \
                                     -Xep:UnnecessaryStringBuilder:ERROR \
+                                    <!-- this check does not understand static reflection. Enabling this
+                                         check will require many unnecessary suppressions -->
                                     -Xep:UnusedMethod:OFF \
                                     -Xep:UnusedVariable:ERROR \
                                     -Xep:UseEnumSwitch:ERROR \
