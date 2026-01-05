@@ -61,7 +61,7 @@ public final class JdbcClientStats
     private final JdbcApiStats dropNotNullConstraint = new JdbcApiStats();
     private final JdbcApiStats renameTable = new JdbcApiStats();
     private final JdbcApiStats setTableProperties = new JdbcApiStats();
-    private final JdbcApiStats rollbackCreateTable = new JdbcApiStats();
+    private final JdbcApiStats rollbackTemporaryTableCreation = new JdbcApiStats();
     private final JdbcApiStats schemaExists = new JdbcApiStats();
     private final JdbcApiStats toTrinoType = new JdbcApiStats();
     private final JdbcApiStats getColumnMappings = new JdbcApiStats();
@@ -378,9 +378,9 @@ public final class JdbcClientStats
 
     @Managed
     @Nested
-    public JdbcApiStats getRollbackCreateTable()
+    public JdbcApiStats getRollbackTemporaryTableCreation()
     {
-        return rollbackCreateTable;
+        return rollbackTemporaryTableCreation;
     }
 
     @Managed

@@ -235,7 +235,7 @@ public interface JdbcClient
 
     void dropTable(ConnectorSession session, JdbcTableHandle jdbcTableHandle);
 
-    void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle);
+    void rollbackTemporaryTableCreation(ConnectorSession session, JdbcOutputTableHandle handle);
 
     boolean supportsRetries();
 
