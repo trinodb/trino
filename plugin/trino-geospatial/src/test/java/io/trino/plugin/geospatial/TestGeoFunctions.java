@@ -35,6 +35,7 @@ import org.locationtech.jts.io.WKTReader;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 import static io.trino.geospatial.KdbTree.buildKdbTree;
@@ -137,7 +138,7 @@ public class TestGeoFunctions
     public void testGeometryGetObjectValue()
     {
         BlockBuilder builder = GEOMETRY.createBlockBuilder(null, 1);
-        GEOMETRY.writeSlice(builder, GeoFunctions.stPoint(1.2, 3.4));
+        GEOMETRY.writeSlice(builder, JtsGeometrySerde.serialize(GeoFunctions.stPoint(1.2, 3.4)));
         Block block = builder.build();
 
         assertThat("POINT (1.2 3.4)").isEqualTo(GEOMETRY.getObjectValue(block, 0));
@@ -338,8 +339,7 @@ public class TestGeoFunctions
     private void assertApproximateCentroid(String wkt, Coordinate expectedCentroid, double epsilon)
     {
         try {
-            Geometry geometry = JtsGeometrySerde.deserialize(
-                    stCentroid(JtsGeometrySerde.serialize(new WKTReader().read(wkt))));
+            Geometry geometry = stCentroid(new WKTReader().read(wkt));
             Point actualCentroid = (Point) geometry;
             assertThat(expectedCentroid.getX()).isCloseTo(actualCentroid.getX(), within(epsilon));
             assertThat(expectedCentroid.getY()).isCloseTo(actualCentroid.getY(), within(epsilon));
@@ -576,7 +576,7 @@ public class TestGeoFunctions
 
         assertThat(assertions.function("geometry_invalid_reason", "ST_GeometryFromText('%s')".formatted(wkt)))
                 .hasType(VARCHAR)
-                .satisfies(result -> assertThat(((String) result).toLowerCase()).contains(reasonContains.toLowerCase()));
+                .satisfies(result -> assertThat(((String) result).toLowerCase(Locale.ROOT)).contains(reasonContains.toLowerCase(Locale.ROOT)));
     }
 
     @Test

@@ -16,7 +16,6 @@ package io.trino.plugin.geospatial;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.slice.Slice;
-import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -330,23 +329,22 @@ public final class BingTileFunctions
     @Description("Given a Bing tile, returns the polygon representation of the tile")
     @ScalarFunction("bing_tile_polygon")
     @SqlType(StandardTypes.GEOMETRY)
-    public static Slice bingTilePolygon(@SqlType(StandardTypes.BING_TILE) long input)
+    public static Geometry bingTilePolygon(@SqlType(StandardTypes.BING_TILE) long input)
     {
         BingTile tile = BingTile.decode(input);
 
-        return JtsGeometrySerde.serialize(tileToEnvelope(tile));
+        return GEOMETRY_FACTORY.toGeometry(tileToEnvelope(tile));
     }
 
     @Description("Given a geometry and a zoom level, returns the minimum set of Bing tiles that fully covers that geometry")
     @ScalarFunction("geometry_to_bing_tiles")
     @SqlType("array(" + StandardTypes.BING_TILE + ")")
-    public static Block geometryToBingTiles(@SqlType(StandardTypes.GEOMETRY) Slice input, @SqlType(StandardTypes.INTEGER) long zoomLevelInput)
+    public static Block geometryToBingTiles(@SqlType(StandardTypes.GEOMETRY) Geometry geometry, @SqlType(StandardTypes.INTEGER) long zoomLevelInput)
     {
         checkZoomLevel(zoomLevelInput);
 
         int zoomLevel = toIntExact(zoomLevelInput);
 
-        Geometry geometry = JtsGeometrySerde.deserialize(input);
         if (geometry.isEmpty()) {
             return EMPTY_TILE_ARRAY;
         }

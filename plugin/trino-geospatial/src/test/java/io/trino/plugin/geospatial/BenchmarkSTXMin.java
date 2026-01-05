@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.geospatial;
 
-import io.airlift.slice.Slice;
+import org.locationtech.jts.geom.Geometry;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -59,8 +59,8 @@ public class BenchmarkSTXMin
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private Slice complexGeometry;
-        private Slice simpleGeometry;
+        private Geometry complexGeometry;
+        private Geometry simpleGeometry;
 
         @Setup
         public void setup()

@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.geospatial;
 
-import io.airlift.slice.Slice;
 import org.junit.jupiter.api.Test;
+import org.locationtech.jts.geom.Geometry;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -107,12 +107,12 @@ public class BenchmarkSTIntersects
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private Slice simpleGeometry;
-        private Slice geometry;
-        private Slice innerLine;
-        private Slice crossingLine;
-        private Slice outerLineInEnvelope;
-        private Slice outerLineNotInEnvelope;
+        private Geometry simpleGeometry;
+        private Geometry geometry;
+        private Geometry innerLine;
+        private Geometry crossingLine;
+        private Geometry outerLineInEnvelope;
+        private Geometry outerLineNotInEnvelope;
 
         @Setup
         public void setup()
@@ -132,9 +132,9 @@ public class BenchmarkSTIntersects
             validate(geometry);
         }
 
-        public void validate(Slice geometry)
+        public void validate(Geometry geometry)
         {
-            Slice envelope = stEnvelope(geometry);
+            Geometry envelope = stEnvelope(geometry);
 
             // innerLine
             verify(stIntersects(geometry, innerLine));
