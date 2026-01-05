@@ -81,7 +81,7 @@ public class TestSphericalGeoFunctions
                 "POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9))",
                 "POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9), (-39.2 29.9, -39.2 30.9, -38.2 30.9, -38.2 29.9, -39.2 29.9))",
                 "MULTIPOLYGON (((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)), ((-39.2 29.9, -38.2 29.9, -38.2 30.9, -39.2 30.9, -39.2 29.9)))",
-                "GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9), POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)))");
+                "GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9, -40.2 28.9), POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)))");
 
         BlockBuilder builder = SPHERICAL_GEOGRAPHY.createBlockBuilder(null, wktList.size());
         for (String wkt : wktList) {
@@ -154,9 +154,9 @@ public class TestSphericalGeoFunctions
                 .hasType(GEOMETRY)
                 .matches("ST_GeometryFromText('MULTIPOLYGON (((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)), ((-39.2 29.9, -38.2 29.9, -38.2 30.9, -39.2 30.9, -39.2 29.9)))')");
 
-        assertThat(assertions.function("to_geometry", toSphericalGeography("GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9), POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)))")))
+        assertThat(assertions.function("to_geometry", toSphericalGeography("GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9, -40.2 28.9), POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)))")))
                 .hasType(GEOMETRY)
-                .matches("ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9), POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)))')");
+                .matches("ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9, -40.2 28.9), POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)))')");
 
         // geometries containing invalid latitude or longitude values
         assertTrinoExceptionThrownBy(assertions.function("to_spherical_geography", "ST_GeometryFromText('POINT (-340.2 28.9)')")::evaluate)
@@ -180,7 +180,7 @@ public class TestSphericalGeoFunctions
         assertTrinoExceptionThrownBy(assertions.function("to_spherical_geography", "ST_GeometryFromText('MULTIPOLYGON (((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)), ((-39.2 29.9, -39.2 30.9, 238.2 30.9, -38.2 29.9, -39.2 29.9)))')")::evaluate)
                 .hasMessage("Longitude must be between -180 and 180");
 
-        assertTrinoExceptionThrownBy(assertions.function("to_spherical_geography", "ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 131.9, -37.2 31.9), POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)))')")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.function("to_spherical_geography", "ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 131.9, -37.2 31.9, -40.2 28.9), POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)))')")::evaluate)
                 .hasMessage("Latitude must be between -90 and 90");
     }
 
@@ -234,22 +234,22 @@ public class TestSphericalGeoFunctions
         assertThat(assertions.function("ST_Area", toSphericalGeography("POLYGON((-135 85, -45 85, 45 85, 135 85, -135 85))")))
                 .satisfies(approximatelyEqualTo(619.00E9, 0.00001));
 
-        assertThat(assertions.function("ST_Area", toSphericalGeography("POLYGON((0 0, 0 1, 1 1, 1 0))")))
+        assertThat(assertions.function("ST_Area", toSphericalGeography("POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))")))
                 .satisfies(approximatelyEqualTo(123.64E8, 0.00001));
 
-        assertThat(assertions.function("ST_Area", toSphericalGeography("POLYGON((-122.150124 37.486095, -122.149201 37.486606,  -122.145725 37.486580, -122.145923 37.483961 , -122.149324 37.482480 ,  -122.150837 37.483238,  -122.150901 37.485392))")))
+        assertThat(assertions.function("ST_Area", toSphericalGeography("POLYGON((-122.150124 37.486095, -122.149201 37.486606,  -122.145725 37.486580, -122.145923 37.483961 , -122.149324 37.482480 ,  -122.150837 37.483238,  -122.150901 37.485392, -122.150124 37.486095))")))
                 .satisfies(approximatelyEqualTo(163290.93943446054, 0.00001));
 
         double angleOfOneKm = 0.008993201943349;
-        assertThat(assertions.function("ST_Area", toSphericalGeography(format("POLYGON((0 0, %.15f 0, %.15f %.15f, 0 %.15f))", angleOfOneKm, angleOfOneKm, angleOfOneKm, angleOfOneKm))))
+        assertThat(assertions.function("ST_Area", toSphericalGeography(format("POLYGON((0 0, %.15f 0, %.15f %.15f, 0 %.15f, 0 0))", angleOfOneKm, angleOfOneKm, angleOfOneKm, angleOfOneKm))))
                 .satisfies(approximatelyEqualTo(1E6, 0.00001));
 
         // 1/4th of an hemisphere, ie 1/8th of the planet, should be close to 4PiR2/8 = 637.58E11
-        assertThat(assertions.function("ST_Area", toSphericalGeography("POLYGON((90 0, 0 0, 0 90))")))
+        assertThat(assertions.function("ST_Area", toSphericalGeography("POLYGON((90 0, 0 0, 0 90, 90 0))")))
                 .satisfies(approximatelyEqualTo(637.58E11, 0.00001));
 
         //A Polygon with a large hole
-        assertThat(assertions.function("ST_Area", toSphericalGeography("POLYGON((90 0, 0 0, 0 90), (89 1, 1 1, 1 89))")))
+        assertThat(assertions.function("ST_Area", toSphericalGeography("POLYGON((90 0, 0 0, 0 90, 90 0), (89 1, 1 1, 1 89, 89 1))")))
                 .satisfies(approximatelyEqualTo(348.04E10, 0.00001));
 
         Path geometryPath = new File(getResource("us-states.tsv").toURI()).toPath();

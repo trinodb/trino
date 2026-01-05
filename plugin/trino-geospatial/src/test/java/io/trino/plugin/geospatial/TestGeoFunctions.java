@@ -165,7 +165,7 @@ public class TestGeoFunctions
         assertTrinoExceptionThrownBy(assertions.function("ST_AsText", "ST_LineFromText('MULTILINESTRING EMPTY')")::evaluate)
                 .hasMessage("ST_LineFromText only applies to LINE_STRING. Input type is: MULTI_LINE_STRING");
 
-        assertTrinoExceptionThrownBy(assertions.function("ST_AsText", "ST_LineFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.function("ST_AsText", "ST_LineFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))')")::evaluate)
                 .hasMessage("ST_LineFromText only applies to LINE_STRING. Input type is: POLYGON");
     }
 
@@ -176,7 +176,7 @@ public class TestGeoFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("POLYGON EMPTY");
 
-        assertThat(assertions.function("ST_AsText", "ST_Polygon('POLYGON ((1 1, 1 4, 4 4, 4 1))')"))
+        assertThat(assertions.function("ST_AsText", "ST_Polygon('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))')"))
                 .hasType(VARCHAR)
                 .isEqualTo("POLYGON ((1 1, 4 1, 4 4, 1 4, 1 1))");
 
@@ -187,7 +187,7 @@ public class TestGeoFunctions
     @Test
     public void testSTArea()
     {
-        assertArea("POLYGON ((2 2, 2 6, 6 6, 6 2))", 16.0);
+        assertArea("POLYGON ((2 2, 2 6, 6 6, 6 2, 2 2))", 16.0);
         assertArea("POLYGON EMPTY", 0.0);
         assertArea("LINESTRING (1 4, 2 5)", 0.0);
         assertArea("LINESTRING EMPTY", 0.0);
@@ -301,15 +301,15 @@ public class TestGeoFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("POINT (3 2)");
 
-        assertThat(assertions.function("ST_AsText", "ST_Centroid(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'))"))
+        assertThat(assertions.function("ST_AsText", "ST_Centroid(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))'))"))
                 .hasType(VARCHAR)
                 .isEqualTo("POINT (2.5 2.5)");
 
-        assertThat(assertions.function("ST_AsText", "ST_Centroid(ST_GeometryFromText('POLYGON ((1 1, 5 1, 3 4))'))"))
+        assertThat(assertions.function("ST_AsText", "ST_Centroid(ST_GeometryFromText('POLYGON ((1 1, 5 1, 3 4, 1 1))'))"))
                 .hasType(VARCHAR)
                 .isEqualTo("POINT (3 2)");
 
-        assertThat(assertions.function("ST_AsText", "ST_Centroid(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))'))"))
+        assertThat(assertions.function("ST_AsText", "ST_Centroid(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))'))"))
                 .hasType(VARCHAR)
                 .isEqualTo("POINT (3.3333333333333335 4)");
 
@@ -369,33 +369,33 @@ public class TestGeoFunctions
 
         // non-convex geometry
         assertConvexHull("LINESTRING (1 1, 1 9, 2 2, 1 1, 4 0)", "POLYGON ((1 1, 4 0, 1 9, 1 1))");
-        assertConvexHull("POLYGON ((0 0, 0 3, 4 4, 1 1, 3 0))", "POLYGON ((0 0, 3 0, 4 4, 0 3, 0 0))");
+        assertConvexHull("POLYGON ((0 0, 0 3, 4 4, 1 1, 3 0, 0 0))", "POLYGON ((0 0, 3 0, 4 4, 0 3, 0 0))");
 
         // all points are on the same line
         assertConvexHull("LINESTRING (20 20, 30 30)", "LINESTRING (20 20, 30 30)");
         assertConvexHull("MULTILINESTRING ((0 0, 3 3), (1 1, 2 2), (2 2, 4 4), (5 5, 8 8))", "LINESTRING (0 0, 8 8)");
         assertConvexHull("MULTIPOINT (0 1, 1 2, 2 3, 3 4, 4 5, 5 6)", "LINESTRING (0 1, 5 6)");
-        assertConvexHull("GEOMETRYCOLLECTION (POINT (0 0), LINESTRING (1 1, 4 4, 2 2), POINT (10 10), POLYGON ((5 5, 7 7)), POINT (2 2), LINESTRING (6 6, 9 9), POLYGON ((1 1)))", "LINESTRING (0 0, 10 10)");
+        assertConvexHull("GEOMETRYCOLLECTION (POINT (0 0), LINESTRING (1 1, 4 4, 2 2), POINT (10 10), LINESTRING (5 5, 7 7), POINT (2 2), LINESTRING (6 6, 9 9), POINT (1 1))", "LINESTRING (0 0, 10 10)");
         assertConvexHull("GEOMETRYCOLLECTION (GEOMETRYCOLLECTION (POINT (2 2), POINT (1 1)), POINT (3 3))", "LINESTRING (3 3, 1 1)");
 
         // not all points are on the same line
         assertConvexHull("MULTILINESTRING ((1 1, 5 1, 6 6), (2 4, 4 0), (2 -4, 4 4), (3 -2, 4 -3))", "POLYGON ((1 1, 2 -4, 4 -3, 5 1, 6 6, 2 4, 1 1))");
         assertConvexHull("MULTIPOINT (0 2, 1 0, 3 0, 4 0, 4 2, 2 2, 2 4)", "POLYGON ((0 2, 1 0, 4 0, 4 2, 2 4, 0 2))");
-        assertConvexHull("MULTIPOLYGON (((0 3, 2 0, 3 6), (2 1, 2 3, 5 3, 5 1), (1 7, 2 4, 4 2, 5 6, 3 8)))", "POLYGON ((0 3, 2 0, 5 1, 5 6, 3 8, 1 7, 0 3))");
-        assertConvexHull("GEOMETRYCOLLECTION (POINT (2 3), LINESTRING (2 8, 7 10), POINT (8 10), POLYGON ((4 4, 4 8, 9 8, 6 6, 6 4, 8 3, 6 1)), POINT (4 2), LINESTRING (3 6, 5 5), POLYGON ((7 5, 7 6, 8 6, 8 5)))", "POLYGON ((2 3, 6 1, 8 3, 9 8, 8 10, 7 10, 2 8, 2 3))");
-        assertConvexHull("GEOMETRYCOLLECTION (GEOMETRYCOLLECTION (POINT (2 3), LINESTRING (2 8, 7 10), GEOMETRYCOLLECTION (POINT (8 10))), POLYGON ((4 4, 4 8, 9 8, 6 6, 6 4, 8 3, 6 1)), POINT (4 2), LINESTRING (3 6, 5 5), POLYGON ((7 5, 7 6, 8 6, 8 5)))", "POLYGON ((2 3, 6 1, 8 3, 9 8, 8 10, 7 10, 2 8, 2 3))");
+        assertConvexHull("MULTIPOLYGON (((0 3, 2 0, 3 6, 0 3), (2 1, 2 3, 5 3, 5 1, 2 1), (1 7, 2 4, 4 2, 5 6, 3 8, 1 7)))", "POLYGON ((0 3, 2 0, 5 1, 5 6, 3 8, 1 7, 0 3))");
+        assertConvexHull("GEOMETRYCOLLECTION (POINT (2 3), LINESTRING (2 8, 7 10), POINT (8 10), POLYGON ((4 4, 4 8, 9 8, 6 6, 6 4, 8 3, 6 1, 4 4)), POINT (4 2), LINESTRING (3 6, 5 5), POLYGON ((7 5, 7 6, 8 6, 8 5, 7 5)))", "POLYGON ((2 3, 6 1, 8 3, 9 8, 8 10, 7 10, 2 8, 2 3))");
+        assertConvexHull("GEOMETRYCOLLECTION (GEOMETRYCOLLECTION (POINT (2 3), LINESTRING (2 8, 7 10), GEOMETRYCOLLECTION (POINT (8 10))), POLYGON ((4 4, 4 8, 9 8, 6 6, 6 4, 8 3, 6 1, 4 4)), POINT (4 2), LINESTRING (3 6, 5 5), POLYGON ((7 5, 7 6, 8 6, 8 5, 7 5)))", "POLYGON ((2 3, 6 1, 8 3, 9 8, 8 10, 7 10, 2 8, 2 3))");
 
         // single-element multi-geometries and geometry collections
         assertConvexHull("MULTILINESTRING ((1 1, 5 1, 6 6))", "POLYGON ((1 1, 5 1, 6 6, 1 1))");
         assertConvexHull("MULTILINESTRING ((1 1, 5 1, 1 4, 5 4))", "POLYGON ((1 1, 5 1, 5 4, 1 4, 1 1))");
         assertConvexHull("MULTIPOINT (0 2)", "POINT (0 2)");
-        assertConvexHull("MULTIPOLYGON (((0 3, 2 0, 3 6)))", "POLYGON ((0 3, 2 0, 3 6, 0 3))");
-        assertConvexHull("MULTIPOLYGON (((0 0, 4 0, 4 4, 0 4, 2 2)))", "POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))");
+        assertConvexHull("MULTIPOLYGON (((0 3, 2 0, 3 6, 0 3)))", "POLYGON ((0 3, 2 0, 3 6, 0 3))");
+        assertConvexHull("MULTIPOLYGON (((0 0, 4 0, 4 4, 0 4, 2 2, 0 0)))", "POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))");
         assertConvexHull("GEOMETRYCOLLECTION (POINT (2 3))", "POINT (2 3)");
         assertConvexHull("GEOMETRYCOLLECTION (LINESTRING (1 1, 5 1, 6 6))", "POLYGON ((1 1, 5 1, 6 6, 1 1))");
         assertConvexHull("GEOMETRYCOLLECTION (LINESTRING (1 1, 5 1, 1 4, 5 4))", "POLYGON ((1 1, 5 1, 5 4, 1 4, 1 1))");
-        assertConvexHull("GEOMETRYCOLLECTION (POLYGON ((0 3, 2 0, 3 6)))", "POLYGON ((0 3, 2 0, 3 6, 0 3))");
-        assertConvexHull("GEOMETRYCOLLECTION (POLYGON ((0 0, 4 0, 4 4, 0 4, 2 2)))", "POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))");
+        assertConvexHull("GEOMETRYCOLLECTION (POLYGON ((0 3, 2 0, 3 6, 0 3)))", "POLYGON ((0 3, 2 0, 3 6, 0 3))");
+        assertConvexHull("GEOMETRYCOLLECTION (POLYGON ((0 0, 4 0, 4 4, 0 4, 2 2, 0 0)))", "POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))");
     }
 
     private void assertConvexHull(String inputWKT, String expectWKT)
@@ -409,7 +409,7 @@ public class TestGeoFunctions
     @Test
     public void testSTCoordDim()
     {
-        assertThat(assertions.function("ST_CoordDim", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')"))
+        assertThat(assertions.function("ST_CoordDim", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))')"))
                 .isEqualTo((byte) 2);
 
         assertThat(assertions.function("ST_CoordDim", "ST_GeometryFromText('POLYGON EMPTY')"))
@@ -428,7 +428,7 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_Dimension", "ST_GeometryFromText('POLYGON EMPTY')"))
                 .isEqualTo((byte) 2);
 
-        assertThat(assertions.function("ST_Dimension", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')"))
+        assertThat(assertions.function("ST_Dimension", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))')"))
                 .isEqualTo((byte) 2);
 
         assertThat(assertions.function("ST_Dimension", "ST_GeometryFromText('LINESTRING EMPTY')"))
@@ -447,7 +447,7 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_IsClosed", "ST_GeometryFromText('LINESTRING (1 1, 2 2, 1 3)')"))
                 .isEqualTo(false);
 
-        assertTrinoExceptionThrownBy(assertions.function("ST_IsClosed", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.function("ST_IsClosed", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))')")::evaluate)
                 .hasMessage("ST_IsClosed only applies to LINE_STRING or MULTI_LINE_STRING. Input type is: POLYGON");
     }
 
@@ -485,8 +485,8 @@ public class TestGeoFunctions
         assertSimpleGeometry("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))");
         assertNotSimpleGeometry("MULTILINESTRING ((1 1, 5 1), (2 4, 4 0))");
         assertSimpleGeometry("POLYGON EMPTY");
-        assertSimpleGeometry("POLYGON ((2 0, 2 1, 3 1))");
-        assertSimpleGeometry("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))");
+        assertSimpleGeometry("POLYGON ((2 0, 2 1, 3 1, 2 0))");
+        assertSimpleGeometry("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))");
     }
 
     @Test
@@ -529,7 +529,7 @@ public class TestGeoFunctions
         assertValidGeometry("LINESTRING (0 0, 1 2, 3 4)");
         assertValidGeometry("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))");
         assertValidGeometry("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))");
-        assertValidGeometry("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))");
+        assertValidGeometry("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))");
         assertValidGeometry("GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (0 0, 1 2, 3 4), POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0)))");
 
         // invalid geometries
@@ -585,7 +585,7 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_Length", "ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))')"))
                 .isEqualTo(6.0);
 
-        assertTrinoExceptionThrownBy(assertions.function("ST_Length", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.function("ST_Length", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))')")::evaluate)
                 .hasMessage("ST_Length only applies to LINE_STRING or MULTI_LINE_STRING. Input type is: POLYGON");
     }
 
@@ -595,10 +595,8 @@ public class TestGeoFunctions
         // Empty linestring returns null
         assertSTLengthSphericalGeography("LINESTRING EMPTY", null);
 
-        // Linestring with one point has length 0
-        assertSTLengthSphericalGeography("LINESTRING (0 0)", 0.0);
-
         // Linestring with only one distinct point has length 0
+        assertSTLengthSphericalGeography("LINESTRING (0 0, 0 0)", 0.0);
         assertSTLengthSphericalGeography("LINESTRING (0 0, 0 0, 0 0)", 0.0);
 
         double length = 4350866.6362;
@@ -613,7 +611,7 @@ public class TestGeoFunctions
         assertSTLengthSphericalGeography("LINESTRING (0.0 90.0, 0.0 -90.0, 0.0 90.0)", 4.003e7);
 
         // Empty multi-linestring returns null
-        assertSTLengthSphericalGeography("MULTILINESTRING (EMPTY)", null);
+        assertSTLengthSphericalGeography("MULTILINESTRING EMPTY", null);
 
         // Multi-linestring with one path is equivalent to a single linestring
         assertSTLengthSphericalGeography("MULTILINESTRING ((-71.05 42.36, -87.62 41.87, -122.41 37.77))", length);
@@ -679,10 +677,10 @@ public class TestGeoFunctions
         assertThat(assertions.function("line_locate_point", "ST_GeometryFromText('LINESTRING (0 0, 0 1, 2 1)')", "ST_GeometryFromText('POINT EMPTY')"))
                 .isNull(DOUBLE);
 
-        assertTrinoExceptionThrownBy(assertions.function("line_locate_point", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')", "ST_Point(0.4, 1)")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.function("line_locate_point", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))')", "ST_Point(0.4, 1)")::evaluate)
                 .hasMessage("First argument to line_locate_point must be a LineString or a MultiLineString. Got: Polygon");
 
-        assertTrinoExceptionThrownBy(assertions.function("line_locate_point", "ST_GeometryFromText('LINESTRING (0 0, 0 1, 2 1)')", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.function("line_locate_point", "ST_GeometryFromText('LINESTRING (0 0, 0 1, 2 1)')", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))')")::evaluate)
                 .hasMessage("Second argument to line_locate_point must be a Point. Got: Polygon");
     }
 
@@ -787,16 +785,16 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_YMax", "ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))')"))
                 .isEqualTo(4.0);
 
-        assertThat(assertions.function("ST_XMax", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))')"))
+        assertThat(assertions.function("ST_XMax", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1, 2 0))')"))
                 .isEqualTo(3.0);
 
-        assertThat(assertions.function("ST_YMax", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))')"))
+        assertThat(assertions.function("ST_YMax", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1, 2 0))')"))
                 .isEqualTo(1.0);
 
-        assertThat(assertions.function("ST_XMax", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))')"))
+        assertThat(assertions.function("ST_XMax", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))')"))
                 .isEqualTo(6.0);
 
-        assertThat(assertions.function("ST_YMax", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 10, 6 4)))')"))
+        assertThat(assertions.function("ST_YMax", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 10, 6 4, 2 4)))')"))
                 .isEqualTo(10.0);
 
         assertThat(assertions.function("ST_XMax", "ST_GeometryFromText('POLYGON EMPTY')"))
@@ -845,16 +843,16 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_YMin", "ST_GeometryFromText('MULTILINESTRING ((1 2, 5 3), (2 4, 4 4))')"))
                 .isEqualTo(2.0);
 
-        assertThat(assertions.function("ST_XMin", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))')"))
+        assertThat(assertions.function("ST_XMin", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1, 2 0))')"))
                 .isEqualTo(2.0);
 
-        assertThat(assertions.function("ST_YMin", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))')"))
+        assertThat(assertions.function("ST_YMin", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1, 2 0))')"))
                 .isEqualTo(0.0);
 
-        assertThat(assertions.function("ST_XMin", "ST_GeometryFromText('MULTIPOLYGON (((1 10, 1 3, 3 3, 3 10)), ((2 4, 2 6, 6 6, 6 4)))')"))
+        assertThat(assertions.function("ST_XMin", "ST_GeometryFromText('MULTIPOLYGON (((1 10, 1 3, 3 3, 3 10, 1 10)), ((2 4, 2 6, 6 6, 6 4, 2 4)))')"))
                 .isEqualTo(1.0);
 
-        assertThat(assertions.function("ST_YMin", "ST_GeometryFromText('MULTIPOLYGON (((1 10, 1 3, 3 3, 3 10)), ((2 4, 2 6, 6 10, 6 4)))')"))
+        assertThat(assertions.function("ST_YMin", "ST_GeometryFromText('MULTIPOLYGON (((1 10, 1 3, 3 3, 3 10, 1 10)), ((2 4, 2 6, 6 10, 6 4, 2 4)))')"))
                 .isEqualTo(3.0);
 
         assertThat(assertions.function("ST_XMin", "ST_GeometryFromText('POLYGON EMPTY')"))
@@ -905,7 +903,7 @@ public class TestGeoFunctions
         assertNumPoints("LINESTRING (8 4, 5 7)", 2);
         assertNumPoints("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", 4);
         assertNumPoints("POLYGON ((0 0, 8 0, 0 8, 0 0), (1 1, 1 5, 5 1, 1 1))", 6);
-        assertNumPoints("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))", 8);
+        assertNumPoints("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))", 8);
         assertNumPoints("GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (8 4, 5 7), POLYGON EMPTY)", 3);
     }
 
@@ -924,7 +922,7 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_IsRing", "ST_GeometryFromText('LINESTRING (0 0, 1 1, 0 2, 0 0)')"))
                 .isEqualTo(true);
 
-        assertTrinoExceptionThrownBy(assertions.function("ST_IsRing", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))')")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.function("ST_IsRing", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1, 2 0))')")::evaluate)
                 .hasMessage("ST_IsRing only applies to LINE_STRING. Input type is: POLYGON");
     }
 
@@ -939,10 +937,10 @@ public class TestGeoFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("POINT (5 6)");
 
-        assertTrinoExceptionThrownBy(assertions.function("ST_AsText", "ST_StartPoint(ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))'))")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.function("ST_AsText", "ST_StartPoint(ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1, 2 0))'))")::evaluate)
                 .hasMessage("ST_StartPoint only applies to LINE_STRING. Input type is: POLYGON");
 
-        assertTrinoExceptionThrownBy(assertions.function("ST_AsText", "ST_EndPoint(ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))'))")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.function("ST_AsText", "ST_EndPoint(ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1, 2 0))'))")::evaluate)
                 .hasMessage("ST_EndPoint only applies to LINE_STRING. Input type is: POLYGON");
     }
 
@@ -1031,7 +1029,7 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_Y", "ST_GeometryFromText('POINT (1 2)')"))
                 .isEqualTo(2.0);
 
-        assertTrinoExceptionThrownBy(assertions.function("ST_Y", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))')")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.function("ST_Y", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1, 2 0))')")::evaluate)
                 .hasMessage("ST_Y only applies to POINT. Input type is: POLYGON");
     }
 
@@ -1062,11 +1060,11 @@ public class TestGeoFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("MULTIPOINT ((1 1), (5 1), (2 4), (4 4))");
 
-        assertThat(assertions.function("ST_AsText", "ST_Boundary(ST_GeometryFromText('POLYGON ((1 1, 4 1, 1 4))'))"))
+        assertThat(assertions.function("ST_AsText", "ST_Boundary(ST_GeometryFromText('POLYGON ((1 1, 4 1, 1 4, 1 1))'))"))
                 .hasType(VARCHAR)
                 .isEqualTo("MULTILINESTRING ((1 1, 4 1, 1 4, 1 1))");
 
-        assertThat(assertions.function("ST_AsText", "ST_Boundary(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))'))"))
+        assertThat(assertions.function("ST_AsText", "ST_Boundary(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))'))"))
                 .hasType(VARCHAR)
                 .isEqualTo("MULTILINESTRING ((1 1, 3 1, 3 3, 1 3, 1 1), (0 0, 2 0, 2 2, 0 2, 0 0))");
     }
@@ -1094,11 +1092,11 @@ public class TestGeoFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("POLYGON ((1 1, 5 1, 5 4, 1 4, 1 1))");
 
-        assertThat(assertions.function("ST_AsText", "ST_Envelope(ST_GeometryFromText('POLYGON ((1 1, 4 1, 1 4))'))"))
+        assertThat(assertions.function("ST_AsText", "ST_Envelope(ST_GeometryFromText('POLYGON ((1 1, 4 1, 1 4, 1 1))'))"))
                 .hasType(VARCHAR)
                 .isEqualTo("POLYGON ((1 1, 4 1, 4 4, 1 4, 1 1))");
 
-        assertThat(assertions.function("ST_AsText", "ST_Envelope(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))'))"))
+        assertThat(assertions.function("ST_AsText", "ST_Envelope(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))'))"))
                 .hasType(VARCHAR)
                 .isEqualTo("POLYGON ((0 0, 3 0, 3 3, 0 3, 0 0))");
 
@@ -1117,8 +1115,8 @@ public class TestGeoFunctions
         assertEnvelopeAsPts("LINESTRING (1 1, 2 2, 1 3)", new Point(1, 1), new Point(2, 3));
         assertEnvelopeAsPts("LINESTRING (8 4, 5 7)", new Point(5, 4), new Point(8, 7));
         assertEnvelopeAsPts("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", new Point(1, 1), new Point(5, 4));
-        assertEnvelopeAsPts("POLYGON ((1 1, 4 1, 1 4))", new Point(1, 1), new Point(4, 4));
-        assertEnvelopeAsPts("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))", new Point(0, 0), new Point(3, 3));
+        assertEnvelopeAsPts("POLYGON ((1 1, 4 1, 1 4, 1 1))", new Point(1, 1), new Point(4, 4));
+        assertEnvelopeAsPts("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))", new Point(0, 0), new Point(3, 3));
         assertEnvelopeAsPts("GEOMETRYCOLLECTION (POINT (5 1), LINESTRING (3 4, 4 4))", new Point(3, 1), new Point(5, 4));
         assertEnvelopeAsPts("POINT (1 2)", new Point(1, 2), new Point(1, 2));
     }
@@ -1150,11 +1148,11 @@ public class TestGeoFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("MULTILINESTRING ((1 1, 2 1), (4 1, 5 1), (2 4, 4 4))");
 
-        assertThat(assertions.function("ST_AsText", "ST_Difference(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'), ST_GeometryFromText('POLYGON ((2 2, 2 5, 5 5, 5 2))'))"))
+        assertThat(assertions.function("ST_AsText", "ST_Difference(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))'), ST_GeometryFromText('POLYGON ((2 2, 2 5, 5 5, 5 2, 2 2))'))"))
                 .hasType(VARCHAR)
                 .isEqualTo("POLYGON ((1 1, 4 1, 4 2, 2 2, 2 4, 1 4, 1 1))");
 
-        assertThat(assertions.function("ST_AsText", "ST_Difference(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))'), ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3, 0 1))'))"))
+        assertThat(assertions.function("ST_AsText", "ST_Difference(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))'), ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3, 0 1))'))"))
                 .hasType(VARCHAR)
                 .isEqualTo("POLYGON ((1 1, 0 1, 0 0, 2 0, 2 1, 1 1))");
     }
@@ -1180,10 +1178,10 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_Distance", "ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))')", "ST_GeometryFromText('LINESTRING (10 20, 20 50)')"))
                 .isEqualTo(17.08800749063506);
 
-        assertThat(assertions.function("ST_Distance", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))')", "ST_GeometryFromText('POLYGON ((4 4, 4 5, 5 5, 5 4))')"))
+        assertThat(assertions.function("ST_Distance", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))')", "ST_GeometryFromText('POLYGON ((4 4, 4 5, 5 5, 5 4, 4 4))')"))
                 .isEqualTo(1.4142135623730951);
 
-        assertThat(assertions.function("ST_Distance", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))')", "ST_GeometryFromText('POLYGON ((10 100, 30 10))')"))
+        assertThat(assertions.function("ST_Distance", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))')", "ST_GeometryFromText('POLYGON ((10 100, 30 10))')"))
                 .isEqualTo(27.892651361962706);
 
         assertThat(assertions.function("ST_Distance", "ST_GeometryFromText('POINT EMPTY')", "ST_Point(150, 150)"))
@@ -1204,7 +1202,7 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_Distance", "ST_GeometryFromText('MULTILINESTRING EMPTY')", "ST_GeometryFromText('LINESTRING (10 20, 20 50)')"))
                 .isNull(DOUBLE);
 
-        assertThat(assertions.function("ST_Distance", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))')", "ST_GeometryFromText('POLYGON EMPTY')"))
+        assertThat(assertions.function("ST_Distance", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))')", "ST_GeometryFromText('POLYGON EMPTY')"))
                 .isNull(DOUBLE);
 
         assertThat(assertions.function("ST_Distance", "ST_GeometryFromText('MULTIPOLYGON EMPTY')", "ST_GeometryFromText('POLYGON ((10 100, 30 10))')"))
@@ -1251,7 +1249,7 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_AsText", "ST_ExteriorRing(ST_GeometryFromText('POLYGON EMPTY'))"))
                 .isNull(VARCHAR);
 
-        assertThat(assertions.function("ST_AsText", "ST_ExteriorRing(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 1))'))"))
+        assertThat(assertions.function("ST_AsText", "ST_ExteriorRing(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 1, 1 1))'))"))
                 .hasType(VARCHAR)
                 .isEqualTo("LINESTRING (1 1, 4 1, 1 4, 1 1)");
 
@@ -1285,15 +1283,15 @@ public class TestGeoFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("GEOMETRYCOLLECTION (POINT (5 1), LINESTRING (3 4, 4 4))");
 
-        assertThat(assertions.function("ST_AsText", "ST_Intersection(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))'), ST_GeometryFromText('POLYGON ((4 4, 4 5, 5 5, 5 4))'))"))
+        assertThat(assertions.function("ST_AsText", "ST_Intersection(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))'), ST_GeometryFromText('POLYGON ((4 4, 4 5, 5 5, 5 4, 4 4))'))"))
                 .hasType(VARCHAR)
                 .isEqualTo("MULTIPOLYGON EMPTY");
 
-        assertThat(assertions.function("ST_AsText", "ST_Intersection(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))'), ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3))'))"))
+        assertThat(assertions.function("ST_AsText", "ST_Intersection(ST_Union(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))'), ST_GeometryFromText('POLYGON ((0 0, 0 2, 2 2, 2 0, 0 0))')), ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3, 0 1))'))"))
                 .hasType(VARCHAR)
-                .isEqualTo("GEOMETRYCOLLECTION (LINESTRING (1 1, 2 1), MULTIPOLYGON (((0 1, 1 1, 1 2, 0 2, 0 1)), ((2 1, 3 1, 3 3, 1 3, 1 2, 2 2, 2 1))))");
+                .isEqualTo("POLYGON ((0 2, 1 2, 1 3, 3 3, 3 1, 2 1, 0 1, 0 2))");
 
-        assertThat(assertions.function("ST_AsText", "ST_Intersection(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'), ST_GeometryFromText('LINESTRING (2 0, 2 3)'))"))
+        assertThat(assertions.function("ST_AsText", "ST_Intersection(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))'), ST_GeometryFromText('LINESTRING (2 0, 2 3)'))"))
                 .hasType(VARCHAR)
                 .isEqualTo("LINESTRING (2 1, 2 3)");
 
@@ -1340,11 +1338,11 @@ public class TestGeoFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("MULTILINESTRING ((5 0, 5 1), (1 1, 5 1), (5 1, 5 4), (2 4, 3 4), (4 4, 5 4), (5 4, 6 4))");
 
-        assertThat(assertions.function("ST_AsText", "ST_SymDifference(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))'), ST_GeometryFromText('POLYGON ((2 2, 2 5, 5 5, 5 2))'))"))
+        assertThat(assertions.function("ST_AsText", "ST_SymDifference(ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))'), ST_GeometryFromText('POLYGON ((2 2, 2 5, 5 5, 5 2, 2 2))'))"))
                 .hasType(VARCHAR)
                 .isEqualTo("MULTIPOLYGON (((1 1, 4 1, 4 2, 2 2, 2 4, 1 4, 1 1)), ((4 2, 5 2, 5 5, 2 5, 2 4, 4 4, 4 2)))");
 
-        assertThat(assertions.function("ST_AsText", "ST_SymDifference(ST_GeometryFromText('MULTIPOLYGON (((0 0 , 0 2, 2 2, 2 0)), ((2 2, 2 4, 4 4, 4 2)))'), ST_GeometryFromText('POLYGON ((0 0, 0 3, 3 3, 3 0))'))"))
+        assertThat(assertions.function("ST_AsText", "ST_SymDifference(ST_GeometryFromText('MULTIPOLYGON (((0 0 , 0 2, 2 2, 2 0, 0 0)), ((2 2, 2 4, 4 4, 4 2, 2 2)))'), ST_GeometryFromText('POLYGON ((0 0, 0 3, 3 3, 3 0, 0 0))'))"))
                 .hasType(VARCHAR)
                 .isEqualTo("MULTIPOLYGON (((2 0, 3 0, 3 2, 2 2, 2 0)), ((0 2, 2 2, 2 3, 0 3, 0 2)), ((3 2, 4 2, 4 4, 2 4, 2 3, 3 3, 3 2)))");
     }
@@ -1373,19 +1371,19 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_Contains", "ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))')", "ST_GeometryFromText('MULTILINESTRING ((3 4, 4 4), (2 1, 6 1))')"))
                 .isEqualTo(false);
 
-        assertThat(assertions.function("ST_Contains", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))')", "ST_GeometryFromText('POLYGON ((1 1, 1 2, 2 2, 2 1))')"))
+        assertThat(assertions.function("ST_Contains", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0))')", "ST_GeometryFromText('POLYGON ((1 1, 1 2, 2 2, 2 1, 1 1))')"))
                 .isEqualTo(true);
 
-        assertThat(assertions.function("ST_Contains", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))')", "ST_GeometryFromText('POLYGON ((-1 -1, -1 2, 2 2, 2 -1))')"))
+        assertThat(assertions.function("ST_Contains", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0))')", "ST_GeometryFromText('POLYGON ((-1 -1, -1 2, 2 2, 2 -1, -1 -1))')"))
                 .isEqualTo(false);
 
-        assertThat(assertions.function("ST_Contains", "ST_GeometryFromText('MULTIPOLYGON (((0 0 , 0 2, 2 2, 2 0)), ((2 2, 2 4, 4 4, 4 2)))')", "ST_GeometryFromText('POLYGON ((2 2, 2 3, 3 3, 3 2))')"))
+        assertThat(assertions.function("ST_Contains", "ST_GeometryFromText('MULTIPOLYGON (((0 0 , 0 2, 2 2, 2 0, 0 0)), ((2 2, 2 4, 4 4, 4 2, 2 2)))')", "ST_GeometryFromText('POLYGON ((2 2, 2 3, 3 3, 3 2, 2 2))')"))
                 .isEqualTo(true);
 
-        assertThat(assertions.function("ST_Contains", "ST_GeometryFromText('LINESTRING (20 20, 30 30)')", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))')"))
+        assertThat(assertions.function("ST_Contains", "ST_GeometryFromText('LINESTRING (20 20, 30 30)')", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0))')"))
                 .isEqualTo(false);
 
-        assertThat(assertions.function("ST_Contains", "ST_GeometryFromText('LINESTRING EMPTY')", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))')"))
+        assertThat(assertions.function("ST_Contains", "ST_GeometryFromText('LINESTRING EMPTY')", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0))')"))
                 .isEqualTo(false);
 
         assertThat(assertions.function("ST_Contains", "ST_GeometryFromText('LINESTRING (20 20, 30 30)')", "ST_GeometryFromText('POLYGON EMPTY')"))
@@ -1407,22 +1405,22 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_Crosses", "ST_GeometryFromText('LINESTRING(0 0, 1 1)')", "ST_GeometryFromText('LINESTRING (1 0, 0 1)')"))
                 .isEqualTo(true);
 
-        assertThat(assertions.function("ST_Crosses", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')", "ST_GeometryFromText('POLYGON ((2 2, 2 5, 5 5, 5 2))')"))
+        assertThat(assertions.function("ST_Crosses", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))')", "ST_GeometryFromText('POLYGON ((2 2, 2 5, 5 5, 5 2, 2 2))')"))
                 .isEqualTo(false);
 
-        assertThat(assertions.function("ST_Crosses", "ST_GeometryFromText('MULTIPOLYGON (((0 0 , 0 2, 2 2, 2 0)), ((2 2, 2 4, 4 4, 4 2)))')", "ST_GeometryFromText('POLYGON ((2 2, 2 3, 3 3, 3 2))')"))
+        assertThat(assertions.function("ST_Crosses", "ST_GeometryFromText('MULTIPOLYGON (((0 0 , 0 2, 2 2, 2 0, 0 0)), ((2 2, 2 4, 4 4, 4 2, 2 2)))')", "ST_GeometryFromText('POLYGON ((2 2, 2 3, 3 3, 3 2, 2 2))')"))
                 .isEqualTo(false);
 
-        assertThat(assertions.function("ST_Crosses", "ST_GeometryFromText('LINESTRING (-2 -2, 6 6)')", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))')"))
+        assertThat(assertions.function("ST_Crosses", "ST_GeometryFromText('LINESTRING (-2 -2, 6 6)')", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0))')"))
                 .isEqualTo(true);
 
         assertThat(assertions.function("ST_Crosses", "ST_GeometryFromText('POINT (20 20)')", "ST_GeometryFromText('POINT (20 20)')"))
                 .isEqualTo(false);
 
-        assertThat(assertions.function("ST_Crosses", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))')", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))')"))
+        assertThat(assertions.function("ST_Crosses", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0))')", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0))')"))
                 .isEqualTo(false);
 
-        assertThat(assertions.function("ST_Crosses", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))')", "ST_GeometryFromText('LINESTRING (0 0, 0 4, 4 4, 4 0)')"))
+        assertThat(assertions.function("ST_Crosses", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0))')", "ST_GeometryFromText('LINESTRING (0 0, 0 4, 4 4, 4 0)')"))
                 .isEqualTo(false);
     }
 
@@ -1450,10 +1448,10 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_Disjoint", "ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))')", "ST_GeometryFromText('MULTILINESTRING ((3 4, 6 4), (5 0, 5 4))')"))
                 .isEqualTo(false);
 
-        assertThat(assertions.function("ST_Disjoint", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))')", "ST_GeometryFromText('POLYGON ((4 4, 4 5, 5 5, 5 4))')"))
+        assertThat(assertions.function("ST_Disjoint", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))')", "ST_GeometryFromText('POLYGON ((4 4, 4 5, 5 5, 5 4, 4 4))')"))
                 .isEqualTo(true);
 
-        assertThat(assertions.function("ST_Disjoint", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))')", "ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3))')"))
+        assertThat(assertions.function("ST_Disjoint", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))')", "ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3, 0 1))')"))
                 .isEqualTo(false);
     }
 
@@ -1475,10 +1473,10 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_Equals", "ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))')", "ST_GeometryFromText('MULTILINESTRING ((3 4, 6 4), (5 0, 5 4))')"))
                 .isEqualTo(false);
 
-        assertThat(assertions.function("ST_Equals", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))')", "ST_GeometryFromText('POLYGON ((3 3, 3 1, 1 1, 1 3))')"))
+        assertThat(assertions.function("ST_Equals", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))')", "ST_GeometryFromText('POLYGON ((3 3, 3 1, 1 1, 1 3, 3 3))')"))
                 .isEqualTo(true);
 
-        assertThat(assertions.function("ST_Equals", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))')", "ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3))')"))
+        assertThat(assertions.function("ST_Equals", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))')", "ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3, 0 1))')"))
                 .isEqualTo(false);
     }
 
@@ -1500,19 +1498,19 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_Intersects", "ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))')", "ST_GeometryFromText('MULTILINESTRING ((3 4, 6 4), (5 0, 5 4))')"))
                 .isEqualTo(true);
 
-        assertThat(assertions.function("ST_Intersects", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))')", "ST_GeometryFromText('POLYGON ((4 4, 4 5, 5 5, 5 4))')"))
+        assertThat(assertions.function("ST_Intersects", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))')", "ST_GeometryFromText('POLYGON ((4 4, 4 5, 5 5, 5 4, 4 4))')"))
                 .isEqualTo(false);
 
-        assertThat(assertions.function("ST_Intersects", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))')", "ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3))')"))
+        assertThat(assertions.function("ST_Intersects", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))')", "ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3, 0 1))')"))
                 .isEqualTo(true);
 
-        assertThat(assertions.function("ST_Intersects", "ST_GeometryFromText('POLYGON ((16.5 54, 16.5 54.1, 16.51 54.1, 16.8 54))')", "ST_GeometryFromText('LINESTRING (16.6 53, 16.6 56)')"))
+        assertThat(assertions.function("ST_Intersects", "ST_GeometryFromText('POLYGON ((16.5 54, 16.5 54.1, 16.51 54.1, 16.8 54, 16.5 54))')", "ST_GeometryFromText('LINESTRING (16.6 53, 16.6 56)')"))
                 .isEqualTo(true);
 
-        assertThat(assertions.function("ST_Intersects", "ST_GeometryFromText('POLYGON ((16.5 54, 16.5 54.1, 16.51 54.1, 16.8 54))')", "ST_GeometryFromText('LINESTRING (16.6667 54.05, 16.8667 54.05)')"))
+        assertThat(assertions.function("ST_Intersects", "ST_GeometryFromText('POLYGON ((16.5 54, 16.5 54.1, 16.51 54.1, 16.8 54, 16.5 54))')", "ST_GeometryFromText('LINESTRING (16.6667 54.05, 16.8667 54.05)')"))
                 .isEqualTo(false);
 
-        assertThat(assertions.function("ST_Intersects", "ST_GeometryFromText('POLYGON ((16.5 54, 16.5 54.1, 16.51 54.1, 16.8 54))')", "ST_GeometryFromText('LINESTRING (16.6667 54.25, 16.8667 54.25)')"))
+        assertThat(assertions.function("ST_Intersects", "ST_GeometryFromText('POLYGON ((16.5 54, 16.5 54.1, 16.51 54.1, 16.8 54, 16.5 54))')", "ST_GeometryFromText('LINESTRING (16.6667 54.25, 16.8667 54.25)')"))
                 .isEqualTo(false);
     }
 
@@ -1534,19 +1532,19 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_Overlaps", "ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))')", "ST_GeometryFromText('MULTILINESTRING ((3 4, 6 4), (5 0, 5 4))')"))
                 .isEqualTo(true);
 
-        assertThat(assertions.function("ST_Overlaps", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')", "ST_GeometryFromText('POLYGON ((3 3, 3 5, 5 5, 5 3))')"))
+        assertThat(assertions.function("ST_Overlaps", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))')", "ST_GeometryFromText('POLYGON ((3 3, 3 5, 5 5, 5 3, 3 3))')"))
                 .isEqualTo(true);
 
-        assertThat(assertions.function("ST_Overlaps", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')"))
+        assertThat(assertions.function("ST_Overlaps", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))')", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))')"))
                 .isEqualTo(false);
 
-        assertThat(assertions.function("ST_Overlaps", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')", "ST_GeometryFromText('LINESTRING (1 1, 4 4)')"))
+        assertThat(assertions.function("ST_Overlaps", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))')", "ST_GeometryFromText('LINESTRING (1 1, 4 4)')"))
                 .isEqualTo(false);
 
-        assertThat(assertions.function("ST_Overlaps", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))')", "ST_GeometryFromText('POLYGON ((4 4, 4 5, 5 5, 5 4))')"))
+        assertThat(assertions.function("ST_Overlaps", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))')", "ST_GeometryFromText('POLYGON ((4 4, 4 5, 5 5, 5 4, 4 4))')"))
                 .isEqualTo(false);
 
-        assertThat(assertions.function("ST_Overlaps", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))')", "ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3))')"))
+        assertThat(assertions.function("ST_Overlaps", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))')", "ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3, 0 1))')"))
                 .isEqualTo(true);
     }
 
@@ -1556,10 +1554,10 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_Relate", "ST_GeometryFromText('LINESTRING (0 0, 3 3)')", "ST_GeometryFromText('LINESTRING (1 1, 4 1)')", "'****T****'"))
                 .isEqualTo(false);
 
-        assertThat(assertions.function("ST_Relate", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))')", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')", "'****T****'"))
+        assertThat(assertions.function("ST_Relate", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1, 2 0))')", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))')", "'****T****'"))
                 .isEqualTo(true);
 
-        assertThat(assertions.function("ST_Relate", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))')", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')", "'T********'"))
+        assertThat(assertions.function("ST_Relate", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1, 2 0))')", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))')", "'T********'"))
                 .isEqualTo(false);
     }
 
@@ -1578,19 +1576,19 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_Touches", "ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))')", "ST_GeometryFromText('MULTILINESTRING ((3 4, 6 4), (5 0, 5 4))')"))
                 .isEqualTo(false);
 
-        assertThat(assertions.function("ST_Touches", "ST_GeometryFromText('POINT (1 2)')", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')"))
+        assertThat(assertions.function("ST_Touches", "ST_GeometryFromText('POINT (1 2)')", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))')"))
                 .isEqualTo(true);
 
-        assertThat(assertions.function("ST_Touches", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))')", "ST_GeometryFromText('POLYGON ((4 4, 4 5, 5 5, 5 4))')"))
+        assertThat(assertions.function("ST_Touches", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))')", "ST_GeometryFromText('POLYGON ((4 4, 4 5, 5 5, 5 4, 4 4))')"))
                 .isEqualTo(false);
 
-        assertThat(assertions.function("ST_Touches", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))')", "ST_GeometryFromText('LINESTRING (0 0, 1 1)')"))
+        assertThat(assertions.function("ST_Touches", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))')", "ST_GeometryFromText('LINESTRING (0 0, 1 1)')"))
                 .isEqualTo(true);
 
-        assertThat(assertions.function("ST_Touches", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))')", "ST_GeometryFromText('POLYGON ((3 3, 3 5, 5 5, 5 3))')"))
+        assertThat(assertions.function("ST_Touches", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))')", "ST_GeometryFromText('POLYGON ((3 3, 3 5, 5 5, 5 3, 3 3))')"))
                 .isEqualTo(true);
 
-        assertThat(assertions.function("ST_Touches", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))')", "ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3))')"))
+        assertThat(assertions.function("ST_Touches", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))')", "ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3, 0 1))')"))
                 .isEqualTo(false);
     }
 
@@ -1609,19 +1607,19 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_Within", "ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))')", "ST_GeometryFromText('MULTILINESTRING ((3 4, 6 4), (5 0, 5 4))')"))
                 .isEqualTo(false);
 
-        assertThat(assertions.function("ST_Within", "ST_GeometryFromText('POINT (3 2)')", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')"))
+        assertThat(assertions.function("ST_Within", "ST_GeometryFromText('POINT (3 2)')", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))')"))
                 .isEqualTo(true);
 
-        assertThat(assertions.function("ST_Within", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1))')", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))')"))
+        assertThat(assertions.function("ST_Within", "ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))')", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0))')"))
                 .isEqualTo(true);
 
-        assertThat(assertions.function("ST_Within", "ST_GeometryFromText('LINESTRING (1 1, 3 3)')", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))')"))
+        assertThat(assertions.function("ST_Within", "ST_GeometryFromText('LINESTRING (1 1, 3 3)')", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0))')"))
                 .isEqualTo(true);
 
-        assertThat(assertions.function("ST_Within", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))')", "ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3))')"))
+        assertThat(assertions.function("ST_Within", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))')", "ST_GeometryFromText('POLYGON ((0 1, 3 1, 3 3, 0 3, 0 1))')"))
                 .isEqualTo(false);
 
-        assertThat(assertions.function("ST_Within", "ST_GeometryFromText('POLYGON ((1 1, 1 5, 5 5, 5 1))')", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0))')"))
+        assertThat(assertions.function("ST_Within", "ST_GeometryFromText('POLYGON ((1 1, 1 5, 5 5, 5 1, 1 1))')", "ST_GeometryFromText('POLYGON ((0 0, 0 4, 4 4, 4 0, 0 0))')"))
                 .isEqualTo(false);
     }
 
@@ -1697,7 +1695,7 @@ public class TestGeoFunctions
         assertInvalidInteriorRings("LINESTRING EMPTY", "LINE_STRING");
         assertInvalidInteriorRings("MULTIPOINT (30 20, 60 70)", "MULTI_POINT");
         assertInvalidInteriorRings("MULTILINESTRING ((1 10, 100 1000), (2 2, 1 0, 5 6))", "MULTI_LINE_STRING");
-        assertInvalidInteriorRings("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((0 0, 0 2, 2 2, 2 0)))", "MULTI_POLYGON");
+        assertInvalidInteriorRings("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))", "MULTI_POLYGON");
         assertInvalidInteriorRings("GEOMETRYCOLLECTION (POINT (1 1), POINT (2 3), LINESTRING (5 8, 13 21))", "GEOMETRY_COLLECTION");
 
         assertThat(assertions.function("ST_InteriorRings", "ST_GeometryFromText('POLYGON EMPTY')"))
@@ -1740,7 +1738,7 @@ public class TestGeoFunctions
         assertSTNumGeometries("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))", 1);
         assertSTNumGeometries("MULTIPOINT (1 2, 2 4, 3 6, 4 8)", 4);
         assertSTNumGeometries("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", 2);
-        assertSTNumGeometries("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))", 2);
+        assertSTNumGeometries("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))", 2);
         assertSTNumGeometries("GEOMETRYCOLLECTION(POINT(2 3), LINESTRING (2 3, 3 4))", 2);
     }
 
@@ -1798,7 +1796,7 @@ public class TestGeoFunctions
         assertUnion("LINESTRING (20 20, 30 30)", "POINT (25 25)", "LINESTRING (20 20, 25 25, 30 30)");
         assertUnion("LINESTRING (20 20, 30 30)", "LINESTRING (25 25, 27 27)", "LINESTRING (20 20, 25 25, 27 27, 30 30)");
         assertUnion("POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))", "POLYGON ((1 1, 1 2, 2 2, 2 1, 1 1))", "POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))");
-        assertUnion("MULTIPOLYGON (((0 0 , 0 2, 2 2, 2 0)), ((2 2, 2 4, 4 4, 4 2)))", "POLYGON ((2 2, 2 3, 3 3, 3 2))", "MULTIPOLYGON (((2 2, 3 2, 4 2, 4 4, 2 4, 2 3, 2 2)), ((0 0, 2 0, 2 2, 0 2, 0 0)))");
+        assertUnion("MULTIPOLYGON (((0 0 , 0 2, 2 2, 2 0, 0 0)), ((2 2, 2 4, 4 4, 4 2, 2 2)))", "POLYGON ((2 2, 2 3, 3 3, 3 2, 2 2))", "MULTIPOLYGON (((2 2, 3 2, 4 2, 4 4, 2 4, 2 3, 2 2)), ((0 0, 2 0, 2 2, 0 2, 0 0)))");
         assertUnion("GEOMETRYCOLLECTION (POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0)), MULTIPOINT ((20 20), (25 25)))", "GEOMETRYCOLLECTION (POLYGON ((1 1, 1 2, 2 2, 2 1, 1 1)), POINT (25 25))", "GEOMETRYCOLLECTION (MULTIPOINT ((20 20), (25 25)), POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0)))");
 
         // overlap union
@@ -1860,9 +1858,9 @@ public class TestGeoFunctions
         assertSTGeometryN("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", -1, null);
         assertSTGeometryN("MULTIPOLYGON (((1 1, 3 1, 3 3, 1 3, 1 1)), ((2 4, 6 4, 6 6, 2 6, 2 4)))", 1, "POLYGON ((1 1, 3 1, 3 3, 1 3, 1 1))");
         assertSTGeometryN("MULTIPOLYGON (((1 1, 3 1, 3 3, 1 3, 1 1)), ((2 4, 6 4, 6 6, 2 6, 2 4)))", 2, "POLYGON ((2 4, 6 4, 6 6, 2 6, 2 4))");
-        assertSTGeometryN("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))", 0, null);
-        assertSTGeometryN("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))", 3, null);
-        assertSTGeometryN("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))", -1, null);
+        assertSTGeometryN("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))", 0, null);
+        assertSTGeometryN("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))", 3, null);
+        assertSTGeometryN("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))", -1, null);
         assertSTGeometryN("GEOMETRYCOLLECTION(POINT(2 3), LINESTRING (2 3, 3 4))", 1, "POINT (2 3)");
         assertSTGeometryN("GEOMETRYCOLLECTION(POINT(2 3), LINESTRING (2 3, 3 4))", 2, "LINESTRING (2 3, 3 4)");
         assertSTGeometryN("GEOMETRYCOLLECTION(POINT(2 3), LINESTRING (2 3, 3 4))", 3, null);
@@ -2007,17 +2005,17 @@ public class TestGeoFunctions
     @Test
     public void testSTPointN()
     {
-        assertPointN("LINESTRING(1 2, 3 4, 5 6, 7 8)", 1, "POINT (1 2)");
-        assertPointN("LINESTRING(1 2, 3 4, 5 6, 7 8)", 3, "POINT (5 6)");
-        assertPointN("LINESTRING(1 2, 3 4, 5 6, 7 8)", 10, null);
-        assertPointN("LINESTRING(1 2, 3 4, 5 6, 7 8)", 0, null);
-        assertPointN("LINESTRING(1 2, 3 4, 5 6, 7 8)", -1, null);
+        assertPointN("LINESTRING(1 2, 3 4, 5 6, 7 8, 1 2)", 1, "POINT (1 2)");
+        assertPointN("LINESTRING(1 2, 3 4, 5 6, 7 8, 1 2)", 3, "POINT (5 6)");
+        assertPointN("LINESTRING(1 2, 3 4, 5 6, 7 8, 1 2)", 10, null);
+        assertPointN("LINESTRING(1 2, 3 4, 5 6, 7 8, 1 2)", 0, null);
+        assertPointN("LINESTRING(1 2, 3 4, 5 6, 7 8, 1 2)", -1, null);
 
         assertInvalidPointN("POINT (1 2)", "POINT");
         assertInvalidPointN("MULTIPOINT (1 1, 2 2)", "MULTI_POINT");
         assertInvalidPointN("MULTILINESTRING ((1 1, 2 2), (3 3, 4 4))", "MULTI_LINE_STRING");
         assertInvalidPointN("POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))", "POLYGON");
-        assertInvalidPointN("MULTIPOLYGON (((1 1, 1 4, 4 4, 4 1)), ((1 1, 1 4, 4 4, 4 1)))", "MULTI_POLYGON");
+        assertInvalidPointN("MULTIPOLYGON (((1 1, 1 4, 4 4, 4 1, 1 1)), ((1 1, 1 4, 4 4, 4 1, 1 1)))", "MULTI_POLYGON");
         assertInvalidPointN("GEOMETRYCOLLECTION(POINT(4 6),LINESTRING(4 6, 7 10))", "GEOMETRY_COLLECTION");
     }
 
@@ -2066,10 +2064,10 @@ public class TestGeoFunctions
     public void testSTInteriorRingN()
     {
         assertInvalidInteriorRingN("POINT EMPTY", 0, "POINT");
-        assertInvalidInteriorRingN("LINESTRING (1 2, 2 3, 3 4)", 1, "LINE_STRING");
-        assertInvalidInteriorRingN("MULTIPOINT (1 1, 2 3, 5 8)", -1, "MULTI_POINT");
+        assertInvalidInteriorRingN("LINESTRING (1 2, 2 3, 3 4, 1 2)", 1, "LINE_STRING");
+        assertInvalidInteriorRingN("MULTIPOINT (1 1, 2 3, 5 8, 1 1)", -1, "MULTI_POINT");
         assertInvalidInteriorRingN("MULTILINESTRING ((2 4, 4 2), (3 5, 5 3))", 0, "MULTI_LINE_STRING");
-        assertInvalidInteriorRingN("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1)), ((2 4, 2 6, 6 6, 6 4)))", 2, "MULTI_POLYGON");
+        assertInvalidInteriorRingN("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))", 2, "MULTI_POLYGON");
         assertInvalidInteriorRingN("GEOMETRYCOLLECTION (POINT (2 2), POINT (10 20))", 1, "GEOMETRY_COLLECTION");
 
         assertInteriorRingN("POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))", 1, null);
@@ -2109,7 +2107,7 @@ public class TestGeoFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("ST_LineString");
 
-        assertThat(assertions.function("ST_GeometryType", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')"))
+        assertThat(assertions.function("ST_GeometryType", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1, 1 1))')"))
                 .hasType(VARCHAR)
                 .isEqualTo("ST_Polygon");
 
@@ -2121,7 +2119,7 @@ public class TestGeoFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("ST_MultiLineString");
 
-        assertThat(assertions.function("ST_GeometryType", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 4, 4 4, 4 1)), ((1 1, 1 4, 4 4, 4 1)))')"))
+        assertThat(assertions.function("ST_GeometryType", "ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 4, 4 4, 4 1, 1 1)), ((1 1, 1 4, 4 4, 4 1, 1 1)))')"))
                 .hasType(VARCHAR)
                 .isEqualTo("ST_MultiPolygon");
 
@@ -2274,7 +2272,7 @@ public class TestGeoFunctions
         // invalid geometries should return as is.
         assertGeographyToAndFromJson("MULTIPOINT ((0 0), (0 1), (1 1), (0 1))");
         assertGeographyToAndFromJson("LINESTRING (0 0, 0 1, 0 1, 1 1, 1 0, 0 0)");
-        assertGeographyToAndFromJson("LINESTRING (0 0, 1 1, 1 0, 0 1)");
+        assertGeographyToAndFromJson("LINESTRING (0 0, 1 1, 1 0, 0 1, 0 0)");
 
         // extra properties are stripped from JSON
         assertValidGeometryJson("{\"type\":\"Point\", \"coordinates\":[0,0], \"mykey\":\"myvalue\"}", "POINT (0 0)");
@@ -2362,7 +2360,7 @@ public class TestGeoFunctions
         // invalid geometries should return as is.
         assertGeometryToAndFromJson("MULTIPOINT ((0 0), (0 1), (1 1), (0 1))");
         assertGeometryToAndFromJson("LINESTRING (0 0, 0 1, 0 1, 1 1, 1 0, 0 0)");
-        assertGeometryToAndFromJson("LINESTRING (0 0, 1 1, 1 0, 0 1)");
+        assertGeometryToAndFromJson("LINESTRING (0 0, 1 1, 1 0, 0 1, 0 0)");
     }
 
     private void assertGeometryToAndFromJson(String wkt)

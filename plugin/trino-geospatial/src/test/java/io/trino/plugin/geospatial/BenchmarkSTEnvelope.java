@@ -65,7 +65,7 @@ public class BenchmarkSTEnvelope
                 throws IOException
         {
             complexGeometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice(loadPolygon("large_polygon.txt")));
-            simpleGeometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice("POLYGON ((1 1, 4 1, 1 4))"));
+            simpleGeometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice("POLYGON ((1 1, 4 1, 1 4, 1 1))"));
         }
     }
 

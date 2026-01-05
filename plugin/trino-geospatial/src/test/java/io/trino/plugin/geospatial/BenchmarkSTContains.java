@@ -141,7 +141,7 @@ public class BenchmarkSTContains
                 throws IOException
         {
             geometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice(loadPolygon("large_polygon.txt")));
-            simpleGeometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice("POLYGON ((16.5 54, 16.5 54.1, 16.8 54.1, 16.8 54))"));
+            simpleGeometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice("POLYGON ((16.5 54, 16.5 54.1, 16.8 54.1, 16.8 54, 16.5 54))"));
             innerPoint = GeoFunctions.stPoint(16.6, 54.0167);
             outerPointInEnvelope = GeoFunctions.stPoint(16.6667, 54.05);
             outerPointNotInEnvelope = GeoFunctions.stPoint(16.6333, 54.2);
