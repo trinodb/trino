@@ -110,6 +110,7 @@ public class StockTicksMorTableDefinition
     {
         HudiRecordFactory recordFactory = new HudiRecordFactory(getAvroSchema(), 42L);
 
+        // First commit: Initial bulk insert
         List<HoodieRecord<HoodieAvroPayload>> records = new ArrayList<>();
         String[] symbols = {"GOOG", "AAPL", "MSFT", "AMZN", "META"};
 
@@ -142,10 +143,39 @@ public class StockTicksMorTableDefinition
         // instead of log files. This matches the original test data structure.
         String instant = client.startCommit();
         List<WriteStatus> statuses = client.bulkInsert(records, instant);
-        System.out.println("DEBUG: Bulk inserted " + records.size() + " records, instant: " + instant);
-        System.out.println("DEBUG: Write statuses: " + statuses.size());
-        for (WriteStatus status : statuses) {
-            System.out.println("DEBUG: Written file: " + status.getStat().getPath() + ", records: " + status.getTotalRecords());
+        client.commit(instant, statuses);
+
+        // Second commit: Update all records from the first commit
+        List<HoodieRecord<HoodieAvroPayload>> updateRecords = new ArrayList<>();
+
+        for (int i = 0; i < RECORD_COUNT; i++) {
+            String symbol = symbols[(symbols.length - 1 - (i % symbols.length)) % symbols.length];
+            int minute = i % 60;
+            // Update timestamp to be later (11:xx instead of 10:xx) for pre-combine field
+            String updatedTimestamp = String.format("2018-08-31 11:%02d:00", minute);
+
+            updateRecords.add(recordFactory.createRecord(
+                    symbol + "_2018-08-31_" + i,
+                    "2018/08/31",
+                    fieldValues()
+                            .longField("volume", 2000L + (i * 100))  // Updated volume
+                            .stringField("ts", updatedTimestamp)
+                            .stringField("symbol", symbol)
+                            .intField("year", 2018)
+                            .stringField("month", "08")
+                            .doubleField("high", 110.0 + (i * 0.5))  // Updated high
+                            .doubleField("low", 100.0 + (i * 0.5))   // Updated low
+                            .stringField("key", symbol + "_2018-08-31_" + i)
+                            .stringField("date", "2018-08-31")
+                            .doubleField("close", 105.0 + (i * 0.5))  // Updated close
+                            .doubleField("open", 102.0 + (i * 0.5))   // Updated open
+                            .stringField("day", "31")
+                            .stringField("dt", "2018-08-31")
+                            .build()));
         }
+
+        String updateInstant = client.startCommit();
+        List<WriteStatus> updateStatuses = client.upsert(updateRecords, updateInstant);
+        client.commit(updateInstant, updateStatuses);
     }
 }

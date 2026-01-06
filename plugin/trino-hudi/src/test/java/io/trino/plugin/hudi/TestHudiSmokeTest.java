@@ -13,16 +13,11 @@
  */
 package io.trino.plugin.hudi;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.plugin.hudi.testing.HudiCowPtTblTableDefinition;
-import io.trino.plugin.hudi.testing.HudiNonPartCowTableDefinition;
 import io.trino.plugin.hudi.testing.ScriptBasedHudiTablesInitializer;
-import io.trino.plugin.hudi.testing.StockTicksCowTableDefinition;
-import io.trino.plugin.hudi.testing.StockTicksMorTableDefinition;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -45,17 +40,8 @@ public class TestHudiSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        // Using ScriptBasedHudiTablesInitializer with all test tables
-        ScriptBasedHudiTablesInitializer initializer = new ScriptBasedHudiTablesInitializer(
-                ImmutableList.of(
-                        new HudiNonPartCowTableDefinition(),
-                        new HudiCowPtTblTableDefinition(),
-                        new StockTicksCowTableDefinition(),
-                        new StockTicksMorTableDefinition()));
-        closeAfterClass(initializer::deleteTestResources);
-
         return HudiQueryRunner.builder()
-                .setDataLoader(initializer)
+                .setDataLoader(new ScriptBasedHudiTablesInitializer())
                 .build();
     }
 

@@ -92,7 +92,8 @@ public class HudiCowPtTblTableDefinition
     {
         HudiRecordFactory recordFactory = new HudiRecordFactory(getAvroSchema());
 
-        List<HoodieRecord<HoodieAvroPayload>> records = ImmutableList.of(
+        // Commit 1: Insert record into partition dt=2021-12-09/hh=10
+        List<HoodieRecord<HoodieAvroPayload>> firstCommitRecords = ImmutableList.of(
                 recordFactory.createRecord(
                         "id:1",
                         "dt=2021-12-09/hh=10",
@@ -102,7 +103,14 @@ public class HudiCowPtTblTableDefinition
                                 .longField("ts", 1000L)
                                 .stringField("dt", "2021-12-09")
                                 .stringField("hh", "10")
-                                .build()),
+                                .build()));
+
+        String instant1 = client.startCommit();
+        List<WriteStatus> statuses1 = client.insert(firstCommitRecords, instant1);
+        client.commit(instant1, statuses1);
+
+        // Commit 2: Insert record into partition dt=2021-12-09/hh=11
+        List<HoodieRecord<HoodieAvroPayload>> secondCommitRecords = ImmutableList.of(
                 recordFactory.createRecord(
                         "id:2",
                         "dt=2021-12-09/hh=11",
@@ -114,8 +122,8 @@ public class HudiCowPtTblTableDefinition
                                 .stringField("hh", "11")
                                 .build()));
 
-        String instant = client.startCommit();
-        List<WriteStatus> statuses = client.insert(records, instant);
-        client.commit(instant, statuses);
+        String instant2 = client.startCommit();
+        List<WriteStatus> statuses2 = client.insert(secondCommitRecords, instant2);
+        client.commit(instant2, statuses2);
     }
 }

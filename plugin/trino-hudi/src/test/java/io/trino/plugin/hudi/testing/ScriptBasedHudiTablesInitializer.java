@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hudi.testing;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
@@ -80,14 +81,14 @@ public class ScriptBasedHudiTablesInitializer
 
     private final List<HudiTableDefinition> tableDefinitions;
 
-    /**
-     * Creates an initializer with the specified table definitions.
-     *
-     * @param tableDefinitions the list of tables to create during initialization
-     */
-    public ScriptBasedHudiTablesInitializer(List<HudiTableDefinition> tableDefinitions)
+    public ScriptBasedHudiTablesInitializer()
     {
-        this.tableDefinitions = requireNonNull(tableDefinitions, "tableDefinitions is null");
+        this.tableDefinitions =
+                ImmutableList.of(
+                        new HudiNonPartCowTableDefinition(),
+                        new HudiCowPtTblTableDefinition(),
+                        new StockTicksCowTableDefinition(),
+                        new StockTicksMorTableDefinition());
     }
 
     @Override
@@ -108,19 +109,6 @@ public class ScriptBasedHudiTablesInitializer
         finally {
             deleteRecursively(tempDir, ALLOW_INSECURE);
         }
-    }
-
-    /**
-     * Cleanup method for test resources.
-     * <p>
-     * For script-based initialization, temporary directories are already cleaned up
-     * during table creation. This method is provided for API compatibility with
-     * other initializers but is a no-op since cleanup happens automatically.
-     */
-    public void deleteTestResources()
-    {
-        // No-op: temp directories are cleaned up in initializeTables() finally block
-        // External location data is managed by the test framework
     }
 
     /**
@@ -147,12 +135,9 @@ public class ScriptBasedHudiTablesInitializer
 
         // Copy table data to target location
         Location tableLocation = baseLocation.appendPath(tableName);
-        System.out.println("DEBUG: Copying from " + tableDir + " to " + tableLocation);
         ResourceHudiTablesInitializer.copyDir(tableDir, fileSystem, tableLocation);
-        System.out.println("DEBUG: Copy complete for " + tableName);
 
         // Register table with metastore
-        System.out.println("DEBUG: Registering table " + tableName + " with partitions: " + tableDefinition.getPartitions());
         registerTableWithMetastore(
                 metastore,
                 schemaName,
@@ -181,7 +166,7 @@ public class ScriptBasedHudiTablesInitializer
                     .fromProperties(config.getProps())
                     .setTableType(config.getTableType())
                     .setTableName(config.getTableName())
-                    .setTableVersion(HoodieTableVersion.SIX)
+                    .setTableVersion(HoodieTableVersion.SIX.versionCode())
                     .setBootstrapIndexClass(NoOpBootstrapIndex.class.getName())
                     .setPayloadClassName(HoodieAvroPayload.class.getName())
                     .initTable(storageConfig, config.getBasePath());
