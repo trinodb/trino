@@ -78,14 +78,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.tmax.tibero</groupId>
-            <artifactId>tibero7-jdbc</artifactId>
-            <version>7.2.3</version>
-            <scope>system</scope>
-            <systemPath>/Users/hmc7491871/Documents/trino/lib/tibero7-jdbc.jar</systemPath>
-        </dependency>
-
-        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>junit-extensions</artifactId>
             <scope>test</scope>
