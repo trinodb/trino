@@ -73,15 +73,15 @@ import static java.util.Objects.requireNonNull;
  *   <li>Easy to modify table schemas and data</li>
  * </ul>
  */
-public class ScriptBasedHudiTablesInitializer
+public class DynamicHudiTablesInitializer
         implements HudiTablesInitializer
 {
-    private static final Logger log = Logger.get(ScriptBasedHudiTablesInitializer.class);
+    private static final Logger log = Logger.get(DynamicHudiTablesInitializer.class);
     private static final HdfsContext HDFS_CONTEXT = new HdfsContext(SESSION);
 
     private final List<HudiTableDefinition> tableDefinitions;
 
-    public ScriptBasedHudiTablesInitializer()
+    public DynamicHudiTablesInitializer()
     {
         this.tableDefinitions =
                 ImmutableList.of(

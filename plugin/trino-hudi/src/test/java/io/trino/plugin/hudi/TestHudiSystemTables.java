@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hudi;
 
-import io.trino.plugin.hudi.testing.ScriptBasedHudiTablesInitializer;
+import io.trino.plugin.hudi.testing.DynamicHudiTablesInitializer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
@@ -25,7 +25,7 @@ public class TestHudiSystemTables
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        ScriptBasedHudiTablesInitializer initializer = new ScriptBasedHudiTablesInitializer();
+        DynamicHudiTablesInitializer initializer = new DynamicHudiTablesInitializer();
         closeAfterClass(initializer::deleteTestResources);
 
         return HudiQueryRunner.builder()

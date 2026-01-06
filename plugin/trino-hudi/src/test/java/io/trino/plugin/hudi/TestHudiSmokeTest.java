@@ -17,7 +17,7 @@ import io.trino.Session;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.plugin.hudi.testing.ScriptBasedHudiTablesInitializer;
+import io.trino.plugin.hudi.testing.DynamicHudiTablesInitializer;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -41,7 +41,7 @@ public class TestHudiSmokeTest
             throws Exception
     {
         return HudiQueryRunner.builder()
-                .setDataLoader(new ScriptBasedHudiTablesInitializer())
+                .setDataLoader(new DynamicHudiTablesInitializer())
                 .build();
     }
 
