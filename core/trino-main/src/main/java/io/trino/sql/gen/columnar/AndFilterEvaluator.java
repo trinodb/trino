@@ -25,8 +25,8 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.relational.SpecialForm.Form.AND;
+import static java.util.Objects.requireNonNull;
 
 public final class AndFilterEvaluator
         implements FilterEvaluator
@@ -34,10 +34,12 @@ public final class AndFilterEvaluator
     public static Optional<Supplier<FilterEvaluator>> createAndExpressionEvaluator(ColumnarFilterCompiler compiler, SpecialForm specialForm)
     {
         checkArgument(specialForm.form() == AND, "specialForm %s should be AND", specialForm);
-        checkArgument(specialForm.arguments().size() >= 2, "AND expression %s should have at least 2 arguments", specialForm);
 
-        ImmutableList.Builder<Supplier<FilterEvaluator>> builder = ImmutableList.builder();
-        for (RowExpression expression : specialForm.arguments()) {
+        List<RowExpression> arguments = specialForm.arguments();
+        checkArgument(arguments.size() >= 2, "AND expression %s should have at least 2 arguments", specialForm);
+
+        ImmutableList.Builder<Supplier<FilterEvaluator>> builder = ImmutableList.builderWithExpectedSize(arguments.size());
+        for (RowExpression expression : arguments) {
             Optional<Supplier<FilterEvaluator>> subExpressionEvaluator = FilterEvaluator.createColumnarFilterEvaluator(expression, compiler);
             if (subExpressionEvaluator.isEmpty()) {
                 return Optional.empty();
@@ -45,14 +47,20 @@ public final class AndFilterEvaluator
             builder.add(subExpressionEvaluator.get());
         }
         List<Supplier<FilterEvaluator>> subExpressionEvaluators = builder.build();
-        return Optional.of(() -> new AndFilterEvaluator(subExpressionEvaluators.stream().map(Supplier::get).collect(toImmutableList())));
+        return Optional.of(() -> {
+            FilterEvaluator[] filterEvaluators = new FilterEvaluator[subExpressionEvaluators.size()];
+            for (int i = 0; i < filterEvaluators.length; i++) {
+                filterEvaluators[i] = requireNonNull(subExpressionEvaluators.get(i).get(), "subExpressionEvaluator is null");
+            }
+            return new AndFilterEvaluator(filterEvaluators);
+        });
     }
 
-    private final List<FilterEvaluator> subFilterEvaluators;
+    private final FilterEvaluator[] subFilterEvaluators;
 
-    private AndFilterEvaluator(List<FilterEvaluator> subFilterEvaluators)
+    private AndFilterEvaluator(FilterEvaluator[] subFilterEvaluators)
     {
-        checkArgument(subFilterEvaluators.size() >= 2, "must have at least 2 subexpressions to AND");
+        checkArgument(subFilterEvaluators.length >= 2, "must have at least 2 subexpressions to AND");
         this.subFilterEvaluators = subFilterEvaluators;
     }
 
@@ -61,6 +69,9 @@ public final class AndFilterEvaluator
     {
         long filterTimeNanos = 0;
         for (FilterEvaluator evaluator : subFilterEvaluators) {
+            if (activePositions.isEmpty()) {
+                break;
+            }
             SelectionResult result = evaluator.evaluate(session, activePositions, page);
             filterTimeNanos += result.filterTimeNanos();
             activePositions = result.selectedPositions();
