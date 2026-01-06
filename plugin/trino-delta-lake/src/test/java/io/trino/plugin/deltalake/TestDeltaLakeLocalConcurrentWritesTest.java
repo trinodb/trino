@@ -263,6 +263,7 @@ public class TestDeltaLakeLocalConcurrentWritesTest
     }
 
     @Test
+    @Disabled // TODO https://github.com/trinodb/trino/issues/21725 Fix flaky test
     void testConcurrentInsertsSelectingFromTheSameTemporalVersionedTable()
             throws Exception
     {
