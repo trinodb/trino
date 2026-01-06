@@ -2136,6 +2136,18 @@ ORDER BY _change_ordinal ASC;
 (6 rows)
 ```
 
+##### Limitations
+
+* Tables with delete files are not supported. The `table_changes` table function does 
+  not support snapshots that include delete files. Such delete files are typically 
+  produced by row-level operations.
+
+* The `table_changes` function reports changes on a per-snapshot basis within the
+  specified range. It does not compute the net effect across multiple snapshots.
+  For example, if a row is deleted in one snapshot and reinserted in a later snapshot
+  within the range, the function returns two records (one delete and one insert), rather
+  than omitting the row as having no net change.
+
 ## Performance
 
 The connector includes a number of performance improvements, detailed in the
