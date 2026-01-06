@@ -773,6 +773,8 @@ public class TestingColumnReader
                 new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_MILLIS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTime(TIME_NANOS, -3, 6)),
                 new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_MICROS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTime(TIME_NANOS, -3)),
                 new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_NANOS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTimestampNanos(3)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_TZ_MILLIS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertTimestampWithTimeZoneMillis(-6, 3)),
+                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_TZ_NANOS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertLongTimestampWithTimeZoneNanos(3)),
                 new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_MILLIS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertTimestampMicros(6)),
                 new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_MICROS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertTimestampMicros(3)),
                 new ColumnReaderFormat<>(INT96, 12, null, TIMESTAMP_NANOS, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_INT96, assertTimestampNanos()),
