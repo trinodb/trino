@@ -32,7 +32,6 @@ import io.trino.plugin.hudi.HudiConnector;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.QueryRunner;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
