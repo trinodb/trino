@@ -41,7 +41,7 @@
 ## CLI
 
 * Add a `--extra-header` option to support sending arbitrary HTTP headers. ({issue}`15826`)
-* Fix TLS connection failures when using unqualified (single-label, without ".") hostnames. ({issue} `27478`)
+* Fix TLS connection failures when using unqualified (single-label, without ".") hostnames. ({issue}`27478`)
 
 ## BigQuery connector
 
