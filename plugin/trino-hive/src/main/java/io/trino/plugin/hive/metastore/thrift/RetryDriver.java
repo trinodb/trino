@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -74,6 +75,24 @@ public class RetryDriver
         return new RetryDriver();
     }
 
+    /**
+     * Check if the exception indicates an access control failure.
+     * These exceptions should not be retried as they represent permanent
+     * authorization failures.
+     * For example: MetaException wrapping AccessControlException from HDFS
+     * permission denied errors.
+     */
+    private static boolean isAccessControlException(Exception exception)
+    {
+        // Check the exception message and cause chain for AccessControlException
+        // e.g. io.trino.hive.thrift.metastore.MetaException:
+        // org.apache.hadoop.security.AccessControlException: Permission denied: ...
+        return Throwables.getCausalChain(exception)
+                .stream()
+                .map(Throwable::toString)
+                .anyMatch(message -> message != null && message.contains("AccessControlException"));
+    }
+
     public final RetryDriver maxAttempts(int maxAttempts)
     {
         return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, stopOnExceptions);
@@ -127,6 +146,11 @@ public class RetryDriver
                         addSuppressed(e, suppressedExceptions);
                         throw e;
                     }
+                }
+                // Do not retry on access control exceptions - these are permanent failures
+                if (isAccessControlException(e)) {
+                    addSuppressed(e, suppressedExceptions);
+                    throw e;
                 }
                 if (attempt >= maxAttempts || Duration.nanosSince(startTime).compareTo(maxRetryTime) >= 0) {
                     addSuppressed(e, suppressedExceptions);
