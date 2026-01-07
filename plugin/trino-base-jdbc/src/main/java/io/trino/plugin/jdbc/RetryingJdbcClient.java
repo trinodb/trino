@@ -422,6 +422,13 @@ public class RetryingJdbcClient
     }
 
     @Override
+    public void rollbackDestinationTableCreation(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        // no retrying as it could be not idempotent operation
+        delegate.rollbackDestinationTableCreation(session, remoteTableName);
+    }
+
+    @Override
     public void rollbackTemporaryTableCreation(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         // no retrying as it could be not idempotent operation
