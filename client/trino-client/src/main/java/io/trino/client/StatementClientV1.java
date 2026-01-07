@@ -430,7 +430,8 @@ class StatementClientV1
                 .build();
 
         nextHeartbeat.set(System.nanoTime() + heartbeatInterval);
-        httpCallFactory.newCall(request).enqueue(new Callback() {
+        httpCallFactory.newCall(request).enqueue(new Callback()
+        {
             @Override
             public void onFailure(Call call, IOException e)
             {
@@ -512,8 +513,8 @@ class StatementClientV1
                     throw requestFailedException(taskName, request, response);
                 }
                 cause = new ClientException(format("Expected http code %d but got %d%s", HTTP_OK, response.getStatusCode(), response.getResponseBody()
-                                .map(message -> "\nResponse body was: " + message)
-                                .orElse("")));
+                        .map(message -> "\nResponse body was: " + message)
+                        .orElse("")));
                 continue;
             }
 
@@ -719,7 +720,8 @@ class StatementClientV1
         @Override
         public Iterator<List<Object>> iterator()
         {
-            return new AbstractIterator<>() {
+            return new AbstractIterator<>()
+            {
                 @Override
                 protected List<Object> computeNext()
                 {
