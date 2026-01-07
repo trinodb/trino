@@ -226,12 +226,13 @@ public final class ColumnReaderFactory
                 return switch (timestampAnnotation.getUnit()) {
                     case MILLIS -> createColumnReader(field, valueDecoders::getInt64TimestampMillsToShortTimestampWithTimeZoneDecoder, LONG_ADAPTER, memoryContext);
                     case MICROS -> createColumnReader(field, valueDecoders::getInt64TimestampMicrosToShortTimestampWithTimeZoneDecoder, LONG_ADAPTER, memoryContext);
-                    case NANOS -> throw unsupportedException(type, field);
+                    case NANOS -> createColumnReader(field, valueDecoders::getInt64TimestampNanosToShortTimestampWithTimeZoneDecoder, LONG_ADAPTER, memoryContext);
                 };
             }
             return switch (timestampAnnotation.getUnit()) {
-                case MILLIS, NANOS -> throw unsupportedException(type, field);
+                case MILLIS -> throw unsupportedException(type, field);
                 case MICROS -> createColumnReader(field, valueDecoders::getInt64TimestampMicrosToLongTimestampWithTimeZoneDecoder, FIXED12_ADAPTER, memoryContext);
+                case NANOS -> createColumnReader(field, valueDecoders::getInt64TimestampNanosToLongTimestampWithTimeZoneDecoder, FIXED12_ADAPTER, memoryContext);
             };
         }
         if (type instanceof DecimalType decimalType && decimalType.isShort()

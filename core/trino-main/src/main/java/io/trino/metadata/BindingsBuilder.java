@@ -23,25 +23,27 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 
-class BoundVariables
-        implements TypeVariables
+class BindingsBuilder
 {
     private final Map<String, Type> typeVariables = new TreeMap<>(CASE_INSENSITIVE_ORDER);
     private final Map<String, Long> longVariables = new TreeMap<>(CASE_INSENSITIVE_ORDER);
 
-    @Override
+    public VariableBindings build()
+    {
+        return new VariableBindings(typeVariables, longVariables);
+    }
+
     public Type getTypeVariable(String variableName)
     {
         return getValue(typeVariables, variableName);
     }
 
-    public BoundVariables setTypeVariable(String variableName, Type variableValue)
+    public BindingsBuilder setTypeVariable(String variableName, Type variableValue)
     {
         setValue(typeVariables, variableName, variableValue);
         return this;
     }
 
-    @Override
     public boolean containsTypeVariable(String variableName)
     {
         return containsValue(typeVariables, variableName);
@@ -52,19 +54,17 @@ class BoundVariables
         return typeVariables;
     }
 
-    @Override
     public Long getLongVariable(String variableName)
     {
         return getValue(longVariables, variableName);
     }
 
-    public BoundVariables setLongVariable(String variableName, Long variableValue)
+    public BindingsBuilder setLongVariable(String variableName, Long variableValue)
     {
         setValue(longVariables, variableName, variableValue);
         return this;
     }
 
-    @Override
     public boolean containsLongVariable(String variableName)
     {
         return containsValue(longVariables, variableName);
@@ -105,7 +105,7 @@ class BoundVariables
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        BoundVariables that = (BoundVariables) o;
+        BindingsBuilder that = (BindingsBuilder) o;
         return Objects.equals(typeVariables, that.typeVariables) &&
                 Objects.equals(longVariables, that.longVariables);
     }

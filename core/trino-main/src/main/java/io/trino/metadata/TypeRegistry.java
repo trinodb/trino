@@ -216,7 +216,7 @@ public final class TypeRegistry
     {
         ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
         if (parametricType == null) {
-            throw new TypeNotFoundException(signature);
+            throw new TypeNotFoundException(signature.toString());
         }
 
         Type instantiatedType;
@@ -224,7 +224,7 @@ public final class TypeRegistry
             instantiatedType = parametricType.createType(typeManager, signature.getParameters());
         }
         catch (IllegalArgumentException e) {
-            throw new TypeNotFoundException(signature, e);
+            throw new TypeNotFoundException(signature.toString(), e);
         }
 
         // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"

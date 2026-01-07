@@ -33,6 +33,7 @@ import io.trino.parquet.writer.valuewriter.TimestampMillisValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampNanosValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampTzMicrosValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampTzMillisValueWriter;
+import io.trino.parquet.writer.valuewriter.TimestampTzNanosValueWriter;
 import io.trino.parquet.writer.valuewriter.TrinoValuesWriterFactory;
 import io.trino.parquet.writer.valuewriter.UuidValueWriter;
 import io.trino.spi.TrinoException;
@@ -81,6 +82,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -148,6 +150,9 @@ final class ParquetWriters
         }
         if (TIMESTAMP_TZ_MICROS.equals(type)) {
             return new TimestampTzMicrosValueWriter(valuesWriter, parquetType);
+        }
+        if (TIMESTAMP_TZ_NANOS.equals(type)) {
+            return new TimestampTzNanosValueWriter(valuesWriter, parquetType);
         }
         if (DOUBLE.equals(type)) {
             return new DoubleValueWriter(valuesWriter, parquetType);

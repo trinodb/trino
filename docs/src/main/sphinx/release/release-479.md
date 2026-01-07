@@ -41,11 +41,16 @@
 ## CLI
 
 * Add a `--extra-header` option to support sending arbitrary HTTP headers. ({issue}`15826`)
-* Fix TLS connection failures when using unqualified (single-label, without ".") hostnames. ({issue} `27478`)
+* Fix TLS connection failures when using unqualified (single-label, without ".") hostnames. ({issue}`27478`)
 
 ## BigQuery connector
 
 * Fix query failure when reusing {func}`query` table function result. ({issue}`27573`)
+
+## ClickHouse connector
+
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`.
+  The new property will be removed in a future version. ({issue}`27498`)
 
 ## Delta Lake connector
 
@@ -53,13 +58,29 @@
 * {{breaking}} Remove support for unauthenticated access when GCS authentication type is set to `SERVICE_ACCOUNT`. ({issue}`26984`)
 * Rename `s3.exclusive-create` config to `delta.s3.transaction-log-conditional-writes.enabled`. ({issue}`27372`)
 * {{breaking}} Require `PutObjectTagging` AWS S3 permission when writing to tables in S3 buckets, 
-  unless `delta.s3.transaction-log-conditional-writes.enabled` is set to `false`. ({issue}`27388`)
+  unless `delta.s3.transaction-log-conditional-writes.enabled` is set to `false`.
+  This requirement is removed in a future release. ({issue}`27388`)
 * Fix incorrect results for queries involving `IS NOT DISTINCT FROM`. ({issue}`27213`)
 * Fix failure when writing to tables created by Databricks 17.3. ({issue}`27100`)
 * Fix failure when checking Azure hierarchical namespaces. ({issue}`27278`)
 * Avoid worker crashes by failing queries attempting to read columns with huge values in parquet files. ({issue}`27148`)
 * Fix potential `FileAlreadyExistsException` failure when network failures occur during writes to S3. ({issue}`27330`, {issue}`27388`)
 * Fix potential failure when reading [cloned tables](https://docs.databricks.com/aws/en/delta/clone). ({issue}`27098`)
+
+## Druid connector
+
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`.
+  The new property will be removed in a future version. ({issue}`27498`)
+
+## DuckDB connector
+
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`.
+  The new property will be removed in a future version. ({issue}`27498`)
+
+## Exasol connector
+
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`.
+  The new property will be removed in a future version. ({issue}`27498`)
 
 ## Hive connector
 
@@ -96,9 +117,19 @@
 * Fix potential failure when dropping a schema with `CASCADE` option. ({issue}`27361`)
 * Ignore non-existent or corrupted base Iceberg tables when querying materialized views within the grace period. ({issue}`27606`)
 
+## Ignite connector
+
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`.
+  The new property will be removed in a future version. ({issue}`27498`)
+
 ## Loki connector
 
 * Fix failure when initializing the connector. ({issue}`27180`)
+
+## MariaDB connector
+
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`.
+  The new property will be removed in a future version. ({issue}`27498`)
 
 ## Memory connector
 
@@ -107,19 +138,46 @@
 
 ## MySQL connector
 
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`.
+  The new property will be removed in a future version. ({issue}`27498`)
 * Fix incorrect results for queries involving `IS NOT DISTINCT FROM`. ({issue}`27213`)
+
+## Oracle connector
+
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`.
+  The new property will be removed in a future version. ({issue}`27498`)
 
 ## PostgreSQL connector
 
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`.
+  The new property will be removed in a future version. ({issue}`27498`)
 * Fix incorrect results for queries involving `IS NOT DISTINCT FROM`. ({issue}`27213`)
 
 ## Redshift connector
 
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`.
+  The new property will be removed in a future version. ({issue}`27498`)
 * Fix failure when reading Redshift `character varying` type. ({issue}`27224`)
+
+## SingleStore connector
+
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`.
+  The new property will be removed in a future version. ({issue}`27498`)
+
+## Snowflake connector
+
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`.
+  The new property will be removed in a future version. ({issue}`27498`)
 
 ## SQL Server connector
 
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`. 
+  The new property will be removed in a future version. ({issue}`27498`)
 * Fix potential failure when listing tables and columns. ({issue}`10846`)
+
+## Vertica connector
+* {{breaking}} Replace `join-pushdown.with-expressions` configuration property with `deprecated.join-pushdown.with-expressions`.
+  The new property will be removed in a future version. ({issue}`27498`)
 
 ## SPI
 

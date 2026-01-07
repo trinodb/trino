@@ -2006,6 +2006,10 @@ behavior around grace periods](mv-grace-period). If all tables are Iceberg
 tables, the connector can determine if the data has not changed and continue to
 use the data from the storage tables, even after the grace period expired.
 
+The Iceberg connector supports the {ref}`WHEN STALE <mv-when-stale>` clause in
+{doc}`/sql/create-materialized-view` to control the behavior when a materialized
+view is stale. 
+
 Dropping a materialized view with {doc}`/sql/drop-materialized-view` removes
 the definition and the storage table.
 
@@ -2131,6 +2135,18 @@ ORDER BY _change_ordinal ASC;
  url6     | domain3 |     2 | insert       | 3108755571950643966 | 2024-04-04 21:24:28.318 UTC |               1
 (6 rows)
 ```
+
+##### Limitations
+
+* Tables with delete files are not supported. The `table_changes` table function does 
+  not support snapshots that include delete files. Such delete files are typically 
+  produced by row-level operations.
+
+* The `table_changes` function reports changes on a per-snapshot basis within the
+  specified range. It does not compute the net effect across multiple snapshots.
+  For example, if a row is deleted in one snapshot and reinserted in a later snapshot
+  within the range, the function returns two records (one delete and one insert), rather
+  than omitting the row as having no net change.
 
 ## Performance
 

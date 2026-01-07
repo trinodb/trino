@@ -36,6 +36,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlVarbinary;
@@ -62,7 +63,6 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
-import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -457,7 +457,7 @@ public class TestProtobufDecoder
             throws Exception
     {
         DecoderTestColumnHandle listColumn = new DecoderTestColumnHandle(0, "list", new ArrayType(createVarcharType(100)), "list", null, null, false, false, false);
-        DecoderTestColumnHandle mapColumn = new DecoderTestColumnHandle(1, "map", TESTING_TYPE_MANAGER.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature())), "map", null, null, false, false, false);
+        DecoderTestColumnHandle mapColumn = new DecoderTestColumnHandle(1, "map", new MapType(VARCHAR, VARCHAR, TESTING_TYPE_MANAGER.getTypeOperators()), "map", null, null, false, false, false);
         DecoderTestColumnHandle rowColumn = new DecoderTestColumnHandle(
                 2,
                 "row",

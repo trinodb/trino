@@ -16,8 +16,10 @@ package io.trino.plugin.kafka;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
@@ -43,6 +45,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
@@ -135,10 +138,10 @@ public final class KafkaQueryRunner
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch");
 
-                ImmutableList.Builder<Module> extensions = ImmutableList.<Module>builder();
-
+                Supplier<Module> extensions;
                 if (schemaRegistryEnabled) {
                     checkState(extraTopicDescription.isEmpty(), "unsupported extraTopicDescription with schema registry enabled");
+                    extensions = () -> (_) -> {};
                 }
                 else {
                     ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> topicDescriptions = ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
@@ -156,18 +159,23 @@ public final class KafkaQueryRunner
                         topicDescriptions.put(tableName, createTable(tableName, topicDescriptionJsonCodec));
                     }
 
-                    extensions
-                            .add(conditionalModule(
+                    extensions = () -> new AbstractConfigurationAwareModule() {
+                        @Override
+                        protected void setup(Binder binder)
+                        {
+                            install(conditionalModule(
                                     KafkaConfig.class,
                                     kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
-                                    binder -> binder.bind(TableDescriptionSupplier.class)
-                                            .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions.buildOrThrow()))))
-                            .add(binder -> binder.bind(ContentSchemaProvider.class).to(FileReadContentSchemaProvider.class).in(Scopes.SINGLETON))
-                            .add(new DecoderModule())
-                            .add(new EncoderModule());
+                                    innerBinder -> innerBinder.bind(TableDescriptionSupplier.class)
+                                            .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions.buildOrThrow()))));
+                            binder.bind(ContentSchemaProvider.class).to(FileReadContentSchemaProvider.class).in(Scopes.SINGLETON);
+                            install(new DecoderModule());
+                            install(new EncoderModule());
+                        }
+                    };
                 }
 
-                queryRunner.installPlugin(new KafkaPlugin(extensions.build()));
+                queryRunner.installPlugin(new KafkaPlugin(extensions));
                 queryRunner.createCatalog("kafka", "kafka", connectorProperties);
 
                 if (schemaRegistryEnabled) {

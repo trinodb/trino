@@ -939,9 +939,9 @@ public class LakehouseMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
+    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name, boolean considerGracePeriod)
     {
-        return icebergMetadata.getMaterializedViewFreshness(session, name);
+        return icebergMetadata.getMaterializedViewFreshness(session, name, considerGracePeriod);
     }
 
     @Override

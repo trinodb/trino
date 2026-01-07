@@ -75,7 +75,7 @@ public class IcebergFunctionProvider
                     .description("Perform Iceberg bucket transform")
                     .signature(Signature.builder()
                             .typeVariable("T")
-                            .returnType(INTEGER.getTypeSignature())
+                            .returnType(INTEGER)
                             .argumentTypes(ImmutableList.of(new TypeSignature("T"), INTEGER.getTypeSignature()))
                             .build())
                     .nullable()

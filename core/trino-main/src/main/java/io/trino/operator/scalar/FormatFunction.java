@@ -87,7 +87,7 @@ public final class FormatFunction
     {
         super(FunctionMetadata.scalarBuilder(NAME)
                 .signature(Signature.builder()
-                        .variadicTypeParameter("T", "row")
+                        .rowTypeParameter("T")
                         .argumentType(VARCHAR.getTypeSignature())
                         .argumentType(new TypeSignature("T"))
                         .returnType(VARCHAR.getTypeSignature())

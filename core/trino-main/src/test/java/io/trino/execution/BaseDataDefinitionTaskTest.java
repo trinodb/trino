@@ -90,6 +90,7 @@ import static io.trino.metadata.TestMetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.trino.spi.connector.ConnectorMaterializedViewDefinition.WhenStaleBehavior.INLINE;
 import static io.trino.spi.connector.SaveMode.IGNORE;
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.security.PrincipalType.ROLE;
@@ -204,7 +205,7 @@ public abstract class BaseDataDefinitionTaskTest
                 Optional.empty(),
                 columns,
                 Optional.empty(),
-                Optional.empty(),
+                INLINE,
                 Optional.empty(),
                 Identity.ofUser("owner"),
                 ImmutableList.of(),

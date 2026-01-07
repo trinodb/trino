@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>334</version>
+        <version>335</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -182,19 +182,20 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>386</dep.airlift.version>
+        <dep.airlift.version>390</dep.airlift.version>
+        <!-- TODO (https://github.com/trinodb/trino/issues/27825) temporary downgrade -->
+        <dep.jmxutils.version>1.26</dep.jmxutils.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.1</dep.avro.version>
-        <dep.aws-sdk.version>1.12.796</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.797</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.8.0</dep.confluent.version>
         <dep.docker.images.version>119</dep.docker.images.version>
         <dep.drift.version>1.24</dep.drift.version>
-        <dep.flyway.version>11.19.1</dep.flyway.version>
-        <dep.frontend-maven-plugin.version>1.15.4</dep.frontend-maven-plugin.version>
-        <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
-        <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
+        <dep.frontend-maven-plugin.version>2.0.0</dep.frontend-maven-plugin.version>
+        <dep.frontend-node.version>v24.12.0</dep.frontend-node.version>
+        <dep.frontend-npm.version>11.7.0</dep.frontend-npm.version>
         <dep.httpcore5.version>5.4</dep.httpcore5.version>
         <dep.iceberg.version>1.10.1</dep.iceberg.version>
         <dep.jna.version>5.18.1</dep.jna.version>
@@ -264,7 +265,7 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
-                <version>4.2.7.Final</version>
+                <version>4.2.9.Final</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -296,7 +297,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.39.6</version>
+                <version>2.41.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -395,7 +396,7 @@
             <dependency>
                 <groupId>com.exasol</groupId>
                 <artifactId>exasol-jdbc</artifactId>
-                <version>25.2.5</version>
+                <version>25.2.6</version>
             </dependency>
 
             <dependency>
@@ -443,7 +444,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>3.1.11</version>
+                <version>4.0.0</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
@@ -1655,7 +1656,7 @@
             <dependency>
                 <groupId>net.snowflake</groupId>
                 <artifactId>snowflake-jdbc</artifactId>
-                <version>3.27.1</version>
+                <version>3.28.0</version>
             </dependency>
 
             <dependency>
@@ -2006,7 +2007,7 @@
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
                 <artifactId>log4j-api</artifactId>
-                <version>2.25.2</version>
+                <version>2.25.3</version>
             </dependency>
 
             <dependency>
@@ -2192,30 +2193,6 @@
                 <groupId>org.codehaus.plexus</groupId>
                 <artifactId>plexus-xml</artifactId>
                 <version>4.1.0</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.flywaydb</groupId>
-                <artifactId>flyway-core</artifactId>
-                <version>${dep.flyway.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.flywaydb</groupId>
-                <artifactId>flyway-database-oracle</artifactId>
-                <version>${dep.flyway.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.flywaydb</groupId>
-                <artifactId>flyway-database-postgresql</artifactId>
-                <version>${dep.flyway.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.flywaydb</groupId>
-                <artifactId>flyway-mysql</artifactId>
-                <version>${dep.flyway.version}</version>
             </dependency>
 
             <dependency>
@@ -2437,7 +2414,7 @@
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>exec-maven-plugin</artifactId>
-                    <version>3.6.2</version>
+                    <version>3.6.3</version>
                 </plugin>
 
                 <plugin>
@@ -2503,6 +2480,12 @@
                     <artifactId>maven-enforcer-plugin</artifactId>
                     <configuration>
                         <rules>
+                            <requireUpperBoundDeps>
+                                <excludes combine.children="append">
+                                    <!-- TODO (https://github.com/trinodb/trino/issues/27825) update separately -->
+                                    <exclude>org.weakref:jmxutils</exclude>
+                                </excludes>
+                            </requireUpperBoundDeps>
                             <bannedDependencies>
                                 <excludes combine.children="append">
                                     <!-- We don't use log4j2, additionally versions < 2.15.0 are vulnerable to the RCE Log4Shell (CVE-2021-44228) -->
@@ -2672,21 +2655,6 @@
                                 </conflictingDependencies>
                                 <resources>
                                     <resource>git.properties</resource>
-                                </resources>
-                            </exception>
-                            <exception>
-                                <conflictingDependencies>
-                                    <dependency>
-                                        <groupId>org.flywaydb</groupId>
-                                        <artifactId>flyway-database-oracle</artifactId>
-                                    </dependency>
-                                    <dependency>
-                                        <groupId>org.flywaydb</groupId>
-                                        <artifactId>flyway-mysql</artifactId>
-                                    </dependency>
-                                </conflictingDependencies>
-                                <resources>
-                                    <resource>org/flywaydb/database/version.txt</resource>
                                 </resources>
                             </exception>
                             <exception>
@@ -2962,7 +2930,6 @@
                                     -Xep:InconsistentHashCode:ERROR \
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR \
                                     -Xep:InvalidInlineTag:ERROR \
-                                    -Xep:MisleadingEscapedSpace:OFF \
                                     -Xep:MissingCasesInEnumSwitch:ERROR \
                                     -Xep:MissingOverride:ERROR \
                                     <!-- Sometimes our javadoc contains just a @see directive -->

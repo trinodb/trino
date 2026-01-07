@@ -1361,13 +1361,13 @@ public class OrcTester
 
     private static Type rowType(Type... fieldTypes)
     {
-        ImmutableList.Builder<TypeParameter> typeSignatureParameters = ImmutableList.builder();
+        ImmutableList.Builder<TypeParameter> typeParameters = ImmutableList.builder();
         for (int i = 0; i < fieldTypes.length; i++) {
             String fieldName = "field_" + i;
             Type fieldType = fieldTypes[i];
-            typeSignatureParameters.add(TypeParameter.typeParameter(Optional.of(fieldName), fieldType.getTypeSignature()));
+            typeParameters.add(TypeParameter.typeParameter(Optional.of(fieldName), fieldType.getTypeSignature()));
         }
-        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
+        return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeParameters.build());
     }
 
     private static boolean containsTimeMicros(Type type)

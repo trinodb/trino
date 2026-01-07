@@ -71,6 +71,14 @@ public class Signature
         return variableArity;
     }
 
+    /**
+     * Only parametric types with type-kinded parameters are considered "generic".
+     */
+    public boolean isGeneric()
+    {
+        return !typeVariableConstraints.isEmpty();
+    }
+
     @JsonProperty
     public List<TypeVariableConstraint> getTypeVariableConstraints()
     {
@@ -171,10 +179,10 @@ public class Signature
             return this;
         }
 
-        public Builder variadicTypeParameter(String name, String variadicBound)
+        public Builder rowTypeParameter(String name)
         {
             typeVariableConstraints.add(TypeVariableConstraint.builder(name)
-                    .variadicBound(variadicBound)
+                    .rowType()
                     .build());
             return this;
         }

@@ -26,7 +26,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.Optional;
@@ -72,8 +71,8 @@ public class CheckpointSchemaManager
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
 
-        stringList = (ArrayType) this.typeManager.getType(TypeSignature.arrayType(VARCHAR.getTypeSignature()));
-        MapType stringMap = (MapType) this.typeManager.getType(TypeSignature.mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+        stringList = new ArrayType(VARCHAR);
+        MapType stringMap = new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators());
 
         metadataEntryType = RowType.from(ImmutableList.of(
                 RowType.field("id", VARCHAR),
@@ -146,7 +145,7 @@ public class CheckpointSchemaManager
                 "nullCount",
                 RowType.from(allColumns.stream().map(column -> buildNullCountType(Optional.of(column.physicalName()), column.physicalColumnType())).collect(toImmutableList()))));
 
-        MapType stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+        MapType stringMap = new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators());
         ImmutableList.Builder<RowType.Field> addFields = ImmutableList.builder();
         addFields.add(RowType.field("path", VARCHAR));
         if (usePartitionValues) {

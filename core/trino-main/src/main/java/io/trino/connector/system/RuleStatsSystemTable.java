@@ -28,6 +28,7 @@ import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.iterative.RuleStats;
@@ -41,7 +42,6 @@ import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataB
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -64,7 +64,7 @@ public class RuleStatsSystemTable
                 .column("matches", BIGINT)
                 .column("failures", BIGINT)
                 .column("average_time", DOUBLE)
-                .column("time_distribution_percentiles", typeManager.getType(mapType(DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature())))
+                .column("time_distribution_percentiles", new MapType(DOUBLE, DOUBLE, typeManager.getTypeOperators()))
                 .build();
     }
 

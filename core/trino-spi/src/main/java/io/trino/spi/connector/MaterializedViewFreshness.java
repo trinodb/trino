@@ -23,12 +23,12 @@ import static java.util.Objects.requireNonNull;
 public final class MaterializedViewFreshness
 {
     private final Freshness freshness;
-    private final Optional<Instant> lastFreshTime;
+    private final Optional<Instant> lastKnownFreshTime;
 
-    public MaterializedViewFreshness(Freshness freshness, Optional<Instant> lastFreshTime)
+    public MaterializedViewFreshness(Freshness freshness, Optional<Instant> lastKnownFreshTime)
     {
         this.freshness = requireNonNull(freshness, "freshness is null");
-        this.lastFreshTime = requireNonNull(lastFreshTime, "lastFreshTime is null");
+        this.lastKnownFreshTime = requireNonNull(lastKnownFreshTime, "lastKnownFreshTime is null");
     }
 
     public Freshness getFreshness()
@@ -39,9 +39,18 @@ public final class MaterializedViewFreshness
     /**
      * Last time when the materialized view was known to be fresh.
      */
+    public Optional<Instant> getLastKnownFreshTime()
+    {
+        return lastKnownFreshTime;
+    }
+
+    /**
+     * @deprecated Use {@link #getLastKnownFreshTime()} instead.
+     */
+    @Deprecated
     public Optional<Instant> getLastFreshTime()
     {
-        return lastFreshTime;
+        return getLastKnownFreshTime();
     }
 
     @Override
@@ -55,13 +64,13 @@ public final class MaterializedViewFreshness
         }
         MaterializedViewFreshness that = (MaterializedViewFreshness) obj;
         return freshness == that.freshness
-                && Objects.equals(lastFreshTime, that.lastFreshTime);
+                && Objects.equals(lastKnownFreshTime, that.lastKnownFreshTime);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(freshness, lastFreshTime);
+        return Objects.hash(freshness, lastKnownFreshTime);
     }
 
     @Override
@@ -69,13 +78,21 @@ public final class MaterializedViewFreshness
     {
         return new StringJoiner(", ", MaterializedViewFreshness.class.getSimpleName() + "[", "]")
                 .add("freshness=" + freshness)
-                .add("lastFreshTime=" + lastFreshTime.orElse(null))
+                .add("lastKnownFreshTime=" + lastKnownFreshTime.orElse(null))
                 .toString();
     }
 
     public enum Freshness
     {
         FRESH,
+        /**
+         * The materialized view is fresh enough within its grace period. Returned when a connector
+         * is invoked with {@code considerGracePeriod = true} and determined it could skip expensive
+         * freshness checks (e.g., checking base table snapshots) because the MV is still within
+         * the grace period bounds. The actual freshness of base tables was not verified, but worst-case
+         * staleness is guaranteed to be within the acceptable grace period.
+         */
+        FRESH_WITHIN_GRACE_PERIOD,
         STALE,
         UNKNOWN,
         /**/

@@ -16,6 +16,7 @@ package io.trino.operator.scalar.annotations;
 import com.google.common.base.Joiner;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
 import io.trino.type.UnknownType;
 
@@ -55,11 +56,11 @@ public final class OperatorValidator
                 checkArgument(argumentTypes.get(0).getBase().equals(StandardTypes.ARRAY) || argumentTypes.get(0).getBase().equals(StandardTypes.MAP), "First argument must be an ARRAY or MAP");
                 if (argumentTypes.get(0).getBase().equals(StandardTypes.ARRAY)) {
                     checkArgument(argumentTypes.get(1).getBase().equals(StandardTypes.BIGINT), "Second argument must be a BIGINT");
-                    TypeSignature elementType = argumentTypes.get(0).getTypeParametersAsTypeSignatures().get(0);
+                    TypeSignature elementType = ((TypeParameter.Type) argumentTypes.get(0).getParameters().get(0)).type();
                     checkArgument(returnType.equals(elementType), "[] return type does not match ARRAY element type");
                 }
                 else {
-                    TypeSignature valueType = argumentTypes.get(0).getTypeParametersAsTypeSignatures().get(1);
+                    TypeSignature valueType = ((TypeParameter.Type) argumentTypes.get(0).getParameters().get(1)).type();
                     checkArgument(returnType.equals(valueType), "[] return type does not match MAP value type");
                 }
                 break;

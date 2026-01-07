@@ -160,6 +160,7 @@ import static io.trino.metadata.CatalogStatus.OPERATIONAL;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.LanguageFunctionManager.isTrinoSqlLanguageFunction;
+import static io.trino.metadata.MaterializedViewDefinition.DEFAULT_WHEN_STALE_BEHAVIOR;
 import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.metadata.RedirectionAwareTableHandle.withRedirectionTo;
@@ -1827,7 +1828,7 @@ public final class MetadataManager
                         .map(column -> new ViewColumn(column.getName(), column.getType(), Optional.empty()))
                         .collect(toImmutableList()),
                 view.getGracePeriod(),
-                view.getWhenStaleBehavior(),
+                view.getWhenStaleBehavior().orElse(DEFAULT_WHEN_STALE_BEHAVIOR),
                 view.getComment(),
                 runAsIdentity,
                 view.getPath(),
@@ -1871,7 +1872,7 @@ public final class MetadataManager
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName viewName)
+    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName viewName, boolean considerGracePeriod)
     {
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.catalogName());
         if (catalog.isPresent()) {
@@ -1880,7 +1881,7 @@ public final class MetadataManager
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
-            return metadata.getMaterializedViewFreshness(connectorSession, viewName.asSchemaTableName());
+            return metadata.getMaterializedViewFreshness(connectorSession, viewName.asSchemaTableName(), considerGracePeriod);
         }
         return new MaterializedViewFreshness(STALE, Optional.empty());
     }
@@ -2737,7 +2738,7 @@ public final class MetadataManager
         if (!aggregationFunctionMetadata.getIntermediateTypes().isEmpty()) {
             FunctionBinding functionBinding = toFunctionBinding(resolvedFunction.functionId(), resolvedFunction.signature(), functionSignature);
             aggregationFunctionMetadata.getIntermediateTypes().stream()
-                    .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
+                    .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding.variables()))
                     .forEach(builder::intermediateType);
         }
 

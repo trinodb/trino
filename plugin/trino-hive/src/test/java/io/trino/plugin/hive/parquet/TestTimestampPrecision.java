@@ -38,21 +38,32 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTim
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestTimestampMicros
+public class TestTimestampPrecision
 {
     @Test
     public void testTimestampMicros()
             throws Exception
     {
-        testTimestampMicros(HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2020-10-12T16:26:02.907"));
-        testTimestampMicros(HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
-        testTimestampMicros(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
+        // issue-5483.parquet contains a timestamp with microsecond precision
+        testTimestamp("issue-5483.parquet", HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2020-10-12T16:26:02.907"));
+        testTimestamp("issue-5483.parquet", HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
+        testTimestamp("issue-5483.parquet", HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
     }
 
-    private void testTimestampMicros(HiveTimestampPrecision timestampPrecision, LocalDateTime expected)
+    @Test
+    public void testTimestampNanos()
             throws Exception
     {
-        File parquetFile = new File(Resources.getResource("issue-5483.parquet").toURI());
+        // timestamp-nanos.parquet contains a timestamp with nanosecond precision
+        testTimestamp("timestamp-nanos.parquet", HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2020-10-12T16:26:02.907"));
+        testTimestamp("timestamp-nanos.parquet", HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
+        testTimestamp("timestamp-nanos.parquet", HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668123"));
+    }
+
+    private void testTimestamp(String filename, HiveTimestampPrecision timestampPrecision, LocalDateTime expected)
+            throws Exception
+    {
+        File parquetFile = new File(Resources.getResource(filename).toURI());
         Type columnType = createTimestampType(timestampPrecision.getPrecision());
 
         try (ConnectorPageSource pageSource = createPageSource(SESSION, parquetFile, List.of(createBaseColumn("created", 0, HIVE_TIMESTAMP, columnType, REGULAR, Optional.empty())), TupleDomain.all())) {
@@ -66,15 +77,26 @@ public class TestTimestampMicros
     public void testTimestampMicrosAsTimestampWithTimeZone()
             throws Exception
     {
-        testTimestampMicrosAsTimestampWithTimeZone(HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2020-10-12T16:26:02.907"));
-        testTimestampMicrosAsTimestampWithTimeZone(HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
-        testTimestampMicrosAsTimestampWithTimeZone(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
+        // issue-5483.parquet contains a timestamp with microsecond precision
+        testTimestampAsTimestampWithTimeZone("issue-5483.parquet", HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2020-10-12T16:26:02.907"));
+        testTimestampAsTimestampWithTimeZone("issue-5483.parquet", HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
+        testTimestampAsTimestampWithTimeZone("issue-5483.parquet", HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
     }
 
-    private void testTimestampMicrosAsTimestampWithTimeZone(HiveTimestampPrecision timestampPrecision, LocalDateTime expected)
+    @Test
+    public void testTimestampNanosAsTimestampWithTimeZone()
             throws Exception
     {
-        File parquetFile = new File(Resources.getResource("issue-5483.parquet").toURI());
+        // timestamp-nanos.parquet contains a timestamp with nanosecond precision
+        testTimestampAsTimestampWithTimeZone("timestamp-nanos.parquet", HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2020-10-12T16:26:02.907"));
+        testTimestampAsTimestampWithTimeZone("timestamp-nanos.parquet", HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
+        testTimestampAsTimestampWithTimeZone("timestamp-nanos.parquet", HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668123"));
+    }
+
+    private void testTimestampAsTimestampWithTimeZone(String filename, HiveTimestampPrecision timestampPrecision, LocalDateTime expected)
+            throws Exception
+    {
+        File parquetFile = new File(Resources.getResource(filename).toURI());
         Type columnType = createTimestampWithTimeZoneType(timestampPrecision.getPrecision());
 
         try (ConnectorPageSource pageSource = createPageSource(SESSION, parquetFile, List.of(createBaseColumn("created", 0, HIVE_TIMESTAMP, columnType, REGULAR, Optional.empty())), TupleDomain.all())) {

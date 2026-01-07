@@ -11,15 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.analyzer;
+package io.trino.filesystem;
 
-import io.trino.Session;
-
-import java.time.Instant;
-
-public interface SessionTimeProvider
+public class FileMayHaveAlreadyExistedException
+        extends TrinoFileSystemException
 {
-    SessionTimeProvider DEFAULT = Session::getStart;
-
-    Instant getStart(Session session);
+    public FileMayHaveAlreadyExistedException(String message, Throwable cause)
+    {
+        super(message, cause);
+    }
 }

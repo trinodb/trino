@@ -18,10 +18,10 @@ import io.trino.FeaturesConfig;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.metadata.TypeRegistry;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeSignature;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -71,7 +71,7 @@ public class TestTypeCoercion
 
     private Type mapType(Type keyType, Type valueType)
     {
-        return typeManager.getType(TypeSignature.mapType(keyType.getTypeSignature(), valueType.getTypeSignature()));
+        return new MapType(keyType, valueType, typeManager.getTypeOperators());
     }
 
     @Test

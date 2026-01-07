@@ -31,6 +31,7 @@ import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
@@ -73,7 +74,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -88,16 +88,18 @@ public class TestAvroDecoder
 {
     private static final AvroRowDecoderFactory DECODER_FACTORY = new AvroRowDecoderFactory(new FixedSchemaAvroReaderSupplier.Factory(), new AvroFileDeserializer.Factory());
 
-    private static final Type VARCHAR_MAP_TYPE = TESTING_TYPE_MANAGER.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
-    private static final Type DOUBLE_MAP_TYPE = TESTING_TYPE_MANAGER.getType(mapType(VARCHAR.getTypeSignature(), DOUBLE.getTypeSignature()));
-    private static final Type REAL_MAP_TYPE = TESTING_TYPE_MANAGER.getType(mapType(VARCHAR.getTypeSignature(), REAL.getTypeSignature()));
-    private static final Type MAP_OF_REAL_MAP_TYPE = TESTING_TYPE_MANAGER.getType(mapType(VARCHAR.getTypeSignature(), REAL_MAP_TYPE.getTypeSignature()));
-    private static final Type MAP_OF_ARRAY_OF_MAP_TYPE = TESTING_TYPE_MANAGER.getType(mapType(VARCHAR.getTypeSignature(), new ArrayType(REAL_MAP_TYPE).getTypeSignature()));
-    private static final Type MAP_OF_RECORD = TESTING_TYPE_MANAGER.getType(mapType(VARCHAR.getTypeSignature(),
+    private static final Type VARCHAR_MAP_TYPE = new MapType(VARCHAR, VARCHAR, TESTING_TYPE_MANAGER.getTypeOperators());
+    private static final Type DOUBLE_MAP_TYPE = new MapType(VARCHAR, DOUBLE, TESTING_TYPE_MANAGER.getTypeOperators());
+    private static final Type REAL_MAP_TYPE = new MapType(VARCHAR, REAL, TESTING_TYPE_MANAGER.getTypeOperators());
+    private static final Type MAP_OF_REAL_MAP_TYPE = new MapType(VARCHAR, REAL_MAP_TYPE, TESTING_TYPE_MANAGER.getTypeOperators());
+    private static final Type MAP_OF_ARRAY_OF_MAP_TYPE = new MapType(VARCHAR, new ArrayType(REAL_MAP_TYPE), TESTING_TYPE_MANAGER.getTypeOperators());
+    private static final Type MAP_OF_RECORD = new MapType(
+            VARCHAR,
             RowType.from(ImmutableList.<RowType.Field>builder()
                     .add(RowType.field("sf1", DOUBLE))
                     .add(RowType.field("sf2", BOOLEAN))
-                    .build()).getTypeSignature()));
+                    .build()),
+            TESTING_TYPE_MANAGER.getTypeOperators());
 
     private static Schema getAvroSchema(Map<String, String> fields)
     {

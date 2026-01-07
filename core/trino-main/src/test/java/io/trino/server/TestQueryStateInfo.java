@@ -71,7 +71,7 @@ public class TestQueryStateInfo
         QueryStateInfo query = createQueuedQueryStateInfo(
                 new BasicQueryInfo(createQueryInfo("query_root_a_x", QUEUED, "SELECT 1")),
                 Optional.of(rootAX.getId()),
-                Optional.of(ImmutableList.of(rootAX.getInfo(), rootA.getInfo(), root.getInfo())));
+                Optional.of(ImmutableList.of(rootAX.getFullInfo(), rootA.getFullInfo(), root.getFullInfo())));
 
         assertThat(query.getQuery()).isEqualTo("SELECT 1");
         assertThat(query.getQueryId().toString()).isEqualTo("query_root_a_x");
@@ -83,14 +83,14 @@ public class TestQueryStateInfo
         assertThat(chainInfo).hasSize(3);
 
         ResourceGroupInfo rootAInfo = chainInfo.get(1);
-        ResourceGroupInfo expectedRootAInfo = rootA.getInfo();
+        ResourceGroupInfo expectedRootAInfo = rootA.getFullInfo();
         assertThat(rootAInfo.id()).isEqualTo(expectedRootAInfo.id());
         assertThat(rootAInfo.state()).isEqualTo(expectedRootAInfo.state());
         assertThat(rootAInfo.numRunningQueries()).isEqualTo(expectedRootAInfo.numRunningQueries());
         assertThat(rootAInfo.numQueuedQueries()).isEqualTo(expectedRootAInfo.numQueuedQueries());
 
         ResourceGroupInfo actualRootInfo = chainInfo.get(2);
-        ResourceGroupInfo expectedRootInfo = root.getInfo();
+        ResourceGroupInfo expectedRootInfo = root.getFullInfo();
         assertThat(actualRootInfo.id()).isEqualTo(expectedRootInfo.id());
         assertThat(actualRootInfo.state()).isEqualTo(expectedRootInfo.state());
         assertThat(actualRootInfo.numRunningQueries()).isEqualTo(expectedRootInfo.numRunningQueries());

@@ -17,10 +17,8 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.Traverser;
-import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.StageStats;
@@ -126,13 +124,9 @@ public abstract class BaseFailureRecoveryTest
                 ImmutableMap.of(
                         // making http timeouts shorter so tests which simulate communication timeouts finish in reasonable amount of time
                         "scheduler.http-client.idle-timeout", REQUEST_TIMEOUT.toString()),
-                new AbstractConfigurationAwareModule() {
-                    @Override
-                    protected void setup(Binder binder)
-                    {
-                        configBinder(binder).bindConfig(TestingFailureInjectionConfig.class);
-                        newOptionalBinder(binder, FailureInjector.class).setBinding().to(TestingFailureInjector.class).in(Scopes.SINGLETON);
-                    }
+                binder -> {
+                    configBinder(binder).bindConfig(TestingFailureInjectionConfig.class);
+                    newOptionalBinder(binder, FailureInjector.class).setBinding().to(TestingFailureInjector.class).in(Scopes.SINGLETON);
                 });
     }
 

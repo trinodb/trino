@@ -22,6 +22,7 @@ import io.airlift.json.JsonCodec;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
@@ -50,7 +51,6 @@ import static io.trino.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_TABLES_M
 import static io.trino.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_UNKNOWN_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
-import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.readString;
@@ -85,7 +85,7 @@ public class PrometheusClient
                 () -> fetchMetrics(metricCodec, prometheusMetricsUri),
                 config.getCacheDuration().toMillis(),
                 MILLISECONDS);
-        varcharMapType = typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+        varcharMapType = new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators());
         this.caseInsensitiveNameMatching = config.isCaseInsensitiveNameMatching();
     }
 

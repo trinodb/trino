@@ -29,7 +29,6 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
-import io.trino.spi.type.TypeSignature;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
@@ -304,7 +303,7 @@ public final class DeltaLakeParquetSchemas
             case "array" -> buildArrayType(typeNode, typeManager, repetition, name, id, columnMappingMode, parent, primitiveTypesBuilder);
             case "map" -> buildMapType(typeNode, typeManager, repetition, name, id, columnMappingMode, parent, primitiveTypesBuilder);
             case "struct" -> buildRowType(typeNode, typeManager, repetition, name, id, columnMappingMode, parent, primitiveTypesBuilder);
-            default -> throw new TypeNotFoundException(new TypeSignature(containerType));
+            default -> throw new TypeNotFoundException(containerType);
         };
     }
 

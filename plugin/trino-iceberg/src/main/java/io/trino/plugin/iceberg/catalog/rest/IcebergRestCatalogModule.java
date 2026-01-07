@@ -19,11 +19,9 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
-import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security;
 import io.trino.spi.TrinoException;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
@@ -34,22 +32,12 @@ public class IcebergRestCatalogModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(IcebergRestCatalogConfig.class);
-        install(conditionalModule(
-                IcebergRestCatalogConfig.class,
-                config -> config.getSecurity() == Security.OAUTH2,
-                new OAuth2SecurityModule()));
-        install(conditionalModule(
-                IcebergRestCatalogConfig.class,
-                config -> config.getSecurity() == Security.SIGV4,
-                new SigV4SecurityModule()));
-        install(conditionalModule(
-                IcebergRestCatalogConfig.class,
-                config -> config.getSecurity() == Security.GOOGLE,
-                new GoogleSecurityModule()));
-        install(conditionalModule(
-                IcebergRestCatalogConfig.class,
-                config -> config.getSecurity() == Security.NONE,
-                new NoneSecurityModule()));
+        install(switch (buildConfigObject(IcebergRestCatalogConfig.class).getSecurity()) {
+            case OAUTH2 -> new OAuth2SecurityModule();
+            case SIGV4 -> new SigV4SecurityModule();
+            case GOOGLE -> new GoogleSecurityModule();
+            case NONE -> new NoneSecurityModule();
+        });
 
         binder.bind(TrinoCatalogFactory.class).to(TrinoIcebergRestCatalogFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, IcebergFileSystemFactory.class).setBinding().to(IcebergRestCatalogFileSystemFactory.class).in(Scopes.SINGLETON);

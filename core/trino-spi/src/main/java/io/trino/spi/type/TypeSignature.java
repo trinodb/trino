@@ -68,20 +68,6 @@ public final class TypeSignature
         return parameters;
     }
 
-    public List<TypeSignature> getTypeParametersAsTypeSignatures()
-    {
-        List<TypeSignature> result = new ArrayList<>();
-        for (TypeParameter parameter : parameters) {
-            if (parameter instanceof TypeParameter.Type(_, TypeSignature type)) {
-                result.add(type);
-            }
-            else {
-                throw new IllegalStateException(format("Expected all parameters to be TypeSignatures but [%s] was found", parameter));
-            }
-        }
-        return result;
-    }
-
     public boolean isCalculated()
     {
         return calculated;
@@ -215,11 +201,6 @@ public final class TypeSignature
                 .forEach(parameters::add);
 
         return new TypeSignature("function", parameters);
-    }
-
-    public static TypeSignature rowType(TypeParameter... fields)
-    {
-        return rowType(Arrays.asList(fields));
     }
 
     public static TypeSignature rowType(List<TypeParameter> fields)

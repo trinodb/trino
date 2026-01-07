@@ -19,6 +19,7 @@ import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.FilterNode;
@@ -80,7 +81,6 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
-import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -1716,7 +1716,7 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testHstore()
     {
-        Type mapOfVarcharToVarchar = getQueryRunner().getPlannerContext().getTypeManager().getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
+        Type mapOfVarcharToVarchar = new MapType(VARCHAR, VARCHAR, getQueryRunner().getPlannerContext().getTypeManager().getTypeOperators());
 
         SqlDataTypeTest.create()
                 .addRoundTrip("hstore", "NULL", mapOfVarcharToVarchar, "CAST(NULL AS MAP(VARCHAR, VARCHAR))")

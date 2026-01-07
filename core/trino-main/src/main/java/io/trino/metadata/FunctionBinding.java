@@ -13,31 +13,24 @@
  */
 package io.trino.metadata;
 
-import com.google.common.collect.ImmutableSortedMap;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionId;
-import io.trino.spi.type.Type;
 
-import java.util.Map;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkState;
-import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionBinding
 {
     private final FunctionId functionId;
     private final BoundSignature boundSignature;
-    private final Map<String, Type> typeVariables;
-    private final Map<String, Long> longVariables;
+    private final VariableBindings variables;
 
-    public FunctionBinding(FunctionId functionId, BoundSignature boundSignature, Map<String, Type> typeVariables, Map<String, Long> longVariables)
+    public FunctionBinding(FunctionId functionId, BoundSignature boundSignature, VariableBindings variables)
     {
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.boundSignature = requireNonNull(boundSignature, "boundSignature is null");
-        this.typeVariables = ImmutableSortedMap.copyOf(requireNonNull(typeVariables, "typeVariables is null"), CASE_INSENSITIVE_ORDER);
-        this.longVariables = ImmutableSortedMap.copyOf(requireNonNull(longVariables, "longVariables is null"), CASE_INSENSITIVE_ORDER);
+        this.variables = requireNonNull(variables, "variables is null");
     }
 
     public FunctionId getFunctionId()
@@ -55,38 +48,9 @@ public class FunctionBinding
         return boundSignature.getArgumentTypes().size();
     }
 
-    public Type getTypeVariable(String variableName)
+    public VariableBindings variables()
     {
-        return getValue(typeVariables, variableName);
-    }
-
-    public boolean containsTypeVariable(String variableName)
-    {
-        return containsValue(typeVariables, variableName);
-    }
-
-    public Long getLongVariable(String variableName)
-    {
-        return getValue(longVariables, variableName);
-    }
-
-    public boolean containsLongVariable(String variableName)
-    {
-        return containsValue(longVariables, variableName);
-    }
-
-    private static <T> T getValue(Map<String, T> map, String variableName)
-    {
-        checkState(variableName != null, "variableName is null");
-        T value = map.get(variableName);
-        checkState(value != null, "value for variable '%s' is null", variableName);
-        return value;
-    }
-
-    private static boolean containsValue(Map<String, ?> map, String variableName)
-    {
-        checkState(variableName != null, "variableName is null");
-        return map.containsKey(variableName);
+        return variables;
     }
 
     @Override
@@ -101,13 +65,12 @@ public class FunctionBinding
         FunctionBinding that = (FunctionBinding) o;
         return Objects.equals(functionId, that.functionId) &&
                 Objects.equals(boundSignature, that.boundSignature) &&
-                Objects.equals(typeVariables, that.typeVariables) &&
-                Objects.equals(longVariables, that.longVariables);
+                Objects.equals(variables, that.variables);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(functionId, boundSignature, typeVariables, longVariables);
+        return Objects.hash(functionId, boundSignature, variables);
     }
 }

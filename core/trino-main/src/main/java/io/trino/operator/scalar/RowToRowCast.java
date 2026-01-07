@@ -116,10 +116,10 @@ public class RowToRowCast
                         .typeVariableConstraint(
                                 // this is technically a recursive constraint for cast, but SignatureBinder has explicit handling for row-to-row cast
                                 TypeVariableConstraint.builder("F")
-                                        .variadicBound("row")
+                                        .rowType()
                                         .castableTo(new TypeSignature("T"))
                                         .build())
-                        .variadicTypeParameter("T", "row")
+                        .rowTypeParameter("T")
                         .returnType(new TypeSignature("T"))
                         .argumentType(new TypeSignature("F"))
                         .build())
