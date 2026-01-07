@@ -109,7 +109,7 @@ public abstract class AbstractTestQueryFramework
     private io.trino.sql.query.QueryAssertions queryAssertions;
 
     @BeforeAll
-    public void init()
+    final void init()
             throws Exception
     {
         Logging logging = Logging.initialize();
@@ -125,7 +125,7 @@ public abstract class AbstractTestQueryFramework
             throws Exception;
 
     @AfterAll
-    public final void close()
+    final void close()
             throws Exception
     {
         try (AutoCloseable ignored = afterClassCloser) {
