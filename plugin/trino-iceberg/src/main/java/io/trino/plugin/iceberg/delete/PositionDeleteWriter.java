@@ -30,7 +30,6 @@ import org.apache.iceberg.FileContent;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.io.LocationProvider;
-import org.roaringbitmap.longlong.ImmutableLongBitmapDataProvider;
 
 import java.util.Map;
 import java.util.Optional;
@@ -77,7 +76,7 @@ public class PositionDeleteWriter
         this.writer = fileWriterFactory.createPositionDeleteWriter(fileSystem, Location.of(outputPath), session, fileFormat, storageProperties);
     }
 
-    public CommitTaskData write(ImmutableLongBitmapDataProvider rowsToDelete)
+    public CommitTaskData write(DeletionVector rowsToDelete)
     {
         writeDeletes(rowsToDelete);
         writer.commit();
@@ -99,10 +98,10 @@ public class PositionDeleteWriter
         writer.rollback();
     }
 
-    private void writeDeletes(ImmutableLongBitmapDataProvider rowsToDelete)
+    private void writeDeletes(DeletionVector rowsToDelete)
     {
         PositionsList deletedPositions = new PositionsList(4 * 1024);
-        rowsToDelete.forEach(rowPosition -> {
+        rowsToDelete.forEachDeletedRow(rowPosition -> {
             deletedPositions.add(rowPosition);
             if (deletedPositions.isFull()) {
                 writePage(deletedPositions);
