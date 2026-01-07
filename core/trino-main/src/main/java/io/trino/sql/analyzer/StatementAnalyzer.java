@@ -6234,7 +6234,11 @@ class StatementAnalyzer
             if (node.getName().getSuffix().equalsIgnoreCase(ALL_COLUMN_SEARCH)) {
                 throw semanticException(
                         NOT_SUPPORTED,
-                        node,g
+                        node,
+
+
+
+
                         "allcolumnsearch() can only be used in WHERE clause, not in %s",
                         this.context);
             }
