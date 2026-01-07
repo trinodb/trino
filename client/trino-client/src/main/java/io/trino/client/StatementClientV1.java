@@ -58,6 +58,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getCausalChain;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static io.trino.client.HttpStatusCodes.shouldRetry;
@@ -702,6 +703,7 @@ class StatementClientV1
         private final Iterator<List<Object>> iterator;
         private final boolean isNull;
         private final Runnable heartbeat;
+        private boolean iterated;
 
         public HeartbeatingResultRows(ResultRows delegate, Runnable heartbeat)
         {
@@ -728,6 +730,8 @@ class StatementClientV1
         @Override
         public Iterator<List<Object>> iterator()
         {
+            verify(!iterated, "Iterator already fetched");
+            iterated = true;
             return new AbstractIterator<>()
             {
                 @Override

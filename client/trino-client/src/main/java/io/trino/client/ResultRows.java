@@ -58,7 +58,7 @@ public interface ResultRows
     static ResultRows wrapIterator(CloseableIterator<List<Object>> iterator, long maxRows)
     {
         return new ResultRows() {
-            private volatile boolean fetched;
+            private boolean iterated;
 
             @Override
             public void close()
@@ -70,8 +70,8 @@ public interface ResultRows
             @Override
             public Iterator<List<Object>> iterator()
             {
-                verify(!fetched, "Iterator already fetched");
-                fetched = true;
+                verify(!iterated, "Iterator already fetched");
+                iterated = true;
                 return limit(iterator, maxRows);
             }
 
