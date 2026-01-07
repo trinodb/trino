@@ -30,6 +30,7 @@ public class TableChangesSplitSource
             Table icebergTable,
             IncrementalChangelogScan tableScan)
     {
+        // TODO: handle the splits according to how data was written in each snapshot
         this.delegate = switch (rowLevelOperationMode(icebergTable)) {
             case COPY_ON_WRITE -> new CopyOnWriteTableChangesSplitSource(icebergTable, tableScan);
             case MERGE_ON_READ -> new MergeOnReadTableChangesSplitSource(icebergTable, tableScan);
