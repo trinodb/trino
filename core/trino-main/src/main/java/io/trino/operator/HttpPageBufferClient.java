@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Throwables;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.LittleEndianDataInputStream;
@@ -29,7 +30,6 @@ import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
-import io.airlift.http.client.ResponseTooLargeException;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -639,7 +639,8 @@ public final class HttpPageBufferClient
 
     private static Throwable rewriteException(Throwable t)
     {
-        if (t instanceof ResponseTooLargeException) {
+        if (Throwables.getCausalChain(t).stream()
+                .anyMatch(e -> e.getMessage().contains("exceeded maximum length"))) {
             return new PageTooLargeException();
         }
         return t;

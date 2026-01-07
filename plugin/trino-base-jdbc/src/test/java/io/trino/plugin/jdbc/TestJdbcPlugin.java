@@ -34,7 +34,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.trino.plugin.base.mapping.MappingConfig.CASE_INSENSITIVE_NAME_MATCHING;
 import static io.trino.plugin.base.mapping.testing.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static io.trino.plugin.jdbc.TestingH2JdbcModule.createH2ConnectionUrl;
@@ -110,10 +109,9 @@ public class TestJdbcPlugin
         @Override
         protected void setup(Binder binder)
         {
-            install(conditionalModule(
-                    JdbcMetadataConfig.class,
-                    JdbcMetadataConfig::isJoinPushdownEnabled,
-                    new ModuleCheckingThatPushDownCanBeEnabled()));
+            if (buildConfigObject(JdbcMetadataConfig.class).isJoinPushdownEnabled()) {
+                install(new ModuleCheckingThatPushDownCanBeEnabled());
+            }
             install(new TestingH2JdbcModule());
         }
     }

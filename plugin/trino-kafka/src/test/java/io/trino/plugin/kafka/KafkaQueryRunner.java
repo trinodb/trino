@@ -48,7 +48,6 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.kafka.util.TestUtils.loadTpchTopicDescription;
@@ -163,11 +162,9 @@ public final class KafkaQueryRunner
                         @Override
                         protected void setup(Binder binder)
                         {
-                            install(conditionalModule(
-                                    KafkaConfig.class,
-                                    kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
-                                    innerBinder -> innerBinder.bind(TableDescriptionSupplier.class)
-                                            .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions.buildOrThrow()))));
+                            if (buildConfigObject(KafkaConfig.class).getTableDescriptionSupplier().equalsIgnoreCase(TEST)) {
+                                binder.bind(TableDescriptionSupplier.class).toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions.buildOrThrow()));
+                            }
                             binder.bind(ContentSchemaProvider.class).to(FileReadContentSchemaProvider.class).in(Scopes.SINGLETON);
                             install(new DecoderModule());
                             install(new EncoderModule());

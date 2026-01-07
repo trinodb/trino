@@ -330,7 +330,7 @@ public class ServerMainModule
                     config.setRequestTimeout(new Duration(10, SECONDS));
                     // Bumping the default limit to allow large rows to be transferred between nodes
                     // 64MB is chosen based on real world experience of using this value in production clusters
-                    config.setMaxContentLength(DataSize.of(64, MEGABYTE));
+                    config.setMaxResponseContentLength(DataSize.of(64, MEGABYTE));
                     config.setMaxRequestsQueuedPerDestination(65536);
                     if (internalCommunicationConfig.isHttp2Enabled()) {
                         config.setMaxConnectionsPerServer(64);
