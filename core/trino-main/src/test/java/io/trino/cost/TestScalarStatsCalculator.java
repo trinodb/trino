@@ -192,7 +192,7 @@ public class TestScalarStatsCalculator
                 .highValue(17.0)
                 .distinctValuesCount(10)
                 .nullsFraction(0.3)
-                .dataSizeUnknown();
+                .averageRowSize(2.0);
     }
 
     @Test
@@ -215,7 +215,7 @@ public class TestScalarStatsCalculator
                 .highValue(3.0)
                 .distinctValuesCount(2)
                 .nullsFraction(0.3)
-                .dataSizeUnknown();
+                .averageRowSize(2.0);
     }
 
     @Test
@@ -237,7 +237,7 @@ public class TestScalarStatsCalculator
                 .highValue(3.0)
                 .distinctValuesCountUnknown()
                 .nullsFraction(0.3)
-                .dataSizeUnknown();
+                .averageRowSize(2.0);
     }
 
     @Test
@@ -260,7 +260,7 @@ public class TestScalarStatsCalculator
                 .highValue(10.0)
                 .distinctValuesCount(4)
                 .nullsFraction(0.3)
-                .dataSizeUnknown();
+                .averageRowSize(2.0);
     }
 
     @Test

@@ -1017,8 +1017,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 return;
             }
 
-            log.debug("Scheduler debug info for %s START; reason=%s", queryStateMachine.getQueryId(), reason);
-            log.debug("General state: %s", toStringHelper(this)
+            String generalStateInfo = toStringHelper(this)
                     .add("queryState", queryStateMachine.getQueryState())
                     .add("finalQueryInfo", queryStateMachine.getFinalQueryInfo())
                     .add("maxTaskExecutionAttempts", maxTaskExecutionAttempts)
@@ -1031,7 +1030,9 @@ public class EventDrivenFaultTolerantQueryScheduler
                     .add("preSchedulingTaskContexts", preSchedulingTaskContexts)
                     .add("schedulingDelayer", schedulingDelayer)
                     .add("queryOutputSet", queryOutputSet)
-                    .toString());
+                    .toString();
+
+            log.debug("Scheduler debug info for %s START; reason=%s; general state: %s", queryStateMachine.getQueryId(), reason, generalStateInfo);
 
             stageRegistry.logDebugInfo();
 

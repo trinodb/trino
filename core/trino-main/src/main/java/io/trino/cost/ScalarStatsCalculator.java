@@ -177,6 +177,8 @@ public class ScalarStatsCalculator
                     .setLowValue(lowValue)
                     .setHighValue(highValue)
                     .setDistinctValuesCount(distinctValuesCount)
+                    // Source average row size is a reasonable approximation for CAST result
+                    .setAverageRowSize(sourceStats.getAverageRowSize())
                     .build();
         }
 
