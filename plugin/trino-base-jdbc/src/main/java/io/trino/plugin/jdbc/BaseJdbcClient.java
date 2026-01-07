@@ -850,7 +850,8 @@ public abstract class BaseJdbcClient
         }
     }
 
-    protected void rollbackDestinationTableCreation(ConnectorSession session, RemoteTableName remoteTableName)
+    @Override
+    public void rollbackDestinationTableCreation(ConnectorSession session, RemoteTableName remoteTableName)
     {
         dropTable(session, remoteTableName, false);
     }
