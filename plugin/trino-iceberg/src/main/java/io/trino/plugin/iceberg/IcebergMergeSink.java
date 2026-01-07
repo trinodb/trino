@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.plugin.iceberg.delete.DeletionVector;
 import io.trino.plugin.iceberg.delete.PositionDeleteWriter;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -30,9 +31,6 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type;
-import org.roaringbitmap.longlong.ImmutableLongBitmapDataProvider;
-import org.roaringbitmap.longlong.LongBitmapDataProvider;
-import org.roaringbitmap.longlong.Roaring64Bitmap;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -117,7 +115,7 @@ public class IcebergMergeSink
                     return new FileDeletion(partitionSpecId, partitionData);
                 });
 
-                deletion.rowsToDelete().addLong(rowPosition);
+                deletion.rowsToDelete().add(rowPosition);
             }
         });
 
@@ -136,14 +134,14 @@ public class IcebergMergeSink
         List<Slice> fragments = new ArrayList<>(insertPageSink.finish().join());
         writtenBytes = insertPageSink.getCompletedBytes();
 
-        fileDeletions.forEach((dataFilePath, deletion) -> {
+        fileDeletions.forEach((dataFilePath, deletion) -> deletion.rowsToDelete().build().ifPresent(deletionVector -> {
             PositionDeleteWriter writer = createPositionDeleteWriter(
                     dataFilePath.toStringUtf8(),
                     partitionsSpecs.get(deletion.partitionSpecId()),
                     deletion.partitionDataJson());
 
-            fragments.addAll(writePositionDeletes(writer, deletion.rowsToDelete()));
-        });
+            fragments.add(writePositionDeletes(writer, deletionVector));
+        }));
 
         return completedFuture(fragments);
     }
@@ -176,12 +174,12 @@ public class IcebergMergeSink
                 storageProperties);
     }
 
-    private Collection<Slice> writePositionDeletes(PositionDeleteWriter writer, ImmutableLongBitmapDataProvider rowsToDelete)
+    private Slice writePositionDeletes(PositionDeleteWriter writer, DeletionVector rowsToDelete)
     {
         try {
             CommitTaskData task = writer.write(rowsToDelete);
             writtenBytes += task.fileSizeInBytes();
-            return List.of(wrappedBuffer(jsonCodec.toJsonBytes(task)));
+            return wrappedBuffer(jsonCodec.toJsonBytes(task));
         }
         catch (Throwable t) {
             closeAllSuppress(t, writer::abort);
@@ -193,7 +191,7 @@ public class IcebergMergeSink
     {
         private final int partitionSpecId;
         private final String partitionDataJson;
-        private final LongBitmapDataProvider rowsToDelete = new Roaring64Bitmap();
+        private final DeletionVector.Builder rowsToDelete = DeletionVector.builder();
 
         public FileDeletion(int partitionSpecId, String partitionDataJson)
         {
@@ -211,7 +209,7 @@ public class IcebergMergeSink
             return partitionDataJson;
         }
 
-        public LongBitmapDataProvider rowsToDelete()
+        public DeletionVector.Builder rowsToDelete()
         {
             return rowsToDelete;
         }
