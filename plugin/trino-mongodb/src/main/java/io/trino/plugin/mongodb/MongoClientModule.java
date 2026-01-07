@@ -38,7 +38,6 @@ import java.util.Set;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.bootstrap.ClosingBinder.closingBinder;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -59,16 +58,18 @@ public class MongoClientModule
         configBinder(binder).bindConfig(MongoClientConfig.class);
         newSetBinder(binder, MongoClientSettingConfigurator.class);
 
-        install(conditionalModule(
-                MongoClientConfig.class,
-                MongoClientConfig::getTlsEnabled,
-                new MongoTlsModule()));
+        MongoClientConfig clientConfig = buildConfigObject(MongoClientConfig.class);
 
-        install(conditionalModule(
-                MongoClientConfig.class,
-                MongoClientConfig::isAllowLocalScheduling,
-                internalBinder -> internalBinder.bind(MongoServerDetailsProvider.class).toInstance(ImmutableList::of),
-                internalBinder -> internalBinder.bind(MongoServerDetailsProvider.class).to(SessionBasedMongoServerDetailsProvider.class).in(Scopes.SINGLETON)));
+        if (clientConfig.getTlsEnabled()) {
+            install(new MongoTlsModule());
+        }
+
+        if (clientConfig.isAllowLocalScheduling()) {
+            binder.bind(MongoServerDetailsProvider.class).toInstance(ImmutableList::of);
+        }
+        else {
+            binder.bind(MongoServerDetailsProvider.class).to(SessionBasedMongoServerDetailsProvider.class).in(Scopes.SINGLETON);
+        }
 
         closingBinder(binder).registerCloseable(MongoSession.class);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);

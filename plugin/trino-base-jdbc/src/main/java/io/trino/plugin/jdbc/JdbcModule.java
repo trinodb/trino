@@ -41,7 +41,6 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -101,11 +100,13 @@ public class JdbcModule
         newSetBinder(binder, ConnectorTableFunction.class);
 
         binder.bind(ConnectionFactory.class).annotatedWith(ForLazyConnectionFactory.class).to(Key.get(RetryingConnectionFactory.class)).in(Scopes.SINGLETON);
-        install(conditionalModule(
-                QueryConfig.class,
-                QueryConfig::isReuseConnection,
-                new ReusableConnectionFactoryModule(),
-                innerBinder -> innerBinder.bind(ConnectionFactory.class).to(LazyConnectionFactory.class).in(Scopes.SINGLETON)));
+
+        if (buildConfigObject(QueryConfig.class).isReuseConnection()) {
+            install(new ReusableConnectionFactoryModule());
+        }
+        else {
+            binder.bind(ConnectionFactory.class).to(LazyConnectionFactory.class).in(Scopes.SINGLETON);
+        }
 
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class));
 

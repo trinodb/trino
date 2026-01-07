@@ -24,7 +24,6 @@ import io.trino.plugin.kafka.KafkaSecurityConfig;
 import io.trino.plugin.kafka.security.KafkaSslConfig;
 import org.apache.kafka.common.security.auth.SecurityProtocol;
 
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class KafkaProducerModule
@@ -33,14 +32,18 @@ public class KafkaProducerModule
     @Override
     protected void setup(Binder binder)
     {
-        install(conditionalModule(
-                KafkaSecurityConfig.class,
-                config -> config.getSecurityProtocol().orElse(SecurityProtocol.PLAINTEXT) == SecurityProtocol.PLAINTEXT,
-                // KafkaSecurityConfig only allows PLAINTEXT or SSL for security protocol types
-                plainTextBinder -> plainTextBinder.bind(KafkaProducerFactory.class).to(PlaintextKafkaProducerFactory.class).in(Scopes.SINGLETON),
-                sslBinder -> {
-                    sslBinder.bind(KafkaProducerFactory.class).to(SSLKafkaProducerFactory.class).in(Scopes.SINGLETON);
-                    configBinder(sslBinder).bindConfig(KafkaSslConfig.class);
-                }));
+        configBinder(binder).bindConfig(KafkaSecurityConfig.class);
+        SecurityProtocol securityProtocol = buildConfigObject(KafkaSecurityConfig.class)
+                .getSecurityProtocol()
+                .orElse(SecurityProtocol.PLAINTEXT);
+
+        // KafkaSecurityConfig only allows PLAINTEXT or SSL for security protocol types
+        switch (securityProtocol) {
+            case PLAINTEXT -> binder.bind(KafkaProducerFactory.class).to(PlaintextKafkaProducerFactory.class).in(Scopes.SINGLETON);
+            case SSL -> {
+                binder.bind(KafkaProducerFactory.class).to(SSLKafkaProducerFactory.class).in(Scopes.SINGLETON);
+                configBinder(binder).bindConfig(KafkaSslConfig.class);
+            }
+        }
     }
 }

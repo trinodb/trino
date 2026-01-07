@@ -50,7 +50,6 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.bootstrap.ClosingBinder.closingBinder;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -80,15 +79,14 @@ public class CassandraClientModule
 
         configBinder(binder).bindConfig(CassandraClientConfig.class);
 
-        install(conditionalModule(
-                CassandraClientConfig.class,
-                CassandraClientConfig::isTlsEnabled,
-                new CassandraTlsModule()));
+        CassandraClientConfig cassandraClientConfig = buildConfigObject(CassandraClientConfig.class);
+        if (cassandraClientConfig.isTlsEnabled()) {
+            install(new CassandraTlsModule());
+        }
 
-        install(conditionalModule(
-                CassandraClientConfig.class,
-                config -> config.getAuthenticationType() == PASSWORD,
-                new PasswordAuthenticationModule()));
+        if (cassandraClientConfig.getAuthenticationType() == PASSWORD) {
+            install(new PasswordAuthenticationModule());
+        }
 
         jsonCodecBinder(binder).bindListJsonCodec(ExtraColumnMetadata.class);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);

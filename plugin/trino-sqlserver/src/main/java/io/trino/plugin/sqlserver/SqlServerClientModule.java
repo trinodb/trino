@@ -28,7 +28,6 @@ import io.trino.spi.function.table.ConnectorTableFunction;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
@@ -49,9 +48,8 @@ public class SqlServerClientModule
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
         install(new JdbcJoinPushdownSupportModule());
 
-        install(conditionalModule(
-                SqlServerConfig.class,
-                SqlServerConfig::isStoredProcedureTableFunctionEnabled,
-                internalBinder -> newSetBinder(internalBinder, ConnectorTableFunction.class).addBinding().toProvider(Procedure.class).in(Scopes.SINGLETON)));
+        if (buildConfigObject(SqlServerConfig.class).isStoredProcedureTableFunctionEnabled()) {
+            newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Procedure.class).in(Scopes.SINGLETON);
+        }
     }
 }
