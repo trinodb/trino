@@ -100,8 +100,6 @@ import io.trino.memory.LowMemoryKiller;
 import io.trino.memory.LowMemoryKiller.ForQueryLowMemoryKiller;
 import io.trino.memory.LowMemoryKiller.ForTaskLowMemoryKiller;
 import io.trino.memory.MemoryManagerConfig;
-import io.trino.memory.MemoryManagerConfig.LowMemoryQueryKillerPolicy;
-import io.trino.memory.MemoryManagerConfig.LowMemoryTaskKillerPolicy;
 import io.trino.memory.NoneLowMemoryKiller;
 import io.trino.memory.TotalReservationLowMemoryKiller;
 import io.trino.memory.TotalReservationOnBlockedNodesQueryLowMemoryKiller;
@@ -147,13 +145,10 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.TOPOLOGY;
-import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.UNIFORM;
 import static io.trino.server.InternalCommunicationHttpClientModule.internalHttpClientModule;
 import static io.trino.util.Executors.decorateWithVersion;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -233,12 +228,36 @@ public class CoordinatorModule
                     config.setRequestTimeout(new Duration(10, SECONDS));
                 }).build());
 
-        bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.NONE, NoneLowMemoryKiller.class);
-        bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesTaskLowMemoryKiller.class);
-        bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.LEAST_WASTE, LeastWastedEffortTaskLowMemoryKiller.class);
-        bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy.NONE, NoneLowMemoryKiller.class);
-        bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy.TOTAL_RESERVATION, TotalReservationLowMemoryKiller.class);
-        bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesQueryLowMemoryKiller.class);
+        MemoryManagerConfig memoryManagerConfig = buildConfigObject(MemoryManagerConfig.class);
+        switch (memoryManagerConfig.getLowMemoryQueryKillerPolicy()) {
+            case NONE -> binder.bind(LowMemoryKiller.class)
+                    .annotatedWith(ForQueryLowMemoryKiller.class)
+                    .to(NoneLowMemoryKiller.class)
+                    .in(Scopes.SINGLETON);
+            case TOTAL_RESERVATION -> binder.bind(LowMemoryKiller.class)
+                    .annotatedWith(ForQueryLowMemoryKiller.class)
+                    .to(TotalReservationLowMemoryKiller.class)
+                    .in(Scopes.SINGLETON);
+            case TOTAL_RESERVATION_ON_BLOCKED_NODES -> binder.bind(LowMemoryKiller.class)
+                    .annotatedWith(ForQueryLowMemoryKiller.class)
+                    .to(TotalReservationOnBlockedNodesQueryLowMemoryKiller.class)
+                    .in(Scopes.SINGLETON);
+        }
+
+        switch (memoryManagerConfig.getLowMemoryTaskKillerPolicy()) {
+            case NONE -> binder.bind(LowMemoryKiller.class)
+                    .annotatedWith(ForTaskLowMemoryKiller.class)
+                    .to(NoneLowMemoryKiller.class)
+                    .in(Scopes.SINGLETON);
+            case TOTAL_RESERVATION_ON_BLOCKED_NODES -> binder.bind(LowMemoryKiller.class)
+                    .annotatedWith(ForTaskLowMemoryKiller.class)
+                    .to(TotalReservationOnBlockedNodesTaskLowMemoryKiller.class)
+                    .in(Scopes.SINGLETON);
+            case LEAST_WASTE -> binder.bind(LowMemoryKiller.class)
+                    .annotatedWith(ForTaskLowMemoryKiller.class)
+                    .to(LeastWastedEffortTaskLowMemoryKiller.class)
+                    .in(Scopes.SINGLETON);
+        }
 
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
 
@@ -253,14 +272,10 @@ public class CoordinatorModule
         newExporter(binder).export(NodeScheduler.class).withGeneratedName();
 
         // network topology
-        install(conditionalModule(
-                NodeSchedulerConfig.class,
-                config -> UNIFORM == config.getNodeSchedulerPolicy(),
-                new UniformNodeSelectorModule()));
-        install(conditionalModule(
-                NodeSchedulerConfig.class,
-                config -> TOPOLOGY == config.getNodeSchedulerPolicy(),
-                new TopologyAwareNodeSelectorModule()));
+        switch (buildConfigObject(NodeSchedulerConfig.class).getNodeSchedulerPolicy()) {
+            case UNIFORM -> install(new UniformNodeSelectorModule());
+            case TOPOLOGY -> install(new TopologyAwareNodeSelectorModule());
+        }
 
         // node allocator
         binder.bind(BinPackingNodeAllocatorService.class).in(Scopes.SINGLETON);
@@ -471,29 +486,5 @@ public class CoordinatorModule
     public static ScheduledExecutorService createStatementTimeoutExecutor(TaskManagerConfig config)
     {
         return newScheduledThreadPool(config.getHttpTimeoutThreads(), daemonThreadsNamed("statement-timeout-%s"));
-    }
-
-    private void bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
-    {
-        install(conditionalModule(
-                MemoryManagerConfig.class,
-                config -> policy == config.getLowMemoryQueryKillerPolicy(),
-                binder -> binder
-                        .bind(LowMemoryKiller.class)
-                        .annotatedWith(ForQueryLowMemoryKiller.class)
-                        .to(clazz)
-                        .in(Scopes.SINGLETON)));
-    }
-
-    private void bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy policy, Class<? extends LowMemoryKiller> clazz)
-    {
-        install(conditionalModule(
-                MemoryManagerConfig.class,
-                config -> policy == config.getLowMemoryTaskKillerPolicy(),
-                binder -> binder
-                        .bind(LowMemoryKiller.class)
-                        .annotatedWith(ForTaskLowMemoryKiller.class)
-                        .to(clazz)
-                        .in(Scopes.SINGLETON)));
     }
 }
