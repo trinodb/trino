@@ -35,8 +35,9 @@
     "package:clean": "npm clean-install && webpack --config webpack.config.js",
     "watch": "npm clean-install && webpack --config webpack.config.js --watch",
     "flow": "flow",
-    "check": "npm install && flow && prettier --check **/*.js **/*.jsx *.js *.jsx",
-    "check:clean": "npm clean-install && flow && prettier --check **/*.js **/*.jsx *.js *.jsx",
+    "check": "npm install && flow && prettier --check **/*.js **/*.jsx *.js *.jsx && npm run check:licenses",
+    "check:clean": "npm clean-install && flow && prettier --check **/*.js **/*.jsx *.js *.jsx && npm run check:licenses",
+    "check:licenses": "TEMP=$(mktemp); jq .packages[].license package-lock.json | grep -v 'null' | sort -u > $TEMP; if DIFFERENCES=$(grep -vxfF ../../allowed-licenses.txt $TEMP); then echo '\\033[0;31mLicense found in package-lock.json that is not in allowed-licenses.txt' >&2; echo $DIFFERENCES; exit 1; fi",
     "format": "prettier --write **/*.js **/*.jsx *.js *.jsx",
     "lint": "prettier --check **/*.js **/*.jsx"
   }

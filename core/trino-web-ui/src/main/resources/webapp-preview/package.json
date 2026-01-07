@@ -12,8 +12,9 @@
     "preview": "vite preview",
     "prettier:format": "prettier --write \"./src/**/*.{ts,tsx}\"",
     "prettier:check": "prettier --check \"./src/**/*.{ts,tsx}\"",
-    "check": "npm install && npm run lint && npm run prettier:check",
-    "check:clean": "npm clean-install && npm run lint && npm run prettier:check"
+    "check": "npm install && npm run lint && npm run prettier:check && npm run check:licenses",
+    "check:clean": "npm clean-install && npm run lint && npm run prettier:check && npm run check:licenses",
+    "check:licenses": "USED_LICENSES=$(mktemp); jq '.packages | to_entries | map(select(.key != \"\") | .value.license)[]' package-lock.json | sort -u > $USED_LICENSES; if DIFFERENCES=$(grep -Fvxf ../allowed-licenses.txt $USED_LICENSES); then echo '\\033[0;31mLicense found in package-lock.json that is not in allowed-licenses.txt' >&2; echo $DIFFERENCES; exit 1; fi"
   },
   "dependencies": {
     "@dagrejs/dagre": "^1.1.8",
