@@ -588,7 +588,15 @@ class StatementClientV1
         }
 
         currentResults.set(results);
-        currentRows.set(new HeartbeatingResultRows(resultRowsDecoder.toRows(results), this::heartbeat));
+        ResultRows previous = currentRows.getAndSet(new HeartbeatingResultRows(resultRowsDecoder.toRows(results), this::heartbeat));
+        if (previous != null) {
+            try {
+                previous.close();
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
     }
 
     private List<String> safeSplitToList(String value)
