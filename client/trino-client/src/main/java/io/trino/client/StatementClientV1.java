@@ -15,10 +15,10 @@ package io.trino.client;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
 import com.google.common.io.Closeables;
 import com.google.errorprone.annotations.ThreadSafe;
@@ -700,31 +700,27 @@ class StatementClientV1
     private static class HeartbeatingResultRows
             implements ResultRows
     {
-        private final Iterator<List<Object>> iterator;
-        private final boolean isNull;
+        private final ResultRows delegate;
         private final Runnable heartbeat;
         private boolean iterated;
 
         public HeartbeatingResultRows(ResultRows delegate, Runnable heartbeat)
         {
-            this.iterator = delegate.iterator();
-            this.isNull = delegate.isNull();
-            this.heartbeat = heartbeat;
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            this.heartbeat = requireNonNull(heartbeat, "heartbeat is null");
         }
 
         @Override
         public void close()
                 throws IOException
         {
-            if (iterator instanceof CloseableIterator) {
-                ((CloseableIterator<?>) iterator).close();
-            }
+            delegate.close();
         }
 
         @Override
         public boolean isNull()
         {
-            return isNull;
+            return delegate.isNull();
         }
 
         @Override
@@ -732,18 +728,10 @@ class StatementClientV1
         {
             verify(!iterated, "Iterator already fetched");
             iterated = true;
-            return new AbstractIterator<>()
-            {
-                @Override
-                protected List<Object> computeNext()
-                {
-                    heartbeat.run();
-                    if (iterator.hasNext()) {
-                        return iterator.next();
-                    }
-                    return endOfData();
-                }
-            };
+            return Iterators.transform(delegate.iterator(), row -> {
+                heartbeat.run();
+                return row;
+            });
         }
     }
 }
