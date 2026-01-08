@@ -13,29 +13,29 @@
  */
 package io.trino.plugin.geospatial;
 
-import com.esri.core.geometry.MultiPath;
-import com.esri.core.geometry.MultiVertexGeometry;
-import com.esri.core.geometry.Point;
-import com.esri.core.geometry.Polyline;
-import com.esri.core.geometry.ogc.OGCGeometry;
-import com.esri.core.geometry.ogc.OGCLineString;
 import com.google.common.base.Joiner;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.trino.geospatial.GeometryType;
+import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.CoordinateSequence;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.impl.CoordinateArraySequence;
 
-import java.util.EnumSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 import static io.trino.geospatial.GeometryType.LINE_STRING;
 import static io.trino.geospatial.GeometryType.MULTI_POINT;
-import static io.trino.geospatial.serde.GeometrySerde.deserialize;
-import static io.trino.geospatial.serde.GeometrySerde.serialize;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
 
@@ -47,6 +47,8 @@ import static java.lang.String.format;
  */
 public final class EncodedPolylineFunctions
 {
+    private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
+
     private EncodedPolylineFunctions() {}
 
     @Description("Decodes a polyline to a linestring")
@@ -54,13 +56,12 @@ public final class EncodedPolylineFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice fromEncodedPolyline(@SqlType(StandardTypes.VARCHAR) Slice input)
     {
-        return serialize(decodePolyline(input.toStringUtf8()));
+        return JtsGeometrySerde.serialize(decodePolyline(input.toStringUtf8()));
     }
 
-    private static OGCLineString decodePolyline(String polyline)
+    private static LineString decodePolyline(String polyline)
     {
-        MultiPath multipath = new Polyline();
-        boolean isFirstPoint = true;
+        List<Coordinate> coordinates = new ArrayList<>();
 
         int index = 0;
         int latitude = 0;
@@ -88,16 +89,16 @@ public final class EncodedPolylineFunctions
             while (bytes >= 0x1f);
             longitude += (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
 
-            if (isFirstPoint) {
-                multipath.startPath(longitude * 1e-5, latitude * 1e-5);
-                isFirstPoint = false;
-            }
-            else {
-                multipath.lineTo(longitude * 1e-5, latitude * 1e-5);
-            }
+            coordinates.add(new Coordinate(longitude * 1e-5, latitude * 1e-5));
         }
 
-        return new OGCLineString(multipath, 0, null);
+        // JTS LineString requires 0 or >= 2 points, so a single point decodes to empty
+        if (coordinates.size() < 2) {
+            return GEOMETRY_FACTORY.createLineString();
+        }
+
+        CoordinateSequence sequence = new CoordinateArraySequence(coordinates.toArray(new Coordinate[0]));
+        return new LineString(sequence, GEOMETRY_FACTORY);
     }
 
     @Description("Encodes a linestring or multipoint geometry to a polyline")
@@ -105,27 +106,26 @@ public final class EncodedPolylineFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice toEncodedPolyline(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = deserialize(input);
-        validateType("encode_polyline", geometry, EnumSet.of(LINE_STRING, MULTI_POINT));
-        GeometryType geometryType = GeometryType.getForEsriGeometryType(geometry.geometryType());
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
+        validateType("encode_polyline", geometry, Set.of(LINE_STRING, MULTI_POINT));
+        GeometryType geometryType = GeometryType.getForJtsGeometryType(geometry.getGeometryType());
         return switch (geometryType) {
-            case LINE_STRING, MULTI_POINT -> encodePolyline((MultiVertexGeometry) geometry.getEsriGeometry());
+            case LINE_STRING, MULTI_POINT -> encodePolyline(geometry);
             default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Unexpected geometry type: " + geometryType);
         };
     }
 
-    private static Slice encodePolyline(MultiVertexGeometry multiVertexGeometry)
+    private static Slice encodePolyline(Geometry geometry)
     {
         long lastLatitude = 0;
         long lastLongitude = 0;
 
         DynamicSliceOutput output = new DynamicSliceOutput(0);
 
-        for (int i = 0; i < multiVertexGeometry.getPointCount(); i++) {
-            Point point = multiVertexGeometry.getPoint(i);
-
-            long latitude = Math.round(point.getY() * 1e5);
-            long longitude = Math.round(point.getX() * 1e5);
+        Coordinate[] coordinates = geometry.getCoordinates();
+        for (Coordinate coordinate : coordinates) {
+            long latitude = Math.round(coordinate.getY() * 1e5);
+            long longitude = Math.round(coordinate.getX() * 1e5);
 
             long latitudeDelta = latitude - lastLatitude;
             long longitudeDelta = longitude - lastLongitude;
@@ -149,9 +149,9 @@ public final class EncodedPolylineFunctions
         output.appendByte((byte) (value + 63));
     }
 
-    private static void validateType(String function, OGCGeometry geometry, Set<GeometryType> validTypes)
+    private static void validateType(String function, Geometry geometry, Set<GeometryType> validTypes)
     {
-        GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
+        GeometryType type = GeometryType.getForJtsGeometryType(geometry.getGeometryType());
         if (!validTypes.contains(type)) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, Joiner.on(" or ").join(validTypes), type));
         }
