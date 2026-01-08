@@ -23,26 +23,16 @@ import io.trino.spi.connector.ConnectorFactory;
 
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 import static java.util.Objects.requireNonNull;
 
 public class MongoConnectorFactory
         implements ConnectorFactory
 {
-    private final String name;
-
-    public MongoConnectorFactory(String name)
-    {
-        checkArgument(!isNullOrEmpty(name), "name is null or empty");
-        this.name = name;
-    }
-
     @Override
     public String getName()
     {
-        return name;
+        return "mongodb";
     }
 
     @Override
