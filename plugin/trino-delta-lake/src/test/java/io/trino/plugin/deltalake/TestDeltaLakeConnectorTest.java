@@ -285,6 +285,42 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    void testCreateReplaceReadingCheckpointWithDifferentSchema()
+    {
+        try (TestTable table = newTrinoTable("test_create_replace_reading_checkpoint_", "(x int, y varchar) with (checkpoint_interval = 2)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'aa')", 1);
+            // generate a checkpoint
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 'bb')", 1);
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (x int, y int) with (checkpoint_interval = 2)");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 3)", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (3, 3)");
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (z varchar)");
+            assertQueryReturnsEmptyResult("TABLE " + table.getName());
+        }
+    }
+
+    @Test
+    void testCreateReplaceReadingCheckpointWithDifferentSchemaCTAS()
+    {
+        try (TestTable table = newTrinoTable("test_create_replace_reading_checkpoint_", "(x int, y varchar) with (checkpoint_interval = 2)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'aa')", 1);
+            // generate a checkpoint
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 'bb')", 1);
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + "  AS SELECT 3 AS x, 3 AS y", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (3, 3)");
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT 'test' AS z", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES VARCHAR 'test'");
+        }
+    }
+
+    @Test
     @Override
     public void testShowCreateTable()
     {
