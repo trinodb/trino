@@ -1,29 +1,62 @@
 # Tibero connector
 
-The Tibero connector allows querying and creating tables in an external Tibero
-database. Connectors let Trino join data provided by different databases,
-like Tibero and Hive, or different Tibero database instances.
+The Tibero connector allows querying and creating tables in an external
+[Tibero](https://www.tmaxtibero.com/product/productView.do?prod_cd=tibero&detail_gubun=prod_main) database.
+Tibero is an enterprise-grade relational database management system developed
+by TmaxSoft.
 
 ## Requirements
 
 To connect to Tibero, you need:
 
 - Tibero 6 or higher.
-- Network access from the Trino coordinator and workers to Tibero.
-  Port 8629 is the default port.
-- Tibero JDBC driver (tibero7-jdbc.jar) manually installed in the plugin directory.
+- Tibero JDBC driver (ex. tibero7-jdbc.jar) manually installed in the plugin directory.
 
 ## JDBC driver installation
 
 The Tibero JDBC driver is not available in public Maven repositories and must
 be installed manually:
 
-1. Obtain the Tibero JDBC driver (tibero7-jdbc.jar) from TmaxSoft.
-2. Copy the driver to the Trino plugin directory:
+1. Obtain the Tibero JDBC driver (ex. tibero7-jdbc.jar):
+
+   - **If you have Tibero database installed**: The JDBC driver is included in
+     the Tibero installation at `$TB_HOME/client/lib/jar/`. See the
+     [Tibero JDBC documentation](https://docs.tibero.com/tibero/en/topics/development/jdbc-developers-guide/introduction-to-tibero-jdbc#default-path)
+     for more details.
+
+   - **If you don't have Tibero installed**: Download the Tibero distribution
+     from [TechNet](https://technet.tibero.com/en/front/download/findDownloadList.do).
+     After extracting the tar.gz file, the JDBC driver can be found at
+     `$TB_HOME/client/lib/jar/`.
+
+   Contact TmaxSoft for licensing information and to ensure the driver can be
+   used in your environment.
+
+2. Add the driver dependency to the `plugin/trino-tibero/pom.xml` file:
+
+   ```xml
+   <dependency>
+       <groupId>com.tmax.tibero</groupId>
+       <artifactId>tibero7-jdbc</artifactId>
+       <version>7.2.3</version>
+       <scope>system</scope>
+       <systemPath>/path/to/tibero7-jdbc.jar</systemPath>
+   </dependency>
    ```
-   cp tibero7-jdbc.jar $TRINO_HOME/plugin/tibero/
+
+   Replace `/path/to/tibero7-jdbc.jar` with the actual path to your Tibero
+   JDBC driver file. For example, if you place the driver in the Trino source
+   root's `lib` directory, use:
+
+   ```xml
+   <systemPath>${project.basedir}/../../lib/tibero7-jdbc.jar</systemPath>
    ```
-3. Restart the Trino server.
+
+> **Note:**
+Ensure you have the appropriate license from TmaxSoft to use the Tibero JDBC
+driver in your environment. The driver's usage is subject to TmaxSoft's
+licensing terms.
+
 
 ## Configuration
 
@@ -51,23 +84,6 @@ determine the user credentials for the connection, often a service user. You can
 use {doc}`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
-### Multiple Tibero servers
-
-If you want to connect to multiple Tibero servers, configure another instance of
-the Tibero connector as a separate catalog.
-
-To add another Tibero catalog, create a new properties file. For example, if
-you name the property file `sales.properties`, Trino creates a catalog named
-`sales`.
-
-```{include} jdbc-common-configurations.fragment
-```
-
-```{include} query-comment-format.fragment
-```
-
-```{include} jdbc-case-insensitive-matching.fragment
-```
 
 ## Querying Tibero
 
@@ -82,11 +98,11 @@ SHOW SCHEMAS FROM example;
 If you used a different name for your catalog properties file, use that catalog
 name instead of `example`.
 
-:::{note}
+> **Note:**
 The Tibero user must have access to the table in order to access it from Trino.
 The user configuration, in the connection properties file, determines your
 privileges in these schemas.
-:::
+
 
 ### Examples
 
@@ -111,7 +127,7 @@ To access the clicks table in the web database, run the following:
 SELECT * FROM example.web.clicks;
 ```
 
-(tibero-type-mapping)=
+
 ## Type mapping
 
 Because Trino and Tibero each support types that the other does not, this
@@ -122,103 +138,42 @@ each direction.
 
 ### Tibero to Trino type mapping
 
-Trino supports selecting Tibero database types. This table shows the Tibero to
-Trino data type mapping:
+Trino supports reading the following Tibero database types:
 
-:::{list-table} Tibero to Trino type mapping
-:widths: 30, 25, 50
-:header-rows: 1
-
-* - Tibero database type
-  - Trino type
-  - Notes
-* - `SMALLINT`
-  - `SMALLINT`
-  -
-* - `INTEGER`
-  - `INTEGER`
-  -
-* - `BIGINT`
-  - `BIGINT`
-  -
-* - `REAL`
-  - `REAL`
-  -
-* - `DOUBLE`
-  - `DOUBLE`
-  -
-* - `NUMBER(p, s)`
-  - `DECIMAL(p, s)`
-  -
-* - `CHAR(n)`
-  - `CHAR(n)`
-  -
-* - `VARCHAR(n)`
-  - `VARCHAR(n)`
-  -
-* - `NVARCHAR(n)`
-  - `VARCHAR(n)`
-  -
-* - `CLOB`
-  - `VARCHAR`
-  -
-* - `NCLOB`
-  - `VARCHAR`
-  -
-* - `RAW(n)`
-  - `VARBINARY`
-  -
-* - `BLOB`
-  - `VARBINARY`
-  -
-* - `DATE`
-  - `TIMESTAMP(0)`
-  - See [](tibero-datetime-mapping)
-* - `TIMESTAMP(p)`
-  - `TIMESTAMP(p)`
-  - See [](tibero-datetime-mapping)
-:::
+| Tibero type | Trino type | Notes |
+|-------------|------------|-------|
+| `SMALLINT` | `SMALLINT` | |
+| `INTEGER` | `INTEGER` | |
+| `BIGINT` | `BIGINT` | |
+| `REAL` | `REAL` | |
+| `DOUBLE` | `DOUBLE` | |
+| `NUMBER(p, s)`, `DECIMAL(p, s)` | `DECIMAL(p, s)` | Default precision is 38 if not specified |
+| `CHAR(n)` | `CHAR(n)` | |
+| `VARCHAR(n)`, `NVARCHAR(n)` | `VARCHAR(n)` | |
+| `CLOB`, `NCLOB` | `VARCHAR` | Unbounded VARCHAR |
+| `RAW(n)`, `BLOB` | `VARBINARY` | |
+| `DATE` | `TIMESTAMP(0)` | Tibero DATE includes time components |
+| `TIMESTAMP(p)` | `TIMESTAMP(p)` | Precision up to 9 digits |
 
 No other types are supported.
 
 ### Trino to Tibero type mapping
 
-Trino supports creating tables with the following types in a Tibero database.
-The table shows the mappings from Trino to Tibero data types:
+Trino supports creating tables with the following types in Tibero:
 
-:::{list-table} Trino to Tibero Type Mapping
-:widths: 30, 25, 50
-:header-rows: 1
-
-* - Trino type
-  - Tibero database type
-  - Notes
-* - `SMALLINT`
-  - `SMALLINT`
-  -
-* - `INTEGER`
-  - `INTEGER`
-  -
-* - `BIGINT`
-  - `BIGINT`
-  -
-* - `REAL`
-  - `REAL`
-  -
-* - `DOUBLE`
-  - `DOUBLE PRECISION`
-  -
-* - `VARCHAR(n)`
-  - `VARCHAR(n)`
-  -
-* - `CHAR(n)`
-  - `CHAR(n)`
-  -
-:::
+| Trino type | Tibero type | Notes |
+|------------|-------------|-------|
+| `SMALLINT` | `SMALLINT` | |
+| `INTEGER` | `INTEGER` | |
+| `BIGINT` | `BIGINT` | |
+| `REAL` | `REAL` | |
+| `DOUBLE` | `DOUBLE PRECISION` | |
+| `CHAR(n)` | `CHAR(n)` | |
+| `VARCHAR(n)`, `VARCHAR` | `VARCHAR(n)`, `VARCHAR` | Unbounded VARCHAR is supported |
 
 No other types are supported.
 
-(tibero-datetime-mapping)=
+
 ### Mapping datetime types
 
 Writing a timestamp with fractional second precision (`p`) greater than 9
@@ -230,7 +185,7 @@ is mapped to Trino `TIMESTAMP(0)`.
 ```{include} jdbc-type-mapping.fragment
 ```
 
-(tibero-sql-support)=
+
 ## SQL support
 
 The connector provides read access and write access to data and metadata in
@@ -246,49 +201,3 @@ following features:
 - [](/sql/drop-table)
 - [](/sql/alter-table)
 - [](/sql/comment)
-
-(tibero-table-functions)=
-### Table functions
-
-The connector provides specific {doc}`table functions </functions/table>` to
-access Tibero.
-
-(tibero-query-function)=
-#### `query(varchar) -> table`
-
-The `query` function allows you to query the underlying database directly. It
-requires syntax native to Tibero, because the full query is pushed down and
-processed in Tibero. This can be useful for accessing native features which are
-not available in Trino or for improving query performance in situations where
-running a query natively may be faster.
-
-```{include} query-passthrough-warning.fragment
-```
-
-As a simple example, query the `example` catalog and select an entire table:
-
-```
-SELECT
-  *
-FROM
-  TABLE(
-    example.system.query(
-      query => 'SELECT
-        *
-      FROM
-        tpch.nation'
-    )
-  );
-```
-
-```{include} query-table-function-ordering.fragment
-```
-
-## Limitations
-
-The following SQL statements are not yet supported:
-
-- [](/sql/update)
-- [](/sql/merge)
-- [](/sql/grant)
-- [](/sql/revoke)

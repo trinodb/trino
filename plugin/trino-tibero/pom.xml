@@ -41,6 +41,16 @@
             <artifactId>trino-plugin-toolkit</artifactId>
         </dependency>
 
+        <!-- Tibero JDBC driver - not available in public repositories -->
+        <!-- You must install the driver manually and update the systemPath -->
+        <dependency>
+            <groupId>com.tmax.tibero</groupId>
+            <artifactId>tibero7-jdbc</artifactId>
+            <version>7.2.3</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/../../lib/tibero7-jdbc.jar</systemPath>
+        </dependency>
+
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
