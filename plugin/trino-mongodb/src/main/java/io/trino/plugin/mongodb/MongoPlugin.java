@@ -41,6 +41,6 @@ public class MongoPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new MongoConnectorFactory("mongodb"));
+        return ImmutableList.of(new MongoConnectorFactory());
     }
 }
