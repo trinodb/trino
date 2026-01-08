@@ -13,9 +13,8 @@
  */
 package io.trino.plugin.geospatial.aggregation;
 
-import com.esri.core.geometry.ogc.OGCGeometry;
 import io.airlift.slice.Slice;
-import io.trino.geospatial.serde.GeometrySerde;
+import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
@@ -25,7 +24,9 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+import org.locationtech.jts.geom.Geometry;
 
+import static io.trino.geospatial.GeometryUtils.safeUnion;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 
 /**
@@ -41,12 +42,12 @@ public final class GeometryUnionAgg
     @InputFunction
     public static void input(@AggregationState GeometryState state, @SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        OGCGeometry geometry = GeometrySerde.deserialize(input);
+        Geometry geometry = JtsGeometrySerde.deserialize(input);
         if (state.getGeometry() == null) {
             state.setGeometry(geometry);
         }
         else if (!geometry.isEmpty()) {
-            state.setGeometry(state.getGeometry().union(geometry));
+            state.setGeometry(safeUnion(state.getGeometry(), geometry));
         }
     }
 
@@ -57,7 +58,7 @@ public final class GeometryUnionAgg
             state.setGeometry(otherState.getGeometry());
         }
         else if (otherState.getGeometry() != null && !otherState.getGeometry().isEmpty()) {
-            state.setGeometry(state.getGeometry().union(otherState.getGeometry()));
+            state.setGeometry(safeUnion(state.getGeometry(), otherState.getGeometry()));
         }
     }
 
@@ -68,7 +69,7 @@ public final class GeometryUnionAgg
             out.appendNull();
         }
         else {
-            GEOMETRY.writeSlice(out, GeometrySerde.serialize(state.getGeometry()));
+            GEOMETRY.writeSlice(out, JtsGeometrySerde.serialize(state.getGeometry()));
         }
     }
 }
