@@ -126,6 +126,13 @@
             <scope>provided</scope>
         </dependency>
 
+        <dependency>
+            <!-- Add LZ4 dependency to replace excluded org.lz4:lz4-java -->
+            <groupId>at.yawk.lz4</groupId>
+            <artifactId>lz4-java</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- TODO: remove after making Avro use Aircompressor -->
         <dependency>
             <groupId>com.github.luben</groupId>

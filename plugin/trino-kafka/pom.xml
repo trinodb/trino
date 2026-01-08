@@ -170,6 +170,13 @@
             <scope>provided</scope>
         </dependency>
 
+        <dependency>
+            <!-- Add new LZ4 dependency to replace excluded old version -->
+            <groupId>at.yawk.lz4</groupId>
+            <artifactId>lz4-java</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- used by kafka-protobuf-provider -->
         <dependency>
             <groupId>com.google.api.grpc</groupId>
