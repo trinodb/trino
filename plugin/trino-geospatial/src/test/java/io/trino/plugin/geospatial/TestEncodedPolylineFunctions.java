@@ -62,6 +62,10 @@ public class TestEncodedPolylineFunctions
         assertThat(assertions.function("from_encoded_polyline", "'_p~iF~ps|U_ulLnnqC_mqNvxq`@'"))
                 .hasType(GEOMETRY)
                 .matches("ST_GeometryFromText('LINESTRING (-120.2 38.5, -120.95 40.7, -126.45300000000002 43.252)')");
+
+        assertThat(assertions.expression("from_encoded_polyline(to_encoded_polyline(ST_GeometryFromText('MULTIPOINT (-120.2 38.5)')))"))
+                .hasType(GEOMETRY)
+                .matches("ST_GeometryFromText('LINESTRING EMPTY')");
     }
 
     @Test
