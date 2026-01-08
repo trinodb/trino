@@ -223,9 +223,9 @@ public class TestSphericalGeoFunctions
                 .hasType(DOUBLE)
                 .isEqualTo((Object) null);
 
-        // Invalid polygon (too few vertices)
-        assertTrinoExceptionThrownBy(assertions.expression("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON((90 0, 0 0))')))")::evaluate)
-                .hasMessage("Polygon is not valid: a loop contains less then 3 vertices.");
+        // Invalid polygon (consecutive identical vertices)
+        assertTrinoExceptionThrownBy(assertions.expression("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON((90 0, 0 0, 0 0, 90 0))')))")::evaluate)
+                .hasMessage("Polygon is not valid: it has two identical consecutive vertices");
 
         // Invalid data type (point)
         assertTrinoExceptionThrownBy(assertions.expression("ST_Area(to_spherical_geography(ST_GeometryFromText('POINT (0 1)')))")::evaluate)
