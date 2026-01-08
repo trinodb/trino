@@ -913,6 +913,7 @@ jobs:
             - suite-delta-lake-databricks154
             - suite-delta-lake-databricks164
             - suite-delta-lake-databricks173
+            - suite-delta-lake-databricks180
             - suite-exasol
             - suite-ranger
             - suite-gcs
@@ -967,6 +968,9 @@ jobs:
             - suite: suite-delta-lake-databricks173
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
+            - suite: suite-delta-lake-databricks180
+              ignore exclusion if: >-
+                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-snowflake
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.SNOWFLAKE_PASSWORD != '' }}
@@ -1017,6 +1021,7 @@ jobs:
           DATABRICKS_154_JDBC_URL: ""
           DATABRICKS_164_JDBC_URL: ""
           DATABRICKS_173_JDBC_URL: ""
+          DATABRICKS_180_JDBC_URL: ""
           DATABRICKS_LOGIN: ""
           DATABRICKS_TOKEN: ""
           GCP_CREDENTIALS_KEY: ""
@@ -1090,6 +1095,7 @@ jobs:
           DATABRICKS_154_JDBC_URL: ${{ vars.DATABRICKS_154_JDBC_URL }}
           DATABRICKS_164_JDBC_URL: ${{ vars.DATABRICKS_164_JDBC_URL }}
           DATABRICKS_173_JDBC_URL: ${{ vars.DATABRICKS_173_JDBC_URL }}
+          DATABRICKS_180_JDBC_URL: ${{ vars.DATABRICKS_180_JDBC_URL }}
           DATABRICKS_LOGIN: token
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
