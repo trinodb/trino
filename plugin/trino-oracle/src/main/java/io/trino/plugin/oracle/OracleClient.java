@@ -26,6 +26,7 @@ import io.trino.plugin.base.projection.ProjectFunctionRule;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.BooleanWriteFunction;
+import io.trino.plugin.jdbc.CaseSensitivity;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DoubleWriteFunction;
@@ -81,6 +82,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.Instant;
@@ -108,6 +110,8 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
+import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
@@ -162,6 +166,7 @@ import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.sql.Types.FLOAT;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
 
@@ -391,6 +396,75 @@ public class OracleClient
             throws SQLException
     {
         return Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
+    }
+
+    @Override
+    protected List<JdbcColumnHandle> getColumns(ConnectorSession session, Connection connection, ResultSetMetaData metadata)
+            throws SQLException
+    {
+        ImmutableList.Builder<JdbcColumnHandle> columns = ImmutableList.builder();
+        for (int column = 1; column <= metadata.getColumnCount(); column++) {
+            JdbcTypeHandle jdbcTypeHandle = getJdbcTypeHandle(session, metadata, column);
+
+            // Use getColumnLabel method because query pass-through table function may contain column aliases
+            String name = metadata.getColumnLabel(column);
+            Type type = toColumnMapping(session, connection, jdbcTypeHandle)
+                    .orElseThrow(() -> new UnsupportedOperationException(format("Unsupported type: %s of column: %s", jdbcTypeHandle, name)))
+                    .getType();
+            columns.add(new JdbcColumnHandle(name, jdbcTypeHandle, type));
+        }
+        return columns.build();
+    }
+
+    private static JdbcTypeHandle getJdbcTypeHandle(ConnectorSession session, ResultSetMetaData metadata, int column)
+            throws SQLException
+    {
+        int columnType = metadata.getColumnType(column);
+        int columnSize = metadata.getPrecision(column);
+        int scale = metadata.getScale(column);
+        CaseSensitivity caseSensitive = metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE;
+        if (columnType == OracleTypes.NUMBER) {
+            String columnClassName = metadata.getColumnClassName(column);
+            // Oracle report both NUMBER and FLOAT column as NUMBER type via `getColumnTypeName` (in table function),
+            // so we have to rely on the column class name here, Oracle NUMBER column are expected "java.math.BigDecimal",
+            // when the column class name is "java.lang.Double" it means it's actual a FLOAT type in Oracle side
+            // and the scale is expected to be -127
+            if ("java.lang.Double".equals(columnClassName)) {
+                int precision = columnSize + max(-scale, 0);
+                verify(scale == -127, "FLOAT scale is expected to be -127 but got %s", scale);
+                // we just handle the precision here is not able to handle by `toColumnMapping` method
+                if (!isAllowedNumber(session, precision, scale, columnSize)) {
+                    return new JdbcTypeHandle(FLOAT, Optional.of("FLOAT"), Optional.of(columnSize), Optional.of(scale), Optional.empty(), Optional.of(caseSensitive));
+                }
+            }
+        }
+
+        return new JdbcTypeHandle(
+                columnType,
+                Optional.ofNullable(metadata.getColumnTypeName(column)),
+                Optional.of(columnSize),
+                Optional.of(scale),
+                Optional.empty(), // TODO support arrays
+                Optional.of(caseSensitive));
+    }
+
+    private static boolean isAllowedNumber(ConnectorSession session, int precision, int scale, int columnSize)
+    {
+        Optional<Integer> numberDefaultScale = getNumberDefaultScale(session);
+        RoundingMode roundingMode = getNumberRoundingMode(session);
+        if (precision < scale) {
+            if (roundingMode == RoundingMode.UNNECESSARY) {
+                return false;
+            }
+        }
+        else if (numberDefaultScale.isPresent() && precision == PRECISION_OF_UNSPECIFIED_NUMBER) {
+            return true;
+        }
+        else if (precision > Decimals.MAX_PRECISION || columnSize <= 0) {
+            return false;
+        }
+
+        return true;
     }
 
     // Iterates over filtered schemas to fetch column details per schema, preventing unnecessary columns for Oracle's internal schemas

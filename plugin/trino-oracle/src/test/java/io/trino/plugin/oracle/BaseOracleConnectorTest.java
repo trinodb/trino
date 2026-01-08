@@ -121,6 +121,32 @@ public abstract class BaseOracleConnectorTest
     }
 
     @Test
+    void testReadingFloatWithQueryTableFunction()
+    {
+        testReadingFloatWithQueryTableFunction("FLOAT");
+        testReadingFloatWithQueryTableFunction("FLOAT(23)");
+        testReadingFloatWithQueryTableFunction("FLOAT(24)");
+        testReadingFloatWithQueryTableFunction("FLOAT(53)");
+        testReadingFloatWithQueryTableFunction("FLOAT(126)");
+    }
+
+    private void testReadingFloatWithQueryTableFunction(String floatType)
+    {
+        try (TestTable table = new TestTable(onRemoteDatabase(), "test_float_" + randomNameSuffix(), "(x int, y %s)".formatted(floatType))) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 0.123), (2, 456.789), (3, NULL)", 3);
+
+            // test both query with and without through query table function, make sure the type and values are the same
+            // for the oracle FLOAT type
+            String expectedValues = "VALUES CAST(0.123 AS DOUBLE), CAST(456.789 AS DOUBLE), CAST(NULL as DOUBLE)";
+            assertThat(query("SELECT y FROM " + tableName))
+                    .matches(expectedValues);
+            assertThat(query("SELECT y FROM TABLE(system.query('SELECT * FROM " + tableName + "'))"))
+                    .matches(expectedValues);
+        }
+    }
+
+    @Test
     @Override
     public void testShowColumns()
     {
