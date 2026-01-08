@@ -234,6 +234,14 @@
         </dependency>
 
         <dependency>
+            <!-- Clickhouse client will by default use LZ4 compression, which requires this dependency -->
+            <!-- https://github.com/ClickHouse/clickhouse-docs/pull/2408/files -->
+            <groupId>at.yawk.lz4</groupId>
+            <artifactId>lz4-java</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.clickhouse</groupId>
             <artifactId>clickhouse-jdbc</artifactId>
             <classifier>all</classifier>
@@ -287,14 +295,6 @@
         <dependency>
             <groupId>io.trino.hive</groupId>
             <artifactId>hive-apache-jdbc</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <!-- Clickhouse client will by default use LZ4 compression, which requires this dependency -->
-            <!-- https://github.com/ClickHouse/clickhouse-docs/pull/2408/files -->
-            <groupId>org.lz4</groupId>
-            <artifactId>lz4-java</artifactId>
             <scope>runtime</scope>
         </dependency>
 
