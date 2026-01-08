@@ -30,7 +30,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.geospatial.serde.GeometrySerde.deserialize;
+import static io.trino.geospatial.serde.JtsGeometrySerde.deserialize;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.geospatial.GeoFunctions.stEnvelope;
 import static io.trino.plugin.geospatial.GeoFunctions.stGeometryFromText;
@@ -82,7 +82,7 @@ public class BenchmarkEnvelopeIntersection
         BenchmarkData data = new BenchmarkData();
         data.setup();
         BenchmarkEnvelopeIntersection benchmark = new BenchmarkEnvelopeIntersection();
-        assertThat(deserialize(benchmark.envelopes(data))).isEqualTo(deserialize(benchmark.geometries(data)));
+        assertThat(deserialize(benchmark.envelopes(data)).equalsTopo(deserialize(benchmark.geometries(data)))).isTrue();
     }
 
     static void main()
