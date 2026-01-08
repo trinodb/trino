@@ -1361,23 +1361,28 @@ public class DeltaLakeMetadata
                     protocolEntry = protocolEntryForTable(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION, containsTimestampType, tableMetadata.getProperties());
                 }
 
+                MetadataEntry metadataEntry = MetadataEntry.builder()
+                        .setDescription(tableMetadata.getComment())
+                        .setSchemaString(serializeSchemaAsJson(deltaTable.build()))
+                        .setPartitionColumns(getPartitionedBy(tableMetadata.getProperties()))
+                        .setConfiguration(configurationForNewTable(checkpointInterval, changeDataFeedEnabled, deletionVectorsEnabled, columnMappingMode, maxFieldId))
+                        .build();
                 appendTableEntries(
                         commitVersion,
                         transactionLogWriter,
                         saveMode == SaveMode.REPLACE ? CREATE_OR_REPLACE_TABLE_OPERATION : CREATE_TABLE_OPERATION,
                         session,
                         protocolEntry,
-                        MetadataEntry.builder()
-                                .setDescription(tableMetadata.getComment())
-                                .setSchemaString(serializeSchemaAsJson(deltaTable.build()))
-                                .setPartitionColumns(getPartitionedBy(tableMetadata.getProperties()))
-                                .setConfiguration(configurationForNewTable(checkpointInterval, changeDataFeedEnabled, deletionVectorsEnabled, columnMappingMode, maxFieldId))
-                                .build());
+                        metadataEntry);
 
                 transactionLogWriter.flush();
 
                 if (replaceExistingTable) {
-                    writeCheckpointIfNeeded(session, schemaTableName, location, tableHandle.toCredentialsHandle(), tableHandle.getReadVersion(), checkpointInterval, commitVersion);
+                    List<DeltaLakeColumnHandle> existingColumns = getColumns(tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry());
+                    List<DeltaLakeColumnHandle> newColumns = getColumns(metadataEntry, protocolEntry);
+                    if (isNewCheckpointFileRequired(existingColumns, newColumns)) {
+                        writeCheckpoint(session, schemaTableName, location, tableHandle.toCredentialsHandle(), commitVersion);
+                    }
                 }
             }
         }
@@ -1536,9 +1541,11 @@ public class DeltaLakeMetadata
         OptionalLong readVersion = OptionalLong.empty();
         ProtocolEntry protocolEntry;
 
+        boolean isNewCheckpointFileRequired = false;
         if (replaceExistingTable) {
             protocolEntry = protocolEntryForTable(handle.getProtocolEntry().minReaderVersion(), handle.getProtocolEntry().minWriterVersion(), containsTimestampType, tableMetadata.getProperties());
             readVersion = OptionalLong.of(handle.getReadVersion());
+            isNewCheckpointFileRequired = isNewCheckpointFileRequired(getColumns(handle.getMetadataEntry(), handle.getProtocolEntry()), columnHandles.build());
         }
         else {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session, location);
@@ -1561,6 +1568,7 @@ public class DeltaLakeMetadata
                 columnMappingMode,
                 maxFieldId,
                 replace,
+                isNewCheckpointFileRequired,
                 readVersion,
                 protocolEntry);
     }
@@ -1749,8 +1757,8 @@ public class DeltaLakeMetadata
             transactionLogWriter.flush();
             writeCommitted = true;
 
-            if (handle.replace() && handle.readVersion().isPresent()) {
-                writeCheckpointIfNeeded(session, schemaTableName, handle.location(), handle.toCredentialsHandle(), handle.readVersion().getAsLong(), handle.checkpointInterval(), commitVersion);
+            if (handle.replace() && handle.readVersion().isPresent() && handle.isSchemaChanged()) {
+                writeCheckpoint(session, schemaTableName, location, handle.toCredentialsHandle(), commitVersion);
             }
 
             if (isCollectExtendedStatisticsColumnStatisticsOnWrite(session) && !computedStatistics.isEmpty()) {
@@ -3189,15 +3197,44 @@ public class DeltaLakeMetadata
             // This does not pose correctness issue but may be confusing if someone looks into transaction log.
             // To fix that we should allow for getting snapshot for given version.
 
-            TransactionLogReader transactionLogReader = new FileSystemTransactionLogReader(tableLocation, credentialsHandle, fileSystemFactory);
-            TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, transactionLogReader, table, tableLocation, Optional.of(newVersion), credentialsHandle);
-            checkpointWriterManager.writeCheckpoint(session, snapshot, credentialsHandle);
+            writeCheckpoint(session, table, tableLocation, credentialsHandle, newVersion);
         }
         catch (Exception e) {
             // We can't fail here as transaction was already committed, in case of INSERT this could result
             // in inserting data twice if client saw an error and decided to retry
             LOG.error(e, "Failed to write checkpoint for table %s for version %s", table, newVersion);
         }
+    }
+
+    private void writeCheckpoint(ConnectorSession session, SchemaTableName table, String tableLocation, VendedCredentialsHandle credentialsHandle, long newVersion)
+            throws IOException
+    {
+        TransactionLogReader transactionLogReader = new FileSystemTransactionLogReader(tableLocation, credentialsHandle, fileSystemFactory);
+        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, transactionLogReader, table, tableLocation, Optional.of(newVersion), credentialsHandle);
+        checkpointWriterManager.writeCheckpoint(session, snapshot, credentialsHandle);
+    }
+
+    private static boolean isNewCheckpointFileRequired(List<DeltaLakeColumnHandle> existingColumns, List<DeltaLakeColumnHandle> newColumns)
+    {
+        Map<String, Type> newColumnHandles = newColumns.stream()
+                .filter(column -> !isMetadataColumnHandle(column))
+                .collect(toImmutableMap(DeltaLakeColumnHandle::columnName, DeltaLakeColumnHandle::type));
+
+        for (DeltaLakeColumnHandle existingColumn : existingColumns) {
+            if (isMetadataColumnHandle(existingColumn)) {
+                continue;
+            }
+
+            if (!newColumnHandles.containsKey(existingColumn.columnName())) {
+                // remove/rename column requires creating a new checkpoint file
+                return true;
+            }
+            Type newType = newColumnHandles.get(existingColumn.columnName());
+            if (!existingColumn.type().equals(newType)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void cleanupFailedWrite(ConnectorSession session, VendedCredentialsHandle credentialsHandle, List<DataFileInfo> dataFiles)
