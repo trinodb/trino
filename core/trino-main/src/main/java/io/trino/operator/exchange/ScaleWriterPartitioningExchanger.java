@@ -15,6 +15,7 @@
 package io.trino.operator.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.output.SkewedPartitionRebalancer;
 import io.trino.spi.Page;
@@ -43,8 +44,7 @@ public class ScaleWriterPartitioningExchanger
     private final int[] partitionWriterIds;
     private final int[] partitionWriterIndexes;
     private final Supplier<Long> totalMemoryUsed;
-    private final long maxMemoryPerNode;
-    private final double scaleWriterMemoryPercentage;
+    private final DataSize scaleWriterMemory;
 
     public ScaleWriterPartitioningExchanger(
             List<Consumer<Page>> buffers,
@@ -55,8 +55,7 @@ public class ScaleWriterPartitioningExchanger
             int partitionCount,
             SkewedPartitionRebalancer partitionRebalancer,
             Supplier<Long> totalMemoryUsed,
-            long maxMemoryPerNode,
-            double scaleWriterMemoryPercentage)
+            DataSize scaleWriterMemory)
     {
         this.buffers = requireNonNull(buffers, "buffers is null");
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
@@ -65,8 +64,7 @@ public class ScaleWriterPartitioningExchanger
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
         this.partitionRebalancer = requireNonNull(partitionRebalancer, "partitionRebalancer is null");
         this.totalMemoryUsed = requireNonNull(totalMemoryUsed, "totalMemoryUsed is null");
-        this.maxMemoryPerNode = maxMemoryPerNode;
-        this.scaleWriterMemoryPercentage = scaleWriterMemoryPercentage;
+        this.scaleWriterMemory = requireNonNull(scaleWriterMemory, "scaleWriterMemory is null");
 
         // Initialize writerAssignments with the buffer size
         writerAssignments = new IntArrayList[buffers.size()];
@@ -96,7 +94,7 @@ public class ScaleWriterPartitioningExchanger
         // Do not scale up if total memory used is greater than the configured percentage of max memory per node.
         // We have to be conservative here otherwise scaling of writers will happen first
         // before we hit this limit, and then we won't be able to do anything to stop OOM error.
-        if (memoryManager.getBufferedBytes() > maxBufferedBytes * 0.5 && totalMemoryUsed.get() < maxMemoryPerNode * scaleWriterMemoryPercentage) {
+        if (memoryManager.getBufferedBytes() > maxBufferedBytes * 0.5 && totalMemoryUsed.get() < scaleWriterMemory.toBytes()) {
             partitionRebalancer.rebalance();
         }
 
@@ -148,7 +146,7 @@ public class ScaleWriterPartitioningExchanger
         // Only update the scaling state if the memory used is below the configured memory percentage limit. Otherwise, if we keep updating
         // the scaling state and the memory used is fluctuating around the limit, then we could do massive scaling
         // in a single rebalancing cycle which could cause OOM error.
-        if (totalMemoryUsed.get() < maxMemoryPerNode * scaleWriterMemoryPercentage) {
+        if (totalMemoryUsed.get() < scaleWriterMemory.toBytes()) {
             for (int partitionId = 0; partitionId < partitionRowCounts.length; partitionId++) {
                 partitionRebalancer.addPartitionRowCount(partitionId, partitionRowCounts[partitionId]);
             }

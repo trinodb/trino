@@ -86,7 +86,7 @@ public final class SystemSessionProperties
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String TASK_SCALE_WRITERS_ENABLED = "task_scale_writers_enabled";
-    public static final String TASK_SCALE_WRITERS_MAX_WRITER_MEMORY_PERCENTAGE = "task_scale_writers_max_writer_memory_percentage";
+    public static final String TASK_SCALE_WRITERS_MAX_WRITER_MEMORY = "task_scale_writers_max_writer_memory";
     public static final String MAX_WRITER_TASK_COUNT = "max_writer_task_count";
     public static final String WRITER_SCALING_MIN_DATA_PROCESSED = "writer_scaling_min_data_processed";
     public static final String SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD = "skewed_partition_min_data_processed_rebalance_threshold";
@@ -336,15 +336,10 @@ public final class SystemSessionProperties
                         "Scale the number of concurrent table writers per task based on throughput",
                         taskManagerConfig.isScaleWritersEnabled(),
                         false),
-                doubleProperty(
-                        TASK_SCALE_WRITERS_MAX_WRITER_MEMORY_PERCENTAGE,
+                dataSizeProperty(
+                        TASK_SCALE_WRITERS_MAX_WRITER_MEMORY,
                         "Maximum percentage of memory per node that can be used by task scale writers before stopping writer scaling",
-                        taskManagerConfig.getScaleWritersMaxWriterMemoryPercentage(),
-                        value -> {
-                            if (value < 0.0 || value > 1.0) {
-                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be between 0.0 and 1.0: %s", TASK_SCALE_WRITERS_MAX_WRITER_MEMORY_PERCENTAGE, value));
-                            }
-                        },
+                        taskManagerConfig.getScaleWritersMaxWriterMemory().orElse(DataSize.ofBytes((long) (nodeMemoryConfig.getMaxQueryMemoryPerNode().toBytes() * 0.7)).succinct()),
                         false),
                 dataSizeProperty(
                         WRITER_SCALING_MIN_DATA_PROCESSED,
@@ -1231,9 +1226,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(TASK_SCALE_WRITERS_ENABLED, Boolean.class);
     }
 
-    public static double getTaskScaleWritersMaxWriterMemoryPercentage(Session session)
+    public static DataSize getTaskScaleWritersMaxWriterMemory(Session session)
     {
-        return session.getSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_MEMORY_PERCENTAGE, Double.class);
+        return session.getSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_MEMORY, DataSize.class);
     }
 
     public static int getMaxWriterTaskCount(Session session)
