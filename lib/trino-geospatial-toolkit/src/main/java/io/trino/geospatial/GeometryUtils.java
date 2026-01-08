@@ -13,16 +13,6 @@
  */
 package io.trino.geospatial;
 
-import com.esri.core.geometry.Envelope;
-import com.esri.core.geometry.Geometry;
-import com.esri.core.geometry.GeometryCursor;
-import com.esri.core.geometry.GeometryEngine;
-import com.esri.core.geometry.MultiVertexGeometry;
-import com.esri.core.geometry.Point;
-import com.esri.core.geometry.Polygon;
-import com.esri.core.geometry.ogc.OGCGeometry;
-import com.esri.core.geometry.ogc.OGCPoint;
-import com.esri.core.geometry.ogc.OGCPolygon;
 import io.trino.spi.TrinoException;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryCollection;
@@ -69,110 +59,6 @@ public final class GeometryUtils
     public static boolean isEsriNaN(double d)
     {
         return Double.isNaN(d) || Double.isNaN(translateFromAVNaN(d));
-    }
-
-    public static int getPointCount(OGCGeometry ogcGeometry)
-    {
-        GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
-        int points = 0;
-        while (true) {
-            com.esri.core.geometry.Geometry geometry = cursor.next();
-            if (geometry == null) {
-                return points;
-            }
-
-            if (geometry.isEmpty()) {
-                continue;
-            }
-
-            if (geometry instanceof Point) {
-                points++;
-            }
-            else {
-                points += ((MultiVertexGeometry) geometry).getPointCount();
-            }
-        }
-    }
-
-    public static Envelope getEnvelope(OGCGeometry ogcGeometry)
-    {
-        GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
-        Envelope overallEnvelope = new Envelope();
-        while (true) {
-            Geometry geometry = cursor.next();
-            if (geometry == null) {
-                return overallEnvelope;
-            }
-
-            Envelope envelope = new Envelope();
-            geometry.queryEnvelope(envelope);
-            overallEnvelope.merge(envelope);
-        }
-    }
-
-    public static boolean disjoint(Geometry polygon, OGCGeometry ogcGeometry)
-    {
-        GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
-        while (true) {
-            Geometry geometry = cursor.next();
-            if (geometry == null) {
-                return true;
-            }
-
-            if (!GeometryEngine.disjoint(geometry, polygon, null)) {
-                return false;
-            }
-        }
-    }
-
-    public static boolean contains(OGCGeometry ogcGeometry, Geometry polygon)
-    {
-        GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
-        while (true) {
-            Geometry geometry = cursor.next();
-            if (geometry == null) {
-                return false;
-            }
-
-            if (GeometryEngine.contains(geometry, polygon, null)) {
-                return true;
-            }
-        }
-    }
-
-    public static boolean isPointOrRectangle(OGCGeometry ogcGeometry, Envelope envelope)
-    {
-        if (ogcGeometry instanceof OGCPoint) {
-            return true;
-        }
-
-        if (!(ogcGeometry instanceof OGCPolygon)) {
-            return false;
-        }
-
-        Polygon polygon = (Polygon) ogcGeometry.getEsriGeometry();
-        if (polygon.getPathCount() > 1) {
-            return false;
-        }
-
-        if (polygon.getPointCount() != 4) {
-            return false;
-        }
-
-        Set<Point> corners = new HashSet<>();
-        corners.add(new Point(envelope.getXMin(), envelope.getYMin()));
-        corners.add(new Point(envelope.getXMin(), envelope.getYMax()));
-        corners.add(new Point(envelope.getXMax(), envelope.getYMin()));
-        corners.add(new Point(envelope.getXMax(), envelope.getYMax()));
-
-        for (int i = 0; i < 4; i++) {
-            Point point = polygon.getPoint(i);
-            if (!corners.contains(point)) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     public static org.locationtech.jts.geom.Geometry jtsGeometryFromJson(String json)
