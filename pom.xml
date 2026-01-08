@@ -178,6 +178,8 @@
             -XX:+EnableDynamicAgentLoading
             ${extraJavaVectorArgs}
             --sun-misc-unsafe-memory-access=allow
+            <!-- # Disable superfluous bootstrap logging in tests -->
+            -Dairlift.quiet=true
         </air.test.jvm.additional-arguments.default>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
