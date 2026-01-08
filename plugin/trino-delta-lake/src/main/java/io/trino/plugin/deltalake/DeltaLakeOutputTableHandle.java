@@ -42,6 +42,7 @@ public record DeltaLakeOutputTableHandle(
         ColumnMappingMode columnMappingMode,
         OptionalInt maxColumnId,
         boolean replace,
+        boolean isSchemaChanged,
         OptionalLong readVersion,
         ProtocolEntry protocolEntry)
         implements ConnectorOutputTableHandle

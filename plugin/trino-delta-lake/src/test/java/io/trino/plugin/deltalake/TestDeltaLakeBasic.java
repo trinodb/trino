@@ -337,6 +337,154 @@ public class TestDeltaLakeBasic
                 .containsPattern("(delta\\.columnMapping\\.physicalName.*?){11}");
     }
 
+    /**
+     * @see databricks164.test_write_checkpoint_on_schema_change
+     */
+    @Test
+    void testDatabricksWriteCheckpointOnSchemaChange()
+            throws Exception
+    {
+        String tableName = "test_dbx_write_checkpoint_on_schema_change" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks164/test_write_checkpoint_on_schema_change").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        Path tableLocationPath = Path.of(getTableLocation(tableName).replace("file://", ""));
+
+        // verify checkpoint at version 3 not exists
+        // alter table to add a new column not treated as schema change, thus no new checkpoint should be created
+        assertThat(Files.exists(tableLocationPath.resolve("_delta_log/00000000000000000003.checkpoint.parquet"))).isFalse();
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 4"))
+                .matches("VALUES (4, varchar 'version4')");
+
+        // verify checkpoint at version 5 exists
+        // alter table to drop a column treated as schema change, thus new checkpoint should be created
+        assertThat(Files.exists(tableLocationPath.resolve("_delta_log/00000000000000000005.checkpoint.parquet"))).isTrue();
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 6"))
+                .matches("VALUES varchar 'version6'");
+
+        // verify checkpoint at version 7 exists
+        // alter table to rename a column treated as schema change, thus new checkpoint should be created
+        assertThat(Files.exists(tableLocationPath.resolve("_delta_log/00000000000000000007.checkpoint.parquet"))).isTrue();
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 8"))
+                .matches("VALUES varchar 'version8'");
+
+        // verify checkpoint at version 9 exists
+        // alter table to change column type treated as schema change, thus new checkpoint should be created
+        assertThat(Files.exists(tableLocationPath.resolve("_delta_log/00000000000000000009.checkpoint.parquet"))).isTrue();
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 10"))
+                .matches("VALUES 10");
+
+        // verify checkpoint at version 11 exists
+        // alter table to change column type back treated as schema change, thus new checkpoint should be created
+        assertThat(Files.exists(tableLocationPath.resolve("_delta_log/00000000000000000011.checkpoint.parquet"))).isTrue();
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 12"))
+                .matches("VALUES varchar 'version12'");
+    }
+
+    @Test
+    void testWriteCheckpointOnSchemaChange()
+    {
+        try (TestTable table = newTrinoTable("test_write_checkpoint_on_schema_change", "(x int) WITH (checkpoint_interval = 2)")) {
+            Path tableLocation = Path.of(getTableLocation(table.getName()).replace("file://", ""));
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            // generate checkpoint at version 2
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES 1, 2");
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000002.checkpoint.parquet"))).isTrue();
+
+            // alter table to add a new column at version 3
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (x int, y varchar) WITH (checkpoint_interval = 20)");
+            // alter table to add a new column not treated as schema change, thus no new checkpoint should be created
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000003.checkpoint.parquet"))).isFalse();
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (4, 'version4')", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES (4, varchar 'version4')");
+
+            // alter table to drop a column at version 5
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (y varchar) WITH (checkpoint_interval = 20)");
+            // alter table to drop a column treated as schema change, thus new checkpoint should be created
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000005.checkpoint.parquet"))).isTrue();
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 'version6'", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES varchar 'version6'");
+
+            // alter table to rename a column at version 7
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (z varchar) WITH (checkpoint_interval = 20)");
+            // alter table to rename a column treated as schema change, thus new checkpoint should be created
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000007.checkpoint.parquet"))).isTrue();
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 'version8'", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES varchar 'version8'");
+
+            // alter table to change column type at version 9
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (z int) WITH (checkpoint_interval = 20)");
+            // alter table to change column type treated as schema change, thus new checkpoint should be created
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000009.checkpoint.parquet"))).isTrue();
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 10", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES 10");
+
+            // alter table to change column type back at version 11, test change type again
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (z varchar) WITH (checkpoint_interval = 20)");
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000011.checkpoint.parquet"))).isTrue();
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 'version12'", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES varchar 'version12'");
+        }
+    }
+
+    @Test
+    void testWriteCheckpointOnSchemaChangeCTAS()
+    {
+        try (TestTable table = newTrinoTable("test_write_checkpoint_on_schema_change", "(x int) WITH (checkpoint_interval = 2)")) {
+            Path tableLocation = Path.of(getTableLocation(table.getName()).replace("file://", ""));
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            // generate checkpoint at version 2
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES 1, 2");
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000002.checkpoint.parquet"))).isTrue();
+
+            // alter table to add a new column at version 3
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (checkpoint_interval = 20) AS SELECT 3 x, CAST('version3' AS varchar) y", 1);
+            // alter table to add a new column not treated as schema change, thus no new checkpoint should be created
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000003.checkpoint.parquet"))).isFalse();
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES (3, varchar 'version3')");
+
+            // alter table to drop a column at version 4
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (checkpoint_interval = 20) AS SELECT CAST('version4' AS varchar) y", 1);
+            // alter table to drop a column treated as schema change, thus new checkpoint should be created
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000004.checkpoint.parquet"))).isTrue();
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES varchar 'version4'");
+
+            // alter table to rename a column at version 5
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (checkpoint_interval = 20) AS SELECT CAST('version5' AS varchar) z", 1);
+            // alter table to rename a column treated as schema change, thus new checkpoint should be created
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000005.checkpoint.parquet"))).isTrue();
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES varchar 'version5'");
+
+            // alter table to change column type at version 6
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (checkpoint_interval = 20) AS SELECT 6 z", 1);
+            // alter table to change column type treated as schema change, thus new checkpoint should be created
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000006.checkpoint.parquet"))).isTrue();
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES 6");
+
+            // alter table to change column type back at version 7, test change type again
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (checkpoint_interval = 20) AS SELECT CAST('version7' AS varchar) z", 1);
+            assertThat(Files.exists(tableLocation.resolve("_delta_log/00000000000000000007.checkpoint.parquet"))).isTrue();
+            assertThat(query("TABLE " + table.getName()))
+                    .matches("VALUES varchar 'version7'");
+        }
+    }
+
     @Test // regression test for https://github.com/trinodb/trino/issues/24121
     void testPartitionValuesParsedCheckpoint()
             throws Exception
