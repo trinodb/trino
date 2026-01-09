@@ -117,6 +117,11 @@ public class ArrayType
         return operatorDeclaration;
     }
 
+    public static ArrayType arrayType(Type elementType)
+    {
+        return new ArrayType(elementType);
+    }
+
     private synchronized void generateTypeOperators(TypeOperators typeOperators)
     {
         if (operatorDeclaration != null) {

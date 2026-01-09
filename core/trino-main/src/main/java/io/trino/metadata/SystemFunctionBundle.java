@@ -313,6 +313,7 @@ import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castCharToRe2JRe
 import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castVarcharToRe2JRegexp;
 import static io.trino.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static io.trino.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
+import static io.trino.operator.scalar.RowTransformFunction.ROW_TRANSFORM_FUNCTION;
 import static io.trino.operator.scalar.TryCastFunction.TRY_CAST;
 import static io.trino.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static io.trino.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
@@ -581,7 +582,7 @@ public final class SystemFunctionBundle
                 .aggregates(DecimalAverageAggregation.class)
                 .aggregates(DecimalSumAggregation.class)
                 .function(DECIMAL_MOD_FUNCTION)
-                .functions(ARRAY_TRANSFORM_FUNCTION, ARRAY_REDUCE_FUNCTION)
+                .functions(ROW_TRANSFORM_FUNCTION, ARRAY_TRANSFORM_FUNCTION, ARRAY_REDUCE_FUNCTION)
                 .functions(MAP_FILTER_FUNCTION, new MapTransformKeysFunction(blockTypeOperators), MAP_TRANSFORM_VALUES_FUNCTION)
                 .function(FORMAT_FUNCTION)
                 .function(TRY_CAST)
