@@ -159,6 +159,8 @@ public class S3FileSystemConfig
     private String sseKmsKeyId;
     private String sseCustomerKey;
     private boolean useWebIdentityTokenCredentialsProvider;
+    private Duration webIdentityTokenCredentialsPrefetchTime;
+    private Duration webIdentityTokenCredentialsStaleTime;
     private SignerType signerType;
     private DataSize streamingPartSize = DataSize.of(32, MEGABYTE);
     private boolean requesterPays;
@@ -394,6 +396,32 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setUseWebIdentityTokenCredentialsProvider(boolean useWebIdentityTokenCredentialsProvider)
     {
         this.useWebIdentityTokenCredentialsProvider = useWebIdentityTokenCredentialsProvider;
+        return this;
+    }
+
+    public Optional<Duration> getWebIdentityTokenCredentialsPrefetchTime()
+    {
+        return Optional.ofNullable(webIdentityTokenCredentialsPrefetchTime);
+    }
+
+    @Config("s3.web-identity-token-credentials-prefetch-time")
+    @ConfigDescription("Configure the amount of time, relative to STS token expiration, that the cached credentials are considered close to stale and should be updated. Prefetch updates will occur between the specified time and the stale time of the provider. Prefetch updates are asynchronous.")
+    public S3FileSystemConfig setWebIdentityTokenCredentialsPrefetchTime(Duration webIdentityTokenCredentialsPrefetchTime)
+    {
+        this.webIdentityTokenCredentialsPrefetchTime = webIdentityTokenCredentialsPrefetchTime;
+        return this;
+    }
+
+    public Optional<Duration> getWebIdentityTokenCredentialsStaleTime()
+    {
+        return Optional.ofNullable(webIdentityTokenCredentialsStaleTime);
+    }
+
+    @Config("s3.web-identity-token-credentials-stale-time")
+    @ConfigDescription("Configure the amount of time, relative to STS token expiration, that the cached credentials are considered stale and must be updated. All threads using S3 client will block until the value is updated.")
+    public S3FileSystemConfig setWebIdentityTokenCredentialsStaleTime(Duration webIdentityTokenCredentialsStaleTime)
+    {
+        this.webIdentityTokenCredentialsStaleTime = webIdentityTokenCredentialsStaleTime;
         return this;
     }
 
