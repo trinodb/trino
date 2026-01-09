@@ -20,8 +20,10 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.BINARY;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP_INSTANT;
+import static io.trino.plugin.iceberg.util.OrcTypeConverter.ICEBERG_BINARY_TYPE;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.ICEBERG_TIMESTAMP_UNIT;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.ICEBERG_TIMESTAMP_UNIT_MICROS;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.ICEBERG_TIMESTAMP_UNIT_NANOS;
@@ -56,5 +58,23 @@ public class TestOrcTypeConverter
         OrcType tsNanosTz = orcTypes.get(new OrcColumnId(4));
         assertThat(tsNanosTz.getOrcTypeKind()).isEqualTo(TIMESTAMP_INSTANT);
         assertThat(tsNanosTz.getAttributes()).containsEntry(ICEBERG_TIMESTAMP_UNIT, ICEBERG_TIMESTAMP_UNIT_NANOS);
+    }
+
+    @Test
+    public void testGeospatialTypesAreAnnotatedForOrc()
+    {
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "geom", Types.GeometryType.crs84()),
+                Types.NestedField.optional(2, "geog", Types.GeographyType.crs84()));
+
+        ColumnMetadata<OrcType> orcTypes = toOrcType(schema);
+
+        OrcType geom = orcTypes.get(new OrcColumnId(1));
+        assertThat(geom.getOrcTypeKind()).isEqualTo(BINARY);
+        assertThat(geom.getAttributes()).containsEntry(ICEBERG_BINARY_TYPE, "GEOMETRY");
+
+        OrcType geog = orcTypes.get(new OrcColumnId(2));
+        assertThat(geog.getOrcTypeKind()).isEqualTo(BINARY);
+        assertThat(geog.getAttributes()).containsEntry(ICEBERG_BINARY_TYPE, "GEOGRAPHY");
     }
 }
