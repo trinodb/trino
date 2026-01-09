@@ -24,6 +24,8 @@ import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKBReader;
 import org.locationtech.jts.io.WKBWriter;
 
+import java.util.Locale;
+
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
@@ -36,6 +38,9 @@ import static java.util.Objects.requireNonNull;
 public final class JtsGeometrySerde
 {
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
+
+    // EWKB flag for SRID presence (bit 29)
+    private static final int EWKB_SRID_FLAG = 0x20000000;
 
     // WKB type codes (2D)
     private static final int WKB_POINT = 1;
@@ -182,5 +187,105 @@ public final class JtsGeometrySerde
     {
         result.setSRID(validateAndGetSrid(left, right));
         return serialize(result);
+    }
+
+    /**
+     * Extract SRID from EWKB without full parsing.
+     * Returns 0 if no SRID is embedded.
+     */
+    public static int extractSrid(Slice ewkb)
+    {
+        if (ewkb.length() < 9) {
+            return 0;
+        }
+        boolean bigEndian = ewkb.getByte(0) == 0;
+        int type = ewkb.getInt(1);
+        if (bigEndian) {
+            type = Integer.reverseBytes(type);
+        }
+        if ((type & EWKB_SRID_FLAG) == 0) {
+            return 0;
+        }
+        int srid = ewkb.getInt(5);
+        if (bigEndian) {
+            srid = Integer.reverseBytes(srid);
+        }
+        return srid;
+    }
+
+    /**
+     * Strip SRID from EWKB to produce standard WKB.
+     * If the input is already standard WKB (no SRID flag), returns it unchanged.
+     */
+    public static Slice ewkbToWkb(Slice ewkb)
+    {
+        if (ewkb.length() < 9) {
+            return ewkb;
+        }
+        boolean bigEndian = ewkb.getByte(0) == 0;
+        int type = ewkb.getInt(1);
+        if (bigEndian) {
+            type = Integer.reverseBytes(type);
+        }
+        if ((type & EWKB_SRID_FLAG) == 0) {
+            return ewkb;
+        }
+
+        // Strip SRID flag and 4 SRID bytes
+        int newType = type & ~EWKB_SRID_FLAG;
+        Slice wkb = Slices.allocate(ewkb.length() - 4);
+        wkb.setByte(0, ewkb.getByte(0)); // endianness
+        wkb.setInt(1, bigEndian ? Integer.reverseBytes(newType) : newType);
+        wkb.setBytes(5, ewkb, 9, ewkb.length() - 9); // geometry data
+        return wkb;
+    }
+
+    /**
+     * Convert a CRS string to an SRID integer.
+     * Supports formats:
+     * - "EPSG:XXXX" → XXXX
+     * - "OGC:CRS84" or "CRS84" → 4326 (WGS84)
+     */
+    public static int crsToSrid(String crs)
+    {
+        if (crs == null || crs.isEmpty()) {
+            return 0;
+        }
+        if (crs.equalsIgnoreCase("OGC:CRS84") || crs.equalsIgnoreCase("CRS84")) {
+            return 4326; // WGS84
+        }
+        if (crs.toUpperCase(Locale.ROOT).startsWith("EPSG:")) {
+            try {
+                return Integer.parseInt(crs.substring(5));
+            }
+            catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Invalid EPSG code: " + crs);
+            }
+        }
+        throw new IllegalArgumentException("Unsupported CRS format: " + crs);
+    }
+
+    /**
+     * Inject SRID into WKB to produce EWKB.
+     */
+    public static Slice wkbToEwkb(Slice wkb, int srid)
+    {
+        if (wkb.length() < 5) {
+            throw new IllegalArgumentException("WKB too short");
+        }
+        boolean bigEndian = wkb.getByte(0) == 0;
+        int type = wkb.getInt(1);
+        if (bigEndian) {
+            type = Integer.reverseBytes(type);
+        }
+
+        // Add SRID flag
+        int newType = type | EWKB_SRID_FLAG;
+        Slice ewkb = Slices.allocate(wkb.length() + 4);
+        ewkb.setByte(0, wkb.getByte(0)); // endianness
+        ewkb.setInt(1, bigEndian ? Integer.reverseBytes(newType) : newType);
+        ewkb.setInt(5, bigEndian ? Integer.reverseBytes(srid) : srid);
+        ewkb.setBytes(9, wkb, 5, wkb.length() - 5); // geometry data
+        return ewkb;
     }
 }

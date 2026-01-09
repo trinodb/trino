@@ -21,6 +21,7 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
@@ -28,6 +29,7 @@ import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SortOrder;
@@ -61,6 +63,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PARTITIONS;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isSortedWritingEnabled;
@@ -68,6 +71,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getTopLevelColumns;
 import static io.trino.plugin.iceberg.PartitionTransforms.getColumnTransform;
 import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTz;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -84,6 +88,7 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -122,6 +127,8 @@ public class IcebergPageSink
     private final List<Type> columnTypes;
     private final List<Integer> sortColumnIndexes;
     private final List<SortOrder> sortOrders;
+    // Maps column index to target SRID for geometry columns
+    private final Map<Integer, Integer> geometryColumnSrids;
 
     private final List<WriteContext> writers = new ArrayList<>();
     private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
@@ -177,6 +184,20 @@ public class IcebergPageSink
         this.columnTypes = getTopLevelColumns(outputSchema, typeManager).stream()
                 .map(IcebergColumnHandle::getType)
                 .collect(toImmutableList());
+
+        // Build mapping of geometry column indexes to their target SRIDs
+        Map<Integer, Integer> geometrySrids = new HashMap<>();
+        List<Types.NestedField> columns = outputSchema.columns();
+        for (int i = 0; i < columns.size(); i++) {
+            Types.NestedField field = columns.get(i);
+            if (field.type() instanceof Types.GeometryType geometryType) {
+                String crs = geometryType.crs();
+                // Iceberg uses null CRS to represent the default (OGC:CRS84 = SRID 4326)
+                int srid = (crs == null) ? 4326 : JtsGeometrySerde.crsToSrid(crs);
+                geometrySrids.put(i, srid);
+            }
+        }
+        this.geometryColumnSrids = Map.copyOf(geometrySrids);
 
         this.tempDirectory = sortedWritingLocalStagingPath
                 .map(path -> path.replace("${USER}", session.getIdentity().getUser()))
@@ -321,6 +342,9 @@ public class IcebergPageSink
             long currentWritten = writer.getWrittenBytes();
             long currentMemory = writer.getMemoryUsage();
 
+            // Transform geometry columns: validate SRID and convert EWKB to WKB
+            pageForWriter = transformGeometryColumnsForWrite(pageForWriter);
+
             writer.appendRows(pageForWriter);
 
             writtenBytes += (writer.getWrittenBytes() - currentWritten);
@@ -328,6 +352,56 @@ public class IcebergPageSink
             // Mark this writer as active (i.e. not idle)
             activeWriters.set(index, true);
         }
+    }
+
+    /**
+     * Transform geometry columns for write: validate SRID and convert EWKB to WKB.
+     * Returns the page with geometry columns transformed, or the original page if no geometry columns.
+     */
+    private Page transformGeometryColumnsForWrite(Page page)
+    {
+        if (geometryColumnSrids.isEmpty()) {
+            return page;
+        }
+
+        Block[] blocks = new Block[page.getChannelCount()];
+        for (int channel = 0; channel < page.getChannelCount(); channel++) {
+            Block block = page.getBlock(channel);
+            Integer targetSrid = geometryColumnSrids.get(channel);
+            if (targetSrid != null) {
+                block = transformGeometryBlockForWrite(block, targetSrid, channel);
+            }
+            blocks[channel] = block;
+        }
+        return new Page(page.getPositionCount(), blocks);
+    }
+
+    private static Block transformGeometryBlockForWrite(Block block, int targetSrid, int columnIndex)
+    {
+        int positionCount = block.getPositionCount();
+        VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(null, positionCount, positionCount * 32);
+
+        for (int position = 0; position < positionCount; position++) {
+            if (block.isNull(position)) {
+                builder.appendNull();
+                continue;
+            }
+
+            Slice ewkb = GEOMETRY.getSlice(block, position);
+            int sourceSrid = JtsGeometrySerde.extractSrid(ewkb);
+
+            // Validate SRID: fail only if both source and target are non-zero and different
+            if (sourceSrid != 0 && targetSrid != 0 && sourceSrid != targetSrid) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT,
+                        "SRID mismatch: cannot write geometry with SRID %d into column %d with SRID %d".formatted(sourceSrid, columnIndex, targetSrid));
+            }
+
+            // Strip SRID from EWKB to produce standard WKB for storage
+            Slice wkb = JtsGeometrySerde.ewkbToWkb(ewkb);
+            VARBINARY.writeSlice(builder, wkb);
+        }
+
+        return builder.build();
     }
 
     private int[] getWriterIndexes(Page page)

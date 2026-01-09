@@ -24,6 +24,7 @@ import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
@@ -47,6 +48,8 @@ import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.geospatial.GeometryType;
+import io.trino.plugin.geospatial.SphericalGeographyType;
 import io.trino.plugin.hive.TransformConnectorPageSource;
 import io.trino.plugin.hive.orc.OrcPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
@@ -180,6 +183,7 @@ import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -541,7 +545,8 @@ public class IcebergPageSourceProvider
                     typeManager,
                     nameMapping,
                     partition,
-                    partitionKeys);
+                    partitionKeys,
+                    fileSchema);
             case PARQUET -> createParquetPageSource(
                     inputFile,
                     start,
@@ -564,7 +569,8 @@ public class IcebergPageSourceProvider
                     fileFormatDataSourceStats,
                     nameMapping,
                     partition,
-                    partitionKeys);
+                    partitionKeys,
+                    fileSchema);
             case AVRO -> createAvroPageSource(
                     inputFile,
                     start,
@@ -627,7 +633,8 @@ public class IcebergPageSourceProvider
             TypeManager typeManager,
             Optional<NameMapping> nameMapping,
             String partition,
-            Map<Integer, Optional<String>> partitionKeys)
+            Map<Integer, Optional<String>> partitionKeys,
+            Schema tableSchema)
     {
         OrcDataSource orcDataSource = null;
         try {
@@ -712,13 +719,15 @@ public class IcebergPageSourceProvider
                     }
 
                     if (column.isBaseColumn()) {
-                        transforms.column(ordinal);
+                        transforms.column(ordinal, getSridInjectionTransform(column, tableSchema));
                     }
                     else {
-                        transforms.dereferenceField(ImmutableList.<Integer>builder()
-                                .add(ordinal)
-                                .addAll(applyProjection(column, baseColumn))
-                                .build());
+                        transforms.dereferenceField(
+                                ImmutableList.<Integer>builder()
+                                        .add(ordinal)
+                                        .addAll(applyProjection(column, baseColumn))
+                                        .build(),
+                                getSridInjectionTransform(column, tableSchema));
                     }
                 }
             }
@@ -819,7 +828,23 @@ public class IcebergPageSourceProvider
                     .map(field -> new RowType.Field(field.getName(), getOrcReadType(field.getType(), typeManager)))
                     .collect(toImmutableList()));
         }
+        // Geometry/Geography are stored as binary, read as varbinary then transform
+        if (columnType instanceof GeometryType || columnType instanceof SphericalGeographyType) {
+            return VARBINARY;
+        }
 
+        return columnType;
+    }
+
+    /**
+     * Get the type to use for reading from file formats.
+     * Geometry/Geography are stored as binary, so we read as varbinary and transform.
+     */
+    private static Type getFileReadType(Type columnType)
+    {
+        if (columnType instanceof GeometryType || columnType instanceof SphericalGeographyType) {
+            return VARBINARY;
+        }
         return columnType;
     }
 
@@ -910,7 +935,8 @@ public class IcebergPageSourceProvider
             FileFormatDataSourceStats fileFormatDataSourceStats,
             Optional<NameMapping> nameMapping,
             String partition,
-            Map<Integer, Optional<String>> partitionKeys)
+            Map<Integer, Optional<String>> partitionKeys,
+            Schema tableSchema)
     {
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
 
@@ -993,13 +1019,15 @@ public class IcebergPageSourceProvider
                         parquetColumnFieldsBuilder.add(new Column(parquetFieldName, field.get()));
                     }
                     if (column.isBaseColumn()) {
-                        transforms.column(ordinal);
+                        transforms.column(ordinal, getSridInjectionTransform(column, tableSchema));
                     }
                     else {
-                        transforms.dereferenceField(ImmutableList.<Integer>builder()
-                                .add(ordinal)
-                                .addAll(applyProjection(column, baseColumn))
-                                .build());
+                        transforms.dereferenceField(
+                                ImmutableList.<Integer>builder()
+                                        .add(ordinal)
+                                        .addAll(applyProjection(column, baseColumn))
+                                        .build(),
+                                getSridInjectionTransform(column, tableSchema));
                     }
                 }
             }
@@ -1183,17 +1211,19 @@ public class IcebergPageSourceProvider
                         baseColumnIdToOrdinal.put(baseColumn.getId(), ordinal);
 
                         columnNames.add(baseColumn.getName());
-                        columnTypes.add(baseColumn.getType());
+                        columnTypes.add(getFileReadType(baseColumn.getType()));
                     }
 
                     if (column.isBaseColumn()) {
-                        transforms.column(ordinal);
+                        transforms.column(ordinal, getSridInjectionTransform(column, fileSchema));
                     }
                     else {
-                        transforms.dereferenceField(ImmutableList.<Integer>builder()
-                                .add(ordinal)
-                                .addAll(applyProjection(column, baseColumn))
-                                .build());
+                        transforms.dereferenceField(
+                                ImmutableList.<Integer>builder()
+                                        .add(ordinal)
+                                        .addAll(applyProjection(column, baseColumn))
+                                        .build(),
+                                getSridInjectionTransform(column, fileSchema));
                     }
                 }
             }
@@ -1436,6 +1466,73 @@ public class IcebergPageSourceProvider
             return new TrinoException(ICEBERG_BAD_DATA, exception);
         }
         return new TrinoException(ICEBERG_CURSOR_ERROR, format("Failed to read Parquet file: %s", dataSourceId), exception);
+    }
+
+    /**
+     * Get a transform to inject SRID into geometry columns.
+     * For geometry columns, reads the CRS from the Iceberg schema and converts WKB to EWKB with the SRID.
+     * For non-geometry columns, returns Optional.empty() (no transform needed).
+     */
+    private static Optional<Function<Block, Block>> getSridInjectionTransform(IcebergColumnHandle column, Schema tableSchema)
+    {
+        if (!(column.getType() instanceof GeometryType)) {
+            return Optional.empty();
+        }
+
+        // Find the field in the schema to get the CRS
+        Types.NestedField field = tableSchema.findField(column.getId());
+        if (field == null || !(field.type() instanceof Types.GeometryType geometryType)) {
+            return Optional.empty();
+        }
+
+        String crs = geometryType.crs();
+        // Iceberg uses null CRS to represent the default (OGC:CRS84 = SRID 4326)
+        int srid = (crs == null) ? 4326 : JtsGeometrySerde.crsToSrid(crs);
+        return Optional.of(block -> injectSridIntoBlock(block, srid));
+    }
+
+    /**
+     * Transform a Block of WKB bytes to a Block of EWKB bytes by injecting the SRID.
+     */
+    private static Block injectSridIntoBlock(Block block, int srid)
+    {
+        if (!(block instanceof VariableWidthBlock variableWidthBlock)) {
+            return block;
+        }
+
+        int positionCount = block.getPositionCount();
+        Slice[] results = new Slice[positionCount];
+        boolean[] nulls = new boolean[positionCount];
+
+        for (int i = 0; i < positionCount; i++) {
+            if (block.isNull(i)) {
+                nulls[i] = true;
+            }
+            else {
+                results[i] = JtsGeometrySerde.wkbToEwkb(variableWidthBlock.getSlice(i), srid);
+            }
+        }
+
+        // Build a new VariableWidthBlock with the transformed values
+        int totalSize = 0;
+        for (int i = 0; i < positionCount; i++) {
+            if (!nulls[i]) {
+                totalSize += results[i].length();
+            }
+        }
+
+        byte[] rawData = new byte[totalSize];
+        int[] offsets = new int[positionCount + 1];
+        int offset = 0;
+        for (int i = 0; i < positionCount; i++) {
+            if (!nulls[i]) {
+                results[i].getBytes(0, rawData, offset, results[i].length());
+                offset += results[i].length();
+            }
+            offsets[i + 1] = offset;
+        }
+
+        return new VariableWidthBlock(positionCount, io.airlift.slice.Slices.wrappedBuffer(rawData), offsets, Optional.of(nulls));
     }
 
     public record ReaderPageSourceWithRowPositions(
