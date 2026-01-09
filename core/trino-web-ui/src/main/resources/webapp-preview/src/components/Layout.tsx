@@ -27,14 +27,16 @@ import {
     Menu,
     MenuItem,
     Drawer as MuiDrawer,
+    Stack,
     Toolbar,
     Tooltip,
     Typography,
 } from '@mui/material'
-import { CSSObject, Theme, styled } from '@mui/material/styles'
+import { alpha, CSSObject, Theme, styled } from '@mui/material/styles'
 import { DarkModeOutlined, LightModeOutlined, SettingsBrightnessOutlined } from '@mui/icons-material'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
 import LogoutIcon from '@mui/icons-material/Logout'
 import { Texts } from '../constant'
 import trinoLogo from '../assets/trino.svg'
@@ -42,6 +44,8 @@ import { RouterItem, routers, routersMapper } from '../router.tsx'
 import { Theme as ThemeStore, useConfigStore } from '../store'
 import { useAuth } from './AuthContext'
 import { useSnackbar } from './SnackbarContext'
+import { Cluster, clusterApi } from '../api/webapp/api'
+import { ApiResponse } from '../api/base'
 
 interface settingsMenuItem {
     key: string
@@ -108,8 +112,38 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
     )
     const [anchorElTheme, setAnchorElTheme] = useState<Element | null>(null)
     const [anchorElUser, setAnchorElUser] = useState<Element | null>(null)
+    const [cluster, setCluster] = useState<Cluster | null>(null)
+    const [noConnection, setNoConnection] = useState<boolean | null>(null)
     const username = authInfo?.username || ''
     const userInitials = username?.charAt(0).toUpperCase()
+
+    const HeaderStat = (props: { title: string; value?: ReactNode; valueLeading?: ReactNode }) => (
+        <Box sx={{ px: 2, display: 'flex', flexDirection: 'column' }}>
+            <Typography
+                variant="caption"
+                sx={(theme) => ({
+                    display: 'block',
+                    lineHeight: 1.1,
+                    color: alpha(theme.palette.common.white, 0.8),
+                })}
+            >
+                {props.title}
+            </Typography>
+            <Typography variant="body2" sx={{ lineHeight: 1.2, fontWeight: 500, textAlign: 'left' }} noWrap>
+                {props.valueLeading ? (
+                    <Box
+                        component="span"
+                        sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-start', gap: 0.5 }}
+                    >
+                        {props.valueLeading}
+                        <Box component="span">{props.value ?? '—'}</Box>
+                    </Box>
+                ) : (
+                    (props.value ?? '—')
+                )}
+            </Typography>
+        </Box>
+    )
 
     useEffect(() => {
         const router = routersMapper[location.pathname]
@@ -119,10 +153,29 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
     }, [location, selectedDrawerItemKey])
 
     useEffect(() => {
+        const runLoop = () => {
+            getClusterStats()
+            setTimeout(runLoop, 1000)
+        }
+        runLoop()
+    }, [])
+
+    useEffect(() => {
         if (error) {
             showSnackbar(error, 'error')
         }
     }, [error, showSnackbar])
+
+    const getClusterStats = () => {
+        clusterApi().then((apiResponse: ApiResponse<Cluster>) => {
+            if (apiResponse.status === 200 && apiResponse.data) {
+                setCluster(apiResponse.data)
+                setNoConnection(false)
+            } else {
+                setNoConnection(true)
+            }
+        })
+    }
 
     const onClassicUi = () => {
         closeUserMenu()
@@ -204,6 +257,35 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
                     >
                         Trino
                     </Typography>
+                    <Stack
+                        direction="row"
+                        sx={{
+                            flexGrow: 0,
+                            alignItems: 'center',
+                            mr: 1,
+                            display: { xs: 'none', md: 'flex' },
+                        }}
+                    >
+                        <HeaderStat title="Version" value={cluster?.nodeVersion?.version} />
+                        <HeaderStat title="Environment" value={cluster?.environment} />
+                        <HeaderStat
+                            title="Uptime"
+                            value={cluster?.uptime}
+                            valueLeading={
+                                <FiberManualRecordIcon
+                                    sx={(theme) => ({
+                                        fontSize: 10,
+                                        color:
+                                            noConnection === true
+                                                ? theme.palette.error.main
+                                                : noConnection === false
+                                                  ? theme.palette.success.main
+                                                  : alpha(theme.palette.common.white, 0.5),
+                                    })}
+                                />
+                            }
+                        />
+                    </Stack>
                     <Box sx={{ flexGrow: 0 }}>
                         <Tooltip title={Texts.Menu.Header.Themes}>
                             <IconButton sx={{ mx: 2, color: 'inherit' }} onClick={openThemeMenu}>
