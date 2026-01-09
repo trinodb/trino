@@ -109,7 +109,7 @@ public abstract class AbstractTestQueryFramework
     private io.trino.sql.query.QueryAssertions queryAssertions;
 
     @BeforeAll
-    public void init()
+    final void init()
             throws Exception
     {
         Logging logging = Logging.initialize();
@@ -125,7 +125,7 @@ public abstract class AbstractTestQueryFramework
             throws Exception;
 
     @AfterAll
-    public final void close()
+    final void close()
             throws Exception
     {
         try (AutoCloseable ignored = afterClassCloser) {
@@ -413,7 +413,7 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertUpdate(Session session, @Language("SQL") String sql)
     {
-        QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.empty(), Optional.empty());
+        QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.empty());
     }
 
     protected void assertUpdate(@Language("SQL") String sql, long count)
@@ -423,7 +423,7 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertUpdate(Session session, @Language("SQL") String sql, long count)
     {
-        QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.of(count), Optional.empty());
+        QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.of(count));
     }
 
     protected void assertUpdate(Session session, @Language("SQL") String sql, long count, Consumer<Plan> planAssertion)
@@ -684,7 +684,8 @@ public abstract class AbstractTestQueryFramework
         return Optional.empty();
     }
 
-    protected TestTable newTrinoTable(String namePrefix, @Language("SQL") String tableDefinition)
+    // final because it delegates to another (overridable) method
+    protected final TestTable newTrinoTable(String namePrefix, @Language("SQL") String tableDefinition)
     {
         return newTrinoTable(namePrefix, tableDefinition, ImmutableList.of());
     }

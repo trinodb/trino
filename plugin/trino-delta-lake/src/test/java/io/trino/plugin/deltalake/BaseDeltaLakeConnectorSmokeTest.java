@@ -239,7 +239,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     }
 
     @AfterAll
-    public void cleanUp()
+    final void cleanUp()
     {
         hiveHadoop = null; // closed by closeAfterClass
     }

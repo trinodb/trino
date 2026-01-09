@@ -210,7 +210,7 @@ public interface JdbcClient
 
     void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
-    JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionConsumer);
+    JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionCollector);
 
     void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds);
 
@@ -222,7 +222,7 @@ public interface JdbcClient
             ConnectorSession session,
             JdbcTableHandle handle,
             Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
-            Consumer<Runnable> rollbackActionConsumer,
+            Consumer<Runnable> rollbackActionCollector,
             RetryMode retryMode)
     {
         throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);

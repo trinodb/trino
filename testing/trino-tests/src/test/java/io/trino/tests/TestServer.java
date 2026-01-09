@@ -363,6 +363,7 @@ public class TestServer
                     .contains("was abandoned by the client, as it may have exited or stopped checking for query results");
         }
 
+        // Test query is not abandoned when client iterates over rows, even when one batch of results takes more than client timeout
         try (StatementClient client = StatementClientFactory.newStatementClient(httpClient, session, "SELECT * FROM tpch.sf1.nation")) {
             while (client.advance()) {
                 client.currentRows().forEach(_ -> {

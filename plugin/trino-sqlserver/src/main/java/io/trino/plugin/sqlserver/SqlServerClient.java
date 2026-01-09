@@ -364,9 +364,9 @@ public class SqlServerClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionConsumer)
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionCollector)
     {
-        JdbcOutputTableHandle table = super.beginCreateTable(session, tableMetadata, rollbackActionConsumer);
+        JdbcOutputTableHandle table = super.beginCreateTable(session, tableMetadata, rollbackActionCollector);
         enableTableLockOnBulkLoadTableOption(session, table);
         return table;
     }

@@ -28,6 +28,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.security.AuthenticationException;
 import io.trino.server.security.Authenticator;
 import io.trino.server.security.ResourceSecurity;
+import io.trino.server.security.SecurityConfig;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.Identity;
 import jakarta.servlet.http.HttpServletRequest;
@@ -276,7 +277,7 @@ public class TestJdbcExternalAuthentication
         @Override
         protected void setup(Binder ignored)
         {
-            install(authenticatorModule("dummy-external", DummyAuthenticator.class, binder -> {
+            install(authenticatorModule(buildConfigObject(SecurityConfig.class), "dummy-external", DummyAuthenticator.class, binder -> {
                 binder.bind(Authentications.class).in(SINGLETON);
                 binder.bind(IntSupplier.class).toInstance(port);
                 jaxrsBinder(binder).bind(DummyExternalAuthResources.class);

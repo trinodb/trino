@@ -21,7 +21,6 @@ import io.trino.plugin.iceberg.IcebergTestUtils;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.BaseTable;
@@ -29,6 +28,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.types.Types;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -53,11 +53,15 @@ final class TestIcebergOptimizeManifestsProcedure
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = IcebergQueryRunner.builder().build();
-        metastore = getHiveMetastore(queryRunner);
-        fileSystemFactory = getFileSystemFactory(queryRunner);
+        return IcebergQueryRunner.builder().build();
+    }
+
+    @BeforeAll
+    public void setUp()
+    {
+        metastore = getHiveMetastore(getQueryRunner());
+        fileSystemFactory = getFileSystemFactory(getQueryRunner());
         catalog = getTrinoCatalog(metastore, fileSystemFactory, "iceberg");
-        return queryRunner;
     }
 
     @Test

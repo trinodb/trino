@@ -40,10 +40,7 @@ import java.util.function.Function;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.spooling.filesystem.FileSystemSpoolingConfig.Layout.PARTITIONED;
-import static io.trino.spooling.filesystem.FileSystemSpoolingConfig.Layout.SIMPLE;
 
 public class FileSystemSpoolingModule
         extends AbstractConfigurationAwareModule
@@ -83,18 +80,13 @@ public class FileSystemSpoolingModule
             closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForSegmentPruner.class));
         }
 
-        install(conditionalModule(
-                FileSystemSpoolingConfig.class,
-                fileSystemConfig -> fileSystemConfig.getLayout() == SIMPLE,
-                layoutBinder -> layoutBinder.bind(FileSystemLayout.class).to(SimpleFileSystemLayout.class)));
-
-        install(conditionalModule(
-                FileSystemSpoolingConfig.class,
-                fileSystemConfig -> fileSystemConfig.getLayout() == PARTITIONED,
-                layoutBinder -> {
-                    configBinder(layoutBinder).bindConfig(PartitionedLayoutConfig.class);
-                    layoutBinder.bind(FileSystemLayout.class).to(PartitionedFileSystemLayout.class);
-                }));
+        switch (config.getLayout()) {
+            case SIMPLE -> binder.bind(FileSystemLayout.class).to(SimpleFileSystemLayout.class);
+            case PARTITIONED -> {
+                configBinder(binder).bindConfig(PartitionedLayoutConfig.class);
+                binder.bind(FileSystemLayout.class).to(PartitionedFileSystemLayout.class);
+            }
+        }
     }
 
     @Provides

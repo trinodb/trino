@@ -78,6 +78,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -286,9 +287,11 @@ public class TestIcebergV2
     {
         String tableName = "test_v2_equality_delete" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
+        ZonedDateTime fileModifiedTimeBeforeDelete = (ZonedDateTime) computeScalar("SELECT MAX(\"$file_modified_time\") FROM " + tableName);
         Table icebergTable = loadTable(tableName);
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
+        assertThat(computeScalar("SELECT MAX(\"$file_modified_time\") FROM " + tableName)).isEqualTo(fileModifiedTimeBeforeDelete);
         // nationkey is before the equality delete column in the table schema, comment is after
         assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
 

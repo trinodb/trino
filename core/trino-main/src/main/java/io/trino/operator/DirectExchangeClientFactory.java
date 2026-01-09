@@ -74,7 +74,7 @@ public class DirectExchangeClientFactory
                 config.getMaxBufferSize(),
                 config.getDeduplicationBufferSize(),
                 config.getMaxResponseSize(),
-                httpClientConfig.getMaxContentLength(),
+                httpClientConfig.getMaxResponseContentLength(),
                 config.getConcurrentRequestMultiplier(),
                 config.getMaxErrorDuration(),
                 config.isAcknowledgePages(),

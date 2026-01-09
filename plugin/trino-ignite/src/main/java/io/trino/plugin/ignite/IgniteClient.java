@@ -382,7 +382,7 @@ public class IgniteClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionConsumer)
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionCollector)
     {
         if (tableMetadata.getComment().isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
@@ -424,7 +424,7 @@ public class IgniteClient
                     columnTypes.build(),
                     Optional.empty(),
                     primaryKeys.isEmpty() ? Optional.of(IGNITE_DUMMY_ID) : Optional.empty());
-            rollbackActionConsumer.accept(() -> rollbackCreateDestinationTable(session, destinationTableHandle.getRemoteTableName()));
+            rollbackActionCollector.accept(() -> rollbackCreateDestinationTable(session, destinationTableHandle.getRemoteTableName()));
             return destinationTableHandle;
         }
         catch (SQLException e) {

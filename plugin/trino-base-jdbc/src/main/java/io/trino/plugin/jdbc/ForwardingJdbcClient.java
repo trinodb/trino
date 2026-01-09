@@ -265,9 +265,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionConsumer)
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Consumer<Runnable> rollbackActionCollector)
     {
-        return delegate().beginCreateTable(session, tableMetadata, rollbackActionConsumer);
+        return delegate().beginCreateTable(session, tableMetadata, rollbackActionCollector);
     }
 
     @Override
@@ -293,10 +293,10 @@ public abstract class ForwardingJdbcClient
             ConnectorSession session,
             JdbcTableHandle handle,
             Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
-            Consumer<Runnable> rollbackActionConsumer,
+            Consumer<Runnable> rollbackActionCollector,
             RetryMode retryMode)
     {
-        return delegate().beginMerge(session, handle, updateColumnHandles, rollbackActionConsumer, retryMode);
+        return delegate().beginMerge(session, handle, updateColumnHandles, rollbackActionCollector, retryMode);
     }
 
     @Override

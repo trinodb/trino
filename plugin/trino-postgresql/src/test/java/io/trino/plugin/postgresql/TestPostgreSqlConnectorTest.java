@@ -122,16 +122,16 @@ public class TestPostgreSqlConnectorTest
             // Arrays are supported conditionally. Check the defaults.
             case SUPPORTS_ARRAY -> new PostgreSqlConfig().getArrayMapping() != PostgreSqlConfig.ArrayMapping.DISABLED;
             case SUPPORTS_CANCELLATION,
-                    SUPPORTS_JOIN_PUSHDOWN,
-                    SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR -> true;
+                 SUPPORTS_JOIN_PUSHDOWN,
+                 SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
-                    SUPPORTS_ADD_COLUMN_WITH_POSITION,
-                    SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
-                    SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
-                    SUPPORTS_MAP_TYPE,
-                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
-                    SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
-                    SUPPORTS_ROW_TYPE -> false;
+                 SUPPORTS_ADD_COLUMN_WITH_POSITION,
+                 SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                 SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
+                 SUPPORTS_MAP_TYPE,
+                 SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
+                 SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
+                 SUPPORTS_ROW_TYPE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -1111,12 +1111,12 @@ public class TestPostgreSqlConnectorTest
                     .isNotFullyPushedDown(ProjectNode.class)
                     .hasPlan(output(
                             project(ImmutableMap.of("expr", expression(
-                                    new Call(
-                                            FUNCTIONS.resolveFunction("reverse", ImmutableList.of(new TypeSignatureProvider(VARCHAR.getTypeSignature()))),
-                                            ImmutableList.of(
-                                                    new Call(
-                                                            FUNCTIONS.resolveFunction("lower", ImmutableList.of(new TypeSignatureProvider(VARCHAR.getTypeSignature()))),
-                                                            ImmutableList.of(new Reference(VARCHAR, "varchar_col"))))))),
+                                            new Call(
+                                                    FUNCTIONS.resolveFunction("reverse", ImmutableList.of(new TypeSignatureProvider(VARCHAR.getTypeSignature()))),
+                                                    ImmutableList.of(
+                                                            new Call(
+                                                                    FUNCTIONS.resolveFunction("lower", ImmutableList.of(new TypeSignatureProvider(VARCHAR.getTypeSignature()))),
+                                                                    ImmutableList.of(new Reference(VARCHAR, "varchar_col"))))))),
                                     tableScan(table.getName(), ImmutableMap.of("varchar_col", "varchar_col")))));
         }
     }

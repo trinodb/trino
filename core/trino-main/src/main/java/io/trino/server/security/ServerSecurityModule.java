@@ -37,7 +37,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.airlift.http.server.HttpServer.ClientCertificate.REQUESTED;
@@ -62,30 +62,31 @@ public class ServerSecurityModule
         newOptionalBinder(binder, PasswordAuthenticatorManager.class);
         binder.bind(CertificateAuthenticatorManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, HeaderAuthenticatorManager.class);
-        insecureHttpAuthenticationDefaults();
+
+        SecurityConfig securityConfig = buildConfigObject(SecurityConfig.class);
+        insecureHttpAuthenticationDefaults(securityConfig);
 
         authenticatorBinder(binder); // create empty map binder
-
-        install(authenticatorModule("certificate", CertificateAuthenticator.class, certificateBinder -> {
+        install(authenticatorModule(securityConfig, "certificate", CertificateAuthenticator.class, certificateBinder -> {
             newOptionalBinder(certificateBinder, ClientCertificate.class).setBinding().toInstance(REQUESTED);
             configBinder(certificateBinder).bindConfig(CertificateConfig.class);
         }));
-        installAuthenticator("kerberos", KerberosAuthenticator.class, KerberosConfig.class);
-        install(authenticatorModule("password", PasswordAuthenticator.class, used -> {
+        installAuthenticator(securityConfig, "kerberos", KerberosAuthenticator.class, KerberosConfig.class);
+        install(authenticatorModule(securityConfig, "password", PasswordAuthenticator.class, used -> {
             configBinder(binder).bindConfig(PasswordAuthenticatorConfig.class);
             binder.bind(PasswordAuthenticatorManager.class).in(Scopes.SINGLETON);
         }));
-        install(authenticatorModule("header", HeaderAuthenticator.class, headerBinder -> {
+        install(authenticatorModule(securityConfig, "header", HeaderAuthenticator.class, headerBinder -> {
             configBinder(headerBinder).bindConfig(HeaderAuthenticatorConfig.class);
             headerBinder.bind(HeaderAuthenticatorManager.class).in(Scopes.SINGLETON);
         }));
-        install(authenticatorModule("jwt", JwtAuthenticator.class, new JwtAuthenticatorSupportModule()));
-        install(authenticatorModule("oauth2", OAuth2Authenticator.class, new OAuth2AuthenticationSupportModule()));
+        install(authenticatorModule(securityConfig, "jwt", JwtAuthenticator.class, new JwtAuthenticatorSupportModule()));
+        install(authenticatorModule(securityConfig, "oauth2", OAuth2Authenticator.class, new OAuth2AuthenticationSupportModule()));
         newOptionalBinder(binder, OAuth2Client.class);
 
         configBinder(binder).bindConfig(InsecureAuthenticatorConfig.class);
         binder.bind(InsecureAuthenticator.class).in(Scopes.SINGLETON);
-        install(authenticatorModule("insecure", InsecureAuthenticator.class, unused -> {}));
+        install(authenticatorModule(securityConfig, "insecure", InsecureAuthenticator.class, unused -> {}));
     }
 
     @Provides
@@ -102,19 +103,18 @@ public class ServerSecurityModule
                 .collect(toImmutableList());
     }
 
-    public static Module authenticatorModule(String name, Class<? extends Authenticator> clazz, Module module)
+    public static Module authenticatorModule(SecurityConfig securityConfig, String name, Class<? extends Authenticator> clazz, Module module)
     {
         checkArgument(name.toLowerCase(ENGLISH).equals(name), "name is not lower case: %s", name);
-        Module authModule = binder -> authenticatorBinder(binder).addBinding(name).to(clazz).in(Scopes.SINGLETON);
-        return conditionalModule(
-                SecurityConfig.class,
-                config -> authenticationTypes(config).contains(name),
-                combine(module, authModule));
+        if (authenticationTypes(securityConfig).contains(name)) {
+            return combine(module, binder -> authenticatorBinder(binder).addBinding(name).to(clazz).in(Scopes.SINGLETON));
+        }
+        return EMPTY_MODULE;
     }
 
-    private void installAuthenticator(String name, Class<? extends Authenticator> authenticator, Class<?> config)
+    private void installAuthenticator(SecurityConfig securityConfig, String name, Class<? extends Authenticator> authenticator, Class<?> config)
     {
-        install(authenticatorModule(name, authenticator, binder -> configBinder(binder).bindConfig(config)));
+        install(authenticatorModule(securityConfig, name, authenticator, binder -> configBinder(binder).bindConfig(config)));
     }
 
     private static MapBinder<String, Authenticator> authenticatorBinder(Binder binder)
@@ -129,10 +129,9 @@ public class ServerSecurityModule
                 .collect(toImmutableList());
     }
 
-    private void insecureHttpAuthenticationDefaults()
+    private void insecureHttpAuthenticationDefaults(SecurityConfig securityConfig)
     {
         HttpServerConfig httpServerConfig = buildConfigObject(HttpServerConfig.class);
-        SecurityConfig securityConfig = buildConfigObject(SecurityConfig.class);
         // if secure https authentication is enabled, disable insecure authentication over http
         if ((httpServerConfig.isHttpsEnabled() || httpServerConfig.getProcessForwarded() == ACCEPT) &&
                 !securityConfig.getAuthenticationTypes().equals(ImmutableList.of("insecure"))) {

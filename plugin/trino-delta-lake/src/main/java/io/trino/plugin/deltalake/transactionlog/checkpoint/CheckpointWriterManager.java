@@ -167,7 +167,7 @@ public class CheckpointWriterManager
             Location targetFile = transactionLogDir.appendPath("%020d.checkpoint.parquet".formatted(newCheckpointVersion));
             CheckpointWriter checkpointWriter = new CheckpointWriter(typeManager, checkpointSchemaManager, trinoVersion);
             CheckpointEntries checkpointEntries = checkpointBuilder.build();
-            TrinoOutputFile checkpointFile = fileSystemFactory.create(session, credentialsHandle).newOutputFile(targetFile);
+            TrinoOutputFile checkpointFile = fileSystem.newOutputFile(targetFile);
             checkpointWriter.write(checkpointEntries, checkpointFile);
 
             // update last checkpoint file

@@ -44,7 +44,6 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.bootstrap.ClosingBinder.closingBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorAccessOpened;
 import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorUnsafeAllowed;
@@ -68,6 +67,8 @@ public class BigQueryConnectorModule
         @Override
         protected void setup(Binder binder)
         {
+            BigQueryConfig config = buildConfigObject(BigQueryConfig.class);
+
             // BigQuery related
             binder.bind(BigQueryReadClientFactory.class).in(Scopes.SINGLETON);
             binder.bind(BigQueryWriteClientFactory.class).in(Scopes.SINGLETON);
@@ -85,10 +86,10 @@ public class BigQueryConnectorModule
             configBinder(binder).bindConfig(BigQueryConfig.class);
             configBinder(binder).bindConfig(BigQueryRpcConfig.class);
             newOptionalBinder(binder, BigQueryArrowBufferAllocator.class);
-            install(conditionalModule(
-                    BigQueryConfig.class,
-                    BigQueryConfig::isArrowSerializationEnabled,
-                    new ArrowSerializationModule()));
+
+            if (config.isArrowSerializationEnabled()) {
+                install(new ArrowSerializationModule());
+            }
             newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
             newSetBinder(binder, Procedure.class).addBinding().toProvider(ExecuteProcedure.class).in(Scopes.SINGLETON);
             newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(BigQuerySessionProperties.class).in(Scopes.SINGLETON);
@@ -101,14 +102,11 @@ public class BigQueryConnectorModule
             optionsConfigurers.addBinding().to(TracingOptionsConfigurer.class).in(Scopes.SINGLETON);
             newOptionalBinder(binder, ProxyTransportFactory.class);
 
-            install(conditionalModule(
-                    BigQueryConfig.class,
-                    BigQueryConfig::isProxyEnabled,
-                    proxyBinder -> {
-                        configBinder(proxyBinder).bindConfig(BigQueryProxyConfig.class);
-                        newSetBinder(proxyBinder, BigQueryOptionsConfigurer.class).addBinding().to(ProxyOptionsConfigurer.class).in(Scopes.SINGLETON);
-                        newOptionalBinder(binder, ProxyTransportFactory.class).setDefault().to(ProxyTransportFactory.DefaultProxyTransportFactory.class).in(Scopes.SINGLETON);
-                    }));
+            if (config.isProxyEnabled()) {
+                configBinder(binder).bindConfig(BigQueryProxyConfig.class);
+                newSetBinder(binder, BigQueryOptionsConfigurer.class).addBinding().to(ProxyOptionsConfigurer.class).in(Scopes.SINGLETON);
+                newOptionalBinder(binder, ProxyTransportFactory.class).setDefault().to(ProxyTransportFactory.DefaultProxyTransportFactory.class).in(Scopes.SINGLETON);
+            }
 
             closingBinder(binder).registerExecutor(ListeningExecutorService.class);
             closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForBigQueryPageSource.class));
