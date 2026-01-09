@@ -70,40 +70,58 @@ public final class ParquetTypeUtils
     }
 
     /* For backward-compatibility, the type of elements in LIST-annotated structures should always be determined by the following rules:
-     * 1. If the repeated field is not a group, then its type is the element type and elements are required.
-     * 2. If the repeated field is a group with multiple fields, then its type is the element type and elements are required.
-     * 3. If the repeated field is a group with one field and is named either array or uses the LIST-annotated group's name with _tuple appended then the repeated type is the element type and elements are required.
-     * 4. Otherwise, the repeated field's type is the element type with the repeated field's repetition.
      * https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists
      */
-    public static ColumnIO getArrayElementColumn(ColumnIO columnIO)
+    public static ColumnIO getArrayElementColumn(Type type, ColumnIO repeatedColumnIO)
     {
-        while (columnIO instanceof GroupColumnIO && !columnIO.getType().isRepetition(REPEATED)) {
-            columnIO = ((GroupColumnIO) columnIO).getChild(0);
+        // Rule: The field annotated with LIST must have a single REPEATED child.
+        if (!repeatedColumnIO.getType().isRepetition(REPEATED)) {
+            throw new IllegalArgumentException("Invalid LIST structure: child must be REPEATED.");
         }
 
-        /* If array has a standard 3-level structure with middle level repeated group with a single field:
-         *  optional group my_list (LIST) {
-         *     repeated group element {
-         *        required binary str (UTF8);
-         *     };
-         *  }
-         */
-        if (columnIO instanceof GroupColumnIO groupColumnIO &&
-                columnIO.getType().getLogicalTypeAnnotation() == null &&
-                groupColumnIO.getChildrenCount() == 1 &&
-                !columnIO.getName().equals("array") &&
-                !columnIO.getName().equals(columnIO.getParent().getName() + "_tuple")) {
-            return groupColumnIO.getChild(0);
+        // Rule: If the repeated field is NOT a group, it is the element type (e.g., repeated int32).
+        if (!(repeatedColumnIO instanceof GroupColumnIO repeatedGroup)) {
+            return repeatedColumnIO;
         }
 
-        /* Backward-compatibility support for 2-level arrays where a repeated field is not a group:
-         *   optional group my_list (LIST) {
-         *      repeated int32 element;
-         *   }
-         */
-        return columnIO;
+        int childrenCount = repeatedGroup.getChildrenCount();
+
+        // Rule: If the repeated field is a group with MULTIPLE fields, it is the element type (a Struct).
+        if (childrenCount > 1) {
+            return repeatedGroup;
+        }
+
+        // Rule: If the repeated field is a group with ONE field.
+        if (childrenCount == 1) {
+            ColumnIO child = repeatedGroup.getChild(0);
+
+            // 1. Legacy Exception (Double Repeated): If the single child is itself REPEATED,
+            // the repeated group is the element to avoid double-nesting.
+            if (child.getType().isRepetition(REPEATED)) {
+                return repeatedGroup;
+            }
+
+            // 2. Type-Driven Resolution:
+            // If the expected Trino type is a complex structure (ROW, ARRAY, or MAP),
+            // we check if we should stay at the 'repeatedGroup' level.
+            // This effectively replaces the old "array" or "_tuple" name-based checks.
+            if (type instanceof RowType || type instanceof ArrayType || type instanceof MapType) {
+                // Check if the repeatedGroup name indicates a legacy flattened element
+                String repeatedName = repeatedGroup.getType().getName();
+                if (repeatedName.equals("array") || repeatedName.endsWith("_tuple")) {
+                    return repeatedGroup;
+                }
+            }
+
+            // 3. Modern Standard:
+            // For standard 3-level lists, the 'child' is the actual data element.
+            // This covers cases where names are 'list'/'element' OR any other non-legacy names.
+            return child;
+        }
+
+        return repeatedGroup;
     }
+
 
     public static Map<List<String>, ColumnDescriptor> getDescriptors(MessageType fileSchema, MessageType requestedSchema)
     {
@@ -358,7 +376,7 @@ public final class ParquetTypeUtils
             if (groupColumnIO.getChildrenCount() != 1) {
                 return Optional.empty();
             }
-            Optional<Field> field = constructField(arrayType.getElementType(), getArrayElementColumn(groupColumnIO.getChild(0)), false);
+            Optional<Field> field = constructField(arrayType.getElementType(), getArrayElementColumn(arrayType.getElementType(), groupColumnIO.getChild(0)), false);
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
         }
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
