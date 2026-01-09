@@ -71,6 +71,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -167,6 +170,150 @@ public class TestLocalDispatchQuery
         localDispatchQuery.startWaitingForResources();
         countDownLatch.await();
         assertThat(localDispatchQuery.getDispatchInfo().getCoordinatorLocation()).isPresent();
+    }
+
+    /**
+     * Tests that fail() does not block when the queryExecutionFuture is still running,
+     * and verifies that the original failure cause is preserved (not replaced by CancellationException).
+     * This reproduces the scenario where:
+     * 1. Query analysis is in progress (e.g., blocked on HMS call)
+     * 2. Resource group rejects the query and calls fail()
+     * 3. fail() should not block waiting for the analysis to complete
+     * 4. The original failure cause should be preserved in the query state
+     */
+    @Test
+    public void testFailDoesNotBlockAndPreservesFailureCause()
+            throws Exception
+    {
+        ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-fail-test-%s"));
+        try {
+            Metadata metadata = createTestMetadataManager();
+            TransactionManager transactionManager = createTestTransactionManager();
+            AccessControlManager accessControl = new AccessControlManager(
+                    NodeVersion.UNKNOWN,
+                    transactionManager,
+                    emptyEventListenerManager(),
+                    new AccessControlConfig(),
+                    noop(),
+                    new SecretsResolver(ImmutableMap.of()),
+                    DefaultSystemAccessControl.NAME);
+            accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
+
+            QueryStateMachine queryStateMachine = QueryStateMachine.begin(
+                    Optional.empty(),
+                    "sql",
+                    Optional.empty(),
+                    TEST_SESSION,
+                    URI.create("fake://fake-query"),
+                    new ResourceGroupId("test"),
+                    false,
+                    transactionManager,
+                    accessControl,
+                    executor,
+                    metadata,
+                    WarningCollector.NOOP,
+                    createPlanOptimizersStatsCollector(),
+                    Optional.of(QueryType.DATA_DEFINITION),
+                    true,
+                    Optional.empty(),
+                    new NodeVersion("test"));
+
+            QueryMonitor queryMonitor = new QueryMonitor(
+                    JsonCodec.jsonCodec(StagesInfo.class),
+                    JsonCodec.jsonCodec(OperatorStats.class),
+                    JsonCodec.jsonCodec(ExecutionFailureInfo.class),
+                    JsonCodec.jsonCodec(StatsAndCosts.class),
+                    new EventListenerManager(new EventListenerConfig(), new SecretsResolver(ImmutableMap.of()), noop(), noopTracer(), new NodeVersion("test")),
+                    new NodeInfo("node"),
+                    new NodeVersion("version"),
+                    new SessionPropertyManager(),
+                    metadata,
+                    new FunctionManager(
+                            new ConnectorCatalogServiceProvider<>("function provider", new NoConnectorServicesProvider(), ConnectorServices::getFunctionProvider),
+                            new GlobalFunctionCatalog(
+                                    () -> { throw new UnsupportedOperationException(); },
+                                    () -> { throw new UnsupportedOperationException(); },
+                                    () -> { throw new UnsupportedOperationException(); }),
+                            LanguageFunctionProvider.DISABLED),
+                    new QueryMonitorConfig());
+
+            // Latch to signal when the "analysis" has started
+            CountDownLatch analysisStarted = new CountDownLatch(1);
+            // Latch to control when the "analysis" completes
+            CountDownLatch allowAnalysisToComplete = new CountDownLatch(1);
+            // Track any exceptions from fail()
+            AtomicReference<Throwable> failException = new AtomicReference<>();
+
+            // Submit the "analysis" work to the executor
+            ListenableFuture<Object> queryExecutionFuture = Futures.submit(() -> {
+                analysisStarted.countDown();
+                // Wait until test allows completion (interruptible is fine for this test)
+                allowAnalysisToComplete.await();
+                return null;
+            }, executor);
+
+            // Create LocalDispatchQuery with the future
+            @SuppressWarnings("unchecked")
+            LocalDispatchQuery localDispatchQuery = new LocalDispatchQuery(
+                    queryStateMachine,
+                    (ListenableFuture) queryExecutionFuture,
+                    queryMonitor,
+                    new TestClusterSizeMonitor(TestingInternalNodeManager.createDefault(), new NodeSchedulerConfig()),
+                    executor,
+                    _ -> {});
+
+            // Wait for analysis to start
+            assertThat(analysisStarted.await(5, TimeUnit.SECONDS)).isTrue();
+
+            // Call fail() - this should NOT block
+            String expectedErrorMessage = "Query queue full - test error";
+            CountDownLatch failCompleted = new CountDownLatch(1);
+            executor.submit(() -> {
+                try {
+                    localDispatchQuery.fail(new RuntimeException(expectedErrorMessage));
+                }
+                catch (Throwable t) {
+                    failException.set(t);
+                }
+                finally {
+                    failCompleted.countDown();
+                }
+            });
+
+            // fail() should complete quickly (not block on the running future)
+            assertThat(failCompleted.await(2, TimeUnit.SECONDS))
+                    .describedAs("fail() should not block when future is running")
+                    .isTrue();
+
+            // Check no exception was thrown from fail()
+            assertThat(failException.get()).isNull();
+
+            // Allow the analysis to complete (in case it's still running)
+            allowAnalysisToComplete.countDown();
+
+            // Wait for the state to transition to FAILED
+            CountDownLatch stateChangedToFailed = new CountDownLatch(1);
+            queryStateMachine.addStateChangeListener(state -> {
+                if (state == QueryState.FAILED) {
+                    stateChangedToFailed.countDown();
+                }
+            });
+
+            assertThat(stateChangedToFailed.await(5, TimeUnit.SECONDS))
+                    .describedAs("Query should transition to FAILED")
+                    .isTrue();
+
+            // Verify the query is in FAILED state
+            assertThat(queryStateMachine.getQueryState()).isEqualTo(QueryState.FAILED);
+
+            // Verify the original failure cause is preserved (not CancellationException)
+            Optional<ExecutionFailureInfo> failureInfo = queryStateMachine.getFailureInfo();
+            assertThat(failureInfo).isPresent();
+            assertThat(failureInfo.get().getMessage()).contains(expectedErrorMessage);
+        }
+        finally {
+            executor.shutdownNow();
+        }
     }
 
     private static class NoConnectorServicesProvider
