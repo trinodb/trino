@@ -18,10 +18,15 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.validation.FileExists;
+import io.airlift.units.Duration;
+import io.airlift.units.MaxDuration;
+import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
+
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
         "internal-communication.kerberos.enabled",
@@ -38,6 +43,7 @@ public class InternalCommunicationConfig
     private String trustStorePath;
     private String trustStorePassword;
     private boolean httpServerHttpsEnabled;
+    private Duration maxRequestAge = new Duration(3, MINUTES);
 
     @NotNull
     public Optional<String> getSharedSecret()
@@ -50,6 +56,21 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setSharedSecret(String sharedSecret)
     {
         this.sharedSecret = sharedSecret;
+        return this;
+    }
+
+    @MinDuration("30s")
+    @MaxDuration("15m")
+    public Duration getMaxRequestAge()
+    {
+        return maxRequestAge;
+    }
+
+    @Config("internal-communication.max-request-age")
+    @ConfigDescription("Maximum age of internal requests to be considered valid")
+    public InternalCommunicationConfig setMaxRequestAge(Duration maxRequestAge)
+    {
+        this.maxRequestAge = maxRequestAge;
         return this;
     }
 

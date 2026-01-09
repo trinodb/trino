@@ -14,61 +14,51 @@
 package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import com.google.inject.Inject;
 import io.airlift.http.client.HttpRequestFilter;
 import io.airlift.http.client.Request;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
-import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.JwtParser;
+import io.airlift.units.Duration;
 import io.trino.server.security.InternalPrincipal;
 import io.trino.server.security.SecurityConfig;
 import io.trino.spi.security.Identity;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Response;
 
-import javax.crypto.SecretKey;
+import java.net.URI;
+import java.util.Optional;
 
-import java.time.Instant;
-import java.time.ZonedDateTime;
-import java.util.Date;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
-import java.util.function.Supplier;
-
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.airlift.http.client.Request.Builder.fromRequest;
-import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
+import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
-import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
-import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
+import static jakarta.ws.rs.core.Response.Status.FORBIDDEN;
 import static jakarta.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE;
-import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
+import static java.lang.Long.parseLong;
+import static java.lang.System.currentTimeMillis;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.time.temporal.ChronoUnit.MINUTES;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class InternalAuthenticationManager
         implements HttpRequestFilter
 {
     private static final Logger log = Logger.get(InternalAuthenticationManager.class);
-    private static final Supplier<Instant> DEFAULT_EXPIRATION_SUPPLIER = () -> ZonedDateTime.now().plusMinutes(6).toInstant();
-    // Leave a 5 minute buffer to allow for clock skew and GC pauses
-    private static final Function<Instant, Instant> TOKEN_REUSE_THRESHOLD = instant -> instant.minus(5, MINUTES);
 
-    private static final String TRINO_INTERNAL_BEARER = "X-Trino-Internal-Bearer";
-
-    private final SecretKey hmac;
+    private final HashFunction hashing;
+    private final long maxRequestAgeMillis;
     private final String nodeId;
-    private final JwtParser jwtParser;
-    private final AtomicReference<InternalToken> currentToken;
     private final StartupStatus startupStatus;
 
     @Inject
     public InternalAuthenticationManager(InternalCommunicationConfig internalCommunicationConfig, SecurityConfig securityConfig, NodeInfo nodeInfo, StartupStatus startupStatus)
     {
-        this(getSharedSecret(internalCommunicationConfig, nodeInfo, !securityConfig.getAuthenticationTypes().equals(ImmutableList.of("insecure"))), nodeInfo.getNodeId(), startupStatus);
+        this(getSharedSecret(internalCommunicationConfig, nodeInfo, !securityConfig.getAuthenticationTypes().equals(ImmutableList.of("insecure"))), internalCommunicationConfig.getMaxRequestAge(), nodeInfo.getNodeId(), startupStatus);
     }
 
     private static String getSharedSecret(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo, boolean authenticationEnabled)
@@ -88,39 +78,23 @@ public class InternalAuthenticationManager
         return internalCommunicationConfig.getSharedSecret().orElseGet(nodeInfo::getEnvironment);
     }
 
-    public InternalAuthenticationManager(String sharedSecret, String nodeId, StartupStatus startupStatus)
+    public InternalAuthenticationManager(String sharedSecret, Duration maxRequestAge, String nodeId, StartupStatus startupStatus)
     {
         requireNonNull(sharedSecret, "sharedSecret is null");
         requireNonNull(nodeId, "nodeId is null");
-        this.startupStatus = requireNonNull(startupStatus, "startupStatus is null");
-        this.hmac = hmacShaKeyFor(Hashing.sha256().hashString(sharedSecret, UTF_8).asBytes());
+        requireNonNull(maxRequestAge, "maxRequestAge is null");
+        requireNonNull(startupStatus, "startupStatus is null");
+        this.hashing = Hashing.hmacSha256(sharedSecret.getBytes(UTF_8));
+        this.maxRequestAgeMillis = maxRequestAge.toMillis();
         this.nodeId = nodeId;
-        this.jwtParser = newJwtParserBuilder().verifyWith(hmac).build();
-        this.currentToken = new AtomicReference<>(createJwt());
+        this.startupStatus = startupStatus;
     }
 
-    public static boolean isInternalRequest(ContainerRequestContext request)
+    /**
+     * Returns true if the request was handled as an internal request.
+     */
+    public boolean handleInternalRequest(ContainerRequestContext request)
     {
-        return request.getHeaders().getFirst(TRINO_INTERNAL_BEARER) != null;
-    }
-
-    public void handleInternalRequest(ContainerRequestContext request)
-    {
-        String subject;
-        try {
-            subject = parseJwt(request.getHeaders().getFirst(TRINO_INTERNAL_BEARER));
-        }
-        catch (JwtException e) {
-            log.error(e, "Internal authentication failed");
-            request.abortWith(Response.status(UNAUTHORIZED)
-                    .type(TEXT_PLAIN_TYPE.toString())
-                    .build());
-            return;
-        }
-        catch (RuntimeException e) {
-            throw new RuntimeException("Authentication error", e);
-        }
-
         if (!startupStatus.isStartupComplete()) {
             request.abortWith(Response.status(SERVICE_UNAVAILABLE)
                     .type(TEXT_PLAIN_TYPE.toString())
@@ -128,65 +102,91 @@ public class InternalAuthenticationManager
                     .build());
         }
 
+        Optional<String> signature = getOptionalHeader(request, TRINO_HEADERS.requestInternalSignature());
+        // Not an internal request
+        if (signature.isEmpty()) {
+            return false;
+        }
+
+        String nodeId = getRequiredHeader(request, TRINO_HEADERS.requestInternalNodeId());
+        long validUntil = parseLong(getRequiredHeader(request, TRINO_HEADERS.requestInternalRequestValidUntil()));
+
+        if (validUntil < currentTimeMillis()) {
+            request.abortWith(unauthorizedResponse(request, "request expired %s seconds ago".formatted(Duration.succinctDuration(currentTimeMillis() - validUntil, MILLISECONDS))));
+        }
+
+        if (!signature.orElseThrow().equals(signature(nodeId, request.getMethod(), request.getUriInfo().getRequestUri(), validUntil))) {
+            request.abortWith(unauthorizedResponse(request, "request signature mismatch"));
+        }
+
         Identity identity = Identity.forUser("<internal>")
-                .withPrincipal(new InternalPrincipal(subject))
+                .withPrincipal(new InternalPrincipal(nodeId))
                 .build();
         setAuthenticatedIdentity(request, identity);
+        return true;
+    }
+
+    private String signature(String nodeId, String method, URI uri, long requestTimestampMillis)
+    {
+        String queryString = firstNonNull(uri.getQuery(), "");
+        return hashing
+                .newHasher()
+                .putUnencodedChars(nodeId)
+                .putByte(normalizeMethod(method))
+                .putUnencodedChars(uri.getPath())
+                .putUnencodedChars(queryString)
+                .putLong(requestTimestampMillis)
+                .hash()
+                .toString();
     }
 
     @Override
     public Request filterRequest(Request request)
     {
+        long validUntil = currentTimeMillis() + maxRequestAgeMillis;
         return fromRequest(request)
-                .addHeader(TRINO_INTERNAL_BEARER, getOrGenerateJwt())
+                .addHeader(TRINO_HEADERS.requestInternalSignature(), signature(nodeId, request.getMethod(), request.getUri(), validUntil))
+                .addHeader(TRINO_HEADERS.requestInternalNodeId(), nodeId)
+                .addHeader(TRINO_HEADERS.requestInternalRequestValidUntil(), Long.toString(validUntil))
                 .build();
     }
 
-    private String getOrGenerateJwt()
+    public static Response unauthorizedResponse(ContainerRequestContext requestContext, String error)
     {
-        InternalToken token = currentToken.get();
-        if (token.isExpired()) {
-            InternalToken newToken = createJwt();
-            if (currentToken.compareAndSet(token, newToken)) {
-                token = newToken;
-            }
-            else {
-                // Another thread already generated a new token
-                token = currentToken.get();
-            }
-        }
-        return token.token();
+        String errorMessage = "%s %s authentication failed: %s".formatted(requestContext.getMethod(), requestContext.getUriInfo().getPath(), error);
+        log.error(errorMessage);
+        return Response.status(FORBIDDEN)
+                .entity(errorMessage)
+                .type(TEXT_PLAIN_TYPE.toString())
+                .build();
     }
 
-    private InternalToken createJwt()
+    private static String getRequiredHeader(ContainerRequestContext request, String headerName)
     {
-        Instant expiration = DEFAULT_EXPIRATION_SUPPLIER.get();
-        return new InternalToken(expiration, newJwtBuilder()
-                .signWith(hmac)
-                .subject(nodeId)
-                .expiration(Date.from(expiration))
-                .compact());
+        String headerValue = request.getHeaderString(headerName);
+        if (headerValue == null || headerValue.isEmpty()) {
+            request.abortWith(unauthorizedResponse(request, "missing required signature header: " + headerName));
+        }
+        return headerValue;
     }
 
-    private String parseJwt(String jwt)
+    private static Optional<String> getOptionalHeader(ContainerRequestContext request, String headerName)
     {
-        return jwtParser
-                .parseSignedClaims(jwt)
-                .getPayload()
-                .getSubject();
+        return Optional.ofNullable(request.getHeaderString(headerName))
+                .filter(value -> !value.isEmpty());
     }
 
-    private record InternalToken(Instant expiration, String token)
+    private static byte normalizeMethod(String method)
     {
-        public InternalToken
-        {
-            expiration = TOKEN_REUSE_THRESHOLD.apply(requireNonNull(expiration, "expiration is null"));
-            requireNonNull(token, "token is null");
-        }
-
-        public boolean isExpired()
-        {
-            return Instant.now().isAfter(expiration);
-        }
+        return switch (method.toUpperCase(ENGLISH)) {
+            case "GET" -> 0x01;
+            case "POST" -> 0x02;
+            case "PUT" -> 0x03;
+            case "DELETE" -> 0x04;
+            case "HEAD" -> 0x05;
+            case "OPTIONS" -> 0x06;
+            case "PATCH" -> 0x07;
+            default -> 0x00;
+        };
     }
 }
