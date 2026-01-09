@@ -293,8 +293,9 @@ public class TestDeltaLakeConnectorTest
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 'bb')", 1);
 
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (x int, y int) with (checkpoint_interval = 2)");
+            assertQueryReturnsEmptyResult("TABLE " + table.getName());
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 3)", 1);
-            assertThat(query("SELECT * FROM " + table.getName()))
+            assertThat(query("TABLE " + table.getName()))
                     .matches("VALUES (3, 3)");
 
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (z varchar)");
@@ -310,8 +311,8 @@ public class TestDeltaLakeConnectorTest
             // generate a checkpoint
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 'bb')", 1);
 
-            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + "  AS SELECT 3 AS x, 3 AS y", 1);
-            assertThat(query("SELECT * FROM " + table.getName()))
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT 3 AS x, 3 AS y", 1);
+            assertThat(query("TABLE " + table.getName()))
                     .matches("VALUES (3, 3)");
 
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT 'test' AS z", 1);
