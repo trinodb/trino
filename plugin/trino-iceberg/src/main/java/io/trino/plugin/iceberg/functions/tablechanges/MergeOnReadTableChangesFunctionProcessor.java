@@ -19,24 +19,28 @@ import io.trino.spi.function.table.TableFunctionProcessorState;
 import io.trino.spi.function.table.TableFunctionSplitProcessor;
 
 import java.io.IOException;
-import java.util.concurrent.ExecutorService;
 
-public class TableChangesFunctionProcessor
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.util.Objects.requireNonNull;
+
+public class MergeOnReadTableChangesFunctionProcessor
         implements TableFunctionSplitProcessor
 {
     private final TableFunctionSplitProcessor delegate;
 
-    public TableChangesFunctionProcessor(
+    public MergeOnReadTableChangesFunctionProcessor(
             ConnectorSession session,
             TableChangesFunctionHandle functionHandle,
-            TableChangesSplit split,
-            IcebergPageSourceProvider icebergPageSourceProvider,
-            ExecutorService tableFunctionProcessorExecutor)
+            TableChangesSplit tableChangesSplit,
+            IcebergPageSourceProvider icebergPageSourceProvider)
     {
-        this.delegate = switch (split.operationMode()) {
-            case COPY_ON_WRITE -> new CopyOnWriteTableChangesFunctionProcessor(session, functionHandle, split, icebergPageSourceProvider, tableFunctionProcessorExecutor);
-            case MERGE_ON_READ -> new MergeOnReadTableChangesFunctionProcessor(session, functionHandle, split, icebergPageSourceProvider);
-        };
+        requireNonNull(session, "session is null");
+        requireNonNull(functionHandle, "functionHandle is null");
+        requireNonNull(tableChangesSplit, "tableChangesSplit is null");
+        requireNonNull(icebergPageSourceProvider, "icebergPageSourceProvider is null");
+
+        TableChangesInternalSplit split = (TableChangesInternalSplit) getOnlyElement(tableChangesSplit.splits());
+        this.delegate = new InternalTableChangesFunctionProcessor(session, functionHandle, split, icebergPageSourceProvider);
     }
 
     @Override
