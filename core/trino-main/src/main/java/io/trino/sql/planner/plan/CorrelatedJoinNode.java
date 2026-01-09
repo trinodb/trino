@@ -75,6 +75,8 @@ public class CorrelatedJoinNode
         this.input = input;
         this.subquery = subquery;
         this.correlation = ImmutableList.copyOf(correlation);
+        requireNonNull(type, "type is null");
+        checkArgument(type != JoinType.ASOF && type != JoinType.ASOF_LEFT, "ASOF joins are not supported for correlated joins");
         this.type = type;
         this.filter = filter;
         this.originSubquery = originSubquery;

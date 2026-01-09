@@ -142,9 +142,13 @@ public class JoinNode
         }
     }
 
-    public JoinNode flipChildren()
+    public Optional<JoinNode> flipChildren()
     {
-        return new JoinNode(
+        if (type == JoinType.ASOF || type == JoinType.ASOF_LEFT) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new JoinNode(
                 getId(),
                 flipType(type),
                 right,
@@ -157,7 +161,7 @@ public class JoinNode
                 distributionType,
                 spillable,
                 ImmutableMap.of(), // dynamicFilters are invalid after flipping children
-                reorderJoinStatsAndCost);
+                reorderJoinStatsAndCost));
     }
 
     private static JoinType flipType(JoinType type)
@@ -167,6 +171,7 @@ public class JoinNode
             case FULL -> FULL;
             case LEFT -> RIGHT;
             case RIGHT -> LEFT;
+            case ASOF, ASOF_LEFT -> throw new IllegalArgumentException("ASOF joins cannot be flipped");
         };
     }
 

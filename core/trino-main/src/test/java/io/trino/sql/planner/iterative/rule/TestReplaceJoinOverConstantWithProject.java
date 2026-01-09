@@ -39,6 +39,8 @@ import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.JoinType.ASOF;
+import static io.trino.sql.planner.plan.JoinType.ASOF_LEFT;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
@@ -202,6 +204,34 @@ public class TestReplaceJoinOverConstantWithProject
     }
 
     @Test
+    public void testReplaceAsofJoinWithProject()
+    {
+        // For ASOF, only right constant source is inlined
+        tester().assertThat(new ReplaceJoinOverConstantWithProject())
+                .on(p ->
+                        p.join(
+                                ASOF,
+                                p.values(5, p.symbol("c")),
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a", INTEGER), p.symbol("b", VARCHAR)), ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VARCHAR, Slices.utf8Slice("x"))))))))
+                .matches(
+                        project(
+                                ImmutableMap.of(
+                                        "a", PlanMatchPattern.expression(new Constant(INTEGER, 1L)),
+                                        "b", PlanMatchPattern.expression(new Constant(VARCHAR, Slices.utf8Slice("x"))),
+                                        "c", PlanMatchPattern.expression(new Reference(BIGINT, "c"))),
+                                values("c")));
+
+        // Left constant source should NOT be inlined for ASOF
+        tester().assertThat(new ReplaceJoinOverConstantWithProject())
+                .on(p ->
+                        p.join(
+                                ASOF,
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a", INTEGER), p.symbol("b", VARCHAR)), ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VARCHAR, Slices.utf8Slice("x")))))),
+                                p.values(5, p.symbol("c"))))
+                .doesNotFire();
+    }
+
+    @Test
     public void testReplaceLeftJoinWithProject()
     {
         tester().assertThat(new ReplaceJoinOverConstantWithProject())
@@ -231,6 +261,34 @@ public class TestReplaceJoinOverConstantWithProject
                                         "b", PlanMatchPattern.expression(new Constant(VARCHAR, Slices.utf8Slice("x"))),
                                         "c", PlanMatchPattern.expression(new Reference(BIGINT, "c"))),
                                 values("c")));
+    }
+
+    @Test
+    public void testReplaceAsofLeftJoinWithProject()
+    {
+        // For ASOF LEFT, only right constant source is inlined
+        tester().assertThat(new ReplaceJoinOverConstantWithProject())
+                .on(p ->
+                        p.join(
+                                ASOF_LEFT,
+                                p.values(5, p.symbol("c")),
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a", INTEGER), p.symbol("b", VARCHAR)), ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VARCHAR, Slices.utf8Slice("x"))))))))
+                .matches(
+                        project(
+                                ImmutableMap.of(
+                                        "a", PlanMatchPattern.expression(new Constant(INTEGER, 1L)),
+                                        "b", PlanMatchPattern.expression(new Constant(VARCHAR, Slices.utf8Slice("x"))),
+                                        "c", PlanMatchPattern.expression(new Reference(BIGINT, "c"))),
+                                values("c")));
+
+        // Left constant source should NOT be inlined for ASOF LEFT
+        tester().assertThat(new ReplaceJoinOverConstantWithProject())
+                .on(p ->
+                        p.join(
+                                ASOF_LEFT,
+                                p.valuesOfExpressions(ImmutableList.of(p.symbol("a", INTEGER), p.symbol("b", VARCHAR)), ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(VARCHAR, Slices.utf8Slice("x")))))),
+                                p.values(5, p.symbol("c"))))
+                .doesNotFire();
     }
 
     @Test

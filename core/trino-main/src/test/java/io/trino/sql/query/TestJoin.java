@@ -137,6 +137,275 @@ public class TestJoin
     }
 
     @Test
+    public void testAsofJoinExecution()
+    {
+        // <= direction
+        assertThat(assertions.query(
+                """
+                WITH
+                    a(t, k) AS (VALUES (1, 1), (2, 1), (3, 2)),
+                    b(t, k, v) AS (VALUES (1, 1, 'x'), (2, 1, 'y'), (4, 1, 'z'), (1, 2, 'q'))
+                SELECT a.t, a.k, b.v
+                FROM a ASOF JOIN b ON a.k = b.k AND b.t <= a.t
+                ORDER BY 1
+                """))
+                .matches("VALUES (1, 1, 'x'), (2, 1, 'y'), (3, 2, 'q')");
+
+        // >= direction
+        assertThat(assertions.query(
+                """
+                WITH
+                    a(t, k) AS (VALUES (1, 1), (2, 1), (3, 2)),
+                    b(t, k, v) AS (VALUES (1, 1, 'x'), (2, 1, 'y'), (4, 1, 'z'), (1, 2, 'q'))
+                SELECT a.t, a.k, b.v
+                FROM a ASOF JOIN b ON a.k = b.k AND b.t >= a.t
+                ORDER BY 1
+                """))
+                .matches("VALUES (1, 1, 'x'), (2, 1, 'y')");
+    }
+
+    @Test
+    public void testAsofJoinWithNullInequalityColumn()
+    {
+        assertThat(assertions.query(
+                """
+                WITH
+                    a(t, k) AS (VALUES (2, 1), (4, 1)),
+                    b(t, k, v) AS (VALUES (CAST(NULL AS INTEGER), 1, 'null'), (1, 1, 'one'), (3, 1, 'three'))
+                SELECT a.t, a.k, b.v
+                FROM a ASOF JOIN b ON a.k = b.k AND b.t <= a.t
+                ORDER BY 1
+                """))
+                .matches("VALUES (2, 1, 'one'), (4, 1, 'three')");
+    }
+
+    @Test
+    public void testAsofLeftJoinExecution()
+    {
+        // <= direction
+        assertThat(assertions.query(
+                """
+                WITH
+                    a(t, k) AS (VALUES (1, 1), (5, 1), (3, 3)),
+                    b(t, k, v) AS (VALUES (2, 1, 'm'), (4, 1, 'n'))
+                SELECT a.t, a.k, b.v
+                FROM a ASOF LEFT JOIN b ON a.k = b.k AND b.t <= a.t
+                ORDER BY 1
+                """))
+                .matches("VALUES (1, 1, NULL), (3, 3, NULL), (5, 1, 'n')");
+
+        // >= direction
+        assertThat(assertions.query(
+                """
+                WITH
+                    a(t, k) AS (VALUES (1, 1), (5, 1), (3, 3)),
+                    b(t, k, v) AS (VALUES (2, 1, 'm'), (4, 1, 'n'))
+                SELECT a.t, a.k, b.v
+                FROM a ASOF LEFT JOIN b ON a.k = b.k AND b.t >= a.t
+                ORDER BY 1
+                """))
+                .matches("VALUES (1, 1, 'm'), (3, 3, NULL), (5, 1, NULL)");
+    }
+
+    @Test
+    public void testAsofLeftJoinWithNullInequalityColumn()
+    {
+        assertThat(assertions.query(
+                """
+                WITH
+                    a(t, k) AS (VALUES (2, 1), (5, 1)),
+                    b(t, k, v) AS (VALUES (CAST(NULL AS INTEGER), 1, 'null'), (3, 1, 'three'))
+                SELECT a.t, a.k, b.v
+                FROM a ASOF LEFT JOIN b ON a.k = b.k AND b.t <= a.t
+                ORDER BY 1
+                """))
+                .matches("VALUES (2, 1, NULL), (5, 1, 'three')");
+    }
+
+    @Test
+    public void testAsofJoinStrictInequality()
+    {
+        // strict < direction
+        assertThat(assertions.query(
+                """
+                WITH
+                    a(t, k) AS (VALUES (2, 1)),
+                    b(t, k, v) AS (VALUES (1, 1, 'less_'), (2, 1, 'equal'))
+                SELECT b.v
+                FROM a ASOF JOIN b ON a.k = b.k AND b.t < a.t
+                """))
+                .matches("VALUES 'less_'");
+
+        // strict > direction
+        assertThat(assertions.query(
+                """
+                WITH
+                    a(t, k) AS (VALUES (2, 1)),
+                    b(t, k, v) AS (VALUES (1, 1, 'less_'), (2, 1, 'equal'))
+                SELECT b.v
+                FROM a ASOF JOIN b ON a.k = b.k AND b.t > a.t
+                """))
+                .returnsEmptyResult();
+    }
+
+    @Test
+    public void testAsofJoinWithAdditionalBuildFilter()
+    {
+        // Additional build-side predicate (b.t % 2 = 0) filters out closest candidate (odd timestamp),
+        // so the join selects the next valid candidate satisfying the inequality.
+        assertThat(assertions.query(
+                """
+                WITH
+                    a(t, k) AS (VALUES (3, 1), (5, 1)),
+                    b(t, k, v) AS (VALUES (2, 1, 'x2'), (4, 1, 'x4'), (5, 1, 'x5'))
+                SELECT a.t, a.k, b.v
+                FROM a ASOF JOIN b ON a.k = b.k AND b.t <= a.t AND (b.t % 2) = 0
+                ORDER BY 1
+                """))
+                .matches("VALUES (3, 1, 'x2'), (5, 1, 'x4')");
+    }
+
+    @Test
+    public void testAsofJoinWithoutEquiCondition()
+    {
+        // ASOF join using only inequality (no equi-conjunct)
+        assertThat(assertions.query(
+                """
+                WITH
+                    a(t) AS (VALUES 0, 1, 3),
+                    b(t, v) AS (VALUES (1, 'x1'), (2, 'x2'))
+                SELECT a.t, b.v
+                FROM a ASOF JOIN b ON b.t <= a.t
+                ORDER BY 1
+                """))
+                .matches("VALUES (1, 'x1'), (3, 'x2')");
+
+        // Reverse direction with only inequality (>=)
+        assertThat(assertions.query(
+                """
+                WITH
+                    a(t) AS (VALUES 0, 1, 3),
+                    b(t, v) AS (VALUES (1, 'x1'), (2, 'x2'))
+                SELECT a.t, b.v
+                FROM a ASOF JOIN b ON b.t >= a.t
+                ORDER BY 1
+                """))
+                .matches("VALUES (0, 'x1'), (1, 'x1')");
+    }
+
+    @Test
+    public void testAsofJoinWithExtraInequalities()
+    {
+        // Extra right-only inequality (b.t < 3) excludes the closest candidate for a.t = 3,
+        // changing the chosen match from b.t = 3 to b.t = 2.
+        assertThat(assertions.query(
+                """
+                WITH
+                    a(t, k) AS (VALUES (2, 1), (3, 1)),
+                    b(t, k, v) AS (VALUES (1, 1, 'v1'), (2, 1, 'v2'), (2, 1, 'v2'), (3, 1, 'v3'))
+                SELECT a.t, a.k, b.v
+                FROM a ASOF JOIN b
+                  ON a.k = b.k AND b.t <= a.t AND b.t < 3 AND a.t > 2
+                ORDER BY 1
+                """))
+                .matches("VALUES (3, 1, 'v2')");
+    }
+
+    @Test
+    public void testAsofJoinOrdersLikeWithValuesUsingCustkeyBound()
+    {
+        assertThat(assertions.query(
+                """
+                WITH
+                  o1(orderkey, custkey) AS (VALUES (1, 1), (2, 1), (3, 2)),
+                  o2(orderkey, custkey, v) AS (VALUES (1, 1, 'x'), (2, 1, 'y'), (4, 1, 'z'), (1, 2, 'q'), (2, 2, 'v'))
+                SELECT o1.custkey, o2.v
+                FROM o1 ASOF JOIN o2
+                  ON o1.custkey = o2.custkey AND o2.orderkey <= o1.custkey
+                ORDER BY 1, 2
+                """))
+                .matches("VALUES (1, 'x'), (1, 'x'), (2, 'v')");
+    }
+
+    @Test
+    public void testCorrelatedSubqueryInAsofJoinClause()
+    {
+        // Correlation in ASOF join clause is not allowed (treated like outer join for correlation purposes)
+        assertThat(assertions.query(
+                "SELECT * FROM (VALUES 1, 2) t(x) ASOF JOIN (VALUES 1, 3) u(x) ON t.x IN (SELECT v.x FROM (VALUES 1, 2) v(x) WHERE u.x = v.x)"))
+                .failure()
+                .hasMessageContaining("Reference to column 'u.x' from outer scope not allowed in this context");
+
+        assertThat(assertions.query(
+                "SELECT * FROM (VALUES 1, 2) t(x) ASOF JOIN (VALUES 1, 3) u(x) ON u.x IN (SELECT v.x FROM (VALUES 1, 2) v(x) WHERE t.x = v.x)"))
+                .failure()
+                .hasMessageContaining("Reference to column 't.x' from outer scope not allowed in this context");
+    }
+
+    @Test
+    public void testAsofJoinBuildSideComplexExpressionPushdown()
+    {
+        // Verify correctness when inequality uses complex build-side expression
+        assertThat(assertions.query(
+                """
+                WITH
+                    a(t, k) AS (VALUES (3, 1), (2, 1)),
+                    b(t, k) AS (VALUES (1, 1), (2, 1))
+                SELECT a.t, a.k, b.t
+                FROM a ASOF JOIN b ON a.k = b.k AND (b.t + 1) <= a.t
+                ORDER BY 1
+                """))
+                .matches("VALUES (2, 1, 1), (3, 1, 2)");
+    }
+
+    @Test
+    public void testAsofJoinBuildSideComplexExpressionPushdownNoBuildOutputs()
+    {
+        // Same as above, but ensure no build-side columns are projected in the output
+        assertThat(assertions.query(
+                """
+                WITH
+                    a(t, k) AS (VALUES (3, 1), (2, 1)),
+                    b(t, k) AS (VALUES (1, 1), (2, 1))
+                SELECT a.t, a.k
+                FROM a ASOF JOIN b ON a.k = b.k AND (b.t + 1) <= a.t
+                ORDER BY 1
+                """))
+                .matches("VALUES (2, 1), (3, 1)");
+    }
+
+    @Test
+    public void testAsofJoinBuildSideCastExpression()
+    {
+        // Build-side inequality uses CAST on the build column
+        assertThat(assertions.query(
+                """
+                WITH
+                    a(t, k) AS (VALUES (3, 1), (2, 1), (5, 1)),
+                    b(t, k) AS (VALUES (CAST('1' AS varchar), 1), (CAST('2' AS varchar), 1), (CAST('4' AS varchar), 1))
+                SELECT a.t, a.k, b.t
+                FROM a ASOF JOIN b ON a.k = b.k AND (CAST(b.t AS integer) + 1) <= a.t
+                ORDER BY 1
+                """))
+                .matches("VALUES (2, 1, CAST('1' AS VARCHAR)), (3, 1, CAST('2' AS VARCHAR)), (5, 1, CAST('4' AS VARCHAR))");
+    }
+
+    @Test
+    public void testCorrelatedSubqueryInAsofLeftJoinClause()
+    {
+        // Correlation in ASOF LEFT join clause is not allowed
+        assertThat(assertions.query(
+                "SELECT * FROM (VALUES 1, 2) t(x) ASOF LEFT JOIN (VALUES 1, 3) u(x) ON t.x IN (SELECT v.x FROM (VALUES 1, 2) v(x) WHERE u.x = v.x)"))
+                .failure()
+                .hasMessageContaining("Reference to column 'u.x' from outer scope not allowed in this context");
+
+        assertThat(assertions.query(
+                "SELECT * FROM (VALUES 1, 2) t(x) ASOF LEFT JOIN (VALUES 1, 3) u(x) ON u.x IN (SELECT v.x FROM (VALUES 1, 2) v(x) WHERE t.x = v.x)"))
+                .failure()
+                .hasMessageContaining("Reference to column 't.x' from outer scope not allowed in this context");
+    }
+
+    @Test
     public void testInPredicateInJoinCriteria()
     {
         // IN with subquery containing column references
