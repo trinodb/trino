@@ -13,6 +13,8 @@
  */
 package io.trino.parquet.reader;
 
+import io.trino.parquet.ParquetCorruptionException;
+
 import java.util.Optional;
 
 public interface ColumnReader
@@ -20,6 +22,9 @@ public interface ColumnReader
     boolean hasPageReader();
 
     void setPageReader(PageReader pageReader, Optional<FilteredRowRanges> rowRanges);
+
+    boolean dictionaryPredicateMatch(RowGroupInfo rowGroupInfo)
+            throws ParquetCorruptionException;
 
     void prepareNextRead(int batchSize);
 
