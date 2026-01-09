@@ -34,6 +34,7 @@ import java.util.UUID;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
+import static io.trino.plugin.iceberg.GeoSpatialUtils.isGeospatialType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampFromNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampToNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
@@ -143,6 +144,12 @@ public final class IcebergTypes
             return trinoUuidToJavaUuid(((Slice) trinoNativeValue));
         }
 
+        // Geometry and Geography should never reach here - they're excluded from
+        // predicate pushdown and statistics collection
+        if (isGeospatialType(type)) {
+            throw new UnsupportedOperationException("Geometry/Geography values cannot be converted for Iceberg expressions or statistics");
+        }
+
         throw new UnsupportedOperationException("Unsupported type: " + type);
     }
 
@@ -211,6 +218,12 @@ public final class IcebergTypes
         }
         if (icebergType instanceof Types.UUIDType) {
             return javaUuidToTrinoUuid((UUID) value);
+        }
+
+        // Geometry and Geography should never reach here - they're excluded from
+        // partitioning and statistics
+        if (icebergType instanceof Types.GeometryType || icebergType instanceof Types.GeographyType) {
+            throw new UnsupportedOperationException("Geometry/Geography values cannot be converted from Iceberg partition or statistics values");
         }
 
         throw new UnsupportedOperationException("Unsupported iceberg type: " + icebergType);

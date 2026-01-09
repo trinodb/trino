@@ -13,7 +13,6 @@
  */
 package io.trino.geospatial.serde;
 
-import com.google.common.base.VerifyException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.geospatial.GeometryType;
@@ -30,10 +29,14 @@ import static io.trino.geospatial.GeometryType.MULTI_POINT;
 import static io.trino.geospatial.GeometryType.MULTI_POLYGON;
 import static io.trino.geospatial.GeometryType.POINT;
 import static io.trino.geospatial.GeometryType.POLYGON;
+import static io.trino.geospatial.serde.JtsGeometrySerde.crsToSrid;
 import static io.trino.geospatial.serde.JtsGeometrySerde.deserialize;
 import static io.trino.geospatial.serde.JtsGeometrySerde.deserializeEnvelope;
 import static io.trino.geospatial.serde.JtsGeometrySerde.deserializeType;
+import static io.trino.geospatial.serde.JtsGeometrySerde.ewkbToWkb;
+import static io.trino.geospatial.serde.JtsGeometrySerde.extractSrid;
 import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
+import static io.trino.geospatial.serde.JtsGeometrySerde.wkbToEwkb;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -146,6 +149,31 @@ public class TestGeometrySerialization
     }
 
     @Test
+    public void testCrsToSridRejectsNonPositiveEpsgCodes()
+    {
+        assertThat(crsToSrid("EPSG:3857")).isEqualTo(3857);
+        assertThatThrownBy(() -> crsToSrid("EPSG:0"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid EPSG code: EPSG:0");
+        assertThatThrownBy(() -> crsToSrid("EPSG:-3857"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid EPSG code: EPSG:-3857");
+    }
+
+    @Test
+    public void testWkbToEwkbRejectsEwkbInput()
+    {
+        Geometry geometry = createJtsGeometry("POINT (1 2)");
+        geometry.setSRID(3857);
+        Slice ewkb = serialize(geometry);
+
+        assertThat(ewkbToWkb(ewkb)).isNotEqualTo(ewkb);
+        assertThatThrownBy(() -> wkbToEwkb(ewkb, 3857))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Input already has SRID flag set (expected WKB, got EWKB)");
+    }
+
+    @Test
     public void testEnvelope()
     {
         testEnvelopeSerialization(new Envelope(0, 1, 0, 1));
@@ -203,7 +231,24 @@ public class TestGeometrySerialization
     public void testDeserializeTypeRejectsInvalidByteOrder()
     {
         assertThatThrownBy(() -> deserializeType(Slices.wrappedBuffer(new byte[] {2, 1, 0, 0, 0})))
-                .isInstanceOf(VerifyException.class)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("invalid WKB endianness: 2");
+    }
+
+    @Test
+    public void testSridHelpersRejectInvalidByteOrder()
+    {
+        Slice invalidEwkb = Slices.wrappedBuffer(new byte[] {2, 1, 0, 0, 0, 0, 0, 0, 0});
+        assertThatThrownBy(() -> extractSrid(invalidEwkb))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("invalid WKB endianness: 2");
+        assertThatThrownBy(() -> ewkbToWkb(invalidEwkb))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("invalid WKB endianness: 2");
+
+        Slice invalidWkb = Slices.wrappedBuffer(new byte[] {2, 1, 0, 0, 0});
+        assertThatThrownBy(() -> wkbToEwkb(invalidWkb, 4326))
+                .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("invalid WKB endianness: 2");
     }
 
