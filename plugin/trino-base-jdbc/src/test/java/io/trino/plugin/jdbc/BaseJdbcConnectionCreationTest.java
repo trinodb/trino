@@ -25,6 +25,7 @@ import java.sql.SQLException;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Verify.verify;
@@ -94,8 +95,15 @@ public abstract class BaseJdbcConnectionCreationTest
         public Connection openConnection(ConnectorSession session)
                 throws SQLException
         {
+            return openConnection(session, new Properties());
+        }
+
+        @Override
+        public Connection openConnection(ConnectorSession session, Properties properties)
+                throws SQLException
+        {
             openConnections.incrementAndGet();
-            Connection connection = delegate.openConnection(session);
+            Connection connection = delegate.openConnection(session, properties);
             Exception previous = connectionCreations.put(connection, new Exception("STACKTRACE"));
             if (previous != null) {
                 // connectionCreations do not support two connections at a time yet

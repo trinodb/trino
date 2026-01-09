@@ -451,6 +451,14 @@ public class RetryingJdbcClient
     }
 
     @Override
+    public Connection getConnection(ConnectorSession session, boolean readOnly)
+            throws SQLException
+    {
+        // retry already implemented by RetryingConnectionFactory
+        return delegate.getConnection(session, readOnly);
+    }
+
+    @Override
     public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException
     {

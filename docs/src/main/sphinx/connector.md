@@ -40,6 +40,7 @@ Redis           <connector/redis>
 Redshift        <connector/redshift>
 SingleStore     <connector/singlestore>
 Snowflake       <connector/snowflake>
+SQLite          <connector/sqlite>
 SQL Server      <connector/sqlserver>
 System          <connector/system>
 Thrift          <connector/thrift>
