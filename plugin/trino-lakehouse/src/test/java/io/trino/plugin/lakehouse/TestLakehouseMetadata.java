@@ -22,9 +22,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionId;
-import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
@@ -47,11 +45,7 @@ public class TestLakehouseMetadata
                     .add(ConnectorMetadata.class.getMethod("supportsMissingColumnsOnInsert"))
                     .add(ConnectorMetadata.class.getMethod("refreshMaterializedView", ConnectorSession.class, SchemaTableName.class))
                     .add(ConnectorMetadata.class.getMethod("resolveIndex", ConnectorSession.class, ConnectorTableHandle.class, Set.class, Set.class, TupleDomain.class))
-                    .add(ConnectorMetadata.class.getMethod("listFunctions", ConnectorSession.class, String.class))
-                    .add(ConnectorMetadata.class.getMethod("getFunctions", ConnectorSession.class, SchemaFunctionName.class))
-                    .add(ConnectorMetadata.class.getMethod("getFunctionMetadata", ConnectorSession.class, FunctionId.class))
                     .add(ConnectorMetadata.class.getMethod("getAggregationFunctionMetadata", ConnectorSession.class, FunctionId.class))
-                    .add(ConnectorMetadata.class.getMethod("getFunctionDependencies", ConnectorSession.class, FunctionId.class, BoundSignature.class))
                     .add(ConnectorMetadata.class.getMethod("applyJoin", ConnectorSession.class, JoinType.class, ConnectorTableHandle.class, ConnectorTableHandle.class, ConnectorExpression.class, Map.class, Map.class, JoinStatistics.class))
                     .add(ConnectorMetadata.class.getMethod("applyTableFunction", ConnectorSession.class, ConnectorTableFunctionHandle.class))
                     .add(ConnectorMetadata.class.getMethod("applyTableScanRedirect", ConnectorSession.class, ConnectorTableHandle.class))
