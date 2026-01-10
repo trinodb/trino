@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.exchange.filesystem.alluxio;
 
+import io.airlift.log.Level;
+import io.airlift.log.Logging;
 import io.trino.plugin.exchange.filesystem.AbstractTestExchangeManager;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeManagerFactory;
 import io.trino.plugin.exchange.filesystem.TestExchangeManagerContext;
@@ -25,6 +27,11 @@ import static io.trino.plugin.exchange.filesystem.containers.AlluxioStorage.getE
 public class TestAlluxioFileSystemExchangeManager
         extends AbstractTestExchangeManager
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("io.trino.bootstrap.exchange", Level.ERROR);
+    }
+
     private Alluxio alluxio;
 
     @Override

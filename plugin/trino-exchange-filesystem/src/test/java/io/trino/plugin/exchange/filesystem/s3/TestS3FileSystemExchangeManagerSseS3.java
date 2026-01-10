@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.exchange.filesystem.s3;
 
+import io.airlift.log.Level;
+import io.airlift.log.Logging;
 import io.trino.plugin.exchange.filesystem.AbstractTestExchangeManager;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeManagerFactory;
 import io.trino.plugin.exchange.filesystem.TestExchangeManagerContext;
@@ -27,6 +29,11 @@ import static java.util.UUID.randomUUID;
 public class TestS3FileSystemExchangeManagerSseS3
         extends AbstractTestExchangeManager
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("io.trino.bootstrap.exchange", Level.ERROR);
+    }
+
     private MinioStorage minioStorage;
 
     @Override
