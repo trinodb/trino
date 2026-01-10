@@ -81,8 +81,8 @@ public class EnvSinglenodeSparkHive
     @SuppressWarnings("resource")
     private DockerContainer createSpark()
     {
-        // TODO: Switch to pure Spark 3 image once it's available (https://github.com/trinodb/trino/issues/7063)
-        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark3-iceberg:" + hadoopImagesVersion, "spark")
+        // TODO: Switch to pure Spark 4 image once it's available (https://github.com/trinodb/trino/issues/7063)
+        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark4-iceberg:" + hadoopImagesVersion, "spark")
                 .withEnv("HADOOP_USER_NAME", "hive")
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-hive/spark-defaults.conf")),
