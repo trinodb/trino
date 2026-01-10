@@ -505,15 +505,20 @@ public class S3FileSystemExchangeStorage
                 .httpClientBuilder(NettyNioAsyncHttpClient.builder()
                         .maxConcurrency(maxConcurrency)
                         .maxPendingConnectionAcquires(maxPendingConnectionAcquires)
-                        .connectionAcquisitionTimeout(java.time.Duration.ofMillis(connectionAcquisitionTimeout.toMillis())))
-                .endpointOverride(endpoint.map(URI::create).orElseGet(() -> AwsClientEndpointProvider.builder()
-                        .serviceEndpointPrefix("s3")
-                        .defaultProtocol("http")
-                        .region(region.orElseThrow(() -> new IllegalArgumentException("region is expected to be set")))
-                        .build()
-                        .clientEndpoint()));
+                        .connectionAcquisitionTimeout(java.time.Duration.ofMillis(connectionAcquisitionTimeout.toMillis())));
 
+        // Explicitly set region to ensure proper S3 endpoint resolution
+        // This is critical when using Trino with S3 Tables catalogs to prevent
+        // endpoint configuration conflicts between catalog operations (which may use
+        // S3 Tables endpoints) and exchange manager operations (which must use
+        // standard S3 endpoints)
         region.ifPresent(clientBuilder::region);
+
+        // Only override endpoint if explicitly configured
+        // When not set, the SDK will use the standard regional S3 endpoint
+        // based on the configured region, ensuring isolation from any
+        // S3 Tables-specific endpoint configurations
+        endpoint.map(URI::create).ifPresent(clientBuilder::endpointOverride);
 
         return clientBuilder.build();
     }
