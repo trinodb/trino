@@ -28,6 +28,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKTReader;
 
 import java.util.Arrays;
 import java.util.List;
@@ -334,13 +338,13 @@ public class TestGeoFunctions
     private void assertApproximateCentroid(String wkt, Coordinate expectedCentroid, double epsilon)
     {
         try {
-            org.locationtech.jts.geom.Geometry geometry = JtsGeometrySerde.deserialize(
-                    stCentroid(JtsGeometrySerde.serialize(new org.locationtech.jts.io.WKTReader().read(wkt))));
-            org.locationtech.jts.geom.Point actualCentroid = (org.locationtech.jts.geom.Point) geometry;
+            Geometry geometry = JtsGeometrySerde.deserialize(
+                    stCentroid(JtsGeometrySerde.serialize(new WKTReader().read(wkt))));
+            Point actualCentroid = (Point) geometry;
             assertThat(expectedCentroid.getX()).isCloseTo(actualCentroid.getX(), within(epsilon));
             assertThat(expectedCentroid.getY()).isCloseTo(actualCentroid.getY(), within(epsilon));
         }
-        catch (org.locationtech.jts.io.ParseException e) {
+        catch (ParseException e) {
             throw new RuntimeException(e);
         }
     }
