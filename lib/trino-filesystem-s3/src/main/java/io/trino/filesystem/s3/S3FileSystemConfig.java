@@ -159,6 +159,7 @@ public class S3FileSystemConfig
     private String sseKmsKeyId;
     private String sseCustomerKey;
     private boolean useWebIdentityTokenCredentialsProvider;
+    private boolean anonymousAccess;
     private SignerType signerType;
     private DataSize streamingPartSize = DataSize.of(32, MEGABYTE);
     private boolean requesterPays;
@@ -397,6 +398,19 @@ public class S3FileSystemConfig
         return this;
     }
 
+    public boolean isAnonymousAccess()
+    {
+        return anonymousAccess;
+    }
+
+    @Config("s3.anonymous-access")
+    @ConfigDescription("Use anonymous credentials for accessing public S3 buckets")
+    public S3FileSystemConfig setAnonymousAccess(boolean anonymousAccess)
+    {
+        this.anonymousAccess = anonymousAccess;
+        return this;
+    }
+
     public String getSseCustomerKey()
     {
         return sseCustomerKey;
@@ -416,6 +430,21 @@ public class S3FileSystemConfig
     {
         if (sseType == S3SseType.CUSTOMER) {
             return sseCustomerKey != null;
+        }
+        return true;
+    }
+
+    @AssertTrue(message = "s3.anonymous-access cannot be used with other authentication methods (s3.aws-access-key, s3.aws-secret-key, s3.iam-role, s3.external-id, s3.sts.endpoint, s3.sts.region, s3.use-web-identity-token-credentials-provider)")
+    public boolean isAnonymousAccessConfigValid()
+    {
+        if (anonymousAccess) {
+            return awsAccessKey == null &&
+                    awsSecretKey == null &&
+                    iamRole == null &&
+                    externalId == null &&
+                    stsEndpoint == null &&
+                    stsRegion == null &&
+                    !useWebIdentityTokenCredentialsProvider;
         }
         return true;
     }
