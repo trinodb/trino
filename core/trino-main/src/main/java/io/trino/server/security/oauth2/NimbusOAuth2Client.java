@@ -117,13 +117,24 @@ public class NimbusOAuth2Client
         principalField = oauthConfig.getPrincipalField();
         maxClockSkew = oauthConfig.getMaxClockSkew();
         jwtType = oauthConfig.getJwtType();
-
-        accessTokenAudiences = new HashSet<>(oauthConfig.getAdditionalAudiences());
-        accessTokenAudiences.add(clientId.getValue());
-        accessTokenAudiences.add(null); // A null value in the set allows JWTs with no audience
+        accessTokenAudiences = getAccessTokenAudiences(oauthConfig);
 
         this.serverConfigurationProvider = requireNonNull(serverConfigurationProvider, "serverConfigurationProvider is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+    }
+
+    private static Set<String> getAccessTokenAudiences(OAuth2Config oauthConfig)
+    {
+        HashSet<String> audiences = new HashSet<>();
+        audiences.add(oauthConfig.getClientId());
+        audiences.addAll(oauthConfig.getAdditionalAudiences());
+
+        if (!oauthConfig.isRequireAudience()) {
+             // A null value in the set allows JWTs with no audience
+            audiences.add(null);
+        }
+
+        return audiences;
     }
 
     @Override
