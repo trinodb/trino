@@ -211,6 +211,7 @@ import io.trino.type.JsonPath2016Type;
 import io.trino.type.TypeDeserializer;
 import io.trino.util.FinalizerService;
 import org.intellij.lang.annotations.Language;
+import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -392,7 +393,7 @@ public class PlanTester
         this.joinCompiler = new JoinCompiler(typeOperators);
         this.hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators, new NullSafeHashCompiler(typeOperators));
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(hashStrategyCompiler);
-        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig(), secretsResolver, noop(), tracer, CURRENT_NODE.getNodeVersion());
+        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig(), secretsResolver, noop(), tracer, new TestingMBeanServer(), CURRENT_NODE.getNodeVersion());
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager, secretsResolver);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
 
@@ -410,7 +411,8 @@ public class PlanTester
                 typeManager,
                 nodeSchedulerConfig,
                 optimizerConfig,
-                secretsResolver));
+                secretsResolver,
+                new TestingMBeanServer()));
         this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), tracer, new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProviderFactory(catalogManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
@@ -475,13 +477,14 @@ public class PlanTester
                 ImmutableSet.of(),
                 ImmutableSet.of(new ExcludeColumnsFunction()));
 
-        exchangeManagerRegistry = new ExchangeManagerRegistry(noop(), noopTracer(), secretsResolver, new ExchangeManagerConfig());
+        exchangeManagerRegistry = new ExchangeManagerRegistry(noop(), noopTracer(), new TestingMBeanServer(), secretsResolver, new ExchangeManagerConfig());
         SpoolingManagerRegistry spoolingManagerRegistry = new SpoolingManagerRegistry(
                 new InternalNode("nodeId", URI.create("http://localhost:8080"), NodeVersion.UNKNOWN, false),
                 new ServerConfig(),
                 new SpoolingEnabledConfig(),
                 noop(),
-                noopTracer());
+                noopTracer(),
+                new TestingMBeanServer());
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
                 Optional.empty(),

@@ -30,10 +30,12 @@ import static java.util.Objects.requireNonNull;
 public class ExampleConnectorFactory
         implements ConnectorFactory
 {
+    static final String CONNECTOR_NAME = "example_http";
+
     @Override
     public String getName()
     {
-        return "example_http";
+        return CONNECTOR_NAME;
     }
 
     @Override
@@ -47,7 +49,7 @@ public class ExampleConnectorFactory
                 "io.trino.bootstrap.catalog." + catalogName,
                 new JsonModule(),
                 new TypeDeserializerModule(),
-                new ConnectorContextModule(catalogName, context),
+                new ConnectorContextModule(CONNECTOR_NAME, catalogName, context),
                 new ExampleModule());
 
         Injector injector = app

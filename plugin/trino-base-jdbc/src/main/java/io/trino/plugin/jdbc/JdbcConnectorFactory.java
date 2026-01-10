@@ -56,7 +56,7 @@ public class JdbcConnectorFactory
 
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
-                new ConnectorContextModule(catalogName, context),
+                new ConnectorContextModule(name, catalogName, context),
                 new JdbcModule(),
                 module.get());
 

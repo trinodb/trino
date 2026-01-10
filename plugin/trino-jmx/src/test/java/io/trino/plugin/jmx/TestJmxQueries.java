@@ -52,13 +52,11 @@ public class TestJmxQueries
         assertions = null;
     }
 
-    private static final Set<String> STANDARD_NAMES = ImmutableSet.<String>builder()
-            .add("java.lang:type=ClassLoading")
-            .add("java.lang:type=Memory")
-            .add("java.lang:type=OperatingSystem")
-            .add("java.lang:type=Runtime")
-            .add("java.lang:type=Threading")
-            .add("java.util.logging:type=Logging")
+    // Since tests run with TestingMBeanServer we can only query beans exposed by Trino but not the platform ones
+    private static final Set<String> STANDARD_TRINO_NAMES = ImmutableSet.<String>builder()
+            .add("trino.type:name=typeoperatorscache")
+            .add("trino.server:name=statementhttpexecutionmbean")
+            .add("io.airlift.http.client:name=forexchange,type=httpclient")
             .build();
 
     @Test
@@ -71,7 +69,7 @@ public class TestJmxQueries
     @Test
     public void testShowTables()
     {
-        Set<String> standardNamesLower = STANDARD_NAMES.stream()
+        Set<String> standardNamesLower = STANDARD_TRINO_NAMES.stream()
                 .map(name -> name.toLowerCase(Locale.ENGLISH))
                 .collect(toImmutableSet());
 
@@ -82,7 +80,7 @@ public class TestJmxQueries
     @Test
     public void testQuery()
     {
-        for (String name : STANDARD_NAMES) {
+        for (String name : STANDARD_TRINO_NAMES) {
             assertThat(assertions.query("SELECT * FROM \"%s\"".formatted(name)))
                     .succeeds();
         }
@@ -91,15 +89,15 @@ public class TestJmxQueries
     @Test
     public void testNodeCount()
     {
-        assertThat(assertions.query("SELECT DISTINCT node FROM \"%s\"".formatted(STANDARD_NAMES.iterator().next())))
+        assertThat(assertions.query("SELECT DISTINCT node FROM \"%s\"".formatted(STANDARD_TRINO_NAMES.iterator().next())))
                 .matches("SELECT node_id FROM system.runtime.nodes");
     }
 
     @Test
     public void testOrderOfParametersIsIgnored()
     {
-        assertThat(assertions.query("SELECT node FROM \"java.nio:type=bufferpool,name=direct\""))
-                .matches("SELECT node FROM \"java.nio:name=direct,type=bufferpool\"");
+        assertThat(assertions.query("SELECT node FROM \"trino.sql.planner.iterative:name=iterativeoptimizer,rule=transformuncorrelatedsubquerytojoin\""))
+                .matches("SELECT node FROM \"trino.sql.planner.iterative:rule=transformuncorrelatedsubquerytojoin,name=iterativeoptimizer\"");
     }
 
     @Test
@@ -108,13 +106,10 @@ public class TestJmxQueries
         assertThat(assertions.query("SELECT * FROM \"*:*\""))
                 .succeeds();
 
-        assertThat(assertions.query("SELECT * FROM \"java.util.logging:*\""))
+        assertThat(assertions.query("SELECT * FROM \"trino.type:*\""))
                 .succeeds();
 
-        assertThat(assertions.query("SELECT * FROM \"java.lang:*\""))
-                .result().rowCount().isGreaterThan(1);
-
-        assertThat(assertions.query("SELECT * FROM \"jAVA.LANg:*\""))
+        assertThat(assertions.query("SELECT * FROM \"trIno.typE:*\""))
                 .result().rowCount().isGreaterThan(1);
     }
 }

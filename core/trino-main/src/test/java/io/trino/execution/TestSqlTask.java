@@ -49,6 +49,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
+import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.net.URI;
 import java.util.Optional;
@@ -455,7 +456,7 @@ public class TestSqlTask
                 sqlTask -> {},
                 DataSize.of(32, MEGABYTE),
                 DataSize.of(200, MEGABYTE),
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new TestingMBeanServer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
                 new CounterStat());
     }
 }
