@@ -13,13 +13,10 @@
  */
 package io.trino.plugin.geospatial;
 
-import com.esri.core.geometry.Point;
-import com.esri.core.geometry.ogc.OGCGeometry;
-import com.esri.core.geometry.ogc.OGCPoint;
 import com.google.common.collect.ImmutableList;
 import io.trino.geospatial.KdbTreeUtils;
 import io.trino.geospatial.Rectangle;
-import io.trino.geospatial.serde.GeometrySerde;
+import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
@@ -30,6 +27,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import org.locationtech.jts.geom.Coordinate;
 
 import java.util.Arrays;
 import java.util.List;
@@ -43,6 +41,7 @@ import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -312,32 +311,38 @@ public class TestGeoFunctions
                 "ST_Centroid(ST_GeometryFromText('POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0), (1 1, 1 2, 2 2, 2 1, 1 1))'))",
                 "POINT (2.5416666666666665 2.5416666666666665)");
 
-        assertApproximateCentroid("MULTIPOLYGON (((4.903234300000006 52.08474289999999, 4.903234265193165 52.084742934806826, 4.903234299999999 52.08474289999999, 4.903234300000006 52.08474289999999)))", new Point(4.9032343, 52.0847429), 1e-7);
+        assertApproximateCentroid("MULTIPOLYGON (((4.903234300000006 52.08474289999999, 4.903234265193165 52.084742934806826, 4.903234299999999 52.08474289999999, 4.903234300000006 52.08474289999999)))", new Coordinate(4.9032343, 52.0847429), 1e-7);
 
         // Numerical stability tests
         assertApproximateCentroid(
                 "MULTIPOLYGON (((153.492818 -28.13729, 153.492821 -28.137291, 153.492816 -28.137289, 153.492818 -28.13729)))",
-                new Point(153.49282, -28.13729), 1e-5);
+                new Coordinate(153.49282, -28.13729), 1e-5);
         assertApproximateCentroid(
                 "MULTIPOLYGON (((153.112475 -28.360526, 153.1124759 -28.360527, 153.1124759 -28.360526, 153.112475 -28.360526)))",
-                new Point(153.112475, -28.360526), 1e-5);
+                new Coordinate(153.112475, -28.360526), 1e-5);
         assertApproximateCentroid(
                 "POLYGON ((4.903234300000006 52.08474289999999, 4.903234265193165 52.084742934806826, 4.903234299999999 52.08474289999999, 4.903234300000006 52.08474289999999))",
-                new Point(4.9032343, 52.0847429), 1e-6);
+                new Coordinate(4.9032343, 52.0847429), 1e-6);
         assertApproximateCentroid(
                 "MULTIPOLYGON (((4.903234300000006 52.08474289999999, 4.903234265193165 52.084742934806826, 4.903234299999999 52.08474289999999, 4.903234300000006 52.08474289999999)))",
-                new Point(4.9032343, 52.0847429), 1e-6);
+                new Coordinate(4.9032343, 52.0847429), 1e-6);
         assertApproximateCentroid(
                 "POLYGON ((-81.0387349 29.20822, -81.039974 29.210597, -81.0410331 29.2101579, -81.0404758 29.2090879, -81.0404618 29.2090609, -81.040433 29.209005, -81.0404269 29.208993, -81.0404161 29.2089729, -81.0398001 29.20779, -81.0387349 29.20822), (-81.0404229 29.208986, -81.04042 29.2089809, -81.0404269 29.208993, -81.0404229 29.208986))",
-                new Point(-81.039885, 29.209191), 1e-6);
+                new Coordinate(-81.039885, 29.209191), 1e-6);
     }
 
-    private void assertApproximateCentroid(String wkt, Point expectedCentroid, double epsilon)
+    private void assertApproximateCentroid(String wkt, Coordinate expectedCentroid, double epsilon)
     {
-        OGCPoint actualCentroid = (OGCPoint) GeometrySerde.deserialize(
-                stCentroid(GeometrySerde.serialize(OGCGeometry.fromText(wkt))));
-        assertThat(expectedCentroid.getX()).isCloseTo(actualCentroid.X(), within(epsilon));
-        assertThat(expectedCentroid.getY()).isCloseTo(actualCentroid.Y(), within(epsilon));
+        try {
+            org.locationtech.jts.geom.Geometry geometry = JtsGeometrySerde.deserialize(
+                    stCentroid(JtsGeometrySerde.serialize(new org.locationtech.jts.io.WKTReader().read(wkt))));
+            org.locationtech.jts.geom.Point actualCentroid = (org.locationtech.jts.geom.Point) geometry;
+            assertThat(expectedCentroid.getX()).isCloseTo(actualCentroid.getX(), within(epsilon));
+            assertThat(expectedCentroid.getY()).isCloseTo(actualCentroid.getY(), within(epsilon));
+        }
+        catch (org.locationtech.jts.io.ParseException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Test
@@ -953,8 +958,8 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_Points", "ST_GeometryFromText('POLYGON EMPTY')"))
                 .isNull(new ArrayType(GEOMETRY));
 
-        assertSTPoints("POLYGON ((8 4, 3 9, 5 6, 8 4))", "8 4", "5 6", "3 9", "8 4");
-        assertSTPoints("POLYGON ((8 4, 3 9, 5 6, 7 2, 8 4))", "8 4", "7 2", "5 6", "3 9", "8 4");
+        assertSTPoints("POLYGON ((8 4, 3 9, 5 6, 8 4))", "8 4", "3 9", "5 6", "8 4");
+        assertSTPoints("POLYGON ((8 4, 3 9, 5 6, 7 2, 8 4))", "8 4", "3 9", "5 6", "7 2", "8 4");
 
         assertThat(assertions.function("ST_Points", "ST_GeometryFromText('POINT EMPTY')"))
                 .isNull(new ArrayType(GEOMETRY));
@@ -979,7 +984,7 @@ public class TestGeoFunctions
                 .isNull(new ArrayType(GEOMETRY));
 
         assertSTPoints("MULTIPOLYGON (((0 0, 4 0, 4 4, 0 4, 0 0), (1 1, 2 1, 2 2, 1 2, 1 1)), ((-1 -1, -1 -2, -2 -2, -2 -1, -1 -1)))",
-                "0 0", "0 4", "4 4", "4 0", "0 0",
+                "0 0", "4 0", "4 4", "0 4", "0 0",
                 "1 1", "2 1", "2 2", "1 2", "1 1",
                 "-1 -1", "-1 -2", "-2 -2", "-2 -1", "-1 -1");
 
@@ -1000,8 +1005,8 @@ public class TestGeoFunctions
                 "                  (( 5 4, 5 8, 6 7, 5 4 ))",
                 "           )",
                 ")");
-        assertSTPoints(geometryCollection, "0 1", "0 3", "3 4", "2 0", "0 2", "2 3", "2 0", "3 0", "3 3", "6 3", "6 0", "3 0",
-                "5 1", "5 2", "4 2", "5 1", "0 5", "0 8", "4 8", "4 5", "0 5", "1 6", "3 6", "2 7", "1 6", "5 4", "5 8", "6 7", "5 4");
+        assertSTPoints(geometryCollection, "0 1", "0 3", "3 4", "2 0", "2 3", "0 2", "2 0", "3 0", "3 3", "6 3", "6 0", "3 0",
+                "5 1", "4 2", "5 2", "5 1", "0 5", "0 8", "4 8", "4 5", "0 5", "1 6", "3 6", "2 7", "1 6", "5 4", "5 8", "6 7", "5 4");
     }
 
     private void assertSTPoints(String wkt, String... expected)
@@ -1102,25 +1107,34 @@ public class TestGeoFunctions
     @Test
     public void testSTEnvelopeAsPts()
     {
-        assertEnvelopeAsPts("MULTIPOINT (1 2, 2 4, 3 6, 4 8)", new Point(1, 2), new Point(4, 8));
+        assertEnvelopeAsPts("MULTIPOINT ((1 2), (2 4), (3 6), (4 8))", new Coordinate(1, 2), new Coordinate(4, 8));
         assertThat(assertions.function("ST_EnvelopeAsPts", "ST_GeometryFromText('LINESTRING EMPTY')"))
                 .isNull(new ArrayType(GEOMETRY));
 
-        assertEnvelopeAsPts("LINESTRING (1 1, 2 2, 1 3)", new Point(1, 1), new Point(2, 3));
-        assertEnvelopeAsPts("LINESTRING (8 4, 5 7)", new Point(5, 4), new Point(8, 7));
-        assertEnvelopeAsPts("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", new Point(1, 1), new Point(5, 4));
-        assertEnvelopeAsPts("POLYGON ((1 1, 4 1, 1 4, 1 1))", new Point(1, 1), new Point(4, 4));
-        assertEnvelopeAsPts("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))", new Point(0, 0), new Point(3, 3));
-        assertEnvelopeAsPts("GEOMETRYCOLLECTION (POINT (5 1), LINESTRING (3 4, 4 4))", new Point(3, 1), new Point(5, 4));
-        assertEnvelopeAsPts("POINT (1 2)", new Point(1, 2), new Point(1, 2));
+        assertEnvelopeAsPts("LINESTRING (1 1, 2 2, 1 3)", new Coordinate(1, 1), new Coordinate(2, 3));
+        assertEnvelopeAsPts("LINESTRING (8 4, 5 7)", new Coordinate(5, 4), new Coordinate(8, 7));
+        assertEnvelopeAsPts("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", new Coordinate(1, 1), new Coordinate(5, 4));
+        assertEnvelopeAsPts("POLYGON ((1 1, 4 1, 1 4, 1 1))", new Coordinate(1, 1), new Coordinate(4, 4));
+        assertEnvelopeAsPts("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))", new Coordinate(0, 0), new Coordinate(3, 3));
+        assertEnvelopeAsPts("GEOMETRYCOLLECTION (POINT (5 1), LINESTRING (3 4, 4 4))", new Coordinate(3, 1), new Coordinate(5, 4));
+        assertEnvelopeAsPts("POINT (1 2)", new Coordinate(1, 2), new Coordinate(1, 2));
     }
 
-    private void assertEnvelopeAsPts(String wkt, Point lowerLeftCorner, Point upperRightCorner)
+    private void assertEnvelopeAsPts(String wkt, Coordinate lowerLeftCorner, Coordinate upperRightCorner)
     {
         assertSpatialArrayEquals(assertions,
                 "ST_EnvelopeAsPts(ST_GeometryFromText('%s'))".formatted(wkt),
-                new OGCPoint(lowerLeftCorner, null).asText(),
-                new OGCPoint(upperRightCorner, null).asText());
+                "POINT (" + formatCoordinate(lowerLeftCorner.getX()) + " " + formatCoordinate(lowerLeftCorner.getY()) + ")",
+                "POINT (" + formatCoordinate(upperRightCorner.getX()) + " " + formatCoordinate(upperRightCorner.getY()) + ")");
+    }
+
+    private static String formatCoordinate(double value)
+    {
+        // JTS WKTWriter outputs integers without decimal point
+        if (value == Math.floor(value) && !Double.isInfinite(value)) {
+            return String.valueOf((long) value);
+        }
+        return String.valueOf(value);
     }
 
     @Test
@@ -2388,5 +2402,121 @@ public class TestGeoFunctions
 
         assertTrinoExceptionThrownBy(assertions.function("ST_GeomFromKML", "'<Point>'")::evaluate)
                 .hasMessage("Invalid KML: <Point>");
+    }
+
+    @Test
+    public void testSridFunctions()
+    {
+        // ST_SRID - default SRID is 0
+        assertThat(assertions.function("ST_SRID", "ST_Point(1, 2)"))
+                .hasType(INTEGER)
+                .isEqualTo(0);
+
+        // ST_SetSRID and ST_SRID - set and retrieve SRID
+        assertThat(assertions.function("ST_SRID", "ST_SetSRID(ST_Point(1, 2), 4326)"))
+                .hasType(INTEGER)
+                .isEqualTo(4326);
+
+        // SRID propagation through unary operations
+        assertThat(assertions.function("ST_SRID", "ST_Buffer(ST_SetSRID(ST_Point(1, 2), 3857), 1.0)"))
+                .hasType(INTEGER)
+                .isEqualTo(3857);
+
+        assertThat(assertions.function("ST_SRID", "ST_Centroid(ST_SetSRID(ST_GeometryFromText('POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))'), 4326))"))
+                .hasType(INTEGER)
+                .isEqualTo(4326);
+
+        assertThat(assertions.function("ST_SRID", "ST_ConvexHull(ST_SetSRID(ST_GeometryFromText('MULTIPOINT ((0 0), (1 1), (0 1))'), 4326))"))
+                .hasType(INTEGER)
+                .isEqualTo(4326);
+
+        assertThat(assertions.function("ST_SRID", "ST_Envelope(ST_SetSRID(ST_GeometryFromText('LINESTRING (0 0, 1 1)'), 4326))"))
+                .hasType(INTEGER)
+                .isEqualTo(4326);
+
+        // SRID propagation through binary operations - matching SRIDs
+        assertThat(assertions.function("ST_SRID", "ST_Intersection(ST_SetSRID(ST_GeometryFromText('POLYGON ((0 0, 0 2, 2 2, 2 0, 0 0))'), 4326), ST_SetSRID(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))'), 4326))"))
+                .hasType(INTEGER)
+                .isEqualTo(4326);
+
+        // SRID 0 is a wildcard - matches any SRID
+        assertThat(assertions.function("ST_SRID", "ST_Intersection(ST_SetSRID(ST_GeometryFromText('POLYGON ((0 0, 0 2, 2 2, 2 0, 0 0))'), 4326), ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))'))"))
+                .hasType(INTEGER)
+                .isEqualTo(4326);
+
+        assertThat(assertions.function("ST_SRID", "ST_Intersection(ST_GeometryFromText('POLYGON ((0 0, 0 2, 2 2, 2 0, 0 0))'), ST_SetSRID(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))'), 3857))"))
+                .hasType(INTEGER)
+                .isEqualTo(3857);
+
+        // MaxInt stress test - large SRID values
+        assertThat(assertions.function("ST_SRID", "ST_SetSRID(ST_Point(1, 2), 2147483647)"))
+                .hasType(INTEGER)
+                .isEqualTo(2147483647);
+
+        // ST_AsEWKB - pass-through since internal format is EWKB
+        assertThat(assertions.function("ST_AsEWKB", "ST_Point(1, 2)"))
+                .hasType(VARBINARY);
+
+        // ST_AsEWKT - returns EWKT with SRID prefix when SRID is non-zero
+        assertThat(assertions.function("ST_AsEWKT", "ST_SetSRID(ST_Point(1, 2), 4326)"))
+                .hasType(VARCHAR)
+                .isEqualTo("SRID=4326;POINT (1 2)");
+
+        // ST_AsEWKT - returns plain WKT when SRID is 0
+        assertThat(assertions.function("ST_AsEWKT", "ST_Point(1, 2)"))
+                .hasType(VARCHAR)
+                .isEqualTo("POINT (1 2)");
+    }
+
+    @Test
+    public void testSridMismatchValidation()
+    {
+        // Binary operations with mismatched SRIDs should throw
+        assertTrinoExceptionThrownBy(() -> assertions.function("ST_Intersection",
+                "ST_SetSRID(ST_GeometryFromText('POLYGON ((0 0, 0 2, 2 2, 2 0, 0 0))'), 4326)",
+                "ST_SetSRID(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))'), 3857)").evaluate())
+                .hasMessage("SRID mismatch: 4326 vs 3857");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("ST_Difference",
+                "ST_SetSRID(ST_GeometryFromText('POLYGON ((0 0, 0 2, 2 2, 2 0, 0 0))'), 4326)",
+                "ST_SetSRID(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))'), 3857)").evaluate())
+                .hasMessage("SRID mismatch: 4326 vs 3857");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("ST_Union",
+                "ST_SetSRID(ST_GeometryFromText('POLYGON ((0 0, 0 2, 2 2, 2 0, 0 0))'), 4326)",
+                "ST_SetSRID(ST_GeometryFromText('POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))'), 3857)").evaluate())
+                .hasMessage("SRID mismatch: 4326 vs 3857");
+
+        // Boolean operations with mismatched SRIDs should throw
+        assertTrinoExceptionThrownBy(() -> assertions.function("ST_Contains",
+                "ST_SetSRID(ST_GeometryFromText('POLYGON ((0 0, 0 2, 2 2, 2 0, 0 0))'), 4326)",
+                "ST_SetSRID(ST_Point(1, 1), 3857)").evaluate())
+                .hasMessage("SRID mismatch: 4326 vs 3857");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("ST_Intersects",
+                "ST_SetSRID(ST_GeometryFromText('POLYGON ((0 0, 0 2, 2 2, 2 0, 0 0))'), 4326)",
+                "ST_SetSRID(ST_Point(1, 1), 3857)").evaluate())
+                .hasMessage("SRID mismatch: 4326 vs 3857");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("ST_Distance",
+                "ST_SetSRID(ST_Point(0, 0), 4326)",
+                "ST_SetSRID(ST_Point(1, 1), 3857)").evaluate())
+                .hasMessage("SRID mismatch: 4326 vs 3857");
+    }
+
+    @Test
+    public void testSridWithAsBinary()
+    {
+        // ST_AsBinary should strip SRID (produce OGC WKB, not EWKB)
+        // Re-reading from WKB should have SRID 0
+        assertThat(assertions.function("ST_SRID", "ST_GeomFromBinary(ST_AsBinary(ST_SetSRID(ST_Point(1, 2), 4326)))"))
+                .hasType(INTEGER)
+                .isEqualTo(0);
+
+        // ST_AsEWKB should preserve SRID
+        // The internal format is EWKB, so ST_AsEWKB is a pass-through
+        assertThat(assertions.function("ST_SRID", "ST_GeomFromBinary(ST_AsEWKB(ST_SetSRID(ST_Point(1, 2), 4326)))"))
+                .hasType(INTEGER)
+                .isEqualTo(4326);
     }
 }

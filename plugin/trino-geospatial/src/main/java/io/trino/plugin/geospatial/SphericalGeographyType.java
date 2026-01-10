@@ -21,7 +21,7 @@ import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.TypeSignature;
 
-import static io.trino.geospatial.serde.GeometrySerde.deserialize;
+import static io.trino.geospatial.serde.JtsGeometrySerde.deserialize;
 
 public class SphericalGeographyType
         extends AbstractVariableWidthType
@@ -67,7 +67,7 @@ public class SphericalGeographyType
             return null;
         }
         try {
-            return deserialize(getSlice(block, position)).asText();
+            return deserialize(getSlice(block, position)).toText();
         }
         catch (Exception e) {
             return "<invalid geometry>";

@@ -23,8 +23,7 @@ import io.airlift.slice.Slices;
 import io.trino.geospatial.GeometryType;
 import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.Rectangle;
-import io.trino.geospatial.serde.GeometrySerde;
-import io.trino.geospatial.serde.GeometrySerializationType;
+import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -67,11 +66,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.Set;
 
 import static com.esri.core.geometry.GeometryEngine.geometryToWkt;
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.geospatial.GeometryType.GEOMETRY_COLLECTION;
 import static io.trino.geospatial.GeometryType.LINE_STRING;
@@ -82,11 +79,13 @@ import static io.trino.geospatial.GeometryType.POINT;
 import static io.trino.geospatial.GeometryType.POLYGON;
 import static io.trino.geospatial.GeometryUtils.jsonFromJtsGeometry;
 import static io.trino.geospatial.GeometryUtils.jtsGeometryFromJson;
-import static io.trino.geospatial.serde.GeometrySerde.serialize;
 import static io.trino.geospatial.serde.JtsGeometrySerde.deserialize;
 import static io.trino.geospatial.serde.JtsGeometrySerde.deserializeEnvelope;
 import static io.trino.geospatial.serde.JtsGeometrySerde.deserializeType;
 import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
+import static io.trino.geospatial.serde.JtsGeometrySerde.serializeBinaryOp;
+import static io.trino.geospatial.serde.JtsGeometrySerde.serializeWithSrid;
+import static io.trino.geospatial.serde.JtsGeometrySerde.validateAndGetSrid;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
@@ -256,12 +255,46 @@ public final class GeoFunctions
         return serialize(geometryFromText(input));
     }
 
-    @Description("Returns a Geometry type object from Well-Known Binary representation (WKB)")
+    @Description("Returns a Geometry type object from Well-Known Binary representation (WKB or EWKB)")
     @ScalarFunction("ST_GeomFromBinary")
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice stGeomFromBinary(@SqlType(VARBINARY) Slice input)
     {
-        return serialize(geomFromBinary(input));
+        // Parse and re-serialize to ensure EWKB format
+        // WKBReader handles both WKB (SRID=0) and EWKB (preserves SRID)
+        try {
+            return serialize(deserialize(input));
+        }
+        catch (IllegalArgumentException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
+        }
+    }
+
+    @Description("Returns the spatial reference identifier for the geometry")
+    @ScalarFunction("ST_SRID")
+    @SqlType(INTEGER)
+    public static long stSrid(@SqlType(StandardTypes.GEOMETRY) Slice input)
+    {
+        return deserialize(input).getSRID();
+    }
+
+    @Description("Sets the spatial reference identifier for the geometry")
+    @ScalarFunction("ST_SetSRID")
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Slice stSetSrid(@SqlType(StandardTypes.GEOMETRY) Slice input, @SqlType(INTEGER) long srid)
+    {
+        Geometry geometry = deserialize(input);
+        geometry.setSRID(toIntExact(srid));
+        return serialize(geometry);
+    }
+
+    @Description("Returns the Extended Well-Known Binary (EWKB) representation of the geometry")
+    @ScalarFunction("ST_AsEWKB")
+    @SqlType(VARBINARY)
+    public static Slice stAsEwkb(@SqlType(StandardTypes.GEOMETRY) Slice input)
+    {
+        // EWKB is our native format, no transformation needed
+        return input;
     }
 
     @Description("Returns a Geometry type object from OGC KML representation")
@@ -282,9 +315,9 @@ public final class GeoFunctions
         try {
             OGCGeometry geometry = OGCGeometry.fromEsriShape(getShapeByteBuffer(input));
             String wkt = geometryToWkt(geometry.getEsriGeometry(), getWktExportFlags(input));
-            return serialize(OGCGeometry.fromText(wkt));
+            return JtsGeometrySerde.serialize(new WKTReader().read(wkt));
         }
-        catch (IndexOutOfBoundsException | UnsupportedOperationException | IllegalArgumentException e) {
+        catch (IndexOutOfBoundsException | UnsupportedOperationException | IllegalArgumentException | ParseException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid Hadoop shape", e);
         }
     }
@@ -352,12 +385,27 @@ public final class GeoFunctions
         return utf8Slice(new WKTWriter().write(deserialize(input)));
     }
 
+    @Description("Returns the Extended Well-Known Text (EWKT) representation of the geometry, including SRID")
+    @ScalarFunction("ST_AsEWKT")
+    @SqlType(VARCHAR)
+    public static Slice stAsEwkt(@SqlType(StandardTypes.GEOMETRY) Slice input)
+    {
+        Geometry geometry = deserialize(input);
+        String wkt = new WKTWriter().write(geometry);
+        int srid = geometry.getSRID();
+        if (srid != 0) {
+            return utf8Slice("SRID=" + srid + ";" + wkt);
+        }
+        return utf8Slice(wkt);
+    }
+
     @Description("Returns the Well-Known Binary (WKB) representation of the geometry")
     @ScalarFunction("ST_AsBinary")
     @SqlType(VARBINARY)
     public static Slice stAsBinary(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        return Slices.wrappedBuffer(new WKBWriter().write(deserialize(input)));
+        // Strip SRID for OGC WKB compatibility (external systems expect standard WKB)
+        return Slices.wrappedBuffer(new WKBWriter(2, false).write(deserialize(input)));
     }
 
     @SqlNullable
@@ -382,7 +430,7 @@ public final class GeoFunctions
         if (geometry.isEmpty()) {
             return null;
         }
-        return serialize(geometry.buffer(distance));
+        return serializeWithSrid(geometry.buffer(distance), geometry);
     }
 
     @Description("Returns the Point value that is the mathematical centroid of a Geometry")
@@ -398,10 +446,10 @@ public final class GeoFunctions
         }
 
         if (geometry.isEmpty()) {
-            return serialize(geometry.getFactory().createPoint());
+            return serializeWithSrid(geometry.getFactory().createPoint(), geometry);
         }
 
-        return serialize(geometry.getCentroid());
+        return serializeWithSrid(geometry.getCentroid(), geometry);
     }
 
     @Description("Returns the minimum convex geometry that encloses all input geometries")
@@ -416,7 +464,7 @@ public final class GeoFunctions
         if (GeometryType.getForJtsGeometryType(geometry.getGeometryType()) == POINT) {
             return input;
         }
-        return serialize(geometry.convexHull());
+        return serializeWithSrid(geometry.convexHull(), geometry);
     }
 
     @Description("Return the coordinate dimension of the Geometry")
@@ -774,12 +822,22 @@ public final class GeoFunctions
     private static Slice stUnion(Iterable<Slice> slices)
     {
         List<Geometry> geometries = new ArrayList<>();
+        int expectedSrid = 0;
         for (Slice slice : slices) {
             // Ignore null inputs
             if (slice.getInput().available() == 0) {
                 continue;
             }
             Geometry geometry = deserialize(slice);
+            // Validate and track SRID
+            int srid = geometry.getSRID();
+            if (expectedSrid == 0) {
+                expectedSrid = srid;
+            }
+            else if (srid != 0 && srid != expectedSrid) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT,
+                        format("SRID mismatch: %d vs %d", expectedSrid, srid));
+            }
             if (!geometry.isEmpty()) {
                 // Flatten geometry collections to get individual geometries
                 flattenGeometry(geometry, geometries);
@@ -799,6 +857,7 @@ public final class GeoFunctions
         // 2. Reduce homogeneous geometry collections to Multi* types
         result = postProcessUnion(result);
 
+        result.setSRID(expectedSrid);
         return serialize(result);
     }
 
@@ -930,7 +989,7 @@ public final class GeoFunctions
         if (index < 1 || index > geometry.getNumGeometries()) {
             return null;
         }
-        return serialize(geometry.getGeometryN((int) index - 1));
+        return serializeWithSrid(geometry.getGeometryN((int) index - 1), geometry);
     }
 
     @SqlNullable
@@ -946,7 +1005,7 @@ public final class GeoFunctions
         if (index < 1 || index > linestring.getNumPoints()) {
             return null;
         }
-        return serialize(linestring.getPointN(toIntExact(index) - 1));
+        return serializeWithSrid(linestring.getPointN(toIntExact(index) - 1), geometry);
     }
 
     @SqlNullable
@@ -987,7 +1046,7 @@ public final class GeoFunctions
             return null;
         }
         Geometry interiorRing = polygon.getInteriorRingN(toIntExact(index) - 1);
-        return serialize(interiorRing);
+        return serializeWithSrid(interiorRing, geometry);
     }
 
     @Description("Returns the number of points in a Geometry")
@@ -1020,7 +1079,7 @@ public final class GeoFunctions
         if (geometry.isEmpty()) {
             return null;
         }
-        return serialize(((LineString) geometry).getStartPoint());
+        return serializeWithSrid(((LineString) geometry).getStartPoint(), geometry);
     }
 
     @Description("Returns a \"simplified\" version of the given geometry")
@@ -1040,7 +1099,8 @@ public final class GeoFunctions
             return input;
         }
 
-        return serialize(simplify(deserialize(input), distanceTolerance));
+        Geometry geometry = deserialize(input);
+        return serializeWithSrid(simplify(geometry, distanceTolerance), geometry);
     }
 
     @SqlNullable
@@ -1054,7 +1114,7 @@ public final class GeoFunctions
         if (geometry.isEmpty()) {
             return null;
         }
-        return serialize(((LineString) geometry).getEndPoint());
+        return serializeWithSrid(((LineString) geometry).getEndPoint(), geometry);
     }
 
     @SqlNullable
@@ -1132,7 +1192,7 @@ public final class GeoFunctions
     public static Slice stBoundary(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
         Geometry geometry = deserialize(input);
-        return serialize(geometry.getBoundary());
+        return serializeWithSrid(geometry.getBoundary(), geometry);
     }
 
     @Description("Returns the bounding rectangular polygon of a Geometry")
@@ -1140,11 +1200,13 @@ public final class GeoFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice stEnvelope(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        Envelope envelope = deserializeEnvelope(input);
+        Geometry geometry = deserialize(input);
+        Envelope envelope = geometry.getEnvelopeInternal();
         if (envelope.isNull()) {
             return EMPTY_POLYGON;
         }
-        return serialize(envelope);
+        Geometry envelopeGeometry = geometry.getFactory().toGeometry(envelope);
+        return serializeWithSrid(envelopeGeometry, geometry);
     }
 
     @SqlNullable
@@ -1173,7 +1235,8 @@ public final class GeoFunctions
         Geometry leftGeometry = deserialize(left);
         Geometry rightGeometry = deserialize(right);
         // Use OverlayNGRobust for better handling of edge cases and invalid geometries
-        return serialize(OverlayNGRobust.overlay(leftGeometry, rightGeometry, OverlayNG.DIFFERENCE));
+        Geometry result = OverlayNGRobust.overlay(leftGeometry, rightGeometry, OverlayNG.DIFFERENCE);
+        return serializeBinaryOp(result, leftGeometry, rightGeometry);
     }
 
     @SqlNullable
@@ -1184,6 +1247,7 @@ public final class GeoFunctions
     {
         Geometry leftGeometry = deserialize(left);
         Geometry rightGeometry = deserialize(right);
+        validateAndGetSrid(leftGeometry, rightGeometry);
         return leftGeometry.isEmpty() || rightGeometry.isEmpty() ? null : leftGeometry.distance(rightGeometry);
     }
 
@@ -1195,6 +1259,7 @@ public final class GeoFunctions
     {
         Geometry leftGeometry = deserialize(left);
         Geometry rightGeometry = deserialize(right);
+        int srid = validateAndGetSrid(leftGeometry, rightGeometry);
         if (leftGeometry.isEmpty() || rightGeometry.isEmpty()) {
             return null;
         }
@@ -1204,8 +1269,12 @@ public final class GeoFunctions
         Coordinate[] nearestCoordinates = DistanceOp.nearestPoints(leftGeometry, rightGeometry);
 
         return buildRowValue(rowType, fieldBuilders -> {
-            GEOMETRY.writeSlice(fieldBuilders.get(0), serialize(geometryFactory.createPoint(nearestCoordinates[0])));
-            GEOMETRY.writeSlice(fieldBuilders.get(1), serialize(geometryFactory.createPoint(nearestCoordinates[1])));
+            Point point0 = geometryFactory.createPoint(nearestCoordinates[0]);
+            point0.setSRID(srid);
+            GEOMETRY.writeSlice(fieldBuilders.get(0), serialize(point0));
+            Point point1 = geometryFactory.createPoint(nearestCoordinates[1]);
+            point1.setSRID(srid);
+            GEOMETRY.writeSlice(fieldBuilders.get(1), serialize(point1));
         });
     }
 
@@ -1220,7 +1289,7 @@ public final class GeoFunctions
         if (geometry.isEmpty()) {
             return null;
         }
-        return serialize(((org.locationtech.jts.geom.Polygon) geometry).getExteriorRing());
+        return serializeWithSrid(((org.locationtech.jts.geom.Polygon) geometry).getExteriorRing(), geometry);
     }
 
     @Description("Returns the Geometry value that represents the point set intersection of two Geometries")
@@ -1228,38 +1297,10 @@ public final class GeoFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice stIntersection(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (deserializeType(left) == GeometrySerializationType.ENVELOPE && deserializeType(right) == GeometrySerializationType.ENVELOPE) {
-            Envelope leftEnvelope = deserializeEnvelope(left);
-            Envelope rightEnvelope = deserializeEnvelope(right);
-
-            Envelope intersection = leftEnvelope.intersection(rightEnvelope);
-            if (intersection.isNull()) {
-                return EMPTY_POLYGON;
-            }
-
-            if (intersection.getMinX() == intersection.getMaxX()) {
-                if (intersection.getMinY() == intersection.getMaxY()) {
-                    return serialize(GEOMETRY_FACTORY.createPoint(new Coordinate(intersection.getMinX(), intersection.getMinY())));
-                }
-                return serialize(GEOMETRY_FACTORY.createLineString(new Coordinate[] {
-                        new Coordinate(intersection.getMinX(), intersection.getMinY()),
-                        new Coordinate(intersection.getMinX(), intersection.getMaxY())
-                }));
-            }
-
-            if (intersection.getMinY() == intersection.getMaxY()) {
-                return serialize(GEOMETRY_FACTORY.createLineString(new Coordinate[] {
-                        new Coordinate(intersection.getMinX(), intersection.getMinY()),
-                        new Coordinate(intersection.getMaxX(), intersection.getMinY())
-                }));
-            }
-
-            return serialize(intersection);
-        }
-
         Geometry leftGeometry = deserialize(left);
         Geometry rightGeometry = deserialize(right);
-        return serialize(OverlayNGRobust.overlay(leftGeometry, rightGeometry, OverlayNG.INTERSECTION));
+        Geometry result = OverlayNGRobust.overlay(leftGeometry, rightGeometry, OverlayNG.INTERSECTION);
+        return serializeBinaryOp(result, leftGeometry, rightGeometry);
     }
 
     @Description("Returns the Geometry value that represents the point set symmetric difference of two Geometries")
@@ -1270,7 +1311,8 @@ public final class GeoFunctions
         Geometry leftGeometry = deserialize(left);
         Geometry rightGeometry = deserialize(right);
         // Use OverlayNGRobust for better handling of edge cases and invalid geometries
-        return serialize(OverlayNGRobust.overlay(leftGeometry, rightGeometry, OverlayNG.SYMDIFFERENCE));
+        Geometry result = OverlayNGRobust.overlay(leftGeometry, rightGeometry, OverlayNG.SYMDIFFERENCE);
+        return serializeBinaryOp(result, leftGeometry, rightGeometry);
     }
 
     @SqlNullable
@@ -1279,11 +1321,12 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stContains(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(left, right, Envelope::contains)) {
-            return false;
-        }
         Geometry leftGeometry = deserialize(left);
         Geometry rightGeometry = deserialize(right);
+        validateAndGetSrid(leftGeometry, rightGeometry);
+        if (!leftGeometry.getEnvelopeInternal().contains(rightGeometry.getEnvelopeInternal())) {
+            return false;
+        }
         // Use RelateNG for better handling of edge cases and invalid geometries
         return RelateNG.relate(leftGeometry, rightGeometry).isContains();
     }
@@ -1294,11 +1337,12 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stCrosses(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(left, right, Envelope::intersects)) {
-            return false;
-        }
         Geometry leftGeometry = deserialize(left);
         Geometry rightGeometry = deserialize(right);
+        validateAndGetSrid(leftGeometry, rightGeometry);
+        if (!leftGeometry.getEnvelopeInternal().intersects(rightGeometry.getEnvelopeInternal())) {
+            return false;
+        }
         // Use RelateNG for better handling of edge cases and invalid geometries
         return RelateNG.relate(leftGeometry, rightGeometry).isCrosses(leftGeometry.getDimension(), rightGeometry.getDimension());
     }
@@ -1309,11 +1353,12 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stDisjoint(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(left, right, Envelope::intersects)) {
-            return true;
-        }
         Geometry leftGeometry = deserialize(left);
         Geometry rightGeometry = deserialize(right);
+        validateAndGetSrid(leftGeometry, rightGeometry);
+        if (!leftGeometry.getEnvelopeInternal().intersects(rightGeometry.getEnvelopeInternal())) {
+            return true;
+        }
         // Use RelateNG for better handling of edge cases and invalid geometries
         return RelateNG.relate(leftGeometry, rightGeometry).isDisjoint();
     }
@@ -1326,6 +1371,7 @@ public final class GeoFunctions
     {
         Geometry leftGeometry = deserialize(left);
         Geometry rightGeometry = deserialize(right);
+        validateAndGetSrid(leftGeometry, rightGeometry);
         // Use RelateNG for better handling of edge cases and invalid geometries
         return RelateNG.relate(leftGeometry, rightGeometry).isEquals(leftGeometry.getDimension(), rightGeometry.getDimension());
     }
@@ -1336,11 +1382,12 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stIntersects(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(left, right, Envelope::intersects)) {
-            return false;
-        }
         Geometry leftGeometry = deserialize(left);
         Geometry rightGeometry = deserialize(right);
+        validateAndGetSrid(leftGeometry, rightGeometry);
+        if (!leftGeometry.getEnvelopeInternal().intersects(rightGeometry.getEnvelopeInternal())) {
+            return false;
+        }
         // Use RelateNG for better handling of edge cases and invalid geometries
         return RelateNG.relate(leftGeometry, rightGeometry).isIntersects();
     }
@@ -1351,11 +1398,12 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stOverlaps(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(left, right, Envelope::intersects)) {
-            return false;
-        }
         Geometry leftGeometry = deserialize(left);
         Geometry rightGeometry = deserialize(right);
+        validateAndGetSrid(leftGeometry, rightGeometry);
+        if (!leftGeometry.getEnvelopeInternal().intersects(rightGeometry.getEnvelopeInternal())) {
+            return false;
+        }
         // Use RelateNG for better handling of edge cases and invalid geometries
         return RelateNG.relate(leftGeometry, rightGeometry).isOverlaps(leftGeometry.getDimension(), rightGeometry.getDimension());
     }
@@ -1368,6 +1416,7 @@ public final class GeoFunctions
     {
         Geometry leftGeometry = deserialize(left);
         Geometry rightGeometry = deserialize(right);
+        validateAndGetSrid(leftGeometry, rightGeometry);
         // Use RelateNG for better handling of edge cases and invalid geometries
         return RelateNG.relate(leftGeometry, rightGeometry, relation.toStringUtf8());
     }
@@ -1378,27 +1427,28 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static Boolean stTouches(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(left, right, Envelope::intersects)) {
-            return false;
-        }
         Geometry leftGeometry = deserialize(left);
         Geometry rightGeometry = deserialize(right);
+        validateAndGetSrid(leftGeometry, rightGeometry);
+        if (!leftGeometry.getEnvelopeInternal().intersects(rightGeometry.getEnvelopeInternal())) {
+            return false;
+        }
         // Use RelateNG for better handling of edge cases and invalid geometries
         return RelateNG.relate(leftGeometry, rightGeometry).isTouches(leftGeometry.getDimension(), rightGeometry.getDimension());
     }
 
-    @SuppressWarnings("ArgumentSelectionDefectChecker")
     @SqlNullable
     @Description("Returns TRUE if the geometry A is completely inside geometry B")
     @ScalarFunction("ST_Within")
     @SqlType(BOOLEAN)
     public static Boolean stWithin(@SqlType(StandardTypes.GEOMETRY) Slice left, @SqlType(StandardTypes.GEOMETRY) Slice right)
     {
-        if (!envelopes(right, left, Envelope::contains)) {
-            return false;
-        }
         Geometry leftGeometry = deserialize(left);
         Geometry rightGeometry = deserialize(right);
+        validateAndGetSrid(leftGeometry, rightGeometry);
+        if (!rightGeometry.getEnvelopeInternal().contains(leftGeometry.getEnvelopeInternal())) {
+            return false;
+        }
         // Use RelateNG for better handling of edge cases and invalid geometries
         return RelateNG.relate(leftGeometry, rightGeometry).isWithin();
     }
@@ -1408,7 +1458,7 @@ public final class GeoFunctions
     @SqlType(VARCHAR)
     public static Slice stGeometryType(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        return GeometrySerde.getGeometryType(input).standardName();
+        return deserializeType(input).standardName();
     }
 
     @ScalarFunction
@@ -1604,25 +1654,12 @@ public final class GeoFunctions
         return HADOOP_SHAPE_TYPES[hadoopShapeType];
     }
 
-    private static void validateType(String function, OGCGeometry geometry, Set<GeometryType> validTypes)
-    {
-        GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
-        if (!validTypes.contains(type)) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
-        }
-    }
-
     private static void validateType(String function, Geometry geometry, Set<GeometryType> validTypes)
     {
         GeometryType type = GeometryType.getForJtsGeometryType(geometry.getGeometryType());
         if (!validTypes.contains(type)) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
         }
-    }
-
-    private static void verifySameSpatialReference(OGCGeometry leftGeometry, OGCGeometry rightGeometry)
-    {
-        checkArgument(Objects.equals(leftGeometry.getEsriSpatialReference(), rightGeometry.getEsriSpatialReference()), "Input geometries must have the same spatial reference");
     }
 
     private static boolean envelopes(Slice left, Slice right, EnvelopesPredicate predicate)
@@ -1660,14 +1697,6 @@ public final class GeoFunctions
 
         // greatCircleDistance returns distance in KM.
         return greatCircleDistance(leftPoint.getY(), leftPoint.getX(), rightPoint.getY(), rightPoint.getX()) * 1000;
-    }
-
-    private static void validateSphericalType(String function, OGCGeometry geometry, Set<GeometryType> validTypes)
-    {
-        GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
-        if (!validTypes.contains(type)) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("When applied to SphericalGeography inputs, %s only supports %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
-        }
     }
 
     private static void validateSphericalType(String function, Geometry geometry, Set<GeometryType> validTypes)

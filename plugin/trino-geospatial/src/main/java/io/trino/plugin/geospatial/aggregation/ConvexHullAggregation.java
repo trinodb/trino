@@ -27,6 +27,7 @@ import io.trino.spi.type.StandardTypes;
 import org.locationtech.jts.geom.Geometry;
 
 import static io.trino.geospatial.GeometryUtils.safeUnion;
+import static io.trino.geospatial.serde.JtsGeometrySerde.validateAndGetSrid;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 
 /**
@@ -45,10 +46,15 @@ public final class ConvexHullAggregation
     {
         Geometry geometry = JtsGeometrySerde.deserialize(input);
         if (state.getGeometry() == null) {
-            state.setGeometry(geometry.convexHull());
+            Geometry result = geometry.convexHull();
+            result.setSRID(geometry.getSRID());
+            state.setGeometry(result);
         }
         else if (!geometry.isEmpty()) {
-            state.setGeometry(safeUnion(state.getGeometry(), geometry).convexHull());
+            int srid = validateAndGetSrid(state.getGeometry(), geometry);
+            Geometry result = safeUnion(state.getGeometry(), geometry).convexHull();
+            result.setSRID(srid);
+            state.setGeometry(result);
         }
     }
 
@@ -60,7 +66,10 @@ public final class ConvexHullAggregation
             state.setGeometry(otherState.getGeometry());
         }
         else if (otherState.getGeometry() != null && !otherState.getGeometry().isEmpty()) {
-            state.setGeometry(safeUnion(state.getGeometry(), otherState.getGeometry()).convexHull());
+            int srid = validateAndGetSrid(state.getGeometry(), otherState.getGeometry());
+            Geometry result = safeUnion(state.getGeometry(), otherState.getGeometry()).convexHull();
+            result.setSRID(srid);
+            state.setGeometry(result);
         }
     }
 

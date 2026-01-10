@@ -27,6 +27,7 @@ import io.trino.spi.type.StandardTypes;
 import org.locationtech.jts.geom.Geometry;
 
 import static io.trino.geospatial.GeometryUtils.safeUnion;
+import static io.trino.geospatial.serde.JtsGeometrySerde.validateAndGetSrid;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 
 /**
@@ -47,7 +48,10 @@ public final class GeometryUnionAgg
             state.setGeometry(geometry);
         }
         else if (!geometry.isEmpty()) {
-            state.setGeometry(safeUnion(state.getGeometry(), geometry));
+            int srid = validateAndGetSrid(state.getGeometry(), geometry);
+            Geometry result = safeUnion(state.getGeometry(), geometry);
+            result.setSRID(srid);
+            state.setGeometry(result);
         }
     }
 
@@ -58,7 +62,10 @@ public final class GeometryUnionAgg
             state.setGeometry(otherState.getGeometry());
         }
         else if (otherState.getGeometry() != null && !otherState.getGeometry().isEmpty()) {
-            state.setGeometry(safeUnion(state.getGeometry(), otherState.getGeometry()));
+            int srid = validateAndGetSrid(state.getGeometry(), otherState.getGeometry());
+            Geometry result = safeUnion(state.getGeometry(), otherState.getGeometry());
+            result.setSRID(srid);
+            state.setGeometry(result);
         }
     }
 
