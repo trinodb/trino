@@ -14,9 +14,10 @@
 package io.trino.plugin.base;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.NodeVersion;
@@ -31,7 +32,7 @@ import io.trino.spi.type.TypeManager;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorContextModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     private final String catalogName;
     private final ConnectorContext context;
@@ -43,8 +44,10 @@ public class ConnectorContextModule
     }
 
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
+        install(new ConnectorObjectNameGeneratorModule("io.trino.plugin", "trino.plugin"));
+
         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
 
         binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());

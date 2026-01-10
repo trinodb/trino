@@ -18,7 +18,6 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
-import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -52,7 +51,6 @@ public class OpenSearchConnectorFactory
                 "io.trino.bootstrap.catalog." + catalogName,
                 new MBeanModule(),
                 new MBeanServerModule(),
-                new ConnectorObjectNameGeneratorModule("io.trino.plugin.opensearch", "trino.plugin.opensearch"),
                 new JsonModule(),
                 new TypeDeserializerModule(),
                 new OpenSearchConnectorModule(),
