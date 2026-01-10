@@ -27,6 +27,7 @@ import io.trino.spi.type.StandardTypes;
 import org.locationtech.jts.geom.Geometry;
 
 import static io.trino.geospatial.GeometryUtils.safeUnion;
+import static io.trino.geospatial.serde.JtsGeometrySerde.validateAndGetSrid;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 
 /**
@@ -45,10 +46,20 @@ public final class ConvexHullAggregation
     {
         Geometry geometry = JtsGeometrySerde.deserialize(input);
         if (state.getGeometry() == null) {
-            state.setGeometry(geometry.convexHull());
+            Geometry result = geometry.convexHull();
+            result.setSRID(geometry.getSRID());
+            state.setGeometry(result);
         }
-        else if (!geometry.isEmpty()) {
-            state.setGeometry(safeUnion(state.getGeometry(), geometry).convexHull());
+        else {
+            int srid = validateAndGetSrid(state.getGeometry(), geometry);
+            if (!geometry.isEmpty()) {
+                Geometry result = safeUnion(state.getGeometry(), geometry).convexHull();
+                result.setSRID(srid);
+                state.setGeometry(result);
+            }
+            else {
+                updateGeometrySrid(state, srid);
+            }
         }
     }
 
@@ -59,9 +70,29 @@ public final class ConvexHullAggregation
         if (state.getGeometry() == null) {
             state.setGeometry(otherState.getGeometry());
         }
-        else if (otherState.getGeometry() != null && !otherState.getGeometry().isEmpty()) {
-            state.setGeometry(safeUnion(state.getGeometry(), otherState.getGeometry()).convexHull());
+        else if (otherState.getGeometry() != null) {
+            int srid = validateAndGetSrid(state.getGeometry(), otherState.getGeometry());
+            if (!otherState.getGeometry().isEmpty()) {
+                Geometry result = safeUnion(state.getGeometry(), otherState.getGeometry()).convexHull();
+                result.setSRID(srid);
+                state.setGeometry(result);
+            }
+            else {
+                updateGeometrySrid(state, srid);
+            }
         }
+    }
+
+    private static void updateGeometrySrid(GeometryState state, int srid)
+    {
+        Geometry geometry = state.getGeometry();
+        if (geometry.getSRID() == srid) {
+            return;
+        }
+
+        Geometry result = geometry.copy();
+        result.setSRID(srid);
+        state.setGeometry(result);
     }
 
     @OutputFunction(StandardTypes.GEOMETRY)

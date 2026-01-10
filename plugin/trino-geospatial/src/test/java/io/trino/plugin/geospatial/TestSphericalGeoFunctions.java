@@ -79,10 +79,10 @@ public class TestSphericalGeoFunctions
                 "MULTIPOINT ((-40.2 28.9), (-40.2 31.9))",
                 "LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9)",
                 "MULTILINESTRING ((-40.2 28.9, -40.2 31.9), (-40.2 31.9, -37.2 31.9))",
-                "POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9))",
-                "POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9), (-39.2 29.9, -39.2 30.9, -38.2 30.9, -38.2 29.9, -39.2 29.9))",
-                "MULTIPOLYGON (((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)), ((-36.2 28.9, -33.2 28.9, -33.2 31.9, -36.2 31.9, -36.2 28.9)))",
-                "GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9, -40.2 28.9), POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)))");
+                "POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9))",
+                "POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9), (-39.2 29.9, -38.2 29.9, -38.2 30.9, -39.2 30.9, -39.2 29.9))",
+                "MULTIPOLYGON (((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)), ((-36.2 28.9, -36.2 31.9, -33.2 31.9, -33.2 28.9, -36.2 28.9)))",
+                "GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9), POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)))");
 
         BlockBuilder builder = SPHERICAL_GEOGRAPHY.createBlockBuilder(null, wktList.size());
         for (String wkt : wktList) {
@@ -159,9 +159,9 @@ public class TestSphericalGeoFunctions
                 .hasType(GEOMETRY)
                 .matches("ST_GeometryFromText('MULTIPOLYGON (((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)), ((-36.2 28.9, -33.2 28.9, -33.2 31.9, -36.2 31.9, -36.2 28.9)))')");
 
-        assertThat(assertions.function("to_geometry", toSphericalGeography("GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9, -40.2 28.9), POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)))")))
+        assertThat(assertions.function("to_geometry", toSphericalGeography("GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9), POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)))")))
                 .hasType(GEOMETRY)
-                .matches("ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9, -40.2 28.9), POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)))')");
+                .matches("ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9), POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)))')");
 
         // geometries containing invalid latitude or longitude values
         assertTrinoExceptionThrownBy(assertions.function("to_spherical_geography", "ST_GeometryFromText('POINT (-340.2 28.9)')")::evaluate)
@@ -185,7 +185,7 @@ public class TestSphericalGeoFunctions
         assertTrinoExceptionThrownBy(assertions.function("to_spherical_geography", "ST_GeometryFromText('MULTIPOLYGON (((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)), ((-36.2 28.9, -36.2 31.9, 238.2 31.9, -33.2 28.9, -36.2 28.9)))')")::evaluate)
                 .hasMessage("Longitude must be between -180 and 180");
 
-        assertTrinoExceptionThrownBy(assertions.function("to_spherical_geography", "ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 131.9, -37.2 31.9, -40.2 28.9), POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)))')")::evaluate)
+        assertTrinoExceptionThrownBy(assertions.function("to_spherical_geography", "ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 131.9, -37.2 31.9), POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)))')")::evaluate)
                 .hasMessage("Latitude must be between -90 and 90");
     }
 
