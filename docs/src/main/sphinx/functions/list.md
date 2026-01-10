@@ -155,6 +155,7 @@
 - {func}`filter`
 - [first](logical-navigation-functions)
 - {func}`first_value`
+- {func}`first_match`
 - {func}`flatten`
 - {func}`floor`
 - {func}`format`

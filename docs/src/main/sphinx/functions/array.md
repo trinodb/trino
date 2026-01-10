@@ -279,6 +279,11 @@ SELECT filter(ARRAY[5, NULL, 7, NULL], x -> x IS NOT NULL);
 ```
 :::
 
+:::{function} first_match(array(E), function(E,boolean)) -> E
+Returns the first element of the `array` that matches the predicate.
+If the array is empty or there is no match, the function returns `NULL`.
+:::
+
 :::{function} flatten(x) -> array
 Flattens an `array(array(T))` to an `array(T)` by concatenating the contained arrays.
 :::

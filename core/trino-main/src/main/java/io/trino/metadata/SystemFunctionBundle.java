@@ -101,6 +101,7 @@ import io.trino.operator.scalar.ArrayElementAtFunction;
 import io.trino.operator.scalar.ArrayExceptFunction;
 import io.trino.operator.scalar.ArrayFilterFunction;
 import io.trino.operator.scalar.ArrayFirstFunction;
+import io.trino.operator.scalar.ArrayFirstMatchFunction;
 import io.trino.operator.scalar.ArrayHistogramFunction;
 import io.trino.operator.scalar.ArrayIntersectFunction;
 import io.trino.operator.scalar.ArrayJoin;
@@ -495,6 +496,7 @@ public final class SystemFunctionBundle
                 .scalar(ArrayRemoveFunction.class)
                 .scalar(ArrayElementAtFunction.class)
                 .scalar(ArrayFirstFunction.class)
+                .scalar(ArrayFirstMatchFunction.class)
                 .scalar(ArrayLastFunction.class)
                 .scalar(ArraySortFunction.class)
                 .scalar(ArraySortComparatorFunction.class)
