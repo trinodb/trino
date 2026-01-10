@@ -507,14 +507,14 @@ public class TrinoHiveCatalog
     }
 
     @Override
-    public String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName)
+    public Optional<String> defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName)
     {
         Database database = metastore.getDatabase(schemaTableName.getSchemaName())
                 .orElseThrow(() -> new SchemaNotFoundException(schemaTableName.getSchemaName()));
         String tableNameForLocation = createNewTableName(schemaTableName.getTableName());
         String location = database.getLocation().orElseThrow(() ->
                 new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaTableName.getSchemaName())));
-        return appendPath(location, tableNameForLocation);
+        return Optional.of(appendPath(location, tableNameForLocation));
     }
 
     @Override

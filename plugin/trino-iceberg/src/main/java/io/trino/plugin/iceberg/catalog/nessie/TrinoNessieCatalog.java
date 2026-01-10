@@ -326,7 +326,7 @@ public class TrinoNessieCatalog
     }
 
     @Override
-    public String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName)
+    public Optional<String> defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName)
     {
         Optional<String> databaseLocation = Optional.empty();
         if (namespaceExists(session, schemaTableName.getSchemaName())) {
@@ -336,7 +336,7 @@ public class TrinoNessieCatalog
         String schemaLocation = databaseLocation.orElseGet(() ->
                 appendPath(warehouseLocation, schemaTableName.getSchemaName()));
 
-        return appendPath(schemaLocation, createNewTableName(schemaTableName.getTableName()));
+        return Optional.of(appendPath(schemaLocation, createNewTableName(schemaTableName.getTableName())));
     }
 
     @Override

@@ -438,7 +438,7 @@ public class TrinoJdbcCatalog
     }
 
     @Override
-    public String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName)
+    public Optional<String> defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName)
     {
         Namespace namespace = Namespace.of(schemaTableName.getSchemaName());
         String tableName = createNewTableName(schemaTableName.getTableName());
@@ -451,7 +451,7 @@ public class TrinoJdbcCatalog
         String schemaLocation = databaseLocation.orElseGet(() ->
                 appendPath(defaultWarehouseDir, schemaTableName.getSchemaName()));
 
-        return appendPath(schemaLocation, tableName);
+        return Optional.of(appendPath(schemaLocation, tableName));
     }
 
     @Override
@@ -473,7 +473,7 @@ public class TrinoJdbcCatalog
                 .withDefaultNamespace(Namespace.of(schemaViewName.getSchemaName()))
                 .withDefaultCatalog(definition.getCatalog().orElse(null))
                 .withProperties(properties.buildOrThrow())
-                .withLocation(defaultTableLocation(session, schemaViewName));
+                .withLocation(defaultTableLocation(session, schemaViewName).orElseThrow());
 
         if (replace) {
             viewBuilder.createOrReplace();
