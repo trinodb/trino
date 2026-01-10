@@ -1168,19 +1168,10 @@ public abstract class BaseConnectorTest
             assertUpdate("ALTER TABLE %s ADD COLUMN new_column BIGINT".formatted(table.getName()));
             assertQueryFails(
                     "SELECT * FROM " + view.getName(),
-                    ".*is stale or in invalid state: stored view column count \\(4\\) does not match column count derived from the view query analysis \\(5\\)");
+                    ".*Failed analyzing stored view '.*?': Column alias list has 4 entries but '.*?' has 5 columns available");
 
             assertUpdate("ALTER VIEW %s REFRESH".formatted(view.getName()));
             assertQueryReturnsEmptyResult("SELECT * FROM " + view.getName() + " EXCEPT CORRESPONDING SELECT * FROM " + table.getName());
-
-            if (hasBehavior(SUPPORTS_RENAME_COLUMN)) {
-                assertUpdate("ALTER TABLE %s RENAME COLUMN column_to_be_renamed TO renamed_column".formatted(table.getName()));
-                assertQueryFails(
-                        "SELECT * FROM %s".formatted(view.getName()),
-                        ".*is stale or in invalid state: column \\[renamed_column] of type bigint projected from query view at position 2 has a different name from column \\[column_to_be_renamed] of type bigint stored in view definition");
-                assertUpdate("ALTER VIEW %s REFRESH".formatted(view.getName()));
-                assertQueryReturnsEmptyResult("SELECT * FROM " + view.getName() + " EXCEPT CORRESPONDING SELECT * FROM " + table.getName());
-            }
 
             if (hasBehavior(SUPPORTS_COMMENT_ON_COLUMN)) {
                 assertUpdate("COMMENT ON COLUMN %s.column_with_comment IS 'test comment'".formatted(view.getName()));
@@ -1196,7 +1187,7 @@ public abstract class BaseConnectorTest
                 assertUpdate("ALTER TABLE %s DROP COLUMN column_to_dropped".formatted(table.getName()));
                 assertQueryFails(
                         "SELECT * FROM " + view.getName(),
-                        ".*is stale or in invalid state: stored view column count \\(\\d\\) does not match column count derived from the view query analysis \\(\\d\\)");
+                        ".*Failed analyzing stored view '.*?': Column alias list has \\d entries but '.*?' has \\d columns available");
 
                 assertUpdate("ALTER VIEW %s REFRESH".formatted(view.getName()));
                 assertQueryReturnsEmptyResult("SELECT * FROM " + view.getName() + " EXCEPT CORRESPONDING SELECT * FROM " + table.getName());
@@ -4889,6 +4880,34 @@ public abstract class BaseConnectorTest
             // comment set to empty
             assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS ''");
             assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("");
+        }
+    }
+
+    @Test
+    public void testCreateViewWithColumnAlias()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));
+
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_create_view_with_column_alias", "(test_alias1, test_alias2, test_alias3)", "SELECT * FROM region")) {
+            assertQuery("SELECT test_alias1, test_alias2, test_alias3 FROM " + view.getName() + "", "SELECT * FROM region");
+        }
+
+        // test with query with duplicate column name
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_create_view_with_column_alias", "(test_alias1, test_alias2, test_alias3)", "SELECT regionKey, regionKey, regionKey FROM region")) {
+            assertQuery("SELECT test_alias1, test_alias2, test_alias3 FROM " + view.getName() + "", "SELECT regionKey, regionKey, regionKey FROM region");
+        }
+    }
+
+    @Test
+    public void testCreateViewWithColumnComment()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_COMMENT_ON_VIEW_COLUMN));
+
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_create_view_with_column_comment", "(test_comment1 COMMENT 'comment1', test_comment2, test_comment3 COMMENT 'comment3')", "SELECT * FROM region")) {
+            assertThat(getColumnComment(view.getName(), "test_comment1")).isEqualTo("comment1");
+            assertThat(getColumnComment(view.getName(), "test_comment2")).isEqualTo(null);
+            assertThat(getColumnComment(view.getName(), "test_comment3")).isEqualTo("comment3");
+            assertQuery("SELECT * FROM " + view.getName(), "SELECT * FROM region");
         }
     }
 
