@@ -39,7 +39,11 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryCollection;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.MultiLineString;
+import org.locationtech.jts.geom.MultiPoint;
+import org.locationtech.jts.geom.MultiPolygon;
 import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKBWriter;
 import org.locationtech.jts.io.WKTReader;
@@ -52,6 +56,8 @@ import org.locationtech.jts.operation.overlayng.OverlayNG;
 import org.locationtech.jts.operation.overlayng.OverlayNGRobust;
 import org.locationtech.jts.operation.relateng.RelateNG;
 import org.locationtech.jts.operation.union.UnaryUnionOp;
+import org.locationtech.jts.operation.valid.IsValidOp;
+import org.locationtech.jts.operation.valid.TopologyValidationError;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -108,7 +114,6 @@ public final class GeoFunctions
     private static final Joiner OR_JOINER = Joiner.on(" or ");
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
     private static final Slice EMPTY_POLYGON = serialize(GEOMETRY_FACTORY.createPolygon());
-    private static final Slice EMPTY_MULTIPOINT = serialize(GEOMETRY_FACTORY.createMultiPoint());
     private static final double EARTH_RADIUS_KM = 6371.01;
     private static final double EARTH_RADIUS_M = EARTH_RADIUS_KM * 1000.0;
     private static final Block EMPTY_ARRAY_OF_INTS = IntegerType.INTEGER.createFixedSizeBlockBuilder(0).build();
@@ -516,7 +521,7 @@ public final class GeoFunctions
         if (geometry instanceof LineString lineString) {
             return lineString.isClosed();
         }
-        org.locationtech.jts.geom.MultiLineString multiLineString = (org.locationtech.jts.geom.MultiLineString) geometry;
+        MultiLineString multiLineString = (MultiLineString) geometry;
         for (int i = 0; i < multiLineString.getNumGeometries(); i++) {
             if (!((LineString) multiLineString.getGeometryN(i)).isClosed()) {
                 return false;
@@ -548,7 +553,7 @@ public final class GeoFunctions
     @SqlType(BOOLEAN)
     public static boolean stIsValid(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
-        return new org.locationtech.jts.operation.valid.IsValidOp(deserialize(input)).isValid();
+        return new IsValidOp(deserialize(input)).isValid();
     }
 
     @Description("Returns the reason for why the input geometry is not valid. Returns null if the input is valid.")
@@ -558,12 +563,12 @@ public final class GeoFunctions
     public static Slice invalidReason(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
         Geometry geometry = deserialize(input);
-        org.locationtech.jts.operation.valid.IsValidOp validOp = new org.locationtech.jts.operation.valid.IsValidOp(geometry);
+        IsValidOp validOp = new IsValidOp(geometry);
         if (validOp.isValid()) {
             return null;
         }
 
-        org.locationtech.jts.operation.valid.TopologyValidationError error = validOp.getValidationError();
+        TopologyValidationError error = validOp.getValidationError();
         if (error == null) {
             return null;
         }
@@ -652,7 +657,7 @@ public final class GeoFunctions
     @SqlType(StandardTypes.GEOMETRY)
     public static Slice lineInterpolatePoint(
             @SqlType(StandardTypes.GEOMETRY) Slice input,
-            @SqlType(StandardTypes.DOUBLE) double distanceFraction)
+            @SqlType(DOUBLE) double distanceFraction)
     {
         Geometry geometry = deserialize(input);
         if (geometry.isEmpty()) {
@@ -778,7 +783,7 @@ public final class GeoFunctions
         if (geometry.isEmpty()) {
             return null;
         }
-        return (long) ((org.locationtech.jts.geom.Polygon) geometry).getNumInteriorRing();
+        return (long) ((Polygon) geometry).getNumInteriorRing();
     }
 
     @SqlNullable
@@ -793,7 +798,7 @@ public final class GeoFunctions
             return null;
         }
 
-        org.locationtech.jts.geom.Polygon polygon = (org.locationtech.jts.geom.Polygon) geometry;
+        Polygon polygon = (Polygon) geometry;
         BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, polygon.getNumInteriorRing());
         for (int i = 0; i < polygon.getNumInteriorRing(); i++) {
             GEOMETRY.writeSlice(blockBuilder, serialize(polygon.getInteriorRingN(i)));
@@ -883,7 +888,7 @@ public final class GeoFunctions
     private static Geometry postProcessUnion(Geometry geometry)
     {
         // Handle MultiLineString specially - merge connected lines
-        if (geometry instanceof org.locationtech.jts.geom.MultiLineString mls) {
+        if (geometry instanceof MultiLineString mls) {
             LineMerger lineMerger = new LineMerger();
             lineMerger.add(mls);
             @SuppressWarnings("unchecked")
@@ -895,14 +900,14 @@ public final class GeoFunctions
         }
 
         if (!(geometry instanceof GeometryCollection gc) ||
-                geometry instanceof org.locationtech.jts.geom.MultiPoint ||
-                geometry instanceof org.locationtech.jts.geom.MultiPolygon) {
+                geometry instanceof MultiPoint ||
+                geometry instanceof MultiPolygon) {
             return geometry;
         }
 
         List<Point> points = new ArrayList<>();
         List<LineString> lineStrings = new ArrayList<>();
-        List<org.locationtech.jts.geom.Polygon> polygons = new ArrayList<>();
+        List<Polygon> polygons = new ArrayList<>();
         List<Geometry> others = new ArrayList<>();
 
         for (int i = 0; i < gc.getNumGeometries(); i++) {
@@ -913,10 +918,10 @@ public final class GeoFunctions
             else if (g instanceof LineString ls) {
                 lineStrings.add(ls);
             }
-            else if (g instanceof org.locationtech.jts.geom.Polygon p) {
+            else if (g instanceof Polygon p) {
                 polygons.add(p);
             }
-            else if (g instanceof org.locationtech.jts.geom.MultiLineString mls) {
+            else if (g instanceof MultiLineString mls) {
                 for (int j = 0; j < mls.getNumGeometries(); j++) {
                     lineStrings.add((LineString) mls.getGeometryN(j));
                 }
@@ -958,7 +963,7 @@ public final class GeoFunctions
                 result.add(polygons.get(0));
             }
             else {
-                result.add(GEOMETRY_FACTORY.createMultiPolygon(polygons.toArray(new org.locationtech.jts.geom.Polygon[0])));
+                result.add(GEOMETRY_FACTORY.createMultiPolygon(polygons.toArray(new Polygon[0])));
             }
         }
 
@@ -1055,7 +1060,7 @@ public final class GeoFunctions
     {
         Geometry geometry = deserialize(input);
         validateType("ST_InteriorRingN", geometry, EnumSet.of(POLYGON));
-        org.locationtech.jts.geom.Polygon polygon = (org.locationtech.jts.geom.Polygon) geometry;
+        Polygon polygon = (Polygon) geometry;
         if (index < 1 || index > polygon.getNumInteriorRing()) {
             return null;
         }
@@ -1303,7 +1308,7 @@ public final class GeoFunctions
         if (geometry.isEmpty()) {
             return null;
         }
-        return serializeWithSrid(((org.locationtech.jts.geom.Polygon) geometry).getExteriorRing(), geometry);
+        return serializeWithSrid(((Polygon) geometry).getExteriorRing(), geometry);
     }
 
     @Description("Returns the Geometry value that represents the point set intersection of two Geometries")
@@ -1740,7 +1745,7 @@ public final class GeoFunctions
         // Handle both Polygon and MultiPolygon
         int numPolygons = geometry.getNumGeometries();
         for (int p = 0; p < numPolygons; p++) {
-            org.locationtech.jts.geom.Polygon polygon = (org.locationtech.jts.geom.Polygon) geometry.getGeometryN(p);
+            Polygon polygon = (Polygon) geometry.getGeometryN(p);
 
             // Exterior ring (positive contribution)
             sphericalExcess += Math.abs(computeSphericalExcess(polygon.getExteriorRing().getCoordinates()));
