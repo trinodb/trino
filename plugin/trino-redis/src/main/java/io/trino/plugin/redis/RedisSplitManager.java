@@ -26,7 +26,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
-import redis.clients.jedis.Jedis;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -78,9 +77,8 @@ public class RedisSplitManager
         // when Redis keys are provides in a zset, create multiple
         // splits by splitting zset in chunks
         if (redisTableHandle.keyDataFormat().equals("zset")) {
-            try (Jedis jedis = jedisManager.getJedisPool(nodes.get(0)).getResource()) {
-                numberOfKeys = jedis.zcount(redisTableHandle.keyName(), "-inf", "+inf");
-            }
+            numberOfKeys = jedisManager.getClient(nodes.get(0))
+                    .zcount(redisTableHandle.keyName(), "-inf", "+inf");
         }
 
         long stride = REDIS_STRIDE_SPLITS;
