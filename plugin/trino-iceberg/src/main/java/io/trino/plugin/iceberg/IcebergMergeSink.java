@@ -142,7 +142,8 @@ public class IcebergMergeSink
                     partitionsSpecs.get(deletion.partitionSpecId()),
                     deletion.partitionDataJson());
 
-            fragments.addAll(writePositionDeletes(writer, deletion.rowsToDelete()));
+            // Roaring64Bitmap implements both LongBitmapDataProvider and ImmutableLongBitmapDataProvider
+            fragments.addAll(writePositionDeletes(writer, (ImmutableLongBitmapDataProvider) deletion.rowsToDelete()));
         });
 
         return completedFuture(fragments);
@@ -179,6 +180,8 @@ public class IcebergMergeSink
     private Collection<Slice> writePositionDeletes(PositionDeleteWriter writer, ImmutableLongBitmapDataProvider rowsToDelete)
     {
         try {
+            // PositionDeleteWriter.write() already commits the writer internally
+            // Calling commit() again would cause "Cannot commit transaction: last operation has not committed" error
             CommitTaskData task = writer.write(rowsToDelete);
             writtenBytes += task.fileSizeInBytes();
             return List.of(wrappedBuffer(jsonCodec.toJsonBytes(task)));

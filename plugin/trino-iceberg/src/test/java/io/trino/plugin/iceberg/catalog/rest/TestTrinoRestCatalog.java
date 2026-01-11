@@ -17,9 +17,16 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.metastore.TableInfo;
+import io.trino.orc.OrcReaderOptions;
+import io.trino.parquet.ParquetReaderOptions;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.DefaultIcebergFileSystemFactory;
+import io.trino.plugin.iceberg.IcebergConfig;
+import io.trino.plugin.iceberg.IcebergFileWriterFactory;
 import io.trino.plugin.iceberg.IcebergMetadata;
+import io.trino.plugin.iceberg.IcebergPageSourceProvider;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -47,6 +54,7 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.metastore.TableInfo.ExtendedRelationType.OTHER_VIEW;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
+import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
 import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType.NONE;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
@@ -132,13 +140,31 @@ public class TestTrinoRestCatalog
                     .contains(namespace);
 
             // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
+            io.trino.plugin.iceberg.IcebergFileSystemFactory fileSystemFactory = (identity, fileIoProperties) -> {
+                throw new UnsupportedOperationException();
+            };
+
+            FileFormatDataSourceStats fileFormatDataSourceStats = new FileFormatDataSourceStats();
+            IcebergPageSourceProvider pageSourceProvider = new IcebergPageSourceProvider(
+                    fileSystemFactory,
+                    FILE_IO_FACTORY,
+                    fileFormatDataSourceStats,
+                    new OrcReaderOptions(),
+                    ParquetReaderOptions.defaultOptions(),
+                    TESTING_TYPE_MANAGER);
+
+            IcebergFileWriterFactory fileWriterFactory = new IcebergFileWriterFactory(
+                    TESTING_TYPE_MANAGER,
+                    new NodeVersion("test-version"),
+                    fileFormatDataSourceStats,
+                    new IcebergConfig(),
+                    new OrcWriterConfig());
+
             ConnectorMetadata icebergMetadata = new IcebergMetadata(
                     PLANNER_CONTEXT.getTypeManager(),
                     jsonCodec(CommitTaskData.class),
                     catalog,
-                    (connectorIdentity, fileIoProperties) -> {
-                        throw new UnsupportedOperationException();
-                    },
+                    fileSystemFactory,
                     TABLE_STATISTICS_READER,
                     new TableStatisticsWriter(new NodeVersion("test-version")),
                     Optional.empty(),
@@ -147,7 +173,9 @@ public class TestTrinoRestCatalog
                     newDirectExecutorService(),
                     directExecutor(),
                     newDirectExecutorService(),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    pageSourceProvider,
+                    fileWriterFactory);
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isTrue();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
