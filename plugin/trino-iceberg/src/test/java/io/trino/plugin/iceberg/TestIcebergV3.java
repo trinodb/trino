@@ -272,9 +272,10 @@ public class TestIcebergV3
     }
 
     @Test
-    void testV3RejectsColumnDefaults()
+    void testV3InitialDefault()
             throws IOException
     {
+        // Create a data file with only 'id' column
         String temp = "tmp_v3_defaults_src_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + temp + " (id INTEGER) WITH (format = 'ORC')");
         assertUpdate("INSERT INTO " + temp + " VALUES 1", 1);
@@ -285,9 +286,14 @@ public class TestIcebergV3
         String hadoopTableName = "hadoop_v3_defaults_" + randomNameSuffix();
         Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
 
+        // Create a v3 table with two columns: id (exists in file) and value (missing from file, has initial-default)
         Schema schemaWithInitialDefault = new Schema(
                 Types.NestedField.optional("id")
                         .withId(1)
+                        .ofType(Types.IntegerType.get())
+                        .build(),
+                Types.NestedField.optional("value")
+                        .withId(2)
                         .ofType(Types.IntegerType.get())
                         .withInitialDefault(Expressions.lit(42))
                         .build());
@@ -309,25 +315,18 @@ public class TestIcebergV3
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
                 .formatted(registered, hadoopTableLocation));
 
-        assertQueryFails(
-                "SELECT * FROM " + registered,
-                ".*Iceberg v3 column default values are not supported.*");
+        // The 'value' column is missing from the data file, so it should return the initial-default (42)
+        assertQuery("SELECT id, value FROM " + registered, "VALUES (1, 42)");
 
-        // Also verify INSERT fails with column defaults
-        assertQueryFails(
-                "INSERT INTO " + registered + " VALUES 2",
-                ".*Iceberg v3 column default values are not supported.*");
-
-        // Use unregister_table instead of DROP TABLE because DROP TABLE triggers the same validation error
-        assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '%s')".formatted(registered));
+        assertUpdate("DROP TABLE " + registered);
         assertUpdate("DROP TABLE " + temp);
-        deleteRecursively(hadoopTableLocation, ALLOW_INSECURE);
     }
 
     @Test
-    void testV3RejectsColumnWriteDefaults()
+    void testV3WriteDefault()
             throws IOException
     {
+        // Create a data file with only 'id' column
         String temp = "tmp_v3_write_defaults_src_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + temp + " (id INTEGER) WITH (format = 'ORC')");
         assertUpdate("INSERT INTO " + temp + " VALUES 1", 1);
@@ -338,11 +337,17 @@ public class TestIcebergV3
         String hadoopTableName = "hadoop_v3_write_defaults_" + randomNameSuffix();
         Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
 
+        // Create a v3 table with a column that has write-default (but not initial-default)
+        // Note: write-default is used for INSERT, initial-default is used for reading missing columns
         Schema schemaWithWriteDefault = new Schema(
                 Types.NestedField.optional("id")
                         .withId(1)
                         .ofType(Types.IntegerType.get())
-                        .withWriteDefault(Expressions.lit(42))
+                        .build(),
+                Types.NestedField.optional("value")
+                        .withId(2)
+                        .ofType(Types.IntegerType.get())
+                        .withWriteDefault(Expressions.lit(99))
                         .build());
 
         Table icebergTable = new HadoopTables(new Configuration(false)).create(
@@ -362,19 +367,271 @@ public class TestIcebergV3
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
                 .formatted(registered, hadoopTableLocation));
 
-        assertQueryFails(
-                "SELECT * FROM " + registered,
-                ".*Iceberg v3 column default values are not supported.*");
+        // The 'value' column is missing from the data file and has no initial-default, so it should return NULL
+        // (write-default is only used for INSERT, not for reading missing columns)
+        assertQuery("SELECT id, value FROM " + registered, "VALUES (1, NULL)");
 
-        // Also verify INSERT fails with column defaults
-        assertQueryFails(
-                "INSERT INTO " + registered + " VALUES 2",
-                ".*Iceberg v3 column default values are not supported.*");
-
-        // Use unregister_table instead of DROP TABLE because DROP TABLE triggers the same validation error
-        assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '%s')".formatted(registered));
+        assertUpdate("DROP TABLE " + registered);
         assertUpdate("DROP TABLE " + temp);
-        deleteRecursively(hadoopTableLocation, ALLOW_INSECURE);
+    }
+
+    @Test
+    void testWriteDefaultOnInsert()
+    {
+        String hadoopTableName = "hadoop_v3_write_default_insert_" + randomNameSuffix();
+        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
+
+        // Create a v3 table with write-default on column 'b'
+        Schema schemaWithWriteDefault = new Schema(
+                Types.NestedField.optional("a")
+                        .withId(1)
+                        .ofType(Types.IntegerType.get())
+                        .build(),
+                Types.NestedField.optional("b")
+                        .withId(2)
+                        .ofType(Types.IntegerType.get())
+                        .withWriteDefault(Expressions.lit(42))
+                        .build());
+
+        new HadoopTables(new Configuration(false)).create(
+                schemaWithWriteDefault,
+                PartitionSpec.unpartitioned(),
+                SortOrder.unsorted(),
+                ImmutableMap.of(
+                        "format-version", "3",
+                        "write.format.default", "ORC"),
+                hadoopTableLocation.toString());
+
+        String tableName = "test_write_default_insert_" + randomNameSuffix();
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
+                .formatted(tableName, hadoopTableLocation));
+
+        // Verify SHOW CREATE TABLE shows DEFAULT
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("b integer DEFAULT 42");
+
+        // Insert without column b should use write-default
+        assertUpdate("INSERT INTO " + tableName + " (a) VALUES (1)", 1);
+        assertQuery("SELECT a, b FROM " + tableName, "VALUES (1, 42)");
+
+        // Insert with explicit column b should use the provided value
+        assertUpdate("INSERT INTO " + tableName + " (a, b) VALUES (2, 100)", 1);
+        assertQuery("SELECT a, b FROM " + tableName + " WHERE a = 2", "VALUES (2, 100)");
+
+        // Explicit NULL should write NULL, not default
+        assertUpdate("INSERT INTO " + tableName + " (a, b) VALUES (3, NULL)", 1);
+        assertQuery("SELECT a, b FROM " + tableName + " WHERE a = 3", "VALUES (3, NULL)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testCreateTableWithDefault()
+    {
+        String tableName = "test_create_table_with_default_" + randomNameSuffix();
+
+        // Create a v3 table with DEFAULT values using Trino DDL
+        assertUpdate("CREATE TABLE " + tableName + " (" +
+                "id INTEGER, " +
+                "int_col INTEGER DEFAULT 42, " +
+                "varchar_col VARCHAR DEFAULT 'hello', " +
+                "double_col DOUBLE DEFAULT 3.14" +
+                ") WITH (format_version = 3)");
+
+        // Verify SHOW CREATE TABLE shows the defaults
+        String showCreate = (String) computeScalar("SHOW CREATE TABLE " + tableName);
+        assertThat(showCreate).contains("int_col integer DEFAULT 42");
+        assertThat(showCreate).contains("varchar_col varchar DEFAULT 'hello'");
+        assertThat(showCreate).contains("double_col double DEFAULT DOUBLE '3.14'");
+
+        // Insert without default columns - should use defaults
+        assertUpdate("INSERT INTO " + tableName + " (id) VALUES (1)", 1);
+        assertQuery("SELECT id, int_col, varchar_col, double_col FROM " + tableName,
+                "VALUES (1, 42, 'hello', 3.14)");
+
+        // Insert with explicit values
+        assertUpdate("INSERT INTO " + tableName + " (id, int_col, varchar_col, double_col) VALUES (2, 100, 'world', 2.71)", 1);
+        assertQuery("SELECT id, int_col, varchar_col, double_col FROM " + tableName + " WHERE id = 2",
+                "VALUES (2, 100, 'world', 2.71)");
+
+        // Insert with explicit NULL
+        assertUpdate("INSERT INTO " + tableName + " (id, int_col) VALUES (3, NULL)", 1);
+        assertQuery("SELECT id, int_col FROM " + tableName + " WHERE id = 3",
+                "VALUES (3, NULL)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testAddColumnWithDefault()
+    {
+        String tableName = "test_add_column_with_default_" + randomNameSuffix();
+
+        // Create a v3 table and insert initial data
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (format_version = 3)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1), (2)", 2);
+
+        // Add a column with default
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN new_col INTEGER DEFAULT 99");
+
+        // Verify SHOW CREATE TABLE shows the default
+        String showCreate = (String) computeScalar("SHOW CREATE TABLE " + tableName);
+        assertThat(showCreate).contains("new_col integer DEFAULT 99");
+
+        // Existing rows should see the initial-default (99) for the new column
+        assertQuery("SELECT id, new_col FROM " + tableName + " ORDER BY id",
+                "VALUES (1, 99), (2, 99)");
+
+        // Insert new row without specifying new_col - should use write-default
+        assertUpdate("INSERT INTO " + tableName + " (id) VALUES (3)", 1);
+        assertQuery("SELECT id, new_col FROM " + tableName + " WHERE id = 3",
+                "VALUES (3, 99)");
+
+        // Insert with explicit value
+        assertUpdate("INSERT INTO " + tableName + " (id, new_col) VALUES (4, 200)", 1);
+        assertQuery("SELECT id, new_col FROM " + tableName + " WHERE id = 4",
+                "VALUES (4, 200)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testCreateTableWithDefaultVariousTypes()
+    {
+        String tableName = "test_create_table_default_types_" + randomNameSuffix();
+
+        // Create a v3 table with various types of default values
+        // Covers: BOOLEAN, BIGINT, REAL, DECIMAL, DATE, TIME, TIMESTAMP, UUID, VARBINARY
+        assertUpdate("CREATE TABLE " + tableName + " (" +
+                "id INTEGER, " +
+                "bool_col BOOLEAN DEFAULT true, " +
+                "bigint_col BIGINT DEFAULT 9223372036854775807, " +
+                "real_col REAL DEFAULT 1.5, " +
+                "decimal_col DECIMAL(10,2) DEFAULT 123.45, " +
+                "date_col DATE DEFAULT DATE '2020-06-15', " +
+                "time_col TIME(6) DEFAULT TIME '12:34:56.123456', " +
+                "timestamp_col TIMESTAMP(6) DEFAULT TIMESTAMP '2020-06-15 12:34:56.123456', " +
+                "uuid_col UUID DEFAULT UUID 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', " +
+                "binary_col VARBINARY DEFAULT X'48454C4C4F'" +
+                ") WITH (format_version = 3)");
+
+        // Verify SHOW CREATE TABLE displays the defaults correctly
+        String showCreate = (String) computeScalar("SHOW CREATE TABLE " + tableName);
+        assertThat(showCreate).contains("bool_col boolean DEFAULT true");
+        assertThat(showCreate).contains("bigint_col bigint DEFAULT 9223372036854775807");
+        assertThat(showCreate).contains("real_col real DEFAULT REAL '1.5'");
+        assertThat(showCreate).contains("decimal_col decimal(10, 2) DEFAULT DECIMAL '123.45'");
+        assertThat(showCreate).contains("date_col date DEFAULT DATE '2020-06-15'");
+        assertThat(showCreate).contains("time_col time(6) DEFAULT TIME '12:34:56.123456'");
+        assertThat(showCreate).contains("timestamp_col timestamp(6) DEFAULT TIMESTAMP '2020-06-15 12:34:56.123456'");
+        assertThat(showCreate).contains("uuid_col uuid DEFAULT UUID 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'");
+        assertThat(showCreate).contains("binary_col varbinary DEFAULT X'48454C4C4F'");
+
+        // Insert without default columns
+        assertUpdate("INSERT INTO " + tableName + " (id) VALUES (1)", 1);
+
+        // Verify all defaults are applied
+        assertQuery(
+                "SELECT id, bool_col, bigint_col, real_col, decimal_col, date_col, time_col, timestamp_col, uuid_col, binary_col FROM " + tableName,
+                "SELECT " +
+                        "CAST(1 AS INTEGER), " +
+                        "true, " +
+                        "9223372036854775807, " +
+                        "CAST(1.5 AS REAL), " +
+                        "CAST(123.45 AS DECIMAL(10,2)), " +
+                        "DATE '2020-06-15', " +
+                        "TIME '12:34:56.123456', " +
+                        "TIMESTAMP '2020-06-15 12:34:56.123456', " +
+                        "UUID 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', " +
+                        "X'48454C4C4F'");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testCreateTableWithDefaultNull()
+    {
+        String tableName = "test_default_null_" + randomNameSuffix();
+
+        // Create table with DEFAULT NULL - this should be allowed
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, value INTEGER DEFAULT NULL) WITH (format_version = 3)");
+
+        // Insert without value column
+        assertUpdate("INSERT INTO " + tableName + " (id) VALUES (1)", 1);
+        assertQuery("SELECT id, value FROM " + tableName, "VALUES (1, NULL)");
+
+        // Insert with explicit value
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 42)", 1);
+        assertQuery("SELECT id, value FROM " + tableName + " WHERE id = 2", "VALUES (2, 42)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testAlterColumnSetDefault()
+    {
+        String tableName = "test_alter_column_set_default_" + randomNameSuffix();
+
+        // Create a v3 table without default values
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, value INTEGER) WITH (format_version = 3)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10)", 1);
+
+        // Initially no default on 'value' column
+        String showCreate = (String) computeScalar("SHOW CREATE TABLE " + tableName);
+        assertThat(showCreate).doesNotContain("DEFAULT");
+
+        // Set a default value on 'value' column
+        assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN value SET DEFAULT 42");
+
+        // Verify SHOW CREATE TABLE shows the new default
+        showCreate = (String) computeScalar("SHOW CREATE TABLE " + tableName);
+        assertThat(showCreate).contains("value integer DEFAULT 42");
+
+        // Insert without 'value' - should now use the new default
+        assertUpdate("INSERT INTO " + tableName + " (id) VALUES (2)", 1);
+        assertQuery("SELECT id, value FROM " + tableName + " WHERE id = 2", "VALUES (2, 42)");
+
+        // Change the default to a different value
+        assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN value SET DEFAULT 100");
+
+        showCreate = (String) computeScalar("SHOW CREATE TABLE " + tableName);
+        assertThat(showCreate).contains("value integer DEFAULT 100");
+
+        // Insert should use the new default
+        assertUpdate("INSERT INTO " + tableName + " (id) VALUES (3)", 1);
+        assertQuery("SELECT id, value FROM " + tableName + " WHERE id = 3", "VALUES (3, 100)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testAlterColumnDropDefault()
+    {
+        String tableName = "test_alter_column_drop_default_" + randomNameSuffix();
+
+        // Create a v3 table with a default value
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, value INTEGER DEFAULT 42) WITH (format_version = 3)");
+
+        // Verify default is present
+        String showCreate = (String) computeScalar("SHOW CREATE TABLE " + tableName);
+        assertThat(showCreate).contains("value integer DEFAULT 42");
+
+        // Insert without 'value' - should use the default
+        assertUpdate("INSERT INTO " + tableName + " (id) VALUES (1)", 1);
+        assertQuery("SELECT id, value FROM " + tableName + " WHERE id = 1", "VALUES (1, 42)");
+
+        // Drop the default value
+        assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN value DROP DEFAULT");
+
+        // Verify default is no longer shown
+        showCreate = (String) computeScalar("SHOW CREATE TABLE " + tableName);
+        assertThat(showCreate).doesNotContain("DEFAULT");
+
+        // Insert without 'value' - should now use NULL (no default)
+        assertUpdate("INSERT INTO " + tableName + " (id) VALUES (2)", 1);
+        assertQuery("SELECT id, value FROM " + tableName + " WHERE id = 2", "VALUES (2, NULL)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
