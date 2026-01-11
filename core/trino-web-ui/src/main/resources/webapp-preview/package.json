@@ -28,9 +28,9 @@
     "@xyflow/react": "^12.8.5",
     "axios": "^1.12.2",
     "lodash": "^4.17.21",
-    "react": "^19.1.1",
+    "react": "^19.1.4",
     "react-calendar-timeline": "^0.30.0-beta.3",
-    "react-dom": "^19.1.1",
+    "react-dom": "^19.1.4",
     "react-router-dom": "^7.9.1",
     "sass": "^1.93.2",
     "zustand": "^5.0.8"
