@@ -132,6 +132,7 @@ public class MergingHashAggregationBuilder
     public void close()
     {
         hashAggregationBuilder.close();
+        memoryContext.close();
     }
 
     private boolean shouldProduceOutput(long memorySize)
