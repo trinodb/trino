@@ -1376,7 +1376,7 @@ public class DeltaLakeMetadata
                 transactionLogWriter.flush();
 
                 if (replaceExistingTable) {
-                    writeCheckpointIfNeeded(session, schemaTableName, location, tableHandle.toCredentialsHandle(), tableHandle.getReadVersion(), checkpointInterval, commitVersion);
+                    writeCheckpoint(session, schemaTableName, location, tableHandle.toCredentialsHandle(), commitVersion);
                 }
             }
         }
@@ -1748,7 +1748,7 @@ public class DeltaLakeMetadata
             writeCommitted = true;
 
             if (handle.replace() && handle.readVersion().isPresent()) {
-                writeCheckpointIfNeeded(session, schemaTableName, handle.location(), handle.toCredentialsHandle(), handle.readVersion().getAsLong(), handle.checkpointInterval(), commitVersion);
+                writeCheckpoint(session, schemaTableName, location, handle.toCredentialsHandle(), commitVersion);
             }
 
             if (isCollectExtendedStatisticsColumnStatisticsOnWrite(session) && !computedStatistics.isEmpty()) {
@@ -3182,15 +3182,21 @@ public class DeltaLakeMetadata
             // This does not pose correctness issue but may be confusing if someone looks into transaction log.
             // To fix that we should allow for getting snapshot for given version.
 
-            TransactionLogReader transactionLogReader = new FileSystemTransactionLogReader(tableLocation, credentialsHandle, fileSystemFactory);
-            TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, transactionLogReader, table, tableLocation, Optional.of(newVersion), credentialsHandle);
-            checkpointWriterManager.writeCheckpoint(session, snapshot, credentialsHandle);
+            writeCheckpoint(session, table, tableLocation, credentialsHandle, newVersion);
         }
         catch (Exception e) {
             // We can't fail here as transaction was already committed, in case of INSERT this could result
             // in inserting data twice if client saw an error and decided to retry
             LOG.error(e, "Failed to write checkpoint for table %s for version %s", table, newVersion);
         }
+    }
+
+    private void writeCheckpoint(ConnectorSession session, SchemaTableName table, String tableLocation, VendedCredentialsHandle credentialsHandle, long newVersion)
+            throws IOException
+    {
+        TransactionLogReader transactionLogReader = new FileSystemTransactionLogReader(tableLocation, credentialsHandle, fileSystemFactory);
+        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, transactionLogReader, table, tableLocation, Optional.of(newVersion), credentialsHandle);
+        checkpointWriterManager.writeCheckpoint(session, snapshot, credentialsHandle);
     }
 
     private void cleanupFailedWrite(ConnectorSession session, VendedCredentialsHandle credentialsHandle, List<DataFileInfo> dataFiles)
