@@ -56,6 +56,7 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
 import static io.trino.SystemSessionProperties.SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD;
+import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_MAX_WRITER_MEMORY;
 import static io.trino.operator.InterpretedHashGenerator.createChannelsHashGenerator;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -787,6 +788,7 @@ public class TestLocalExchange
                 testSessionBuilder()
                         .setSystemProperty(SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD, "20kB")
                         .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "20MB")
+                        .setSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_MEMORY, "14MB")
                         .build(),
                 4,
                 partitioningHandle,
@@ -874,6 +876,7 @@ public class TestLocalExchange
                 testSessionBuilder()
                         .setSystemProperty(SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD, "20kB")
                         .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "20MB")
+                        .setSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_MEMORY, "14MB")
                         .build(),
                 4,
                 partitioningHandle,

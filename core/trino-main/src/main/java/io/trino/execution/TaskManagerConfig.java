@@ -27,6 +27,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.util.MachineInfo.getAvailablePhysicalProcessorCount;
@@ -84,6 +85,7 @@ public class TaskManagerConfig
     private Duration interruptStuckSplitTasksDetectionInterval = new Duration(2, TimeUnit.MINUTES);
 
     private boolean scaleWritersEnabled = true;
+    private DataSize scaleWritersMaxWriterMemory;
     private int minWriterCount = 1;
     // Set the value of default max writer count to the number of processors * 2 and cap it to 64. It should be
     // above 1, otherwise it can create a plan with a single gather exchange node on the coordinator due to a single
@@ -441,6 +443,19 @@ public class TaskManagerConfig
     public TaskManagerConfig setScaleWritersEnabled(boolean scaleWritersEnabled)
     {
         this.scaleWritersEnabled = scaleWritersEnabled;
+        return this;
+    }
+
+    public Optional<DataSize> getScaleWritersMaxWriterMemory()
+    {
+        return Optional.ofNullable(scaleWritersMaxWriterMemory);
+    }
+
+    @Config("task.scale-writers.max-writer-memory")
+    @ConfigDescription("Maximum memory per writer that can be used by task scale writers before stopping writer scaling")
+    public TaskManagerConfig setScaleWritersMaxWriterMemory(DataSize scaleWritersMaxWriterMemory)
+    {
+        this.scaleWritersMaxWriterMemory = scaleWritersMaxWriterMemory;
         return this;
     }
 

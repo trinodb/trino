@@ -75,6 +75,7 @@ public class TestTaskManagerConfig
                 .setInterruptStuckSplitTasksEnabled(true)
                 .setInterruptStuckSplitTasksWarningThreshold(new Duration(10, TimeUnit.MINUTES))
                 .setInterruptStuckSplitTasksTimeout(new Duration(15, TimeUnit.MINUTES))
+                .setScaleWritersMaxWriterMemory(null)
                 .setInterruptStuckSplitTasksDetectionInterval(new Duration(2, TimeUnit.MINUTES)));
     }
 
@@ -120,6 +121,7 @@ public class TestTaskManagerConfig
                 .put("task.interrupt-stuck-split-tasks-enabled", "false")
                 .put("task.interrupt-stuck-split-tasks-warning-threshold", "3m")
                 .put("task.interrupt-stuck-split-tasks-timeout", "4m")
+                .put("task.scale-writers.max-writer-memory", "20MB")
                 .put("task.interrupt-stuck-split-tasks-detection-interval", "10m")
                 .buildOrThrow();
 
@@ -160,6 +162,7 @@ public class TestTaskManagerConfig
                 .setInterruptStuckSplitTasksEnabled(false)
                 .setInterruptStuckSplitTasksWarningThreshold(new Duration(3, TimeUnit.MINUTES))
                 .setInterruptStuckSplitTasksTimeout(new Duration(4, TimeUnit.MINUTES))
+                .setScaleWritersMaxWriterMemory(DataSize.of(20, Unit.MEGABYTE))
                 .setInterruptStuckSplitTasksDetectionInterval(new Duration(10, TimeUnit.MINUTES));
 
         assertFullMapping(properties, expected);
