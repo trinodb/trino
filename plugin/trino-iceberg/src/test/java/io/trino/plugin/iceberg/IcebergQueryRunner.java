@@ -228,7 +228,7 @@ public final class IcebergQueryRunner
     {
         private IcebergBigLakeMetastoreQueryRunnerMain() {}
 
-        public static void main(String[] args)
+        static void main()
                 throws Exception
         {
             byte[] jsonKeyBytes = Base64.getDecoder().decode(requireEnv("GCP_CREDENTIALS_KEY"));
