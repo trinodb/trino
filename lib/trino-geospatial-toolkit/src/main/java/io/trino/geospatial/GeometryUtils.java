@@ -13,28 +13,26 @@
  */
 package io.trino.geospatial;
 
-import com.esri.core.geometry.Envelope;
-import com.esri.core.geometry.Geometry;
-import com.esri.core.geometry.GeometryCursor;
-import com.esri.core.geometry.GeometryEngine;
-import com.esri.core.geometry.MultiVertexGeometry;
-import com.esri.core.geometry.Point;
-import com.esri.core.geometry.Polygon;
-import com.esri.core.geometry.ogc.OGCGeometry;
-import com.esri.core.geometry.ogc.OGCPoint;
-import com.esri.core.geometry.ogc.OGCPolygon;
 import io.trino.spi.TrinoException;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryCollection;
+import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.geojson.GeoJsonReader;
 import org.locationtech.jts.io.geojson.GeoJsonWriter;
+import org.locationtech.jts.operation.union.UnaryUnionOp;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
 public final class GeometryUtils
 {
+    private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
+
     private GeometryUtils() {}
 
     /**
@@ -63,110 +61,6 @@ public final class GeometryUtils
         return Double.isNaN(d) || Double.isNaN(translateFromAVNaN(d));
     }
 
-    public static int getPointCount(OGCGeometry ogcGeometry)
-    {
-        GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
-        int points = 0;
-        while (true) {
-            com.esri.core.geometry.Geometry geometry = cursor.next();
-            if (geometry == null) {
-                return points;
-            }
-
-            if (geometry.isEmpty()) {
-                continue;
-            }
-
-            if (geometry instanceof Point) {
-                points++;
-            }
-            else {
-                points += ((MultiVertexGeometry) geometry).getPointCount();
-            }
-        }
-    }
-
-    public static Envelope getEnvelope(OGCGeometry ogcGeometry)
-    {
-        GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
-        Envelope overallEnvelope = new Envelope();
-        while (true) {
-            Geometry geometry = cursor.next();
-            if (geometry == null) {
-                return overallEnvelope;
-            }
-
-            Envelope envelope = new Envelope();
-            geometry.queryEnvelope(envelope);
-            overallEnvelope.merge(envelope);
-        }
-    }
-
-    public static boolean disjoint(Geometry polygon, OGCGeometry ogcGeometry)
-    {
-        GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
-        while (true) {
-            Geometry geometry = cursor.next();
-            if (geometry == null) {
-                return true;
-            }
-
-            if (!GeometryEngine.disjoint(geometry, polygon, null)) {
-                return false;
-            }
-        }
-    }
-
-    public static boolean contains(OGCGeometry ogcGeometry, Geometry polygon)
-    {
-        GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
-        while (true) {
-            Geometry geometry = cursor.next();
-            if (geometry == null) {
-                return false;
-            }
-
-            if (GeometryEngine.contains(geometry, polygon, null)) {
-                return true;
-            }
-        }
-    }
-
-    public static boolean isPointOrRectangle(OGCGeometry ogcGeometry, Envelope envelope)
-    {
-        if (ogcGeometry instanceof OGCPoint) {
-            return true;
-        }
-
-        if (!(ogcGeometry instanceof OGCPolygon)) {
-            return false;
-        }
-
-        Polygon polygon = (Polygon) ogcGeometry.getEsriGeometry();
-        if (polygon.getPathCount() > 1) {
-            return false;
-        }
-
-        if (polygon.getPointCount() != 4) {
-            return false;
-        }
-
-        Set<Point> corners = new HashSet<>();
-        corners.add(new Point(envelope.getXMin(), envelope.getYMin()));
-        corners.add(new Point(envelope.getXMin(), envelope.getYMax()));
-        corners.add(new Point(envelope.getXMax(), envelope.getYMin()));
-        corners.add(new Point(envelope.getXMax(), envelope.getYMax()));
-
-        for (int i = 0; i < 4; i++) {
-            Point point = polygon.getPoint(i);
-            if (!corners.contains(point)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     public static org.locationtech.jts.geom.Geometry jtsGeometryFromJson(String json)
     {
         try {
@@ -182,5 +76,98 @@ public final class GeometryUtils
         GeoJsonWriter geoJsonWriter = new GeoJsonWriter();
         geoJsonWriter.setEncodeCRS(false);
         return geoJsonWriter.write(geometry);
+    }
+
+    public static boolean disjoint(org.locationtech.jts.geom.Geometry tileGeometry, org.locationtech.jts.geom.Geometry geometry)
+    {
+        if (geometry instanceof GeometryCollection gc) {
+            for (int i = 0; i < gc.getNumGeometries(); i++) {
+                if (!disjoint(tileGeometry, gc.getGeometryN(i))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return geometry.disjoint(tileGeometry);
+    }
+
+    public static boolean contains(org.locationtech.jts.geom.Geometry geometry, org.locationtech.jts.geom.Geometry tileGeometry)
+    {
+        if (geometry instanceof GeometryCollection gc) {
+            for (int i = 0; i < gc.getNumGeometries(); i++) {
+                if (contains(gc.getGeometryN(i), tileGeometry)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return geometry.contains(tileGeometry);
+    }
+
+    public static boolean isPointOrRectangle(org.locationtech.jts.geom.Geometry geometry, org.locationtech.jts.geom.Envelope envelope)
+    {
+        if (geometry instanceof org.locationtech.jts.geom.Point) {
+            return true;
+        }
+
+        if (!(geometry instanceof org.locationtech.jts.geom.Polygon polygon)) {
+            return false;
+        }
+
+        if (polygon.getNumInteriorRing() > 0) {
+            return false;
+        }
+
+        // Polygon has 5 points (4 corners + closing point that repeats the first)
+        if (polygon.getNumPoints() != 5) {
+            return false;
+        }
+
+        Set<Coordinate> corners = new HashSet<>();
+        corners.add(new Coordinate(envelope.getMinX(), envelope.getMinY()));
+        corners.add(new Coordinate(envelope.getMinX(), envelope.getMaxY()));
+        corners.add(new Coordinate(envelope.getMaxX(), envelope.getMinY()));
+        corners.add(new Coordinate(envelope.getMaxX(), envelope.getMaxY()));
+
+        Coordinate[] coordinates = polygon.getExteriorRing().getCoordinates();
+        // Check all 4 unique corners (skip the closing point which is same as first)
+        for (int i = 0; i < 4; i++) {
+            if (!corners.contains(coordinates[i])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Unions two geometries, handling GeometryCollection inputs that JTS's
+     * standard union method doesn't support.
+     */
+    public static org.locationtech.jts.geom.Geometry safeUnion(org.locationtech.jts.geom.Geometry left, org.locationtech.jts.geom.Geometry right)
+    {
+        // JTS union doesn't support GeometryCollection, so flatten and use UnaryUnionOp
+        List<org.locationtech.jts.geom.Geometry> geometries = new ArrayList<>();
+        flattenGeometry(left, geometries);
+        flattenGeometry(right, geometries);
+        if (geometries.isEmpty()) {
+            return GEOMETRY_FACTORY.createGeometryCollection();
+        }
+        return UnaryUnionOp.union(geometries);
+    }
+
+    private static void flattenGeometry(org.locationtech.jts.geom.Geometry geometry, List<org.locationtech.jts.geom.Geometry> output)
+    {
+        if (geometry.isEmpty()) {
+            return;
+        }
+        if (geometry instanceof GeometryCollection gc) {
+            for (int i = 0; i < gc.getNumGeometries(); i++) {
+                flattenGeometry(gc.getGeometryN(i), output);
+            }
+        }
+        else {
+            output.add(geometry);
+        }
     }
 }
