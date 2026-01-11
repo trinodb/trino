@@ -60,6 +60,7 @@ public final class IcebergThetaSketchForStats
         Object trinoValue = readNativeValue(type, block, index);
         org.apache.iceberg.types.Type icebergType = toIcebergTypeForNewColumn(type, new AtomicInteger(1));
         Object icebergValue = convertTrinoValueToIceberg(type, trinoValue);
+
         ByteBuffer byteBuffer = Conversions.toByteBuffer(icebergType, icebergValue);
         requireNonNull(byteBuffer, "byteBuffer is null"); // trino value isn't null
         byte[] bytes = getBytes(byteBuffer);

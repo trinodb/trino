@@ -43,6 +43,8 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.base.filter.UtcConstraintExtractor;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
+import io.trino.plugin.geospatial.GeometryType;
+import io.trino.plugin.geospatial.SphericalGeographyType;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.HiveWrittenPartitions;
@@ -3025,7 +3027,9 @@ public class IcebergMetadata
                 .filter(column -> !column.isHidden())
                 .filter(column -> {
                     io.trino.spi.type.Type type = column.getType();
-                    return !(type instanceof MapType || type instanceof ArrayType || type instanceof RowType); // is scalar type
+                    // Geometry and Geography are excluded because Iceberg doesn't support geospatial statistics
+                    return !(type instanceof MapType || type instanceof ArrayType || type instanceof RowType
+                            || type instanceof GeometryType || type instanceof SphericalGeographyType);
                 })
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableSet());

@@ -30,6 +30,8 @@ import io.trino.orc.OrcWriterStats;
 import io.trino.orc.OutputStreamOrcDataSink;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.geospatial.GeometryType;
+import io.trino.plugin.geospatial.SphericalGeographyType;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveCompressionOption;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
@@ -39,8 +41,10 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.VarbinaryType;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.types.Type.TypeID;
 import org.apache.iceberg.types.Types;
 import org.weakref.jmx.Managed;
 
@@ -170,6 +174,7 @@ public class IcebergFileWriterFactory
                 .collect(toImmutableList());
         List<Type> fileColumnTypes = icebergSchema.columns().stream()
                 .map(column -> toTrinoType(column.type(), typeManager))
+                .map(IcebergFileWriterFactory::toFileTrinoType)
                 .collect(toImmutableList());
 
         try {
@@ -194,7 +199,7 @@ public class IcebergFileWriterFactory
                     rollbackAction,
                     fileColumnTypes,
                     fileColumnNames,
-                    convert(icebergSchema, "table"),
+                    convert(toFileSchema(icebergSchema), "table"),
                     makeTypeMap(fileColumnTypes, fileColumnNames),
                     parquetWriterOptions,
                     IntStream.range(0, fileColumnNames.size()).toArray(),
@@ -228,6 +233,7 @@ public class IcebergFileWriterFactory
             List<Type> fileColumnTypes = columnFields.stream()
                     .map(Types.NestedField::type)
                     .map(type -> toTrinoType(type, typeManager))
+                    .map(IcebergFileWriterFactory::toFileTrinoType)
                     .collect(toImmutableList());
 
             Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();
@@ -253,7 +259,7 @@ public class IcebergFileWriterFactory
                     rollbackAction,
                     fileColumnNames,
                     fileColumnTypes,
-                    toOrcType(icebergSchema),
+                    toOrcType(toFileSchema(icebergSchema)),
                     compressionCodec.getOrcCompressionKind(),
                     withBloomFilterOptions(orcWriterOptions, storageProperties)
                             .withStripeMinSize(getOrcWriterMinStripeSize(session))
@@ -305,6 +311,7 @@ public class IcebergFileWriterFactory
 
         List<Type> columnTypes = icebergSchema.columns().stream()
                 .map(column -> toTrinoType(column.type(), typeManager))
+                .map(IcebergFileWriterFactory::toFileTrinoType)
                 .collect(toImmutableList());
 
         HiveCompressionCodec compressionCodec = getHiveCompressionCodec(AVRO, storageProperties)
@@ -313,8 +320,41 @@ public class IcebergFileWriterFactory
         return new IcebergAvroFileWriter(
                 new ForwardingOutputFile(fileSystem, outputPath),
                 rollbackAction,
-                icebergSchema,
+                toFileSchema(icebergSchema),
                 columnTypes,
                 compressionCodec);
+    }
+
+    /**
+     * Convert an Iceberg schema for file writing by replacing GEOMETRY/GEOGRAPHY types with BINARY.
+     * File formats don't understand these types, but Iceberg table metadata preserves them.
+     */
+    private static Schema toFileSchema(Schema icebergSchema)
+    {
+        List<Types.NestedField> columns = icebergSchema.columns().stream()
+                .map(IcebergFileWriterFactory::toFileType)
+                .collect(toImmutableList());
+        return new Schema(columns);
+    }
+
+    private static Types.NestedField toFileType(Types.NestedField field)
+    {
+        org.apache.iceberg.types.Type type = field.type();
+        if (type.typeId() == TypeID.GEOMETRY || type.typeId() == TypeID.GEOGRAPHY) {
+            // Replace geometry/geography with binary for file writing
+            return Types.NestedField.of(field.fieldId(), field.isOptional(), field.name(), Types.BinaryType.get(), field.doc());
+        }
+        return field;
+    }
+
+    /**
+     * Convert Trino type for file writing - geometry/geography become varbinary.
+     */
+    private static Type toFileTrinoType(Type type)
+    {
+        if (type instanceof GeometryType || type instanceof SphericalGeographyType) {
+            return VarbinaryType.VARBINARY;
+        }
+        return type;
     }
 }

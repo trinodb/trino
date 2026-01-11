@@ -14,6 +14,8 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.base.VerifyException;
+import io.trino.plugin.geospatial.GeometryType;
+import io.trino.plugin.geospatial.SphericalGeographyType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -56,6 +58,11 @@ public final class ExpressionConverter
     {
         if (isStructuralType(domain.getType())) {
             // structural types cannot be used to filter a table scan in Iceberg library.
+            return false;
+        }
+
+        // Geometry and Geography types are not supported for predicate pushdown in Iceberg
+        if (domain.getType() instanceof GeometryType || domain.getType() instanceof SphericalGeographyType) {
             return false;
         }
 
