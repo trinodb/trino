@@ -13,6 +13,7 @@ ALTER TABLE [ IF EXISTS ] name RENAME COLUMN [ IF EXISTS ] old_name TO new_name
 ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name SET DEFAULT expression
 ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name DROP DEFAULT
 ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name SET DATA TYPE new_type
+ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name SET NOT NULL
 ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name DROP NOT NULL
 ALTER TABLE name SET AUTHORIZATION ( user | USER user | ROLE role )
 ALTER TABLE name SET PROPERTIES property_name = expression [, ...]
@@ -147,6 +148,12 @@ Change type of column `id` to `bigint` in the `users` table:
 
 ```
 ALTER TABLE users ALTER COLUMN id SET DATA TYPE bigint;
+```
+
+Set a not null constraint on `id` column in the `users` table:
+
+```sql
+ALTER TABLE users ALTER COLUMN id SET NOT NULL;
 ```
 
 Drop a not null constraint on `id` column in the `users` table:

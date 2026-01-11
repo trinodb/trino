@@ -571,6 +571,13 @@ public class CachingJdbcClient
     }
 
     @Override
+    public void setNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        delegate.setNotNullConstraint(session, handle, column);
+        invalidateTableCaches(handle.asPlainTable().getSchemaTableName());
+    }
+
+    @Override
     public void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
         delegate.dropNotNullConstraint(session, handle, column);

@@ -254,6 +254,7 @@ import io.trino.sql.tree.SessionProperty;
 import io.trino.sql.tree.SetAuthorizationStatement;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetDefaultValue;
+import io.trino.sql.tree.SetNotNullConstraint;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
@@ -911,6 +912,16 @@ class AstBuilder
                 getQualifiedName(context.tableName),
                 getQualifiedName(context.columnName),
                 (DataType) visit(context.type()),
+                context.EXISTS() != null);
+    }
+
+    @Override
+    public Node visitSetNotNullConstraint(SqlBaseParser.SetNotNullConstraintContext context)
+    {
+        return new SetNotNullConstraint(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.columnName),
                 context.EXISTS() != null);
     }
 

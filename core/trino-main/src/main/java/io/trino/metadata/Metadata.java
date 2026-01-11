@@ -321,6 +321,11 @@ public interface Metadata
     void setFieldType(Session session, TableHandle tableHandle, List<String> fieldPath, Type type);
 
     /**
+     * Set a not null constraint to the specified column.
+     */
+    void setNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle column);
+
+    /**
      * Drop a not null constraint on the specified column.
      */
     void dropNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle column);

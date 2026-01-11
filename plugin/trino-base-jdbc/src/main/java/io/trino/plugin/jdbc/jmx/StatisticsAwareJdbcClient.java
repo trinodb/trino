@@ -329,6 +329,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public void setNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        stats.getSetNotNullConstraint().wrap(() -> delegate().setNotNullConstraint(session, handle, column));
+    }
+
+    @Override
     public void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
         stats.getDropNotNullConstraint().wrap(() -> delegate().dropNotNullConstraint(session, handle, column));
