@@ -24,31 +24,31 @@ local exchange (GATHER, SINGLE, [])
                                                                                 scan date_dim
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
-                                        dynamic filter (d_week_seq_22::EQUAL)
+                                        dynamic filter (d_week_seq_26::EQUAL)
                                             scan date_dim
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
                                     dynamic filter (s_store_id::EQUAL)
                                         scan store
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, [operator_subtract, s_store_id_121])
+                        remote exchange (REPARTITION, HASH, [operator_subtract, s_store_id_131])
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
-                                    final aggregation over (d_week_seq_79, ss_store_sk_55)
+                                    final aggregation over (d_week_seq_87, ss_store_sk_61)
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPARTITION, HASH, [d_week_seq_79, ss_store_sk_55])
-                                                partial aggregation over (d_week_seq_79, ss_store_sk_55)
-                                                    final aggregation over (d_day_name_89, d_week_seq_79, ss_store_sk_55)
+                                            remote exchange (REPARTITION, HASH, [d_week_seq_87, ss_store_sk_61])
+                                                partial aggregation over (d_week_seq_87, ss_store_sk_61)
+                                                    final aggregation over (d_day_name_97, d_week_seq_87, ss_store_sk_61)
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPARTITION, HASH, [d_day_name_89, d_week_seq_79, ss_store_sk_55])
-                                                                intermediate aggregation over (d_day_name_89, d_week_seq_79, ss_store_sk_55)
+                                                            remote exchange (REPARTITION, HASH, [d_day_name_97, d_week_seq_87, ss_store_sk_61])
+                                                                intermediate aggregation over (d_day_name_97, d_week_seq_87, ss_store_sk_61)
                                                                     join (INNER, REPLICATED):
-                                                                        partial aggregation over (ss_sold_date_sk_71, ss_store_sk_55)
-                                                                            dynamic filter (ss_sold_date_sk_71::EQUAL, ss_store_sk_55::EQUAL)
+                                                                        partial aggregation over (ss_sold_date_sk_77, ss_store_sk_61)
+                                                                            dynamic filter (ss_sold_date_sk_77::EQUAL, ss_store_sk_61::EQUAL)
                                                                                 scan store_sales
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                                dynamic filter (d_week_seq_79::EQUAL)
+                                                                                dynamic filter (d_week_seq_87::EQUAL)
                                                                                     scan date_dim
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])

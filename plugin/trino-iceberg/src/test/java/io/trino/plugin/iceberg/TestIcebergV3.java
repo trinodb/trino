@@ -32,17 +32,23 @@ import io.trino.testing.sql.TestTable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
-import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileFormat;
-import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.data.GenericRecord;
+import org.apache.iceberg.data.Record;
+import org.apache.iceberg.data.parquet.GenericParquetWriter;
+import org.apache.iceberg.deletes.BaseDVFileWriter;
+import org.apache.iceberg.deletes.PositionDeleteIndex;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.hadoop.HadoopTables;
+import org.apache.iceberg.io.DataWriter;
+import org.apache.iceberg.io.OutputFileFactory;
+import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
 
@@ -50,7 +56,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.UUID;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
@@ -61,7 +69,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.apache.iceberg.Files.localInput;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergV3
         extends AbstractTestQueryFramework
@@ -172,71 +180,152 @@ public class TestIcebergV3
     }
 
     @Test
-    void testDeleteV3TableFails()
+    void testDeleteV3Table()
     {
-        String tableName = "test_delete_v3_fails_" + randomNameSuffix();
+        try (TestTable table = newTrinoTable("test_delete_v3", "(id integer) WITH (format_version = 3)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2, 3", 3);
 
-        assertUpdate("CREATE TABLE " + tableName + " (id integer) WITH (format_version = 3)");
-        assertUpdate("INSERT INTO " + tableName + " VALUES 1, 2, 3", 3);
-
-        assertThat(query("DELETE FROM " + tableName + " WHERE id = 2"))
-                .failure()
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("Iceberg table updates for format version 3 are not supported yet");
-
-        assertUpdate("DROP TABLE " + tableName);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id = 2", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (INTEGER '1'), (INTEGER '3')");
+        }
     }
 
     @Test
-    void testUpdateV3TableFails()
+    void testUpdateV3Table()
     {
-        String tableName = "test_update_v3_fails_" + randomNameSuffix();
+        try (TestTable table = newTrinoTable("test_update_v3", "(id integer, v varchar) WITH (format_version = 3)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'a'), (2, 'b')", 2);
 
-        assertUpdate("CREATE TABLE " + tableName + " (id integer, v varchar) WITH (format_version = 3)");
-        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b')", 2);
+            // Capture row_id before update
+            BaseTable baseTable = loadTable(table.getName());
+            baseTable.refresh();
+            long beforeUpdateSnapshotId = baseTable.currentSnapshot().snapshotId();
 
-        assertThat(query("UPDATE " + tableName + " SET v = 'bb' WHERE id = 2"))
-                .failure()
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("Iceberg table updates for format version 3 are not supported yet");
+            assertUpdate("UPDATE " + table.getName() + " SET v = 'bb' WHERE id = 2", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (INTEGER '1', VARCHAR 'a'), (INTEGER '2', VARCHAR 'bb')");
 
-        assertUpdate("DROP TABLE " + tableName);
+            // Verify row_id is preserved for the updated row
+            assertThat(query(
+                    "SELECT " +
+                            "  (SELECT \"$row_id\" FROM " + table.getName() + " WHERE id = 2) = " +
+                            "  (SELECT \"$row_id\" FROM " + table.getName() + " FOR VERSION AS OF " + beforeUpdateSnapshotId + " WHERE id = 2)"))
+                    .matches("VALUES (BOOLEAN 'true')");
+
+            // Verify non-updated row also preserved its row_id
+            assertThat(query(
+                    "SELECT " +
+                            "  (SELECT \"$row_id\" FROM " + table.getName() + " WHERE id = 1) = " +
+                            "  (SELECT \"$row_id\" FROM " + table.getName() + " FOR VERSION AS OF " + beforeUpdateSnapshotId + " WHERE id = 1)"))
+                    .matches("VALUES (BOOLEAN 'true')");
+        }
     }
 
     @Test
-    void testMergeV3TableFails()
+    void testMergeV3Table()
     {
-        String tableName = "test_merge_v3_fails_" + randomNameSuffix();
+        try (TestTable table = newTrinoTable("test_merge_v3", "(id integer, v varchar) WITH (format_version = 3)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'a'), (2, 'b')", 2);
 
-        assertUpdate("CREATE TABLE " + tableName + " (id integer, v varchar) WITH (format_version = 3)");
-        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b')", 2);
+            // Capture row_id before merge
+            BaseTable baseTable = loadTable(table.getName());
+            baseTable.refresh();
+            long beforeMergeSnapshotId = baseTable.currentSnapshot().snapshotId();
 
+            assertUpdate("MERGE INTO " + table.getName() + " t USING (VALUES (2, 'bb')) AS s(id, v) ON (t.id = s.id) WHEN MATCHED THEN UPDATE SET v = s.v", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (INTEGER '1', VARCHAR 'a'), (INTEGER '2', VARCHAR 'bb')");
+
+            // Verify row_id is preserved for the merged (updated) row
+            assertThat(query(
+                    "SELECT " +
+                            "  (SELECT \"$row_id\" FROM " + table.getName() + " WHERE id = 2) = " +
+                            "  (SELECT \"$row_id\" FROM " + table.getName() + " FOR VERSION AS OF " + beforeMergeSnapshotId + " WHERE id = 2)"))
+                    .matches("VALUES (BOOLEAN 'true')");
+
+            // Verify non-merged row also preserved its row_id
+            assertThat(query(
+                    "SELECT " +
+                            "  (SELECT \"$row_id\" FROM " + table.getName() + " WHERE id = 1) = " +
+                            "  (SELECT \"$row_id\" FROM " + table.getName() + " FOR VERSION AS OF " + beforeMergeSnapshotId + " WHERE id = 1)"))
+                    .matches("VALUES (BOOLEAN 'true')");
+        }
+    }
+
+    @Test
+    void testOptimizePreservesRowLineage()
+    {
+        String tableName = "test_optimize_preserves_row_lineage_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, v VARCHAR) WITH (format = 'PARQUET', format_version = 3)");
+
+        // Two inserts to reliably create multiple files so OPTIMIZE actually rewrites something.
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4, 'd'), (5, 'e')", 2);
+
+        BaseTable table = loadTable(tableName);
+        table.refresh();
+        long beforeOptimizeSnapshotId = table.currentSnapshot().snapshotId();
+
+        // Before: row_id materialized (no nulls), unique, and we have > 1 data file.
         assertThat(query(
-                "MERGE INTO " + tableName + " t " +
-                        "USING (VALUES (2, 'bb')) AS s(id, v) " +
-                        "ON (t.id = s.id) " +
-                        "WHEN MATCHED THEN UPDATE SET v = s.v"))
-                .failure()
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("Iceberg table updates for format version 3 are not supported yet");
+                "SELECT " +
+                        "  count(*) AS row_count, " +
+                        "  count_if(\"$row_id\" IS NULL) AS row_id_nulls, " +
+                        "  count(DISTINCT \"$row_id\") AS distinct_row_id, " +
+                        "  count(DISTINCT \"$last_updated_sequence_number\") AS distinct_last_updated_sequence_number, " +
+                        "  count(DISTINCT \"$path\") AS distinct_data_files " +
+                        "FROM " + tableName + " FOR VERSION AS OF " + beforeOptimizeSnapshotId))
+                .matches("VALUES (BIGINT '5', BIGINT '0', BIGINT '5', BIGINT '2', BIGINT '2')");
 
-        assertUpdate("DROP TABLE " + tableName);
-    }
+        // Run OPTIMIZE (threshold large so all our tiny files qualify).
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize (file_size_threshold => '1GB')");
 
-    @Test
-    void testOptimizeV3TableFails()
-    {
-        String tableName = "test_optimize_v3_fails_" + randomNameSuffix();
+        table.refresh();
+        long afterOptimizeSnapshotId = table.currentSnapshot().snapshotId();
+        assertThat(afterOptimizeSnapshotId).isNotEqualTo(beforeOptimizeSnapshotId);
 
-        // Small table, created through Trino
-        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 3) AS " +
-                "SELECT nationkey, name FROM tpch.tiny.nation", 25);
+        // After:
+        // still 5 rows
+        // row_id still unique
+        // row lineage preserved ($row_id and $last_updated_sequence_number match before/after)
+        assertThat(query(
+                "SELECT " +
+                        "  count(*) AS rows, " +
+                        "  count(DISTINCT a.\"$row_id\") AS distinct_row_id, " +
+                        "  count(DISTINCT a.\"$last_updated_sequence_number\") AS distinct_last_updated_sequence_number, " +
+                        "  count_if(b.\"$path\" <> a.\"$path\") AS moved, " +
+                        "  count_if(b.\"$row_id\" = a.\"$row_id\" AND b.\"$last_updated_sequence_number\" = a.\"$last_updated_sequence_number\") AS lineage_ok " +
+                        "FROM " + tableName + " FOR VERSION AS OF " + beforeOptimizeSnapshotId + " b " +
+                        "FULL OUTER JOIN " + tableName + " FOR VERSION AS OF " + afterOptimizeSnapshotId + " a USING (id)"))
+                .matches("VALUES (BIGINT '5', BIGINT '5',  BIGINT '2', BIGINT '5', BIGINT '5')");
 
-        // OPTIMIZE must fail for v3
-        assertThat(query("ALTER TABLE " + tableName + " EXECUTE optimize"))
-                .failure()
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessageContaining("OPTIMIZE is not supported for Iceberg table format version > 2");
+        // Append again after optimize; existing row_ids should remain stable and new rows get new ids.
+        assertUpdate("INSERT INTO " + tableName + " VALUES (6, 'f'), (7, 'g')", 2);
+
+        table.refresh();
+        long afterAppendSnapshotId = table.currentSnapshot().snapshotId();
+
+        // Now 7 rows, no null row_ids, and still unique
+        assertThat(query(
+                "SELECT " +
+                        "  count(*) AS row_count, " +
+                        "  count_if(\"$row_id\" IS NULL) AS row_id_nulls, " +
+                        "  count(DISTINCT \"$row_id\") AS distinct_row_id, " +
+                        "  count(DISTINCT \"$last_updated_sequence_number\") AS distinct_last_updated_sequence_number " +
+                        "FROM " + tableName + " FOR VERSION AS OF " + afterAppendSnapshotId))
+                .matches("VALUES (BIGINT '7', BIGINT '0', BIGINT '7', BIGINT '3')");
+
+        // Existing rows keep their row_id and LUSN across a pure append.
+        assertThat(query(
+                "SELECT count(*) = count_if(" +
+                        "  o.\"$row_id\" = n.\"$row_id\" AND " +
+                        "  o.\"$last_updated_sequence_number\" = n.\"$last_updated_sequence_number\") " +
+                        "FROM " + tableName + " FOR VERSION AS OF " + afterOptimizeSnapshotId + " o " +
+                        "JOIN " + tableName + " FOR VERSION AS OF " + afterAppendSnapshotId + " n USING (id) " +
+                        "WHERE id <= 5"))
+                .matches("VALUES (BOOLEAN 'true')");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -385,6 +474,7 @@ public class TestIcebergV3
         assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, v VARCHAR) WITH (format = 'PARQUET', format_version = 3)");
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
 
+        // Validate metadata-level invariants (existing coverage)
         BaseTable table = loadTable(tableName);
         table.refresh();
 
@@ -402,13 +492,127 @@ public class TestIcebergV3
             fileCount++;
             totalRecords += file.recordCount();
 
-            // These are the lineage “inputs” Iceberg uses to materialize _row_id and last_updated_sequence_number
             assertThat(file.firstRowId()).as("data file firstRowId must be set in v3").isNotNull();
             assertThat(file.dataSequenceNumber()).as("data file dataSequenceNumber must be set").isNotNull();
         }
 
         assertThat(fileCount).isGreaterThan(0);
         assertThat(totalRecords).isEqualTo(3);
+
+        assertThat(query("SELECT \"$row_id\" FROM " + tableName))
+                .matches("VALUES (BIGINT '0'), (BIGINT '1'), (BIGINT '2')");
+
+        assertQuery("SELECT count(DISTINCT \"$last_updated_sequence_number\") FROM " + tableName, "VALUES 1");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testRowLineageUpgradeBehavior()
+    {
+        String tableName = "test_v2_to_v3_row_lineage_" + randomNameSuffix();
+
+        // Create a v2 table and write an initial snapshot. v2 snapshots do not have row IDs assigned.
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, v VARCHAR) WITH (format = 'PARQUET', format_version = 2)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
+
+        BaseTable table = loadTable(tableName);
+        table.refresh();
+        long v2SnapshotId = table.currentSnapshot().snapshotId();
+
+        // v2 snapshot:
+        // - $row_id is NULL for all rows because row IDs are only assigned starting in v3 snapshots with first-row-id assignment.
+        // - $last_updated_sequence_number is still non-null because Trino synthesizes it from the file data sequence number.
+        // - distinct_lusn_values_in_snapshot is 1 because all rows come from the same commit.
+        assertThat(query(
+                "SELECT " +
+                        "  count(*) AS row_count, " +
+                        "  count_if(\"$row_id\" IS NULL) AS row_id_nulls, " +
+                        "  count_if(\"$last_updated_sequence_number\" IS NULL) AS lusn_nulls, " +
+                        "  count(DISTINCT \"$row_id\") AS distinct_row_id, " +
+                        "  count(DISTINCT \"$last_updated_sequence_number\") AS distinct_lusn_values_in_snapshot " +
+                        "FROM " + tableName + " FOR VERSION AS OF " + v2SnapshotId))
+                .matches("VALUES (BIGINT '3', BIGINT '3', BIGINT '0', BIGINT '0', BIGINT '1')");
+
+        // Upgrade the table metadata to v3. This does not rewrite old snapshots, so existing rows still have NULL $row_id.
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 3");
+
+        table.refresh();
+        long postUpgradeSnapshotId = table.currentSnapshot().snapshotId();
+
+        // Immediately after upgrade (no new snapshot yet):
+        // - still reading the pre-upgrade data files, so $row_id remains NULL for all rows
+        // - Trino still synthesizes $last_updated_sequence_number, so it remains non-null
+        assertThat(query(
+                "SELECT " +
+                        "  count(*) AS row_count, " +
+                        "  count_if(\"$row_id\" IS NULL) AS row_id_nulls, " +
+                        "  count_if(\"$last_updated_sequence_number\" IS NULL) AS lusn_nulls, " +
+                        "  count(DISTINCT \"$row_id\") AS distinct_row_id, " +
+                        "  count(DISTINCT \"$last_updated_sequence_number\") AS distinct_lusn_values_in_snapshot " +
+                        "FROM " + tableName + " FOR VERSION AS OF " + postUpgradeSnapshotId))
+                .matches("VALUES (BIGINT '3', BIGINT '3', BIGINT '0', BIGINT '0', BIGINT '1')");
+
+        // Create the first post-upgrade snapshot. This is when Iceberg assigns first-row-id ranges to manifests/files,
+        // and $row_id becomes materializable for all rows visible in the new snapshot.
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4, 'd')", 1);
+
+        table.refresh();
+        long firstAssignedSnapshotId = table.currentSnapshot().snapshotId();
+
+        // After the first v3 snapshot:
+        // - all rows should have non-null $row_id and non-null $last_updated_sequence_number
+        // - $row_id should be unique across the 4 rows
+        // - distinct_lusn_values_in_snapshot is 2 because the snapshot contains rows written in two different commits
+        //   (the original v2 insert commit and this post-upgrade insert commit)
+        assertThat(query(
+                "SELECT " +
+                        "  count(*) AS row_count, " +
+                        "  count_if(\"$row_id\" IS NULL) AS row_id_nulls, " +
+                        "  count_if(\"$last_updated_sequence_number\" IS NULL) AS lusn_nulls, " +
+                        "  count(DISTINCT \"$row_id\") AS distinct_row_id, " +
+                        "  count(DISTINCT \"$last_updated_sequence_number\") AS distinct_lusn_values_in_snapshot " +
+                        "FROM " + tableName + " FOR VERSION AS OF " + firstAssignedSnapshotId))
+                .matches("VALUES (BIGINT '4', BIGINT '0', BIGINT '0', BIGINT '4', BIGINT '2')");
+
+        // Baseline snapshot for "before update" comparisons.
+        long beforeUpdateSnapshotId = firstAssignedSnapshotId;
+
+        // Update one row, producing a new snapshot.
+        assertUpdate("UPDATE " + tableName + " SET v = 'bb' WHERE id = 2", 1);
+
+        // Value updated.
+        assertThat(query("SELECT v FROM " + tableName + " WHERE id = 2"))
+                .matches("VALUES (VARCHAR 'bb')");
+
+        // UPDATE preserves $row_id (source row id is copied to the new row).
+        assertThat(query(
+                "SELECT " +
+                        "  (SELECT \"$row_id\" FROM " + tableName + " WHERE id = 2) = " +
+                        "  (SELECT \"$row_id\" FROM " + tableName + " FOR VERSION AS OF " + beforeUpdateSnapshotId + " WHERE id = 2)"))
+                .matches("VALUES (BOOLEAN 'true')");
+
+        // The updated row should have a higher last-updated sequence number than it did in the baseline snapshot.
+        assertThat(query(
+                "SELECT " +
+                        "  (SELECT \"$last_updated_sequence_number\" FROM " + tableName + " WHERE id = 2) > " +
+                        "  (SELECT \"$last_updated_sequence_number\" FROM " + tableName + " FOR VERSION AS OF " + beforeUpdateSnapshotId + " WHERE id = 2)"))
+                .matches("VALUES (BOOLEAN 'true')");
+
+        // After the update:
+        // - still no NULLs for $row_id or $last_updated_sequence_number
+        // - $row_id remains unique
+        // - distinct_lusn_values_in_snapshot is 3 because the table now contains rows written across three commits:
+        //   initial v2 insert, first post-upgrade insert, and this update commit.
+        assertThat(query(
+                "SELECT " +
+                        "  count(*) AS row_count, " +
+                        "  count_if(\"$row_id\" IS NULL) AS row_id_nulls, " +
+                        "  count_if(\"$last_updated_sequence_number\" IS NULL) AS lusn_nulls, " +
+                        "  count(DISTINCT \"$row_id\") AS distinct_row_id, " +
+                        "  count(DISTINCT \"$last_updated_sequence_number\") AS distinct_lusn_values_in_snapshot " +
+                        "FROM " + tableName))
+                .matches("VALUES (BIGINT '4', BIGINT '0', BIGINT '0', BIGINT '4', BIGINT '3')");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -494,68 +698,215 @@ public class TestIcebergV3
     }
 
     @Test
-    void testV3RejectsDeletionVectorsPuffinDeleteFile()
-            throws IOException
+    void testIcebergWritesAndTrinoReadsDeletionVector()
+            throws Exception
     {
-        String temp = "tmp_v3_dv_src_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + temp + " (id INTEGER) WITH (format = 'ORC')");
-        assertUpdate("INSERT INTO " + temp + " VALUES 1", 1);
-
-        String dataFilePath = (String) computeScalar("SELECT \"$path\" FROM " + temp);
-        long dataFileSize = getFileSize(dataFilePath);
-
-        String hadoopTableName = "hadoop_v3_dv_" + randomNameSuffix();
-        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
-
-        Schema schema = new Schema(Types.NestedField.optional(1, "id", Types.IntegerType.get()));
+        Path hadoopTableLocation = dataDirectory.resolve("deletion_vector" + randomNameSuffix());
 
         Table icebergTable = new HadoopTables(new Configuration(false)).create(
-                schema,
+                new Schema(Types.NestedField.optional(1, "id", Types.IntegerType.get())),
                 PartitionSpec.unpartitioned(),
                 SortOrder.unsorted(),
                 ImmutableMap.of(
                         "format-version", "3",
-                        "write.format.default", "ORC"),
+                        "write.format.default", "PARQUET"),
                 hadoopTableLocation.toString());
 
-        DataFile dataFile = orcDataFile(dataFilePath, dataFileSize);
-        icebergTable.newFastAppend()
-                .appendFile(dataFile)
-                .commit();
+        // Write a data file with 5 rows: ids 0 to 4
+        String dataPath = hadoopTableLocation.resolve("data")
+                .resolve("data-" + UUID.randomUUID() + ".parquet")
+                .toString();
+        try (DataWriter<Record> writer = Parquet.writeData(icebergTable.io().newOutputFile(dataPath))
+                .forTable(icebergTable)
+                .withSpec(icebergTable.spec())
+                .withPartition(null) // unpartitioned
+                .createWriterFunc(GenericParquetWriter::create)
+                .build()) {
+            Record record = GenericRecord.create(icebergTable.schema());
+            for (int i = 0; i < 5; i++) {
+                record.setField("id", i);
+                writer.write(record);
+            }
+            writer.close();
 
-        // Create a "fake" deletion-vector delete file entry:
-        // - format = PUFFIN (this is what Trino rejects)
-        // - referencedDataFile/contentOffset/contentSizeInBytes populated enough for Iceberg to accept it
-        // We intentionally do not create an actual puffin file; Trino will fail before reading it.
-        String puffinPath = hadoopTableLocation.resolve("data").resolve("dv-" + randomNameSuffix() + ".puffin").toString();
-        DeleteFile puffinDeleteFile = FileMetadata.deleteFileBuilder(PartitionSpec.unpartitioned())
-                .ofPositionDeletes()
-                .withPath(puffinPath)
-                .withFormat(FileFormat.PUFFIN)
-                .withFileSizeInBytes(123)
-                .withRecordCount(0)
-                .withReferencedDataFile(dataFile.location())
-                .withContentOffset(0)
-                .withContentSizeInBytes(0)
-                .build();
+            icebergTable.newFastAppend()
+                    .appendFile(writer.toDataFile())
+                    .commit();
+        }
 
-        icebergTable.newRowDelta()
-                .addDeletes(puffinDeleteFile)
-                .commit();
+        // Write a deletion vector for rows 0 and 3
+        try (BaseDVFileWriter dvWriter = new BaseDVFileWriter(
+                OutputFileFactory.builderFor(icebergTable, 1, 1).format(FileFormat.PUFFIN).build(),
+                _ -> PositionDeleteIndex.empty())) {
+            dvWriter.delete(dataPath, 0L, icebergTable.spec(), null);
+            dvWriter.delete(dataPath, 3L, icebergTable.spec(), null);
+            dvWriter.close();
+
+            icebergTable.newRowDelta()
+                    .addDeletes(getOnlyElement(dvWriter.result().deleteFiles()))
+                    .commit();
+        }
 
         String registered = "registered_v3_dv_" + randomNameSuffix();
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
                 .formatted(registered, hadoopTableLocation));
 
-        assertThatThrownBy(() -> getQueryRunner().execute("SELECT * FROM " + registered))
-                .rootCause()
-                .hasMessageContaining("Iceberg deletion vector is not supported yet");
+        assertThat(query("SELECT * FROM " + registered))
+                .matches("VALUES (1), (2), (4)");
 
-        // Use unregister_table instead of DROP TABLE to avoid deleting the underlying files before deleteRecursively
-        assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '%s')".formatted(registered));
-        deleteRecursively(hadoopTableLocation, ALLOW_INSECURE);
+        assertUpdate("DROP TABLE " + registered);
+    }
 
-        assertUpdate("DROP TABLE " + temp);
+    @Test
+    void testTrinoWritesAndReadsDeletionVector()
+    {
+        try (TestTable table = newTrinoTable("trino_v3_dv_delete", "(id INTEGER) WITH (format = 'PARQUET', format_version = 3)")) {
+            // 1000 rows: 1..1000
+            for (int i = 0; i < 10; i++) {
+                assertUpdate(
+                        "INSERT INTO " + table.getName() + " SELECT x FROM UNNEST(sequence(%s, %s)) t(x)".formatted(i * 100 + 1, (i + 1) * 100),
+                        100);
+            }
+
+            // verify insert
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 2 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '1000', INTEGER '1', INTEGER '1000', BIGINT '500', BIGINT '200', BIGINT '10')");
+
+            // delete nothing
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE random() > 1", 0);
+
+            // verify nothing deleted and no deletion vectors created
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 2 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '1000', INTEGER '1', INTEGER '1000', BIGINT '500', BIGINT '200', BIGINT '10')");
+            assertThat(query("SELECT count(*) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '0')");
+
+            // delete evens => 500 rows removed
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 2 = 0", 500);
+
+            // verify delete
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 2 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '500', INTEGER '1', INTEGER '999', BIGINT '0', BIGINT '100', BIGINT '10')");
+
+            // Check DV via $files: cardinality 500, 10 PUFFIN entries, 1 file
+            assertThat(query("SELECT sum(record_count), count(*), count_if(file_format = 'PUFFIN'), count(distinct file_path) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '500', BIGINT '10', BIGINT '10', BIGINT '1')");
+
+            // delete multiples of 5 => 100 rows removed
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 5 = 0", 100);
+
+            // verify delete
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 2 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '400', INTEGER '1', INTEGER '999', BIGINT '0', BIGINT '0', BIGINT '10')");
+
+            // Check DV via $files: cardinality 600, 10 PUFFIN entries, 1 file
+            assertThat(query("SELECT sum(record_count), count(*), count_if(file_format = 'PUFFIN'), count(distinct file_path) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '600', BIGINT '10', BIGINT '10', BIGINT '1')");
+        }
+    }
+
+    @Test
+    void testTrinoWritesAndReadsDeletionVectorPartitioned()
+    {
+        try (TestTable table = newTrinoTable("trino_v3_dv_delete_part", "(id INTEGER) WITH (format = 'PARQUET', format_version = 3, partitioning = ARRAY['bucket(id, 7)'])")) {
+            for (int i = 0; i < 10; i++) {
+                assertUpdate("INSERT INTO " + table.getName() + " SELECT x FROM UNNEST(sequence(%s, %s)) t(x)".formatted(i * 100 + 1, (i + 1) * 100), 100);
+            }
+
+            // verify insert
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 2 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '1000', INTEGER '1', INTEGER '1000', BIGINT '500', BIGINT '200', BIGINT '70')");
+
+            // delete evens => 500 rows removed
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 2 = 0", 500);
+
+            // verify delete
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 2 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '500', INTEGER '1', INTEGER '999', BIGINT '0', BIGINT '100', BIGINT '70')");
+
+            // Check DV via $files: cardinality 500, PUFFIN delete entry for each data file
+            assertThat(query("SELECT sum(record_count), count(*), count_if(file_format = 'PUFFIN'), count(distinct file_path) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '500', BIGINT '70', BIGINT '70', BIGINT '1')");
+
+            // delete multiples of 5 => 100 rows removed
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 5 = 0", 100);
+
+            // verify delete
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 2 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '400', INTEGER '1', INTEGER '999', BIGINT '0', BIGINT '0', BIGINT '70')");
+
+            // Check DV via $files again: cardinality 600, PUFFIN delete entry for each data file, 2 total puffin files (not all partitions are modified)
+            assertThat(query("SELECT sum(record_count), count(*), count_if(file_format = 'PUFFIN'), count(distinct file_path) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '600', BIGINT '70', BIGINT '70', BIGINT '2')");
+
+            // delete odds => 400 rows removed
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 2 = 1", 400);
+
+            // verify delete
+            assertThat(query("SELECT count(*) FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '0')");
+
+            // Check DV via $files again: cardinality 1000, PUFFIN delete entry for each data file, only 1 puffin file since all rows are now deleted
+            assertThat(query("SELECT sum(record_count), count(*), count_if(file_format = 'PUFFIN'), count(distinct file_path) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '1000', BIGINT '70', BIGINT '70', BIGINT '1')");
+
+            // re-insert 100 rows
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT x FROM UNNEST(sequence(1, 100)) t(x)", 100);
+            assertThat(query("SELECT count(*), min(id), max(id) FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '100', INTEGER '1', INTEGER '100')");
+            assertThat(query("SELECT sum(record_count), count(*), count_if(file_format = 'PUFFIN'), count(distinct file_path) FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (BIGINT '1000', BIGINT '70', BIGINT '70', BIGINT '1')");
+        }
+    }
+
+    @Test
+    void testV2ToV3MigrationWithDeletes()
+    {
+        try (TestTable table = newTrinoTable("trino_v2_to_v3_dv_migration", "(id INTEGER, grp INTEGER) WITH (format = 'PARQUET', format_version = 2)")) {
+            // 1000 rows: id=1..1000, grp cycles 0..6 (just to have a second column)
+            for (int i = 0; i < 10; i++) {
+                assertUpdate("INSERT INTO " + table.getName() + " SELECT x, x %% 7 FROM UNNEST(sequence(%s, %s)) t(x)".formatted(i * 100 + 1, (i + 1) * 100), 100);
+            }
+
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 3 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '1000', INTEGER '1', INTEGER '1000', BIGINT '333', BIGINT '200', BIGINT '10')");
+
+            // v2 delete files (legacy position deletes)
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 3 = 0", 333);
+
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 3 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '667', INTEGER '1', INTEGER '1000', BIGINT '0', BIGINT '134', BIGINT '10')");
+
+            // Ensure we produced legacy delete files and no Puffin yet
+            assertThat(query("SELECT count_if(file_format <> 'PUFFIN') > 0, count_if(file_format = 'PUFFIN') > 0 FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (true, false)");
+
+            // Upgrade table to v3
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES format_version = 3");
+
+            // Verify data still correct after upgrade
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 3 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '667', INTEGER '1', INTEGER '1000', BIGINT '0', BIGINT '134', BIGINT '10')");
+
+            // Additional deletes in v3 should be recorded as deletion vectors and still respect the v2 deletes
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 5 = 0", 134);
+
+            assertThat(query("SELECT count(*), min(id), max(id), count_if(id % 3 = 0), count_if(id % 5 = 0), count(distinct \"$path\") FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '533', INTEGER '1', INTEGER '998', BIGINT '0', BIGINT '0', BIGINT '10')");
+
+            // Ensure v3 deletion vectors (Puffin) are present after the upgrade
+            assertThat(query("SELECT count_if(file_format <> 'PUFFIN') > 0, count_if(file_format = 'PUFFIN') > 0 FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (true, true)");
+
+            // delete remaining rows
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id % 3 > 0", 533);
+            assertThat(query("SELECT count(*) FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '0')");
+
+            // We still have both legacy delete files because they are shared across multiple files (not single-file position deletes)
+            assertThat(query("SELECT count_if(file_format <> 'PUFFIN') > 0, count_if(file_format = 'PUFFIN') > 0 FROM \"" + table.getName() + "$files\" WHERE content = 1"))
+                    .matches("VALUES (true, true)");
+        }
     }
 
     private static DataFile orcDataFile(String dataFilePath, long size)

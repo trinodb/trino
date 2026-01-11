@@ -154,6 +154,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public Set<String> getColumnNamesForTableExecute(ConnectorSession connectorSession, ConnectorTableHandle tableHandle, ConnectorTableExecuteHandle connectorTableExecuteHandle)
+    {
+        Span span = startSpan("getColumnNamesForTableExecute", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getColumnNamesForTableExecute(connectorSession, tableHandle, connectorTableExecuteHandle);
+        }
+    }
+
+    @Override
     public Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         Span span = startSpan("getLayoutForTableExecute", tableExecuteHandle);

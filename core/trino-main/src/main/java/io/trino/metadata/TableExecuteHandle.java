@@ -15,6 +15,7 @@ package io.trino.metadata;
 
 import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
 import static java.util.Objects.requireNonNull;
@@ -26,18 +27,20 @@ import static java.util.Objects.requireNonNull;
 public record TableExecuteHandle(
         CatalogHandle catalogHandle,
         ConnectorTransactionHandle transactionHandle,
+        ConnectorTableHandle tableHandle,
         ConnectorTableExecuteHandle connectorHandle)
 {
     public TableExecuteHandle
     {
         requireNonNull(catalogHandle, "catalogHandle is null");
         requireNonNull(transactionHandle, "transactionHandle is null");
+        requireNonNull(tableHandle, "tableHandle is null");
         requireNonNull(connectorHandle, "connectorHandle is null");
     }
 
     public TableExecuteHandle withConnectorHandle(ConnectorTableExecuteHandle connectorHandle)
     {
-        return new TableExecuteHandle(catalogHandle, transactionHandle, connectorHandle);
+        return new TableExecuteHandle(catalogHandle, transactionHandle, tableHandle, connectorHandle);
     }
 
     @Override

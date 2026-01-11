@@ -29,7 +29,8 @@ public record CommitTaskData(
         Optional<String> partitionDataJson,
         FileContent content,
         Optional<String> referencedDataFile,
-        Optional<List<Long>> fileSplitOffsets)
+        Optional<List<Long>> fileSplitOffsets,
+        Optional<byte[]> serializedDeletionVector)
 {
     public CommitTaskData
     {
@@ -41,5 +42,6 @@ public record CommitTaskData(
         requireNonNull(content, "content is null");
         requireNonNull(referencedDataFile, "referencedDataFile is null");
         requireNonNull(fileSplitOffsets, "fileSplitOffsets is null");
+        requireNonNull(serializedDeletionVector, "serializedDeletionVector is null");
     }
 }

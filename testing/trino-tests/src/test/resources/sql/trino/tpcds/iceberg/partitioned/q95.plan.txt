@@ -19,31 +19,31 @@ final aggregation over ()
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         join (INNER, PARTITIONED):
-                                                            final aggregation over (ws_order_number_25)
+                                                            final aggregation over (ws_order_number_31)
                                                                 local exchange (GATHER, SINGLE, [])
-                                                                    partial aggregation over (ws_order_number_25)
+                                                                    partial aggregation over (ws_order_number_31)
                                                                         join (INNER, PARTITIONED, can skip output duplicates):
-                                                                            remote exchange (REPARTITION, HASH, [ws_order_number_25])
-                                                                                dynamic filter (ws_order_number_25::EQUAL, ws_order_number_25::EQUAL)
+                                                                            remote exchange (REPARTITION, HASH, [ws_order_number_31])
+                                                                                dynamic filter (ws_order_number_31::EQUAL, ws_order_number_31::EQUAL)
                                                                                     scan web_sales
                                                                             local exchange (GATHER, SINGLE, [])
-                                                                                remote exchange (REPARTITION, HASH, [ws_order_number_62])
-                                                                                    dynamic filter (ws_order_number_62::EQUAL)
+                                                                                remote exchange (REPARTITION, HASH, [ws_order_number_70])
+                                                                                    dynamic filter (ws_order_number_70::EQUAL)
                                                                                         scan web_sales
-                                                            final aggregation over (ws_order_number_106)
+                                                            final aggregation over (ws_order_number_118)
                                                                 local exchange (GATHER, SINGLE, [])
-                                                                    partial aggregation over (ws_order_number_106)
+                                                                    partial aggregation over (ws_order_number_118)
                                                                         join (INNER, PARTITIONED, can skip output duplicates):
                                                                             join (INNER, PARTITIONED, can skip output duplicates):
-                                                                                remote exchange (REPARTITION, HASH, [ws_order_number_106])
-                                                                                    dynamic filter (ws_order_number_106::EQUAL, ws_order_number_106::EQUAL)
+                                                                                remote exchange (REPARTITION, HASH, [ws_order_number_118])
+                                                                                    dynamic filter (ws_order_number_118::EQUAL, ws_order_number_118::EQUAL)
                                                                                         scan web_sales
                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                     remote exchange (REPARTITION, HASH, [wr_order_number])
                                                                                         dynamic filter (wr_order_number::EQUAL)
                                                                                             scan web_returns
                                                                             local exchange (GATHER, SINGLE, [])
-                                                                                remote exchange (REPARTITION, HASH, [ws_order_number_143])
+                                                                                remote exchange (REPARTITION, HASH, [ws_order_number_157])
                                                                                     scan web_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
