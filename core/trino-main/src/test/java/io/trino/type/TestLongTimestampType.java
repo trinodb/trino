@@ -22,6 +22,7 @@ import io.trino.spi.type.Type.Range;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -91,15 +92,97 @@ public class TestLongTimestampType
     @Test
     public void testPreviousValue()
     {
-        assertThat(type.getPreviousValue(getSampleValue()))
+        // Basic previous value within same microsecond
+        assertThat(type.getPreviousValue(new LongTimestamp(1000, 500_000)))
+                .isEqualTo(Optional.of(new LongTimestamp(1000, 499_000)));
+
+        // Previous value wrapping to previous microsecond
+        assertThat(type.getPreviousValue(new LongTimestamp(1000, 0)))
+                .isEqualTo(Optional.of(new LongTimestamp(999, 999_000)));
+
+        // Previous value at minimum microsecond boundary returns empty
+        assertThat(type.getPreviousValue(new LongTimestamp(Long.MIN_VALUE, 0)))
                 .isEmpty();
+
+        // Previous value at minimum microsecond but non-zero picos
+        assertThat(type.getPreviousValue(new LongTimestamp(Long.MIN_VALUE, 1_000)))
+                .isEqualTo(Optional.of(new LongTimestamp(Long.MIN_VALUE, 0)));
     }
 
     @Test
     public void testNextValue()
     {
-        assertThat(type.getNextValue(getSampleValue()))
+        // Basic next value within same microsecond
+        assertThat(type.getNextValue(new LongTimestamp(1000, 500_000)))
+                .isEqualTo(Optional.of(new LongTimestamp(1000, 501_000)));
+
+        // Next value wrapping to next microsecond
+        assertThat(type.getNextValue(new LongTimestamp(1000, 999_000)))
+                .isEqualTo(Optional.of(new LongTimestamp(1001, 0)));
+
+        // Next value at maximum returns empty
+        assertThat(type.getNextValue(new LongTimestamp(Long.MAX_VALUE, 999_000)))
                 .isEmpty();
+
+        // Next value at maximum microsecond but not max picos
+        assertThat(type.getNextValue(new LongTimestamp(Long.MAX_VALUE, 998_000)))
+                .isEqualTo(Optional.of(new LongTimestamp(Long.MAX_VALUE, 999_000)));
+    }
+
+    @Test
+    public void testPreviousValueEveryPrecision()
+    {
+        // Test that previous value decrements by correct step size for each precision
+        for (MaxPrecision entry : maxPrecisions()) {
+            var timestampType = createTimestampType(entry.precision());
+            int stepSize = getStepSize(entry.precision());
+
+            // Basic previous value
+            assertThat(timestampType.getPreviousValue(new LongTimestamp(1000, stepSize * 5)))
+                    .isEqualTo(Optional.of(new LongTimestamp(1000, stepSize * 4)));
+
+            // Previous value wrapping to previous microsecond
+            assertThat(timestampType.getPreviousValue(new LongTimestamp(1000, 0)))
+                    .isEqualTo(Optional.of(new LongTimestamp(999, 1_000_000 - stepSize)));
+        }
+    }
+
+    @Test
+    public void testNextValueEveryPrecision()
+    {
+        // Test that next value increments by correct step size for each precision
+        for (MaxPrecision entry : maxPrecisions()) {
+            var timestampType = createTimestampType(entry.precision());
+            int stepSize = getStepSize(entry.precision());
+
+            // Basic next value
+            assertThat(timestampType.getNextValue(new LongTimestamp(1000, stepSize * 5)))
+                    .isEqualTo(Optional.of(new LongTimestamp(1000, stepSize * 6)));
+
+            // Next value wrapping to next microsecond
+            assertThat(timestampType.getNextValue(new LongTimestamp(1000, 1_000_000 - stepSize)))
+                    .isEqualTo(Optional.of(new LongTimestamp(1001, 0)));
+        }
+    }
+
+    private static int getStepSize(int precision)
+    {
+        // Step size in picoseconds for each precision
+        // precision 7 = 100_000 picos (100 nanos)
+        // precision 8 = 10_000 picos (10 nanos)
+        // precision 9 = 1_000 picos (1 nano)
+        // precision 10 = 100 picos
+        // precision 11 = 10 picos
+        // precision 12 = 1 pico
+        return switch (precision) {
+            case 7 -> 100_000;
+            case 8 -> 10_000;
+            case 9 -> 1_000;
+            case 10 -> 100;
+            case 11 -> 10;
+            case 12 -> 1;
+            default -> throw new IllegalArgumentException("Unsupported precision: " + precision);
+        };
     }
 
     record MaxPrecision(int precision, LongTimestamp expectedMax) {}

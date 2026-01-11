@@ -32,6 +32,7 @@ import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarbinaryType;
@@ -67,7 +68,9 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isSortedWritingEn
 import static io.trino.plugin.iceberg.IcebergUtil.getTopLevelColumns;
 import static io.trino.plugin.iceberg.PartitionTransforms.getColumnTransform;
 import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTz;
+import static io.trino.plugin.iceberg.util.Timestamps.timestampToNanos;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
+import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToNanos;
 import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -79,7 +82,9 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
@@ -519,6 +524,12 @@ public class IcebergPageSink
         }
         if (type.equals(TIMESTAMP_TZ_MICROS)) {
             return timestampTzToMicros(getTimestampTz(block, position));
+        }
+        if (type.equals(TIMESTAMP_NANOS)) {
+            return timestampToNanos((LongTimestamp) TIMESTAMP_NANOS.getObject(block, position));
+        }
+        if (type.equals(TIMESTAMP_TZ_NANOS)) {
+            return timestampTzToNanos(getTimestampTz(block, position));
         }
         if (type instanceof VarbinaryType varbinaryType) {
             return varbinaryType.getSlice(block, position).toByteBuffer();

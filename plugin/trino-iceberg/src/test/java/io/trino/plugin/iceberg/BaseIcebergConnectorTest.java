@@ -3333,6 +3333,158 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testYearTransformTimestampNano()
+    {
+        assertUpdate("CREATE TABLE test_year_transform_ts_nano (d TIMESTAMP(9), b INTEGER) WITH (format_version = 3, partitioning = ARRAY['year(d)'])");
+
+        String values = "VALUES " +
+                "(NULL, 101)," +
+                "(TIMESTAMP '2020-01-15 12:30:45.123456789', 1)," +
+                "(TIMESTAMP '2020-06-30 23:59:59.999999999', 2)," +
+                "(TIMESTAMP '2021-01-01 00:00:00.000000001', 3)," +
+                "(TIMESTAMP '2021-12-31 23:59:59.999999999', 4)";
+        assertUpdate("INSERT INTO test_year_transform_ts_nano " + values, 5);
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano"))
+                .matches(values);
+
+        // Verify partition structure
+        assertThat(query("SELECT partition.d_year, record_count FROM \"test_year_transform_ts_nano$partitions\" ORDER BY d_year NULLS FIRST"))
+                .skippingTypesCheck()
+                .matches("VALUES (NULL, BIGINT '1'), (50, BIGINT '2'), (51, BIGINT '2')");
+
+        // Verify predicate pushdown
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano WHERE d IS NULL"))
+                .isFullyPushedDown();
+        // Verify predicates work without overflow (key fix for nano timestamps)
+        assertThat(query("SELECT b FROM test_year_transform_ts_nano WHERE d >= DATE '2021-01-01' ORDER BY b"))
+                .matches("VALUES 3, 4");
+        assertThat(query("SELECT b FROM test_year_transform_ts_nano WHERE d >= TIMESTAMP '2021-01-01 00:00:00.000000000' ORDER BY b"))
+                .matches("VALUES 3, 4");
+        assertThat(query("SELECT b FROM test_year_transform_ts_nano WHERE d >= TIMESTAMP '2021-01-01 00:00:00.000000001' ORDER BY b"))
+                .matches("VALUES 3, 4");
+
+        // year()
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano WHERE year(d) = 2020"))
+                .isFullyPushedDown();
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano WHERE date_trunc('year', d) = DATE '2020-01-01'"))
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE test_year_transform_ts_nano");
+    }
+
+    @Test
+    public void testYearTransformTimestampNanoWithTimeZone()
+    {
+        assertUpdate("CREATE TABLE test_year_transform_ts_nano_tz (d TIMESTAMP(9) WITH TIME ZONE, b INTEGER) WITH (format_version = 3, partitioning = ARRAY['year(d)'])");
+
+        String values = "VALUES " +
+                "(NULL, 101)," +
+                "(TIMESTAMP '2020-01-15 12:30:45.123456789 UTC', 1)," +
+                "(TIMESTAMP '2020-06-30 23:59:59.999999999 UTC', 2)," +
+                "(TIMESTAMP '2021-01-01 00:00:00.000000001 UTC', 3)," +
+                "(TIMESTAMP '2021-12-31 23:59:59.999999999 UTC', 4)";
+        assertUpdate("INSERT INTO test_year_transform_ts_nano_tz " + values, 5);
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano_tz"))
+                .matches(values);
+
+        // Verify partition structure
+        assertThat(query("SELECT partition.d_year, record_count FROM \"test_year_transform_ts_nano_tz$partitions\" ORDER BY d_year NULLS FIRST"))
+                .skippingTypesCheck()
+                .matches("VALUES (NULL, BIGINT '1'), (50, BIGINT '2'), (51, BIGINT '2')");
+
+        // Verify predicate pushdown
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano_tz WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano_tz WHERE d IS NULL"))
+                .isFullyPushedDown();
+        // Verify predicates work without overflow (key fix for nano timestamps)
+        assertThat(query("SELECT b FROM test_year_transform_ts_nano_tz WHERE d >= TIMESTAMP '2021-01-01 00:00:00.000000000 UTC' ORDER BY b"))
+                .matches("VALUES 3, 4");
+        assertThat(query("SELECT b FROM test_year_transform_ts_nano_tz WHERE d >= TIMESTAMP '2021-01-01 00:00:00.000000001 UTC' ORDER BY b"))
+                .matches("VALUES 3, 4");
+
+        // year()
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano_tz WHERE year(d) = 2020"))
+                .isFullyPushedDown();
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_year_transform_ts_nano_tz WHERE date_trunc('year', d) = TIMESTAMP '2020-01-01 00:00:00.000000 UTC'"))
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE test_year_transform_ts_nano_tz");
+    }
+
+    @Test
+    public void testHourTransformTimestampNano()
+    {
+        assertUpdate("CREATE TABLE test_hour_transform_ts_nano (d TIMESTAMP(9), b INTEGER) WITH (format_version = 3, partitioning = ARRAY['hour(d)'])");
+
+        String values = "VALUES " +
+                "(NULL, 101)," +
+                "(TIMESTAMP '2024-01-15 10:00:00.000000001', 1)," +
+                "(TIMESTAMP '2024-01-15 10:59:59.999999999', 2)," +
+                "(TIMESTAMP '2024-01-15 11:00:00.000000001', 3)," +
+                "(TIMESTAMP '2024-01-15 11:30:45.123456789', 4)";
+        assertUpdate("INSERT INTO test_hour_transform_ts_nano " + values, 5);
+        assertThat(query("SELECT * FROM test_hour_transform_ts_nano"))
+                .matches(values);
+
+        // Verify predicate pushdown
+        assertThat(query("SELECT * FROM test_hour_transform_ts_nano WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_ts_nano WHERE d IS NULL"))
+                .isFullyPushedDown();
+        // Verify predicates work without overflow (key fix for nano timestamps)
+        assertThat(query("SELECT b FROM test_hour_transform_ts_nano WHERE d >= TIMESTAMP '2024-01-15 11:00:00.000000000' ORDER BY b"))
+                .matches("VALUES 3, 4");
+        assertThat(query("SELECT b FROM test_hour_transform_ts_nano WHERE d >= TIMESTAMP '2024-01-15 11:00:00.000000001' ORDER BY b"))
+                .matches("VALUES 3, 4");
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_hour_transform_ts_nano WHERE date_trunc('hour', d) = TIMESTAMP '2024-01-15 10:00:00'"))
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE test_hour_transform_ts_nano");
+    }
+
+    @Test
+    public void testHourTransformTimestampNanoWithTimeZone()
+    {
+        assertUpdate("CREATE TABLE test_hour_transform_ts_nano_tz (d TIMESTAMP(9) WITH TIME ZONE, b INTEGER) WITH (format_version = 3, partitioning = ARRAY['hour(d)'])");
+
+        String values = "VALUES " +
+                "(NULL, 101)," +
+                "(TIMESTAMP '2024-01-15 10:00:00.000000001 UTC', 1)," +
+                "(TIMESTAMP '2024-01-15 10:59:59.999999999 UTC', 2)," +
+                "(TIMESTAMP '2024-01-15 11:00:00.000000001 UTC', 3)," +
+                "(TIMESTAMP '2024-01-15 11:30:45.123456789 UTC', 4)";
+        assertUpdate("INSERT INTO test_hour_transform_ts_nano_tz " + values, 5);
+        assertThat(query("SELECT * FROM test_hour_transform_ts_nano_tz"))
+                .matches(values);
+
+        // Verify predicate pushdown
+        assertThat(query("SELECT * FROM test_hour_transform_ts_nano_tz WHERE d IS NOT NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_hour_transform_ts_nano_tz WHERE d IS NULL"))
+                .isFullyPushedDown();
+        // Verify predicates work without overflow (key fix for nano timestamps)
+        assertThat(query("SELECT b FROM test_hour_transform_ts_nano_tz WHERE d >= TIMESTAMP '2024-01-15 11:00:00.000000000 UTC' ORDER BY b"))
+                .matches("VALUES 3, 4");
+        assertThat(query("SELECT b FROM test_hour_transform_ts_nano_tz WHERE d >= TIMESTAMP '2024-01-15 11:00:00.000000001 UTC' ORDER BY b"))
+                .matches("VALUES 3, 4");
+
+        // date_trunc
+        assertThat(query("SELECT * FROM test_hour_transform_ts_nano_tz WHERE date_trunc('hour', d) = TIMESTAMP '2024-01-15 10:00:00.000000 UTC'"))
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE test_hour_transform_ts_nano_tz");
+    }
+
+    @Test
     public void testTruncateTextTransform()
     {
         assertUpdate("CREATE TABLE test_truncate_text_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 2)'])");
