@@ -14,6 +14,7 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
@@ -35,6 +36,8 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.spi.variant.Metadata;
+import io.trino.spi.variant.Variant;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
 import okhttp3.OkHttpClient;
@@ -69,6 +72,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
@@ -320,6 +324,13 @@ public class TestingTrinoClient
         if (type == JSON) {
             //noinspection RedundantCast
             return (String) value;
+        }
+        if (type == VARIANT) {
+            List<?> variantList = (List<?>) value;
+            checkArgument(variantList.size() == 2, "Expected variant value to be a list of size 2");
+            return Variant.from(
+                    Metadata.from(Slices.wrappedBuffer((byte[]) variantList.getFirst())),
+                    Slices.wrappedBuffer((byte[]) variantList.getLast()));
         }
         if (type instanceof ArrayType arrayType) {
             return ((List<?>) value).stream()

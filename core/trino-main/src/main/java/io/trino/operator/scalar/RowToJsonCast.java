@@ -62,7 +62,6 @@ public class RowToJsonCast
                                 // this is technically a recursive constraint for cast, but TypeRegistry.canCast has explicit handling for row to json cast
                                 TypeVariableConstraint.builder("T")
                                         .rowType()
-                                        .castableTo(JSON)
                                         .build())
                         .returnType(JSON)
                         .argumentType(new TypeSignature("T"))

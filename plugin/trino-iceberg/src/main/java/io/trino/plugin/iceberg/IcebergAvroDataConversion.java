@@ -24,6 +24,8 @@ import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
+import io.trino.spi.block.VariantBlock;
+import io.trino.spi.block.VariantBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -33,11 +35,15 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import io.trino.spi.type.VariantType;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.variants.Variant;
+import org.apache.iceberg.variants.VariantMetadata;
+import org.apache.iceberg.variants.VariantValue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -58,6 +64,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.Slices.wrappedHeapBuffer;
 import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTz;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
@@ -78,6 +85,7 @@ import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.floatToRawIntBits;
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
 import static org.apache.iceberg.util.DateTimeUtil.microsFromTimestamp;
@@ -242,6 +250,21 @@ public final class IcebergAvroDataConversion
 
             return record;
         }
+        if (type instanceof VariantType) {
+            // Iceberg's Avro DataWriter requires org.apache.iceberg.variants.Variant objects
+            // for variant type serialization. This is the only place we bridge to Iceberg's variant class.
+            VariantBlock variantBlock = (VariantBlock) block;
+            Block metadataBlock = variantBlock.getRawMetadata();
+            Block valuesBlock = variantBlock.getRawValues();
+            int offset = variantBlock.getRawOffset() + position;
+
+            ByteBuffer metadataBuffer = VARBINARY.getSlice(metadataBlock, offset).toByteBuffer().order(LITTLE_ENDIAN);
+            ByteBuffer valueBuffer = VARBINARY.getSlice(valuesBlock, offset).toByteBuffer().order(LITTLE_ENDIAN);
+
+            VariantMetadata metadata = VariantMetadata.from(metadataBuffer);
+            VariantValue value = VariantValue.from(metadata, valueBuffer);
+            return Variant.of(metadata, value);
+        }
         throw new TrinoException(NOT_SUPPORTED, "unsupported type: " + type);
     }
 
@@ -290,7 +313,7 @@ public final class IcebergAvroDataConversion
             if (icebergType.typeId().equals(FIXED)) {
                 VARBINARY.writeSlice(builder, Slices.wrappedBuffer((byte[]) object));
             }
-            VARBINARY.writeSlice(builder, Slices.wrappedHeapBuffer((ByteBuffer) object));
+            VARBINARY.writeSlice(builder, wrappedHeapBuffer((ByteBuffer) object));
             return;
         }
         if (type.equals(DATE)) {
@@ -349,6 +372,24 @@ public final class IcebergAvroDataConversion
                     serializeToTrinoBlock(typeParameters.get(i), icebergFields.get(i).type(), fieldBuilders.get(i), record.get(i));
                 }
             });
+            return;
+        }
+        if (type instanceof VariantType) {
+            // Iceberg's Avro reader returns org.apache.iceberg.variants.Variant objects.
+            // This is the only place we bridge from Iceberg's variant class back to Trino.
+            Variant variant = (Variant) object;
+            VariantMetadata metadata = variant.metadata();
+            VariantValue value = variant.value();
+
+            ByteBuffer metadataBuffer = ByteBuffer.allocate(metadata.sizeInBytes());
+            metadata.writeTo(metadataBuffer, 0);
+            metadataBuffer.rewind();
+
+            ByteBuffer valueBuffer = ByteBuffer.allocate(value.sizeInBytes());
+            value.writeTo(valueBuffer, 0);
+            valueBuffer.rewind();
+
+            ((VariantBlockBuilder) builder).writeEntry(wrappedHeapBuffer(metadataBuffer), wrappedHeapBuffer(valueBuffer));
             return;
         }
         throw new TrinoException(NOT_SUPPORTED, "unsupported type: " + type);
