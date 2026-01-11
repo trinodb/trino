@@ -90,6 +90,7 @@ import io.trino.operator.aggregation.minmaxbyn.MinByNAggregationFunction;
 import io.trino.operator.aggregation.minmaxn.MaxNAggregationFunction;
 import io.trino.operator.aggregation.minmaxn.MinNAggregationFunction;
 import io.trino.operator.aggregation.multimapagg.MultimapAggregationFunction;
+import io.trino.operator.scalar.AllColumnSearchFunction;
 import io.trino.operator.scalar.ArrayAllMatchFunction;
 import io.trino.operator.scalar.ArrayAnyMatchFunction;
 import io.trino.operator.scalar.ArrayCardinalityFunction;
@@ -485,6 +486,7 @@ public final class SystemFunctionBundle
                 .scalar(ArrayPositionFunction.class)
                 .scalars(ArrayVectorFunctions.class)
                 .scalars(CombineHashFunction.class)
+                .scalars(AllColumnSearchFunction.class)
                 .scalars(JsonOperators.class)
                 .scalars(FailureFunction.class)
                 .scalars(JoniRegexpCasts.class)
