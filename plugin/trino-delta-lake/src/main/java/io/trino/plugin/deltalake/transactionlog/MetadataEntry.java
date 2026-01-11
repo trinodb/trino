@@ -260,7 +260,6 @@ public class MetadataEntry
         private String schemaString;
         private List<String> partitionColumns = ImmutableList.of();
         private Map<String, String> configuration;
-        private long createdTime;
 
         private Builder() {}
 
@@ -274,7 +273,6 @@ public class MetadataEntry
             schemaString = metadataEntry.schemaString;
             partitionColumns = ImmutableList.copyOf(metadataEntry.partitionColumns);
             configuration = ImmutableMap.copyOf(metadataEntry.configuration);
-            createdTime = metadataEntry.createdTime;
         }
 
         public Builder setId(String id)
@@ -307,15 +305,9 @@ public class MetadataEntry
             return this;
         }
 
-        public Builder setCreatedTime(long createdTime)
-        {
-            this.createdTime = createdTime;
-            return this;
-        }
-
         public MetadataEntry build()
         {
-            return new MetadataEntry(id, name, description.orElse(null), format, schemaString, partitionColumns, configuration, createdTime);
+            return new MetadataEntry(id, name, description.orElse(null), format, schemaString, partitionColumns, configuration, System.currentTimeMillis());
         }
     }
 
