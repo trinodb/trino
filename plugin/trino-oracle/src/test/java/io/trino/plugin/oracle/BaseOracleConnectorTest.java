@@ -123,18 +123,18 @@ public abstract class BaseOracleConnectorTest
     @Test
     void testReadingFloatWithQueryTableFunction()
     {
-        String tableName = "test_float_" + randomNameSuffix();
-        onRemoteDatabase().execute("CREATE TABLE " + tableName + " (x int, y FLOAT)");
+        try (TestTable table = new TestTable(onRemoteDatabase(), "test_float_" + randomNameSuffix(), "(x int, y FLOAT)")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 0.123), (2, 456.789), (3, NULL)", 3);
 
-        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 0.123), (2, 456.789), (3, NULL)", 3);
-
-        // test both query with and without through query table function, make sure the type and values are the same
-        // for the oracle FLOAT type
-        String expectedValues = "VALUES CAST(0.123 AS DOUBLE), CAST(456.789 AS DOUBLE), CAST(NULL as DOUBLE)";
-        assertThat(query("SELECT y FROM " + tableName))
-                .matches(expectedValues);
-        assertThat(query("SELECT y FROM TABLE(system.query('SELECT * FROM " + tableName + "'))"))
-                .matches(expectedValues);
+            // test both query with and without through query table function, make sure the type and values are the same
+            // for the oracle FLOAT type
+            String expectedValues = "VALUES CAST(0.123 AS DOUBLE), CAST(456.789 AS DOUBLE), CAST(NULL as DOUBLE)";
+            assertThat(query("SELECT y FROM " + tableName))
+                    .matches(expectedValues);
+            assertThat(query("SELECT y FROM TABLE(system.query('SELECT * FROM " + tableName + "'))"))
+                    .matches(expectedValues);
+        }
     }
 
     @Test
