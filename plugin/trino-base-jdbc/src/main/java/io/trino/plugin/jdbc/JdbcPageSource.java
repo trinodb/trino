@@ -53,6 +53,7 @@ public final class JdbcPageSource
         implements ConnectorPageSource
 {
     private static final Logger log = Logger.get(JdbcPageSource.class);
+    private static final CompletableFuture<Void> UNINITIALIZED_RESULT_SET_FUTURE = CompletableFuture.completedFuture(null);
 
     private final List<JdbcColumnHandle> columnHandles;
     private final ReadFunction[] readFunctions;
@@ -63,6 +64,7 @@ public final class JdbcPageSource
     private final ObjectReadFunction[] objectReadFunctions;
 
     private final JdbcClient jdbcClient;
+    private final ExecutorService executor;
     private final Connection connection;
     private final PreparedStatement statement;
     private final AtomicLong readTimeNanos = new AtomicLong(0);
@@ -77,6 +79,7 @@ public final class JdbcPageSource
     public JdbcPageSource(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, BaseJdbcConnectorTableHandle table, List<JdbcColumnHandle> columnHandles)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.executor = requireNonNull(executor, "executor is null");
         this.columnHandles = ImmutableList.copyOf(columnHandles);
 
         readFunctions = new ReadFunction[columnHandles.size()];
@@ -132,22 +135,7 @@ public final class JdbcPageSource
             pageBuilder = new PageBuilder(columnHandles.stream()
                     .map(JdbcColumnHandle::getColumnType)
                     .collect(toImmutableList()));
-            resultSetFuture = supplyAsync(() -> {
-                long start = nanoTime();
-                try {
-                    log.debug("Executing: %s", statement);
-                    return statement.executeQuery();
-                }
-                catch (SQLException e) {
-                    throw handleSqlException(e);
-                }
-                finally {
-                    readTimeNanos.addAndGet(nanoTime() - start);
-                }
-            }, executor).thenAcceptAsync(resultSet -> {
-                this.resultSet = requireNonNull(resultSet, "resultSet is null");
-                buildPageFromResultSet();
-            }, newDirectExecutorService());
+            resultSetFuture = UNINITIALIZED_RESULT_SET_FUTURE;
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
@@ -169,22 +157,42 @@ public final class JdbcPageSource
     @Override
     public SourcePage getNextSourcePage()
     {
-        if (!resultSetFuture.isDone()) {
+        if (isFinished()) {
             return null;
         }
 
         try {
+            if (resultSetFuture == UNINITIALIZED_RESULT_SET_FUTURE && resultSet == null) {
+                checkState(!closed, "page source is closed");
+                resultSetFuture = supplyAsync(() -> {
+                    long start = nanoTime();
+                    try {
+                        log.debug("Executing: %s", statement);
+                        return statement.executeQuery();
+                    }
+                    catch (SQLException e) {
+                        throw handleSqlException(e);
+                    }
+                    finally {
+                        readTimeNanos.addAndGet(nanoTime() - start);
+                    }
+                }, executor).thenAcceptAsync(resultSet -> {
+                    this.resultSet = requireNonNull(resultSet, "resultSet is null");
+                    buildPageFromResultSet();
+                }, newDirectExecutorService());
+            }
+
+            if (!resultSetFuture.isDone()) {
+                return null;
+            }
+
             // throw exception
             getFutureValue(resultSetFuture);
 
             checkState(!closed, "page source is closed");
         }
-        catch (Throwable throwable) {
-            throw handleSqlException(throwable);
-        }
-
-        if (isFinished()) {
-            return null;
+        catch (Exception e) {
+            throw handleSqlException(e);
         }
 
         Page page = pageBuilder.build();
@@ -293,12 +301,12 @@ public final class JdbcPageSource
         resultSet = null;
     }
 
-    private RuntimeException handleSqlException(Throwable e)
+    private RuntimeException handleSqlException(Exception e)
     {
         try {
             close();
         }
-        catch (Throwable closeException) {
+        catch (Exception closeException) {
             // Self-suppression not permitted
             if (e != closeException) {
                 e.addSuppressed(closeException);
