@@ -176,7 +176,9 @@ Trino data type mapping:
   - See [](oracle-number-mapping)
 * - `FLOAT[(p)]`
   - `DOUBLE`
-  -
+  - When `p` exceeds 53, numeric values may be subject to precision loss. 
+    The default precision of the [FLOAT data type](https://docs.oracle.com/javadb/10.6.2.1/ref/rrefsqlj27281.html) 
+    in Oracle is 53.
 * - `BINARY_FLOAT`
   - `REAL`
   -
