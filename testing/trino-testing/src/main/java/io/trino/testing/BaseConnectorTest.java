@@ -2155,7 +2155,7 @@ public abstract class BaseConnectorTest
 
         // test SHOW CREATE VIEW
         String expectedSql = formatSqlText(format(
-                "CREATE VIEW %s.%s.%s SECURITY %s AS %s",
+                "CREATE VIEW %s.%s.%s (x, y) SECURITY %s AS %s",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 viewName,
@@ -2184,6 +2184,52 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP VIEW IF EXISTS " + viewName);
         String ddl = format(
                 "CREATE VIEW %s.%s.%s SECURITY DEFINER AS\n" +
+                        "SELECT *\n" +
+                        "FROM\n" +
+                        "  (\n" +
+                        " VALUES \n" +
+                        "     ROW(1, 'one')\n" +
+                        "   , ROW(2, 't')\n" +
+                        ")  t (\"1_col1\", col2)",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                viewName);
+        String showCreateSql = format(
+                "CREATE VIEW %s.%s.%s (\n" +
+                        "   \"1_col1\",\n" +
+                        "   col2\n" +
+                        ") SECURITY DEFINER AS\n" +
+                        "SELECT *\n" +
+                        "FROM\n" +
+                        "  (\n" +
+                        " VALUES \n" +
+                        "     ROW(1, 'one')\n" +
+                        "   , ROW(2, 't')\n" +
+                        ")  t (\"1_col1\", col2)",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                viewName);
+        assertUpdate(ddl);
+
+        assertThat(computeScalar("SHOW CREATE VIEW " + viewName)).isEqualTo(showCreateSql);
+
+        assertUpdate("DROP VIEW " + viewName);
+    }
+
+    @Test
+    public void testShowCreateViewWithColumnComment()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));
+        checkState(getSession().getCatalog().isPresent(), "catalog is not set");
+        checkState(getSession().getSchema().isPresent(), "schema is not set");
+
+        String viewName = "test_show_create_view" + randomNameSuffix();
+        assertUpdate("DROP VIEW IF EXISTS " + viewName);
+        String ddl = format(
+                "CREATE VIEW %s.%s.%s (\n" +
+                        "   id COMMENT 'id',\n" +
+                        "   name COMMENT 'name'\n" +
+                        ") SECURITY DEFINER AS\n" +
                         "SELECT *\n" +
                         "FROM\n" +
                         "  (\n" +

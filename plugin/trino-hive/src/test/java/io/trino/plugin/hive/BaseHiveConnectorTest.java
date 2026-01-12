@@ -9284,7 +9284,9 @@ public abstract class BaseHiveConnectorTest
         assertThat(computeActual("SHOW CREATE VIEW %s".formatted(tableName)).getOnlyValue())
                 .isEqualTo(
                         """
-                        CREATE VIEW hive.tpch.%s SECURITY DEFINER AS
+                        CREATE VIEW hive.tpch.%s (
+                           colA
+                        ) SECURITY DEFINER AS
                         SELECT 1 colA\
                         """.formatted(tableName));
         assertUpdate("DROP VIEW %s".formatted(tableName));
