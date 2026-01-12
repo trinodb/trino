@@ -404,7 +404,7 @@ public class OracleClient
     {
         ImmutableList.Builder<JdbcColumnHandle> columns = ImmutableList.builder();
         for (int column = 1; column <= metadata.getColumnCount(); column++) {
-            JdbcTypeHandle jdbcTypeHandle = getJdbcTypeHandle(metadata, column);
+            JdbcTypeHandle jdbcTypeHandle = getJdbcTypeHandle(session, metadata, column);
 
             // Use getColumnLabel method because query pass-through table function may contain column aliases
             String name = metadata.getColumnLabel(column);
@@ -416,26 +416,23 @@ public class OracleClient
         return columns.build();
     }
 
-    private static JdbcTypeHandle getJdbcTypeHandle(ResultSetMetaData metadata, int column)
+    private static JdbcTypeHandle getJdbcTypeHandle(ConnectorSession session, ResultSetMetaData metadata, int column)
             throws SQLException
     {
         int columnType = metadata.getColumnType(column);
         int columnSize = metadata.getPrecision(column);
         int scale = metadata.getScale(column);
         CaseSensitivity caseSensitive = metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE;
-        if (columnType == Types.NUMERIC) {
+        if (columnType == OracleTypes.NUMBER) {
             String columnClassName = metadata.getColumnClassName(column);
             int precision = columnSize + max(-scale, 0);
             // Oracle NUMBER are expected "java.math.BigDecimal", when the class name is "java.lang.Double" it means
             // it's actual a FLOAT type in Oracle side
             if ("java.lang.Double".equals(columnClassName)) {
                 // we just handle the precision here is not able to handle by `toColumnMapping` method
-                if (!isAllowedNumber(precision, columnSize)) {
+                if (!isAllowedNumber(session, precision, scale, columnSize)) {
                     return new JdbcTypeHandle(FLOAT, Optional.of("FLOAT"), Optional.of(columnSize), Optional.of(scale), Optional.empty(), Optional.of(caseSensitive));
                 }
-            }
-            else {
-                verify("java.math.BigDecimal".equals(columnClassName), "Unexpected class name %s for Oracle NUMBER type", columnClassName);
             }
         }
 
@@ -448,14 +445,22 @@ public class OracleClient
                 Optional.of(caseSensitive));
     }
 
-    private static boolean isAllowedNumber(int precision, int columnSize)
+    private static boolean isAllowedNumber(ConnectorSession session, int precision, int scale, int columnSize)
     {
-        if (precision > Decimals.MAX_PRECISION) {
+        Optional<Integer> numberDefaultScale = getNumberDefaultScale(session);
+        RoundingMode roundingMode = getNumberRoundingMode(session);
+        if (precision < scale) {
+            if (roundingMode == RoundingMode.UNNECESSARY) {
+                return false;
+            }
+        }
+        else if (numberDefaultScale.isPresent() && precision == PRECISION_OF_UNSPECIFIED_NUMBER) {
+            return true;
+        }
+        else if (precision > Decimals.MAX_PRECISION || columnSize <= 0) {
             return false;
         }
-        if (columnSize <= 0) {
-            return false;
-        }
+
         return true;
     }
 
@@ -581,7 +586,7 @@ public class OracleClient
                     precision = Decimals.MAX_PRECISION;
                     scale = numberDefaultScale.get();
                 }
-                else if (!isAllowedNumber(precision, actualPrecision)) {
+                else if (precision > Decimals.MAX_PRECISION || actualPrecision <= 0) {
                     break;
                 }
                 DecimalType decimalType = createDecimalType(precision, scale);
