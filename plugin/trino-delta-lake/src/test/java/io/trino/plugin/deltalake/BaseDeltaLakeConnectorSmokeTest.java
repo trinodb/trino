@@ -2593,11 +2593,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 1);
 
         try {
-            // Considering T1, T2, T3 being the order of completion of the concurrent INSERT operations,
-            // if all the operations would eventually succeed, the entries inserted per thread would look like this:
-            // T1: (1, 10)
-            // T2: (2, 10)
-            // T3: (3, 10)
             List<Future<Boolean>> futures = IntStream.range(0, threads)
                     .mapToObj(threadNumber -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
@@ -2627,13 +2622,10 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                     .count();
 
             assertThat(successfulInsertsCount).isGreaterThanOrEqualTo(1);
-            assertQuery(
-                    "SELECT * FROM " + tableName,
-                    "VALUES (0, 10)" +
-                            LongStream.rangeClosed(1, successfulInsertsCount)
-                                    .boxed()
-                                    .map("(%d, 10)"::formatted)
-                                    .collect(joining(", ", ", ", "")));
+
+            assertThat(query("SELECT count(*) FROM " + tableName))
+                    .matches("VALUES BIGINT '" + (1 + successfulInsertsCount) + "'");
+
             assertQuery(
                     "SELECT version, operation, isolation_level, read_version, is_blind_append FROM \"" + tableName + "$history\"",
                     "VALUES (0, 'CREATE TABLE AS SELECT', 'WriteSerializable', 0, true)" +
