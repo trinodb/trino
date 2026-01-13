@@ -49,6 +49,7 @@ public final class HudiQueryRunner
         logging.setLevel("org.apache.hudi", Level.OFF);
     }
 
+    public static final String HUDI_CATALOG_NAME = "hudi";
     private static final String SCHEMA_NAME = "tests";
 
     public static Builder builder()
@@ -77,7 +78,7 @@ public final class HudiQueryRunner
         protected Builder(String schemaLocation)
         {
             super(testSessionBuilder()
-                    .setCatalog("hudi")
+                    .setCatalog(HUDI_CATALOG_NAME)
                     .setSchema(SCHEMA_NAME)
                     .build());
             this.schemaLocation = requireNonNull(schemaLocation, "schemaLocation is null");
@@ -104,10 +105,10 @@ public final class HudiQueryRunner
             DistributedQueryRunner queryRunner = super.build();
             try {
                 queryRunner.installPlugin(new TestingHudiPlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hudi_data")));
-                queryRunner.createCatalog("hudi", "hudi", connectorProperties);
+                queryRunner.createCatalog(HUDI_CATALOG_NAME, "hudi", connectorProperties);
 
                 // Hudi connector does not support creating schema or any other write operations
-                ((HudiConnector) queryRunner.getCoordinator().getConnector("hudi")).getInjector()
+                ((HudiConnector) queryRunner.getCoordinator().getConnector(HUDI_CATALOG_NAME)).getInjector()
                         .getInstance(HiveMetastoreFactory.class)
                         .createMetastore(Optional.empty())
                         .createDatabase(Database.builder()
