@@ -16,12 +16,14 @@ package io.trino.spooling.filesystem;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.opentelemetry.api.OpenTelemetry;
-import io.trino.plugin.base.jmx.MBeanServerModule;
+import io.trino.plugin.base.jmx.RebindSafeMBeanServer;
 import io.trino.spi.Node;
 import io.trino.spi.spool.SpoolingManager;
 import io.trino.spi.spool.SpoolingManagerContext;
 import io.trino.spi.spool.SpoolingManagerFactory;
 import org.weakref.jmx.guice.MBeanModule;
+
+import javax.management.MBeanServer;
 
 import java.util.Map;
 
@@ -44,7 +46,7 @@ public class FileSystemSpoolingManagerFactory
                 "io.trino.bootstrap.spooling." + getName(),
                 new FileSystemSpoolingModule(context.isCoordinator()),
                 new MBeanModule(),
-                new MBeanServerModule(),
+                binder -> binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(context.getMBeanServer())),
                 binder -> {
                     binder.bind(SpoolingManagerContext.class).toInstance(context);
                     binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());

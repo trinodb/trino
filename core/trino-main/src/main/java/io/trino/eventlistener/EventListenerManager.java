@@ -31,6 +31,8 @@ import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.management.MBeanServer;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -71,11 +73,17 @@ public class EventListenerManager
     private final EventListenerContextInstance context;
 
     @Inject
-    public EventListenerManager(EventListenerConfig config, SecretsResolver secretsResolver, OpenTelemetry openTelemetry, Tracer tracer, NodeVersion version)
+    public EventListenerManager(
+            EventListenerConfig config,
+            SecretsResolver secretsResolver,
+            OpenTelemetry openTelemetry,
+            Tracer tracer,
+            MBeanServer mbeanServer,
+            NodeVersion version)
     {
         this.configFiles = ImmutableList.copyOf(config.getEventListenerFiles());
         this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
-        this.context = new EventListenerContextInstance(version.toString(), openTelemetry, tracer);
+        this.context = new EventListenerContextInstance(version.toString(), openTelemetry, tracer, mbeanServer);
     }
 
     public void addEventListenerFactory(EventListenerFactory eventListenerFactory)

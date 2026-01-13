@@ -14,9 +14,11 @@
 package io.trino.plugin.base;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
+import io.trino.plugin.base.jmx.RebindSafeMBeanServer;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.NodeVersion;
@@ -27,24 +29,36 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.type.TypeManager;
+import org.weakref.jmx.guice.MBeanModule;
+
+import javax.management.MBeanServer;
 
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorContextModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     private final String catalogName;
+    private final String connectorName;
     private final ConnectorContext context;
 
-    public ConnectorContextModule(String catalogName, ConnectorContext context)
+    public ConnectorContextModule(String connectorName, String catalogName, ConnectorContext context)
     {
+        this.connectorName = requireNonNull(connectorName, "connectorName is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.context = requireNonNull(context, "context is null");
     }
 
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
+        // Export all managed beans
+        install(new MBeanModule());
+        // in a separate domain
+        install(new ConnectorObjectNameGeneratorModule("io.trino.plugin." + connectorName, "trino.plugin." + connectorName));
+        // while using MBeanServer provided by the engine
+        binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(context.getMBeanServer()));
+
         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
 
         binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());

@@ -24,6 +24,7 @@ import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.exchange.ExchangeId;
 import org.junit.jupiter.api.Test;
+import org.weakref.jmx.testing.TestingMBeanServer;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,7 +46,7 @@ public class TestLazyExchangeDataSource
                     throw new UnsupportedOperationException();
                 },
                 RetryPolicy.NONE,
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()))) {
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new TestingMBeanServer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()))) {
             ListenableFuture<Void> first = source.isBlocked();
             ListenableFuture<Void> second = source.isBlocked();
             assertThat(first)

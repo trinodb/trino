@@ -31,10 +31,12 @@ import static java.util.Objects.requireNonNull;
 public class LokiConnectorFactory
         implements ConnectorFactory
 {
+    static final String CONNECTOR_NAME = "loki";
+
     @Override
     public String getName()
     {
-        return "loki";
+        return CONNECTOR_NAME;
     }
 
     @Override
@@ -49,7 +51,7 @@ public class LokiConnectorFactory
                     "io.trino.bootstrap.catalog." + catalogName,
                     new JsonModule(),
                     new TypeDeserializerModule(),
-                    new ConnectorContextModule(catalogName, context),
+                    new ConnectorContextModule(CONNECTOR_NAME, catalogName, context),
                     new LokiModule());
 
             Injector injector = app

@@ -17,6 +17,9 @@ import io.airlift.tracing.Tracing;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.exchange.ExchangeManagerContext;
+import org.weakref.jmx.testing.TestingMBeanServer;
+
+import javax.management.MBeanServer;
 
 public class TestExchangeManagerContext
         implements ExchangeManagerContext
@@ -31,5 +34,11 @@ public class TestExchangeManagerContext
     public Tracer getTracer()
     {
         return Tracing.noopTracer();
+    }
+
+    @Override
+    public MBeanServer getMBeanServer()
+    {
+        return new TestingMBeanServer();
     }
 }

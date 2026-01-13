@@ -16,6 +16,8 @@ package io.trino.spi.exchange;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 
+import javax.management.MBeanServer;
+
 public interface ExchangeManagerContext
 {
     default OpenTelemetry getOpenTelemetry()
@@ -24,6 +26,11 @@ public interface ExchangeManagerContext
     }
 
     default Tracer getTracer()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default MBeanServer getMBeanServer()
     {
         throw new UnsupportedOperationException();
     }

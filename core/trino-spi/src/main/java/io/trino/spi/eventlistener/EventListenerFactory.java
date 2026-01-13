@@ -16,6 +16,8 @@ package io.trino.spi.eventlistener;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 
+import javax.management.MBeanServer;
+
 import java.util.Map;
 
 public interface EventListenerFactory
@@ -31,5 +33,7 @@ public interface EventListenerFactory
         OpenTelemetry getOpenTelemetry();
 
         Tracer getTracer();
+
+        MBeanServer getMBeanServer();
     }
 }

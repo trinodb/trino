@@ -17,20 +17,24 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.eventlistener.EventListenerFactory;
 
+import javax.management.MBeanServer;
+
 import static java.util.Objects.requireNonNull;
 
 public class EventListenerContextInstance
         implements EventListenerFactory.EventListenerContext
 {
     private final OpenTelemetry openTelemetry;
+    private final MBeanServer mbeanServer;
     private final Tracer tracer;
     private final String version;
 
-    public EventListenerContextInstance(String version, OpenTelemetry openTelemetry, Tracer tracer)
+    public EventListenerContextInstance(String version, OpenTelemetry openTelemetry, Tracer tracer, MBeanServer mbeanServer)
     {
         this.version = requireNonNull(version, "version is null");
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
+        this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
     }
 
     @Override
@@ -49,5 +53,11 @@ public class EventListenerContextInstance
     public Tracer getTracer()
     {
         return tracer;
+    }
+
+    @Override
+    public MBeanServer getMBeanServer()
+    {
+        return this.mbeanServer;
     }
 }

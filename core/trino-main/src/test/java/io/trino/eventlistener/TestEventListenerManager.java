@@ -19,6 +19,7 @@ import io.trino.client.NodeVersion;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import org.junit.jupiter.api.Test;
+import org.weakref.jmx.testing.TestingMBeanServer;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -31,7 +32,7 @@ class TestEventListenerManager
     @Test
     public void testShutdownIsForwardedToListeners()
     {
-        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig(), new SecretsResolver(ImmutableMap.of()), noop(), noopTracer(), new NodeVersion("test-version"));
+        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig(), new SecretsResolver(ImmutableMap.of()), noop(), noopTracer(), new TestingMBeanServer(), new NodeVersion("test-version"));
         AtomicBoolean wasCalled = new AtomicBoolean(false);
         EventListener listener = new EventListener()
         {

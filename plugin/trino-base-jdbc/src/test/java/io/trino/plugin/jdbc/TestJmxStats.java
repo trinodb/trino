@@ -29,7 +29,6 @@ import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
-import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJmxStats
@@ -40,19 +39,20 @@ public class TestJmxStats
     {
         Plugin plugin = new JdbcPlugin("base_jdbc", TestingH2JdbcModule::new);
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        TestingConnectorContext connectorContext = new TestingConnectorContext();
         Connector connector = factory.create(
-                "test",
+                "test_catalog",
                 ImmutableMap.of(
                         "connection-url", "jdbc:driver:",
                         "bootstrap.quiet", "true"),
-                new TestingConnectorContext());
-        MBeanServer mbeanServer = getPlatformMBeanServer();
+                        connectorContext);
+        MBeanServer mbeanServer = connectorContext.getMBeanServer();
         Set<ObjectName> objectNames = mbeanServer.queryNames(new ObjectName("io.trino.plugin.jdbc:*"), null);
 
         assertThat(objectNames.containsAll(
                 ImmutableSet.of(
-                        new ObjectName("io.trino.plugin.jdbc:type=ConnectionFactory,name=test"),
-                        new ObjectName("io.trino.plugin.jdbc:type=JdbcClient,name=test")))).isTrue();
+                        new ObjectName("io.trino.plugin.jdbc:type=ConnectionFactory,catalog=test_catalog"),
+                        new ObjectName("io.trino.plugin.jdbc:type=JdbcClient,catalog=test_catalog")))).isTrue();
 
         for (ObjectName objectName : objectNames) {
             MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName);

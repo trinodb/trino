@@ -18,12 +18,9 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.ConnectorContextModule;
 import io.trino.plugin.base.TypeDeserializerModule;
-import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
-import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -33,12 +30,14 @@ import static java.util.Objects.requireNonNull;
 public class ElasticsearchConnectorFactory
         implements ConnectorFactory
 {
+    static final String CONNECTOR_NAME = "elasticsearch";
+
     ElasticsearchConnectorFactory() {}
 
     @Override
     public String getName()
     {
-        return "elasticsearch";
+        return CONNECTOR_NAME;
     }
 
     @Override
@@ -50,13 +49,10 @@ public class ElasticsearchConnectorFactory
 
         Bootstrap app = new Bootstrap(
                 "io.trino.bootstrap.catalog." + catalogName,
-                new MBeanModule(),
-                new MBeanServerModule(),
-                new ConnectorObjectNameGeneratorModule("io.trino.plugin.elasticsearch", "trino.plugin.elasticsearch"),
                 new JsonModule(),
                 new TypeDeserializerModule(),
                 new ElasticsearchConnectorModule(),
-                new ConnectorContextModule(catalogName, context));
+                new ConnectorContextModule(CONNECTOR_NAME, catalogName, context));
 
         Injector injector = app
                 .doNotInitializeLogging()
