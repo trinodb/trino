@@ -145,11 +145,6 @@ implementation is used:
     query plan and therefore improve query processing performance. Setting to
     `false` is not recommended and does not disable statistics gathering.
   - `true`
-* - `iceberg.extended-statistics.enabled`
-  - Enable statistics collection with [](/sql/analyze) and use of extended
-    statistics. The equivalent catalog session property is
-    `extended_statistics_enabled`.
-  - `true`
 * - `iceberg.extended-statistics.collect-on-write`
   - Enable collection of extended statistics for write operations. The
     equivalent catalog session property is
@@ -2159,9 +2154,7 @@ following sections.
 ### Table statistics
 
 The Iceberg connector can collect column statistics using {doc}`/sql/analyze`
-statement. This can be disabled using `iceberg.extended-statistics.enabled`
-catalog configuration property, or the corresponding
-`extended_statistics_enabled` session property.
+statement.
 
 (iceberg-analyze)=
 #### Updating table statistics

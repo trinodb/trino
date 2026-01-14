@@ -46,7 +46,6 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.iceberg.CatalogType.TESTING_FILE_METASTORE;
-import static io.trino.plugin.iceberg.IcebergConfig.EXTENDED_STATISTICS_CONFIG;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FILE_EXTENSION;
 import static io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations.ICEBERG_METASTORE_STORAGE_FORMAT;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
@@ -112,7 +111,6 @@ public class IcebergCostBasedPlanTestSetup
                 .put("s3.region", MINIO_REGION)
                 .put("s3.endpoint", minio.getMinioAddress())
                 .put("s3.path-style-access", "true")
-                .put(EXTENDED_STATISTICS_CONFIG, "true")
                 .put("bootstrap.quiet", "true")
                 .buildOrThrow();
 

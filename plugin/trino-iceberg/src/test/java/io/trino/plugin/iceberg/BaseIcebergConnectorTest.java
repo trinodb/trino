@@ -136,7 +136,6 @@ import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.BUCKET_EXECUTION_ENABLED;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.DYNAMIC_FILTERING_WAIT_TIMEOUT;
-import static io.trino.plugin.iceberg.IcebergSessionProperties.EXTENDED_STATISTICS_ENABLED;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergTableProperties.isCompressionCodecSupportedForFormat;
 import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
@@ -3868,26 +3867,9 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testBasicAnalyze()
     {
-        Session defaultSession = getSession();
-        String catalog = defaultSession.getCatalog().orElseThrow();
-        Session extendedStatisticsDisabled = Session.builder(defaultSession)
-                .setCatalogSessionProperty(catalog, EXTENDED_STATISTICS_ENABLED, "false")
-                .build();
         String tableName = "test_basic_analyze";
 
-        assertUpdate(defaultSession, "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.region", 5);
-
-        String statsWithoutNdv = format == AVRO
-                ? ("VALUES " +
-                "  ('regionkey', NULL, NULL, NULL, NULL, NULL, NULL), " +
-                "  ('name', NULL, NULL, NULL, NULL, NULL, NULL), " +
-                "  ('comment', NULL, NULL, NULL, NULL, NULL, NULL), " +
-                "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)")
-                : ("VALUES " +
-                "  ('regionkey', NULL, NULL, 0e0, NULL, '0', '4'), " +
-                "  ('name', " + (format == PARQUET ? "224e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
-                "  ('comment', " + (format == PARQUET ? "626e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
-                "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)");
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.region", 5);
 
         String statsWithNdv = format == AVRO
                 ? ("VALUES " +
@@ -3901,25 +3883,14 @@ public abstract class BaseIcebergConnectorTest
                 "  ('comment', " + (format == PARQUET ? "626e0" : "NULL") + ", 5e0, 0e0, NULL, NULL, NULL), " +
                 "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)");
 
-        assertThat(query(defaultSession, "SHOW STATS FOR " + tableName)).skippingTypesCheck().matches(statsWithNdv);
-        assertThat(query(extendedStatisticsDisabled, "SHOW STATS FOR " + tableName)).skippingTypesCheck().matches(statsWithoutNdv);
-
-        // ANALYZE can be disabled.
-        assertQueryFails(
-                extendedStatisticsDisabled,
-                "ANALYZE " + tableName,
-                "\\QAnalyze is not enabled. You can enable analyze using iceberg.extended-statistics.enabled config or extended_statistics_enabled catalog session property");
+        assertThat(query("SHOW STATS FOR " + tableName)).skippingTypesCheck().matches(statsWithNdv);
 
         // ANALYZE the table
-        assertUpdate(defaultSession, "ANALYZE " + tableName);
+        assertUpdate("ANALYZE " + tableName);
         // After ANALYZE, NDV information present
-        assertThat(query(defaultSession, "SHOW STATS FOR " + tableName))
+        assertThat(query("SHOW STATS FOR " + tableName))
                 .skippingTypesCheck()
                 .matches(statsWithNdv);
-        // NDV information is not present in a session with extended statistics disabled
-        assertThat(query(extendedStatisticsDisabled, "SHOW STATS FOR " + tableName))
-                .skippingTypesCheck()
-                .matches(statsWithoutNdv);
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -4831,14 +4802,9 @@ public abstract class BaseIcebergConnectorTest
         }
 
         // ANALYZE
-        Session defaultSession = getSession();
-        String catalog = defaultSession.getCatalog().orElseThrow();
-        Session extendedStatisticsEnabled = Session.builder(defaultSession)
-                .setCatalogSessionProperty(catalog, EXTENDED_STATISTICS_ENABLED, "true")
-                .build();
-        assertUpdate(extendedStatisticsEnabled, "ANALYZE test_all_types");
+        assertUpdate("ANALYZE test_all_types");
         if (format != AVRO) {
-            assertThat(query(extendedStatisticsEnabled, "SHOW STATS FOR test_all_types"))
+            assertThat(query("SHOW STATS FOR test_all_types"))
                     .skippingTypesCheck()
                     .matches("VALUES " +
                             "  ('a_boolean', NULL, 1e0, 0.5e0, NULL, 'true', 'true'), " +
@@ -4861,7 +4827,7 @@ public abstract class BaseIcebergConnectorTest
                             "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
         }
         else {
-            assertThat(query(extendedStatisticsEnabled, "SHOW STATS FOR test_all_types"))
+            assertThat(query("SHOW STATS FOR test_all_types"))
                     .skippingTypesCheck()
                     .matches("VALUES " +
                             "  ('a_boolean', NULL, 1e0, 0.1e0, NULL, NULL, NULL), " +
