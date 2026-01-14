@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.DataFile;
-import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Types;
@@ -28,11 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
-import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
@@ -65,7 +61,7 @@ public record IcebergStatistics(
     public static class Builder
     {
         private final TypeManager typeManager;
-        private final Map<Integer, io.trino.spi.type.Type> fieldIdToTrinoType;
+        private final List<Types.NestedField> columns;
 
         private long recordCount;
         private long fileCount;
@@ -80,8 +76,7 @@ public record IcebergStatistics(
                 TypeManager typeManager)
         {
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
-            this.fieldIdToTrinoType = columns.stream()
-                    .collect(toImmutableMap(Types.NestedField::fieldId, column -> toTrinoType(column.type(), typeManager)));
+            this.columns = ImmutableList.copyOf(columns);
         }
 
         public void acceptDataFile(DataFile dataFile, PartitionSpec partitionSpec)
@@ -95,17 +90,12 @@ public record IcebergStatistics(
             Map<Integer, Long> nullValueCounts = dataFile.nullValueCounts();
             mergeLongStatistics(nullCounts, nullValueCounts);
 
-            Set<Integer> identityPartitionFieldIds = partitionSpec.fields().stream()
-                    .filter(field -> field.transform().isIdentity())
-                    .map(PartitionField::sourceId)
-                    .collect(toImmutableSet());
-            Map<Integer, Optional<String>> partitionValues = getPartitionKeys(dataFile.partition(), partitionSpec);
-            for (Types.NestedField column : partitionSpec.schema().columns()) {
+            Map<Integer, Optional<String>> identityPartitionValues = getPartitionKeys(dataFile.partition(), partitionSpec);
+            for (Types.NestedField column : columns) {
                 int id = column.fieldId();
-                io.trino.spi.type.Type trinoType = fieldIdToTrinoType.get(id);
-                if (identityPartitionFieldIds.contains(id)) {
-                    verify(partitionValues.containsKey(id), "Unable to find value for partition column with field id %s", id);
-                    Optional<String> partitionValue = partitionValues.get(id);
+                io.trino.spi.type.Type trinoType = toTrinoType(column.type(), typeManager);
+                Optional<String> partitionValue = identityPartitionValues.get(id);
+                if (partitionValue != null) {
                     if (partitionValue.isPresent()) {
                         Object trinoValue = deserializePartitionValue(trinoType, partitionValue.get(), column.name());
                         // Update min/max stats but there are no null values to count
