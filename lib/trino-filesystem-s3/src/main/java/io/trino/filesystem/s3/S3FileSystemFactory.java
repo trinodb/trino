@@ -22,6 +22,8 @@ import jakarta.annotation.PreDestroy;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
 import static io.trino.filesystem.s3.S3FileSystemUtils.createS3PreSigner;
@@ -34,28 +36,82 @@ public final class S3FileSystemFactory
     private final S3Context context;
     private final Executor uploadExecutor;
     private final S3Presigner preSigner;
+    private final OpenTelemetry openTelemetry;
+    private final S3FileSystemConfig config;
+    private final S3FileSystemStats stats;
+    private final String staticRegion;
+    private final String staticEndpoint;
+    private final boolean staticCrossRegionAccessEnabled;
+    private final Map<ClientKey, S3Client> dynamicClients;
 
     @Inject
     public S3FileSystemFactory(OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
     {
+        this.openTelemetry = openTelemetry;
+        this.config = config;
+        this.stats = stats;
         this.loader = new S3FileSystemLoader(openTelemetry, config, stats);
         this.client = loader.createClient();
         this.preSigner = createS3PreSigner(config, client);
         this.context = loader.context();
         this.uploadExecutor = loader.uploadExecutor();
-    }
-
-    @PreDestroy
-    public void destroy()
-    {
-        try (client) {
-            loader.destroy();
-        }
+        this.staticRegion = config.getRegion();
+        this.staticEndpoint = config.getEndpoint();
+        this.staticCrossRegionAccessEnabled = config.isCrossRegionAccessEnabled();
+        this.dynamicClients = new ConcurrentHashMap<>();
     }
 
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        return new S3FileSystem(uploadExecutor, client, preSigner, context.withCredentials(identity));
+        String region = staticRegion;
+        if (region == null) {
+            region = S3FileSystemLoader.extractRegionFromIdentity(identity).orElse(null);
+        }
+
+        String endpoint = staticEndpoint;
+        if (endpoint == null) {
+            endpoint = S3FileSystemLoader.extractEndpointFromIdentity(identity).orElse(null);
+        }
+
+        Boolean crossRegionAccessEnabled = staticCrossRegionAccessEnabled;
+        Boolean vendedCrossRegionAccessEnabled = S3FileSystemLoader.extractCrossRegionAccessEnabledFromIdentity(identity).orElse(null);
+        if (!staticCrossRegionAccessEnabled && vendedCrossRegionAccessEnabled != null) {
+            crossRegionAccessEnabled = vendedCrossRegionAccessEnabled;
+        }
+
+        final String finalRegion = region;
+        final String finalEndpoint = endpoint;
+        final Boolean finalCrossRegionAccessEnabled = crossRegionAccessEnabled;
+
+        S3Client s3Client;
+        if ((finalRegion != null && !finalRegion.equals(staticRegion)) ||
+                (finalEndpoint != null && !finalEndpoint.equals(staticEndpoint)) ||
+                (finalCrossRegionAccessEnabled != null && finalCrossRegionAccessEnabled != staticCrossRegionAccessEnabled)) {
+            ClientKey key = new ClientKey(finalRegion, finalEndpoint, finalCrossRegionAccessEnabled);
+            s3Client = dynamicClients.computeIfAbsent(key, _ -> loader.createClientWithOverrides(openTelemetry, config, stats, finalRegion, finalEndpoint, finalCrossRegionAccessEnabled));
+        }
+        else {
+            s3Client = client;
+        }
+
+        return new S3FileSystem(uploadExecutor, s3Client, preSigner, context.withCredentials(identity));
     }
+
+    @PreDestroy
+    public void destroy()
+    {
+        for (S3Client dynamicClient : dynamicClients.values()) {
+            try (var _ = dynamicClient) {
+                // Resource automatically closed
+            }
+        }
+        dynamicClients.clear();
+        try (var _ = client) {
+            // Resource automatically closed
+        }
+        loader.destroy();
+    }
+
+    private record ClientKey(String region, String endpoint, Boolean crossRegionAccessEnabled) {}
 }
