@@ -15,10 +15,12 @@ import { ReactNode } from 'react'
 import AppsOutlinedIcon from '@mui/icons-material/AppsOutlined'
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined'
 import DnsOutlinedIcon from '@mui/icons-material/DnsOutlined'
+import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined'
 import { RouteProps } from 'react-router-dom'
 import { Dashboard } from './components/Dashboard'
 import { DemoComponents } from './components/DemoComponents'
-import { WorkersList } from './components/WorkersList.tsx'
+import { WorkersList } from './components/WorkersList'
+import { QueryEditor } from './components/QueryEditor'
 import { Texts } from './constant'
 
 export interface RouterItem {
@@ -48,6 +50,15 @@ export const routers: RouterItems = [
         routeProps: {
             path: '/workers',
             element: <WorkersList />,
+        },
+    },
+    {
+        itemKey: 'query-editor',
+        text: Texts.Menu.Drawer.QueryEditor,
+        icon: <EditNoteOutlinedIcon />,
+        routeProps: {
+            path: '/query-editor',
+            element: <QueryEditor />,
         },
     },
     {
