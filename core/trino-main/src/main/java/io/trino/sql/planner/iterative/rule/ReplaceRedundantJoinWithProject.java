@@ -55,8 +55,8 @@ public class ReplaceRedundantJoinWithProject
         PlanNode right = node.getRight();
 
         return switch (node.getType()) {
-            case INNER -> Result.empty();
-            case LEFT -> !isEmpty(left, lookup) && isEmpty(right, lookup) ?
+            case INNER, ASOF -> Result.empty();
+            case LEFT, ASOF_LEFT -> !isEmpty(left, lookup) && isEmpty(right, lookup) ?
                     Result.ofPlanNode(appendNulls(
                             left,
                             node.getLeftOutputSymbols(),

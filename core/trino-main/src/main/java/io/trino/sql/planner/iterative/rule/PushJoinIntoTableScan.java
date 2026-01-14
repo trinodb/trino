@@ -99,6 +99,11 @@ public class PushJoinIntoTableScan
             return Result.empty();
         }
 
+        // Do not attempt to push ASOF joins into connectors
+        if (joinNode.getType() == io.trino.sql.planner.plan.JoinType.ASOF || joinNode.getType() == io.trino.sql.planner.plan.JoinType.ASOF_LEFT) {
+            return Result.empty();
+        }
+
         TableScanNode left = captures.get(LEFT_TABLE_SCAN);
         TableScanNode right = captures.get(RIGHT_TABLE_SCAN);
 
@@ -255,6 +260,7 @@ public class PushJoinIntoTableScan
             case LEFT -> JoinType.LEFT_OUTER;
             case RIGHT -> JoinType.RIGHT_OUTER;
             case FULL -> JoinType.FULL_OUTER;
+            case ASOF, ASOF_LEFT -> throw new UnsupportedOperationException("ASOF join pushdown is not supported");
         };
     }
 }

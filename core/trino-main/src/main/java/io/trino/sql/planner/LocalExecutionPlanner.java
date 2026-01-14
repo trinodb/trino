@@ -363,12 +363,15 @@ import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitionin
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.compileLambdaProvider;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.trino.sql.planner.SortExpressionExtractor.extractSortExpression;
+import static io.trino.sql.planner.SortExpressionExtractor.hasBuildSymbolReference;
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
@@ -379,6 +382,8 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
+import static io.trino.sql.planner.plan.JoinType.ASOF;
+import static io.trino.sql.planner.plan.JoinType.ASOF_LEFT;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
@@ -2550,7 +2555,7 @@ public class LocalExecutionPlanner
             List<Symbol> rightSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getRight);
 
             return switch (node.getType()) {
-                case INNER, LEFT, RIGHT, FULL ->
+                case INNER, LEFT, RIGHT, FULL, ASOF, ASOF_LEFT ->
                         createLookupJoin(node, node.getLeft(), leftSymbols, node.getRight(), rightSymbols, localDynamicFilters, context);
             };
         }
@@ -2879,6 +2884,7 @@ public class LocalExecutionPlanner
 
             // Plan build
             boolean buildOuter = node.getType() == RIGHT || node.getType() == FULL;
+            boolean asofJoin = node.getType() == ASOF || node.getType() == ASOF_LEFT;
             boolean spillEnabled = isSpillEnabled(session)
                     && node.isSpillable().orElseThrow(() -> new IllegalArgumentException("spillable not yet set"))
                     && !buildOuter;
@@ -2903,6 +2909,10 @@ public class LocalExecutionPlanner
                             .collect(toImmutableSet())
                             .containsAll(node.getRightOutputSymbols());
 
+            if (asofJoin) {
+                outputSingleMatch = true;
+            }
+
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = buildNode.accept(this, buildContext);
 
@@ -2917,8 +2927,9 @@ public class LocalExecutionPlanner
                             probeSource.getLayout(),
                             buildLayout));
 
+            Set<Symbol> rightChildOutputSymbols = ImmutableSet.copyOf(node.getRight().getOutputSymbols());
             Optional<SortExpressionContext> sortExpressionContext = node.getFilter()
-                    .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(node.getRight().getOutputSymbols()), filter));
+                    .flatMap(filter -> extractSortExpression(rightChildOutputSymbols, filter));
 
             Optional<Integer> sortChannel = sortExpressionContext
                     .map(SortExpressionContext::getSortExpression)
@@ -2934,6 +2945,22 @@ public class LocalExecutionPlanner
                                     buildLayout))
                             .collect(toImmutableList()))
                     .orElse(ImmutableList.of());
+
+            boolean sortedPositionLinksDescendingOrder = false;
+            if (asofJoin) {
+                int searchExpressions = sortExpressionContext.map(sort -> sort.getSearchExpressions().size()).orElse(0);
+                checkState(searchExpressions == 1, "ASOF JOIN requires exactly one inequality predicate");
+
+                // SortedPositionLinks provide match candidates in ascending order. To get the closest match for ASOF JOIN
+                // with "> build_symbol" or ">= build_symbol" operator we need to traverse the matches in reverse order.
+                Comparison comparison = (Comparison) getOnlyElement(sortExpressionContext.orElseThrow().getSearchExpressions());
+                boolean buildOnRight = hasBuildSymbolReference(rightChildOutputSymbols, comparison.right());
+                boolean buildOnLeft = hasBuildSymbolReference(rightChildOutputSymbols, comparison.left());
+                checkState(buildOnLeft != buildOnRight, "Invalid ASOF inequality expression %s", comparison);
+                sortedPositionLinksDescendingOrder =
+                        buildOnRight && (comparison.operator() == GREATER_THAN || comparison.operator() == GREATER_THAN_OR_EQUAL) ||
+                        buildOnLeft && (comparison.operator() == LESS_THAN || comparison.operator() == LESS_THAN_OR_EQUAL);
+            }
 
             List<Type> buildOutputTypes = buildOutputChannels.stream()
                     .map(buildSource.getTypes()::get)
@@ -2980,6 +3007,7 @@ public class LocalExecutionPlanner
                         buildChannels,
                         filterFunctionFactory,
                         sortChannel,
+                        sortedPositionLinksDescendingOrder,
                         searchFunctionFactories,
                         10_000,
                         pagesIndexFactory,
@@ -3031,6 +3059,7 @@ public class LocalExecutionPlanner
                         buildChannels,
                         filterFunctionFactory,
                         sortChannel,
+                        sortedPositionLinksDescendingOrder,
                         searchFunctionFactories,
                         10_000,
                         pagesIndexFactory,

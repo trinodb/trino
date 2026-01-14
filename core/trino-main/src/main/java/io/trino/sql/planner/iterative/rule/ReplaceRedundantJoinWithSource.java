@@ -27,6 +27,7 @@ import java.util.List;
 
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.Patterns.join;
 
 /**
@@ -70,10 +71,10 @@ public class ReplaceRedundantJoinWithSource
         boolean rightSourceScalarWithNoOutputs = node.getRight().getOutputSymbols().isEmpty() && rightCardinality.isScalar();
 
         return switch (node.getType()) {
-            case INNER -> {
+            case INNER, ASOF -> {
                 PlanNode source;
                 List<Symbol> sourceOutputs;
-                if (leftSourceScalarWithNoOutputs) {
+                if (leftSourceScalarWithNoOutputs && node.getType() == INNER) {
                     source = node.getRight();
                     sourceOutputs = node.getRightOutputSymbols();
                 }
@@ -89,7 +90,7 @@ public class ReplaceRedundantJoinWithSource
                 }
                 yield Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), source, ImmutableSet.copyOf(sourceOutputs)).orElse(source));
             }
-            case LEFT -> rightSourceScalarWithNoOutputs ?
+            case LEFT, ASOF_LEFT -> rightSourceScalarWithNoOutputs ?
                     Result.ofPlanNode(restrictOutputs(context.getIdAllocator(), node.getLeft(), ImmutableSet.copyOf(node.getLeftOutputSymbols()))
                             .orElse(node.getLeft())) :
                     Result.empty();

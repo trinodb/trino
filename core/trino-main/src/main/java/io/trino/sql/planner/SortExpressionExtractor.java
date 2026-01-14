@@ -143,7 +143,7 @@ public final class SortExpressionExtractor
         return Optional.empty();
     }
 
-    private static boolean hasBuildSymbolReference(Set<Symbol> buildSymbols, Expression expression)
+    public static boolean hasBuildSymbolReference(Set<Symbol> buildSymbols, Expression expression)
     {
         return extractAll(expression).stream().anyMatch(buildSymbols::contains);
     }

@@ -105,6 +105,8 @@ import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static io.trino.sql.planner.iterative.rule.UnwrapCastInComparison.unwrapCasts;
+import static io.trino.sql.planner.plan.JoinType.ASOF;
+import static io.trino.sql.planner.plan.JoinType.ASOF_LEFT;
 import static io.trino.sql.planner.plan.JoinType.FULL;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
@@ -434,6 +436,7 @@ public class PredicatePushDown
             switch (node.getType()) {
                 case INNER -> {
                     InnerJoinPushDownResult innerJoinPushDownResult = processInnerJoin(
+                            node.getType(),
                             inheritedPredicate,
                             leftEffectivePredicate,
                             rightEffectivePredicate,
@@ -445,8 +448,9 @@ public class PredicatePushDown
                     postJoinPredicate = innerJoinPushDownResult.getPostJoinPredicate();
                     newJoinPredicate = innerJoinPushDownResult.getJoinPredicate();
                 }
-                case LEFT -> {
+                case LEFT, ASOF_LEFT -> {
                     OuterJoinPushDownResult leftOuterJoinPushDownResult = processLimitedOuterJoin(
+                            node.getType(),
                             inheritedPredicate,
                             leftEffectivePredicate,
                             rightEffectivePredicate,
@@ -460,6 +464,7 @@ public class PredicatePushDown
                 }
                 case RIGHT -> {
                     OuterJoinPushDownResult rightOuterJoinPushDownResult = processLimitedOuterJoin(
+                            node.getType(),
                             inheritedPredicate,
                             rightEffectivePredicate,
                             leftEffectivePredicate,
@@ -477,6 +482,22 @@ public class PredicatePushDown
                     postJoinPredicate = inheritedPredicate;
                     newJoinPredicate = joinPredicate;
                 }
+
+                case ASOF -> {
+                    AsofJoinPushDownResult asofJoinPushDownResult = processAsofJoin(
+                            node.getType(),
+                            inheritedPredicate,
+                            leftEffectivePredicate,
+                            rightEffectivePredicate,
+                            joinPredicate,
+                            node.getLeft().getOutputSymbols(),
+                            node.getRight().getOutputSymbols());
+                    leftPredicate = asofJoinPushDownResult.getLeftJoinPredicate();
+                    rightPredicate = asofJoinPushDownResult.getRightJoinPredicate();
+                    postJoinPredicate = asofJoinPushDownResult.getPostJoinPredicate();
+                    newJoinPredicate = asofJoinPushDownResult.getJoinPredicate();
+                }
+
                 default -> throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
 
@@ -601,7 +622,7 @@ public class PredicatePushDown
                 Session session,
                 PlanNodeIdAllocator idAllocator)
         {
-            if ((node.getType() != INNER && node.getType() != RIGHT) || !isEnableDynamicFiltering(session) || !dynamicFiltering) {
+            if ((node.getType() != INNER && node.getType() != RIGHT && node.getType() != ASOF) || !isEnableDynamicFiltering(session) || !dynamicFiltering) {
                 return new DynamicFiltersResult(ImmutableMap.of(), ImmutableList.of());
             }
 
@@ -751,6 +772,7 @@ public class PredicatePushDown
             switch (node.getType()) {
                 case INNER -> {
                     InnerJoinPushDownResult innerJoinPushDownResult = processInnerJoin(
+                            INNER,
                             inheritedPredicate,
                             leftEffectivePredicate,
                             rightEffectivePredicate,
@@ -764,6 +786,7 @@ public class PredicatePushDown
                 }
                 case LEFT -> {
                     OuterJoinPushDownResult leftOuterJoinPushDownResult = processLimitedOuterJoin(
+                            LEFT,
                             inheritedPredicate,
                             leftEffectivePredicate,
                             rightEffectivePredicate,
@@ -831,6 +854,7 @@ public class PredicatePushDown
         }
 
         private OuterJoinPushDownResult processLimitedOuterJoin(
+                JoinType joinType,
                 Expression inheritedPredicate,
                 Expression outerEffectivePredicate,
                 Expression innerEffectivePredicate,
@@ -845,6 +869,7 @@ public class PredicatePushDown
             ImmutableList.Builder<Expression> innerPushdownConjuncts = ImmutableList.builder();
             ImmutableList.Builder<Expression> postJoinConjuncts = ImmutableList.builder();
             ImmutableList.Builder<Expression> joinConjuncts = ImmutableList.builder();
+            ImmutableList.Builder<Expression> inheritedInnerJoinPredicate = ImmutableList.builder();
 
             // Strip out non-deterministic conjuncts
             extractConjuncts(inheritedPredicate).stream()
@@ -896,6 +921,7 @@ public class PredicatePushDown
                     // A conjunct can only be pushed down into an inner side if it can be rewritten in terms of the outer side
                     Expression innerRewritten = potentialNullSymbolInference.rewrite(outerRewritten, innerScope);
                     if (innerRewritten != null) {
+                        inheritedInnerJoinPredicate.add(innerRewritten);
                         innerPushdownConjuncts.add(innerRewritten);
                     }
                 }
@@ -912,8 +938,9 @@ public class PredicatePushDown
 
             // See if we can push down join predicates to the inner side
             EqualityInference.nonInferrableConjuncts(joinPredicate).forEach(conjunct -> {
+                // Do not push down ASOF inequality candidate predicates
                 Expression innerRewritten = potentialNullSymbolInference.rewrite(conjunct, innerScope);
-                if (innerRewritten != null) {
+                if (!isAsofInequalityCandidate(conjunct, joinType, outerSymbols, innerSymbols) && innerRewritten != null) {
                     innerPushdownConjuncts.add(innerRewritten);
                 }
                 else {
@@ -924,7 +951,10 @@ public class PredicatePushDown
             return new OuterJoinPushDownResult(combineConjuncts(outerPushdownConjuncts.build()),
                     combineConjuncts(innerPushdownConjuncts.build()),
                     combineConjuncts(joinConjuncts.build()),
-                    combineConjuncts(postJoinConjuncts.build()));
+                    combineConjuncts(postJoinConjuncts.build()),
+                    // outerPushdownConjuncts will only contain inherited predicates pushed to the left side
+                    combineConjuncts(outerPushdownConjuncts.build()),
+                    combineConjuncts(inheritedInnerJoinPredicate.build()));
         }
 
         private static class OuterJoinPushDownResult
@@ -933,13 +963,17 @@ public class PredicatePushDown
             private final Expression innerJoinPredicate;
             private final Expression joinPredicate;
             private final Expression postJoinPredicate;
+            private final Expression inheritedOuterJoinPredicate;
+            private final Expression inheritedInnerJoinPredicate;
 
-            private OuterJoinPushDownResult(Expression outerJoinPredicate, Expression innerJoinPredicate, Expression joinPredicate, Expression postJoinPredicate)
+            private OuterJoinPushDownResult(Expression outerJoinPredicate, Expression innerJoinPredicate, Expression joinPredicate, Expression postJoinPredicate, Expression inheritedOuterJoinPredicate, Expression inheritedInnerJoinPredicate)
             {
                 this.outerJoinPredicate = outerJoinPredicate;
                 this.innerJoinPredicate = innerJoinPredicate;
                 this.joinPredicate = joinPredicate;
                 this.postJoinPredicate = postJoinPredicate;
+                this.inheritedOuterJoinPredicate = inheritedOuterJoinPredicate;
+                this.inheritedInnerJoinPredicate = inheritedInnerJoinPredicate;
             }
 
             private Expression getOuterJoinPredicate()
@@ -961,9 +995,119 @@ public class PredicatePushDown
             {
                 return postJoinPredicate;
             }
+
+            public Expression getInheritedOuterJoinPredicate()
+            {
+                return inheritedOuterJoinPredicate;
+            }
+
+            public Expression getInheritedInnerJoinPredicate()
+            {
+                return inheritedInnerJoinPredicate;
+            }
+        }
+
+        private AsofJoinPushDownResult processAsofJoin(
+                JoinType joinType,
+                Expression inheritedPredicate,
+                Expression leftEffectivePredicate,
+                Expression rightEffectivePredicate,
+                Expression joinPredicate,
+                Collection<Symbol> leftSymbols,
+                Collection<Symbol> rightSymbols)
+        {
+            // ASOF inner join behaves like inner join in regard to effective predicates
+            InnerJoinPushDownResult innerJoinPushDownResult = processInnerJoin(
+                    joinType,
+                    TRUE,
+                    leftEffectivePredicate,
+                    rightEffectivePredicate,
+                    joinPredicate,
+                    leftSymbols,
+                    rightSymbols);
+
+            // ASOF inner join behaves like left outer join in regard to inherited predicates
+            OuterJoinPushDownResult leftOuterJoinPushDownResult;
+            Expression postJoinPredicate = TRUE;
+            if (innerJoinPushDownResult.isDoNotPush() && !allowUnsafePushdown) {
+                // keep the inherited conjuncts that may fail above the join to preserve evaluation order of unsafe expressions
+                List<Expression> safeInheritedConjuncts = new ArrayList<>();
+                List<Expression> mayFail = new ArrayList<>();
+                for (Expression conjunct : extractConjuncts(inheritedPredicate)) {
+                    if (mayFail(plannerContext, conjunct)) {
+                        mayFail.add(conjunct);
+                    }
+                    else {
+                        safeInheritedConjuncts.add(conjunct);
+                    }
+                }
+                leftOuterJoinPushDownResult = processLimitedOuterJoin(
+                        joinType,
+                        combineConjuncts(safeInheritedConjuncts),
+                        leftEffectivePredicate,
+                        rightEffectivePredicate,
+                        joinPredicate,
+                        leftSymbols,
+                        rightSymbols);
+                postJoinPredicate = combineConjuncts(mayFail);
+            }
+            else {
+                leftOuterJoinPushDownResult = processLimitedOuterJoin(
+                        joinType,
+                        inheritedPredicate,
+                        leftEffectivePredicate,
+                        rightEffectivePredicate,
+                        joinPredicate,
+                        leftSymbols,
+                        rightSymbols);
+            }
+
+            checkState(innerJoinPushDownResult.getPostJoinPredicate().equals(TRUE));
+            return new AsofJoinPushDownResult(
+                    combineConjuncts(innerJoinPushDownResult.getLeftPredicate(), leftOuterJoinPushDownResult.getInheritedOuterJoinPredicate()),
+                    combineConjuncts(innerJoinPushDownResult.getRightPredicate(), leftOuterJoinPushDownResult.getInheritedInnerJoinPredicate()),
+                    innerJoinPushDownResult.getJoinPredicate(),
+                    combineConjuncts(leftOuterJoinPushDownResult.getPostJoinPredicate(), postJoinPredicate));
+        }
+
+        private static class AsofJoinPushDownResult
+        {
+            private final Expression leftJoinPredicate;
+            private final Expression rightJoinPredicate;
+            private final Expression joinPredicate;
+            private final Expression postJoinPredicate;
+
+            private AsofJoinPushDownResult(Expression leftJoinPredicate, Expression rightJoinPredicate, Expression joinPredicate, Expression postJoinPredicate)
+            {
+                this.leftJoinPredicate = leftJoinPredicate;
+                this.rightJoinPredicate = rightJoinPredicate;
+                this.joinPredicate = joinPredicate;
+                this.postJoinPredicate = postJoinPredicate;
+            }
+
+            private Expression getLeftJoinPredicate()
+            {
+                return leftJoinPredicate;
+            }
+
+            private Expression getRightJoinPredicate()
+            {
+                return rightJoinPredicate;
+            }
+
+            public Expression getJoinPredicate()
+            {
+                return joinPredicate;
+            }
+
+            private Expression getPostJoinPredicate()
+            {
+                return postJoinPredicate;
+            }
         }
 
         private InnerJoinPushDownResult processInnerJoin(
+                JoinType joinType,
                 Expression inheritedPredicate,
                 Expression leftEffectivePredicate,
                 Expression rightEffectivePredicate,
@@ -1060,29 +1204,8 @@ public class PredicatePushDown
                     .addAll(nonDeterministic);
 
             residuals.forEach(conjunct -> {
-                Expression leftRewrittenConjunct = allInference.rewrite(conjunct, leftScope);
-                if (leftRewrittenConjunct != null) {
-                    leftPushDownConjuncts.add(leftRewrittenConjunct);
-                }
-
-                Expression rightRewrittenConjunct = allInference.rewrite(conjunct, rightScope);
-                if (rightRewrittenConjunct != null) {
-                    rightPushDownConjuncts.add(rightRewrittenConjunct);
-                }
-
-                // Drop predicate after join only if unable to push down to either side
-                if (leftRewrittenConjunct == null && rightRewrittenConjunct == null) {
-                    joinConjuncts.add(allInference.rewrite(conjunct, Sets.union(leftScope, rightScope)));
-                }
-            });
-
-            boolean doNotPush = !combineConjuncts(joinConjuncts.build()).equals(TRUE);
-            // attempt to push down the predicates that may fail
-            for (Expression conjunct : mayFail) {
-                if (doNotPush && !allowUnsafePushdown) {
-                    joinConjuncts.add(allInference.rewrite(conjunct, Sets.union(leftScope, rightScope)));
-                }
-                else {
+                // Do not push down ASOF inequality candidate predicates
+                if (!isAsofInequalityCandidate(conjunct, joinType, leftSymbols, rightSymbols)) {
                     Expression leftRewrittenConjunct = allInference.rewrite(conjunct, leftScope);
                     if (leftRewrittenConjunct != null) {
                         leftPushDownConjuncts.add(leftRewrittenConjunct);
@@ -1093,8 +1216,44 @@ public class PredicatePushDown
                         rightPushDownConjuncts.add(rightRewrittenConjunct);
                     }
 
+                    // Drop predicate after join only if unable to push down to either side
                     if (leftRewrittenConjunct == null && rightRewrittenConjunct == null) {
                         joinConjuncts.add(allInference.rewrite(conjunct, Sets.union(leftScope, rightScope)));
+                    }
+                }
+                else {
+                    // keep ASOF candidate inequality predicate unsimplified
+                    joinConjuncts.add(conjunct);
+                }
+            });
+
+            boolean doNotPush = !combineConjuncts(joinConjuncts.build()).equals(TRUE);
+            // attempt to push down the predicates that may fail
+            for (Expression conjunct : mayFail) {
+                if (doNotPush && !allowUnsafePushdown) {
+                    joinConjuncts.add(allInference.rewrite(conjunct, Sets.union(leftScope, rightScope)));
+                }
+                else {
+                    // Do not push down ASOF inequality candidate predicates
+                    if (!isAsofInequalityCandidate(conjunct, joinType, leftSymbols, rightSymbols)) {
+                        Expression leftRewrittenConjunct = allInference.rewrite(conjunct, leftScope);
+                        if (leftRewrittenConjunct != null) {
+                            leftPushDownConjuncts.add(leftRewrittenConjunct);
+                        }
+
+                        Expression rightRewrittenConjunct = allInference.rewrite(conjunct, rightScope);
+                        if (rightRewrittenConjunct != null) {
+                            rightPushDownConjuncts.add(rightRewrittenConjunct);
+                        }
+
+                        if (leftRewrittenConjunct == null && rightRewrittenConjunct == null) {
+                            joinConjuncts.add(allInference.rewrite(conjunct, Sets.union(leftScope, rightScope)));
+                            doNotPush = true; // we can't push any of the remaining conjuncts
+                        }
+                    }
+                    else {
+                        // keep ASOF candidate inequality predicate unsimplified
+                        joinConjuncts.add(conjunct);
                         doNotPush = true; // we can't push any of the remaining conjuncts
                     }
                 }
@@ -1104,7 +1263,30 @@ public class PredicatePushDown
                     combineConjuncts(leftPushDownConjuncts.build()),
                     combineConjuncts(rightPushDownConjuncts.build()),
                     combineConjuncts(joinConjuncts.build()),
-                    TRUE);
+                    TRUE,
+                    doNotPush);
+        }
+
+        private boolean isAsofInequalityCandidate(Expression expression, JoinType joinType, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)
+        {
+            if (joinType != ASOF && joinType != ASOF_LEFT) {
+                return false;
+            }
+
+            if (!(expression instanceof Comparison comparison)) {
+                return false;
+            }
+            if (comparison.operator() != Comparison.Operator.LESS_THAN &&
+                    comparison.operator() != Comparison.Operator.LESS_THAN_OR_EQUAL &&
+                    comparison.operator() != Comparison.Operator.GREATER_THAN &&
+                    comparison.operator() != Comparison.Operator.GREATER_THAN_OR_EQUAL) {
+                return false;
+            }
+
+            Set<Symbol> symbols = extractUnique(expression);
+            boolean hasLeftSideReferences = leftSymbols.stream().anyMatch(symbols::contains);
+            boolean hasRightSideReferences = rightSymbols.stream().anyMatch(symbols::contains);
+            return hasLeftSideReferences && hasRightSideReferences;
         }
 
         private static class InnerJoinPushDownResult
@@ -1113,13 +1295,15 @@ public class PredicatePushDown
             private final Expression rightPredicate;
             private final Expression joinPredicate;
             private final Expression postJoinPredicate;
+            private final boolean doNotPush;
 
-            private InnerJoinPushDownResult(Expression leftPredicate, Expression rightPredicate, Expression joinPredicate, Expression postJoinPredicate)
+            private InnerJoinPushDownResult(Expression leftPredicate, Expression rightPredicate, Expression joinPredicate, Expression postJoinPredicate, boolean doNotPush)
             {
                 this.leftPredicate = leftPredicate;
                 this.rightPredicate = rightPredicate;
                 this.joinPredicate = joinPredicate;
                 this.postJoinPredicate = postJoinPredicate;
+                this.doNotPush = doNotPush;
             }
 
             private Expression getLeftPredicate()
@@ -1141,6 +1325,11 @@ public class PredicatePushDown
             {
                 return postJoinPredicate;
             }
+
+            public boolean isDoNotPush()
+            {
+                return doNotPush;
+            }
         }
 
         private Expression extractJoinPredicate(JoinNode joinNode)
@@ -1155,13 +1344,13 @@ public class PredicatePushDown
 
         private JoinNode tryNormalizeToOuterToInnerJoin(JoinNode node, Expression inheritedPredicate)
         {
-            checkArgument(EnumSet.of(INNER, RIGHT, LEFT, FULL).contains(node.getType()), "Unsupported join type: %s", node.getType());
+            checkArgument(EnumSet.of(INNER, RIGHT, LEFT, FULL, ASOF, ASOF_LEFT).contains(node.getType()), "Unsupported join type: %s", node.getType());
 
-            if (node.getType() == JoinType.INNER) {
+            if (node.getType() == INNER || node.getType() == ASOF) {
                 return node;
             }
 
-            if (node.getType() == JoinType.FULL) {
+            if (node.getType() == FULL) {
                 boolean canConvertToLeftJoin = canConvertOuterToInner(node.getLeft().getOutputSymbols(), inheritedPredicate);
                 boolean canConvertToRightJoin = canConvertOuterToInner(node.getRight().getOutputSymbols(), inheritedPredicate);
                 if (!canConvertToLeftJoin && !canConvertToRightJoin) {
@@ -1199,13 +1388,15 @@ public class PredicatePushDown
                         node.getReorderJoinStatsAndCost());
             }
 
-            if (node.getType() == JoinType.LEFT && !canConvertOuterToInner(node.getRight().getOutputSymbols(), inheritedPredicate) ||
-                    node.getType() == JoinType.RIGHT && !canConvertOuterToInner(node.getLeft().getOutputSymbols(), inheritedPredicate)) {
+            if (node.getType() == LEFT && !canConvertOuterToInner(node.getRight().getOutputSymbols(), inheritedPredicate) ||
+                    node.getType() == ASOF_LEFT && !canConvertOuterToInner(node.getRight().getOutputSymbols(), inheritedPredicate) ||
+                    node.getType() == RIGHT && !canConvertOuterToInner(node.getLeft().getOutputSymbols(), inheritedPredicate)) {
                 return node;
             }
+
             return new JoinNode(
                     node.getId(),
-                    JoinType.INNER,
+                    node.getType() == ASOF_LEFT ? ASOF : INNER,
                     node.getLeft(),
                     node.getRight(),
                     node.getCriteria(),

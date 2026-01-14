@@ -35,6 +35,8 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.Patterns.join;
 
 /**
@@ -105,8 +107,8 @@ public class ReplaceJoinOverConstantWithProject
         boolean canInlineRightSource = canInlineJoinSource(right);
 
         return switch (node.getType()) {
-            case INNER -> {
-                if (canInlineLeftSource) {
+            case INNER, ASOF -> {
+                if (canInlineLeftSource && node.getType() == INNER) {
                     yield Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
                 }
                 if (canInlineRightSource) {
@@ -114,8 +116,8 @@ public class ReplaceJoinOverConstantWithProject
                 }
                 yield Result.empty();
             }
-            case LEFT -> {
-                if (canInlineLeftSource && rightCardinality.isAtLeastScalar()) {
+            case LEFT, ASOF_LEFT -> {
+                if (canInlineLeftSource && rightCardinality.isAtLeastScalar() && node.getType() == LEFT) {
                     yield Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
                 }
                 if (canInlineRightSource) {
