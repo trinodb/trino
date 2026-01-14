@@ -328,6 +328,7 @@ import static io.trino.operator.scalar.MathFunctions.DECIMAL_MOD_FUNCTION;
 import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castCharToRe2JRegexp;
 import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castVarcharToRe2JRegexp;
 import static io.trino.operator.scalar.RowFieldsFunction.ROW_FIELDS_FUNCTION;
+import static io.trino.operator.scalar.RowReplaceFunction.ROW_REPLACE_FUNCTION;
 import static io.trino.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static io.trino.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
 import static io.trino.operator.scalar.RowToVariantCast.ROW_TO_VARIANT;
@@ -634,6 +635,7 @@ public final class SystemFunctionBundle
                 .function(FORMAT_FUNCTION)
                 .function(TRY_CAST)
                 .function(ROW_FIELDS_FUNCTION)
+                .function(ROW_REPLACE_FUNCTION)
                 .function(new GenericReadValueOperator(typeOperators))
                 .function(new GenericEqualOperator(typeOperators))
                 .function(new GenericHashCodeOperator(typeOperators))
