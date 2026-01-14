@@ -172,7 +172,7 @@ public final class TaskTestUtils
                 (types, spillContext, memoryContext, parallelSpill) -> {
                     throw new UnsupportedOperationException();
                 },
-                (types, partitionFunction, spillContext, memoryContext) -> {
+                (types, partitionFunction, spillContext, memoryContext, operatorName) -> {
                     throw new UnsupportedOperationException();
                 },
                 new PagesIndex.TestingFactory(false),

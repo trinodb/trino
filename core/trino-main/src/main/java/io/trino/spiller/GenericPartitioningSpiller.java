@@ -19,6 +19,7 @@ import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.PartitionFunction;
@@ -45,18 +46,22 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class GenericPartitioningSpiller
         implements PartitioningSpiller
 {
+    private static final Logger log = Logger.get(GenericPartitioningSpiller.class);
+
     private final List<Type> types;
     private final PartitionFunction partitionFunction;
     private final Closer closer = Closer.create();
     private final SingleStreamSpillerFactory spillerFactory;
     private final SpillContext spillContext;
     private final AggregatedMemoryContext memoryContext;
+    private final String operatorName;
 
     private final List<PageBuilder> pageBuilders;
     private final List<Optional<SingleStreamSpiller>> spillers;
@@ -69,7 +74,8 @@ public class GenericPartitioningSpiller
             PartitionFunction partitionFunction,
             SpillContext spillContext,
             AggregatedMemoryContext memoryContext,
-            SingleStreamSpillerFactory spillerFactory)
+            SingleStreamSpillerFactory spillerFactory,
+            String operatorName)
     {
         requireNonNull(spillContext, "spillContext is null");
 
@@ -81,6 +87,7 @@ public class GenericPartitioningSpiller
         requireNonNull(memoryContext, "memoryContext is null");
         closer.register(memoryContext::close);
         this.memoryContext = memoryContext;
+        this.operatorName = requireNonNull(operatorName, "operatorName is null");
         int partitionCount = partitionFunction.partitionCount();
 
         ImmutableList.Builder<PageBuilder> pageBuilders = ImmutableList.builder();
@@ -98,6 +105,12 @@ public class GenericPartitioningSpiller
         readingStarted = true;
         getFutureValue(flush(partition));
         spilledPartitions.remove(partition);
+
+        log.debug(
+                "Unspilling partition %d for operator %s",
+                partition,
+                operatorName);
+
         return getSpiller(partition).getSpilledPages();
     }
 
@@ -186,6 +199,14 @@ public class GenericPartitioningSpiller
         }
         Page page = pageBuilder.build();
         pageBuilder.reset();
+
+        log.debug(
+                "Spilling partition %d for operator %s, sizeInBytes %s, retainedSizeInBytes %s",
+                partition,
+                operatorName,
+                succinctBytes(page.getSizeInBytes()),
+                succinctBytes(page.getRetainedSizeInBytes()));
+
         return getSpiller(partition).spill(page);
     }
 
