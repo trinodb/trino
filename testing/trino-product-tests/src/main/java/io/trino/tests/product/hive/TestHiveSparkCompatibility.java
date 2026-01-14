@@ -268,7 +268,7 @@ public class TestHiveSparkCompatibility
     {
         String sparkTableNameWithBloomFilter = "test_spark_parquet_bloom_filter_compatibility_enabled_" + randomNameSuffix();
         String sparkTableNameNoBloomFilter = "test_spark_parquet_bloom_filter_compatibility_disabled_" + randomNameSuffix();
-        String[] sparkTables = new String[] {sparkTableNameWithBloomFilter, sparkTableNameNoBloomFilter};
+        String[] sparkTables = {sparkTableNameWithBloomFilter, sparkTableNameNoBloomFilter};
 
         try {
             // disable dictionary predicate when testing bloom filter predicate
@@ -285,7 +285,7 @@ public class TestHiveSparkCompatibility
                     "'parquet.enable.dictionary'='false'" +
                     ")");
 
-            String[] trinoTables = new String[] {
+            String[] trinoTables = {
                     format("%s.default.%s", TRINO_CATALOG, sparkTableNameWithBloomFilter),
                     format("%s.default.%s", TRINO_CATALOG, sparkTableNameNoBloomFilter)};
 
@@ -323,7 +323,7 @@ public class TestHiveSparkCompatibility
     {
         String trinoTableNameWithBloomFilter = "test_trino_spark_parquet_bloom_filter_compatibility_enabled_" + randomNameSuffix();
         String trioTableNameNoBloomFilter = "test_trino_spark_parquet_bloom_filter_compatibility_disabled_" + randomNameSuffix();
-        String[] trinoTables = new String[] {
+        String[] trinoTables = {
                 format("%s.default.%s", TRINO_CATALOG, trinoTableNameWithBloomFilter),
                 format("%s.default.%s", TRINO_CATALOG, trioTableNameNoBloomFilter)};
 
@@ -336,7 +336,7 @@ public class TestHiveSparkCompatibility
                     ")");
             onTrino().executeQuery(
                     String.format("CREATE TABLE %s.default.%s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) WITH (FORMAT = 'PARQUET')", TRINO_CATALOG, trioTableNameNoBloomFilter));
-            String[] sparkTables = new String[] {trinoTableNameWithBloomFilter, trioTableNameNoBloomFilter};
+            String[] sparkTables = {trinoTableNameWithBloomFilter, trioTableNameNoBloomFilter};
 
             for (String trinoTable : trinoTables) {
                 onTrino().executeQuery(format(
@@ -437,7 +437,7 @@ public class TestHiveSparkCompatibility
         }
     }
 
-    private static final String[] HIVE_TIMESTAMP_PRECISIONS = new String[] {"MILLISECONDS", "MICROSECONDS", "NANOSECONDS"};
+    private static final String[] HIVE_TIMESTAMP_PRECISIONS = {"MILLISECONDS", "MICROSECONDS", "NANOSECONDS"};
 
     @DataProvider
     public static Object[][] sparkParquetTimestampFormats()

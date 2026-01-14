@@ -80,7 +80,7 @@ public class TestParquetReaderUtils
                     .isEqualTo(0);
         }
 
-        long[] bytesWidthMaxValues = new long[] {(1 << 8) - 1, (1 << 16) - 1, (1 << 24) - 1, (1L << 32) - 1};
+        long[] bytesWidthMaxValues = {(1 << 8) - 1, (1 << 16) - 1, (1 << 24) - 1, (1L << 32) - 1};
         for (int bytesWidth = 1; bytesWidth <= 4; bytesWidth++) {
             int value = (int) bytesWidthMaxValues[bytesWidth - 1];
             ByteArrayOutputStream out = new ByteArrayOutputStream();

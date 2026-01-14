@@ -142,7 +142,7 @@ public final class TestIntValueDecoders
             public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
             {
                 Random random = new Random(dataSize);
-                int[] constants = new int[] {Integer.MIN_VALUE, -1412341234, 0, 5, 4123, 1412341234, Integer.MAX_VALUE};
+                int[] constants = {Integer.MIN_VALUE, -1412341234, 0, 5, 4123, 1412341234, Integer.MAX_VALUE};
                 int[] values = new int[dataSize];
                 for (int i = 0; i < dataSize; i++) {
                     values[i] = constants[random.nextInt(constants.length)];

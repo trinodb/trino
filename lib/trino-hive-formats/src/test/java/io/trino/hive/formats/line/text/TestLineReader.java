@@ -42,7 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestLineReader
 {
     private static final int LINE_READER_INSTANCE_SIZE = instanceSize(TextLineReader.class);
-    private static final int[] SKIP_SIZES = new int[] {1, 2, 3, 13, 101, 331, 443, 701, 853, 1021};
+    private static final int[] SKIP_SIZES = {1, 2, 3, 13, 101, 331, 443, 701, 853, 1021};
 
     @Test
     public void testSimple()

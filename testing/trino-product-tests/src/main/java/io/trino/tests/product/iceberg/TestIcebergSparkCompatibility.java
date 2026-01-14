@@ -624,7 +624,7 @@ public class TestIcebergSparkCompatibility
         assertQueryFailure(() -> onSpark().executeQuery("ALTER TABLE " + sparkTableName + " DROP COLUMN _struct._field"))
                 .hasMessageContaining("Cannot find source column for partition field: 1000: _struct._field: identity(5)");
 
-        Row[] expectedRows = new Row[] {
+        Row[] expectedRows = {
                 row("a", new byte[] {15, -15, 2, -16, -2, -1}, 1001, 1, "x"),
                 row("c", new byte[] {15, -15, 2, -3, -2, -1}, 1003, 3, "z")
         };

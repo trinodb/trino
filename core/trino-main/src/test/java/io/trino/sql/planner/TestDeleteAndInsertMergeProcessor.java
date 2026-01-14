@@ -56,11 +56,11 @@ public class TestDeleteAndInsertMergeProcessor
         //         THEN DELETE
         // expected: ('Dave', 11, 'Darbyshire')
         DeleteAndInsertMergeProcessor processor = makeMergeProcessor();
-        Block[] rowIdBlocks = new Block[] {
+        Block[] rowIdBlocks = {
                 makeLongArrayBlock(1, 1), // TransactionId
                 makeLongArrayBlock(1, 0), // rowId
                 makeIntArrayBlock(536870912, 536870912)}; // bucket
-        Block[] mergeCaseBlocks = new Block[] {
+        Block[] mergeCaseBlocks = {
                 makeVarcharArrayBlock(null, "Dave"), // customer
                 new IntArrayBlock(2, Optional.of(new boolean[] {true, false}), new int[] {0, 11}), // purchases
                 makeVarcharArrayBlock(null, "Devon"), // address
@@ -99,7 +99,7 @@ public class TestDeleteAndInsertMergeProcessor
         //           THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
         // expected: ('Aaron', 17, 'Arches/Arches'), ('Bill', 7, 'Buena'), ('Carol', 9, 'Centreville'), ('Dave', 22, 'Darbyshire/Darbyshire'), ('Ed', 14, 'Etherville/Etherville'), ('Fred', 30, 'Franklin')
         DeleteAndInsertMergeProcessor processor = makeMergeProcessor();
-        boolean[] rowIdNulls = new boolean[] {false, true, false, false, false};
+        boolean[] rowIdNulls = {false, true, false, false, false};
         Page inputPage = makePageFromBlocks(
                 5,
                 Optional.of(rowIdNulls),
@@ -139,7 +139,7 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
           Expected row count to be <5>, but was <7>; rows=[[Bill, 7, Buena], [Dave, 11, Devon], [Aaron, 11, Arches], [Aaron, 17, Arches/Arches], [Carol, 9, Centreville], [Dave, 22, Darbyshire/Darbyshire], [Ed, 14, Etherville/Etherville]]
          */
         DeleteAndInsertMergeProcessor processor = makeMergeProcessor();
-        boolean[] rowIdNulls = new boolean[] {false, true, false, false, false};
+        boolean[] rowIdNulls = {false, true, false, false, false};
         Page inputPage = makePageFromBlocks(
                 5,
                 Optional.of(rowIdNulls),
@@ -170,7 +170,7 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
 
     private static Page makePageFromBlocks(int positionCount, Optional<boolean[]> rowIdNulls, Block[] rowIdBlocks, Block[] mergeCaseBlocks)
     {
-        Block[] pageBlocks = new Block[] {
+        Block[] pageBlocks = {
                 RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, rowIdNulls, rowIdBlocks),
                 RowBlock.fromFieldBlocks(positionCount, mergeCaseBlocks)
         };

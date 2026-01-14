@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 abstract class AbstractTestBlockBuilder<T>
 {
-    private static final int[] OFFSETS = new int[] {0, 2};
+    private static final int[] OFFSETS = {0, 2};
 
     protected abstract BlockBuilder createBlockBuilder();
 

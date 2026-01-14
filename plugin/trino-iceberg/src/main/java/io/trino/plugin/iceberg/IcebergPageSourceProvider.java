@@ -1519,7 +1519,7 @@ public class IcebergPageSourceProvider
         public Block apply(SourcePage page)
         {
             Block rowPosition = page.getBlock(page.getChannelCount() - 1);
-            Block[] fields = new Block[] {
+            Block[] fields = {
                     RunLengthEncodedBlock.create(filePath, rowPosition.getPositionCount()),
                     rowPosition,
                     RunLengthEncodedBlock.create(partitionSpecId, rowPosition.getPositionCount()),

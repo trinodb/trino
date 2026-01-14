@@ -69,7 +69,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPageReader
 {
-    private static final byte[] DATA_PAGE = new byte[] {1, 2, 3};
+    private static final byte[] DATA_PAGE = {1, 2, 3};
 
     @ParameterizedTest
     @MethodSource("pageParameters")
