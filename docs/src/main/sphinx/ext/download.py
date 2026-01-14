@@ -79,6 +79,7 @@ ARTIFACTS = {
     'tpcds':  ('trino-tpcds', 'zip'),
     'tpch':  ('trino-tpch', 'zip'),
     'vertica':  ('trino-vertica', 'zip'),
+    'weaviate':  ('trino-weaviate', 'zip'),
 }
 
 def filename(artifact, version, extension):
@@ -118,7 +119,7 @@ def setup(app):
         return [node], []
 
     def download_mc_link_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
-        version = app.config.release 
+        version = app.config.release
 
         if not text in ARTIFACTS:
             inliner.reporter.error('Unsupported download type: ' + text, line=lineno)
@@ -131,8 +132,8 @@ def setup(app):
 
         node = nodes.reference(title, title, internal=False, refuri=uri)
 
-        return [node], []       
-    
+        return [node], []
+
     app.add_role('download_gh', download_gh_link_role)
     app.add_role('download_mc', download_mc_link_role)
 
