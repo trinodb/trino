@@ -64,7 +64,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
-import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimeDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getModificationTime;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionDomain;
@@ -114,7 +113,6 @@ public final class TableStatisticsReader
                 tableHandle.getEnforcedPredicate(),
                 tableHandle.getUnenforcedPredicate(),
                 projectedColumns,
-                isExtendedStatisticsEnabled(session),
                 icebergPlanningExecutor,
                 fileSystemFactory.create(session.getIdentity(), icebergTable.io().properties()));
     }
@@ -127,7 +125,6 @@ public final class TableStatisticsReader
             TupleDomain<IcebergColumnHandle> enforcedConstraint,
             TupleDomain<IcebergColumnHandle> unenforcedConstraint,
             Set<IcebergColumnHandle> projectedColumns,
-            boolean extendedStatisticsEnabled,
             ExecutorService icebergPlanningExecutor,
             TrinoFileSystem fileSystem)
     {
@@ -206,8 +203,7 @@ public final class TableStatisticsReader
         Map<Integer, Long> ndvs = readNdvs(
                 icebergTable,
                 snapshotId,
-                columnIds,
-                extendedStatisticsEnabled);
+                columnIds);
 
         ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();
         double recordCount = summary.recordCount();
@@ -261,12 +257,8 @@ public final class TableStatisticsReader
         return new TableStatistics(Estimate.of(recordCount), columnHandleBuilder.buildOrThrow());
     }
 
-    public static Map<Integer, Long> readNdvs(Table icebergTable, long snapshotId, Set<Integer> columnIds, boolean extendedStatisticsEnabled)
+    public static Map<Integer, Long> readNdvs(Table icebergTable, long snapshotId, Set<Integer> columnIds)
     {
-        if (!extendedStatisticsEnabled) {
-            return ImmutableMap.of();
-        }
-
         ImmutableMap.Builder<Integer, Long> ndvByColumnId = ImmutableMap.builder();
 
         getLatestStatisticsFile(icebergTable, snapshotId).ifPresent(statisticsFile -> {

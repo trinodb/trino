@@ -49,13 +49,12 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 @DefunctConfig({
         "iceberg.allow-legacy-snapshot-syntax",
         "iceberg.experimental.extended-statistics.enabled",
+        "iceberg.extended-statistics.enabled",
 })
 public class IcebergConfig
 {
     public static final int FORMAT_VERSION_SUPPORT_MIN = 1;
     public static final int FORMAT_VERSION_SUPPORT_MAX = 3;
-    public static final String EXTENDED_STATISTICS_CONFIG = "iceberg.extended-statistics.enabled";
-    public static final String EXTENDED_STATISTICS_DESCRIPTION = "Enable collection (ANALYZE) and use of extended statistics.";
     public static final String COLLECT_EXTENDED_STATISTICS_ON_WRITE_DESCRIPTION = "Collect extended statistics during writes";
     public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "iceberg.expire-snapshots.min-retention";
     public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "iceberg.remove-orphan-files.min-retention";
@@ -71,7 +70,6 @@ public class IcebergConfig
     private CatalogType catalogType = HIVE_METASTORE;
     private Duration dynamicFilteringWaitTimeout = new Duration(1, SECONDS);
     private boolean tableStatisticsEnabled = true;
-    private boolean extendedStatisticsEnabled = true;
     private boolean collectExtendedStatisticsOnWrite = true;
     private boolean projectionPushdownEnabled = true;
     private boolean registerTableProcedureEnabled;
@@ -256,19 +254,6 @@ public class IcebergConfig
     public IcebergConfig setTableStatisticsEnabled(boolean tableStatisticsEnabled)
     {
         this.tableStatisticsEnabled = tableStatisticsEnabled;
-        return this;
-    }
-
-    public boolean isExtendedStatisticsEnabled()
-    {
-        return extendedStatisticsEnabled;
-    }
-
-    @Config(EXTENDED_STATISTICS_CONFIG)
-    @ConfigDescription(EXTENDED_STATISTICS_DESCRIPTION)
-    public IcebergConfig setExtendedStatisticsEnabled(boolean extendedStatisticsEnabled)
-    {
-        this.extendedStatisticsEnabled = extendedStatisticsEnabled;
         return this;
     }
 

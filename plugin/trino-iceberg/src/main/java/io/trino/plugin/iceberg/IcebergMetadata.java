@@ -293,7 +293,6 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getQueryPartition
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getRemoveOrphanFilesMinRetention;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isBucketExecutionEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isCollectExtendedStatisticsOnWrite;
-import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isFileBasedConflictDetectionEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isIncrementalRefreshEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isMergeManifestsOnWrite;
@@ -2935,7 +2934,7 @@ public class IcebergMetadata
     @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean tableReplace)
     {
-        if (!isExtendedStatisticsEnabled(session) || !isCollectExtendedStatisticsOnWrite(session)) {
+        if (!isCollectExtendedStatisticsOnWrite(session)) {
             return TableStatisticsMetadata.empty();
         }
 
@@ -2968,7 +2967,7 @@ public class IcebergMetadata
         Set<Integer> columnIds = columns.stream()
                 .map(IcebergColumnHandle::getId)
                 .collect(toImmutableSet());
-        Map<Integer, Long> ndvs = readNdvs(icebergTable, snapshotId, columnIds, true);
+        Map<Integer, Long> ndvs = readNdvs(icebergTable, snapshotId, columnIds);
         // Avoid collecting NDV stats on columns where we don't know the existing NDV count
         Set<String> columnsWithExtendedStatistics = columns.stream()
                 .filter(column -> ndvs.containsKey(column.getId()))
@@ -2981,11 +2980,6 @@ public class IcebergMetadata
     public ConnectorAnalyzeMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> analyzeProperties)
     {
         IcebergTableHandle handle = checkValidTableHandle(tableHandle);
-        if (!isExtendedStatisticsEnabled(session)) {
-            throw new TrinoException(NOT_SUPPORTED, "Analyze is not enabled. You can enable analyze using %s config or %s catalog session property".formatted(
-                    IcebergConfig.EXTENDED_STATISTICS_CONFIG,
-                    IcebergSessionProperties.EXTENDED_STATISTICS_ENABLED));
-        }
 
         checkArgument(handle.getTableType() == DATA, "Cannot analyze non-DATA table: %s", handle.getTableType());
 
