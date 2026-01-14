@@ -123,7 +123,17 @@ public abstract class BaseOracleConnectorTest
     @Test
     void testReadingFloatWithQueryTableFunction()
     {
-        try (TestTable table = new TestTable(onRemoteDatabase(), "test_float_" + randomNameSuffix(), "(x int, y FLOAT)")) {
+        testReadingFloatWithQueryTableFunction(OptionalInt.empty());
+        testReadingFloatWithQueryTableFunction(OptionalInt.of(23));
+        testReadingFloatWithQueryTableFunction(OptionalInt.of(24));
+        testReadingFloatWithQueryTableFunction(OptionalInt.of(53));
+        testReadingFloatWithQueryTableFunction(OptionalInt.of(126));
+    }
+
+    private void testReadingFloatWithQueryTableFunction(OptionalInt precision)
+    {
+        String floatType = precision.isEmpty() ? "FLOAT" : "FLOAT(" + precision.getAsInt() + ")";
+        try (TestTable table = new TestTable(onRemoteDatabase(), "test_float_" + randomNameSuffix(), "(x int, y %s)".formatted(floatType))) {
             String tableName = table.getName();
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 0.123), (2, 456.789), (3, NULL)", 3);
 
