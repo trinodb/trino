@@ -36,11 +36,15 @@ public class TrackingFileSystem
 {
     private final TrinoFileSystem delegate;
     private final Cleaner cleaner;
+    private final TrackingState state;
+    private final Cleaner.Cleanable cleanable;
 
     public TrackingFileSystem(TrinoFileSystem delegate, Cleaner cleaner)
     {
+        this.state = new TrackingState(this, Location.of("/"));
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.cleaner = requireNonNull(cleaner, "cleaner is null");
+        this.cleanable = cleaner.register(this, state);
     }
 
     @Override
@@ -173,5 +177,13 @@ public class TrackingFileSystem
             throws IOException
     {
         return delegate.encryptedPreSignedUri(location, ttl, key);
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        delegate.close();
+        cleanable.clean();
     }
 }

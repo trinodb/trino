@@ -148,4 +148,11 @@ public final class CacheFileSystem
         delegate.deleteFiles(locations);
         cache.expire(locations);
     }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        delegate.close();
+    }
 }

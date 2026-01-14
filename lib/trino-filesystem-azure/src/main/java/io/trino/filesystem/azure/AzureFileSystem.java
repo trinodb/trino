@@ -488,6 +488,14 @@ public class AzureFileSystem
     }
 
     @Override
+    public void close()
+            throws IOException
+    {
+        // Azure storage clients do not require explicit shutdown
+        uploadExecutor.close();
+    }
+
+    @Override
     public Optional<UriLocation> encryptedPreSignedUri(Location location, Duration ttl, EncryptionKey key)
             throws IOException
     {

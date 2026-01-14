@@ -372,4 +372,11 @@ public class AlluxioFileSystem
             return false;
         }
     }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        alluxioClient.close();
+    }
 }

@@ -80,7 +80,6 @@ public abstract class AbstractTestGcsFileSystem
             bucket.delete();
         }
         finally {
-            fileSystem = null;
             storage = null;
             rootLocation = null;
             try {

@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.filesystem.encryption.EncryptionEnforcingFileSystem;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -147,6 +148,13 @@ public abstract class AbstractTestTrinoFileSystem
     void beforeEach()
     {
         verifyFileSystemIsEmpty();
+    }
+
+    @AfterAll
+    void cleanup()
+            throws IOException
+    {
+        getFileSystem().close();
     }
 
     @Test

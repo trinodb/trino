@@ -350,6 +350,12 @@ final class S3FileSystem
         return encryptedPreSignedUri(location, ttl, Optional.of(key));
     }
 
+    @Override
+    public void close()
+    {
+        client.close();
+    }
+
     public Optional<UriLocation> encryptedPreSignedUri(Location location, Duration ttl, Optional<EncryptionKey> key)
             throws IOException
     {
