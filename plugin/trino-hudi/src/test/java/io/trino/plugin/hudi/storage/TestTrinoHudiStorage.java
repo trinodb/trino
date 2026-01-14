@@ -45,7 +45,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 final class TestTrinoHudiStorage
         extends TestHoodieStorageBase
 {
-    private static final byte[] EMPTY_BYTES = new byte[] {};
+    private static final byte[] EMPTY_BYTES = {};
 
     private static TrinoFileSystem fileSystem;
 
@@ -204,7 +204,7 @@ final class TestTrinoHudiStorage
         validatePathInfo(storage, path, EMPTY_BYTES, false);
         storage.deleteFile(path);
 
-        byte[] data = new byte[] {2, 42, 49, (byte) 158, (byte) 233, 66, 9};
+        byte[] data = {2, 42, 49, (byte) 158, (byte) 233, 66, 9};
 
         try (OutputStream stream = storage.create(path)) {
             stream.write(data);

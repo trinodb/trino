@@ -33,7 +33,7 @@ import static java.util.Objects.requireNonNull;
 public class FragmentSingle
         implements JsonTableProcessingFragment
 {
-    private static final Object[] NO_PARAMETERS = new Object[] {};
+    private static final Object[] NO_PARAMETERS = {};
 
     private final JsonPathEvaluator pathEvaluator;
     private final List<Column> columns;

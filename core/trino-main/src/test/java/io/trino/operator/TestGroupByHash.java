@@ -142,7 +142,7 @@ public class TestGroupByHash
         for (GroupByHashType groupByHashType : GroupByHashType.values()) {
             GroupByHash groupByHash = groupByHashType.createGroupByHash();
             Block block = createLongsBlock(0L, 1L);
-            int[] ids = new int[] {0, 0, 1, 1};
+            int[] ids = {0, 0, 1, 1};
             Page page = new Page(DictionaryBlock.create(ids.length, block, ids));
 
             groupByHash.addPage(page).process();

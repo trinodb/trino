@@ -221,7 +221,7 @@ public class TestHiveCompatibility
                         ")");
         onTrino().executeQuery(
                 String.format("CREATE TABLE %s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) WITH (FORMAT = 'PARQUET')", trioTableNameNoBloomFilter));
-        String[] tables = new String[] {trinoTableNameWithBloomFilter, trioTableNameNoBloomFilter};
+        String[] tables = {trinoTableNameWithBloomFilter, trioTableNameNoBloomFilter};
 
         for (String trinoTable : tables) {
             onTrino().executeQuery(format(

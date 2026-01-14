@@ -1563,7 +1563,7 @@ public abstract class AbstractTestTrinoFileSystem
 
     protected List<TempBlob> randomBlobs(Closer closer, int count)
     {
-        char[] chars = new char[] {'a', 'b', 'c', 'd', 'A', 'B', 'C', 'D'};
+        char[] chars = {'a', 'b', 'c', 'd', 'A', 'B', 'C', 'D'};
         ImmutableList.Builder<TempBlob> names = ImmutableList.builder();
         for (int i = 0; i < count; i++) {
             StringBuilder name = new StringBuilder();

@@ -74,7 +74,7 @@ public class MinioClient
     private final io.minio.MinioClient client;
     private final ListeningExecutorService executor = listeningDecorator(newFixedThreadPool(32, daemonThreadsNamed("minio-client-%s")));
 
-    private static final String[] ALL_MINIO_EVENTS = new String[] {
+    private static final String[] ALL_MINIO_EVENTS = {
             OBJECT_CREATED_ANY.toString(),
             OBJECT_REMOVED_ANY.toString(),
             OBJECT_ACCESSED_ANY.toString()
