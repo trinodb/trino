@@ -42,13 +42,18 @@
         </dependency>
 
         <!-- Tibero JDBC driver - not available in public repositories -->
-        <!-- You must install the driver manually and update the systemPath -->
+        <!-- 
+            For local development: Install the driver to your local Maven repository using:
+            mvn install:install-file -Dfile=path/to/tibero7-jdbc.jar \
+                -DgroupId=com.tmax.tibero -DartifactId=tibero7-jdbc \
+                -Dversion=7.2.3 -Dpackaging=jar
+        -->
         <dependency>
             <groupId>com.tmax.tibero</groupId>
             <artifactId>tibero7-jdbc</artifactId>
             <version>7.2.3</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/../../lib/tibero7-jdbc.jar</systemPath>
+            <scope>provided</scope>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
