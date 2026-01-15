@@ -425,10 +425,11 @@ public class OracleClient
         CaseSensitivity caseSensitive = metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE;
         if (columnType == OracleTypes.NUMBER) {
             String columnClassName = metadata.getColumnClassName(column);
-            int precision = columnSize + max(-scale, 0);
-            // Oracle NUMBER are expected "java.math.BigDecimal", when the class name is "java.lang.Double" it means
-            // it's actual a FLOAT type in Oracle side
+            // Oracle report both NUMBER and FLOAT column as NUMBER type via `getColumnTypeName` (in table function),
+            // so we have to rely on the column class name here, Oracle NUMBER column are expected "java.math.BigDecimal",
+            // when the column class name is "java.lang.Double" it means it's actual a FLOAT type in Oracle side
             if ("java.lang.Double".equals(columnClassName)) {
+                int precision = columnSize + max(-scale, 0);
                 // we just handle the precision here is not able to handle by `toColumnMapping` method
                 if (!isAllowedNumber(session, precision, scale, columnSize)) {
                     return new JdbcTypeHandle(FLOAT, Optional.of("FLOAT"), Optional.of(columnSize), Optional.of(scale), Optional.empty(), Optional.of(caseSensitive));
