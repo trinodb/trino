@@ -10,7 +10,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
@@ -54,40 +53,46 @@ public class IcebergRestCatalogFileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity, Map<String, String> fileIoProperties)
     {
-        if (vendedCredentialsEnabled &&
-                fileIoProperties.containsKey(VENDED_S3_ACCESS_KEY) &&
-                fileIoProperties.containsKey(VENDED_S3_SECRET_KEY) &&
-                fileIoProperties.containsKey(VENDED_S3_SESSION_TOKEN)) {
-            ImmutableMap.Builder<String, String> extraCredentialsBuilder = ImmutableMap.<String, String>builder()
-                    .put(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, fileIoProperties.get(VENDED_S3_ACCESS_KEY))
-                    .put(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, fileIoProperties.get(VENDED_S3_SECRET_KEY))
-                    .put(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, fileIoProperties.get(VENDED_S3_SESSION_TOKEN));
-
-            String region = fileIoProperties.get(VENDED_CLIENT_REGION);
-            if (region != null) {
-                extraCredentialsBuilder.put(EXTRA_CREDENTIALS_REGION_PROPERTY, region);
-            }
-
-            String endpoint = fileIoProperties.get(VENDED_S3_ENDPOINT);
-            if (endpoint != null) {
-                extraCredentialsBuilder.put(EXTRA_CREDENTIALS_ENDPOINT_PROPERTY, endpoint);
-            }
-
-            String crossRegionAccessEnabled = fileIoProperties.get(VENDED_S3_CROSS_REGION_ACCESS_ENABLED);
-            if (crossRegionAccessEnabled != null) {
-                extraCredentialsBuilder.put(EXTRA_CREDENTIALS_CROSS_REGION_ACCESS_ENABLED_PROPERTY, crossRegionAccessEnabled);
-            }
-
-            ConnectorIdentity identityWithExtraCredentials = ConnectorIdentity.forUser(identity.getUser())
-                    .withGroups(identity.getGroups())
-                    .withPrincipal(identity.getPrincipal())
-                    .withEnabledSystemRoles(identity.getEnabledSystemRoles())
-                    .withConnectorRole(identity.getConnectorRole())
-                    .withExtraCredentials(extraCredentialsBuilder.buildOrThrow())
-                    .build();
-            return fileSystemFactory.create(identityWithExtraCredentials);
+        if (!vendedCredentialsEnabled) {
+            return fileSystemFactory.create(identity);
         }
 
-        return fileSystemFactory.create(identity);
+        String accessKey = fileIoProperties.get(VENDED_S3_ACCESS_KEY);
+        String secretKey = fileIoProperties.get(VENDED_S3_SECRET_KEY);
+        String sessionToken = fileIoProperties.get(VENDED_S3_SESSION_TOKEN);
+
+        if (accessKey == null || secretKey == null || sessionToken == null) {
+            return fileSystemFactory.create(identity);
+        }
+
+        ImmutableMap.Builder<String, String> extraCredentialsBuilder = ImmutableMap.<String, String>builder()
+                .put(EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY, accessKey)
+                .put(EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY, secretKey)
+                .put(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY, sessionToken);
+
+        String region = fileIoProperties.get(VENDED_CLIENT_REGION);
+        if (region != null) {
+            extraCredentialsBuilder.put(EXTRA_CREDENTIALS_REGION_PROPERTY, region);
+        }
+
+        String endpoint = fileIoProperties.get(VENDED_S3_ENDPOINT);
+        if (endpoint != null) {
+            extraCredentialsBuilder.put(EXTRA_CREDENTIALS_ENDPOINT_PROPERTY, endpoint);
+        }
+
+        String crossRegionAccessEnabled = fileIoProperties.get(VENDED_S3_CROSS_REGION_ACCESS_ENABLED);
+        if (crossRegionAccessEnabled != null) {
+            extraCredentialsBuilder.put(EXTRA_CREDENTIALS_CROSS_REGION_ACCESS_ENABLED_PROPERTY, crossRegionAccessEnabled);
+        }
+
+        ConnectorIdentity identityWithVendedCredentials = ConnectorIdentity.forUser(identity.getUser())
+                .withGroups(identity.getGroups())
+                .withPrincipal(identity.getPrincipal())
+                .withEnabledSystemRoles(identity.getEnabledSystemRoles())
+                .withConnectorRole(identity.getConnectorRole())
+                .withExtraCredentials(extraCredentialsBuilder.buildOrThrow())
+                .build();
+
+        return fileSystemFactory.create(identityWithVendedCredentials);
     }
 }

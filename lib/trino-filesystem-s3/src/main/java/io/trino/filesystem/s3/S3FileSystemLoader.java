@@ -62,7 +62,7 @@ import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.
 final class S3FileSystemLoader
         implements Function<Location, TrinoFileSystemFactory>
 {
-    private final Optional<S3SecurityMappingProvider> mappingProvider;
+    private final Optional<S3CredentialsMapper> mappingProvider;
     private final SdkHttpClient httpClient;
     private final S3ClientFactory clientFactory;
     private final S3FileSystemConfig config;
@@ -82,7 +82,7 @@ final class S3FileSystemLoader
         this(Optional.empty(), openTelemetry, config, stats);
     }
 
-    private S3FileSystemLoader(Optional<S3SecurityMappingProvider> mappingProvider, OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
+    private S3FileSystemLoader(Optional<S3CredentialsMapper> mappingProvider, OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
     {
         this.mappingProvider = requireNonNull(mappingProvider, "mappingProvider is null");
         this.httpClient = createHttpClient(config);
@@ -175,7 +175,8 @@ final class S3FileSystemLoader
                 Optional.empty(),
                 Optional.empty(),
                 Optional.ofNullable(endpoint),
-                Optional.ofNullable(region));
+                Optional.ofNullable(region),
+                Optional.ofNullable(crossRegionAccessEnabled));
 
         return createClientWithMapping(openTelemetry, config, stats, Optional.of(customMapping), crossRegionAccessEnabled);
     }
@@ -264,9 +265,13 @@ final class S3FileSystemLoader
             Optional<String> iamRole = mapping.flatMap(S3SecurityMappingResult::iamRole).or(() -> staticIamRole);
             String roleSessionName = mapping.flatMap(S3SecurityMappingResult::roleSessionName).orElse(staticRoleSessionName);
 
+            boolean crossRegionAccessEnabled = mapping
+                    .flatMap(S3SecurityMappingResult::crossRegionAccessEnabled)
+                    .orElse(config.isCrossRegionAccessEnabled());
+
             S3ClientBuilder s3 = S3Client.builder();
             s3.overrideConfiguration(overrideConfiguration);
-            s3.crossRegionAccessEnabled(config.isCrossRegionAccessEnabled());
+            s3.crossRegionAccessEnabled(crossRegionAccessEnabled);
             s3.httpClient(httpClient);
             s3.responseChecksumValidation(WHEN_REQUIRED);
             s3.requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED);
