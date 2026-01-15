@@ -1,29 +1,30 @@
 # Release 480 (updated to 13/01/2026)
 
 ## General
+
 * {{breaking}} Remove `enable-large-dynamic-filters` configuration property and the 
   corresponding system session property `enable_large_dynamic_filters`. Large dynamic
   filters are used by default. ({issue}`27637`)
-* {{breaking}} Remove `dynamic-filtering.small*` configuration properties. ({issue}`27637`)
-* {{breaking}} Remove `dynamic-filtering.large-broadcast*` configuration. ({issue}`27637`).
+* {{breaking}} Remove `dynamic-filtering.small*` and `dynamic-filtering.large-broadcast*` 
+  configuration properties. ({issue}`27637`)
 * Extend experimental performance improvements for remote data exchanges on newer CPU 
   architectures. ({issue}`27586`)
 * Enable experimental performance improvements for remote data exchanges on Graviton 4 
   CPUs. ({issue}`27586`)
 * Improve performance of queries with data exchanges or aggregations. ({issue}`27657`)
 * Reduce out-of-memory errors in window queries when spill is enabled. ({issue}`27873`)
-* Fix double rounding in localtimestamp for sub-micro precision values. ({issue}`27806`)
-* Fix localtimestamp failure for precisions 7-8. ({issue}`27807`)
+* Fix double rounding in {func}`localtimestamp` for sub-micro precision values. ({issue}`27806`)
+* Fix {func}`localtimestamp` failure for precisions 7-8. ({issue}`27807`)
 
 ## Web UI
 
 * Add cluster status info to header in preview UI. ({issue}`27712`)
-* Fix numeric ordering of stages in the UI. ({issue}`27655`)
+* Fix numeric ordering of stages. ({issue}`27655`)
 
 ## ClickHouse connector
 
 * Fix failure when creating table caused by incorrect cleanup of the tables after a failed
-  CTAS operation. ({issue}`27702`)
+  `CREATE TABLE ... AS SELECT` operation. ({issue}`27702`)
 
 ## Delta Lake connector
 
@@ -39,7 +40,7 @@
 * {{breaking}} Remove `hive.parquet.writer.page-size` configuration property, use
   `parquet.writer.page-size`, instead. ({issue}`27729`)
 * {{breaking}} Remove the deprecated `gcs.use-access-token` config property. ({issue}`26941`)
-* Improve effectiveness of bloom filters written in parquet files for high cardinality 
+* Improve effectiveness of bloom filters written in Parquet files for high cardinality 
   columns. ({issue}`27656`)
 * Do not require `PutObjectTagging` AWS S3 permission when writing to Delta Lake tables 
   on S3. ({issue}`27701`)
@@ -51,7 +52,7 @@
 
 ## Hive connector
 
-* Add support for reading parquet files with timestamps stored in nanosecond units as a 
+* Add support for reading Parquet files with timestamps stored in nanosecond units as a 
   `timestamp with time zone` column. ({issue}`27861`)
 * {{breaking}} Remove `hive.write-validation-threads` configuration property. ({issue}`27729`)
 * {{breaking}} Remove `parquet.optimized-writer.validation-percentage` configuration
@@ -61,7 +62,7 @@
 * {{breaking}} Remove `hive.parquet.writer.page-size` configuration property, use 
   `parquet.writer.page-size`, instead. ({issue}`27729`)
 * {{breaking}} Remove the deprecated `gcs.use-access-token` config property. ({issue}`26941`)
-* Improve effectiveness of bloom filters written in parquet files for high cardinality 
+* Improve effectiveness of bloom filters written in Parquet files for high cardinality 
   columns. ({issue}`27656`)
 
 ## Hudi connector
@@ -74,7 +75,7 @@
 * {{breaking}} Remove `hive.parquet.writer.page-size` configuration property, use
   `parquet.writer.page-size`, instead. ({issue}`27729`)
 * {{breaking}} Remove the deprecated `gcs.use-access-token` config property. ({issue}`26941`)
-* Improve effectiveness of bloom filters written in parquet files for high cardinality columns. ({issue}`27656`)
+* Improve effectiveness of bloom filters written in Parquet files for high cardinality columns. ({issue}`27656`)
 
 ## Iceberg connector
 
@@ -94,9 +95,8 @@
 * Fix failure when reading `$files` metadata table with partition evolution using 
   `truncate` or `bucket` on the same column. ({issue}`26109`)
 * Fix failure when reading `$file_modified_time` metadata column on tables with equality
-  deletes ({issue}`27850`)
-* Fix Parquet writer to omit binary column statistics that cannot be truncated below the size
-  limit, preventing footer explosion for pathological values like all-0xFF bytes. ({issue}`27903`)
+  deletes. ({issue}`27850`)
+* Avoid Parquet footer explosion when binary columns contain certain pathological values. ({issue}`27903`)
 
 ## Ignite connector
 
@@ -105,7 +105,7 @@
 
 ## Lakehouse
 
-* Fix failure when reading Iceberg `$files` table. ({issue}`26751`)
+* Fix failure when reading Iceberg `$files` tables. ({issue}`26751`)
 
 ## MariaDB connector
 
