@@ -464,6 +464,8 @@
 - {func}`tan`
 - {func}`tanh`
 - {func}`tdigest_agg`
+- {func}`theta_sketch_estimate`
+- {func}`theta_sketch_union`
 - {func}`timestamp_objectid`
 - {func}`timezone`
 - {func}`timezone_hour`
