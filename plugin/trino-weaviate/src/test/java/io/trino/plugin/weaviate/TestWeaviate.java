@@ -26,8 +26,6 @@ import io.weaviate.client6.v1.api.collections.Property;
 import io.weaviate.client6.v1.api.collections.VectorConfig;
 import io.weaviate.client6.v1.api.collections.Vectors;
 import io.weaviate.client6.v1.api.collections.tenants.Tenant;
-import io.weaviate.client6.v1.api.collections.vectorindex.Hnsw;
-import io.weaviate.client6.v1.api.collections.vectorindex.MultiVector;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -45,8 +43,10 @@ public class TestWeaviate
     private static final String COLLECTION_MULTI_TENANT = "TrinoCollectionMultiTenant";
     private static final String JOHN_DOE = "john_doe";
     private static final String JANE_DOE = "jane_doe";
-    private static final OffsetDateTime NOW = OffsetDateTime.now();
-    private static final GeoCoordinates GEO = new GeoCoordinates(123f, 456f);
+
+    static final OffsetDateTime NOW = OffsetDateTime.now();
+    static final GeoCoordinates GEO = new GeoCoordinates(123f, 456f);
+
     private WeaviateServer server;
     private WeaviateClient client;
 
@@ -93,6 +93,7 @@ public class TestWeaviate
     {
         assertQuery("SELECT count(*) FROM " + COLLECTION_NO_TENANT, "SELECT 1");
         assertQuery("SELECT prop_text, prop_bool FROM " + COLLECTION_NO_TENANT, "SELECT * FROM (VALUES ('text-value', true))");
+        assertQuery("SELECT vectors.single FROM " + COLLECTION_NO_TENANT, "SELECT CAST(ARRAY[1.0, 2.0, 3.0] as DOUBLE PRECISION ARRAY)");
 
         assertQuery("SELECT prop_text, prop_bool FROM " + withTenant(JOHN_DOE, COLLECTION_MULTI_TENANT), "SELECT * FROM (VALUES ('text-value', true))");
     }
@@ -166,13 +167,7 @@ public class TestWeaviate
                                         p -> p.nestedProperties(
                                                 Property.text("array_text"),
                                                 Property.integer("array_int"))))
-                        .vectorConfig(
-                                VectorConfig.selfProvided("single"),
-                                VectorConfig.selfProvided(
-                                        "multi",
-                                        multi -> multi.vectorIndex(
-                                                Hnsw.of(hnsw -> hnsw.multiVector(
-                                                        MultiVector.of(mv -> mv.enabled(true)))))))
+                        .vectorConfig(VectorConfig.selfProvided("single"))
                         .multiTenancy(MultiTenancy.of(mt -> mt
                                 .enabled(enableMultiTenancy)
                                 .autoTenantCreation(autoTenantCreation)
@@ -209,9 +204,7 @@ public class TestWeaviate
         });
 
         Map<String, Object> data = builder.buildOrThrow();
-        Vectors vectors = new Vectors(
-                Vectors.of("single", new float[] {1, 2, 3}),
-                Vectors.of("multi", new float[][] {{1, 2, 3}, {4, 5, 6}}));
+        Vectors vectors = new Vectors(Vectors.of("single", new float[] {1, 2, 3}));
 
         if (tenants.length == 0) {
             trinoTest.data.insert(data, obj -> obj.vectors(vectors));

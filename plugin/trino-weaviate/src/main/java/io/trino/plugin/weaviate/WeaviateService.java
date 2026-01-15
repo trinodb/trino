@@ -15,6 +15,7 @@ package io.trino.plugin.weaviate;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Floats;
 import com.google.inject.Inject;
 import io.trino.spi.TrinoException;
 import io.weaviate.client6.v1.api.Config;
@@ -23,7 +24,6 @@ import io.weaviate.client6.v1.api.WeaviateException;
 import io.weaviate.client6.v1.api.alias.Alias;
 import io.weaviate.client6.v1.api.collections.CollectionConfig;
 import io.weaviate.client6.v1.api.collections.CollectionHandle;
-import io.weaviate.client6.v1.api.collections.Vectors;
 import io.weaviate.client6.v1.api.collections.WeaviateObject;
 import io.weaviate.client6.v1.api.collections.query.ConsistencyLevel;
 import io.weaviate.client6.v1.api.collections.query.Metadata;
@@ -32,6 +32,7 @@ import io.weaviate.client6.v1.api.collections.tenants.Tenant;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -39,9 +40,9 @@ import java.util.stream.Collectors;
 import static io.trino.plugin.weaviate.WeaviateColumnHandle.CREATED_AT;
 import static io.trino.plugin.weaviate.WeaviateColumnHandle.LAST_UPDATED_AT;
 import static io.trino.plugin.weaviate.WeaviateColumnHandle.UUID;
-import static io.trino.plugin.weaviate.WeaviateColumnHandle.makeName;
-import static io.trino.plugin.weaviate.WeaviateColumnHandle.makeVectorName;
+import static io.trino.plugin.weaviate.WeaviateColumnHandle.VECTORS_COLUMN_NAME;
 import static io.trino.plugin.weaviate.WeaviateErrorCode.WEAVIATE_SERVER_ERROR;
+import static java.util.Objects.requireNonNull;
 
 public class WeaviateService
 {
@@ -51,6 +52,8 @@ public class WeaviateService
     @Inject
     public WeaviateService(WeaviateConfig config)
     {
+        requireNonNull(config, "config is null");
+
         Config.Custom cfg = new Config.Custom();
         cfg.scheme(config.getScheme());
         cfg.httpHost(config.getHttpHost());
@@ -77,7 +80,9 @@ public class WeaviateService
                 if (!c.multiTenancy().enabled()) {
                     continue;
                 }
-                w.collections.use(c.collectionName()).tenants.list().stream().map(Tenant::name).forEach(tenants::add);
+                w.collections.use(c.collectionName())
+                        .tenants.list().stream()
+                        .map(Tenant::name).forEach(tenants::add);
             }
         }
         catch (IOException e) {
@@ -88,6 +93,8 @@ public class WeaviateService
 
     WeaviateTableHandle getTableHandle(String tableName)
     {
+        requireNonNull(tableName, "tableName is null");
+
         try {
             return w.collections.getConfig(resolveTableName(tableName))
                     .map(WeaviateTableHandle::new)
@@ -120,12 +127,14 @@ public class WeaviateService
         }
     }
 
-    WeaviateTable getTable(WeaviateTableHandle table)
+    WeaviateTable getTable(WeaviateTableHandle tableHandle)
     {
+        requireNonNull(tableHandle, "tableHandle is null");
+
         CollectionHandle<Map<String, Object>> handle = w.collections.use(
-                resolveTableName(table.tableName()), h -> h
+                resolveTableName(tableHandle.tableName()), h -> h
                         .consistencyLevel(consistencyLevel)
-                        .tenant(table.tenantIgnoreDefault()));
+                        .tenant(tableHandle.tenantIgnoreDefault()));
 
         QueryResponse<Map<String, Object>> response;
         try {
@@ -144,45 +153,28 @@ public class WeaviateService
                         columns.putAll(object.properties());
                     }
                     if (object.vectors() != null) {
-                        columns.putAll(collectVectors(object.vectors()));
+                        Map<String, Object> vectors = object.vectors().asMap().entrySet().stream()
+                                .collect(Collectors.toUnmodifiableMap(
+                                        Map.Entry::getKey,
+                                        entry -> switch (entry.getValue()) {
+                                            case float[] single -> Floats.asList(single);
+                                            case float[][] multi -> Arrays.stream(multi)
+                                                    .map(Floats::asList)
+                                                    .toList();
+                                            case Object other -> throw WeaviateErrorCode.vectorTypeNotSupported(other);
+                                        }));
+                        columns.put(VECTORS_COLUMN_NAME, vectors);
                     }
                     return (Map<String, Object>) columns.buildOrThrow();
                 })
                 .toList();
-        return new WeaviateTable(table.columns(), values);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> collectProperties(Map<String, Object> properties)
-    {
-        ImmutableMap.Builder<String, Object> flat = ImmutableMap.builder();
-
-        properties.forEach((thisName, thisValue) -> {
-            if (thisValue == null) {
-                return;
-            }
-            if (thisValue instanceof Map<?, ?> object) {
-                collectProperties((Map<String, Object>) object)
-                        .forEach((nestedName, nestedValue) ->
-                                flat.put(makeName(thisName, nestedName), nestedValue));
-            }
-            else {
-                flat.put(thisName, thisValue);
-            }
-        });
-
-        return flat.buildOrThrow();
-    }
-
-    private static Map<String, Object> collectVectors(Vectors vectors)
-    {
-        return vectors.asMap().entrySet().stream().collect(Collectors.toUnmodifiableMap(
-                entry -> makeVectorName(entry.getKey()),
-                Map.Entry::getValue));
+        return new WeaviateTable(tableHandle.columns(), values);
     }
 
     private static Map<String, Object> collectMetadata(WeaviateObject<?> object)
     {
+        requireNonNull(object, "object is null");
+
         ImmutableMap.Builder<String, Object> metadata = ImmutableMap.builder();
         if (object.uuid() != null) {
             metadata.put(UUID.name(), object.uuid());
@@ -198,6 +190,8 @@ public class WeaviateService
 
     private String resolveTableName(String tableNameNeedle)
     {
+        requireNonNull(tableNameNeedle, "tableNameNeedle is null");
+
         return listTableHandles().stream()
                 .map(WeaviateTableHandle::tableName)
                 .filter(tableName -> tableName.equalsIgnoreCase(tableNameNeedle))

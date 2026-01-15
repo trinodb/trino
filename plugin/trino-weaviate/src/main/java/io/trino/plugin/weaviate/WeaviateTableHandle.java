@@ -49,17 +49,22 @@ public record WeaviateTableHandle(
     {
         this(
                 DEFAULT_SCHEMA,
-                collection.collectionName(),
+                requireNonNull(collection, "collection is null").collectionName(),
                 collection.description(),
                 makeColumns(collection.properties(), collection.vectors()));
     }
 
     private static List<WeaviateColumnHandle> makeColumns(List<Property> properties, Map<String, VectorConfig> vectors)
     {
+        requireNonNull(properties, "properties is null");
+        requireNonNull(vectors, "vectors is null");
+
         ImmutableList.Builder<WeaviateColumnHandle> columns = ImmutableList.builder();
         columns.addAll(METADATA_COLUMNS);
-        properties.forEach(property -> columns.add(new WeaviateColumnHandle(property)));
-        vectors.forEach((vectorName, vectorConfig) -> columns.add(new WeaviateColumnHandle(vectorName, vectorConfig)));
+        if (!vectors.isEmpty()) {
+            columns.add(new WeaviateColumnHandle(vectors));
+        }
+        properties.stream().map(WeaviateColumnHandle::new).forEach(columns::add);
         return columns.build();
     }
 

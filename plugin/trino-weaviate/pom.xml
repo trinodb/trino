@@ -60,36 +60,6 @@
             <groupId>io.weaviate</groupId>
             <artifactId>client6</artifactId>
             <version>${dep.client6.version}</version>
-            <!--            <exclusions>-->
-            <!--                <exclusion>-->
-            <!--                    <groupId>com.google.protobuf</groupId>-->
-            <!--                    <artifactId>protobuf-java</artifactId>-->
-            <!--                </exclusion>-->
-            <!--                <exclusion>-->
-            <!--                    <groupId>com.google.protobuf</groupId>-->
-            <!--                    <artifactId>protobuf-java-util</artifactId>-->
-            <!--                </exclusion>-->
-            <!--                <exclusion>-->
-            <!--                    <groupId>io.grpc</groupId>-->
-            <!--                    <artifactId>grpc-api</artifactId>-->
-            <!--                </exclusion>-->
-            <!--                <exclusion>-->
-            <!--                    <groupId>io.grpc</groupId>-->
-            <!--                    <artifactId>grpc-core</artifactId>-->
-            <!--                </exclusion>-->
-            <!--                <exclusion>-->
-            <!--                    <groupId>io.grpc</groupId>-->
-            <!--                    <artifactId>grpc-netty-shaded</artifactId>-->
-            <!--                </exclusion>-->
-            <!--                <exclusion>-->
-            <!--                    <groupId>io.grpc</groupId>-->
-            <!--                    <artifactId>grpc-protobuf</artifactId>-->
-            <!--                </exclusion>-->
-            <!--                <exclusion>-->
-            <!--                    <groupId>io.grpc</groupId>-->
-            <!--                    <artifactId>grpc-stub</artifactId>-->
-            <!--                </exclusion>-->
-            <!--            </exclusions>-->
         </dependency>
 
         <dependency>
@@ -183,6 +153,12 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
             <scope>test</scope>
         </dependency>
 

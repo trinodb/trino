@@ -13,12 +13,13 @@
  */
 package io.trino.plugin.weaviate;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.RowValueBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -41,10 +42,11 @@ import io.weaviate.client6.v1.api.collections.vectorindex.MultiVector;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 
 import static io.trino.plugin.weaviate.WeaviateErrorCode.WEAVIATE_MULTIPLE_DATA_TYPES;
 import static io.trino.plugin.weaviate.WeaviateErrorCode.WEAVIATE_UNSUPPORTED_DATA_TYPE;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -52,7 +54,6 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
-// TODO(dyma): make it a "path" to represent nested objects
 public record WeaviateColumnHandle(String name, Type trinoType)
         implements ColumnHandle
 {
@@ -60,16 +61,17 @@ public record WeaviateColumnHandle(String name, Type trinoType)
     static final WeaviateColumnHandle CREATED_AT = new WeaviateColumnHandle(Property.date("__creationTimeUnix__"));
     static final WeaviateColumnHandle LAST_UPDATED_AT = new WeaviateColumnHandle(Property.date("__lastUpdateTimeUnix__"));
     static final List<WeaviateColumnHandle> METADATA_COLUMNS = ImmutableList.of(UUID, CREATED_AT, LAST_UPDATED_AT);
+    static final String VECTORS_COLUMN_NAME = "vectors";
 
-    private static final Type TEXT_ARRAY = new ArrayType(VARCHAR);
-    private static final Type BOOL_ARRAY = new ArrayType(BOOLEAN);
-    private static final Type INT_ARRAY = new ArrayType(INTEGER);
-    private static final Type NUMBER_ARRAY = new ArrayType(DOUBLE);
-    private static final Type DATE_ARRAY = new ArrayType(TIMESTAMP_TZ_MILLIS);
-    private static final Type GEO_COORDINATES = RowType.rowType(
+    @VisibleForTesting static final Type TEXT_ARRAY = new ArrayType(VARCHAR);
+    @VisibleForTesting static final Type BOOL_ARRAY = new ArrayType(BOOLEAN);
+    @VisibleForTesting static final Type INT_ARRAY = new ArrayType(INTEGER);
+    @VisibleForTesting static final Type NUMBER_ARRAY = new ArrayType(DOUBLE);
+    @VisibleForTesting static final Type DATE_ARRAY = new ArrayType(TIMESTAMP_TZ_MILLIS);
+    @VisibleForTesting static final Type GEO_COORDINATES = RowType.rowType(
             RowType.field("latitude", DOUBLE),
             RowType.field("longitude", DOUBLE));
-    private static final Type PHONE_NUMBER = RowType.rowType(
+    @VisibleForTesting static final Type PHONE_NUMBER = RowType.rowType(
             RowType.field("defaultCountry", VARCHAR),
             RowType.field("countryCode", INTEGER),
             RowType.field("internationalFormatted", VARCHAR),
@@ -77,8 +79,8 @@ public record WeaviateColumnHandle(String name, Type trinoType)
             RowType.field("nationalFormatted", VARCHAR),
             RowType.field("valid", BOOLEAN));
 
-    private static final Type SINGLE_VECTOR = NUMBER_ARRAY;
-    private static final Type MULTI_VECTOR = new ArrayType(NUMBER_ARRAY);
+    @VisibleForTesting static final Type SINGLE_VECTOR = NUMBER_ARRAY;
+    @VisibleForTesting static final Type MULTI_VECTOR = new ArrayType(NUMBER_ARRAY);
 
     public WeaviateColumnHandle
     {
@@ -91,13 +93,15 @@ public record WeaviateColumnHandle(String name, Type trinoType)
         this(property.propertyName(), toTrinoType(property));
     }
 
-    public WeaviateColumnHandle(String vectorName, VectorConfig vectorConfig)
+    public WeaviateColumnHandle(Map<String, VectorConfig> vectors)
     {
-        this(makeVectorName(vectorName), toTrinoType(vectorConfig));
+        this(VECTORS_COLUMN_NAME, toTrinoType(vectors));
     }
 
     private static Type toTrinoType(Property property)
     {
+        requireNonNull(property, "property is null");
+
         List<String> dataTypes = property.dataTypes();
         if (dataTypes.size() > 1) {
             throw new TrinoException(WEAVIATE_MULTIPLE_DATA_TYPES, "Property %s has %d data types: %s".formatted(property.propertyName(), dataTypes.size(), property.dataTypes()));
@@ -122,151 +126,184 @@ public record WeaviateColumnHandle(String name, Type trinoType)
         };
     }
 
-    private static Type toTrinoType(VectorConfig vectorConfig)
+    private static Type toTrinoType(Map<String, VectorConfig> vectors)
     {
-        VectorIndex vectorIndex = vectorConfig.vectorIndex();
-        MultiVector multiVector = switch (vectorIndex._kind()) {
-            case HNSW -> vectorIndex.asHnsw().multiVector();
-            case DYNAMIC -> vectorIndex.asDynamic().hnsw().multiVector();
-            case FLAT -> null;
-        };
-        if (multiVector == null || !multiVector.enabled()) {
-            return SINGLE_VECTOR;
-        }
-        return MULTI_VECTOR;
+        requireNonNull(vectors, "vectors is null");
+
+        ImmutableList.Builder<RowType.Field> fields = ImmutableList.builder();
+        vectors.forEach((vectorName, vectorConfig) -> {
+            VectorIndex vectorIndex = vectorConfig.vectorIndex();
+            MultiVector multiVector = switch (vectorIndex._kind()) {
+                case HNSW -> vectorIndex.asHnsw().multiVector();
+                case DYNAMIC -> vectorIndex.asDynamic().hnsw().multiVector();
+                case FLAT -> null;
+            };
+
+            Type type = (multiVector == null || !multiVector.enabled())
+                    ? SINGLE_VECTOR
+                    : MULTI_VECTOR;
+
+            fields.add(RowType.field(vectorName, type));
+        });
+        return RowType.from(fields.build());
     }
 
     private static RowType nestedObjectType(List<Property> properties)
     {
-        List<RowType.Field> fields = properties.stream().map(property -> RowType.field(property.propertyName(), toTrinoType(property))).toList();
-        return RowType.from(fields);
+        requireNonNull(properties, "properties is null");
+
+        ImmutableList.Builder<RowType.Field> fields = ImmutableList.builder();
+        properties.forEach(property -> fields.add(
+                RowType.field(property.propertyName(), toTrinoType(property))));
+        return RowType.from(fields.build());
     }
 
-    @SuppressWarnings("unchecked")
-    static Object toTrinoValue(Type trinoType, Object raw)
+    static Object toTrinoValue(Object raw, Type type)
     {
-        if (raw == null) {
-            return null;
-        }
-        TrinoException unsupportedType = new TrinoException(WEAVIATE_UNSUPPORTED_DATA_TYPE, trinoType + " is not supported");
-
-        return switch (trinoType) {
+        return switch (type) {
             case VarcharType _, BooleanType _, DoubleType _, IntegerType _ -> raw;
-            case TimestampWithTimeZoneType _ -> convertOffsetDateTime(((OffsetDateTime) raw));
-            case RowType rowType -> {
-                if (rowType.equals(GEO_COORDINATES)) {
-                    yield convertGeoCoordinates((GeoCoordinates) raw);
-                }
-                else if (rowType.equals(PHONE_NUMBER)) {
-                    yield convertPhoneNumber((PhoneNumber) raw);
-                }
-                else {
-                    yield convertNestedObject((RowType) trinoType, (Map<String, Object>) raw);
-                }
-            }
-            case ArrayType arrayType -> switch (arrayType.getElementType()) {
-                case VarcharType t -> packArray(t, (List<String>) raw, t::writeString);
-                case BooleanType t -> packArray(t, (List<Boolean>) raw, t::writeBoolean);
-                case IntegerType t -> packArray(t, (List<Integer>) raw, t::writeInt);
-                case DoubleType t -> packArray(t, (List<Double>) raw, t::writeDouble);
-                case TimestampWithTimeZoneType _ -> packArray(
-                        TIMESTAMP_TZ_MILLIS, (List<OffsetDateTime>) raw,
-                        (array, v) -> TIMESTAMP_TZ_MILLIS.writeLong(array, convertOffsetDateTime(v)));
-                case RowType t -> packArray(t, (List<Map<String, Object>>) raw, (array, v) -> {});
-                default -> throw unsupportedType;
-            };
-            default -> throw unsupportedType;
+            case TimestampWithTimeZoneType _ -> ((OffsetDateTime) raw).toInstant().toEpochMilli();
+            default -> encodeObject(null, raw, type);
         };
     }
 
-    private static Long convertOffsetDateTime(OffsetDateTime offsetDateTime)
+    private static Object encodeObject(BlockBuilder blockBuilder, Object raw, Type type)
     {
-        return offsetDateTime.toInstant().toEpochMilli();
-    }
-
-    private static SqlRow convertGeoCoordinates(GeoCoordinates geoCoordinates)
-    {
-        return RowValueBuilder.buildRowValue((RowType) GEO_COORDINATES, fieldBuilders -> {
-            BlockBuilder lat = fieldBuilders.get(0);
-            BlockBuilder lon = fieldBuilders.get(1);
-
-            DOUBLE.writeDouble(lat, geoCoordinates.latitude());
-            DOUBLE.writeDouble(lon, geoCoordinates.longitude());
-        });
-    }
-
-    private static SqlRow convertPhoneNumber(PhoneNumber phoneNumber)
-    {
-        return RowValueBuilder.buildRowValue((RowType) PHONE_NUMBER, fieldBuilders -> {
-            BlockBuilder defaultCountry = fieldBuilders.get(0);
-            BlockBuilder countryCode = fieldBuilders.get(1);
-            BlockBuilder internationalFormatted = fieldBuilders.get(2);
-            BlockBuilder national = fieldBuilders.get(3);
-            BlockBuilder nationalFormatted = fieldBuilders.get(4);
-            BlockBuilder valid = fieldBuilders.get(5);
-
-            VARCHAR.writeString(defaultCountry, phoneNumber.defaultCountry());
-            INTEGER.writeInt(countryCode, phoneNumber.countryCode());
-            VARCHAR.writeString(internationalFormatted, phoneNumber.internationalFormatted());
-            INTEGER.writeInt(national, phoneNumber.national());
-            VARCHAR.writeString(nationalFormatted, phoneNumber.nationalFormatted());
-            BOOLEAN.writeBoolean(valid, phoneNumber.valid());
-        });
-    }
-
-    private static SqlRow convertNestedObject(RowType rowType, Map<String, Object> nested)
-    {
-        return RowValueBuilder.buildRowValue(rowType, fieldBuilders -> {
-            int idx = 0;
-            for (var field : rowType.getFields()) {
-                if (field.getName().isEmpty()) {
-                    idx++;
-                    continue;
-                }
-
-                String name = field.getName().get();
-                Type trinoType = field.getType();
-
-                Object rawValue = nested.get(name);
-                Object trinoValue = toTrinoValue(trinoType, rawValue);
-
-                BlockBuilder rowBuilder = fieldBuilders.get(idx);
-                trinoType.writeObject(rowBuilder, trinoValue);
-                idx++;
+        return switch (type) {
+            case ArrayType arrayType -> encodeArray(blockBuilder, raw, arrayType);
+            case RowType rowType -> encodeRow(blockBuilder, raw, rowType);
+            default -> {
+                encodePrimitive(blockBuilder, type, raw);
+                yield null;
             }
-        });
+        };
     }
 
-    private static <T> Block packArray(Type type, List<T> rawList, BiConsumer<ArrayBlockBuilder, T> packer)
+    private static void encodePrimitive(BlockBuilder blockBuilder, Type type, Object raw)
     {
-        ArrayType arrayType = new ArrayType(type);
-        ArrayBlockBuilder array = arrayType.createBlockBuilder(null, rawList.size());
-        for (T raw : rawList) {
-            if (raw == null) {
-                array.appendNull();
-            }
-            else {
-                packer.accept(array, raw);
-            }
+        if (raw == null) {
+            requireNonNull(blockBuilder, "blockBuilder is null");
+            blockBuilder.appendNull();
+            return;
         }
-        return array.build();
+        switch (type) {
+            case VarcharType t -> t.writeString(blockBuilder, (String) raw);
+            case BooleanType t -> t.writeBoolean(blockBuilder, (Boolean) raw);
+            case DoubleType t -> t.writeDouble(blockBuilder, ((Number) raw).doubleValue());
+            case IntegerType t -> t.writeLong(blockBuilder, ((Number) raw).longValue());
+            case TimestampWithTimeZoneType t -> TIMESTAMP_TZ_MILLIS.writeLong(blockBuilder, ((OffsetDateTime) raw).toInstant().toEpochMilli());
+            default -> throw new TrinoException(WEAVIATE_UNSUPPORTED_DATA_TYPE, type + " is not supported");
+        }
+    }
+
+    private static Block encodeArray(BlockBuilder parentBlockBuilder, Object raw, ArrayType arrayType)
+    {
+        if (raw == null) {
+            requireNonNull(parentBlockBuilder, "parentBlockBuilder is null");
+            parentBlockBuilder.appendNull();
+            return null;
+        }
+
+        List<?> list = (List<?>) raw;
+        Type elementType = arrayType.getElementType();
+
+        BlockBuilder blockBuilder = elementType.createBlockBuilder(null, list.size());
+        for (Object element : list) {
+            encodeObject(blockBuilder, element, elementType);
+        }
+
+        Block block = blockBuilder.build();
+        if (parentBlockBuilder != null) {
+            arrayType.writeObject(parentBlockBuilder, block);
+            return null;
+        }
+        return block;
+    }
+
+    private static SqlRow encodeRow(BlockBuilder blockBuilder, Object raw, RowType rowType)
+    {
+        if (raw == null) {
+            requireNonNull(blockBuilder, "blockBuilder is null");
+            blockBuilder.appendNull();
+            return null;
+        }
+
+        Map<String, Object> row;
+        if (rowType.equals(GEO_COORDINATES)) {
+            row = geoCoordinatesMap((GeoCoordinates) raw);
+        }
+        else if (rowType.equals(PHONE_NUMBER)) {
+            row = phoneNumberMap((PhoneNumber) raw);
+        }
+        else {
+            row = (Map<String, Object>) raw;
+        }
+
+        if (blockBuilder == null) {
+            return buildRowValue(rowType, fieldBuilders -> buildRow(rowType, row, fieldBuilders));
+        }
+
+        RowBlockBuilder rowBlockBuilder = (RowBlockBuilder) blockBuilder;
+        rowBlockBuilder.buildEntry(fieldBuilders -> buildRow(rowType, row, fieldBuilders));
+        return null;
+    }
+
+    private static void buildRow(RowType type, Map<String, Object> row, List<BlockBuilder> fieldBuilders)
+    {
+        List<RowType.Field> fields = type.getFields();
+        for (int i = 0; i < fields.size(); i++) {
+            RowType.Field field = fields.get(i);
+            String fieldName = field.getName()
+                    .orElseThrow(() -> WeaviateErrorCode.typeNotSupported("unnamed ROW values"));
+            encodeObject(fieldBuilders.get(i), row.get(fieldName), field.getType());
+        }
+    }
+
+    private static Map<String, Object> geoCoordinatesMap(GeoCoordinates geoCoordinates)
+    {
+        List<RowType.Field> fields = ((RowType) GEO_COORDINATES).getFields();
+
+        String latitude = fields.getFirst().getName().orElseThrow();
+        String longitude = fields.getLast().getName().orElseThrow();
+
+        ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+        appendMapEntry(builder, latitude, geoCoordinates::latitude);
+        appendMapEntry(builder, longitude, geoCoordinates::longitude);
+        return builder.buildOrThrow();
+    }
+
+    private static Map<String, Object> phoneNumberMap(PhoneNumber phoneNumber)
+    {
+        List<RowType.Field> fields = ((RowType) PHONE_NUMBER).getFields();
+
+        String defaultCountry = fields.get(0).getName().orElseThrow();
+        String countryCode = fields.get(1).getName().orElseThrow();
+        String internationalFormatted = fields.get(2).getName().orElseThrow();
+        String national = fields.get(3).getName().orElseThrow();
+        String nationalFormatted = fields.get(4).getName().orElseThrow();
+        String valid = fields.get(5).getName().orElseThrow();
+
+        ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+        appendMapEntry(builder, defaultCountry, phoneNumber::defaultCountry);
+        appendMapEntry(builder, countryCode, phoneNumber::countryCode);
+        appendMapEntry(builder, internationalFormatted, phoneNumber::internationalFormatted);
+        appendMapEntry(builder, national, phoneNumber::national);
+        appendMapEntry(builder, nationalFormatted, phoneNumber::nationalFormatted);
+        appendMapEntry(builder, valid, phoneNumber::valid);
+        return builder.buildOrThrow();
+    }
+
+    private static void appendMapEntry(ImmutableMap.Builder<String, Object> builder, String key, Supplier<Object> supplier)
+    {
+        Object value = supplier.get();
+        if (value == null) {
+            return;
+        }
+        builder.put(key, value);
     }
 
     public ColumnMetadata columnMetadata()
     {
         return new ColumnMetadata(name, trinoType);
-    }
-
-    private static final String SEPARATOR = "__";
-    private static final String VECTORS_PREFIX = "vectors";
-
-    static String makeName(String... parts)
-    {
-        return String.join(SEPARATOR, parts);
-    }
-
-    static String makeVectorName(String name)
-    {
-        return makeName(VECTORS_PREFIX, name);
     }
 }

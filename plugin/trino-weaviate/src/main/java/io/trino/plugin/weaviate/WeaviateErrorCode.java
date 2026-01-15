@@ -27,7 +27,8 @@ public enum WeaviateErrorCode
     WEAVIATE_TABLE_NOT_FOUND(0, USER_ERROR),
     WEAVIATE_UNSUPPORTED_DATA_TYPE(1, INTERNAL_ERROR),
     WEAVIATE_MULTIPLE_DATA_TYPES(2, INTERNAL_ERROR),
-    WEAVIATE_SERVER_ERROR(3, INTERNAL_ERROR);
+    WEAVIATE_SERVER_ERROR(3, INTERNAL_ERROR),
+    WEAVIATE_UNSUPPORTED_VECTOR_TYPE(4, INTERNAL_ERROR);
 
     private final ErrorCode errorCode;
 
@@ -45,5 +46,15 @@ public enum WeaviateErrorCode
     static TrinoException tableNotFound(String tableName)
     {
         return new TrinoException(WEAVIATE_TABLE_NOT_FOUND, "Collection " + tableName + " not found");
+    }
+
+    static TrinoException typeNotSupported(String msg)
+    {
+        return new TrinoException(WEAVIATE_UNSUPPORTED_DATA_TYPE, msg);
+    }
+
+    static TrinoException vectorTypeNotSupported(Object vector)
+    {
+        return new TrinoException(WEAVIATE_UNSUPPORTED_VECTOR_TYPE, "vector type %s is not supported".formatted(vector.getClass()));
     }
 }
