@@ -14,7 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
@@ -28,6 +28,8 @@ import javax.management.ObjectName;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,21 +40,24 @@ public class TestJmxStats
     public void testJmxStatsExposure()
             throws Exception
     {
-        Plugin plugin = new JdbcPlugin("base_jdbc", TestingH2JdbcModule::new);
+        String jmxBaseName = getClass().getSimpleName() + "_" + randomNameSuffix();
+        Plugin plugin = new JdbcPlugin(
+                "base_jdbc",
+                () -> combine(new TestingH2JdbcModule(), new ConnectorObjectNameGeneratorModule("io.trino.plugin.jdbc", "trino.plugin.jdbc")));
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         Connector connector = factory.create(
                 "test",
                 ImmutableMap.of(
                         "connection-url", "jdbc:driver:",
-                        "bootstrap.quiet", "true"),
+                        "bootstrap.quiet", "true",
+                        "jmx.base-name", jmxBaseName),
                 new TestingConnectorContext());
         MBeanServer mbeanServer = getPlatformMBeanServer();
-        Set<ObjectName> objectNames = mbeanServer.queryNames(new ObjectName("io.trino.plugin.jdbc:*"), null);
+        Set<ObjectName> objectNames = mbeanServer.queryNames(new ObjectName("%s:*".formatted(jmxBaseName)), null);
 
-        assertThat(objectNames.containsAll(
-                ImmutableSet.of(
-                        new ObjectName("io.trino.plugin.jdbc:type=ConnectionFactory,name=test"),
-                        new ObjectName("io.trino.plugin.jdbc:type=JdbcClient,name=test")))).isTrue();
+        assertThat(objectNames).contains(
+                new ObjectName("%s:type=ConnectionFactory,name=test,catalog=test".formatted(jmxBaseName)),
+                new ObjectName("%s:type=JdbcClient,name=test,catalog=test".formatted(jmxBaseName)));
 
         for (ObjectName objectName : objectNames) {
             MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName);
