@@ -1446,6 +1446,12 @@ public class TestBackgroundHiveSplitLoader
                 {
                     throw new UnsupportedOperationException();
                 }
+
+                @Override
+                public void close()
+                {
+                    throw new UnsupportedOperationException();
+                }
             };
         }
     }

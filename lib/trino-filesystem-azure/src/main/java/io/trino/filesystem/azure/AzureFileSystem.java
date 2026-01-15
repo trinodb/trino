@@ -564,6 +564,12 @@ public class AzureFileSystem
         return headers.buildOrThrow();
     }
 
+    @Override
+    public void close()
+    {
+        // Nothing to close
+    }
+
     private Set<Location> listGen2Directories(AzureLocation location)
             throws IOException
     {

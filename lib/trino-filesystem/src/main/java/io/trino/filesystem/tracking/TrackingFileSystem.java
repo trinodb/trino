@@ -174,4 +174,11 @@ public class TrackingFileSystem
     {
         return delegate.encryptedPreSignedUri(location, ttl, key);
     }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        delegate.close();
+    }
 }

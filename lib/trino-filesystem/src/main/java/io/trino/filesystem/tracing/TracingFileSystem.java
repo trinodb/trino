@@ -224,4 +224,11 @@ final class TracingFileSystem
                 .startSpan();
         return withTracing(span, () -> delegate.encryptedPreSignedUri(location, ttl, key));
     }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        delegate.close();
+    }
 }

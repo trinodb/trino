@@ -216,6 +216,12 @@ public class MemoryFileSystem
         return Optional.empty();
     }
 
+    @Override
+    public void close()
+    {
+        // nothing to close
+    }
+
     private static String toBlobKey(Location location)
     {
         validateMemoryLocation(location);

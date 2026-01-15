@@ -468,4 +468,11 @@ class HdfsFileSystem
         throwable.initCause(cause);
         return throwable;
     }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        // nothing to close
+    }
 }

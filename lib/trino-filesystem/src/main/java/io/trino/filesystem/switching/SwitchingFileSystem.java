@@ -199,4 +199,10 @@ final class SwitchingFileSystem
         return session.map(factory::create).orElseGet(() ->
                 factory.create(identity.orElseThrow()));
     }
+
+    @Override
+    public void close()
+    {
+        // Nothing to close
+    }
 }

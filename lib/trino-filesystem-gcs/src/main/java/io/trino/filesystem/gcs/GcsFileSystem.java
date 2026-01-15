@@ -386,4 +386,16 @@ public class GcsFileSystem
     {
         new GcsLocation(location);
     }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        try {
+            storage.close();
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 }
