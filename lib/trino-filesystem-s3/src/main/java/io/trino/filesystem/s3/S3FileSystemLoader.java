@@ -130,6 +130,12 @@ final class S3FileSystemLoader
     @PreDestroy
     public void destroy()
     {
+        for (S3Client client : clients.values()) {
+            try (var _ = client) {
+                // Resource automatically closed
+            }
+        }
+        clients.clear();
         try (httpClient) {
             uploadExecutor.shutdownNow();
         }
@@ -166,7 +172,7 @@ final class S3FileSystemLoader
         return value != null ? Optional.of(Boolean.parseBoolean(value)) : Optional.empty();
     }
 
-    S3Client createClientWithOverrides(OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats, String region, String endpoint, Boolean crossRegionAccessEnabled)
+    S3Client createClientWithOverrides(String region, String endpoint, Boolean crossRegionAccessEnabled)
     {
         S3SecurityMappingResult customMapping = new S3SecurityMappingResult(
                 Optional.empty(),
@@ -178,67 +184,7 @@ final class S3FileSystemLoader
                 Optional.ofNullable(region),
                 Optional.ofNullable(crossRegionAccessEnabled));
 
-        return createClientWithMapping(openTelemetry, config, stats, Optional.of(customMapping), crossRegionAccessEnabled);
-    }
-
-    private S3Client createClientWithMapping(OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats, Optional<S3SecurityMappingResult> mapping, Boolean crossRegionAccessEnabledOverride)
-    {
-        ClientOverrideConfiguration overrideConfiguration = createOverrideConfiguration(openTelemetry, config, stats.newMetricPublisher());
-
-        Optional<AwsCredentialsProvider> staticCredentialsProvider = createStaticCredentialsProvider(config);
-        Optional<String> staticRegion = Optional.ofNullable(config.getRegion());
-        Optional<String> staticEndpoint = Optional.ofNullable(config.getEndpoint());
-        boolean pathStyleAccess = config.isPathStyleAccess();
-        boolean useWebIdentityTokenCredentialsProvider = config.isUseWebIdentityTokenCredentialsProvider();
-        Optional<String> staticIamRole = Optional.ofNullable(config.getIamRole());
-        String staticRoleSessionName = config.getRoleSessionName();
-        String externalId = config.getExternalId();
-        boolean crossRegionAccessEnabled = crossRegionAccessEnabledOverride != null
-                ? crossRegionAccessEnabledOverride
-                : config.isCrossRegionAccessEnabled();
-
-        Optional<AwsCredentialsProvider> credentialsProvider = mapping
-                .flatMap(S3SecurityMappingResult::credentialsProvider)
-                .or(() -> staticCredentialsProvider);
-
-        Optional<String> region = mapping.flatMap(S3SecurityMappingResult::region).or(() -> staticRegion);
-        Optional<String> endpoint = mapping.flatMap(S3SecurityMappingResult::endpoint).or(() -> staticEndpoint);
-
-        Optional<String> iamRole = mapping.flatMap(S3SecurityMappingResult::iamRole).or(() -> staticIamRole);
-        String roleSessionName = mapping.flatMap(S3SecurityMappingResult::roleSessionName).orElse(staticRoleSessionName);
-
-        S3ClientBuilder s3 = S3Client.builder();
-        s3.overrideConfiguration(overrideConfiguration);
-        s3.crossRegionAccessEnabled(crossRegionAccessEnabled);
-        s3.httpClient(httpClient);
-        s3.responseChecksumValidation(WHEN_REQUIRED);
-        s3.requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED);
-        s3.addPlugin(LegacyMd5Plugin.create());
-
-        region.map(Region::of).ifPresent(s3::region);
-        endpoint.map(URI::create).ifPresent(s3::endpointOverride);
-        s3.forcePathStyle(pathStyleAccess);
-
-        if (useWebIdentityTokenCredentialsProvider) {
-            s3.credentialsProvider(WebIdentityTokenFileCredentialsProvider.builder()
-                    .asyncCredentialUpdateEnabled(true)
-                    .build());
-        }
-        else if (iamRole.isPresent()) {
-            s3.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
-                    .refreshRequest(request -> request
-                            .roleArn(iamRole.get())
-                            .roleSessionName(roleSessionName)
-                            .externalId(externalId))
-                    .stsClient(createStsClient(config, credentialsProvider))
-                    .asyncCredentialUpdateEnabled(true)
-                    .build());
-        }
-        else {
-            credentialsProvider.ifPresent(s3::credentialsProvider);
-        }
-
-        return s3.build();
+        return clientFactory.create(Optional.of(customMapping));
     }
 
     private static S3ClientFactory s3ClientFactory(SdkHttpClient httpClient, OpenTelemetry openTelemetry, S3FileSystemConfig config, MetricPublisher metricPublisher)

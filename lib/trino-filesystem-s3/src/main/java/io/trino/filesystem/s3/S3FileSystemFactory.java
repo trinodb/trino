@@ -36,9 +36,6 @@ public final class S3FileSystemFactory
     private final S3Context context;
     private final Executor uploadExecutor;
     private final S3Presigner preSigner;
-    private final OpenTelemetry openTelemetry;
-    private final S3FileSystemConfig config;
-    private final S3FileSystemStats stats;
     private final String staticRegion;
     private final String staticEndpoint;
     private final boolean staticCrossRegionAccessEnabled;
@@ -47,9 +44,6 @@ public final class S3FileSystemFactory
     @Inject
     public S3FileSystemFactory(OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
     {
-        this.openTelemetry = openTelemetry;
-        this.config = config;
-        this.stats = stats;
         this.loader = new S3FileSystemLoader(openTelemetry, config, stats);
         this.client = loader.createClient();
         this.preSigner = createS3PreSigner(config, client);
@@ -89,7 +83,7 @@ public final class S3FileSystemFactory
                 (finalEndpoint != null && !finalEndpoint.equals(staticEndpoint)) ||
                 (finalCrossRegionAccessEnabled != null && finalCrossRegionAccessEnabled != staticCrossRegionAccessEnabled)) {
             ClientKey key = new ClientKey(finalRegion, finalEndpoint, finalCrossRegionAccessEnabled);
-            s3Client = dynamicClients.computeIfAbsent(key, _ -> loader.createClientWithOverrides(openTelemetry, config, stats, finalRegion, finalEndpoint, finalCrossRegionAccessEnabled));
+            s3Client = dynamicClients.computeIfAbsent(key, _ -> loader.createClientWithOverrides(finalRegion, finalEndpoint, finalCrossRegionAccessEnabled));
         }
         else {
             s3Client = client;
