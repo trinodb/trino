@@ -33,12 +33,12 @@ import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SEC
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestIcebergVendedCredentialsMapper
+final class TestIcebergVendedCredentialsMapper
 {
     private static final Location DEFAULT_LOCATION = Location.of("s3://test-bucket/path");
 
     @Test
-    public void testNoVendedCredentials()
+    void testNoVendedCredentials()
     {
         IcebergVendedCredentialsMapper mapper = new IcebergVendedCredentialsMapper(new S3FileSystemConfig());
 
@@ -50,7 +50,7 @@ public class TestIcebergVendedCredentialsMapper
     }
 
     @Test
-    public void testVendedCredentialsOnly()
+    void testVendedCredentialsOnly()
     {
         IcebergVendedCredentialsMapper mapper = new IcebergVendedCredentialsMapper(new S3FileSystemConfig());
 
@@ -75,7 +75,7 @@ public class TestIcebergVendedCredentialsMapper
     }
 
     @Test
-    public void testStaticRegionTakesPrecedence()
+    void testStaticRegionTakesPrecedence()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setRegion("us-east-1");
@@ -100,7 +100,7 @@ public class TestIcebergVendedCredentialsMapper
     }
 
     @Test
-    public void testStaticEndpointTakesPrecedence()
+    void testStaticEndpointTakesPrecedence()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setEndpoint("https://s3.amazonaws.com");
@@ -125,7 +125,7 @@ public class TestIcebergVendedCredentialsMapper
     }
 
     @Test
-    public void testStaticCrossRegionAccessTrueAlwaysWins()
+    void testStaticCrossRegionAccessTrueAlwaysWins()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setCrossRegionAccessEnabled(true);
@@ -150,7 +150,7 @@ public class TestIcebergVendedCredentialsMapper
     }
 
     @Test
-    public void testVendedCrossRegionAccessWhenStaticIsFalse()
+    void testVendedCrossRegionAccessWhenStaticIsFalse()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setCrossRegionAccessEnabled(false);
@@ -175,7 +175,7 @@ public class TestIcebergVendedCredentialsMapper
     }
 
     @Test
-    public void testIncompleteCredentialsReturnsEmpty()
+    void testIncompleteCredentialsReturnsEmpty()
     {
         IcebergVendedCredentialsMapper mapper = new IcebergVendedCredentialsMapper(new S3FileSystemConfig());
 
@@ -194,7 +194,7 @@ public class TestIcebergVendedCredentialsMapper
     }
 
     @Test
-    public void testVendedRegionUsedWhenNoStatic()
+    void testVendedRegionUsedWhenNoStatic()
     {
         IcebergVendedCredentialsMapper mapper = new IcebergVendedCredentialsMapper(new S3FileSystemConfig());
 
@@ -216,7 +216,7 @@ public class TestIcebergVendedCredentialsMapper
     }
 
     @Test
-    public void testVendedEndpointUsedWhenNoStatic()
+    void testVendedEndpointUsedWhenNoStatic()
     {
         IcebergVendedCredentialsMapper mapper = new IcebergVendedCredentialsMapper(new S3FileSystemConfig());
 

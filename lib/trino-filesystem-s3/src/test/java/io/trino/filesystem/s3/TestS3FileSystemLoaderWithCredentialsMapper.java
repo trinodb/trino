@@ -21,6 +21,8 @@ import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.services.s3.S3Client;
 
@@ -36,8 +38,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-public class TestS3FileSystemLoaderWithCredentialsMapper
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
+final class TestS3FileSystemLoaderWithCredentialsMapper
 {
     private S3FileSystemLoader loader;
     private S3FileSystemConfig config;
@@ -45,7 +51,7 @@ public class TestS3FileSystemLoaderWithCredentialsMapper
     private TestCredentialsMapper credentialsMapper;
 
     @BeforeEach
-    public void setUp()
+    void setUp()
             throws Exception
     {
         config = new S3FileSystemConfig()
@@ -73,7 +79,7 @@ public class TestS3FileSystemLoaderWithCredentialsMapper
     }
 
     @AfterEach
-    public void tearDown()
+    void tearDown()
     {
         if (loader != null) {
             loader.destroy();
@@ -81,7 +87,7 @@ public class TestS3FileSystemLoaderWithCredentialsMapper
     }
 
     @Test
-    public void testClientCachingForSameCredentials()
+    void testClientCachingForSameCredentials()
             throws Exception
     {
         // Arrange: Same credentials
@@ -120,7 +126,7 @@ public class TestS3FileSystemLoaderWithCredentialsMapper
     }
 
     @Test
-    public void testDifferentClientsForDifferentCredentials()
+    void testDifferentClientsForDifferentCredentials()
             throws Exception
     {
         // Arrange: Different credentials
@@ -169,7 +175,7 @@ public class TestS3FileSystemLoaderWithCredentialsMapper
     }
 
     @Test
-    public void testDifferentClientsForDifferentRegions()
+    void testDifferentClientsForDifferentRegions()
             throws Exception
     {
         // Arrange: Same credentials, different regions
@@ -217,7 +223,7 @@ public class TestS3FileSystemLoaderWithCredentialsMapper
     }
 
     @Test
-    public void testDifferentClientsForDifferentEndpoints()
+    void testDifferentClientsForDifferentEndpoints()
             throws Exception
     {
         // Arrange: Same credentials, different endpoints
@@ -265,7 +271,7 @@ public class TestS3FileSystemLoaderWithCredentialsMapper
     }
 
     @Test
-    public void testDifferentClientsForDifferentCrossRegionAccess()
+    void testDifferentClientsForDifferentCrossRegionAccess()
             throws Exception
     {
         // Arrange: Same credentials, different cross-region settings
@@ -313,7 +319,7 @@ public class TestS3FileSystemLoaderWithCredentialsMapper
     }
 
     @Test
-    public void testEmptyMappingUsesClusterDefaults()
+    void testEmptyMappingUsesClusterDefaults()
             throws Exception
     {
         // Arrange: No credentials mapping
@@ -336,7 +342,7 @@ public class TestS3FileSystemLoaderWithCredentialsMapper
     }
 
     @Test
-    public void testConcurrentClientCreationIsSafe()
+    void testConcurrentClientCreationIsSafe()
             throws Exception
     {
         // Arrange: Multiple threads creating clients with same credentials
@@ -396,7 +402,7 @@ public class TestS3FileSystemLoaderWithCredentialsMapper
     }
 
     @Test
-    public void testClientCacheGrowsBounded()
+    void testClientCacheGrowsBounded()
             throws Exception
     {
         // Arrange: Create clients with many different credential combinations
@@ -429,7 +435,7 @@ public class TestS3FileSystemLoaderWithCredentialsMapper
     }
 
     @Test
-    public void testKmsKeyIdIsAppliedToContext()
+    void testKmsKeyIdIsAppliedToContext()
             throws Exception
     {
         // Arrange: Mapping with KMS key ID
@@ -457,7 +463,7 @@ public class TestS3FileSystemLoaderWithCredentialsMapper
     }
 
     @Test
-    public void testSseCustomerKeyIsAppliedToContext()
+    void testSseCustomerKeyIsAppliedToContext()
             throws Exception
     {
         // Arrange: Mapping with SSE customer key
@@ -485,7 +491,7 @@ public class TestS3FileSystemLoaderWithCredentialsMapper
     }
 
     @Test
-    public void testComplexCredentialCombination()
+    void testComplexCredentialCombination()
             throws Exception
     {
         // Arrange: Mapping with multiple fields populated
