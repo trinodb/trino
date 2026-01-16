@@ -9304,7 +9304,7 @@ public abstract class BaseIcebergConnectorTest
         String filePath = (String) computeScalar("SELECT file_path FROM \"" + tableName + "$files\"");
         Location dataFileLocation = Location.of(filePath);
         assertThat(fileSystem.newInputFile(dataFileLocation).exists()).isTrue();
-        assertThat(filePath).matches("local:///data-location/xyz/.{6}/tpch/%s.*".formatted(tableName));
+        assertThat(filePath).matches("local:///data-location/xyz/[01]{4}/[01]{4}/[01]{4}/[01]{8}/tpch/%s.*".formatted(tableName));
 
         assertUpdate("DROP TABLE " + tableName);
         assertThat(fileSystem.newInputFile(dataFileLocation).exists()).isFalse();
