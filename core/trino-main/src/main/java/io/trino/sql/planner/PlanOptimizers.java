@@ -419,12 +419,18 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         costCalculator,
+                        // pushCastIntoRow before evaluating Row CAST in simplifyOptimizerRules
+                        new PushCastIntoRow().rules()),
+                new IterativeOptimizer(
+                        plannerContext,
+                        ruleStats,
+                        statsCalculator,
+                        costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(columnPruningRules)
                                 .addAll(projectionPushdownRules)
                                 .addAll(simplifyOptimizerRules)
                                 .addAll(new UnwrapRowSubscript(plannerContext).rules())
-                                .addAll(new PushCastIntoRow().rules())
                                 .addAll(ImmutableSet.of(
                                         new ImplementTableFunctionSource(metadata),
                                         new UnwrapSingleColumnRowInApply(),
