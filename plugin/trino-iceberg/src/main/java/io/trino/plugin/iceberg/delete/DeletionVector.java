@@ -239,21 +239,20 @@ public final class DeletionVector
 
         public Builder addAll(DeletionVector deletionVector)
         {
-            for (int i = 0; i < deletionVector.deletedRows.length; i++) {
-                RoaringBitmap deletedRow = deletionVector.deletedRows[i];
-                if (deletedRow != null && !deletedRow.isEmpty()) {
-                    getOrCreateBitmap(i).or(deletedRow);
-                }
-            }
-            return this;
+            return addAll(deletionVector.deletedRows);
         }
 
         public Builder addAll(Builder other)
         {
-            for (int i = 0; i < other.deletedRows.length; i++) {
-                RoaringBitmap bitmap = other.deletedRows[i];
+            return addAll(other.deletedRows);
+        }
+
+        private Builder addAll(RoaringBitmap[] deletedRows)
+        {
+            for (int key = 0; key < deletedRows.length; key++) {
+                RoaringBitmap bitmap = deletedRows[key];
                 if (bitmap != null && !bitmap.isEmpty()) {
-                    getOrCreateBitmap(i).or(bitmap);
+                    getOrCreateBitmap(key).or(bitmap);
                 }
             }
             return this;
