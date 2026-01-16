@@ -253,6 +253,12 @@ public class LocalFileSystem
         return Optional.of(temporary);
     }
 
+    @Override
+    public void close()
+    {
+        // nothing to close
+    }
+
     private Path toFilePath(Location location)
     {
         validateLocalLocation(location);

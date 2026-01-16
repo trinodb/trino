@@ -334,6 +334,13 @@ public class AlluxioFileSystem
         return Optional.of(temporary);
     }
 
+    @Override
+    public void close()
+            throws IOException
+    {
+        alluxioClient.close();
+    }
+
     private void ensureNotRootLocation(Location location)
     {
         String locationPath = location.path();
