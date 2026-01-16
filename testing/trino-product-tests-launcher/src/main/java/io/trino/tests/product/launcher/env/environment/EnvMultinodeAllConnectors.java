@@ -60,6 +60,7 @@ public final class EnvMultinodeAllConnectors
                         "iceberg",
                         "ignite",
                         "kafka",
+                        "lance",
                         "loki",
                         "mariadb",
                         "memory",
