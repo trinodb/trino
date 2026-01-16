@@ -91,7 +91,10 @@ The simplest way to run Trino for development is to run the `TpchQueryRunner`
 class. It will start a development version of the server that is configured with
 the TPCH connector. You can then use the CLI to execute queries against this
 server. Many other connectors have their own `*QueryRunner` class that you can
-use when working on a specific connector.
+use when working on a specific connector. The generally required VM option 
+here is `--add-modules jdk.incubator.vector` but various `*QueryRunner` classes
+might require additional options (if necessary, check the `air.test.jvm.additional-arguments` 
+property in the `pom.xml` file of the module from which the runner comes).
 
 ### Running the full server
 
