@@ -72,17 +72,7 @@ final class S3FileSystemLoader
     private final Map<Optional<S3SecurityMappingResult>, S3Presigner> preSigners = new ConcurrentHashMap<>();
 
     @Inject
-    public S3FileSystemLoader(S3SecurityMappingProvider mappingProvider, OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
-    {
-        this(Optional.of(mappingProvider), openTelemetry, config, stats);
-    }
-
-    S3FileSystemLoader(OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
-    {
-        this(Optional.empty(), openTelemetry, config, stats);
-    }
-
-    private S3FileSystemLoader(Optional<S3CredentialsMapper> mappingProvider, OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
+    public S3FileSystemLoader(Optional<S3CredentialsMapper> mappingProvider, OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
     {
         this.mappingProvider = requireNonNull(mappingProvider, "mappingProvider is null");
         this.httpClient = createHttpClient(config);
@@ -102,6 +92,11 @@ final class S3FileSystemLoader
                 Optional.empty(),
                 config.getStorageClass(),
                 config.getCannedAcl());
+    }
+
+    S3FileSystemLoader(OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
+    {
+        this(Optional.empty(), openTelemetry, config, stats);
     }
 
     @Override
