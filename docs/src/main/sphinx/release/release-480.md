@@ -37,8 +37,7 @@
 * {{breaking}} Remove the `hive.parquet.writer.page-size` configuration property, use
   `parquet.writer.page-size`, instead. ({issue}`27729`)
 * {{breaking}} Remove the `gcs.use-access-token` configuration property. ({issue}`26941`)
-* Improve effectiveness of bloom filters for high cardinality columns written in Parquet files
-  columns. ({issue}`27656`)
+* Improve effectiveness of bloom filters for high cardinality columns written in Parquet files. ({issue}`27656`)
 * Do not require `PutObjectTagging` AWS S3 permission when writing to Delta Lake tables 
   on S3. ({issue}`27701`)
 
@@ -59,8 +58,7 @@
 * {{breaking}} Remove the `hive.parquet.writer.page-size` configuration property, use 
   `parquet.writer.page-size`, instead. ({issue}`27729`)
 * {{breaking}} Remove the deprecated `gcs.use-access-token` config property. ({issue}`26941`)
-* Improve effectiveness of bloom filters written in Parquet files for high cardinality 
-  columns. ({issue}`27656`)
+* Improve effectiveness of bloom filters written in Parquet files for high cardinality. ({issue}`27656`)
 
 ## Hudi connector
 
@@ -72,8 +70,7 @@
 * {{breaking}} Remove the `hive.parquet.writer.page-size` configuration property, use
   `parquet.writer.page-size`, instead. ({issue}`27729`)
 * {{breaking}} Remove the deprecated `gcs.use-access-token` config property. ({issue}`26941`)
-* Improve effectiveness of bloom filters written in Parquet files for high cardinality
-  columns. ({issue}`27656`)
+* Improve effectiveness of bloom filters written in Parquet files for high cardinality. ({issue}`27656`)
 
 ## Iceberg connector
 
@@ -91,8 +88,7 @@
 * {{breaking}} Remove the deprecated `gcs.use-access-token` config property. ({issue}`26941`)
 * {{breaking}} The catalog configuration property `iceberg.extended-statistics.enabled` and the
   corresponding catalog session property `extended_statistics_enabled` are now defunct. ({issue}`27914`)
-* Improve effectiveness of bloom filters for high cardinality columns written in Parquet files
-  columns. ({issue}`27656`)
+* Improve effectiveness of bloom filters for high cardinality columns written in Parquet files. ({issue}`27656`)
 * Optimize Iceberg materialized view freshness checks based on grace period. ({issue}`27608`)
 * Fix failure when reading `$files` metadata table with partition evolution using 
   `truncate` or `bucket` on the same column. ({issue}`26109`)
