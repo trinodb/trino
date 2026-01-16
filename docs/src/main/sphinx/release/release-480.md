@@ -1,4 +1,4 @@
-# Release 480 (updated to 13/01/2026)
+# Release 480 (updated to 15/01/2026)
 
 ## General
 
@@ -8,12 +8,10 @@
 * {{breaking}} Remove `dynamic-filtering.small*` and `dynamic-filtering.large-broadcast*` 
   configuration properties. ({issue}`27637`)
 * Extend experimental performance improvements for remote data exchanges on newer CPU 
-  architectures. ({issue}`27586`)
-* Enable experimental performance improvements for remote data exchanges on Graviton 4 
-  CPUs. ({issue}`27586`)
+  architectures and Graviton 4 CPUs. ({issue}`27586`)
 * Improve performance of queries with data exchanges or aggregations. ({issue}`27657`)
 * Reduce out-of-memory errors in window queries when spill is enabled. ({issue}`27873`)
-* Fix double rounding in {func}`localtimestamp` for sub-micro precision values. ({issue}`27806`)
+* Fix incorrect result in {func}`localtimestamp` for sub-micro precision values. ({issue}`27806`)
 * Fix {func}`localtimestamp` failure for precisions 7-8. ({issue}`27807`)
 
 ## Web UI
@@ -53,7 +51,7 @@
 ## Hive connector
 
 * Add support for reading Parquet files with timestamps stored in nanosecond units as a 
-  `timestamp with time zone` column. ({issue}`27861`)
+  `timestamp(9) with time zone` column. ({issue}`27861`)
 * {{breaking}} Remove `hive.write-validation-threads` configuration property. ({issue}`27729`)
 * {{breaking}} Remove `parquet.optimized-writer.validation-percentage` configuration
   property, use `parquet.writer.validation-percentage`, instead. ({issue}`27729`)
@@ -91,6 +89,8 @@
 * {{breaking}} Remove `hive.parquet.writer.page-size` configuration property, use
   `parquet.writer.page-size`, instead. ({issue}`27729`)
 * {{breaking}} Remove the deprecated `gcs.use-access-token` config property. ({issue}`26941`)
+* {{breaking}} The catalog configuration property `iceberg.extended-statistics.enabled` and the
+  corresponding catalog session property `extended_statistics_enabled` are now defunct. ({issue}`27914`)
 * Optimize Iceberg materialized view freshness checks based on grace period. ({issue}`27608`)
 * Fix failure when reading `$files` metadata table with partition evolution using 
   `truncate` or `bucket` on the same column. ({issue}`26109`)
