@@ -14,16 +14,26 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.base.VerifyException;
+import com.google.common.math.LongMath;
+import io.airlift.slice.Slice;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.expressions.Expressions;
 
+import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,11 +42,30 @@ import java.util.Queue;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
-import static io.trino.plugin.iceberg.IcebergTypes.convertTrinoValueToIceberg;
+import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TimeType.TIME_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.math.RoundingMode.UNNECESSARY;
+import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.expressions.Expressions.alwaysFalse;
 import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
 import static org.apache.iceberg.expressions.Expressions.equal;
@@ -50,6 +79,10 @@ import static org.apache.iceberg.expressions.Expressions.not;
 
 public final class ExpressionConverter
 {
+    // Nano timestamp range: Long.MIN_VALUE/MAX_VALUE nanos converted to micros
+    private static final long MIN_NANO_EPOCH_MICROS = Long.MIN_VALUE / NANOSECONDS_PER_MICROSECOND;
+    private static final long MAX_NANO_EPOCH_MICROS = Long.MAX_VALUE / NANOSECONDS_PER_MICROSECOND;
+
     private ExpressionConverter() {}
 
     public static boolean isConvertibleToIcebergExpression(Domain domain)
@@ -111,7 +144,10 @@ public final class ExpressionConverter
             List<Expression> rangeExpressions = new ArrayList<>();
             for (Range range : orderedRanges) {
                 if (range.isSingleValue()) {
-                    icebergValues.add(convertTrinoValueToIceberg(type, range.getLowBoundedValue()));
+                    // skip out-of-range values (they are implicitly false)
+                    if (range(type, range.getSingleValue()) == ValueInRange.IN_RANGE) {
+                        icebergValues.add(convertTrinoValueToIceberg(type, range.getSingleValue()));
+                    }
                 }
                 else {
                     rangeExpressions.add(toIcebergExpression(columnName, range));
@@ -131,33 +167,43 @@ public final class ExpressionConverter
         Type type = range.getType();
 
         if (range.isSingleValue()) {
-            Object icebergValue = convertTrinoValueToIceberg(type, range.getSingleValue());
-            return equal(columnName, icebergValue);
+            return switch (range(type, range.getSingleValue())) {
+                case BELOW_RANGE, ABOVE_RANGE -> alwaysFalse();
+                case IN_RANGE -> equal(columnName, convertTrinoValueToIceberg(type, range.getSingleValue()));
+            };
         }
 
         List<Expression> conjuncts = new ArrayList<>(2);
         if (!range.isLowUnbounded()) {
-            Object icebergLow = convertTrinoValueToIceberg(type, range.getLowBoundedValue());
-            Expression lowBound;
-            if (range.isLowInclusive()) {
-                lowBound = greaterThanOrEqual(columnName, icebergLow);
-            }
-            else {
-                lowBound = greaterThan(columnName, icebergLow);
-            }
-            conjuncts.add(lowBound);
+            conjuncts.add(switch (range(type, range.getLowBoundedValue())) {
+                case ABOVE_RANGE -> alwaysFalse();
+                case BELOW_RANGE -> alwaysTrue();
+                case IN_RANGE -> {
+                    Object icebergLow = convertTrinoValueToIceberg(type, range.getLowBoundedValue());
+                    if (range.isLowInclusive()) {
+                        yield greaterThanOrEqual(columnName, icebergLow);
+                    }
+                    else {
+                        yield greaterThan(columnName, icebergLow);
+                    }
+                }
+            });
         }
 
         if (!range.isHighUnbounded()) {
-            Object icebergHigh = convertTrinoValueToIceberg(type, range.getHighBoundedValue());
-            Expression highBound;
-            if (range.isHighInclusive()) {
-                highBound = lessThanOrEqual(columnName, icebergHigh);
-            }
-            else {
-                highBound = lessThan(columnName, icebergHigh);
-            }
-            conjuncts.add(highBound);
+            conjuncts.add(switch (range(type, range.getHighBoundedValue())) {
+                case ABOVE_RANGE -> alwaysTrue();
+                case BELOW_RANGE -> alwaysFalse();
+                case IN_RANGE -> {
+                    Object icebergHigh = convertTrinoValueToIceberg(type, range.getHighBoundedValue());
+                    if (range.isHighInclusive()) {
+                        yield lessThanOrEqual(columnName, icebergHigh);
+                    }
+                    else {
+                        yield lessThan(columnName, icebergHigh);
+                    }
+                }
+            });
         }
 
         return and(conjuncts);
@@ -233,5 +279,122 @@ public final class ExpressionConverter
         }
 
         return queue.remove();
+    }
+
+    private enum ValueInRange
+    {
+        BELOW_RANGE,
+        IN_RANGE,
+        ABOVE_RANGE
+    }
+
+    private static ValueInRange range(Type type, Object value)
+    {
+        long epochMicros;
+        if (type.equals(TIMESTAMP_NANOS)) {
+            LongTimestamp timestamp = (LongTimestamp) value;
+            epochMicros = timestamp.getEpochMicros();
+        }
+        else if (type.equals(TIMESTAMP_TZ_NANOS)) {
+            // TIMESTAMP_TZ_NANOS
+            LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value;
+            epochMicros = timestamp.getEpochMillis() * 1000 + timestamp.getPicosOfMilli() / 1_000_000;
+        }
+        else {
+            // all other types are in range
+            return ValueInRange.IN_RANGE;
+        }
+
+        if (epochMicros < MIN_NANO_EPOCH_MICROS) {
+            return ValueInRange.BELOW_RANGE;
+        }
+        else if (epochMicros > MAX_NANO_EPOCH_MICROS) {
+            return ValueInRange.ABOVE_RANGE;
+        }
+        else {
+            return ValueInRange.IN_RANGE;
+        }
+    }
+
+    /**
+     * Convert value from Trino representation to Iceberg representation for use in expressions.
+     * For nano timestamps, the value must be verified to be in range before calling this method.
+     */
+    private static Object convertTrinoValueToIceberg(Type type, Object trinoNativeValue)
+    {
+        requireNonNull(trinoNativeValue, "trinoNativeValue is null");
+        // this method should not be used for values outside supported range
+        verify(range(type, trinoNativeValue) == ValueInRange.IN_RANGE);
+
+        if (type == BOOLEAN) {
+            //noinspection RedundantCast
+            return (boolean) trinoNativeValue;
+        }
+
+        if (type == INTEGER) {
+            return toIntExact((long) trinoNativeValue);
+        }
+
+        if (type == BIGINT) {
+            //noinspection RedundantCast
+            return (long) trinoNativeValue;
+        }
+
+        if (type == REAL) {
+            return intBitsToFloat(toIntExact((long) trinoNativeValue));
+        }
+
+        if (type == DOUBLE) {
+            //noinspection RedundantCast
+            return (double) trinoNativeValue;
+        }
+
+        if (type instanceof DecimalType decimalType) {
+            if (decimalType.isShort()) {
+                return BigDecimal.valueOf((long) trinoNativeValue).movePointLeft(decimalType.getScale());
+            }
+            return new BigDecimal(((Int128) trinoNativeValue).toBigInteger(), decimalType.getScale());
+        }
+
+        if (type == DATE) {
+            return toIntExact((long) trinoNativeValue);
+        }
+
+        if (type.equals(TIME_MICROS)) {
+            return LongMath.divide((long) trinoNativeValue, PICOSECONDS_PER_MICROSECOND, UNNECESSARY);
+        }
+
+        if (type.equals(TIMESTAMP_MICROS)) {
+            //noinspection RedundantCast
+            return (long) trinoNativeValue;
+        }
+
+        if (type.equals(TIMESTAMP_TZ_MICROS)) {
+            return timestampTzToMicros((LongTimestampWithTimeZone) trinoNativeValue);
+        }
+
+        // The value has been verified to be in range
+        if (type.equals(TIMESTAMP_NANOS)) {
+            LongTimestamp timestamp = (LongTimestamp) trinoNativeValue;
+            return Expressions.nanos(timestamp.getEpochMicros() * NANOSECONDS_PER_MICROSECOND + timestamp.getPicosOfMicro() / 1_000);
+        }
+        if (type.equals(TIMESTAMP_TZ_NANOS)) {
+            LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) trinoNativeValue;
+            return Expressions.nanos(timestamp.getEpochMillis() * 1_000_000 + timestamp.getPicosOfMilli() / 1_000);
+        }
+
+        if (type instanceof VarcharType) {
+            return ((Slice) trinoNativeValue).toStringUtf8();
+        }
+
+        if (type instanceof VarbinaryType) {
+            return ByteBuffer.wrap(((Slice) trinoNativeValue).getBytes());
+        }
+
+        if (type == UUID) {
+            return trinoUuidToJavaUuid(((Slice) trinoNativeValue));
+        }
+
+        throw new UnsupportedOperationException("Unsupported type: " + type);
     }
 }

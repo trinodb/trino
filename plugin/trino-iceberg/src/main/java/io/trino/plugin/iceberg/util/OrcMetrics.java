@@ -68,6 +68,7 @@ import static io.trino.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.trino.plugin.iceberg.util.OrcIcebergIds.fileColumnsByIcebergId;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static java.lang.Math.toIntExact;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.function.Function.identity;
@@ -299,7 +300,12 @@ public final class OrcMetrics
                 return Optional.empty();
             }
             // Since ORC timestamp statistics are truncated to millisecond precision, this can cause some column values to fall outside the stats range.
-            // We are appending 999 microseconds to account for the fact that Trino ORC writer truncates timestamps.
+            // We are appending the max sub-millisecond value to account for the fact that ORC writer truncates timestamps.
+            if (icebergType.typeId() == TypeID.TIMESTAMP_NANO) {
+                // For nano timestamps, Iceberg stores nanoseconds, and we need to add 999,999 nanoseconds to max
+                return Optional.of(new IcebergMinMax(icebergType, min * NANOSECONDS_PER_MILLISECOND, (max * NANOSECONDS_PER_MILLISECOND) + (NANOSECONDS_PER_MILLISECOND - 1), metricsModes));
+            }
+            // For microsecond timestamps, Iceberg stores microseconds, and we need to add 999 microseconds to max
             return Optional.of(new IcebergMinMax(icebergType, min * MICROSECONDS_PER_MILLISECOND, (max * MICROSECONDS_PER_MILLISECOND) + (MICROSECONDS_PER_MILLISECOND - 1), metricsModes));
         }
         return Optional.empty();

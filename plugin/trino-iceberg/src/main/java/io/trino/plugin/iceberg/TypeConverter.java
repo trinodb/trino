@@ -51,7 +51,9 @@ import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.UuidType.UUID;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -86,8 +88,7 @@ public final class TypeConverter
             case TIMESTAMP:
                 return ((Types.TimestampType) type).shouldAdjustToUTC() ? TIMESTAMP_TZ_MICROS : TIMESTAMP_MICROS;
             case TIMESTAMP_NANO:
-                // TODO https://github.com/trinodb/trino/issues/19753 Support Iceberg timestamp types with nanosecond precision
-                break;
+                return ((Types.TimestampNanoType) type).shouldAdjustToUTC() ? TIMESTAMP_TZ_NANOS : TIMESTAMP_NANOS;
             case STRING:
                 return VarcharType.createUnboundedVarcharType();
             case UUID:
@@ -164,6 +165,12 @@ public final class TypeConverter
         if (type.equals(TIMESTAMP_TZ_MICROS)) {
             return Types.TimestampType.withZone();
         }
+        if (type.equals(TIMESTAMP_NANOS)) {
+            return Types.TimestampNanoType.withoutZone();
+        }
+        if (type.equals(TIMESTAMP_TZ_NANOS)) {
+            return Types.TimestampNanoType.withZone();
+        }
         if (type.equals(UUID)) {
             return Types.UUIDType.get();
         }
@@ -180,10 +187,10 @@ public final class TypeConverter
             throw new TrinoException(NOT_SUPPORTED, format("Time precision (%s) not supported for Iceberg. Use \"time(6)\" instead.", timeType.getPrecision()));
         }
         if (type instanceof TimestampType timestampType) {
-            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6)\" instead.", timestampType.getPrecision()));
+            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6)\" or \"timestamp(9)\" instead.", timestampType.getPrecision()));
         }
         if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
-            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6) with time zone\" instead.", timestampWithTimeZoneType.getPrecision()));
+            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6) with time zone\" or \"timestamp(9) with time zone\" instead.", timestampWithTimeZoneType.getPrecision()));
         }
         throw new TrinoException(NOT_SUPPORTED, "Type not supported for Iceberg: " + type.getDisplayName());
     }
