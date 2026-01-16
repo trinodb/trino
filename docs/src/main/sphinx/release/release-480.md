@@ -3,8 +3,7 @@
 ## General
 
 * {{breaking}} Remove `enable-large-dynamic-filters` configuration property and the 
-  corresponding system session property `enable_large_dynamic_filters`. Large dynamic
-  filters are used by default. ({issue}`27637`)
+  corresponding system session property `enable_large_dynamic_filters`. ({issue}`27637`)
 * {{breaking}} Remove the `dynamic-filtering.small*` and `dynamic-filtering.large-broadcast*` 
   configuration properties. ({issue}`27637`)
 * Improve performance for remote data exchanges on newer CPU architectures and Graviton
@@ -73,7 +72,8 @@
 * {{breaking}} Remove the `hive.parquet.writer.page-size` configuration property, use
   `parquet.writer.page-size`, instead. ({issue}`27729`)
 * {{breaking}} Remove the deprecated `gcs.use-access-token` config property. ({issue}`26941`)
-* Improve effectiveness of bloom filters written in Parquet files for high cardinality columns. ({issue}`27656`)
+* Improve effectiveness of bloom filters written in Parquet files for high cardinality
+  columns. ({issue}`27656`)
 
 ## Iceberg connector
 
@@ -91,6 +91,8 @@
 * {{breaking}} Remove the deprecated `gcs.use-access-token` config property. ({issue}`26941`)
 * {{breaking}} The catalog configuration property `iceberg.extended-statistics.enabled` and the
   corresponding catalog session property `extended_statistics_enabled` are now defunct. ({issue}`27914`)
+* Improve effectiveness of bloom filters for high cardinality columns written in Parquet files
+  columns. ({issue}`27656`)
 * Optimize Iceberg materialized view freshness checks based on grace period. ({issue}`27608`)
 * Fix failure when reading `$files` metadata table with partition evolution using 
   `truncate` or `bucket` on the same column. ({issue}`26109`)
