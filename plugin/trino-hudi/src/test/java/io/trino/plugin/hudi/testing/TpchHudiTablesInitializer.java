@@ -334,24 +334,22 @@ public class TpchHudiTablesInitializer
 
         static TpchColumnTypeAdapter of(TpchColumnType columnType)
         {
-            if (columnType == TpchColumnTypes.INTEGER) {
+            if (columnType.equals(TpchColumnTypes.INTEGER)) {
                 return INTEGER;
             }
-            else if (columnType == TpchColumnTypes.IDENTIFIER) {
+            if (columnType.equals(TpchColumnTypes.IDENTIFIER)) {
                 return IDENTIFIER;
             }
-            else if (columnType == TpchColumnTypes.DATE) {
+            if (columnType.equals(TpchColumnTypes.DATE)) {
                 return DATE;
             }
-            else if (columnType == TpchColumnTypes.DOUBLE) {
+            if (columnType.equals(TpchColumnTypes.DOUBLE)) {
                 return DOUBLE;
             }
-            else {
-                if (columnType.getBase() != TpchColumnType.Base.VARCHAR || columnType.getPrecision().isEmpty()) {
-                    throw new IllegalArgumentException("Illegal column type: " + columnType);
-                }
-                return VARCHAR;
+            if (columnType.getBase() != TpchColumnType.Base.VARCHAR || columnType.getPrecision().isEmpty()) {
+                throw new IllegalArgumentException("Illegal column type: " + columnType);
             }
+            return VARCHAR;
         }
 
         static HiveType toHiveType(TpchColumnType columnType)
