@@ -13,13 +13,11 @@
  */
 package io.trino.sql.tree;
 
-import java.util.Optional;
-
-public abstract sealed class DataType
-        extends Expression
-        permits DateTimeDataType, GenericDataType, IntervalDataType, RowDataType
+public abstract sealed class IntervalQualifier
+        extends Node
+        permits SimpleIntervalQualifier, CompositeIntervalQualifier
 {
-    protected DataType(Optional<NodeLocation> location)
+    public IntervalQualifier(NodeLocation location)
     {
         super(location);
     }

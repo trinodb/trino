@@ -312,6 +312,21 @@ public abstract class AstVisitor<R, C>
         return visitLiteral(node, context);
     }
 
+    protected R visitIntervalQualifier(IntervalQualifier node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitSimpleIntervalQualifier(SimpleIntervalQualifier node, C context)
+    {
+        return visitIntervalQualifier(node, context);
+    }
+
+    protected R visitCompositeIntervalQualifier(CompositeIntervalQualifier node, C context)
+    {
+        return visitIntervalQualifier(node, context);
+    }
+
     protected R visitInPredicate(InPredicate node, C context)
     {
         return visitExpression(node, context);
@@ -987,7 +1002,7 @@ public abstract class AstVisitor<R, C>
         return visitDataTypeParameter(node, context);
     }
 
-    protected R visitIntervalDataType(IntervalDayTimeDataType node, C context)
+    protected R visitIntervalDataType(IntervalDataType node, C context)
     {
         return visitDataType(node, context);
     }

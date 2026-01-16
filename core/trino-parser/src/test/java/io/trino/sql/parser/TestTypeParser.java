@@ -13,7 +13,12 @@
  */
 package io.trino.sql.parser;
 
+import io.trino.sql.tree.CompositeIntervalQualifier;
+import io.trino.sql.tree.IntervalField;
+import io.trino.sql.tree.SimpleIntervalQualifier;
 import org.junit.jupiter.api.Test;
+
+import java.util.OptionalInt;
 
 import static io.trino.sql.parser.ParserAssert.type;
 import static io.trino.sql.parser.TreeNodes.dateTimeType;
@@ -27,10 +32,6 @@ import static io.trino.sql.parser.TreeNodes.rowType;
 import static io.trino.sql.parser.TreeNodes.simpleType;
 import static io.trino.sql.tree.DateTimeDataType.Type.TIME;
 import static io.trino.sql.tree.DateTimeDataType.Type.TIMESTAMP;
-import static io.trino.sql.tree.IntervalDayTimeDataType.Field.DAY;
-import static io.trino.sql.tree.IntervalDayTimeDataType.Field.MONTH;
-import static io.trino.sql.tree.IntervalDayTimeDataType.Field.SECOND;
-import static io.trino.sql.tree.IntervalDayTimeDataType.Field.YEAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTypeParser
@@ -161,14 +162,11 @@ public class TestTypeParser
     @Test
     public void testIntervalTypes()
     {
-        assertThat(type("INTERVAL YEAR TO DAY"))
-                .isEqualTo(intervalType(location(1, 1), YEAR, DAY));
-
         assertThat(type("INTERVAL YEAR TO MONTH"))
-                .isEqualTo(intervalType(location(1, 1), YEAR, MONTH));
+                .isEqualTo(intervalType(location(1, 1), new CompositeIntervalQualifier(location(1, 10), OptionalInt.empty(), new IntervalField.Year(), new IntervalField.Month())));
 
         assertThat(type("INTERVAL SECOND"))
-                .isEqualTo(intervalType(location(1, 1), SECOND, SECOND));
+                .isEqualTo(intervalType(location(1, 1), new SimpleIntervalQualifier(location(1, 10), OptionalInt.empty(), new IntervalField.Second(OptionalInt.empty()))));
     }
 
     @Test
