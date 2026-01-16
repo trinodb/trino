@@ -174,6 +174,24 @@ public abstract class AbstractAiClient
         return completion(translateModel, prompt);
     }
 
+    @Override
+    public String prompt(String prompt, String model, double temperature)
+    {
+        try {
+            String key = model + "\0" + prompt + "\0" + temperature;
+            return completionCache.get(key, () -> generateCompletion(model, prompt, temperature));
+        }
+        catch (ExecutionException e) {
+            throw new UncheckedExecutionException(e);
+        }
+        catch (UncheckedExecutionException e) {
+            if (e.getCause() instanceof TrinoException ex) {
+                throw ex;
+            }
+            throw e;
+        }
+    }
+
     private String completion(String model, String prompt)
     {
         try {
@@ -192,4 +210,6 @@ public abstract class AbstractAiClient
     }
 
     protected abstract String generateCompletion(String model, String prompt);
+
+    protected abstract String generateCompletion(String model, String prompt, double temperature);
 }

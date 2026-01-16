@@ -31,4 +31,6 @@ public interface AiClient
     String mask(String text, List<String> labels);
 
     String translate(String text, String language);
+
+    String prompt(String prompt, String model, double temperature);
 }
