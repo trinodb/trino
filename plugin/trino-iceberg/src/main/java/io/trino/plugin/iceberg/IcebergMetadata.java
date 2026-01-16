@@ -34,6 +34,7 @@ import io.airlift.units.Duration;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.Locations;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
@@ -49,6 +50,7 @@ import io.trino.plugin.hive.HiveWrittenPartitions;
 import io.trino.plugin.iceberg.aggregation.DataSketchStateSerializer;
 import io.trino.plugin.iceberg.aggregation.IcebergThetaSketchForStats;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.catalog.rest.TrinoRestCatalog;
 import io.trino.plugin.iceberg.functions.IcebergFunctionProvider;
 import io.trino.plugin.iceberg.procedure.IcebergAddFilesFromTableHandle;
 import io.trino.plugin.iceberg.procedure.IcebergAddFilesHandle;
@@ -251,7 +253,6 @@ import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.collect.Sets.difference;
-import static io.trino.filesystem.Locations.isS3Tables;
 import static io.trino.plugin.base.filter.UtcConstraintExtractor.extractTupleDomain;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
@@ -1361,13 +1362,13 @@ public class IcebergMetadata
 
         if (tableLocation == null) {
             tableLocation = getTableLocation(tableMetadata.getProperties())
-                    .orElseGet(() -> catalog.defaultTableLocation(session, tableMetadata.getTable()));
+                    .orElseGet(() -> catalog.defaultTableLocation(session, tableMetadata.getTable()).orElse(null));
         }
         transaction = newCreateTableTransaction(catalog, tableMetadata, session, replace, tableLocation, allowedExtraProperties);
         Location location = Location.of(transaction.table().location());
         try {
             // S3 Tables internally assigns a unique location for each table
-            if (!isS3Tables(location.toString())) {
+            if (!Locations.isS3Tables(location.toString())) {
                 TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), transaction.table().io().properties());
                 if (!replace && fileSystem.listFiles(location).hasNext()) {
                     throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
@@ -1585,10 +1586,7 @@ public class IcebergMetadata
         appendFiles.scanManifestsWith(icebergScanExecutor);
         commitUpdate(appendFiles, session, "insert");
 
-        if (isS3Tables(icebergTable.location())) {
-            log.debug("S3 Tables do not support statistics: %s", table.name());
-        }
-        else if (!computedStatistics.isEmpty()) {
+        if (!computedStatistics.isEmpty()) {
             long newSnapshotId = icebergTable.currentSnapshot().snapshotId();
 
             CollectedStatistics collectedStatistics = processComputedTableStatistics(icebergTable, computedStatistics);
@@ -3006,6 +3004,11 @@ public class IcebergMetadata
             return TableStatisticsMetadata.empty();
         }
 
+        if (isS3Tables()) {
+            // S3 Tables throw "Malformed request: Cannot parse missing field: statistics" error when we try to commit extended statistics
+            return TableStatisticsMetadata.empty();
+        }
+
         if (tableReplace) {
             return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), availableColumnNames -> {});
         }
@@ -3048,6 +3051,10 @@ public class IcebergMetadata
     public ConnectorAnalyzeMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> analyzeProperties)
     {
         IcebergTableHandle handle = checkValidTableHandle(tableHandle);
+
+        if (isS3Tables()) {
+            throw new TrinoException(NOT_SUPPORTED, "S3 Tables do not support analyze");
+        }
 
         checkArgument(handle.getTableType() == DATA, "Cannot analyze non-DATA table: %s", handle.getTableType());
 
@@ -3114,9 +3121,6 @@ public class IcebergMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
-        if (isS3Tables(icebergTable.location())) {
-            throw new TrinoException(NOT_SUPPORTED, "S3 Tables do not support analyze");
-        }
         beginTransaction(icebergTable);
         return handle;
     }
@@ -4204,6 +4208,11 @@ public class IcebergMetadata
     public WriterScalingOptions getInsertWriterScalingOptions(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return WriterScalingOptions.ENABLED;
+    }
+
+    private boolean isS3Tables()
+    {
+        return catalog instanceof TrinoRestCatalog restCatalog && restCatalog.isS3Tables();
     }
 
     public Optional<Long> getIncrementalRefreshFromSnapshot()

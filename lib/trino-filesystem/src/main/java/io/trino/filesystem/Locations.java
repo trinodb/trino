@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 
 public final class Locations
 {
-    private static final Pattern S3_TABLES = Pattern.compile("s3://(?!.*/).*--table-s3");
+    private static final Pattern S3_TABLES = Pattern.compile("s3://[^/]*--table-s3(?:/.*)?");
 
     private Locations() {}
 

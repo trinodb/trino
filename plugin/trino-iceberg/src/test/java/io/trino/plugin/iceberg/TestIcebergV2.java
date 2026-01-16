@@ -1459,7 +1459,7 @@ public class TestIcebergV2
                         new Schema(column),
                         PartitionSpec.unpartitioned(),
                         SortOrder.unsorted(),
-                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        catalog.defaultTableLocation(SESSION, schemaTableName),
                         ImmutableMap.of())
                 .commitTransaction();
 
@@ -1563,7 +1563,7 @@ public class TestIcebergV2
                         new Schema(Types.NestedField.optional(1, "x", Types.LongType.get())),
                         PartitionSpec.unpartitioned(),
                         SortOrder.unsorted(),
-                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        catalog.defaultTableLocation(SESSION, schemaTableName),
                         ImmutableMap.of())
                 .commitTransaction();
 
