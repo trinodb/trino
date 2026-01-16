@@ -43,9 +43,17 @@ public class WeaviateConnectorFactory
         requireNonNull(config, "config is null");
         checkStrictSpiVersionMatch(context, this);
 
-        Bootstrap app = new Bootstrap("io.trino.bootstrap.catalog." + catalogName, new JsonModule(), new TypeDeserializerModule(), new ConnectorContextModule(catalogName, context), new WeaviateModule());
+        Bootstrap app = new Bootstrap(
+                "io.trino.bootstrap.catalog." + catalogName,
+                new JsonModule(),
+                new TypeDeserializerModule(),
+                new ConnectorContextModule(catalogName, context),
+                new WeaviateModule());
 
-        Injector injector = app.doNotInitializeLogging().setRequiredConfigurationProperties(config).initialize();
+        Injector injector = app
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
 
         return injector.getInstance(WeaviateConnector.class);
     }

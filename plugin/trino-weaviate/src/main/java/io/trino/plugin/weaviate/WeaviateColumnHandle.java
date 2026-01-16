@@ -163,23 +163,23 @@ public record WeaviateColumnHandle(String name, Type trinoType)
         return switch (type) {
             case VarcharType _, BooleanType _, DoubleType _, IntegerType _ -> raw;
             case TimestampWithTimeZoneType _ -> ((OffsetDateTime) raw).toInstant().toEpochMilli();
-            default -> encodeObject(null, raw, type);
+            default -> decodeObject(null, raw, type);
         };
     }
 
-    private static Object encodeObject(BlockBuilder blockBuilder, Object raw, Type type)
+    static Object decodeObject(BlockBuilder blockBuilder, Object raw, Type type)
     {
         return switch (type) {
-            case ArrayType arrayType -> encodeArray(blockBuilder, raw, arrayType);
-            case RowType rowType -> encodeRow(blockBuilder, raw, rowType);
+            case ArrayType arrayType -> decodeArray(blockBuilder, raw, arrayType);
+            case RowType rowType -> decodeRow(blockBuilder, raw, rowType);
             default -> {
-                encodePrimitive(blockBuilder, type, raw);
+                decodePrimitive(blockBuilder, type, raw);
                 yield null;
             }
         };
     }
 
-    private static void encodePrimitive(BlockBuilder blockBuilder, Type type, Object raw)
+    private static void decodePrimitive(BlockBuilder blockBuilder, Type type, Object raw)
     {
         if (raw == null) {
             requireNonNull(blockBuilder, "blockBuilder is null");
@@ -196,7 +196,7 @@ public record WeaviateColumnHandle(String name, Type trinoType)
         }
     }
 
-    private static Block encodeArray(BlockBuilder parentBlockBuilder, Object raw, ArrayType arrayType)
+    private static Block decodeArray(BlockBuilder parentBlockBuilder, Object raw, ArrayType arrayType)
     {
         if (raw == null) {
             requireNonNull(parentBlockBuilder, "parentBlockBuilder is null");
@@ -209,7 +209,7 @@ public record WeaviateColumnHandle(String name, Type trinoType)
 
         BlockBuilder blockBuilder = elementType.createBlockBuilder(null, list.size());
         for (Object element : list) {
-            encodeObject(blockBuilder, element, elementType);
+            decodeObject(blockBuilder, element, elementType);
         }
 
         Block block = blockBuilder.build();
@@ -220,7 +220,7 @@ public record WeaviateColumnHandle(String name, Type trinoType)
         return block;
     }
 
-    private static SqlRow encodeRow(BlockBuilder blockBuilder, Object raw, RowType rowType)
+    private static SqlRow decodeRow(BlockBuilder blockBuilder, Object raw, RowType rowType)
     {
         if (raw == null) {
             requireNonNull(blockBuilder, "blockBuilder is null");
@@ -255,7 +255,7 @@ public record WeaviateColumnHandle(String name, Type trinoType)
             RowType.Field field = fields.get(i);
             String fieldName = field.getName()
                     .orElseThrow(() -> WeaviateErrorCode.typeNotSupported("unnamed ROW values"));
-            encodeObject(fieldBuilders.get(i), row.get(fieldName), field.getType());
+            decodeObject(fieldBuilders.get(i), row.get(fieldName), field.getType());
         }
     }
 

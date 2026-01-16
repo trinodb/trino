@@ -13,9 +13,7 @@
  */
 package io.trino.plugin.weaviate;
 
-import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -24,26 +22,17 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 
-import java.util.List;
-
-import static java.util.Objects.requireNonNull;
-
 public class WeaviateSplitManager
         implements ConnectorSplitManager
 {
-    private final WeaviateService weaviateService;
-
-    @Inject
-    public WeaviateSplitManager(WeaviateService weaviateService)
-    {
-        this.weaviateService = requireNonNull(weaviateService, "weaviateClient is null");
-    }
-
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle connectorTableHandle, DynamicFilter dynamicFilter, Constraint constraint)
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableHandle connectorTableHandle,
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
-        WeaviateTable table = weaviateService.getTable((WeaviateTableHandle) connectorTableHandle);
-        List<ConnectorSplit> splits = List.of(new WeaviateSplit(table.values()));
-        return new FixedSplitSource(splits);
+        return new FixedSplitSource(WeaviateSplit.INSTANCE);
     }
 }

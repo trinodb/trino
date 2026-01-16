@@ -13,19 +13,10 @@
  */
 package io.trino.plugin.weaviate;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ConnectorSplit;
 
-import java.util.List;
-import java.util.Map;
-
-import static java.util.Objects.requireNonNull;
-
-public record WeaviateSplit(List<Map<String, Object>> values)
+public enum WeaviateSplit
         implements ConnectorSplit
 {
-    public WeaviateSplit
-    {
-        values = ImmutableList.copyOf(requireNonNull(values, "values is null"));
-    }
+    INSTANCE;
 }

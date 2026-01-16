@@ -49,7 +49,7 @@ public class WeaviateMetadata
     @Inject
     public WeaviateMetadata(WeaviateService weaviateService)
     {
-        this.weaviateService = requireNonNull(weaviateService, "client is null");
+        this.weaviateService = requireNonNull(weaviateService, "weaviateService is null");
     }
 
     @Override
@@ -60,7 +60,11 @@ public class WeaviateMetadata
 
     @Nullable
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName name, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+    public ConnectorTableHandle getTableHandle(
+            ConnectorSession session,
+            SchemaTableName name,
+            Optional<ConnectorTableVersion> startVersion,
+            Optional<ConnectorTableVersion> endVersion)
     {
         requireNonNull(name, "name is null");
 
@@ -77,14 +81,17 @@ public class WeaviateMetadata
     }
 
     @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
     {
-        return ((WeaviateTableHandle) table).tableMetadata();
+        requireNonNull(connectorTableHandle, "connectorTableHandle is null");
+        return ((WeaviateTableHandle) connectorTableHandle).tableMetadata();
     }
 
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
+        requireNonNull(schemaName, "schemaName is null");
+
         ImmutableList.Builder<SchemaTableName> tables = ImmutableList.builder();
 
         String schema = schemaName.orElse(null);
@@ -95,8 +102,13 @@ public class WeaviateMetadata
     }
 
     @Override
-    public Iterator<RelationColumnsMetadata> streamRelationColumns(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+    public Iterator<RelationColumnsMetadata> streamRelationColumns(
+            ConnectorSession session,
+            Optional<String> schemaName,
+            UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
+        requireNonNull(schemaName, "schemaName is null");
+
         Map<SchemaTableName, RelationColumnsMetadata> relationColumns = new HashMap<>();
 
         listTables(session, schemaName).forEach(name -> {
@@ -108,28 +120,32 @@ public class WeaviateMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle table)
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
     {
-        WeaviateTableHandle tableHandle = (WeaviateTableHandle) table;
-        return tableHandle.columns().stream().collect(toImmutableMap(WeaviateColumnHandle::name, Function.identity()));
+        requireNonNull(connectorTableHandle, "connectorTableHandle is null");
+        WeaviateTableHandle table = (WeaviateTableHandle) connectorTableHandle;
+        return table.columns().stream().collect(toImmutableMap(WeaviateColumnHandle::name, Function.identity()));
     }
 
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
+        requireNonNull(columnHandle, "columnHandle is null");
         return ((WeaviateColumnHandle) columnHandle).columnMetadata();
     }
 
     @Override
-    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle connectorTableHandle, long limit)
     {
-        WeaviateTableHandle handle = (WeaviateTableHandle) table;
+        requireNonNull(connectorTableHandle, "connectorTableHandle is null");
 
-        if (handle.limit().isPresent() && handle.limit().getAsLong() <= limit) {
+        WeaviateTableHandle table = (WeaviateTableHandle) connectorTableHandle;
+
+        if (table.limit().isPresent() && table.limit().getAsLong() <= limit) {
             return Optional.empty();
         }
 
-        handle = handle.withLimit(limit);
-        return Optional.of(new LimitApplicationResult<>(handle, false, false));
+        table = table.withLimit(limit);
+        return Optional.of(new LimitApplicationResult<>(table, false, false));
     }
 }

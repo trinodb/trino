@@ -27,17 +27,16 @@ import io.weaviate.client6.v1.api.collections.CollectionConfig;
 import io.weaviate.client6.v1.api.collections.CollectionHandle;
 import io.weaviate.client6.v1.api.collections.WeaviateObject;
 import io.weaviate.client6.v1.api.collections.query.ConsistencyLevel;
-import io.weaviate.client6.v1.api.collections.query.FetchObjects;
-import io.weaviate.client6.v1.api.collections.query.Metadata;
-import io.weaviate.client6.v1.api.collections.query.QueryResponse;
 import io.weaviate.client6.v1.api.collections.tenants.Tenant;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static io.trino.plugin.weaviate.WeaviateColumnHandle.CREATED_AT;
 import static io.trino.plugin.weaviate.WeaviateColumnHandle.LAST_UPDATED_AT;
@@ -152,58 +151,67 @@ public class WeaviateService
         }
     }
 
-    WeaviateTable getTable(WeaviateTableHandle tableHandle)
+    long countRows(WeaviateTableHandle tableHandle)
     {
         requireNonNull(tableHandle, "tableHandle is null");
 
-        CollectionHandle<Map<String, Object>> handle = w.collections.use(
-                resolveTableName(tableHandle.tableName()), h -> h
-                        .consistencyLevel(consistencyLevel)
-                        .tenant(tableHandle.tenantIgnoreDefault()));
-
-        QueryResponse<Map<String, Object>> response;
         try {
-            FetchObjects.Builder opt = new FetchObjects.Builder();
-            opt.returnMetadata(Metadata.ALL);
-            if (tableHandle.limit().isPresent()) {
-                opt.limit((int) tableHandle.limit().orElseThrow());
-            }
-            response = handle.query.fetchObjects(opt.build());
+            return collectionHandle(tableHandle).size();
         }
         catch (WeaviateException e) {
             throw new TrinoException(WEAVIATE_SERVER_ERROR, e);
         }
+    }
 
-        List<Map<String, Object>> values = response.objects().stream()
-                .map(object -> {
-                    ImmutableMap.Builder<String, Object> columns = ImmutableMap.builder();
-                    columns.putAll(collectMetadata(object));
-                    if (object.properties() != null) {
-                        columns.putAll(object.properties());
-                    }
-                    if (object.vectors() != null) {
-                        Map<String, Object> vectors = object.vectors().asMap().entrySet().stream()
-                                .collect(Collectors.toUnmodifiableMap(
-                                        Map.Entry::getKey,
-                                        entry -> switch (entry.getValue()) {
-                                            case float[] single -> Floats.asList(single);
-                                            case float[][] multi -> Arrays.stream(multi)
-                                                    .map(Floats::asList)
-                                                    .toList();
-                                            case Object other -> throw WeaviateErrorCode.vectorTypeNotSupported(other);
-                                        }));
-                        columns.put(VECTORS_COLUMN_NAME, vectors);
-                    }
-                    return (Map<String, Object>) columns.buildOrThrow();
-                })
-                .toList();
-        return new WeaviateTable(tableHandle.columns(), values);
+    Iterator<Map<String, Object>> getTableIterator(WeaviateTableHandle tableHandle, int pageSize)
+    {
+        requireNonNull(tableHandle, "tableHandle is null");
+
+        Stream<Map<String, Object>> stream = collectionHandle(tableHandle)
+                .paginate(opt -> opt.pageSize(pageSize))
+                .stream()
+                .map(WeaviateService::collectColumns);
+
+        if (tableHandle.limit().isPresent()) {
+            stream = stream.limit(tableHandle.limit().getAsLong());
+        }
+
+        return stream.iterator();
+    }
+
+    private CollectionHandle<Map<String, Object>> collectionHandle(WeaviateTableHandle tableHandle)
+    {
+        return w.collections.use(
+                resolveTableName(tableHandle.tableName()), h -> h
+                        .consistencyLevel(consistencyLevel)
+                        .tenant(tableHandle.tenantIgnoreDefault()));
+    }
+
+    private static Map<String, Object> collectColumns(WeaviateObject<Map<String, Object>> object)
+    {
+        ImmutableMap.Builder<String, Object> columns = ImmutableMap.builder();
+        columns.putAll(collectMetadata(object));
+        if (object.properties() != null) {
+            columns.putAll(object.properties());
+        }
+        if (object.vectors() != null) {
+            Map<String, Object> vectors = object.vectors().asMap().entrySet().stream()
+                    .collect(Collectors.toUnmodifiableMap(
+                            Map.Entry::getKey,
+                            entry -> switch (entry.getValue()) {
+                                case float[] single -> Floats.asList(single);
+                                case float[][] multi -> Arrays.stream(multi)
+                                        .map(Floats::asList)
+                                        .toList();
+                                case Object other -> throw WeaviateErrorCode.vectorTypeNotSupported(other);
+                            }));
+            columns.put(VECTORS_COLUMN_NAME, vectors);
+        }
+        return columns.buildOrThrow();
     }
 
     private static Map<String, Object> collectMetadata(WeaviateObject<?> object)
     {
-        requireNonNull(object, "object is null");
-
         ImmutableMap.Builder<String, Object> metadata = ImmutableMap.builder();
         if (object.uuid() != null) {
             metadata.put(UUID.name(), object.uuid());
@@ -219,8 +227,6 @@ public class WeaviateService
 
     private String resolveTableName(String tableNameNeedle)
     {
-        requireNonNull(tableNameNeedle, "tableNameNeedle is null");
-
         return listTableHandles().stream()
                 .map(WeaviateTableHandle::tableName)
                 .filter(tableName -> tableName.equalsIgnoreCase(tableNameNeedle))

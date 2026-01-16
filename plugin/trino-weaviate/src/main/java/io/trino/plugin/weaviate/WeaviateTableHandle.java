@@ -33,6 +33,7 @@ import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public record WeaviateTableHandle(
+        // TODO(dyma): make tenant Optional<String>
         String tenant,
         String tableName,
         String comment,

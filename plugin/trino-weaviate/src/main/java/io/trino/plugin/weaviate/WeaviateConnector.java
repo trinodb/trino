@@ -17,7 +17,7 @@ import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
-import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -31,15 +31,19 @@ public class WeaviateConnector
     private final LifeCycleManager lifeCycleManager;
     private final WeaviateMetadata metadata;
     private final WeaviateSplitManager splitManager;
-    private final WeaviateRecordSetProvider recordSetProvider;
+    private final WeaviatePageSourceProvider pageSourceProvider;
 
     @Inject
-    public WeaviateConnector(LifeCycleManager lifeCycleManager, WeaviateMetadata metadata, WeaviateSplitManager splitManager, WeaviateRecordSetProvider recordSetProvider)
+    public WeaviateConnector(
+            LifeCycleManager lifeCycleManager,
+            WeaviateMetadata metadata,
+            WeaviateSplitManager splitManager,
+            WeaviatePageSourceProvider pageSourceProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
-        this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
+        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
     }
 
     @Override
@@ -61,9 +65,9 @@ public class WeaviateConnector
     }
 
     @Override
-    public ConnectorRecordSetProvider getRecordSetProvider()
+    public ConnectorPageSourceProvider getPageSourceProvider()
     {
-        return recordSetProvider;
+        return pageSourceProvider;
     }
 
     @Override

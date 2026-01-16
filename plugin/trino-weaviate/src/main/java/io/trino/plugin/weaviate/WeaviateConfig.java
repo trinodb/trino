@@ -58,7 +58,10 @@ public class WeaviateConfig
     }
 
     @NotNull
-    public String getHttpHost() {return httpHost;}
+    public String getHttpHost()
+    {
+        return httpHost;
+    }
 
     @Config("weaviate.http-host")
     public WeaviateConfig setHttpHost(String httpHost)
@@ -67,7 +70,10 @@ public class WeaviateConfig
         return this;
     }
 
-    public int getHttpPort() {return httpPort;}
+    public int getHttpPort()
+    {
+        return httpPort;
+    }
 
     @Config("weaviate.http-port")
     public WeaviateConfig setHttpPort(int httpPort)
@@ -77,7 +83,10 @@ public class WeaviateConfig
     }
 
     @NotNull
-    public String getGrpcHost() {return grpcHost;}
+    public String getGrpcHost()
+    {
+        return grpcHost;
+    }
 
     @Config("weaviate.grpc-host")
     public WeaviateConfig setGrpcHost(String grpcHost)
@@ -86,7 +95,10 @@ public class WeaviateConfig
         return this;
     }
 
-    public int getGrpcPort() {return grpcPort;}
+    public int getGrpcPort()
+    {
+        return grpcPort;
+    }
 
     @Config("weaviate.grpc-port")
     public WeaviateConfig setGrpcPort(int grpcPort)
@@ -110,7 +122,10 @@ public class WeaviateConfig
     }
 
     @Nullable
-    public ConsistencyLevel getConsistencyLevel() {return consistencyLevel;}
+    public ConsistencyLevel getConsistencyLevel()
+    {
+        return consistencyLevel;
+    }
 
     @Config("weaviate.consistency-level")
     @ConfigDescription("Consistency level for reads and writes")

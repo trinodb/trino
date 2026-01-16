@@ -93,7 +93,7 @@ public class TestWeaviate
     @Test
     public void testSelectFromTable()
     {
-        assertQuery("SELECT count(*) FROM " + COLLECTION_NO_TENANT, "SELECT 1");
+        assertQuery("SELECT count(*) FROM " + LARGE_COLLECTION, "SELECT 100");
     }
 
     @Test

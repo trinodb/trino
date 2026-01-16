@@ -18,6 +18,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
 
 public class WeaviateModule
         implements Module
@@ -25,11 +26,13 @@ public class WeaviateModule
     @Override
     public void configure(Binder binder)
     {
+        requireNonNull(binder, "binder is null");
+
         binder.bind(WeaviateConnector.class).in(Scopes.SINGLETON);
         binder.bind(WeaviateMetadata.class).in(Scopes.SINGLETON);
         binder.bind(WeaviateService.class).in(Scopes.SINGLETON);
         binder.bind(WeaviateSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(WeaviateRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(WeaviatePageSourceProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(WeaviateConfig.class);
     }
