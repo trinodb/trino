@@ -24,6 +24,7 @@ import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.execution.ColumnInfo;
 import io.trino.metadata.FunctionResolver;
 import io.trino.metadata.IndexHandle;
 import io.trino.metadata.OutputTableHandle;
@@ -175,7 +176,7 @@ public class PlanBuilder
         return new OutputNode(
                 idAllocator.getNextId(),
                 source,
-                columnNames,
+                columnNames.stream().map(ColumnInfo::new).toList(),
                 outputs);
     }
 
@@ -199,7 +200,7 @@ public class PlanBuilder
     public class OutputBuilder
     {
         private PlanNode source;
-        private final List<String> columnNames = new ArrayList<>();
+        private final List<ColumnInfo> columns = new ArrayList<>();
         private final List<Symbol> outputs = new ArrayList<>();
 
         public OutputBuilder source(PlanNode source)
@@ -216,13 +217,13 @@ public class PlanBuilder
         public OutputBuilder column(Symbol symbol, String columnName)
         {
             outputs.add(symbol);
-            columnNames.add(columnName);
+            columns.add(new ColumnInfo(columnName));
             return this;
         }
 
         protected OutputNode build()
         {
-            return new OutputNode(idAllocator.getNextId(), source, columnNames, outputs);
+            return new OutputNode(idAllocator.getNextId(), source, columns, outputs);
         }
     }
 
