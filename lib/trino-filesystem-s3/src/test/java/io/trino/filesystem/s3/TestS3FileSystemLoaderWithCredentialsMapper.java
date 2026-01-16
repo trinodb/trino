@@ -21,12 +21,9 @@ import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.parallel.Execution;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.services.s3.S3Client;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.Optional;
@@ -38,11 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-@TestInstance(PER_CLASS)
-@Execution(CONCURRENT)
 final class TestS3FileSystemLoaderWithCredentialsMapper
 {
     private S3FileSystemLoader loader;
@@ -63,15 +56,8 @@ final class TestS3FileSystemLoaderWithCredentialsMapper
         stats = new S3FileSystemStats();
         credentialsMapper = new TestCredentialsMapper();
 
-        // Use reflection to access private constructor
-        Constructor<S3FileSystemLoader> constructor = S3FileSystemLoader.class.getDeclaredConstructor(
-                Optional.class,
-                OpenTelemetry.class,
-                S3FileSystemConfig.class,
-                S3FileSystemStats.class);
-        constructor.setAccessible(true);
-
-        loader = constructor.newInstance(
+        // Use the public constructor directly
+        loader = new S3FileSystemLoader(
                 Optional.of(credentialsMapper),
                 OpenTelemetry.noop(),
                 config,

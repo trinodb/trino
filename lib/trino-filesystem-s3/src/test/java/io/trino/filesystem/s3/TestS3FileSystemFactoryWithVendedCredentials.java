@@ -19,8 +19,6 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.parallel.Execution;
 import software.amazon.awssdk.services.s3.S3Client;
 
 import java.lang.reflect.Field;
@@ -33,11 +31,7 @@ import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_REG
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-@TestInstance(PER_CLASS)
-@Execution(CONCURRENT)
 final class TestS3FileSystemFactoryWithVendedCredentials
 {
     private S3FileSystemFactory factory;
