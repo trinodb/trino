@@ -39,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestWeaviate
         extends BaseConnectorTest
 {
+    private static final String LARGE_COLLECTION = "TrinoTestLargs";
     private static final String COLLECTION_NO_TENANT = "TrinoTestNoTenant";
     private static final String COLLECTION_MULTI_TENANT = "TrinoCollectionMultiTenant";
     private static final String JOHN_DOE = "john_doe";
@@ -74,8 +75,9 @@ public class TestWeaviate
     public final void setup()
             throws Exception
     {
-        createTestCollection(COLLECTION_NO_TENANT);
-        createTestCollection(COLLECTION_MULTI_TENANT, JOHN_DOE, JANE_DOE);
+        createTestCollection(LARGE_COLLECTION, 100);
+        createTestCollection(COLLECTION_NO_TENANT, 1);
+        createTestCollection(COLLECTION_MULTI_TENANT, 1, JOHN_DOE, JANE_DOE);
     }
 
     @AfterAll
@@ -92,6 +94,25 @@ public class TestWeaviate
     public void testSelectFromTable()
     {
         assertQuery("SELECT count(*) FROM " + COLLECTION_NO_TENANT, "SELECT 1");
+    }
+
+    @Test
+    public void testSelectWithLimit()
+    {
+        assertQuery("SELECT prop_text FROM " + LARGE_COLLECTION + " LIMIT 1", "SELECT 'text-value'");
+    }
+
+    @Test
+    public void testSelectVectorColumns()
+    {
+        assertQuery("SELECT vectors.single FROM " + COLLECTION_NO_TENANT, "SELECT CAST(ARRAY[1.0, 2.0, 3.0] AS DOUBLE ARRAY)");
+        assertQuery("SELECT vectors.multi[1] FROM " + COLLECTION_NO_TENANT, "SELECT CAST(ARRAY[1.0, 2.0, 3.0] AS DOUBLE ARRAY)");
+        assertQuery("SELECT vectors.multi[2] FROM " + COLLECTION_NO_TENANT, "SELECT CAST(ARRAY[4.0, 5.0, 6.0] AS DOUBLE ARRAY)");
+    }
+
+    @Test
+    public void testSelectWithTenant()
+    {
         assertQuery("SELECT prop_text, prop_bool FROM " + COLLECTION_NO_TENANT, "SELECT * FROM (VALUES ('text-value', true))");
         assertQuery("SELECT vectors.single FROM " + COLLECTION_NO_TENANT, "SELECT CAST(ARRAY[1.0, 2.0, 3.0] as DOUBLE PRECISION ARRAY)");
 
@@ -129,7 +150,7 @@ public class TestWeaviate
         };
     }
 
-    private void createTestCollection(String collectionName, String... tenants)
+    private void createTestCollection(String collectionName, int size, String... tenants)
             throws IOException
     {
         boolean enableMultiTenancy = tenants.length > 0;
@@ -207,17 +228,23 @@ public class TestWeaviate
         Vectors vectors = new Vectors(Vectors.of("single", new float[] {1, 2, 3}));
 
         if (tenants.length == 0) {
-            trinoTest.data.insert(data, obj -> obj.vectors(vectors));
+            for (var i = 0; i < size; i++) {
+                trinoTest.data.insert(data, obj -> obj.vectors(vectors));
+            }
 
-            assertThat(trinoTest.size()).isEqualTo(1L);
+            assertThat(trinoTest.size()).describedAs("inserted objects").isEqualTo(size);
             return;
         }
 
         for (var tenant : tenants) {
             CollectionHandle<Map<String, Object>> tenantHandle = trinoTest.withTenant(tenant);
-            tenantHandle.data.insert(data, obj -> obj.vectors(vectors));
-            assertThat(tenantHandle.size()).isEqualTo(1L);
-            assertThat(tenantHandle.tenants.list()).extracting(Tenant::name).contains(tenant);
+            for (var i = 0; i < size; i++) {
+                tenantHandle.data.insert(data, obj -> obj.vectors(vectors));
+            }
+            assertThat(tenantHandle.size()).describedAs("inserted objects").isEqualTo(size);
+            assertThat(tenantHandle.tenants.list())
+                    .describedAs("tenant %s exists", tenant)
+                    .extracting(Tenant::name).contains(tenant);
         }
     }
 }

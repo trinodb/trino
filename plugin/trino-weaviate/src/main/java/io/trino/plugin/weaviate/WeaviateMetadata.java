@@ -22,6 +22,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
+import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import jakarta.annotation.Nullable;
@@ -117,5 +118,18 @@ public class WeaviateMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         return ((WeaviateColumnHandle) columnHandle).columnMetadata();
+    }
+
+    @Override
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
+    {
+        WeaviateTableHandle handle = (WeaviateTableHandle) table;
+
+        if (handle.limit().isPresent() && handle.limit().getAsLong() <= limit) {
+            return Optional.empty();
+        }
+
+        handle = handle.withLimit(limit);
+        return Optional.of(new LimitApplicationResult<>(handle, false, false));
     }
 }

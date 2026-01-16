@@ -27,6 +27,7 @@ import io.weaviate.client6.v1.api.collections.CollectionConfig;
 import io.weaviate.client6.v1.api.collections.CollectionHandle;
 import io.weaviate.client6.v1.api.collections.WeaviateObject;
 import io.weaviate.client6.v1.api.collections.query.ConsistencyLevel;
+import io.weaviate.client6.v1.api.collections.query.FetchObjects;
 import io.weaviate.client6.v1.api.collections.query.Metadata;
 import io.weaviate.client6.v1.api.collections.query.QueryResponse;
 import io.weaviate.client6.v1.api.collections.tenants.Tenant;
@@ -162,8 +163,12 @@ public class WeaviateService
 
         QueryResponse<Map<String, Object>> response;
         try {
-            response = handle.query.fetchObjects(
-                    opt -> opt.returnMetadata(Metadata.ALL));
+            FetchObjects.Builder opt = new FetchObjects.Builder();
+            opt.returnMetadata(Metadata.ALL);
+            if (tableHandle.limit().isPresent()) {
+                opt.limit((int) tableHandle.limit().orElseThrow());
+            }
+            response = handle.query.fetchObjects(opt.build());
         }
         catch (WeaviateException e) {
             throw new TrinoException(WEAVIATE_SERVER_ERROR, e);

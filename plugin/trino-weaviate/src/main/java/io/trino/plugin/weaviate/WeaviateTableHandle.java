@@ -25,6 +25,7 @@ import io.weaviate.client6.v1.api.collections.VectorConfig;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static io.trino.plugin.weaviate.WeaviateColumnHandle.METADATA_COLUMNS;
 import static io.trino.plugin.weaviate.WeaviateMetadata.DEFAULT_SCHEMA;
@@ -35,13 +36,15 @@ public record WeaviateTableHandle(
         String tenant,
         String tableName,
         String comment,
+        OptionalLong limit,
         List<WeaviateColumnHandle> columns)
         implements ConnectorTableHandle
 {
     public WeaviateTableHandle
     {
         requireNonNull(tenant, "tenant is null");
-        requireNonNull(tableName, "tableName in null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(limit, "limit is null");
         columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
     }
 
@@ -51,6 +54,7 @@ public record WeaviateTableHandle(
                 DEFAULT_SCHEMA,
                 requireNonNull(collection, "collection is null").collectionName(),
                 collection.description(),
+                OptionalLong.empty(),
                 makeColumns(collection.properties(), collection.vectors()));
     }
 
@@ -71,7 +75,12 @@ public record WeaviateTableHandle(
     public WeaviateTableHandle withTenant(String tenant)
     {
         requireNonNull(tenant, "tenant is null");
-        return new WeaviateTableHandle(tenant, tableName, comment, columns);
+        return new WeaviateTableHandle(tenant, tableName, comment, limit, columns);
+    }
+
+    public WeaviateTableHandle withLimit(long limit)
+    {
+        return new WeaviateTableHandle(tenant, tableName, comment, OptionalLong.of(limit), columns);
     }
 
     public String tenantIgnoreDefault()
