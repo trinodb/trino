@@ -21,14 +21,15 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-record S3SecurityMappingResult(
+public record S3SecurityMappingResult(
         Optional<AwsCredentials> credentials,
         Optional<String> iamRole,
         Optional<String> roleSessionName,
         Optional<String> kmsKeyId,
         Optional<String> sseCustomerKey,
         Optional<String> endpoint,
-        Optional<String> region)
+        Optional<String> region,
+        Optional<Boolean> crossRegionAccessEnabled)
 {
     public S3SecurityMappingResult
     {
@@ -39,6 +40,7 @@ record S3SecurityMappingResult(
         requireNonNull(sseCustomerKey, "sseCustomerKey is null");
         requireNonNull(endpoint, "endpoint is null");
         requireNonNull(region, "region is null");
+        requireNonNull(crossRegionAccessEnabled, "crossRegionAccessEnabled is null");
     }
 
     public Optional<AwsCredentialsProvider> credentialsProvider()

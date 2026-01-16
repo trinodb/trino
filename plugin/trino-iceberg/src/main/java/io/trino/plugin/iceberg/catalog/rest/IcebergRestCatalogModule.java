@@ -44,8 +44,11 @@ public class IcebergRestCatalogModule
 
         IcebergConfig icebergConfig = buildConfigObject(IcebergConfig.class);
         IcebergRestCatalogConfig restCatalogConfig = buildConfigObject(IcebergRestCatalogConfig.class);
-        if (restCatalogConfig.isVendedCredentialsEnabled() && icebergConfig.isRegisterTableProcedureEnabled()) {
-            throw new TrinoException(NOT_SUPPORTED, "Using the `register_table` procedure with vended credentials is currently not supported");
+        if (restCatalogConfig.isVendedCredentialsEnabled()) {
+            if (icebergConfig.isRegisterTableProcedureEnabled()) {
+                throw new TrinoException(NOT_SUPPORTED, "Using the `register_table` procedure with vended credentials is currently not supported");
+            }
+            install(new IcebergVendedCredentialsModule());
         }
     }
 }
