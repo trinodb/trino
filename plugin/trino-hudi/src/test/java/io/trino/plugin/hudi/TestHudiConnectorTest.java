@@ -45,7 +45,6 @@ public class TestHudiConnectorTest
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
                  SUPPORTS_CREATE_SCHEMA,
                  SUPPORTS_CREATE_TABLE,
-                 SUPPORTS_CREATE_VIEW,
                  SUPPORTS_DELETE,
                  SUPPORTS_DEREFERENCE_PUSHDOWN,
                  SUPPORTS_INSERT,
