@@ -342,6 +342,20 @@ public class GcsFileSystem
         return preSignedUri(location, ttl, Optional.of(key));
     }
 
+    @Override
+    public void close()
+            throws IOException
+    {
+        try {
+            storage.close();
+        }
+        catch (Exception e) {
+            throw new IOException(e);
+        }
+
+        executorService.close();
+    }
+
     private Optional<UriLocation> preSignedUri(Location location, Duration ttl, Optional<EncryptionKey> key)
             throws IOException
     {

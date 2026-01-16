@@ -68,7 +68,6 @@ public class TestAlluxioFileSystem
                 closer.register(alluxio);
                 alluxio = null;
             }
-            fileSystem = null;
             if (alluxioFs != null) {
                 closer.register(alluxioFs);
                 alluxioFs = null;

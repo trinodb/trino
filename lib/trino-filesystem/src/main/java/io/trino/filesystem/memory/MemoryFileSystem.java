@@ -209,6 +209,13 @@ public class MemoryFileSystem
     }
 
     @Override
+    public void close()
+            throws IOException
+    {
+        blobs.clear();
+    }
+
+    @Override
     public Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
     {
         validateMemoryLocation(targetPath);

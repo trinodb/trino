@@ -17,6 +17,7 @@ import com.google.common.base.Throwables;
 import io.airlift.units.Duration;
 import io.trino.filesystem.encryption.EncryptionKey;
 
+import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.time.Instant;
@@ -55,6 +56,7 @@ import java.util.Set;
 // NOTE: take care when adding to these APIs.  The intention is to have the minimal API surface area,
 // so it is easier to maintain existing implementations and add new file system implementations.
 public interface TrinoFileSystem
+        extends Closeable
 {
     /**
      * Creates a TrinoInputFile which can be used to read the file data. The file location path
@@ -326,6 +328,12 @@ public interface TrinoFileSystem
             throws IOException
     {
         throw new UnsupportedOperationException("Encrypted pre-signed URIs are not supported by " + getClass().getSimpleName());
+    }
+
+    @Override
+    default void close()
+            throws IOException
+    {
     }
 
     /**
