@@ -19,7 +19,40 @@
         <!-- TODO: remove once Ranger upgrades to Jetty 12 -->
         <dep.jetty11.version>11.0.26</dep.jetty11.version>
         <dep.ranger.version>2.7.0</dep.ranger.version>
+        <!-- TODO: update with ranger version which fixes elasticsearch CVEs -->
+        <dep.elasticsearch.version>7.17.29</dep.elasticsearch.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Fix CVE-affected artifacts and resolve version conflicts -->
+            <dependency>
+                <groupId>org.elasticsearch</groupId>
+                <artifactId>elasticsearch</artifactId>
+                <version>${dep.elasticsearch.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.elasticsearch</groupId>
+                <artifactId>elasticsearch-core</artifactId>
+                <version>${dep.elasticsearch.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.elasticsearch</groupId>
+                <artifactId>elasticsearch-secure-sm</artifactId>
+                <version>${dep.elasticsearch.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.elasticsearch</groupId>
+                <artifactId>elasticsearch-x-content</artifactId>
+                <version>${dep.elasticsearch.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.elasticsearch.client</groupId>
+                <artifactId>elasticsearch-rest-client</artifactId>
+                <version>${dep.elasticsearch.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
