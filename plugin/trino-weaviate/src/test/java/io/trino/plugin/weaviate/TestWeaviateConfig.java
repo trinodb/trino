@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
@@ -48,7 +49,8 @@ public class TestWeaviateConfig
                 .setUsername(null)
                 .setPassword(null)
                 .setClientSecret(null)
-                .setScopes(emptyList()));
+                .setScopes(emptyList())
+                .setPageSize(null));
     }
 
     @Test
@@ -70,6 +72,7 @@ public class TestWeaviateConfig
                 .put("weaviate.oidc.password", "qwerty")
                 .put("weaviate.oidc.client-secret", "XXX-XXX")
                 .put("weaviate.oidc.scopes", "a,b")
+                .put("weaviate.page-size", "5000")
                 .buildOrThrow();
 
         try (ConfigurationFactory configurationFactory = new ConfigurationFactory(properties)) {
@@ -90,6 +93,7 @@ public class TestWeaviateConfig
             assertThat(config).returns(Optional.of("qwerty"), WeaviateConfig::getPassword);
             assertThat(config).returns(Optional.of("XXX-XXX"), WeaviateConfig::getClientSecret);
             assertThat(config).returns(List.of("a", "b"), WeaviateConfig::getScopes);
+            assertThat(config).returns(OptionalInt.of(5_000), WeaviateConfig::getPageSize);
         }
     }
 }

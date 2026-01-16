@@ -23,6 +23,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -45,6 +46,8 @@ public class WeaviateConfig
     private String password;
     private String clientSecret;
     private List<String> scopes = emptyList();
+
+    private OptionalInt pageSize = OptionalInt.empty();
 
     @NotNull
     public String getScheme() {return scheme;}
@@ -243,5 +246,20 @@ public class WeaviateConfig
     public List<String> getScopes()
     {
         return this.scopes;
+    }
+
+    @Config("weaviate.page-size")
+    @ConfigDescription("Page size for Cursor API pagination.")
+    public WeaviateConfig setPageSize(Integer pageSize)
+    {
+        if (pageSize != null) {
+            this.pageSize = OptionalInt.of(pageSize);
+        }
+        return this;
+    }
+
+    public OptionalInt getPageSize()
+    {
+        return pageSize;
     }
 }

@@ -17,8 +17,6 @@ import static java.util.Objects.requireNonNull;
 public class FetchObjectsQueryPageSource
         implements ConnectorPageSource
 {
-    private static final int PAGE_SIZE = CountQueryPageSource.MAX_PAGE_SIZE;
-
     private final List<WeaviateColumnHandle> columns;
     private final Iterator<Map<String, Object>> iterator;
     private final BlockBuilder[] columnBuilders;
@@ -42,7 +40,7 @@ public class FetchObjectsQueryPageSource
                 .toArray(BlockBuilder[]::new);
 
         long start = System.nanoTime();
-        this.iterator = weaviateService.getTableIterator(tableHandle, PAGE_SIZE);
+        this.iterator = weaviateService.getTableIterator(tableHandle);
         this.readTimeNanos += System.nanoTime() - start;
     }
 

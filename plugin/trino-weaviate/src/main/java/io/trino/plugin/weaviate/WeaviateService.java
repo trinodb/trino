@@ -26,6 +26,7 @@ import io.weaviate.client6.v1.api.alias.Alias;
 import io.weaviate.client6.v1.api.collections.CollectionConfig;
 import io.weaviate.client6.v1.api.collections.CollectionHandle;
 import io.weaviate.client6.v1.api.collections.WeaviateObject;
+import io.weaviate.client6.v1.api.collections.pagination.Paginator;
 import io.weaviate.client6.v1.api.collections.query.ConsistencyLevel;
 import io.weaviate.client6.v1.api.collections.tenants.Tenant;
 
@@ -35,6 +36,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -49,6 +51,7 @@ public class WeaviateService
 {
     private final WeaviateClient w;
     private final ConsistencyLevel consistencyLevel;
+    private final OptionalInt pageSize;
 
     @Inject
     public WeaviateService(WeaviateConfig config)
@@ -90,8 +93,9 @@ public class WeaviateService
                     config.getScopes()));
         }
 
-        this.w = new WeaviateClient(cfg.build());
         this.consistencyLevel = config.getConsistencyLevel();
+        this.pageSize = config.getPageSize();
+        this.w = new WeaviateClient(cfg.build());
     }
 
     List<String> listTenants()
@@ -163,13 +167,15 @@ public class WeaviateService
         }
     }
 
-    Iterator<Map<String, Object>> getTableIterator(WeaviateTableHandle tableHandle, int pageSize)
+    Iterator<Map<String, Object>> getTableIterator(WeaviateTableHandle tableHandle)
     {
         requireNonNull(tableHandle, "tableHandle is null");
 
-        Stream<Map<String, Object>> stream = collectionHandle(tableHandle)
-                .paginate(opt -> opt.pageSize(pageSize))
-                .stream()
+        CollectionHandle<Map<String, Object>> collectionHandle = collectionHandle(tableHandle);
+        Paginator<Map<String, Object>> paginator = pageSize.isPresent()
+                ? collectionHandle.paginate(opt -> opt.pageSize(pageSize.getAsInt()))
+                : collectionHandle.paginate();
+        Stream<Map<String, Object>> stream = paginator.stream()
                 .map(WeaviateService::collectColumns);
 
         if (tableHandle.limit().isPresent()) {
