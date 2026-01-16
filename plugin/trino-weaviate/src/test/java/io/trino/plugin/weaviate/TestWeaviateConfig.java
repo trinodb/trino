@@ -19,10 +19,13 @@ import io.airlift.units.Duration;
 import io.weaviate.client6.v1.api.collections.query.ConsistencyLevel;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestWeaviateConfig
@@ -37,7 +40,15 @@ public class TestWeaviateConfig
                 .setGrpcHost("localhost")
                 .setGrpcPort(50051)
                 .setTimeout(null)
-                .setConsistencyLevel(null));
+                .setConsistencyLevel(null)
+                .setApiKey(null)
+                .setAccessToken(null)
+                .setRefreshToken(null)
+                .setAccessTokenLifetime(null)
+                .setUsername(null)
+                .setPassword(null)
+                .setClientSecret(null)
+                .setScopes(emptyList()));
     }
 
     @Test
@@ -51,6 +62,14 @@ public class TestWeaviateConfig
                 .put("weaviate.grpc-port", "60061")
                 .put("weaviate.timeout", "30s")
                 .put("weaviate.consistency-level", "ONE")
+                .put("weaviate.auth.api-key", "api-key")
+                .put("weaviate.auth.access-token", "access-token")
+                .put("weaviate.auth.refresh-token", "refresh-token")
+                .put("weaviate.auth.access-token-lifetime", "900s")
+                .put("weaviate.oidc.username", "john_doe")
+                .put("weaviate.oidc.password", "qwerty")
+                .put("weaviate.oidc.client-secret", "XXX-XXX")
+                .put("weaviate.oidc.scopes", "a,b")
                 .buildOrThrow();
 
         try (ConfigurationFactory configurationFactory = new ConfigurationFactory(properties)) {
@@ -61,8 +80,16 @@ public class TestWeaviateConfig
             assertThat(config).returns(7070, WeaviateConfig::getHttpPort);
             assertThat(config).returns("192.0.0.2", WeaviateConfig::getGrpcHost);
             assertThat(config).returns(60061, WeaviateConfig::getGrpcPort);
-            assertThat(config).returns(Duration.valueOf("30s"), WeaviateConfig::getTimeout);
+            assertThat(config).returns(Optional.of(Duration.valueOf("30s")), WeaviateConfig::getTimeout);
             assertThat(config).returns(ConsistencyLevel.ONE, WeaviateConfig::getConsistencyLevel);
+            assertThat(config).returns(Optional.of("api-key"), WeaviateConfig::getApiKey);
+            assertThat(config).returns(Optional.of("access-token"), WeaviateConfig::getAccessToken);
+            assertThat(config).returns(Optional.of("refresh-token"), WeaviateConfig::getRefreshToken);
+            assertThat(config).returns(Optional.of(Duration.valueOf("900s")), WeaviateConfig::getAccessTokenLifetime);
+            assertThat(config).returns(Optional.of("john_doe"), WeaviateConfig::getUsername);
+            assertThat(config).returns(Optional.of("qwerty"), WeaviateConfig::getPassword);
+            assertThat(config).returns(Optional.of("XXX-XXX"), WeaviateConfig::getClientSecret);
+            assertThat(config).returns(List.of("a", "b"), WeaviateConfig::getScopes);
         }
     }
 }

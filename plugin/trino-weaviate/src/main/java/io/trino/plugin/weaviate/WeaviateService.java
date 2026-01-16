@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Floats;
 import com.google.inject.Inject;
 import io.trino.spi.TrinoException;
+import io.weaviate.client6.v1.api.Authentication;
 import io.weaviate.client6.v1.api.Config;
 import io.weaviate.client6.v1.api.WeaviateClient;
 import io.weaviate.client6.v1.api.WeaviateException;
@@ -61,9 +62,32 @@ public class WeaviateService
         cfg.grpcHost(config.getGrpcHost());
         cfg.grpcPort(config.getGrpcPort());
 
-        if (config.getTimeout() != null) {
-            long timeout = config.getTimeout().toJavaTime().toSeconds();
+        if (config.getTimeout().isPresent()) {
+            long timeout = config.getTimeout().orElseThrow().toJavaTime().toSeconds();
             cfg.timeout((int) timeout);
+        }
+
+        if (config.getApiKey().isPresent()) {
+            cfg.authentication(Authentication.apiKey(config.getApiKey().orElseThrow()));
+        }
+        else if (config.getAccessToken().isPresent() && config.getRefreshToken().isPresent()) {
+            cfg.authentication(Authentication.bearerToken(
+                    config.getAccessToken().orElseThrow(),
+                    config.getRefreshToken().orElseThrow(),
+                    config.getAccessTokenLifetime()
+                            .map(lifetime -> lifetime.toJavaTime().toSeconds())
+                            .orElse(0L)));
+        }
+        else if (config.getUsername().isPresent() && config.getPassword().isPresent()) {
+            cfg.authentication(Authentication.resourceOwnerPassword(
+                    config.getUsername().orElseThrow(),
+                    config.getPassword().orElseThrow(),
+                    config.getScopes()));
+        }
+        else if (config.getClientSecret().isPresent()) {
+            cfg.authentication(Authentication.clientCredentials(
+                    config.getClientSecret().orElseThrow(),
+                    config.getScopes()));
         }
 
         this.w = new WeaviateClient(cfg.build());

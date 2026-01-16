@@ -13,11 +13,19 @@
  */
 package io.trino.plugin.weaviate;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.weaviate.client6.v1.api.collections.query.ConsistencyLevel;
+import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
+
+import java.util.List;
+import java.util.Optional;
+
+import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 
 public class WeaviateConfig
 {
@@ -29,11 +37,17 @@ public class WeaviateConfig
     private Duration timeout;
     private ConsistencyLevel consistencyLevel;
 
+    private String apiKey;
+    private String accessToken;
+    private String refreshToken;
+    private Duration accessTokenLifetime;
+    private String username;
+    private String password;
+    private String clientSecret;
+    private List<String> scopes = emptyList();
+
     @NotNull
-    public String getScheme()
-    {
-        return scheme;
-    }
+    public String getScheme() {return scheme;}
 
     @Config("weaviate.scheme")
     @ConfigDescription("Connection URL scheme (http/https)")
@@ -44,10 +58,7 @@ public class WeaviateConfig
     }
 
     @NotNull
-    public String getHttpHost()
-    {
-        return httpHost;
-    }
+    public String getHttpHost() {return httpHost;}
 
     @Config("weaviate.http-host")
     public WeaviateConfig setHttpHost(String httpHost)
@@ -56,10 +67,7 @@ public class WeaviateConfig
         return this;
     }
 
-    public int getHttpPort()
-    {
-        return httpPort;
-    }
+    public int getHttpPort() {return httpPort;}
 
     @Config("weaviate.http-port")
     public WeaviateConfig setHttpPort(int httpPort)
@@ -69,10 +77,7 @@ public class WeaviateConfig
     }
 
     @NotNull
-    public String getGrpcHost()
-    {
-        return grpcHost;
-    }
+    public String getGrpcHost() {return grpcHost;}
 
     @Config("weaviate.grpc-host")
     public WeaviateConfig setGrpcHost(String grpcHost)
@@ -81,10 +86,7 @@ public class WeaviateConfig
         return this;
     }
 
-    public int getGrpcPort()
-    {
-        return grpcPort;
-    }
+    public int getGrpcPort() {return grpcPort;}
 
     @Config("weaviate.grpc-port")
     public WeaviateConfig setGrpcPort(int grpcPort)
@@ -93,9 +95,10 @@ public class WeaviateConfig
         return this;
     }
 
-    public Duration getTimeout()
+    @NotNull
+    public Optional<Duration> getTimeout()
     {
-        return timeout;
+        return Optional.ofNullable(timeout);
     }
 
     @Config("weaviate.timeout")
@@ -106,10 +109,8 @@ public class WeaviateConfig
         return this;
     }
 
-    public ConsistencyLevel getConsistencyLevel()
-    {
-        return consistencyLevel;
-    }
+    @Nullable
+    public ConsistencyLevel getConsistencyLevel() {return consistencyLevel;}
 
     @Config("weaviate.consistency-level")
     @ConfigDescription("Consistency level for reads and writes")
@@ -117,5 +118,115 @@ public class WeaviateConfig
     {
         this.consistencyLevel = consistencyLevel;
         return this;
+    }
+
+    @Config("weaviate.auth.api-key")
+    public WeaviateConfig setApiKey(String apiKey)
+    {
+        this.apiKey = apiKey;
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getApiKey()
+    {
+        return Optional.ofNullable(apiKey);
+    }
+
+    @Config("weaviate.auth.access-token")
+    @ConfigDescription("Access token for Bearer Token authentication.")
+    public WeaviateConfig setAccessToken(String accessToken)
+    {
+        this.accessToken = accessToken;
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getAccessToken()
+    {
+        return Optional.ofNullable(accessToken);
+    }
+
+    @Config("weaviate.auth.refresh-token")
+    @ConfigDescription("Refresh token for the access token.")
+    public WeaviateConfig setRefreshToken(String refreshToken)
+    {
+        this.refreshToken = refreshToken;
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getRefreshToken()
+    {
+        return Optional.ofNullable(refreshToken);
+    }
+
+    @Config("weaviate.auth.access-token-lifetime")
+    @ConfigDescription("Remaining access token lifetime")
+    public WeaviateConfig setAccessTokenLifetime(Duration accessTokenLifetime)
+    {
+        this.accessTokenLifetime = accessTokenLifetime;
+        return this;
+    }
+
+    public Optional<Duration> getAccessTokenLifetime()
+    {
+        return Optional.ofNullable(accessTokenLifetime);
+    }
+
+    @Config("weaviate.oidc.username")
+    @ConfigDescription("Username for Resource Owner Password authentication flow.")
+    public WeaviateConfig setUsername(String username)
+    {
+        this.username = username;
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getUsername()
+    {
+        return Optional.ofNullable(username);
+    }
+
+    @Config("weaviate.oidc.password")
+    @ConfigDescription("Password for Resource Owner Password authentication flow.")
+    public WeaviateConfig setPassword(String password)
+    {
+        this.password = password;
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getPassword()
+    {
+        return Optional.ofNullable(password);
+    }
+
+    @Config("weaviate.oidc.client-secret")
+    @ConfigDescription("Client secret for Client Credentials authentication flow.")
+    public WeaviateConfig setClientSecret(String clientSecret)
+    {
+        this.clientSecret = clientSecret;
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getClientSecret()
+    {
+        return Optional.ofNullable(clientSecret);
+    }
+
+    @Config("weaviate.oidc.scopes")
+    @ConfigDescription("Scopes for OIDC authentication flows.")
+    public WeaviateConfig setScopes(List<String> scopes)
+    {
+        this.scopes = ImmutableList.copyOf(requireNonNull(scopes, "scopes is null"));
+        return this;
+    }
+
+    @NotNull
+    public List<String> getScopes()
+    {
+        return this.scopes;
     }
 }
