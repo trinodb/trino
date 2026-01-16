@@ -13,10 +13,9 @@
  */
 package io.trino.plugin.geospatial;
 
-import com.esri.core.geometry.ogc.OGCGeometry;
-import com.esri.core.geometry.ogc.OGCPoint;
-import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.Point;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -32,8 +31,9 @@ import org.openjdk.jmh.runner.RunnerException;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
-import static io.trino.geospatial.serde.GeometrySerde.deserialize;
-import static io.trino.geospatial.serde.GeometrySerde.deserializeEnvelope;
+import static io.trino.geospatial.serde.JtsGeometrySerde.deserialize;
+import static io.trino.geospatial.serde.JtsGeometrySerde.deserializeEnvelope;
+import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
 
@@ -66,13 +66,13 @@ public class BenchmarkSTContains
     @Benchmark
     public Object deserializeSimpleGeometry(BenchmarkData data)
     {
-        return deserialize(data.simpleGeometry);
+        return deserialize(serialize(data.simpleGeometry));
     }
 
     @Benchmark
     public Object deserializeEnvelopeSimpleGeometry(BenchmarkData data)
     {
-        return deserializeEnvelope(data.simpleGeometry);
+        return deserializeEnvelope(serialize(data.simpleGeometry));
     }
 
     @Benchmark
@@ -84,7 +84,7 @@ public class BenchmarkSTContains
     @Benchmark
     public Object stContainsInnerPointDeserialized(BenchmarkData data)
     {
-        return data.ogcGeometry.contains(data.innerOgcPoint);
+        return data.jtsGeometry.contains(data.innerJtsPoint);
     }
 
     @Benchmark
@@ -96,7 +96,7 @@ public class BenchmarkSTContains
     @Benchmark
     public Object stContainsOuterPointInEnvelopeDeserialized(BenchmarkData data)
     {
-        return data.ogcGeometry.contains(data.outerOgcPointInEnvelope);
+        return data.jtsGeometry.contains(data.outerJtsPointInEnvelope);
     }
 
     @Benchmark
@@ -108,48 +108,48 @@ public class BenchmarkSTContains
     @Benchmark
     public Object stContainsOuterPointNotInEnvelopeDeserialized(BenchmarkData data)
     {
-        return data.ogcGeometry.contains(data.outerOgcPointNotInEnvelope);
+        return data.jtsGeometry.contains(data.outerJtsPointNotInEnvelope);
     }
 
     @Benchmark
     public Object benchmarkDeserialize(BenchmarkData data)
     {
-        return deserialize(data.geometry);
+        return deserialize(serialize(data.geometry));
     }
 
     @Benchmark
     public Object benchmarkDeserializeEnvelope(BenchmarkData data)
     {
-        return deserializeEnvelope(data.geometry);
+        return deserializeEnvelope(serialize(data.geometry));
     }
 
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private Slice geometry;
-        private Slice simpleGeometry;
-        private Slice innerPoint;
-        private Slice outerPointInEnvelope;
-        private Slice outerPointNotInEnvelope;
-        private OGCGeometry ogcGeometry;
-        private OGCPoint innerOgcPoint;
-        private OGCPoint outerOgcPointInEnvelope;
-        private OGCPoint outerOgcPointNotInEnvelope;
+        private Geometry geometry;
+        private Geometry simpleGeometry;
+        private Geometry innerPoint;
+        private Geometry outerPointInEnvelope;
+        private Geometry outerPointNotInEnvelope;
+        private Geometry jtsGeometry;
+        private Point innerJtsPoint;
+        private Point outerJtsPointInEnvelope;
+        private Point outerJtsPointNotInEnvelope;
 
         @Setup
         public void setup()
                 throws IOException
         {
             geometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice(loadPolygon("large_polygon.txt")));
-            simpleGeometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice("POLYGON ((16.5 54, 16.5 54.1, 16.8 54.1, 16.8 54))"));
+            simpleGeometry = GeoFunctions.stGeometryFromText(Slices.utf8Slice("POLYGON ((16.5 54, 16.5 54.1, 16.8 54.1, 16.8 54, 16.5 54))"));
             innerPoint = GeoFunctions.stPoint(16.6, 54.0167);
             outerPointInEnvelope = GeoFunctions.stPoint(16.6667, 54.05);
             outerPointNotInEnvelope = GeoFunctions.stPoint(16.6333, 54.2);
 
-            ogcGeometry = deserialize(geometry);
-            innerOgcPoint = (OGCPoint) deserialize(innerPoint);
-            outerOgcPointInEnvelope = (OGCPoint) deserialize(outerPointInEnvelope);
-            outerOgcPointNotInEnvelope = (OGCPoint) deserialize(outerPointNotInEnvelope);
+            jtsGeometry = geometry;
+            innerJtsPoint = (Point) innerPoint;
+            outerJtsPointInEnvelope = (Point) outerPointInEnvelope;
+            outerJtsPointNotInEnvelope = (Point) outerPointNotInEnvelope;
         }
     }
 

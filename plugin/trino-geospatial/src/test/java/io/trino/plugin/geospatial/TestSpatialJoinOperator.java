@@ -48,6 +48,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.locationtech.jts.geom.Geometry;
 
 import java.util.List;
 import java.util.Optional;
@@ -91,14 +92,14 @@ public class TestSpatialJoinOperator
                     newLeaf(new Rectangle(6, -2, 15, 15), 0))));
 
     //  2 intersecting polygons: A and B
-    private static final Slice POLYGON_A = stGeometryFromText(Slices.utf8Slice("POLYGON ((0 0, -0.5 2.5, 0 5, 2.5 5.5, 5 5, 5.5 2.5, 5 0, 2.5 -0.5, 0 0))"));
-    private static final Slice POLYGON_B = stGeometryFromText(Slices.utf8Slice("POLYGON ((4 4, 3.5 7, 4 10, 7 10.5, 10 10, 10.5 7, 10 4, 7 3.5, 4 4))"));
+    private static final Geometry POLYGON_A = stGeometryFromText(Slices.utf8Slice("POLYGON ((0 0, -0.5 2.5, 0 5, 2.5 5.5, 5 5, 5.5 2.5, 5 0, 2.5 -0.5, 0 0))"));
+    private static final Geometry POLYGON_B = stGeometryFromText(Slices.utf8Slice("POLYGON ((4 4, 3.5 7, 4 10, 7 10.5, 10 10, 10.5 7, 10 4, 7 3.5, 4 4))"));
 
     // A set of points: X in A, Y in A and B, Z in B, W outside of A and B
-    private static final Slice POINT_X = stPoint(1, 1);
-    private static final Slice POINT_Y = stPoint(4.5, 4.5);
-    private static final Slice POINT_Z = stPoint(6, 6);
-    private static final Slice POINT_W = stPoint(20, 20);
+    private static final Geometry POINT_X = stPoint(1, 1);
+    private static final Geometry POINT_Y = stPoint(4.5, 4.5);
+    private static final Geometry POINT_Z = stPoint(6, 6);
+    private static final Geometry POINT_W = stPoint(20, 20);
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;

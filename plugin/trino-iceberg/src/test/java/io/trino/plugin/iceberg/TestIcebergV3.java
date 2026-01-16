@@ -22,6 +22,7 @@ import io.trino.Session;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
+import io.trino.plugin.geospatial.GeoPlugin;
 import io.trino.plugin.hive.HivePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.ConnectorIdentity;
@@ -50,6 +51,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -83,6 +86,8 @@ public class TestIcebergV3
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
+
+        queryRunner.installPlugin(new GeoPlugin());
 
         dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
         dataDirectory.toFile().mkdirs();
@@ -883,5 +888,201 @@ public class TestIcebergV3
                 .create(ConnectorIdentity.ofUser("test"))
                 .newInputFile(Location.of(dataFilePath))
                 .length();
+    }
+
+    @Test
+    void testGeometryTypeJsonSerialization()
+    {
+        // Test that Iceberg SchemaParser preserves GeometryType CRS
+        // Note: Iceberg uses null CRS to represent the default (OGC:CRS84)
+        org.apache.iceberg.types.Types.GeometryType defaultGeomType = Types.GeometryType.of("OGC:CRS84");
+        // Verify that the default CRS is stored as null
+        assertThat(defaultGeomType.crs()).isNull();
+
+        // Test with a non-default CRS - should be preserved
+        org.apache.iceberg.types.Types.GeometryType epsg3857 = Types.GeometryType.of("EPSG:3857");
+        assertThat(epsg3857.crs()).isEqualTo("EPSG:3857");
+
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "geom_default", Types.GeometryType.of("OGC:CRS84")),
+                Types.NestedField.optional(2, "geom_3857", Types.GeometryType.of("EPSG:3857")));
+        String json = org.apache.iceberg.SchemaParser.toJson(schema);
+
+        Schema parsed = org.apache.iceberg.SchemaParser.fromJson(json);
+
+        // Default CRS should be null (representing OGC:CRS84)
+        Types.GeometryType parsedDefault = (Types.GeometryType) parsed.findField("geom_default").type();
+        assertThat(parsedDefault.crs()).isNull();
+
+        // Non-default CRS should be preserved
+        Types.GeometryType parsed3857 = (Types.GeometryType) parsed.findField("geom_3857").type();
+        assertThat(parsed3857.crs()).isEqualTo("EPSG:3857");
+    }
+
+    @Test
+    void testGeometryWithCustomSrid()
+    {
+        String hadoopTableName = "hadoop_geometry_srid_" + randomNameSuffix();
+        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
+
+        // Create table with geometry column using EPSG:3857 (Web Mercator)
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "id", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "geom", Types.GeometryType.of("EPSG:3857")));
+
+        new HadoopTables(new Configuration(false)).create(
+                schema,
+                PartitionSpec.unpartitioned(),
+                SortOrder.unsorted(),
+                ImmutableMap.of(
+                        "format-version", "3",
+                        "write.format.default", "PARQUET"),
+                hadoopTableLocation.toString());
+
+        String registered = "registered_geom_srid_" + randomNameSuffix();
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
+                .formatted(registered, hadoopTableLocation));
+
+        // Verify the table is readable (even if empty) and geometry column is recognized
+        assertThat(query("SELECT * FROM " + registered))
+                .returnsEmptyResult();
+
+        // Verify DESCRIBE shows geometry type (note: capital G for type name)
+        assertThat(query("DESCRIBE " + registered))
+                .matches("VALUES (VARCHAR 'id', VARCHAR 'integer', VARCHAR '', VARCHAR ''), " +
+                        "(VARCHAR 'geom', VARCHAR 'Geometry', VARCHAR '', VARCHAR '')");
+
+        assertUpdate("DROP TABLE " + registered);
+    }
+
+    @Test
+    void testGeometryRoundTrip()
+    {
+        for (String format : List.of("PARQUET", "ORC", "AVRO")) {
+            try (TestTable table = newTrinoTable("test_geometry_roundtrip_" + format.toLowerCase(Locale.ROOT) + "_",
+                    "(id INTEGER, geom geometry) WITH (format = '" + format + "', format_version = 3)")) {
+                // Insert geometry data - ST_Point creates geometry with SRID 0 by default
+                assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, ST_Point(1.0, 2.0))", 1);
+                assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, ST_GeometryFromText('POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))'))", 1);
+
+                // Read back and verify
+                assertThat(query("SELECT id, ST_AsText(geom) FROM " + table.getName() + " ORDER BY id"))
+                        .matches("VALUES (1, VARCHAR 'POINT (1 2)'), (2, VARCHAR 'POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))')");
+
+                // Verify that the SRID is injected on read (default is 4326 for OGC:CRS84)
+                assertThat(query("SELECT ST_SRID(geom) FROM " + table.getName() + " WHERE id = 1"))
+                        .matches("VALUES 4326");
+            }
+        }
+    }
+
+    @Test
+    void testGeographyRoundTrip()
+    {
+        for (String format : List.of("PARQUET", "ORC", "AVRO")) {
+            try (TestTable table = newTrinoTable("test_geography_roundtrip_" + format.toLowerCase(Locale.ROOT) + "_",
+                    "(id INTEGER, geog sphericalgeography) WITH (format = '" + format + "', format_version = 3)")) {
+                // Insert geography data
+                assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, to_spherical_geography(ST_Point(-122.4194, 37.7749)))", 1);
+
+                // Read back and verify
+                assertThat(query("SELECT id FROM " + table.getName()))
+                        .matches("VALUES 1");
+            }
+        }
+    }
+
+    @Test
+    void testWriteSridMismatchFails()
+    {
+        try (TestTable table = newTrinoTable("test_srid_mismatch_",
+                "(geom geometry) WITH (format = 'PARQUET', format_version = 3)")) {
+            // Try to insert geometry with different non-zero SRID (3857 = Web Mercator)
+            // Table default CRS is OGC:CRS84 (SRID 4326)
+            assertThat(query("INSERT INTO " + table.getName() + " SELECT ST_SetSRID(ST_Point(1, 1), 3857)"))
+                    .failure()
+                    .hasMessageContaining("SRID mismatch");
+        }
+    }
+
+    @Test
+    void testWriteSridZeroAllowed()
+    {
+        try (TestTable table = newTrinoTable("test_srid_zero_",
+                "(geom geometry) WITH (format = 'PARQUET', format_version = 3)")) {
+            // Insert geometry with SRID 0 (unknown) - should be allowed
+            // Table default CRS is OGC:CRS84 (SRID 4326)
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT ST_Point(1, 1)", 1);
+
+            // Insert geometry with matching SRID 4326 - should be allowed
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT ST_SetSRID(ST_Point(2, 2), 4326)", 1);
+
+            assertThat(query("SELECT count(*) FROM " + table.getName()))
+                    .matches("VALUES BIGINT '2'");
+        }
+    }
+
+    @Test
+    void testUnsupportedGeographyAlgorithm()
+    {
+        String hadoopTableName = "hadoop_unsupported_algo_" + randomNameSuffix();
+        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
+
+        // Create table with geography column using unsupported algorithm (VINCENTY)
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "id", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "geog", Types.GeographyType.of("OGC:CRS84", org.apache.iceberg.types.EdgeAlgorithm.VINCENTY)));
+
+        new HadoopTables(new Configuration(false)).create(
+                schema,
+                PartitionSpec.unpartitioned(),
+                SortOrder.unsorted(),
+                ImmutableMap.of(
+                        "format-version", "3",
+                        "write.format.default", "PARQUET"),
+                hadoopTableLocation.toString());
+
+        String registered = "registered_unsupported_algo_" + randomNameSuffix();
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
+                .formatted(registered, hadoopTableLocation));
+
+        // Query should fail due to unsupported algorithm
+        assertQueryFails(
+                "SELECT * FROM " + registered,
+                ".*Unsupported geography algorithm.*");
+
+        assertUpdate("DROP TABLE " + registered);
+    }
+
+    @Test
+    void testUnsupportedGeographyCrs()
+    {
+        String hadoopTableName = "hadoop_unsupported_crs_" + randomNameSuffix();
+        Path hadoopTableLocation = dataDirectory.resolve(hadoopTableName);
+
+        // Create table with geography column using unsupported CRS (not WGS84)
+        Schema schema = new Schema(
+                Types.NestedField.optional(1, "id", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "geog", Types.GeographyType.of("EPSG:3857", org.apache.iceberg.types.EdgeAlgorithm.SPHERICAL)));
+
+        new HadoopTables(new Configuration(false)).create(
+                schema,
+                PartitionSpec.unpartitioned(),
+                SortOrder.unsorted(),
+                ImmutableMap.of(
+                        "format-version", "3",
+                        "write.format.default", "PARQUET"),
+                hadoopTableLocation.toString());
+
+        String registered = "registered_unsupported_crs_" + randomNameSuffix();
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')"
+                .formatted(registered, hadoopTableLocation));
+
+        // Query should fail due to unsupported CRS
+        assertQueryFails(
+                "SELECT * FROM " + registered,
+                ".*Unsupported geography CRS.*");
+
+        assertUpdate("DROP TABLE " + registered);
     }
 }

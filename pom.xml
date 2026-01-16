@@ -388,12 +388,6 @@
             </dependency>
 
             <dependency>
-                <groupId>com.esri.geometry</groupId>
-                <artifactId>esri-geometry-api</artifactId>
-                <version>2.2.4</version>
-            </dependency>
-
-            <dependency>
                 <groupId>com.exasol</groupId>
                 <artifactId>exasol-jdbc</artifactId>
                 <version>25.2.6</version>
