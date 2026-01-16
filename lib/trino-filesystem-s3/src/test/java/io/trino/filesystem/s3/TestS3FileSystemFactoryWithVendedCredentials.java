@@ -19,6 +19,8 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 import software.amazon.awssdk.services.s3.S3Client;
 
 import java.lang.reflect.Field;
@@ -31,13 +33,17 @@ import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_REG
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-public class TestS3FileSystemFactoryWithVendedCredentials
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
+final class TestS3FileSystemFactoryWithVendedCredentials
 {
     private S3FileSystemFactory factory;
 
     @AfterEach
-    public void tearDown()
+    void tearDown()
     {
         if (factory != null) {
             factory.destroy();
@@ -45,7 +51,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testBackwardCompatibility()
+    void testBackwardCompatibility()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setAwsAccessKey("test-access")
@@ -61,7 +67,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testVendedRegionWhenNoStaticRegion()
+    void testVendedRegionWhenNoStaticRegion()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setAwsAccessKey("test-access")
@@ -86,7 +92,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testStaticRegionTakesPrecedenceOverVended()
+    void testStaticRegionTakesPrecedenceOverVended()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setAwsAccessKey("test-access")
@@ -111,7 +117,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testVendedEndpointWhenNoStaticEndpoint()
+    void testVendedEndpointWhenNoStaticEndpoint()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setAwsAccessKey("test-access")
@@ -136,7 +142,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testStaticEndpointTakesPrecedenceOverVended()
+    void testStaticEndpointTakesPrecedenceOverVended()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setAwsAccessKey("test-access")
@@ -162,7 +168,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testVendedCrossRegionAccessWhenStaticIsDisabled()
+    void testVendedCrossRegionAccessWhenStaticIsDisabled()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setAwsAccessKey("test-access")
@@ -188,7 +194,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testStaticCrossRegionAccessTakesPrecedence()
+    void testStaticCrossRegionAccessTakesPrecedence()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setAwsAccessKey("test-access")
@@ -214,7 +220,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testAllThreeOverrides()
+    void testAllThreeOverrides()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setAwsAccessKey("test-access")
@@ -241,7 +247,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testMultipleUsersWithSameVendedRegion()
+    void testMultipleUsersWithSameVendedRegion()
             throws Exception
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
@@ -279,7 +285,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testDifferentVendedRegions()
+    void testDifferentVendedRegions()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setAwsAccessKey("test-access")
@@ -318,7 +324,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testNoOverridesUsesDefaultClient()
+    void testNoOverridesUsesDefaultClient()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setAwsAccessKey("test-access")
@@ -334,7 +340,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testOnlyCredentialsNoOverridesUsesDefaultClient()
+    void testOnlyCredentialsNoOverridesUsesDefaultClient()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setAwsAccessKey("test-access")
@@ -358,7 +364,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testExtractionMethods()
+    void testExtractionMethods()
     {
         Map<String, String> extraCredentials = ImmutableMap.<String, String>builder()
                 .put(EXTRA_CREDENTIALS_REGION_PROPERTY, "us-west-2")
@@ -384,7 +390,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testExtractionMethodsWithMissingValues()
+    void testExtractionMethodsWithMissingValues()
     {
         ConnectorIdentity identity = ConnectorIdentity.ofUser("test");
 
@@ -399,7 +405,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testCrossRegionAccessBooleanParsing()
+    void testCrossRegionAccessBooleanParsing()
     {
         Map<String, String> extraCredentialsTrue = ImmutableMap.of(
                 EXTRA_CREDENTIALS_CROSS_REGION_ACCESS_ENABLED_PROPERTY, "true");
@@ -425,7 +431,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testVendedCrossRegionAccessWhenStaticIsFalse()
+    void testVendedCrossRegionAccessWhenStaticIsFalse()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setAwsAccessKey("test-access")
@@ -451,7 +457,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testVendedCrossRegionAccessFalseWhenStaticIsFalse()
+    void testVendedCrossRegionAccessFalseWhenStaticIsFalse()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setAwsAccessKey("test-access")
@@ -477,7 +483,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testClientCachingWithSameConfiguration()
+    void testClientCachingWithSameConfiguration()
             throws Exception
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
@@ -526,7 +532,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testVendedEndpointWhenStaticEndpointIsNull()
+    void testVendedEndpointWhenStaticEndpointIsNull()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setAwsAccessKey("test-access")
@@ -552,7 +558,7 @@ public class TestS3FileSystemFactoryWithVendedCredentials
     }
 
     @Test
-    public void testCombinationRegionEndpointAndCrossRegionAccess()
+    void testCombinationRegionEndpointAndCrossRegionAccess()
     {
         S3FileSystemConfig config = new S3FileSystemConfig()
                 .setAwsAccessKey("test-access")
