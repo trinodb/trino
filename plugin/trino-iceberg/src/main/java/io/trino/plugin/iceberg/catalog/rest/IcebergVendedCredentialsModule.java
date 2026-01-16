@@ -17,7 +17,8 @@ import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.filesystem.s3.S3CredentialsMapper;
-import io.trino.filesystem.s3.S3FileSystemModule;
+
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 
 public class IcebergVendedCredentialsModule
         extends AbstractConfigurationAwareModule
@@ -25,7 +26,9 @@ public class IcebergVendedCredentialsModule
     @Override
     protected void setup(Binder binder)
     {
-        install(new S3FileSystemModule());
-        binder.bind(S3CredentialsMapper.class).to(IcebergVendedCredentialsMapper.class).in(Scopes.SINGLETON);
+        // Bind the vended credentials mapper using OptionalBinder
+        // This allows coexistence with S3SecurityMappingModule without conflicts
+        binder.bind(IcebergVendedCredentialsMapper.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, S3CredentialsMapper.class).setBinding().to(IcebergVendedCredentialsMapper.class).in(Scopes.SINGLETON);
     }
 }
