@@ -308,7 +308,9 @@ public class TestShowQueries
         assertThat(assertions.getQueryRunner().execute("SHOW CREATE VIEW mock.mockschema.mockview").getOnlyValue())
                 .isEqualTo(
                         """
-                        CREATE VIEW mock.mockschema.mockview SECURITY INVOKER
+                        CREATE VIEW mock.mockschema.mockview (
+                           test_column
+                        ) SECURITY INVOKER
                         WITH (
                            boolean_property = true
                         ) AS

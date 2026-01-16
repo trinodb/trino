@@ -223,7 +223,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("CREATE VIEW view_with_unsupported_coercion AS SELECT length(n_comment) FROM nation");
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT COUNT(*) FROM view_with_unsupported_coercion"))
-                .hasMessageContaining("View 'hive.default.view_with_unsupported_coercion' is stale or in invalid state: a column of type bigint projected from query view at position 0 has no name");
+                .hasMessageContaining("View 'hive.default.view_with_unsupported_coercion' is stale or in invalid state: column [<anonymous>] of type bigint projected from query view at position 0 cannot be coerced to column");
     }
 
     @Test
@@ -279,7 +279,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("CREATE VIEW view_with_repeat_function AS SELECT REPEAT(n_comment,2) FROM nation");
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT COUNT(*) FROM view_with_repeat_function"))
-                .hasMessageContaining("View 'hive.default.view_with_repeat_function' is stale or in invalid state: a column of type array(varchar(152)) projected from query view at position 0 has no name");
+                .hasMessageContaining("View 'hive.default.view_with_repeat_function' is stale or in invalid state: column [<anonymous>] of type array(varchar(152)) projected from query view at position 0 cannot be coerced to column");
     }
 
     @Test
@@ -301,7 +301,12 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("CREATE VIEW hive_show_view AS SELECT * FROM nation");
 
         String showCreateViewSql = "SHOW CREATE VIEW %s.default.hive_show_view";
-        String expectedResult = "CREATE VIEW %s.default.hive_show_view SECURITY DEFINER AS\n" +
+        String expectedResult = "CREATE VIEW %s.default.hive_show_view (\n" +
+                "   n_nationkey,\n" +
+                "   n_name,\n" +
+                "   n_regionkey,\n" +
+                "   n_comment\n" +
+                ") SECURITY DEFINER AS\n" +
                 "SELECT *\n" +
                 "FROM\n" +
                 "  \"default\".\"nation\" \"nation\"";
