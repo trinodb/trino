@@ -23,6 +23,8 @@ import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
 import io.trino.util.PowerOfTwo;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
@@ -84,6 +86,7 @@ public class TaskManagerConfig
     private Duration interruptStuckSplitTasksDetectionInterval = new Duration(2, TimeUnit.MINUTES);
 
     private boolean scaleWritersEnabled = true;
+    private double scaleWritersMaxWriterMemoryPercentage = 70.0;
     private int minWriterCount = 1;
     // Set the value of default max writer count to the number of processors * 2 and cap it to 64. It should be
     // above 1, otherwise it can create a plan with a single gather exchange node on the coordinator due to a single
@@ -441,6 +444,21 @@ public class TaskManagerConfig
     public TaskManagerConfig setScaleWritersEnabled(boolean scaleWritersEnabled)
     {
         this.scaleWritersEnabled = scaleWritersEnabled;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("100.0")
+    public double getScaleWritersMaxWriterMemoryPercentage()
+    {
+        return scaleWritersMaxWriterMemoryPercentage;
+    }
+
+    @Config("task.scale-writers.max-writer-memory-percentage")
+    @ConfigDescription("Maximum percentage of memory per node that can be used by task scale writers before stopping writer scaling")
+    public TaskManagerConfig setScaleWritersMaxWriterMemoryPercentage(double scaleWritersMaxWriterMemoryPercentage)
+    {
+        this.scaleWritersMaxWriterMemoryPercentage = scaleWritersMaxWriterMemoryPercentage;
         return this;
     }
 
