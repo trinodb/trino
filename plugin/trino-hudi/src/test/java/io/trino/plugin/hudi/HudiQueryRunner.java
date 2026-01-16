@@ -22,8 +22,8 @@ import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.hive.containers.Hive3MinioDataLake;
+import io.trino.plugin.hudi.testing.DynamicHudiTablesInitializer;
 import io.trino.plugin.hudi.testing.HudiTablesInitializer;
-import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
 import io.trino.plugin.hudi.testing.TpchHudiTablesInitializer;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.DistributedQueryRunner;
@@ -138,7 +138,7 @@ public final class HudiQueryRunner
 
             QueryRunner queryRunner = builder()
                     .addCoordinatorProperty("http-server.http.port", "8080")
-                    .setDataLoader(new ResourceHudiTablesInitializer())
+                    .setDataLoader(new DynamicHudiTablesInitializer())
                     .build();
 
             log.info("======== SERVER STARTED ========");

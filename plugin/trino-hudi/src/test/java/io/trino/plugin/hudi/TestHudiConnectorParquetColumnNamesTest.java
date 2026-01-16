@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hudi;
 
-import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
+import io.trino.plugin.hudi.testing.DynamicHudiTablesInitializer;
 import io.trino.testing.QueryRunner;
 
 public class TestHudiConnectorParquetColumnNamesTest
@@ -25,7 +25,7 @@ public class TestHudiConnectorParquetColumnNamesTest
     {
         return HudiQueryRunner.builder()
                 .addConnectorProperty("hudi.parquet.use-column-names", "false")
-                .setDataLoader(new ResourceHudiTablesInitializer())
+                .setDataLoader(new DynamicHudiTablesInitializer())
                 .build();
     }
 }

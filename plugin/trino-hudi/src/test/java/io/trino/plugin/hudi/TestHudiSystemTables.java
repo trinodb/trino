@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hudi;
 
-import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
+import io.trino.plugin.hudi.testing.DynamicHudiTablesInitializer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
@@ -26,7 +26,7 @@ public class TestHudiSystemTables
             throws Exception
     {
         return HudiQueryRunner.builder()
-                .setDataLoader(new ResourceHudiTablesInitializer())
+                .setDataLoader(new DynamicHudiTablesInitializer())
                 .build();
     }
 
@@ -38,10 +38,10 @@ public class TestHudiSystemTables
                         "('action', 'varchar', '', '')," +
                         "('state', 'varchar', '', '')");
 
-        assertQuery("SELECT timestamp, action, state FROM tests.\"hudi_cow_pt_tbl$timeline\"",
-                "VALUES ('20220906063435640', 'commit', 'COMPLETED'), ('20220906063456550', 'commit', 'COMPLETED')");
+        assertQuery("SELECT action, state FROM tests.\"hudi_cow_pt_tbl$timeline\"",
+                "VALUES ('commit', 'COMPLETED'), ('commit', 'COMPLETED')");
 
-        assertQueryFails("SELECT timestamp, action, state FROM tests.\"non_existing$timeline\"",
+        assertQueryFails("SELECT action, state FROM tests.\"non_existing$timeline\"",
                 ".*Table 'hudi.tests.\"non_existing\\$timeline\"' does not exist");
     }
 
