@@ -13,10 +13,9 @@
  */
 package io.trino.plugin.geospatial.aggregation;
 
-import com.esri.core.geometry.ogc.OGCGeometry;
 import io.airlift.slice.Slice;
 import io.trino.block.BlockAssertions;
-import io.trino.geospatial.serde.GeometrySerde;
+import io.trino.geospatial.serde.JtsGeometrySerde;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.geospatial.GeoPlugin;
 import io.trino.spi.Page;
@@ -26,6 +25,9 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKTReader;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -65,9 +67,19 @@ public abstract class AbstractTestGeoAggregationFunctions
 
     protected void assertAggregatedGeometries(String testDescription, String expectedWkt, String... wkts)
     {
+        WKTReader wktReader = new WKTReader();
         List<Slice> geometrySlices = Arrays.stream(wkts)
-                .map(text -> text == null ? null : OGCGeometry.fromText(text))
-                .map(input -> input == null ? null : GeometrySerde.serialize(input))
+                .map(text -> {
+                    if (text == null) {
+                        return null;
+                    }
+                    try {
+                        return JtsGeometrySerde.serialize(wktReader.read(text));
+                    }
+                    catch (ParseException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
                 .collect(Collectors.toList());
 
         // Add a custom equality assertion because the resulting geometry may have
@@ -79,11 +91,17 @@ public abstract class AbstractTestGeoAggregationFunctions
             if (left == null || right == null) {
                 return false;
             }
-            OGCGeometry leftGeometry = OGCGeometry.fromText(left.toString());
-            OGCGeometry rightGeometry = OGCGeometry.fromText(right.toString());
-            // Check for equality by getting the difference
-            return leftGeometry.difference(rightGeometry).isEmpty() &&
-                    rightGeometry.difference(leftGeometry).isEmpty();
+            try {
+                Geometry leftGeometry = wktReader.read(left.toString());
+                Geometry rightGeometry = wktReader.read(right.toString());
+                if (leftGeometry.isEmpty() && rightGeometry.isEmpty()) {
+                    return leftGeometry.getGeometryType().equals(rightGeometry.getGeometryType());
+                }
+                return leftGeometry.equalsTopo(rightGeometry);
+            }
+            catch (ParseException e) {
+                throw new RuntimeException(e);
+            }
         };
         // Test in forward and reverse order to verify that ordering doesn't affect the output
         assertAggregation(

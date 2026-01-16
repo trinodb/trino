@@ -13,15 +13,15 @@
  */
 package io.trino.plugin.geospatial.aggregation;
 
-import com.esri.core.geometry.ogc.OGCGeometry;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
+import org.locationtech.jts.geom.Geometry;
 
 @AccumulatorStateMetadata(stateSerializerClass = GeometryStateSerializer.class, stateFactoryClass = GeometryStateFactory.class)
 public interface GeometryState
         extends AccumulatorState
 {
-    OGCGeometry getGeometry();
+    Geometry getGeometry();
 
-    void setGeometry(OGCGeometry geometry);
+    void setGeometry(Geometry geometry);
 }

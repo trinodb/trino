@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.geospatial.aggregation;
 
-import com.esri.core.geometry.ogc.OGCGeometry;
-import io.airlift.slice.Slice;
-import io.trino.geospatial.serde.GeometrySerde;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
@@ -25,7 +22,10 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+import org.locationtech.jts.geom.Geometry;
 
+import static io.trino.geospatial.GeometryUtils.safeUnion;
+import static io.trino.geospatial.serde.JtsGeometrySerde.validateAndGetSrid;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 
 /**
@@ -39,14 +39,16 @@ public final class GeometryUnionAgg
     private GeometryUnionAgg() {}
 
     @InputFunction
-    public static void input(@AggregationState GeometryState state, @SqlType(StandardTypes.GEOMETRY) Slice input)
+    public static void input(@AggregationState GeometryState state, @SqlType(StandardTypes.GEOMETRY) Geometry geometry)
     {
-        OGCGeometry geometry = GeometrySerde.deserialize(input);
         if (state.getGeometry() == null) {
             state.setGeometry(geometry);
         }
         else if (!geometry.isEmpty()) {
-            state.setGeometry(state.getGeometry().union(geometry));
+            int srid = validateAndGetSrid(state.getGeometry(), geometry);
+            Geometry result = safeUnion(state.getGeometry(), geometry);
+            result.setSRID(srid);
+            state.setGeometry(result);
         }
     }
 
@@ -57,7 +59,10 @@ public final class GeometryUnionAgg
             state.setGeometry(otherState.getGeometry());
         }
         else if (otherState.getGeometry() != null && !otherState.getGeometry().isEmpty()) {
-            state.setGeometry(state.getGeometry().union(otherState.getGeometry()));
+            int srid = validateAndGetSrid(state.getGeometry(), otherState.getGeometry());
+            Geometry result = safeUnion(state.getGeometry(), otherState.getGeometry());
+            result.setSRID(srid);
+            state.setGeometry(result);
         }
     }
 
@@ -68,7 +73,7 @@ public final class GeometryUnionAgg
             out.appendNull();
         }
         else {
-            GEOMETRY.writeSlice(out, GeometrySerde.serialize(state.getGeometry()));
+            GEOMETRY.writeObject(out, state.getGeometry());
         }
     }
 }

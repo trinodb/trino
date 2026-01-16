@@ -13,7 +13,6 @@
  */
 package io.trino.operator;
 
-import com.esri.core.geometry.ogc.OGCGeometry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
@@ -24,6 +23,7 @@ import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
+import org.locationtech.jts.geom.Geometry;
 
 import java.util.HashMap;
 import java.util.List;
@@ -41,7 +41,7 @@ public class SpatialIndexBuilderOperator
     @FunctionalInterface
     public interface SpatialPredicate
     {
-        boolean apply(OGCGeometry probe, OGCGeometry build, OptionalDouble radius);
+        boolean apply(Geometry probe, Geometry build, OptionalDouble radius);
     }
 
     public static final class SpatialIndexBuilderOperatorFactory
