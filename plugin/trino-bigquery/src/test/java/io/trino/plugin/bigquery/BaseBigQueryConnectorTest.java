@@ -108,6 +108,7 @@ public abstract class BaseBigQueryConnectorTest
                     SUPPORTS_MERGE,
                     SUPPORTS_NEGATIVE_DATE,
                     SUPPORTS_NOT_NULL_CONSTRAINT,
+                    SUPPORTS_PRIMARY_KEY_CONSTRAINT,
                     SUPPORTS_RENAME_COLUMN,
                     SUPPORTS_RENAME_SCHEMA,
                     SUPPORTS_RENAME_TABLE,
