@@ -65,6 +65,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.RelationColumnsMetadata;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -344,7 +345,7 @@ public class OracleClient
     }
 
     @Override
-    protected void dropTable(ConnectorSession session, RemoteTableName remoteTableName, boolean temporaryTable)
+    protected void dropTable(ConnectorSession session, RemoteTableName remoteTableName, SchemaTableName tableName, boolean temporaryTable)
     {
         String quotedTable = quoted(remoteTableName);
         String dropTableSql = "DROP TABLE " + quotedTable;
@@ -924,5 +925,14 @@ public class OracleClient
     public void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping a not null constraint");
+    }
+
+    @Override
+    protected boolean isTableNotFoundException(TrinoException exception)
+    {
+        if (exception.getCause() instanceof SQLException sqlException) {
+            return sqlException.getSQLState().equals("42000");
+        }
+        return false;
     }
 }

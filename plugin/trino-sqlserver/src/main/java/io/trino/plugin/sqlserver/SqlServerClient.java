@@ -1266,6 +1266,15 @@ public class SqlServerClient
         return connection;
     }
 
+    @Override
+    protected boolean isTableNotFoundException(TrinoException exception)
+    {
+        if (exception.getCause() instanceof SQLException sqlException) {
+            return sqlException.getSQLState().equals("S0005");
+        }
+        return false;
+    }
+
     public static ColumnMapping varbinaryColumnMapping()
     {
         return ColumnMapping.sliceMapping(

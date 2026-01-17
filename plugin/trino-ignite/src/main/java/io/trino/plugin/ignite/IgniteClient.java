@@ -677,4 +677,13 @@ public class IgniteClient
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
     }
+
+    @Override
+    protected boolean isTableNotFoundException(TrinoException exception)
+    {
+        if (exception.getCause() instanceof SQLException sqlException) {
+            return sqlException.getSQLState().equals("42000");
+        }
+        return false;
+    }
 }
