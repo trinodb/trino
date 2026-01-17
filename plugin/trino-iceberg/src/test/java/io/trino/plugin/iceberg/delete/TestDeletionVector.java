@@ -208,12 +208,20 @@ class TestDeletionVector
     {
         long key0Pos = 42;
         long key2Pos = (2L << 32) + 100;
+        long key2Pos2 = (2L << 32) + 1000;
+        long key2Pos3 = (2L << 32) + 10000;
         long key5Pos = (5L << 32) + 999;
+        long key5Pos2 = (5L << 32) + 1000;
+        long key5Pos3 = (5L << 32) + 1111;
 
         DeletionVector original = DeletionVector.builder()
                 .add(key0Pos)
                 .add(key2Pos)
+                .add(key2Pos2)
+                .add(key2Pos3)
                 .add(key5Pos)
+                .add(key5Pos2)
+                .add(key5Pos3)
                 .build()
                 .orElseThrow();
 
@@ -223,10 +231,21 @@ class TestDeletionVector
                 .build()
                 .orElseThrow();
 
-        assertThat(deserialized.cardinality()).isEqualTo(3);
+        assertThat(deserialized.cardinality()).isEqualTo(7);
         assertThat(deserialized.isRowDeleted(key0Pos)).isTrue();
+
+        assertThat(deserialized.isRowDeleted(key2Pos - 1)).isFalse();
         assertThat(deserialized.isRowDeleted(key2Pos)).isTrue();
+        assertThat(deserialized.isRowDeleted(key2Pos2)).isTrue();
+        assertThat(deserialized.isRowDeleted(key2Pos3)).isTrue();
+        assertThat(deserialized.isRowDeleted(key2Pos3 + 1)).isFalse();
+
+        assertThat(deserialized.isRowDeleted(key5Pos - 1)).isFalse();
         assertThat(deserialized.isRowDeleted(key5Pos)).isTrue();
+        assertThat(deserialized.isRowDeleted(key5Pos2)).isTrue();
+        assertThat(deserialized.isRowDeleted(key5Pos3)).isTrue();
+        assertThat(deserialized.isRowDeleted(key5Pos3 + 1)).isFalse();
+
         assertThat(deserialized.isRowDeleted((1L << 32) + 100)).isFalse();
     }
 

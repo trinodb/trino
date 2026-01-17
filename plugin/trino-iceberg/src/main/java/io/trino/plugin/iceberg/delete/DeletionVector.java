@@ -36,10 +36,13 @@ public final class DeletionVector
     private static final int LENGTH_SIZE_BYTES = 4;
     private static final int CRC_SIZE_BYTES = 4;
 
+    private final int bitmapCount;
     private final RoaringBitmap[] deletedRows;
 
-    private DeletionVector(RoaringBitmap[] deletedRows)
+    private DeletionVector(int bitmapCount, RoaringBitmap[] deletedRows)
     {
+        this.bitmapCount = bitmapCount;
+        checkArgument(bitmapCount > 0, "bitmapCount must be positive");
         this.deletedRows = deletedRows;
     }
 
@@ -95,12 +98,6 @@ public final class DeletionVector
         offset += Integer.BYTES;
 
         // write bitmaps
-        int bitmapCount = 0;
-        for (RoaringBitmap bitmap : deletedRows) {
-            if (bitmap != null && !bitmap.isEmpty()) {
-                bitmapCount++;
-            }
-        }
         slice.setLong(offset, bitmapCount);
         offset += SIZE_OF_LONG;
         for (int key = 0; key < deletedRows.length; key++) {
@@ -175,6 +172,7 @@ public final class DeletionVector
 
     public static final class Builder
     {
+        private int bitmapCount;
         private RoaringBitmap[] deletedRows = new RoaringBitmap[0];
 
         public Builder deserialize(Slice data)
@@ -241,21 +239,20 @@ public final class DeletionVector
 
         public Builder addAll(DeletionVector deletionVector)
         {
-            for (int i = 0; i < deletionVector.deletedRows.length; i++) {
-                RoaringBitmap deletedRow = deletionVector.deletedRows[i];
-                if (deletedRow != null && !deletedRow.isEmpty()) {
-                    getOrCreateBitmap(i).or(deletedRow);
-                }
-            }
-            return this;
+            return addAll(deletionVector.deletedRows);
         }
 
         public Builder addAll(Builder other)
         {
-            for (int i = 0; i < other.deletedRows.length; i++) {
-                RoaringBitmap bitmap = other.deletedRows[i];
+            return addAll(other.deletedRows);
+        }
+
+        private Builder addAll(RoaringBitmap[] deletedRows)
+        {
+            for (int key = 0; key < deletedRows.length; key++) {
+                RoaringBitmap bitmap = deletedRows[key];
                 if (bitmap != null && !bitmap.isEmpty()) {
-                    getOrCreateBitmap(i).or(bitmap);
+                    getOrCreateBitmap(key).or(bitmap);
                 }
             }
             return this;
@@ -270,16 +267,17 @@ public final class DeletionVector
             if (bitmap == null) {
                 bitmap = new RoaringBitmap();
                 deletedRows[key] = bitmap;
+                bitmapCount++;
             }
             return bitmap;
         }
 
         public Optional<DeletionVector> build()
         {
-            if (Arrays.stream(deletedRows).allMatch(bitmap -> bitmap == null || bitmap.isEmpty())) {
+            if (bitmapCount == 0) {
                 return Optional.empty();
             }
-            return Optional.of(new DeletionVector(deletedRows));
+            return Optional.of(new DeletionVector(bitmapCount, deletedRows));
         }
     }
 }
