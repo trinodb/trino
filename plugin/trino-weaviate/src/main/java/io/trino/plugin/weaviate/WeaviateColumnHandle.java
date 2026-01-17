@@ -35,7 +35,7 @@ import static io.trino.plugin.weaviate.WeaviateErrorCode.WEAVIATE_UNSUPPORTED_DA
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -52,7 +52,7 @@ public record WeaviateColumnHandle(String name, Type trinoType)
     @VisibleForTesting static final Type BOOL_ARRAY = new ArrayType(BOOLEAN);
     @VisibleForTesting static final Type INT_ARRAY = new ArrayType(INTEGER);
     @VisibleForTesting static final Type NUMBER_ARRAY = new ArrayType(DOUBLE);
-    @VisibleForTesting static final Type DATE_ARRAY = new ArrayType(TIMESTAMP_TZ_MILLIS);
+    @VisibleForTesting static final Type DATE_ARRAY = new ArrayType(TIMESTAMP_MILLIS);
     @VisibleForTesting static final Type GEO_COORDINATES = RowType.rowType(
             RowType.field("latitude", DOUBLE),
             RowType.field("longitude", DOUBLE));
@@ -97,7 +97,7 @@ public record WeaviateColumnHandle(String name, Type trinoType)
             case DataType.BOOL -> BOOLEAN;
             case DataType.INT -> INTEGER;
             case DataType.NUMBER -> DOUBLE;
-            case DataType.DATE -> TIMESTAMP_TZ_MILLIS;
+            case DataType.DATE -> TIMESTAMP_MILLIS;
             case DataType.GEO_COORDINATES -> GEO_COORDINATES;
             case DataType.PHONE_NUMBER -> PHONE_NUMBER;
             case DataType.TEXT_ARRAY -> TEXT_ARRAY;

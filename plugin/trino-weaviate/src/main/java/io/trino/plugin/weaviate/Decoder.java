@@ -23,7 +23,7 @@ import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.weaviate.client6.v1.api.collections.GeoCoordinates;
@@ -38,7 +38,8 @@ import static io.trino.plugin.weaviate.WeaviateColumnHandle.GEO_COORDINATES;
 import static io.trino.plugin.weaviate.WeaviateColumnHandle.PHONE_NUMBER;
 import static io.trino.plugin.weaviate.WeaviateErrorCode.WEAVIATE_UNSUPPORTED_DATA_TYPE;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.util.Objects.requireNonNull;
 
 public final class Decoder
@@ -66,7 +67,7 @@ public final class Decoder
             case BooleanType t -> t.writeBoolean(blockBuilder, (Boolean) raw);
             case DoubleType t -> t.writeDouble(blockBuilder, ((Number) raw).doubleValue());
             case IntegerType t -> t.writeLong(blockBuilder, ((Number) raw).longValue());
-            case TimestampWithTimeZoneType t -> TIMESTAMP_TZ_MILLIS.writeLong(blockBuilder, ((OffsetDateTime) raw).toInstant().toEpochMilli());
+            case TimestampType _ -> TIMESTAMP_MILLIS.writeLong(blockBuilder, ((OffsetDateTime) raw).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND);
             default -> throw new TrinoException(WEAVIATE_UNSUPPORTED_DATA_TYPE, type + " is not supported");
         }
     }

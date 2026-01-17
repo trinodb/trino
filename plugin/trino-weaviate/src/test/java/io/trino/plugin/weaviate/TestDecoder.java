@@ -18,6 +18,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.Type;
 import io.weaviate.client6.v1.api.collections.GeoCoordinates;
 import io.weaviate.client6.v1.api.collections.PhoneNumber;
@@ -25,11 +26,14 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 
 import static io.trino.plugin.weaviate.Decoder.decode;
+import static io.trino.plugin.weaviate.TestWeaviate.NOW;
 import static io.trino.plugin.weaviate.WeaviateColumnHandle.BOOL_ARRAY;
+import static io.trino.plugin.weaviate.WeaviateColumnHandle.DATE_ARRAY;
 import static io.trino.plugin.weaviate.WeaviateColumnHandle.GEO_COORDINATES;
 import static io.trino.plugin.weaviate.WeaviateColumnHandle.INT_ARRAY;
 import static io.trino.plugin.weaviate.WeaviateColumnHandle.MULTI_VECTOR;
@@ -40,6 +44,8 @@ import static io.trino.plugin.weaviate.WeaviateColumnHandle.TEXT_ARRAY;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class TestDecoder
@@ -68,6 +74,7 @@ public class TestDecoder
                 {INTEGER, 1, 1},
                 {INTEGER, 2L, 2L},
                 {DOUBLE, 3D, 3D},
+                {TIMESTAMP_MILLIS, NOW, NOW},
 
                 // Row values
                 {
@@ -136,6 +143,11 @@ public class TestDecoder
                         NUMBER_ARRAY,
                         List.of(1d, 2d, 3d),
                         List.of(1d, 2d, 3d),
+                },
+                {
+                        DATE_ARRAY,
+                        List.of(NOW, NOW),
+                        List.of(NOW, NOW),
                 },
                 {
                         SINGLE_VECTOR,
@@ -261,6 +273,11 @@ public class TestDecoder
             Assertions.assertThat(((Number) actual).doubleValue())
                     .describedAs(fieldName)
                     .isEqualTo(((Number) expected).doubleValue());
+        }
+        else if (actual instanceof SqlTimestamp ts) {
+            Assertions.assertThat(ts.getEpochMicros())
+                    .describedAs("%s (SqlTimestamp epoch micros)", fieldName)
+                    .isEqualTo(((OffsetDateTime) expected).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND);
         }
         else {
             Assertions.assertThat(actual)
