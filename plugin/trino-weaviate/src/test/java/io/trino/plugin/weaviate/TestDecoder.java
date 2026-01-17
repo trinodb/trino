@@ -97,8 +97,7 @@ public class TestDecoder
                         RowType.rowType(
                                 RowType.field("foo", VARCHAR),
                                 RowType.field("bar", RowType.rowType(
-                                        RowType.field("baz", BOOLEAN)))
-                        ),
+                                        RowType.field("baz", BOOLEAN)))),
                         Map.of(
                                 "foo", "foo-value",
                                 "bar", Map.of("baz", false)),
@@ -283,5 +282,3 @@ public class TestDecoder
         return value instanceof Float || value instanceof Double;
     }
 }
-
-

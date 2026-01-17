@@ -50,7 +50,10 @@ public class WeaviateConfig
     private OptionalInt pageSize = OptionalInt.empty();
 
     @NotNull
-    public String getScheme() {return scheme;}
+    public String getScheme()
+    {
+        return scheme;
+    }
 
     @Config("weaviate.scheme")
     @ConfigDescription("Connection URL scheme (http/https)")
