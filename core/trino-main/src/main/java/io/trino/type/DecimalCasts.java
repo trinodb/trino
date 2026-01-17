@@ -34,7 +34,9 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
+import io.trino.spi.variant.Variant;
 import io.trino.util.JsonCastException;
+import io.trino.util.variant.VariantUtil;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -59,6 +61,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
+import static io.trino.spi.type.VariantType.VARIANT;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.createJsonFactory;
@@ -92,6 +95,8 @@ public final class DecimalCasts
     public static final SqlScalarFunction VARCHAR_TO_DECIMAL_CAST = castFunctionToDecimalFrom(new TypeSignature("varchar", typeVariable("x")), "varcharToShortDecimal", "varcharToLongDecimal");
     public static final SqlScalarFunction DECIMAL_TO_JSON_CAST = castFunctionFromDecimalTo(JSON.getTypeSignature(), "shortDecimalToJson", "longDecimalToJson");
     public static final SqlScalarFunction JSON_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(JSON.getTypeSignature(), true, "jsonToShortDecimal", "jsonToLongDecimal");
+    public static final SqlScalarFunction DECIMAL_TO_VARIANT_CAST = castFunctionFromDecimalTo(VARIANT.getTypeSignature(), "shortDecimalToVariant", "longDecimalToVariant");
+    public static final SqlScalarFunction VARIANT_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(VARIANT.getTypeSignature(), true, "variantToShortDecimal", "variantToLongDecimal");
 
     private static final JsonFactory JSON_FACTORY = createJsonFactory();
 
@@ -593,6 +598,30 @@ public final class DecimalCasts
         catch (IOException | NumberFormatException | JsonCastException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DECIMAL(%s,%s)", json.toStringUtf8(), precision, scale), e);
         }
+    }
+
+    @UsedByGeneratedCode
+    public static Variant shortDecimalToVariant(long decimal, long precision, long scale, long tenToScale)
+    {
+        return Variant.ofDecimal(BigDecimal.valueOf(decimal, DecimalConversions.intScale(scale)));
+    }
+
+    @UsedByGeneratedCode
+    public static Variant longDecimalToVariant(Int128 decimal, long precision, long scale, Int128 tenToScale)
+    {
+        return Variant.ofDecimal(new BigDecimal(decimal.toBigInteger(), DecimalConversions.intScale(scale)));
+    }
+
+    @UsedByGeneratedCode
+    public static Int128 variantToLongDecimal(Variant variant, long precision, long scale, Int128 tenToScale)
+    {
+        return VariantUtil.asLongDecimal(variant, intPrecision(precision), DecimalConversions.intScale(scale));
+    }
+
+    @UsedByGeneratedCode
+    public static Long variantToShortDecimal(Variant variant, long precision, long scale, long tenToScale)
+    {
+        return VariantUtil.asShortDecimal(variant, intPrecision(precision), DecimalConversions.intScale(scale));
     }
 
     @SuppressWarnings("NumericCastThatLosesPrecision")
