@@ -111,6 +111,13 @@ public class TestWeaviate
     }
 
     @Test
+    public void testSelectDeeplyNested()
+    {
+        assertQuery("SELECT prop_object.nested_object.deep_text FROM " + COLLECTION_NO_TENANT, "SELECT 'deep-text-value'");
+        assertQuery("SELECT prop_object_array[1].array_int FROM " + COLLECTION_NO_TENANT, "SELECT 5");
+    }
+
+    @Test
     public void testSelectWithTenant()
     {
         assertQuery("SELECT prop_text, prop_bool FROM " + COLLECTION_NO_TENANT, "SELECT * FROM (VALUES ('text-value', true))");
