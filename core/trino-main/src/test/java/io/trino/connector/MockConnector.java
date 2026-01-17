@@ -679,6 +679,12 @@ public class MockConnector
         }
 
         @Override
+        public void setNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void dropNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
         {
             throw new UnsupportedOperationException();

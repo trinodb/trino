@@ -94,6 +94,8 @@ statement
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ALTER COLUMN columnName=qualifiedName SET DATA TYPE type       #setColumnType
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ALTER COLUMN columnName=identifier SET NOT NULL                #setNotNullConstraint
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ALTER COLUMN columnName=identifier DROP NOT NULL               #dropNotNullConstraint
     | ALTER TABLE tableName=qualifiedName
         SET PROPERTIES propertyAssignments                             #setTableProperties
