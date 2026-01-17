@@ -14,6 +14,7 @@
 package io.trino.filesystem.s3;
 
 import com.google.inject.Inject;
+import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.awssdk.v2_2.AwsSdkTelemetry;
 import io.trino.filesystem.Location;
@@ -162,6 +163,8 @@ final class S3FileSystemLoader
         Optional<String> staticEndpoint = Optional.ofNullable(config.getEndpoint());
         boolean pathStyleAccess = config.isPathStyleAccess();
         boolean useWebIdentityTokenCredentialsProvider = config.isUseWebIdentityTokenCredentialsProvider();
+        Optional<Duration> webIdentityTokenCredentialsPrefetchTime = config.getWebIdentityTokenCredentialsPrefetchTime();
+        Optional<Duration> webIdentityTokenCredentialsStaleTime = config.getWebIdentityTokenCredentialsStaleTime();
         Optional<String> staticIamRole = Optional.ofNullable(config.getIamRole());
         String staticRoleSessionName = config.getRoleSessionName();
         String externalId = config.getExternalId();
@@ -190,9 +193,10 @@ final class S3FileSystemLoader
             s3.forcePathStyle(pathStyleAccess);
 
             if (useWebIdentityTokenCredentialsProvider) {
-                s3.credentialsProvider(WebIdentityTokenFileCredentialsProvider.builder()
-                        .asyncCredentialUpdateEnabled(true)
-                        .build());
+                WebIdentityTokenFileCredentialsProvider.Builder builder = WebIdentityTokenFileCredentialsProvider.builder().asyncCredentialUpdateEnabled(true);
+                webIdentityTokenCredentialsPrefetchTime.ifPresent(duration -> builder.prefetchTime(duration.toJavaTime()));
+                webIdentityTokenCredentialsStaleTime.ifPresent(duration -> builder.staleTime(duration.toJavaTime()));
+                s3.credentialsProvider(builder.build());
             }
             else if (iamRole.isPresent()) {
                 s3.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
@@ -219,6 +223,8 @@ final class S3FileSystemLoader
         Optional<String> staticEndpoint = Optional.ofNullable(config.getEndpoint());
         boolean pathStyleAccess = config.isPathStyleAccess();
         boolean useWebIdentityTokenCredentialsProvider = config.isUseWebIdentityTokenCredentialsProvider();
+        Optional<Duration> webIdentityTokenCredentialsPrefetchTime = config.getWebIdentityTokenCredentialsPrefetchTime();
+        Optional<Duration> webIdentityTokenCredentialsStaleTime = config.getWebIdentityTokenCredentialsStaleTime();
         Optional<String> staticIamRole = Optional.ofNullable(config.getIamRole());
         String staticRoleSessionName = config.getRoleSessionName();
         String externalId = config.getExternalId();
@@ -234,9 +240,10 @@ final class S3FileSystemLoader
                 .build());
 
         if (useWebIdentityTokenCredentialsProvider) {
-            s3.credentialsProvider(WebIdentityTokenFileCredentialsProvider.builder()
-                    .asyncCredentialUpdateEnabled(true)
-                    .build());
+            WebIdentityTokenFileCredentialsProvider.Builder builder = WebIdentityTokenFileCredentialsProvider.builder().asyncCredentialUpdateEnabled(true);
+            webIdentityTokenCredentialsPrefetchTime.ifPresent(duration -> builder.prefetchTime(duration.toJavaTime()));
+            webIdentityTokenCredentialsStaleTime.ifPresent(duration -> builder.staleTime(duration.toJavaTime()));
+            s3.credentialsProvider(builder.build());
         }
         else if (staticIamRole.isPresent()) {
             s3.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
