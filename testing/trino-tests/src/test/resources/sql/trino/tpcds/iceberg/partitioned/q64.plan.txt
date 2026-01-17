@@ -3,17 +3,17 @@ remote exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             join (INNER, PARTITIONED):
                 remote exchange (REPARTITION, HASH, [s_store_name, s_zip, ss_item_sk])
-                    final aggregation over (ca_city, ca_city_119, ca_street_name, ca_street_name_116, ca_street_number, ca_street_number_115, ca_zip, ca_zip_122, d_year, d_year_19, d_year_50, i_product_name, s_store_name, s_zip, ss_item_sk)
+                    final aggregation over (ca_city, ca_city_147, ca_street_name, ca_street_name_144, ca_street_number, ca_street_number_143, ca_zip, ca_zip_150, d_year, d_year_27, d_year_60, i_product_name, s_store_name, s_zip, ss_item_sk)
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, [ca_city, ca_city_119, ca_street_name, ca_street_name_116, ca_street_number, ca_street_number_115, ca_zip, ca_zip_122, d_year, d_year_19, d_year_50, i_product_name, s_store_name, s_zip, ss_item_sk])
-                                intermediate aggregation over (ca_city, ca_city_119, ca_street_name, ca_street_name_116, ca_street_number, ca_street_number_115, ca_zip, ca_zip_122, d_year, d_year_19, d_year_50, i_product_name, s_store_name, s_zip, ss_item_sk)
+                            remote exchange (REPARTITION, HASH, [ca_city, ca_city_147, ca_street_name, ca_street_name_144, ca_street_number, ca_street_number_143, ca_zip, ca_zip_150, d_year, d_year_27, d_year_60, i_product_name, s_store_name, s_zip, ss_item_sk])
+                                intermediate aggregation over (ca_city, ca_city_147, ca_street_name, ca_street_name_144, ca_street_number, ca_street_number_143, ca_zip, ca_zip_150, d_year, d_year_27, d_year_60, i_product_name, s_store_name, s_zip, ss_item_sk)
                                     join (INNER, PARTITIONED):
                                         remote exchange (REPARTITION, HASH, [c_current_addr_sk])
-                                            intermediate aggregation over (c_current_addr_sk, ca_city, ca_street_name, ca_street_number, ca_zip, d_year, d_year_19, d_year_50, i_product_name, s_store_name, s_zip, ss_item_sk)
+                                            intermediate aggregation over (c_current_addr_sk, ca_city, ca_street_name, ca_street_number, ca_zip, d_year, d_year_27, d_year_60, i_product_name, s_store_name, s_zip, ss_item_sk)
                                                 join (INNER, PARTITIONED):
                                                     remote exchange (REPARTITION, HASH, [ss_addr_sk])
                                                         join (INNER, REPLICATED):
-                                                            partial aggregation over (c_current_addr_sk, d_year, d_year_19, d_year_50, s_store_name, s_zip, ss_addr_sk, ss_item_sk)
+                                                            partial aggregation over (c_current_addr_sk, d_year, d_year_27, d_year_60, s_store_name, s_zip, ss_addr_sk, ss_item_sk)
                                                                 join (INNER, REPLICATED):
                                                                     join (INNER, REPLICATED):
                                                                         join (INNER, REPLICATED):
@@ -85,7 +85,7 @@ remote exchange (GATHER, SINGLE, [])
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                                             join (INNER, REPLICATED):
-                                                                                dynamic filter (hd_income_band_sk_103::EQUAL)
+                                                                                dynamic filter (hd_income_band_sk_127::EQUAL)
                                                                                     scan household_demographics
                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                     remote exchange (REPLICATE, BROADCAST, [])
@@ -98,51 +98,51 @@ remote exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, [ca_address_sk])
                                                             scan customer_address
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPARTITION, HASH, [ca_address_sk_113])
+                                            remote exchange (REPARTITION, HASH, [ca_address_sk_141])
                                                 scan customer_address
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, [s_store_name_361, s_zip_381, ss_item_sk_145])
-                        final aggregation over (ca_city_477, ca_city_493, ca_street_name_474, ca_street_name_490, ca_street_number_473, ca_street_number_489, ca_zip_480, ca_zip_496, d_year_269, d_year_300, d_year_331, i_product_name_536, s_store_name_361, s_zip_381, ss_item_sk_145)
+                    remote exchange (REPARTITION, HASH, [s_store_name_411, s_zip_431, ss_item_sk_181])
+                        final aggregation over (ca_city_541, ca_city_559, ca_street_name_538, ca_street_name_556, ca_street_number_537, ca_street_number_555, ca_zip_544, ca_zip_562, d_year_313, d_year_346, d_year_379, i_product_name_608, s_store_name_411, s_zip_431, ss_item_sk_181)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, [ca_city_477, ca_city_493, ca_street_name_474, ca_street_name_490, ca_street_number_473, ca_street_number_489, ca_zip_480, ca_zip_496, d_year_269, d_year_300, d_year_331, i_product_name_536, s_store_name_361, s_zip_381, ss_item_sk_145])
-                                    intermediate aggregation over (ca_city_477, ca_city_493, ca_street_name_474, ca_street_name_490, ca_street_number_473, ca_street_number_489, ca_zip_480, ca_zip_496, d_year_269, d_year_300, d_year_331, i_product_name_536, s_store_name_361, s_zip_381, ss_item_sk_145)
+                                remote exchange (REPARTITION, HASH, [ca_city_541, ca_city_559, ca_street_name_538, ca_street_name_556, ca_street_number_537, ca_street_number_555, ca_zip_544, ca_zip_562, d_year_313, d_year_346, d_year_379, i_product_name_608, s_store_name_411, s_zip_431, ss_item_sk_181])
+                                    intermediate aggregation over (ca_city_541, ca_city_559, ca_street_name_538, ca_street_name_556, ca_street_number_537, ca_street_number_555, ca_zip_544, ca_zip_562, d_year_313, d_year_346, d_year_379, i_product_name_608, s_store_name_411, s_zip_431, ss_item_sk_181)
                                         join (INNER, PARTITIONED):
-                                            remote exchange (REPARTITION, HASH, [c_current_addr_sk_392])
-                                                intermediate aggregation over (c_current_addr_sk_392, ca_city_477, ca_street_name_474, ca_street_number_473, ca_zip_480, d_year_269, d_year_300, d_year_331, i_product_name_536, s_store_name_361, s_zip_381, ss_item_sk_145)
+                                            remote exchange (REPARTITION, HASH, [c_current_addr_sk_444])
+                                                intermediate aggregation over (c_current_addr_sk_444, ca_city_541, ca_street_name_538, ca_street_number_537, ca_zip_544, d_year_313, d_year_346, d_year_379, i_product_name_608, s_store_name_411, s_zip_431, ss_item_sk_181)
                                                     join (INNER, PARTITIONED):
-                                                        remote exchange (REPARTITION, HASH, [ss_addr_sk_149])
+                                                        remote exchange (REPARTITION, HASH, [ss_addr_sk_185])
                                                             join (INNER, REPLICATED):
-                                                                partial aggregation over (c_current_addr_sk_392, d_year_269, d_year_300, d_year_331, s_store_name_361, s_zip_381, ss_addr_sk_149, ss_item_sk_145)
+                                                                partial aggregation over (c_current_addr_sk_444, d_year_313, d_year_346, d_year_379, s_store_name_411, s_zip_431, ss_addr_sk_185, ss_item_sk_181)
                                                                     join (INNER, REPLICATED):
                                                                         join (INNER, REPLICATED):
                                                                             join (INNER, REPLICATED):
                                                                                 join (INNER, PARTITIONED):
-                                                                                    remote exchange (REPARTITION, HASH, [ss_customer_sk_146])
+                                                                                    remote exchange (REPARTITION, HASH, [ss_customer_sk_182])
                                                                                         join (INNER, REPLICATED):
                                                                                             join (INNER, REPLICATED):
                                                                                                 join (INNER, REPLICATED):
                                                                                                     join (INNER, REPLICATED):
                                                                                                         join (INNER, PARTITIONED):
-                                                                                                            remote exchange (REPARTITION, HASH, [ss_item_sk_145, ss_ticket_number_152])
-                                                                                                                dynamic filter (ss_addr_sk_149::EQUAL, ss_cdemo_sk_147::EQUAL, ss_customer_sk_146::EQUAL, ss_hdemo_sk_148::EQUAL, ss_item_sk_145::EQUAL, ss_item_sk_145::EQUAL, ss_item_sk_145::EQUAL, ss_promo_sk_151::EQUAL, ss_sold_date_sk_166::EQUAL, ss_store_sk_150::EQUAL, ss_ticket_number_152::EQUAL)
+                                                                                                            remote exchange (REPARTITION, HASH, [ss_item_sk_181, ss_ticket_number_188])
+                                                                                                                dynamic filter (ss_addr_sk_185::EQUAL, ss_cdemo_sk_183::EQUAL, ss_customer_sk_182::EQUAL, ss_hdemo_sk_184::EQUAL, ss_item_sk_181::EQUAL, ss_item_sk_181::EQUAL, ss_item_sk_181::EQUAL, ss_promo_sk_187::EQUAL, ss_sold_date_sk_202::EQUAL, ss_store_sk_186::EQUAL, ss_ticket_number_188::EQUAL)
                                                                                                                     scan store_sales
                                                                                                             local exchange (GATHER, SINGLE, [])
-                                                                                                                remote exchange (REPARTITION, HASH, [sr_item_sk_171, sr_ticket_number_178])
-                                                                                                                    dynamic filter (sr_item_sk_171::EQUAL, sr_item_sk_171::EQUAL)
+                                                                                                                remote exchange (REPARTITION, HASH, [sr_item_sk_209, sr_ticket_number_216])
+                                                                                                                    dynamic filter (sr_item_sk_209::EQUAL, sr_item_sk_209::EQUAL)
                                                                                                                         scan store_returns
                                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                                                                final aggregation over (cs_item_sk_207)
+                                                                                                                final aggregation over (cs_item_sk_247)
                                                                                                                     local exchange (GATHER, SINGLE, [])
-                                                                                                                        remote exchange (REPARTITION, HASH, [cs_item_sk_207])
-                                                                                                                            partial aggregation over (cs_item_sk_207)
+                                                                                                                        remote exchange (REPARTITION, HASH, [cs_item_sk_247])
+                                                                                                                            partial aggregation over (cs_item_sk_247)
                                                                                                                                 join (INNER, PARTITIONED):
-                                                                                                                                    remote exchange (REPARTITION, HASH, [cs_item_sk_207, cs_order_number_209])
-                                                                                                                                        dynamic filter (cs_item_sk_207::EQUAL, cs_item_sk_207::EQUAL, cs_order_number_209::EQUAL)
+                                                                                                                                    remote exchange (REPARTITION, HASH, [cs_item_sk_247, cs_order_number_249])
+                                                                                                                                        dynamic filter (cs_item_sk_247::EQUAL, cs_item_sk_247::EQUAL, cs_order_number_249::EQUAL)
                                                                                                                                             scan catalog_sales
                                                                                                                                     local exchange (GATHER, SINGLE, [])
-                                                                                                                                        remote exchange (REPARTITION, HASH, [cr_item_sk_231, cr_order_number_245])
-                                                                                                                                            dynamic filter (cr_item_sk_231::EQUAL)
+                                                                                                                                        remote exchange (REPARTITION, HASH, [cr_item_sk_273, cr_order_number_287])
+                                                                                                                                            dynamic filter (cr_item_sk_273::EQUAL)
                                                                                                                                                 scan catalog_returns
                                                                                                     local exchange (GATHER, SINGLE, [])
                                                                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -154,11 +154,11 @@ remote exchange (GATHER, SINGLE, [])
                                                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                                                     scan store
                                                                                     local exchange (GATHER, SINGLE, [])
-                                                                                        remote exchange (REPARTITION, HASH, [c_customer_sk_388])
+                                                                                        remote exchange (REPARTITION, HASH, [c_customer_sk_440])
                                                                                             join (INNER, REPLICATED):
                                                                                                 join (INNER, REPLICATED):
                                                                                                     join (INNER, REPLICATED):
-                                                                                                        dynamic filter (c_current_addr_sk_392::EQUAL, c_current_cdemo_sk_390::EQUAL, c_current_hdemo_sk_391::EQUAL, c_first_sales_date_sk_394::EQUAL, c_first_shipto_date_sk_393::EQUAL)
+                                                                                                        dynamic filter (c_current_addr_sk_444::EQUAL, c_current_cdemo_sk_442::EQUAL, c_current_hdemo_sk_443::EQUAL, c_first_sales_date_sk_446::EQUAL, c_first_shipto_date_sk_445::EQUAL)
                                                                                                             scan customer
                                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -175,7 +175,7 @@ remote exchange (GATHER, SINGLE, [])
                                                                             local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                                     join (INNER, REPLICATED):
-                                                                                        dynamic filter (hd_income_band_sk_456::EQUAL)
+                                                                                        dynamic filter (hd_income_band_sk_516::EQUAL)
                                                                                             scan household_demographics
                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -183,7 +183,7 @@ remote exchange (GATHER, SINGLE, [])
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                                 join (INNER, REPLICATED):
-                                                                                    dynamic filter (hd_income_band_sk_464::EQUAL)
+                                                                                    dynamic filter (hd_income_band_sk_526::EQUAL)
                                                                                         scan household_demographics
                                                                                     local exchange (GATHER, SINGLE, [])
                                                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -192,8 +192,8 @@ remote exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                         scan item
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPARTITION, HASH, [ca_address_sk_471])
+                                                            remote exchange (REPARTITION, HASH, [ca_address_sk_535])
                                                                 scan customer_address
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, [ca_address_sk_487])
+                                                remote exchange (REPARTITION, HASH, [ca_address_sk_553])
                                                     scan customer_address
