@@ -14,7 +14,7 @@
     <description>Trino - Weaviate connector</description>
 
     <properties>
-        <dep.client6.version>6.0.2-SNAPSHOT</dep.client6.version>
+        <dep.client6.version>6.0.0</dep.client6.version>
         <dep.testcontainers.version>2.0.2</dep.testcontainers.version>
     </properties>
 
