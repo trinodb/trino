@@ -23,6 +23,7 @@
 - {func}`abs`
 - {func}`acos`
 - [ALL](quantified-comparison-predicates)
+- {doc}`allcolumnsearch`
 - {func}`all_match`
 - [AND](logical-operators)
 - [ANY](quantified-comparison-predicates)
