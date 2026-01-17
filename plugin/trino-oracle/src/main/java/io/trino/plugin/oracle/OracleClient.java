@@ -428,8 +428,10 @@ public class OracleClient
             // Oracle report both NUMBER and FLOAT column as NUMBER type via `getColumnTypeName` (in table function),
             // so we have to rely on the column class name here, Oracle NUMBER column are expected "java.math.BigDecimal",
             // when the column class name is "java.lang.Double" it means it's actual a FLOAT type in Oracle side
+            // and the scale is expected to be -127
             if ("java.lang.Double".equals(columnClassName)) {
                 int precision = columnSize + max(-scale, 0);
+                verify(scale == -127, "FLOAT scale is expected to be -127 but got %s", scale);
                 // we just handle the precision here is not able to handle by `toColumnMapping` method
                 if (!isAllowedNumber(session, precision, scale, columnSize)) {
                     return new JdbcTypeHandle(FLOAT, Optional.of("FLOAT"), Optional.of(columnSize), Optional.of(scale), Optional.empty(), Optional.of(caseSensitive));
