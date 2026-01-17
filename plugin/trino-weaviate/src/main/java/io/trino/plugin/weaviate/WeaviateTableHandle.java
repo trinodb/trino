@@ -33,8 +33,7 @@ import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public record WeaviateTableHandle(
-        // TODO(dyma): make tenant Optional<String>
-        String tenant,
+        Optional<String> tenant,
         String tableName,
         String comment,
         OptionalLong limit,
@@ -52,7 +51,7 @@ public record WeaviateTableHandle(
     public WeaviateTableHandle(CollectionConfig collection)
     {
         this(
-                DEFAULT_SCHEMA,
+                Optional.of(DEFAULT_SCHEMA),
                 requireNonNull(collection, "collection is null").collectionName(),
                 collection.description(),
                 OptionalLong.empty(),
@@ -76,7 +75,7 @@ public record WeaviateTableHandle(
     public WeaviateTableHandle withTenant(String tenant)
     {
         requireNonNull(tenant, "tenant is null");
-        return new WeaviateTableHandle(tenant, tableName, comment, limit, columns);
+        return new WeaviateTableHandle(Optional.of(tenant), tableName, comment, limit, columns);
     }
 
     public WeaviateTableHandle withLimit(long limit)
@@ -86,12 +85,14 @@ public record WeaviateTableHandle(
 
     public String tenantIgnoreDefault()
     {
-        return tenant.equals(DEFAULT_SCHEMA) ? null : tenant;
+        return tenant.isPresent() && !tenant.get().equals(DEFAULT_SCHEMA)
+                ? tenant.get()
+                : null;
     }
 
     ConnectorTableMetadata tableMetadata()
     {
-        SchemaTableName name = new SchemaTableName(this.tenant, this.tableName);
+        SchemaTableName name = new SchemaTableName(this.tenant.orElse(DEFAULT_SCHEMA), this.tableName);
         Optional<String> comment = Optional.ofNullable(this.comment);
         List<ColumnMetadata> columns = columnsMetadata();
         return new ConnectorTableMetadata(name, columns, emptyMap(), comment);
