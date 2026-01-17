@@ -61,7 +61,7 @@ public record ProtocolEntry(
         // Spark done the similar logic here:
         // https://github.com/delta-io/delta/blob/f5ebfbb10bda87b6b2b7c9032e86edaf40d446bc/spark/src/main/scala/org/apache/spark/sql/delta/actions/actions.scala#L155-L157
         if (minReaderVersion >= MIN_VERSION_SUPPORTS_READER_FEATURES && readerFeatures.isEmpty()) {
-            log.warn("readerFeatures must exist when minReaderVersion is greater than or equal to " + MIN_VERSION_SUPPORTS_READER_FEATURES);
+            log.debug("readerFeatures must exist when minReaderVersion is greater than or equal to %s", MIN_VERSION_SUPPORTS_READER_FEATURES);
         }
         if (minWriterVersion < MIN_VERSION_SUPPORTS_WRITER_FEATURES && writerFeatures.isPresent()) {
             throw new IllegalArgumentException("writerFeatures must not exist when minWriterVersion is less than " + MIN_VERSION_SUPPORTS_WRITER_FEATURES);
@@ -72,13 +72,13 @@ public record ProtocolEntry(
         // Spark done the similar logic here:
         // https://github.com/delta-io/delta/blob/f5ebfbb10bda87b6b2b7c9032e86edaf40d446bc/spark/src/main/scala/org/apache/spark/sql/delta/actions/actions.scala#L158-L160
         if (minWriterVersion >= MIN_VERSION_SUPPORTS_WRITER_FEATURES && writerFeatures.isEmpty()) {
-            log.warn("writerFeatures must exist when minWriterVersion is greater than or equal to " + MIN_VERSION_SUPPORTS_WRITER_FEATURES);
+            log.debug("writerFeatures must exist when minWriterVersion is greater than or equal to %s", MIN_VERSION_SUPPORTS_WRITER_FEATURES);
         }
 
         // Spark done the similar logic here:
         // https://github.com/delta-io/delta/blob/f5ebfbb10bda87b6b2b7c9032e86edaf40d446bc/spark/src/main/scala/org/apache/spark/sql/delta/actions/actions.scala#L162-L166
         if (minReaderVersion >= MIN_VERSION_SUPPORTS_READER_FEATURES && minWriterVersion < MIN_VERSION_SUPPORTS_WRITER_FEATURES) {
-            log.warn("When reader is on table features, writer must be on table features too");
+            log.debug("When reader is on table features, writer must be on table features too");
         }
 
         readerFeatures = requireNonNull(readerFeatures, "readerFeatures is null").map(ImmutableSet::copyOf);

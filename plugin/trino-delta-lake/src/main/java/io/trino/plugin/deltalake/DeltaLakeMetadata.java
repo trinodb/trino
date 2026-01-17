@@ -1352,12 +1352,12 @@ public class DeltaLakeMetadata
                             transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true, Optional.empty()));
                         }
                     }
-                    protocolEntry = protocolEntryForTable(tableHandle.getProtocolEntry().minReaderVersion(), tableHandle.getProtocolEntry().minWriterVersion(), containsTimestampType, tableMetadata.getProperties());
+                    protocolEntry = protocolEntryForTable(ProtocolEntry.builder(tableHandle.getProtocolEntry()), containsTimestampType, tableMetadata.getProperties());
                     statisticsAccess.deleteExtendedStatistics(session, schemaTableName, location, tableHandle.toCredentialsHandle());
                 }
                 else {
                     setRollback(() -> deleteRecursivelyIfExists(fileSystem, deltaLogDirectory));
-                    protocolEntry = protocolEntryForTable(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION, containsTimestampType, tableMetadata.getProperties());
+                    protocolEntry = protocolEntryForTable(ProtocolEntry.builder(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION), containsTimestampType, tableMetadata.getProperties());
                 }
 
                 MetadataEntry metadataEntry = MetadataEntry.builder()
@@ -1542,7 +1542,7 @@ public class DeltaLakeMetadata
 
         boolean isNewCheckpointFileRequired = false;
         if (replaceExistingTable) {
-            protocolEntry = protocolEntryForTable(handle.getProtocolEntry().minReaderVersion(), handle.getProtocolEntry().minWriterVersion(), containsTimestampType, tableMetadata.getProperties());
+            protocolEntry = protocolEntryForTable(ProtocolEntry.builder(handle.getProtocolEntry()), containsTimestampType, tableMetadata.getProperties());
             readVersion = OptionalLong.of(handle.getReadVersion());
             isNewCheckpointFileRequired = isNewCheckpointFileRequired(getColumns(handle.getMetadataEntry(), handle.getProtocolEntry()), columnHandles.build());
         }
@@ -1550,7 +1550,7 @@ public class DeltaLakeMetadata
             TrinoFileSystem fileSystem = fileSystemFactory.create(session, location);
             checkPathContainsNoFiles(fileSystem, finalLocation);
             setRollback(() -> deleteRecursivelyIfExists(fileSystem, finalLocation));
-            protocolEntry = protocolEntryForTable(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION, containsTimestampType, tableMetadata.getProperties());
+            protocolEntry = protocolEntryForTable(ProtocolEntry.builder(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION), containsTimestampType, tableMetadata.getProperties());
         }
 
         return new DeltaLakeOutputTableHandle(
@@ -3130,10 +3130,10 @@ public class DeltaLakeMetadata
         }
     }
 
-    private ProtocolEntry protocolEntryForTable(int readerVersion, int writerVersion, boolean containsTimestampType, Map<String, Object> properties)
+    private ProtocolEntry protocolEntryForTable(ProtocolEntry.Builder builder, boolean containsTimestampType, Map<String, Object> properties)
     {
         return protocolEntry(
-                ProtocolEntry.builder(readerVersion, writerVersion),
+                builder,
                 containsTimestampType,
                 getChangeDataFeedEnabled(properties),
                 getColumnMappingMode(properties),
