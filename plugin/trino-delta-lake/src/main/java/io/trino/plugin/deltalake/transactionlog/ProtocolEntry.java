@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.transactionlog;
 
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logger;
 import io.airlift.slice.SizeOf;
 
 import java.util.HashSet;
@@ -47,6 +48,7 @@ public record ProtocolEntry(
         Optional<Set<String>> readerFeatures,
         Optional<Set<String>> writerFeatures)
 {
+    private static final Logger log = Logger.get(ProtocolEntry.class);
     private static final int INSTANCE_SIZE = instanceSize(ProtocolEntry.class);
 
     public ProtocolEntry
@@ -54,9 +56,31 @@ public record ProtocolEntry(
         if (minReaderVersion < MIN_VERSION_SUPPORTS_READER_FEATURES && readerFeatures.isPresent()) {
             throw new IllegalArgumentException("readerFeatures must not exist when minReaderVersion is less than " + MIN_VERSION_SUPPORTS_READER_FEATURES);
         }
+        // When reader version is 3, readerFeatures must exist in protocol - https://github.com/delta-io/delta/blob/master/PROTOCOL.md#table-features
+        //
+        // Spark done the similar logic here:
+        // https://github.com/delta-io/delta/blob/f5ebfbb10bda87b6b2b7c9032e86edaf40d446bc/spark/src/main/scala/org/apache/spark/sql/delta/actions/actions.scala#L155-L157
+        if (minReaderVersion >= MIN_VERSION_SUPPORTS_READER_FEATURES && readerFeatures.isEmpty()) {
+            log.warn("readerFeatures must exist when minReaderVersion is greater than or equal to " + MIN_VERSION_SUPPORTS_READER_FEATURES);
+        }
         if (minWriterVersion < MIN_VERSION_SUPPORTS_WRITER_FEATURES && writerFeatures.isPresent()) {
             throw new IllegalArgumentException("writerFeatures must not exist when minWriterVersion is less than " + MIN_VERSION_SUPPORTS_WRITER_FEATURES);
         }
+
+        // when writer version is 7, writerFeatures must exist in protocol - https://github.com/delta-io/delta/blob/master/PROTOCOL.md#table-features
+        //
+        // Spark done the similar logic here:
+        // https://github.com/delta-io/delta/blob/f5ebfbb10bda87b6b2b7c9032e86edaf40d446bc/spark/src/main/scala/org/apache/spark/sql/delta/actions/actions.scala#L158-L160
+        if (minWriterVersion >= MIN_VERSION_SUPPORTS_WRITER_FEATURES && writerFeatures.isEmpty()) {
+            log.warn("writerFeatures must exist when minWriterVersion is greater than or equal to " + MIN_VERSION_SUPPORTS_WRITER_FEATURES);
+        }
+
+        // Spark done the similar logic here:
+        // https://github.com/delta-io/delta/blob/f5ebfbb10bda87b6b2b7c9032e86edaf40d446bc/spark/src/main/scala/org/apache/spark/sql/delta/actions/actions.scala#L162-L166
+        if (minReaderVersion >= MIN_VERSION_SUPPORTS_READER_FEATURES && minWriterVersion < MIN_VERSION_SUPPORTS_WRITER_FEATURES) {
+            log.warn("When reader is on table features, writer must be on table features too");
+        }
+
         readerFeatures = requireNonNull(readerFeatures, "readerFeatures is null").map(ImmutableSet::copyOf);
         writerFeatures = requireNonNull(writerFeatures, "writerFeatures is null").map(ImmutableSet::copyOf);
     }
@@ -154,8 +178,8 @@ public record ProtocolEntry(
             return new ProtocolEntry(
                     readerVersion,
                     writerVersion,
-                    readerVersion < MIN_VERSION_SUPPORTS_READER_FEATURES || readerFeatures.isEmpty() ? Optional.empty() : Optional.of(readerFeatures),
-                    writerVersion < MIN_VERSION_SUPPORTS_WRITER_FEATURES || writerFeatures.isEmpty() ? Optional.empty() : Optional.of(writerFeatures));
+                    readerVersion < MIN_VERSION_SUPPORTS_READER_FEATURES ? Optional.empty() : Optional.of(readerFeatures),
+                    writerVersion < MIN_VERSION_SUPPORTS_WRITER_FEATURES ? Optional.empty() : Optional.of(writerFeatures));
         }
     }
 }
