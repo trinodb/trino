@@ -494,6 +494,27 @@ public class TestDeltaLakeBasic
         }
     }
 
+    @Test
+    void testCreateOrReplacePreservesFeatures()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_create_or_replace_preserves_features_", "(x int) WITH (deletion_vectors_enabled = true)")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("deletion_vectors_enabled = true");
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (x int)");
+            // verify deletion_vector_enabled is preserved after CREATE OR REPLACE TABLE
+            Path tableLocation = Path.of(getTableLocation(table.getName()).replace("file://", ""));
+            ProtocolEntry protocolEntry = loadProtocolEntry(1, tableLocation);
+            assertThat(protocolEntry.readerFeaturesContains("deletionVectors")).isTrue();
+            assertThat(protocolEntry.writerFeaturesContains("deletionVectors")).isTrue();
+
+            // deletion_vectors_enabled is not enabled, since we created the table without it
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .doesNotContain("deletion_vectors_enabled = true");
+        }
+    }
+
     @Test // regression test for https://github.com/trinodb/trino/issues/24121
     void testPartitionValuesParsedCheckpoint()
             throws Exception
