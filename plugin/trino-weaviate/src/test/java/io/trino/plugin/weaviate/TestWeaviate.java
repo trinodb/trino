@@ -26,6 +26,8 @@ import io.weaviate.client6.v1.api.collections.Property;
 import io.weaviate.client6.v1.api.collections.VectorConfig;
 import io.weaviate.client6.v1.api.collections.Vectors;
 import io.weaviate.client6.v1.api.collections.tenants.Tenant;
+import io.weaviate.client6.v1.api.collections.vectorindex.Hnsw;
+import io.weaviate.client6.v1.api.collections.vectorindex.MultiVector;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -195,7 +197,12 @@ public class TestWeaviate
                                         p -> p.nestedProperties(
                                                 Property.text("array_text"),
                                                 Property.integer("array_int"))))
-                        .vectorConfig(VectorConfig.selfProvided("single"))
+                        .vectorConfig(
+                                VectorConfig.selfProvided("single"),
+                                VectorConfig.selfProvided("multi", multi -> multi
+                                        .vectorIndex(Hnsw.of(hnsw -> hnsw
+                                                .multiVector(MultiVector.of(
+                                                        mv -> mv.enabled(true)))))))
                         .multiTenancy(MultiTenancy.of(mt -> mt
                                 .enabled(enableMultiTenancy)
                                 .autoTenantCreation(autoTenantCreation)
@@ -232,7 +239,9 @@ public class TestWeaviate
         });
 
         Map<String, Object> data = builder.buildOrThrow();
-        Vectors vectors = new Vectors(Vectors.of("single", new float[] {1, 2, 3}));
+        Vectors vectors = new Vectors(
+                Vectors.of("single", new float[] {1, 2, 3}),
+                Vectors.of("multi", new float[][] {{1, 2, 3}, {4, 5, 6}}));
 
         if (tenants.length == 0) {
             for (var i = 0; i < size; i++) {

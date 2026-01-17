@@ -28,6 +28,7 @@ import io.weaviate.client6.v1.api.collections.CollectionHandle;
 import io.weaviate.client6.v1.api.collections.WeaviateObject;
 import io.weaviate.client6.v1.api.collections.pagination.Paginator;
 import io.weaviate.client6.v1.api.collections.query.ConsistencyLevel;
+import io.weaviate.client6.v1.api.collections.query.Metadata;
 import io.weaviate.client6.v1.api.collections.tenants.Tenant;
 
 import java.io.IOException;
@@ -172,9 +173,12 @@ public class WeaviateService
         requireNonNull(tableHandle, "tableHandle is null");
 
         CollectionHandle<Map<String, Object>> collectionHandle = collectionHandle(tableHandle);
-        Paginator<Map<String, Object>> paginator = pageSize.isPresent()
-                ? collectionHandle.paginate(opt -> opt.pageSize(pageSize.getAsInt()))
-                : collectionHandle.paginate();
+        Paginator<Map<String, Object>> paginator = collectionHandle.paginate(opt -> {
+            if (pageSize.isPresent()) {
+                opt.pageSize(pageSize.getAsInt());
+            }
+            return opt.returnMetadata(Metadata.ALL);
+        });
         Stream<Map<String, Object>> stream = paginator.stream()
                 .map(WeaviateService::collectColumns);
 
