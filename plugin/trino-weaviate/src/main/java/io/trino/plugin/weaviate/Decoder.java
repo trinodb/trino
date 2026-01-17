@@ -18,7 +18,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
-import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DoubleType;
@@ -72,12 +71,12 @@ public final class Decoder
         }
     }
 
-    private static Block decodeArray(BlockBuilder parentBlockBuilder, Object raw, ArrayType arrayType)
+    private static void decodeArray(BlockBuilder parentBlockBuilder, Object raw, ArrayType arrayType)
     {
         if (raw == null) {
             requireNonNull(parentBlockBuilder, "parentBlockBuilder is null");
             parentBlockBuilder.appendNull();
-            return null;
+            return;
         }
 
         List<?> list = (List<?>) raw;
@@ -91,17 +90,15 @@ public final class Decoder
         Block block = blockBuilder.build();
         if (parentBlockBuilder != null) {
             arrayType.writeObject(parentBlockBuilder, block);
-            return null;
         }
-        return block;
     }
 
-    private static SqlRow decodeRow(BlockBuilder blockBuilder, Object raw, RowType rowType)
+    private static void decodeRow(BlockBuilder blockBuilder, Object raw, RowType rowType)
     {
         if (raw == null) {
             requireNonNull(blockBuilder, "blockBuilder is null");
             blockBuilder.appendNull();
-            return null;
+            return;
         }
 
         Map<String, Object> row;
@@ -116,12 +113,12 @@ public final class Decoder
         }
 
         if (blockBuilder == null) {
-            return buildRowValue(rowType, fieldBuilders -> buildRow(rowType, row, fieldBuilders));
+            buildRowValue(rowType, fieldBuilders -> buildRow(rowType, row, fieldBuilders));
+            return;
         }
 
         RowBlockBuilder rowBlockBuilder = (RowBlockBuilder) blockBuilder;
         rowBlockBuilder.buildEntry(fieldBuilders -> buildRow(rowType, row, fieldBuilders));
-        return null;
     }
 
     private static void buildRow(RowType type, Map<String, Object> row, List<BlockBuilder> fieldBuilders)
