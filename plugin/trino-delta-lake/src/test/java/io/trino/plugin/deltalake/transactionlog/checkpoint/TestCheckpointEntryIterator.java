@@ -464,7 +464,7 @@ public class TestCheckpointEntryIterator
                 ImmutableList.of(),
                 ImmutableMap.of("delta.checkpoint.writeStatsAsJson", "false", "delta.checkpoint.writeStatsAsStruct", "true"),
                 1000);
-        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.empty(), Optional.empty());
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
 
         int countAddEntries = 30;
         Set<AddFileEntry> addFileEntries = IntStream.rangeClosed(1, countAddEntries).mapToObj(fileIndex -> new AddFileEntry(
@@ -890,7 +890,7 @@ public class TestCheckpointEntryIterator
                 ImmutableList.of("part_key"),
                 ImmutableMap.of(),
                 1000);
-        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.empty(), Optional.empty());
+        ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.of(ImmutableSet.of()), Optional.of(ImmutableSet.of()));
         AddFileEntry addFileEntryJsonStats = new AddFileEntry(
                 "addFilePathJson",
                 ImmutableMap.of("part_key", "2023-01-01 00:00:00"),
