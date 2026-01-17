@@ -14,11 +14,10 @@
 package io.trino.plugin.weaviate;
 
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.SqlTimestampWithTimeZone;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.weaviate.client6.v1.api.collections.GeoCoordinates;
 import io.weaviate.client6.v1.api.collections.PhoneNumber;
@@ -26,11 +25,10 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.plugin.weaviate.TestWeaviate.NOW;
+import static io.trino.plugin.weaviate.Decoder.decode;
 import static io.trino.plugin.weaviate.WeaviateColumnHandle.BOOL_ARRAY;
 import static io.trino.plugin.weaviate.WeaviateColumnHandle.GEO_COORDINATES;
 import static io.trino.plugin.weaviate.WeaviateColumnHandle.INT_ARRAY;
@@ -42,42 +40,36 @@ import static io.trino.plugin.weaviate.WeaviateColumnHandle.TEXT_ARRAY;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
-public class TestWeaviateColumnHandle
+public class TestDecoder
 {
     @ParameterizedTest
-    @MethodSource("primitiveValues")
-    public void test_toTrinoValue_primitive(Type type, Object raw, Object expected)
+    @MethodSource("testCases")
+    public void testDecoder(Type type, Object raw, Object expected)
     {
-        Object actual = WeaviateColumnHandle.toTrinoValue(raw, type);
-        checkPrimitiveValue(actual, expected, type.getDisplayName());
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        decode(blockBuilder, raw, type);
+        Block block = blockBuilder.build();
+
+        switch (type) {
+            case ArrayType arrayType -> checkArrayValues(arrayType.getObject(block, 0), type, expected, type.getDisplayName());
+            case RowType rowType -> checkRowValues(rowType.getObject(block, 0), type, expected);
+            default -> checkPrimitiveValue(type.getObjectValue(block, 0), expected, type.getDisplayName());
+        }
     }
 
-    public static Object[][] primitiveValues()
+    public static Object[][] testCases()
     {
         return new Object[][] {
+                // Primitive values
                 {VARCHAR, "text-value", "text-value"},
                 {BOOLEAN, true, true},
                 {INTEGER, 1, 1},
                 {INTEGER, 2L, 2L},
                 {DOUBLE, 3D, 3D},
-                {TIMESTAMP_TZ_MILLIS, NOW, NOW.toInstant().toEpochMilli()},
-        };
-    }
 
-    @ParameterizedTest
-    @MethodSource("rowValues")
-    public void test_toTrinoValue_row(Type type, Object raw, Map<String, Object> expected)
-    {
-        SqlRow actual = (SqlRow) WeaviateColumnHandle.toTrinoValue(raw, type);
-        checkRowValues(actual, type, expected);
-    }
-
-    public static Object[][] rowValues()
-    {
-        return new Object[][] {
+                // Row values
                 {
                         GEO_COORDINATES,
                         new GeoCoordinates(123f, 456f),
@@ -114,20 +106,8 @@ public class TestWeaviateColumnHandle
                                 "foo", "foo-value",
                                 "bar", Map.of("baz", false)),
                 },
-        };
-    }
 
-    @ParameterizedTest
-    @MethodSource("arrayValues")
-    public void test_toTrinoValue_array(Type type, Object raw, List<?> expected)
-    {
-        Block actual = (Block) WeaviateColumnHandle.toTrinoValue(raw, type);
-        checkArrayValues(actual, type, expected, "array");
-    }
-
-    public static Object[][] arrayValues()
-    {
-        return new Object[][] {
+                // Array values
                 {
                         TEXT_ARRAY,
                         List.of("a", "b", "c"),
@@ -158,11 +138,6 @@ public class TestWeaviateColumnHandle
                         List.of(1d, 2d, 3d),
                         List.of(1d, 2d, 3d),
                 },
-//                {
-//                        DATE_ARRAY,
-//                        List.of(NOW, NOW),
-//                        List.of(sqlTimestamp(NOW), sqlTimestamp(NOW)),
-//                },
                 {
                         SINGLE_VECTOR,
                         List.of(1f, 2f, 3f),
@@ -174,15 +149,6 @@ public class TestWeaviateColumnHandle
                         List.of(List.of(1d, 2d, 3d), List.of(4d, 5d, 6d)),
                 },
         };
-    }
-
-    private static SqlTimestampWithTimeZone sqlTimestamp(OffsetDateTime offsetDateTime)
-    {
-        return SqlTimestampWithTimeZone.newInstance(
-                TIMESTAMP_TZ_MILLIS.getPrecision(),
-                offsetDateTime.toInstant().toEpochMilli(),
-                0,
-                TimeZoneKey.UTC_KEY);
     }
 
     private static void checkRowValues(SqlRow actualRow, Type type, Object expected)

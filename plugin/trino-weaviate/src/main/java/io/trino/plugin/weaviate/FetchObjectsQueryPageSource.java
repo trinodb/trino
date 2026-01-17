@@ -11,7 +11,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.plugin.weaviate.WeaviateColumnHandle.decodeObject;
+import static io.trino.plugin.weaviate.Decoder.decode;
 import static java.util.Objects.requireNonNull;
 
 public class FetchObjectsQueryPageSource
@@ -54,7 +54,7 @@ public class FetchObjectsQueryPageSource
             for (int i = 0; i < columnBuilders.length; i++) {
                 WeaviateColumnHandle columnHandle = columns.get(i);
                 Object rawValue = row.get(columnHandle.name());
-                decodeObject(columnBuilders[i], rawValue, columnHandle.trinoType());
+                decode(columnBuilders[i], rawValue, columnHandle.trinoType());
                 pageSize += columnBuilders[i].getSizeInBytes();
             }
         }
