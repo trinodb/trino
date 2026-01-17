@@ -785,10 +785,12 @@ public final class IcebergUtil
 
     public static Map<Integer, Optional<String>> getPartitionKeys(StructLike partition, PartitionSpec spec)
     {
-        Map<PartitionField, Integer> fieldToIndex = getIdentityPartitions(spec);
         ImmutableMap.Builder<Integer, Optional<String>> partitionKeys = ImmutableMap.builder();
-
-        fieldToIndex.forEach((field, index) -> {
+        for (int index = 0; index < spec.fields().size(); index++) {
+            PartitionField field = spec.fields().get(index);
+            if (!field.transform().isIdentity()) {
+                continue;
+            }
             int id = field.sourceId();
             org.apache.iceberg.types.Type type = spec.schema().findType(id);
             Class<?> javaClass = type.typeId().javaClass();
@@ -808,7 +810,7 @@ public final class IcebergUtil
                 }
                 partitionKeys.put(id, Optional.of(partitionValue));
             }
-        });
+        }
 
         return partitionKeys.buildOrThrow();
     }
