@@ -21,6 +21,7 @@ import jakarta.annotation.Nullable;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Properties;
 
 import static java.util.Objects.requireNonNull;
 
@@ -41,6 +42,13 @@ public final class LazyConnectionFactory
             throws SQLException
     {
         return new LazyConnection(() -> delegate.openConnection(session));
+    }
+
+    @Override
+    public Connection openConnection(ConnectorSession session, Properties properties)
+            throws SQLException
+    {
+        return new LazyConnection(() -> delegate.openConnection(session, properties));
     }
 
     @Override
