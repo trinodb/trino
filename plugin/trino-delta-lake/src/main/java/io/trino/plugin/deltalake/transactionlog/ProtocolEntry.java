@@ -54,8 +54,14 @@ public record ProtocolEntry(
         if (minReaderVersion < MIN_VERSION_SUPPORTS_READER_FEATURES && readerFeatures.isPresent()) {
             throw new IllegalArgumentException("readerFeatures must not exist when minReaderVersion is less than " + MIN_VERSION_SUPPORTS_READER_FEATURES);
         }
+        if (minReaderVersion >= MIN_VERSION_SUPPORTS_READER_FEATURES && readerFeatures.isEmpty()) {
+            throw new IllegalArgumentException("readerFeatures must exist when minReaderVersion is greater than or equal to " + MIN_VERSION_SUPPORTS_READER_FEATURES);
+        }
         if (minWriterVersion < MIN_VERSION_SUPPORTS_WRITER_FEATURES && writerFeatures.isPresent()) {
             throw new IllegalArgumentException("writerFeatures must not exist when minWriterVersion is less than " + MIN_VERSION_SUPPORTS_WRITER_FEATURES);
+        }
+        if (minWriterVersion >= MIN_VERSION_SUPPORTS_WRITER_FEATURES && writerFeatures.isEmpty()) {
+            throw new IllegalArgumentException("writerFeatures must exist when minWriterVersion is greater than or equal to " + MIN_VERSION_SUPPORTS_WRITER_FEATURES);
         }
         readerFeatures = requireNonNull(readerFeatures, "readerFeatures is null").map(ImmutableSet::copyOf);
         writerFeatures = requireNonNull(writerFeatures, "writerFeatures is null").map(ImmutableSet::copyOf);
@@ -154,8 +160,8 @@ public record ProtocolEntry(
             return new ProtocolEntry(
                     readerVersion,
                     writerVersion,
-                    readerVersion < MIN_VERSION_SUPPORTS_READER_FEATURES || readerFeatures.isEmpty() ? Optional.empty() : Optional.of(readerFeatures),
-                    writerVersion < MIN_VERSION_SUPPORTS_WRITER_FEATURES || writerFeatures.isEmpty() ? Optional.empty() : Optional.of(writerFeatures));
+                    readerVersion < MIN_VERSION_SUPPORTS_READER_FEATURES ? Optional.empty() : Optional.of(readerFeatures),
+                    writerVersion < MIN_VERSION_SUPPORTS_WRITER_FEATURES ? Optional.empty() : Optional.of(writerFeatures));
         }
     }
 }
