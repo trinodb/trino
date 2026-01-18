@@ -54,7 +54,7 @@ public record ProtocolEntry(
         if (minReaderVersion < MIN_VERSION_SUPPORTS_READER_FEATURES && readerFeatures.isPresent()) {
             throw new IllegalArgumentException("readerFeatures must not exist when minReaderVersion is less than " + MIN_VERSION_SUPPORTS_READER_FEATURES);
         }
-        if (minReaderVersion >= MIN_VERSION_SUPPORTS_READER_FEATURES && writerFeatures.isEmpty()) {
+        if (minReaderVersion >= MIN_VERSION_SUPPORTS_READER_FEATURES && readerFeatures.isEmpty()) {
             throw new IllegalArgumentException("readerFeatures must exist when minReaderVersion is greater than or equal to " + MIN_VERSION_SUPPORTS_READER_FEATURES);
         }
         if (minWriterVersion < MIN_VERSION_SUPPORTS_WRITER_FEATURES && writerFeatures.isPresent()) {
