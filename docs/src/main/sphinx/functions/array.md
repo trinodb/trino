@@ -104,6 +104,13 @@ If the array is empty, the function returns `NULL`, whereas
 the subscript operator would fail in such a case.
 :::
 
+:::{function} array_first(array(E), function(E, boolean)) -> E
+:noindex: true
+
+Returns the first element of the `array` that matches the predicate.
+If the array is empty or there is no match, the function returns `NULL`.
+:::
+
 :::{function} array_histogram(x) -> map<K, bigint>
 Returns a map where the keys are the unique elements in the input array
 `x` and the values are the number of times that each element appears in
