@@ -23,11 +23,12 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.trino.plugin.kafka.schema.confluent.ConfluentSchemaRegistryConfig.ConfluentSchemaRegistryAuthType.BASIC_AUTH;
 import static io.trino.plugin.kafka.schema.confluent.EmptyFieldStrategy.IGNORE;
 import static io.trino.plugin.kafka.schema.confluent.EmptyFieldStrategy.MARK;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class TestConfluentSchemaRegistryConfig
+public final class TestConfluentSchemaRegistryConfig
 {
     @Test
     public void testDefaults()
@@ -35,6 +36,7 @@ public class TestConfluentSchemaRegistryConfig
         assertRecordedDefaults(recordDefaults(ConfluentSchemaRegistryConfig.class)
                 .setConfluentSchemaRegistryUrls(ImmutableSet.of())
                 .setConfluentSchemaRegistryClientCacheSize(1000)
+                .setConfluentSchemaRegistryAuthType(ConfluentSchemaRegistryConfig.ConfluentSchemaRegistryAuthType.NONE)
                 .setEmptyFieldStrategy(IGNORE)
                 .setConfluentSubjectsCacheRefreshInterval(new Duration(1, SECONDS)));
     }
@@ -44,6 +46,7 @@ public class TestConfluentSchemaRegistryConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kafka.confluent-schema-registry-url", "http://schema-registry-a:8081, http://schema-registry-b:8081")
+                .put("kafka.confluent-schema-registry-auth-type", "BASIC_AUTH")
                 .put("kafka.confluent-schema-registry-client-cache-size", "1500")
                 .put("kafka.empty-field-strategy", "MARK")
                 .put("kafka.confluent-subjects-cache-refresh-interval", "2s")
@@ -51,6 +54,7 @@ public class TestConfluentSchemaRegistryConfig
 
         ConfluentSchemaRegistryConfig expected = new ConfluentSchemaRegistryConfig()
                 .setConfluentSchemaRegistryUrls(ImmutableSet.of("http://schema-registry-a:8081", "http://schema-registry-b:8081"))
+                .setConfluentSchemaRegistryAuthType(BASIC_AUTH)
                 .setConfluentSchemaRegistryClientCacheSize(1500)
                 .setEmptyFieldStrategy(MARK)
                 .setConfluentSubjectsCacheRefreshInterval(new Duration(2, SECONDS));
