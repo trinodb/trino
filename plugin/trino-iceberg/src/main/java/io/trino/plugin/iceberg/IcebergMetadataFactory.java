@@ -49,6 +49,8 @@ public class IcebergMetadataFactory
     private final ExecutorService icebergPlanningExecutor;
     private final ExecutorService icebergFileDeleteExecutor;
     private final DeletionVectorWriter deletionVectorWriter;
+    private final IcebergPageSourceProviderFactory pageSourceProviderFactory;
+    private final IcebergFileWriterFactory fileWriterFactory;
 
     @Inject
     public IcebergMetadataFactory(
@@ -64,6 +66,8 @@ public class IcebergMetadataFactory
             @ForIcebergMetadata ExecutorService metadataExecutorService,
             @ForIcebergPlanning ExecutorService icebergPlanningExecutor,
             @ForIcebergFileDelete ExecutorService icebergFileDeleteExecutor,
+            IcebergPageSourceProviderFactory pageSourceProviderFactory,
+            IcebergFileWriterFactory fileWriterFactory,
             IcebergConfig config)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -91,6 +95,8 @@ public class IcebergMetadataFactory
         }
         this.icebergPlanningExecutor = requireNonNull(icebergPlanningExecutor, "icebergPlanningExecutor is null");
         this.icebergFileDeleteExecutor = requireNonNull(icebergFileDeleteExecutor, "icebergFileDeleteExecutor is null");
+        this.pageSourceProviderFactory = requireNonNull(pageSourceProviderFactory, "pageSourceProviderFactory is null");
+        this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
     }
 
     public IcebergMetadata create(ConnectorIdentity identity)
@@ -109,6 +115,8 @@ public class IcebergMetadataFactory
                 icebergScanExecutor,
                 metadataFetchingExecutor,
                 icebergPlanningExecutor,
-                icebergFileDeleteExecutor);
+                icebergFileDeleteExecutor,
+                (IcebergPageSourceProvider) pageSourceProviderFactory.createPageSourceProvider(),
+                fileWriterFactory);
     }
 }

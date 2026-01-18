@@ -18,6 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.metastore.TableInfo;
 import io.trino.metastore.TableInfo.ExtendedRelationType;
+import io.trino.orc.OrcReaderOptions;
+import io.trino.parquet.ParquetReaderOptions;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
@@ -68,6 +71,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTestUtils.FILE_IO_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.TABLE_STATISTICS_READER;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.delete.DeletionVectorWriter.UNSUPPORTED_DELETION_VECTOR_WRITER;
@@ -75,6 +79,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -139,13 +144,30 @@ public abstract class BaseTrinoCatalogTest
                     .contains(schema);
 
             // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
+            FileFormatDataSourceStats fileFormatDataSourceStats = new FileFormatDataSourceStats();
+            io.trino.plugin.iceberg.IcebergFileSystemFactory icebergFileSystemFactory = (connectorIdentity, fileIoProperties) -> {
+                throw new UnsupportedOperationException();
+            };
+            io.trino.plugin.iceberg.IcebergPageSourceProvider pageSourceProvider = new io.trino.plugin.iceberg.IcebergPageSourceProvider(
+                    icebergFileSystemFactory,
+                    FILE_IO_FACTORY,
+                    fileFormatDataSourceStats,
+                    new OrcReaderOptions(),
+                    ParquetReaderOptions.defaultOptions(),
+                    TESTING_TYPE_MANAGER);
+
+            io.trino.plugin.iceberg.IcebergFileWriterFactory fileWriterFactory = new io.trino.plugin.iceberg.IcebergFileWriterFactory(
+                    TESTING_TYPE_MANAGER,
+                    new NodeVersion("test-version"),
+                    fileFormatDataSourceStats,
+                    new IcebergConfig(),
+                    new io.trino.plugin.hive.orc.OrcWriterConfig());
+
             ConnectorMetadata icebergMetadata = new IcebergMetadata(
                     PLANNER_CONTEXT.getTypeManager(),
                     jsonCodec(CommitTaskData.class),
                     catalog,
-                    (connectorIdentity, fileIoProperties) -> {
-                        throw new UnsupportedOperationException();
-                    },
+                    icebergFileSystemFactory,
                     TABLE_STATISTICS_READER,
                     new TableStatisticsWriter(new NodeVersion("test-version")),
                     UNSUPPORTED_DELETION_VECTOR_WRITER,
@@ -155,7 +177,9 @@ public abstract class BaseTrinoCatalogTest
                     newDirectExecutorService(),
                     directExecutor(),
                     newDirectExecutorService(),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    pageSourceProvider,
+                    fileWriterFactory);
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
@@ -178,13 +202,30 @@ public abstract class BaseTrinoCatalogTest
         TrinoCatalog catalog = createTrinoCatalog(false);
         createNamespaceWithProperties(catalog, namespace, ImmutableMap.of("invalid_property", "test-value"));
         try {
+            FileFormatDataSourceStats fileFormatDataSourceStats = new FileFormatDataSourceStats();
+            io.trino.plugin.iceberg.IcebergFileSystemFactory icebergFileSystemFactory = (_, _) -> {
+                throw new UnsupportedOperationException();
+            };
+            io.trino.plugin.iceberg.IcebergPageSourceProvider pageSourceProvider = new io.trino.plugin.iceberg.IcebergPageSourceProvider(
+                    icebergFileSystemFactory,
+                    FILE_IO_FACTORY,
+                    fileFormatDataSourceStats,
+                    new OrcReaderOptions(),
+                    ParquetReaderOptions.defaultOptions(),
+                    TESTING_TYPE_MANAGER);
+
+            io.trino.plugin.iceberg.IcebergFileWriterFactory fileWriterFactory = new io.trino.plugin.iceberg.IcebergFileWriterFactory(
+                    TESTING_TYPE_MANAGER,
+                    new NodeVersion("test-version"),
+                    fileFormatDataSourceStats,
+                    new IcebergConfig(),
+                    new io.trino.plugin.hive.orc.OrcWriterConfig());
+
             ConnectorMetadata icebergMetadata = new IcebergMetadata(
                     PLANNER_CONTEXT.getTypeManager(),
                     jsonCodec(CommitTaskData.class),
                     catalog,
-                    (_, _) -> {
-                        throw new UnsupportedOperationException();
-                    },
+                    icebergFileSystemFactory,
                     TABLE_STATISTICS_READER,
                     new TableStatisticsWriter(new NodeVersion("test-version")),
                     UNSUPPORTED_DELETION_VECTOR_WRITER,
@@ -194,7 +235,9 @@ public abstract class BaseTrinoCatalogTest
                     newDirectExecutorService(),
                     directExecutor(),
                     newDirectExecutorService(),
-                    newDirectExecutorService());
+                    newDirectExecutorService(),
+                    pageSourceProvider,
+                    fileWriterFactory);
 
             assertThat(icebergMetadata.getSchemaProperties(SESSION, namespace))
                     .doesNotContainKey("invalid_property");

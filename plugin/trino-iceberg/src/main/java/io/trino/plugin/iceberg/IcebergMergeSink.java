@@ -203,6 +203,8 @@ public class IcebergMergeSink
     private Slice writePositionDeletes(PositionDeleteWriter writer, DeletionVector rowsToDelete)
     {
         try {
+            // PositionDeleteWriter.write() already commits the writer internally
+            // Calling commit() again would cause "Cannot commit transaction: last operation has not committed" error
             CommitTaskData task = writer.write(rowsToDelete);
             writtenBytes += task.fileSizeInBytes();
             return wrappedBuffer(jsonCodec.toJsonBytes(task));
