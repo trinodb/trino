@@ -665,7 +665,7 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.length"))
                         .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
-                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
+                        .add(new FileOperation(MANIFEST, "InputFile.newStream"))
                         .build());
     }
 
