@@ -146,9 +146,9 @@ public class TestDeltaLakeCreateOrReplaceTableAsSelectCompatibility
         String tableName = "test_create_or_replace_table_discard_features_" + randomNameSuffix();
 
         onTrino().executeQuery("CREATE TABLE delta.default." + tableName + " (ts VARCHAR) " +
-                               "with (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "', checkpoint_interval = 10, deletion_vectors_enabled = true)");
+                               "with (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "', checkpoint_interval = 2, deletion_vectors_enabled = true)");
         try {
-            List<Row> expectedRows = performInsert(onTrino(), tableName, 12);
+            List<Row> expectedRows = performInsert(onTrino(), tableName, 2);
 
             onTrino().executeQuery("CREATE OR REPLACE TABLE delta.default." + tableName + " AS SELECT CAST(ts AS TIMESTAMP(6)) as ts FROM " + tableName);
             assertThat(onDelta().executeQuery("SELECT date_format(ts, \"yyyy-MM-dd'T'HH:mm:ss.SSS'Z'\") FROM default." + tableName)).containsOnly(expectedRows);
