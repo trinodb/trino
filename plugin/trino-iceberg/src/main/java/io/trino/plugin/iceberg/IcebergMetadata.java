@@ -3812,7 +3812,8 @@ public class IcebergMetadata
                 originalHandle.getPartitionSpecJson(),
                 originalHandle.getFormatVersion(),
                 originalHandle.getUnenforcedPredicate(),
-                originalHandle.getEnforcedPredicate(),
+                // Skip $file_modified_time in cache key as the statistics do not depend on it
+                originalHandle.getEnforcedPredicate().filter((column, _) -> FILE_MODIFIED_TIME.getId() != column.getId()),
                 OptionalLong.empty(), // limit is currently not included in stats and is not enforced by the connector
                 ImmutableSet.of(), // projectedColumns are used to request statistics only for the required columns, but are not part of cache key
                 originalHandle.getNameMappingJson(),
